@@ -33,7 +33,6 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.outerJoinCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
@@ -78,15 +77,13 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
     @Nonnull
     @Override
-    public Optional<RelationalExpression> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                            @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
-        return costExpressions(expressions, onRemoveConsumer).getOnlyExpressionMaybe();
+    public Optional<RelationalExpression> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return costExpressions(expressions).getOnlyExpressionMaybe();
     }
 
     @Nonnull
-    private TiebreakerResult<RelationalExpression> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                                   @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
-        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RelationalExpression.class, onRemoveConsumer)
+    private TiebreakerResult<RelationalExpression> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RelationalExpression.class)
                 .thenApply(tiebreaker);
     }
 

@@ -53,7 +53,7 @@ class RewritingCostModelTest {
 
     private static void assertPreferred(@Nonnull Set<? extends RelationalExpression> allExpressions, @Nonnull RelationalExpression expectedBest) {
         final RewritingCostModel costModel = new RewritingCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
-        final Optional<RelationalExpression> bestExpression = costModel.getBestExpression(allExpressions, removed -> { });
+        final Optional<RelationalExpression> bestExpression = costModel.getBestExpression(allExpressions);
         assertThat(bestExpression)
                 .as("expected best expression of %s to be %s", allExpressions, expectedBest)
                 .containsSame(expectedBest);

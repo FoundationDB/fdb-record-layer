@@ -40,7 +40,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
@@ -115,9 +114,7 @@ interface Tiebreaker<T extends RelationalExpression> {
      * Create a {@link TiebreakerResult} wrapping a set of expressions. This is used to create a tiebreaker
      * result which initially contains all expressions from the {@code expressions} set that are of
      * type {@code specificClazz}. Once this is created, the user can call {@link TiebreakerResult#thenApply(Tiebreaker)}
-     * to apply a {@link Tiebreaker} on the set. Each time an expression loses a tiebreaker, this will supply
-     * the loser to {@code onRemoveConsumer}, which can be then used to clean up the expression (e.g., removing
-     * it from a {@link com.apple.foundationdb.record.query.plan.cascades.Reference}).
+     * to apply a {@link Tiebreaker} on the set.
      *
      * <p>
      * The {@code interestingExpressionClasses} parameter is a bit odd, but it is used to create a cache of
@@ -131,7 +128,6 @@ interface Tiebreaker<T extends RelationalExpression> {
      * @param interestingExpressionClasses a set of expression classes that are used to create a plan-op cache
      * @param expressions a set of expressions to tiebreak
      * @param specificClazz a specific class of expression that the tiebreaker is between
-     * @param onRemoveConsumer a lambda invoked on each expression that is to be removed as it loses the tiebreaker
      * @param <T> the type of expression in the final result
      * @return a {@link TiebreakerResult} which contains every expression of type {@code specificClazz}
      */
@@ -140,8 +136,7 @@ interface Tiebreaker<T extends RelationalExpression> {
             ofContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                       @Nonnull final Set<Class<? extends RelationalExpression>> interestingExpressionClasses,
                       @Nonnull final Set<? extends RelationalExpression> expressions,
-                      @Nonnull final Class<T> specificClazz,
-                      @Nonnull final Consumer<T> onRemoveConsumer) {
+                      @Nonnull final Class<T> specificClazz) {
         final var filteredExpressions = new LinkedIdentitySet<T>();
         for (final var expression : expressions) {
             if (specificClazz.isInstance(expression)) {
@@ -154,7 +149,7 @@ interface Tiebreaker<T extends RelationalExpression> {
         }
 
         final var opsCache = createOpsCache(interestingExpressionClasses);
-        return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, filteredExpressions, onRemoveConsumer);
+        return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, filteredExpressions);
     }
 
     /**
@@ -170,7 +165,6 @@ interface Tiebreaker<T extends RelationalExpression> {
      * @param plannerConfiguration general planner configuration options that may affect some implementations' parameters
      * @param tiebreaker tiebreaker to use to select the best equivalency class of plans
      * @param opsCache a cache to be used to produce the operations maps passed to {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression)}
-     * @param onRemoveConsumer a callback to be invoked whenever an expression is discarded from the stream
      * @param <T> the type of expressions in the stream
      * @return a collector that returns the set of expressions considered the most optimal
      */
@@ -178,9 +172,8 @@ interface Tiebreaker<T extends RelationalExpression> {
     static <T extends RelationalExpression> Collector<T, LinkedIdentitySet<T>, Set<T>>
              toBestExpressions(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                @Nonnull final Tiebreaker<? super T> tiebreaker,
-                               @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
-                               @Nonnull final Consumer<T> onRemoveConsumer) {
-        return new BestExpressionsCollector<>(plannerConfiguration, tiebreaker, opsCache, onRemoveConsumer);
+                               @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache) {
+        return new BestExpressionsCollector<>(plannerConfiguration, tiebreaker, opsCache);
     }
 
     @VisibleForTesting
@@ -198,10 +191,10 @@ interface Tiebreaker<T extends RelationalExpression> {
     }
 
     /**
-     * {@code Collector} implementation for {@link #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache, Consumer)}.
+     * {@code Collector} implementation for {@link #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache)}.
      *
      * @param <T> the type of elements to be collected
-     * @see #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache, Consumer)
+     * @see #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache)
      */
     final class BestExpressionsCollector<T extends RelationalExpression> implements Collector<T, LinkedIdentitySet<T>, Set<T>> {
         @Nonnull
@@ -213,17 +206,13 @@ interface Tiebreaker<T extends RelationalExpression> {
         private final Tiebreaker<? super T> tiebreaker;
         @Nonnull
         private final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache;
-        @Nonnull
-        private final Consumer<T> onRemoveConsumer;
 
         private BestExpressionsCollector(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                          @Nonnull final Tiebreaker<? super T> tiebreaker,
-                                         @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
-                                         @Nonnull final Consumer<T> onRemoveConsumer) {
+                                         @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache) {
             this.plannerConfiguration = plannerConfiguration;
             this.tiebreaker = tiebreaker;
             this.opsCache = opsCache;
-            this.onRemoveConsumer = onRemoveConsumer;
         }
 
         @Override
@@ -253,16 +242,14 @@ interface Tiebreaker<T extends RelationalExpression> {
 
                 if (compare < 0) {
                     // New expression is preferred to all the existing ones. Drop them
-                    bestExpressions.forEach(onRemoveConsumer);
                     bestExpressions.clear();
                     bestExpressions.add(newExpression);
-                } else if (compare > 0) {
-                    // Existing expressions are preferred. Drop the new one
-                    onRemoveConsumer.accept(newExpression);
-                } else {
+                } else if (compare == 0) {
                     // New expression is equivalent to the existing ones. Add it to the set
                     bestExpressions.add(newExpression);
                 }
+                // If compare > 0, the new expression is worse than the existing ones, so
+                // discard it by doing nothing
             };
         }
 
@@ -305,10 +292,8 @@ interface Tiebreaker<T extends RelationalExpression> {
                 // Check if one set is more optimal than the other. Choose the preferred one, and
                 // mark all the discarded elements as removed
                 if (compare > 0) {
-                    right.forEach(onRemoveConsumer);
                     return left;
                 } else if (compare < 0) {
-                    left.forEach(onRemoveConsumer);
                     return right;
                 }
                 // Two sets form a larger equivalency class. Combine them

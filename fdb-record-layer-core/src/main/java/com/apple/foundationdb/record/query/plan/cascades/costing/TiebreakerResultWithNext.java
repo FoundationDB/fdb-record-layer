@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 class TiebreakerResultWithNext<T extends RelationalExpression> implements TiebreakerResult<T> {
     @Nonnull
@@ -39,17 +38,13 @@ class TiebreakerResultWithNext<T extends RelationalExpression> implements Tiebre
     private final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache;
     @Nonnull
     private final Set<T> expressions;
-    @Nonnull
-    private final Consumer<T> onRemoveConsumer;
 
     TiebreakerResultWithNext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                              @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
-                             @Nonnull final Set<T> expressions,
-                             @Nonnull final Consumer<T> onRemoveConsumer) {
+                             @Nonnull final Set<T> expressions) {
         this.plannerConfiguration = plannerConfiguration;
         this.opsCache = opsCache;
         this.expressions = expressions;
-        this.onRemoveConsumer = onRemoveConsumer;
     }
 
     @Nonnull
@@ -61,10 +56,10 @@ class TiebreakerResultWithNext<T extends RelationalExpression> implements Tiebre
         final var bestExpressions =
                 expressions.stream()
                         .collect(Tiebreaker.toBestExpressions(plannerConfiguration,
-                                nextTiebreaker, opsCache, onRemoveConsumer));
+                                nextTiebreaker, opsCache));
 
         if (bestExpressions.size() > 1) {
-            return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, bestExpressions, onRemoveConsumer);
+            return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, bestExpressions);
         } else {
             return new TerminalTiebreakerResult<>(bestExpressions);
         }

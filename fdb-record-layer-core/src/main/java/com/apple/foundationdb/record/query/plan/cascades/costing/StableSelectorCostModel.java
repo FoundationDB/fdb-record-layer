@@ -34,7 +34,6 @@ import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * A comparator implementing a simple cost model for the {@link CascadesPlanner} to choose the plan with the smallest
@@ -61,14 +60,13 @@ public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPla
 
     @Nonnull
     @Override
-    public Optional<RecordQueryPlan> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions, @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        return costExpressions(expressions, onRemoveConsumer).getOnlyExpressionMaybe();
+    public Optional<RecordQueryPlan> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return costExpressions(expressions).getOnlyExpressionMaybe();
     }
 
     @Nonnull
-    private TiebreakerResult<RecordQueryPlan> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                              @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RecordQueryPlan.class, onRemoveConsumer)
+    private TiebreakerResult<RecordQueryPlan> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RecordQueryPlan.class)
                 .thenApply(tiebreaker);
     }
 

@@ -43,6 +43,8 @@ import com.apple.foundationdb.record.query.plan.cascades.costing.CascadesCostMod
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.events.AdjustMatchPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExploreExpressionPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.ExploreGroupPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeGroupPlannerEvent;
@@ -51,8 +53,6 @@ import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
-import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
-import com.apple.foundationdb.record.query.plan.cascades.events.ExploreExpressionPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
@@ -646,13 +646,12 @@ public class CascadesPlanner implements QueryPlanner {
             return plannerPhase;
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals") // pointer equality used intentionally
         @Override
         public boolean execute() {
             final CascadesCostModel<? extends RelationalExpression> costModel = plannerPhase.createCostModel(configuration);
             final var bestFinalExpressionOptional =
-                    costModel.getBestExpression(group.getFinalExpressions(),
-                            removedExpression ->
-                                    traversal.removeExpression(group, removedExpression));
+                    costModel.getBestExpression(group.getFinalExpressions());
 
             //
             // In the past we would iterate through ALL members to find the cheapest plan.
@@ -675,9 +674,18 @@ public class CascadesPlanner implements QueryPlanner {
             // collection.
             //
             if (bestFinalExpressionOptional.isEmpty()) {
+                for (RelationalExpression expression : group.getFinalExpressions()) {
+                    traversal.removeExpression(group, expression);
+                }
                 group.clearFinalExpressions();
             } else {
-                group.pruneWith(bestFinalExpressionOptional.get());
+                final RelationalExpression bestExpression = bestFinalExpressionOptional.get();
+                for (RelationalExpression expression : group.getFinalExpressions()) {
+                    if (expression != bestExpression) {
+                        traversal.removeExpression(group, expression);
+                    }
+                }
+                group.pruneWith(bestExpression);
             }
             return true;
         }

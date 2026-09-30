@@ -92,8 +92,7 @@ class TiebreakerTests {
         final TiebreakerResult<SelectExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 ImmutableSet.of(),
                 fromHashes(1, 2, 3, 4),
-                SelectExpression.class,
-                removed -> fail("should never call onRemove"));
+                SelectExpression.class);
 
         assertThat(result.getBestExpressions())
                 .isEmpty();
@@ -110,8 +109,7 @@ class TiebreakerTests {
         final TiebreakerResult<FullUnorderedScanExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 ImmutableSet.of(),
                 expressions,
-                FullUnorderedScanExpression.class,
-                removed -> fail("should never call onRemove"));
+                FullUnorderedScanExpression.class);
 
         assertThat(result.getBestExpressions())
                 .containsExactly(scanExpression);
@@ -131,8 +129,7 @@ class TiebreakerTests {
         final TiebreakerResult<TestExpressionWithFixedSemanticHash> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 ImmutableSet.of(),
                 newExpressions,
-                TestExpressionWithFixedSemanticHash.class,
-                removed -> fail("should never call onRemove"));
+                TestExpressionWithFixedSemanticHash.class);
 
         assertThat(result.getBestExpressions())
                 .hasSameSizeAs(expressions)
@@ -144,36 +141,26 @@ class TiebreakerTests {
     @Test
     void bestCanSelectSingleBestElement() {
         final Set<RelationalExpression> expressions = fromHashes(5, 7, 2, 10, 12);
-        final LinkedIdentitySet<RelationalExpression> removedSet = new LinkedIdentitySet<>();
         final TiebreakerResult<RelationalExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 ImmutableSet.of(),
                 expressions,
-                RelationalExpression.class,
-                removed -> assertThat(removedSet.add(removed)).isTrue());
-
-        assertThat(removedSet)
-                .isEmpty();
+                RelationalExpression.class);
 
         final RelationalExpression expected = expressions.stream()
                 .filter(expr -> expr.semanticHashCode() == 2)
                 .findFirst()
                 .orElseGet(() -> fail("Unable to find minimal expression"));
         final TiebreakerResult<RelationalExpression> filteredResult = result.thenApply(RewritingCostModel.semanticHashTiebreaker());
-        assertFilteredTo(filteredResult, expressions, expected, removedSet);
+        assertFilteredTo(filteredResult, expressions, expected);
     }
 
     @Test
     void bestCanSelectMultipleInBestClass() {
         final Set<RelationalExpression> expressions = fromHashes(10, 3, 10, 3, 5, 8, 3, 12);
-        final LinkedIdentitySet<RelationalExpression> removedSet = new LinkedIdentitySet<>();
         final TiebreakerResult<RelationalExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 ImmutableSet.of(),
                 expressions,
-                RelationalExpression.class,
-                removed -> assertThat(removedSet.add(removed)).isTrue());
-
-        assertThat(removedSet)
-                .isEmpty();
+                RelationalExpression.class);
 
         final Set<RelationalExpression> expected = expressions.stream()
                 .filter(expr -> expr.semanticHashCode() == 3)
@@ -181,7 +168,7 @@ class TiebreakerTests {
         assertThat(expected)
                 .hasSize(3);
         final TiebreakerResult<RelationalExpression> filteredResult = result.thenApply(RewritingCostModel.semanticHashTiebreaker());
-        assertFilteredTo(filteredResult, expressions, expected, removedSet);
+        assertFilteredTo(filteredResult, expressions, expected);
     }
 
     @Test
@@ -191,8 +178,7 @@ class TiebreakerTests {
         final TiebreakerResult<RelationalExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 ImmutableSet.of(),
                 expressions,
-                RelationalExpression.class,
-                removed -> assertThat(removedSet.add(removed)).isTrue());
+                RelationalExpression.class);
 
         assertThat(removedSet)
                 .isEmpty();
@@ -209,66 +195,60 @@ class TiebreakerTests {
         final TiebreakerResult<RelationalExpression> filteredResult = result
                 .thenApply(RewritingCostModel.semanticHashTiebreaker())
                 .thenApply(PickRightTiebreaker.pickRightTiebreaker());
-        assertFilteredTo(filteredResult, expressions, expected, removedSet);
+        assertFilteredTo(filteredResult, expressions, expected);
 
         // Use a single call to thenApply with a combined tiebreaker
         removedSet.clear();
         final TiebreakerResult<RelationalExpression> filteredResult2 = result
                 .thenApply(Tiebreaker.combineTiebreakers(ImmutableList.of(RewritingCostModel.semanticHashTiebreaker(), PickRightTiebreaker.pickRightTiebreaker())));
-        assertFilteredTo(filteredResult2, expressions, expected, removedSet);
+        assertFilteredTo(filteredResult2, expressions, expected);
     }
 
     @Test
     void collectorFiltersToMinimalElement() {
         final List<RelationalExpression> expressions = ImmutableList.copyOf(fromHashes(10, 3, 6, 2, 7, 5));
-        final LinkedIdentitySet<RelationalExpression> removedSet = new LinkedIdentitySet<>();
         final var opsCache = Tiebreaker.createOpsCache(ImmutableSet.of());
 
         final var collector = Tiebreaker.toBestExpressions(
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 RewritingCostModel.semanticHashTiebreaker(),
-                opsCache,
-                removed -> assertThat(removedSet.add(removed)).isTrue());
+                opsCache);
 
         final Set<RelationalExpression> expected = expressions.stream()
                 .filter(expr -> expr.semanticHashCode() == 2)
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
         assertThat(expected)
                 .hasSize(1);
-        validateCollector(expressions, expected, removedSet, collector);
+        validateCollector(expressions, expected, collector);
     }
 
     @Test
     void collectorFiltersToMinimalSet() {
         final List<RelationalExpression> expressions = ImmutableList.copyOf(fromHashes(30, 40, 21, 20, 25, 40, 20, 23, 20));
-        final LinkedIdentitySet<RelationalExpression> removedSet = new LinkedIdentitySet<>();
         final var opsCache = Tiebreaker.createOpsCache(ImmutableSet.of());
 
         final var collector = Tiebreaker.toBestExpressions(
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 RewritingCostModel.semanticHashTiebreaker(),
-                opsCache,
-                removed -> assertThat(removedSet.add(removed)).isTrue());
+                opsCache);
 
         final Set<RelationalExpression> expected = expressions.stream()
                 .filter(expr -> expr.semanticHashCode() == 20)
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
         assertThat(expected)
                 .hasSize(3);
-        validateCollector(expressions, expected, removedSet, collector);
+        validateCollector(expressions, expected, collector);
     }
 
     @Test
     void collectorPicksLeftMostElementWithFinalTiebreaker() {
         final List<RelationalExpression> expressions = ImmutableList.copyOf(fromHashes(30, 40, 21, 20, 25, 40, 20, 23, 20));
-        final LinkedIdentitySet<RelationalExpression> removedSet = new LinkedIdentitySet<>();
         final var opsCache = Tiebreaker.createOpsCache(ImmutableSet.of());
 
         final var collector = Tiebreaker.toBestExpressions(
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
                 Tiebreaker.combineTiebreakers(ImmutableList.of(RewritingCostModel.semanticHashTiebreaker(), PickRightTiebreaker.pickRightTiebreaker())),
-                opsCache,
-                removed -> assertThat(removedSet.add(removed)).isTrue());
+                opsCache);
 
         final RelationalExpression expected = expressions.stream()
                 .filter(expr -> expr.semanticHashCode() == 20)
@@ -281,27 +261,24 @@ class TiebreakerTests {
 
         final LinkedIdentitySet<RelationalExpression> expectedSet = new LinkedIdentitySet<>();
         expectedSet.add(expected);
-        validateCollector(expressions, expectedSet, removedSet, collector);
+        validateCollector(expressions, expectedSet, collector);
     }
 
-    private static void validateCollector(@Nonnull List<RelationalExpression> expressions, @Nonnull Set<RelationalExpression> expected, @Nonnull Set<RelationalExpression> removedSet, @Nonnull Collector<RelationalExpression, LinkedIdentitySet<RelationalExpression>, Set<RelationalExpression>> collector) {
+    private static void validateCollector(@Nonnull List<RelationalExpression> expressions, @Nonnull Set<RelationalExpression> expected, @Nonnull Collector<RelationalExpression, LinkedIdentitySet<RelationalExpression>, Set<RelationalExpression>> collector) {
         // Validation 1: Should be able to just use the Stream functionality to filter to the expected set
-        removedSet.clear();
         final Set<RelationalExpression> fromStream = expressions.stream().collect(collector);
-        assertFilteredTo(expressions, fromStream, expected, removedSet);
+        assertFilteredTo(expressions, fromStream, expected);
 
         // Validation 2: Manually accumulate element by element
-        removedSet.clear();
         final LinkedIdentitySet<RelationalExpression> manualInProgress = collector.supplier().get();
         for (RelationalExpression expr : expressions) {
             collector.accumulator().accept(manualInProgress, expr);
         }
         final Set<RelationalExpression> fromManualInvocation = collector.finisher().apply(manualInProgress);
-        assertFilteredTo(expressions, fromManualInvocation, expected, removedSet);
+        assertFilteredTo(expressions, fromManualInvocation, expected);
 
         // Validation 3: Split the list into two at each possible split point, and then invoke the combiner on the collector to produce a single set
         for (int i = 0; i <= expressions.size(); i++) {
-            removedSet.clear();
             final List<RelationalExpression> head = expressions.subList(0, i);
             final LinkedIdentitySet<RelationalExpression> fromHead = collector.supplier().get();
             head.forEach(expr -> collector.accumulator().accept(fromHead, expr));
@@ -312,18 +289,18 @@ class TiebreakerTests {
 
             final LinkedIdentitySet<RelationalExpression> combined = collector.combiner().apply(fromHead, fromTail);
             final Set<RelationalExpression> fromCombined = collector.finisher().apply(combined);
-            assertFilteredTo(expressions, fromCombined, expected, removedSet);
+            assertFilteredTo(expressions, fromCombined, expected);
         }
     }
 
-    private static void assertFilteredTo(@Nonnull TiebreakerResult<RelationalExpression> tiebreakerResult, @Nonnull Set<RelationalExpression> expressions, @Nonnull RelationalExpression expected, @Nonnull Set<RelationalExpression> removedSet) {
+    private static void assertFilteredTo(@Nonnull TiebreakerResult<RelationalExpression> tiebreakerResult, @Nonnull Set<RelationalExpression> expressions, @Nonnull RelationalExpression expected) {
         final LinkedIdentitySet<RelationalExpression> expectedSet = new LinkedIdentitySet<>();
         expectedSet.add(expected);
-        assertFilteredTo(tiebreakerResult, expressions, expectedSet, removedSet);
+        assertFilteredTo(tiebreakerResult, expressions, expectedSet);
     }
 
-    private static void assertFilteredTo(@Nonnull TiebreakerResult<RelationalExpression> tiebreakerResult, @Nonnull Set<RelationalExpression> expressions, @Nonnull Set<RelationalExpression> expected, @Nonnull Set<RelationalExpression> removedSet) {
-        assertFilteredTo(expressions, tiebreakerResult.getBestExpressions(), expected, removedSet);
+    private static void assertFilteredTo(@Nonnull TiebreakerResult<RelationalExpression> tiebreakerResult, @Nonnull Set<RelationalExpression> expressions, @Nonnull Set<RelationalExpression> expected) {
+        assertFilteredTo(expressions, tiebreakerResult.getBestExpressions(), expected);
         if (expected.isEmpty()) {
             assertThat(tiebreakerResult.getOnlyExpressionMaybe())
                     .isEmpty();
@@ -336,16 +313,8 @@ class TiebreakerTests {
         }
     }
 
-    private static void assertFilteredTo(@Nonnull Collection<RelationalExpression> expressions, @Nonnull Set<RelationalExpression> filteredTo, @Nonnull Set<RelationalExpression> expected, @Nonnull Set<RelationalExpression> removedSet) {
+    private static void assertFilteredTo(@Nonnull Collection<RelationalExpression> expressions, @Nonnull Set<RelationalExpression> filteredTo, @Nonnull Set<RelationalExpression> expected) {
         assertThat(filteredTo)
                 .containsExactlyInAnyOrderElementsOf(expected);
-        assertThat(removedSet)
-                .hasSize(expressions.size() - expected.size())
-                .allSatisfy(removed -> {
-                    assertThat(expressions)
-                            .contains(removed);
-                    assertThat(expected)
-                            .doesNotContain(removed);
-                });
     }
 }

@@ -157,7 +157,7 @@ class PlanningCostModelVectorEngineTest {
                 .setVectorIndexEnginePreference(preference)
                 .build();
         final PlanningCostModel costModel = new PlanningCostModel(configuration);
-        final Optional<RecordQueryPlan> bestPlan = costModel.getBestExpression(ImmutableSet.of(planA, planB), ignore -> { /* no op */ });
+        final Optional<RecordQueryPlan> bestPlan = costModel.getBestExpression(ImmutableSet.of(planA, planB));
         assertTrue(bestPlan.isPresent());
         return bestPlan.get();
     }

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * Basic cost model interface to be provided by each {@link PlannerPhase}.
@@ -41,6 +40,5 @@ public interface CascadesCostModel<T extends RelationalExpression> {
     RecordQueryPlannerConfiguration getConfiguration();
 
     @Nonnull
-    Optional<T> getBestExpression(@Nonnull Set<? extends RelationalExpression> expressions,
-                                  @Nonnull Consumer<T> onRemoveConsumer);
+    Optional<T> getBestExpression(@Nonnull Set<? extends RelationalExpression> expressions);
 }

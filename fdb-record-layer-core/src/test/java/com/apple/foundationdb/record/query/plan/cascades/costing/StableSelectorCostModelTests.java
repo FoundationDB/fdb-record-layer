@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableSet;
@@ -110,8 +109,7 @@ class StableSelectorCostModelTests {
     @Nullable
     private RecordQueryPlan assertCompareAndCostingAreEquivalent(@Nonnull Set<RecordQueryPlan> plans) {
         final RecordQueryPlan fromComparison = bestViaComparison(plans);
-        final LinkedIdentitySet<RecordQueryPlan> removedSet = new LinkedIdentitySet<>();
-        final RecordQueryPlan fromCosting = bestViaCosting(plans, removedSet);
+        final RecordQueryPlan fromCosting = bestViaCosting(plans);
         if (plans.isEmpty()) {
             assertThat(fromComparison)
                     .isNull();
@@ -121,15 +119,6 @@ class StableSelectorCostModelTests {
         }
         assertThat(fromCosting)
                 .isSameAs(fromComparison);
-        assertThat(removedSet)
-                .hasSize(Math.max(0, plans.size() - 1));
-        assertThat(plans)
-                .allSatisfy(plan -> {
-                    if (plan != fromComparison) {
-                        assertThat(removedSet)
-                                .contains(plan);
-                    }
-                });
         return fromComparison;
     }
 
@@ -146,8 +135,8 @@ class StableSelectorCostModelTests {
     }
 
     @Nullable
-    private RecordQueryPlan bestViaCosting(@Nonnull Set<RecordQueryPlan> plans, @Nonnull Set<RecordQueryPlan> removedSet) {
-        return costModel.getBestExpression(plans, removed -> assertThat(removedSet.add(removed)).isTrue())
+    private RecordQueryPlan bestViaCosting(@Nonnull Set<RecordQueryPlan> plans) {
+        return costModel.getBestExpression(plans)
                 .orElse(null);
     }
 }

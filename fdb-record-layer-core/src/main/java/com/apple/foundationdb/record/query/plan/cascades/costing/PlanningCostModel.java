@@ -63,7 +63,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -131,15 +130,13 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
     @Nonnull
     @Override
-    public Optional<RecordQueryPlan> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                       @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        return costPlans(expressions, onRemoveConsumer).getOnlyExpressionMaybe();
+    public Optional<RecordQueryPlan> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return costPlans(expressions).getOnlyExpressionMaybe();
     }
 
     @Nonnull
-    private TiebreakerResult<RecordQueryPlan> costPlans(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                        @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        return Tiebreaker.ofContext(getConfiguration(), interestingPlanClasses, expressions, RecordQueryPlan.class, onRemoveConsumer)
+    private TiebreakerResult<RecordQueryPlan> costPlans(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return Tiebreaker.ofContext(getConfiguration(), interestingPlanClasses, expressions, RecordQueryPlan.class)
                 .thenApply(tiebreaker);
     }
 

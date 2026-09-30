@@ -255,7 +255,7 @@ public class RuleTestHelper {
         reference.setExplored();
         final var costModel =
                 plannerPhase.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
-        return costModel.getBestExpression(reference.getFinalExpressions(), removed -> { })
+        return costModel.getBestExpression(reference.getFinalExpressions())
                 .orElseGet(() -> fail("unable to find best expression"));
     }
 
