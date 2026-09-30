@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
@@ -97,9 +98,11 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTest.complexPartit
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.fullTextSearch;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -168,6 +171,49 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         String[] allFiles = listFiles(index);
         assertTrue(allFiles.length < 12);
+    }
+
+    @Test
+    void luceneOnlineIndexingRecordSavedWhileWriteOnly() {
+        Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+        disableIndex(index, SIMPLE_DOC);
+        // start indexing, but stop before indexing any record - leaving the index write-only
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final RuntimeException stopBuildException = new RuntimeException("stop build");
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setConfigLoader(config -> {
+                        throw stopBuildException;
+                    })
+                    .build()) {
+                assertSame(stopBuildException, assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(true)));
+            }
+        }
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.getIndexState(index).isWriteOnly());
+            // indexed by the save, before the online indexer scans it
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            context.commit();
+        }
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.getIndexState(index).isReadable());
+            // indexed once
+            assertEquals(1, recordStore.scanIndex(index, fullTextSearch(recordStore, index, "*:*", false), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
