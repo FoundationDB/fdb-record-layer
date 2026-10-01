@@ -103,6 +103,24 @@ public class MetaDataPlanContext implements PlanContext {
     }
 
     @Nonnull
+    private static List<Index> syntheticIndexesOf(@Nonnull final RecordMetaData metaData,
+                                                  @Nonnull final RecordStoreState recordStoreState,
+                                                  @Nonnull final Collection<String> queriedRecordTypeNames) {
+        final var indexes = Lists.<Index>newArrayList();
+        for (final var syntheticRecordType : metaData.getSyntheticRecordTypes().values()) {
+            final var storedConstituentNames =
+                    syntheticRecordType.getConstituents().stream()
+                            .map(constituent -> constituent.getRecordType().getName())
+                            .filter(metaData.getRecordTypes()::containsKey)
+                            .collect(ImmutableSet.toImmutableSet());
+            if (!storedConstituentNames.isEmpty() && queriedRecordTypeNames.containsAll(storedConstituentNames)) {
+                indexes.addAll(readableOf(recordStoreState, syntheticRecordType.getIndexes()));
+            }
+        }
+        return indexes;
+    }
+
+    @Nonnull
     public static PlanContext forRecordQuery(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
                                              @Nonnull RecordMetaData metaData,
                                              @Nonnull RecordStoreState recordStoreState,
@@ -144,6 +162,7 @@ public class MetaDataPlanContext implements PlanContext {
             }
 
             indexList.addAll(readableOf(recordStoreState, metaData.getUniversalIndexes()));
+            indexList.addAll(syntheticIndexesOf(metaData, recordStoreState, queriedRecordTypeNames));
         } finally {
             recordStoreState.endRead();
         }
@@ -187,6 +206,7 @@ public class MetaDataPlanContext implements PlanContext {
             for (final var recordType : queriedRecordTypes) {
                 indexList.addAll(readableOf(recordStoreState, recordType.getAllIndexes()));
             }
+            indexList.addAll(syntheticIndexesOf(metaData, recordStoreState, queriedRecordTypeNames));
         } finally {
             recordStoreState.endRead();
         }

@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
@@ -441,7 +442,37 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
-        throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
+        final ImmutableList.Builder<GraphExpansion> expandedPredicatesBuilder = ImmutableList.builder();
+        final VisitorState state = getCurrentState();
+        int currentOrdinal = state.getCurrentOrdinal();
+        for (KeyExpression child : listKeyExpression.getChildren()) {
+            final VisitorState childState = state.withCurrentOrdinal(currentOrdinal);
+            final GraphExpansion childExpansion = pop(child.expand(push(childState.forFunctionalExpansion())));
+            if (!childExpansion.getQuantifiers().isEmpty()) {
+                throw new UnsupportedOperationException("cannot expand a list whose child introduces quantifiers");
+            }
+            final var childValues = childExpansion.getResultColumns()
+                    .stream()
+                    .map(Column::getValue)
+                    .collect(ImmutableList.toImmutableList());
+            // a list places its child in a nested tuple, so the value of the position is the record of the child's
+            // column values -- a record of one for a single-column child, as that tuple is nested all the same
+            final var value = childState.registerValue(RecordConstructorValue.ofUnnamed(childValues));
+            // the child's position contributes what a scalar field at that position would
+            final var isSargable = childState.isKey() && !childState.isInternalExpansion();
+            if (childState.isSelectStar()) {
+                expandedPredicatesBuilder.add(isSargable
+                                              ? GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()))
+                                              : GraphExpansion.empty());
+            } else {
+                expandedPredicatesBuilder.add(isSargable
+                                              ? GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value),
+                                                      value.asPlaceholder(newParameterAlias()))
+                                              : GraphExpansion.ofResultColumn(Column.unnamedOf(value)));
+            }
+            currentOrdinal++;
+        }
+        return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
     }
 
     /**
