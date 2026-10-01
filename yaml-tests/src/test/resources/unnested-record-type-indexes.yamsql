@@ -28,6 +28,14 @@ options:
 # review, but `region` (a column of the parent row) sits between them. Evaluating that key as a plain fan-out would
 # produce the cross product of the reviews with themselves, so the index is instead defined over a synthetic type
 # whose records pair the parent row with a single review.
+#
+# The other three tables repeat that shape over an unnesting that is harder to reach:
+#   `resta.urant$t` spells every name on the way to the unnesting with characters a protobuf field cannot be named
+#                   after, so the metadata has to escape them into storage names;
+#   `item`          holds its array under a chain of non-repeated structs, so the constituent's nesting expression is
+#                   a path of several fields rather than one;
+#   `book`          holds structs inside the elements of its array, so a key column is a path into the exploded
+#                   element rather than a field of it.
 schema_template:
   CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
 
@@ -36,6 +44,33 @@ schema_template:
     SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
       FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
      ORDER BY SQ."reviewer", "restaurant"."region", SQ."rating"
+
+  CREATE TYPE AS STRUCT "re.view$t" ("re.viewer" STRING, "ra$ting" BIGINT)
+  CREATE TABLE "resta.urant$t" ("rest.no" BIGINT, "re.gion" STRING, "re.views" "re.view$t" ARRAY,
+                                PRIMARY KEY ("rest.no"))
+  CREATE INDEX "mv.split$esc" AS
+    SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+      FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views") AS SQ
+     ORDER BY SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+
+  CREATE TYPE AS STRUCT "tag" ("label" STRING, "weight" BIGINT)
+  CREATE TYPE AS STRUCT "tag_set" ("tags" "tag" ARRAY, "note" STRING)
+  CREATE TYPE AS STRUCT "item_meta" ("tag_set" "tag_set", "owner" STRING)
+
+  CREATE TABLE "item" ("item_no" BIGINT, "kind" STRING, "meta" "item_meta", PRIMARY KEY ("item_no"))
+  CREATE INDEX "mv_deep_array" AS
+    SELECT SQ."label", "item"."kind", SQ."weight"
+      FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+     ORDER BY SQ."label", "item"."kind", SQ."weight"
+
+  CREATE TYPE AS STRUCT "author_name" ("first" STRING, "last" STRING)
+  CREATE TYPE AS STRUCT "author" ("name" "author_name", "score" BIGINT)
+
+  CREATE TABLE "book" ("book_no" BIGINT, "title" STRING, "authors" "author" ARRAY, PRIMARY KEY ("book_no"))
+  CREATE INDEX "mv_deep_element" AS
+    SELECT "a"."name"."last", "book"."title", "a"."score"
+      FROM "book", "book"."authors" AS "a"
+     ORDER BY "a"."name"."last", "book"."title", "a"."score"
 ---
 setup:
   steps:
@@ -43,6 +78,15 @@ setup:
              VALUES (1, 'north', [('Alice', 5), ('Bob', 3)]),
                     (2, 'south', [('Carol', 4)]),
                     (3, 'north', [('Dave', 2), ('Alice', 4)])
+    - query: INSERT INTO "resta.urant$t"
+             VALUES (1, 'north', [('Alice', 5), ('Bob', 3)]),
+                    (2, 'south', [('Carol', 4)])
+    - query: INSERT INTO "item"
+             VALUES (1, 'tool', (([('hammer', 7), ('nail', 2)], 'n1'), 'ann')),
+                    (2, 'toy', (([('kite', 4)], 'n2'), 'bob'))
+    - query: INSERT INTO "book"
+             VALUES (1, 'Dune', [(('Frank', 'Herbert'), 9), (('Brian', 'Herbert'), 5)]),
+                    (2, 'Emma', [(('Jane', 'Austen'), 8)])
 ---
 test_block:
   tests:
@@ -123,4 +167,102 @@ test_block:
       - result: [
           {reviewer: 'Alice', region: 'north', rating: 4},
           {reviewer: 'Alice', region: 'north', rating: 5}]
+---
+# Identifiers a protobuf field cannot be named after. Every name on the path to the unnesting -- the table, the array,
+# and the columns of its elements -- needs escaping, and the index only matches if the candidate and the query agree on
+# the escaped names.
+test_block:
+  name: escaped-identifiers
+  tests:
+    -
+      - query: SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+                 FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views") AS SQ
+                ORDER BY SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+      - explain: "COVERING(mv.split$esc <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer, _.parent.re.gion AS re.gion, _.unnesting_0.ra$ting AS ra$ting)"
+      - result: [
+          {'re.viewer': 'Alice', 're.gion': 'north', 'ra$ting': 5},
+          {'re.viewer': 'Bob', 're.gion': 'north', 'ra$ting': 3},
+          {'re.viewer': 'Carol', 're.gion': 'south', 'ra$ting': 4}]
+    -
+      # The PartiQL spelling of the same unnesting, with the array reached through an escaped name.
+      - query: SELECT "r"."re.viewer", "resta.urant$t"."re.gion", "r"."ra$ting"
+                 FROM "resta.urant$t", "resta.urant$t"."re.views" AS "r"
+                ORDER BY "r"."re.viewer", "resta.urant$t"."re.gion", "r"."ra$ting"
+      - explain: "COVERING(mv.split$esc <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer, _.parent.re.gion AS re.gion, _.unnesting_0.ra$ting AS ra$ting)"
+      - result: [
+          {'re.viewer': 'Alice', 're.gion': 'north', 'ra$ting': 5},
+          {'re.viewer': 'Bob', 're.gion': 'north', 'ra$ting': 3},
+          {'re.viewer': 'Carol', 're.gion': 'south', 'ra$ting': 4}]
+    -
+      # An equality on the leading key column binds the scan, so the escaped names also have to line up between the
+      # query's predicate value and the candidate's placeholder.
+      - query: SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+                 FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views") AS SQ
+                WHERE SQ."re.viewer" = 'Alice'
+      - explain: "COVERING(mv.split$esc [EQUALS promote(@c32 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer, _.parent.re.gion AS re.gion, _.unnesting_0.ra$ting AS ra$ting)"
+      - result: [{'re.viewer': 'Alice', 're.gion': 'north', 'ra$ting': 5}]
+---
+# An array under a chain of non-repeated structs: the constituent's nesting expression is `meta.tag_set.tags` rather
+# than a single field, so the explode's collection value is a path of field accesses.
+test_block:
+  name: deeply-nested-array
+  tests:
+    -
+      - query: SELECT SQ."label", "item"."kind", SQ."weight"
+                 FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+                ORDER BY SQ."label", "item"."kind", SQ."weight"
+      - explain: "COVERING(mv_deep_array <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind, _.unnesting_0.weight AS weight)"
+      - result: [
+          {label: 'hammer', kind: 'tool', weight: 7},
+          {label: 'kite', kind: 'toy', weight: 4},
+          {label: 'nail', kind: 'tool', weight: 2}]
+    -
+      - query: SELECT "t"."label", "item"."kind", "t"."weight"
+                 FROM "item", "item"."meta"."tag_set"."tags" AS "t"
+                ORDER BY "t"."label", "item"."kind", "t"."weight"
+      - explain: "COVERING(mv_deep_array <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind, _.unnesting_0.weight AS weight)"
+      - result: [
+          {label: 'hammer', kind: 'tool', weight: 7},
+          {label: 'kite', kind: 'toy', weight: 4},
+          {label: 'nail', kind: 'tool', weight: 2}]
+    -
+      - query: SELECT SQ."label", "item"."kind", SQ."weight"
+                 FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+                WHERE SQ."label" = 'hammer'
+      - explain: "COVERING(mv_deep_array [EQUALS promote(@c36 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind, _.unnesting_0.weight AS weight)"
+      - result: [{label: 'hammer', kind: 'tool', weight: 7}]
+---
+# An array whose elements carry a struct of their own, with a key column reached through it: `a.name.last` is a path
+# into the exploded element rather than one of its fields.
+test_block:
+  name: deeply-nested-element
+  tests:
+    -
+      - query: SELECT "a"."name"."last" AS "last", "book"."title", "a"."score"
+                 FROM "book", "book"."authors" AS "a"
+                ORDER BY "a"."name"."last", "book"."title", "a"."score"
+      - explain: "COVERING(mv_deep_element <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score)"
+      - result: [
+          {last: 'Austen', title: 'Emma', score: 8},
+          {last: 'Herbert', title: 'Dune', score: 5},
+          {last: 'Herbert', title: 'Dune', score: 9}]
+    -
+      # The subquery spelling of the same unnesting, flowing the element's struct and reaching into it outside.
+      - query: SELECT SQ."name"."last" AS "last", "book"."title", SQ."score"
+                 FROM "book", (SELECT "name", "score" FROM "book"."authors") AS SQ
+                ORDER BY SQ."name"."last", "book"."title", SQ."score"
+      - explain: "COVERING(mv_deep_element <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score)"
+      - result: [
+          {last: 'Austen', title: 'Emma', score: 8},
+          {last: 'Herbert', title: 'Dune', score: 5},
+          {last: 'Herbert', title: 'Dune', score: 9}]
+    -
+      - query: SELECT "a"."name"."last" AS "last", "book"."title", "a"."score"
+                 FROM "book", "book"."authors" AS "a"
+                WHERE "a"."name"."last" = 'Herbert'
+                ORDER BY "a"."name"."last", "book"."title", "a"."score"
+      - explain: "COVERING(mv_deep_element [EQUALS promote(@c31 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score)"
+      - result: [
+          {last: 'Herbert', title: 'Dune', score: 5},
+          {last: 'Herbert', title: 'Dune', score: 9}]
 ...
