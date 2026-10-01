@@ -1,0 +1,14 @@
+where-boolean-operand:
+-   query: EXPLAIN select name as nameNew, rest_no as restNoNew from restaurant_record
+        where rest_no > 1 and true
+    ref: where-boolean-operand.yamsql:67
+    explain: SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD
+        | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)
+    task_count: 502
+    task_total_time_ms: 164
+    transform_count: 125
+    transform_time_ms: 107
+    transform_yield_count: 44
+    insert_time_ms: 7
+    insert_new_count: 55
+    insert_reused_count: 4
