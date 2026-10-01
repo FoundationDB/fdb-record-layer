@@ -41,10 +41,9 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedK
                                              @Nonnull final AsyncIterator<MappedKeyValue> iterator,
                                              int prefixLength,
                                              @Nonnull final CursorLimitManager limitManager,
-                                             int valuesLimit,
-                                             @Nonnull SerializationMode serializationMode) {
+                                             int valuesLimit) {
 
-        super(context, iterator, prefixLength, limitManager, valuesLimit, serializationMode);
+        super(context, iterator, prefixLength, limitManager, valuesLimit);
     }
 
     /**
@@ -70,7 +69,7 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedK
             AsyncIterator<MappedKeyValue> iterator = getTransaction()
                     .getMappedRange(getBegin(), getEnd(), mapper, getLimit(), isReverse(), getStreamingMode())
                     .iterator();
-            return new IndexPrefetchRangeKeyValueCursor(getContext(), iterator, getPrefixLength(), getLimitManager(), getValuesLimit(), serializationMode);
+            return new IndexPrefetchRangeKeyValueCursor(getContext(), iterator, getPrefixLength(), getLimitManager(), getValuesLimit());
         }
 
         @Override

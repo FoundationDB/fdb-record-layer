@@ -214,13 +214,11 @@ public class DeterministicReplayTest implements BaseTest {
                              @Nonnull final List<PrimaryKeyAndVector> inserts,
                              @Nonnull final List<PrimaryKeyAndVector> deletes) {
         final Subspace runSubspace = getSubspace().subspace(Tuple.from(runName));
-        final Config config = Guardiann.newConfigBuilder()
+        final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, CLUSTER_MAX,
+                        PRIMARY_CLUSTER_MIN)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(CLUSTER_MAX)
                 .setCollapseMinDuplicates(CLUSTER_MAX / 2)
-                .setPrimaryClusterMin(PRIMARY_CLUSTER_MIN)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.65d)
                 .setReplicatedClusterTarget(40)

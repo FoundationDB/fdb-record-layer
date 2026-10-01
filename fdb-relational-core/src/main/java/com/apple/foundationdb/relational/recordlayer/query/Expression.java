@@ -214,10 +214,6 @@ public class Expression {
         return createNew(Optional.of(newName), getDataType(), getUnderlying(), getVisibility());
     }
 
-    public boolean isAggregate() {
-        return underlying instanceof AggregateValue && !(underlying instanceof RecordConstructorValue);
-    }
-
     @Nonnull
     public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
         return new NamedArgumentExpression(Optional.of(name), dataType, getUnderlying(), getVisibility());
@@ -319,8 +315,7 @@ public class Expression {
     @Nonnull
     public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
-            if (value instanceof ConstantObjectValue) {
-                final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
+            if (value instanceof final ConstantObjectValue constantObjectValue) {
                 return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
             }
             return value;
