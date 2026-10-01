@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -150,17 +151,20 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
 
-            final var extractFromIndexEntryPairOptional =
-                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
-                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-            if (extractFromIndexEntryPairOptional.isPresent()) {
-                final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-                if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
-                        extractFromIndexEntryPair.getValue())) {
-                    return Optional.empty();
+            for (final var datum : entryData(keyValue, ImmutableIntArray.of(i))) {
+                final var extractFromIndexEntryPairOptional =
+                        datum.value().extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(),
+                                AliasMap.emptyMap(), ImmutableSet.of(),
+                                IndexKeyValueToPartialRecord.TupleSource.KEY, datum.ordinalPath());
+                if (extractFromIndexEntryPairOptional.isPresent()) {
+                    final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+                    if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                            extractFromIndexEntryPair.getValue())) {
+                        return Optional.empty();
+                    }
+                    recordCoveredField(covered, extractFromIndexEntryPair);
+                    logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
                 }
-                recordCoveredField(covered, extractFromIndexEntryPair);
-                logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
             }
         }
 
@@ -190,6 +194,50 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                 new ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord(queriedRecordType, builder.build(),
                         logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build(),
                         indexEntryToRecordValue(baseType, covered)));
+    }
+
+    /**
+     * Decomposes one column of the index entry into the data it holds that can be read individually.
+     *
+     * <p>A column usually holds a single datum, at {@code tuple.get(ordinal)}. A {@link ListKeyExpression} is the
+     * exception: it places its child in a nested tuple rather than flattening it, so the data sit one level deeper,
+     * one element per column of that child. The {@link Value} registered for such a column is the
+     * {@link RecordConstructorValue} of those columns' values, which is what {@code KeyExpressionExpansionVisitor}
+     * builds for it, so the record mirrors the tuple and the recursion can follow the value at every level.
+     *
+     * @param value the value registered for the column
+     * @param ordinalPath the path to the column
+     * @return the data that column holds
+     */
+    @Nonnull
+    private static List<EntryDatum> entryData(@Nonnull final Value value,
+                                              @Nonnull final ImmutableIntArray ordinalPath) {
+        if (!(value instanceof RecordConstructorValue)) {
+            return ImmutableList.of(new EntryDatum(value, ordinalPath));
+        }
+        final var columns = ((RecordConstructorValue)value).getColumns();
+        final var dataBuilder = ImmutableList.<EntryDatum>builder();
+        for (int i = 0; i < columns.size(); i++) {
+            dataBuilder.addAll(entryData(columns.get(i).getValue(), appendOrdinal(ordinalPath, i)));
+        }
+        return dataBuilder.build();
+    }
+
+    @Nonnull
+    private static ImmutableIntArray appendOrdinal(@Nonnull final ImmutableIntArray ordinalPath, final int ordinal) {
+        return ImmutableIntArray.builder(ordinalPath.length() + 1)
+                .addAll(ordinalPath)
+                .add(ordinal)
+                .build();
+    }
+
+    /**
+     * A datum of an index entry that can be read on its own.
+     *
+     * @param value the value that datum holds
+     * @param ordinalPath the path at which it sits in the entry's tuple
+     */
+    record EntryDatum(@Nonnull Value value, @Nonnull ImmutableIntArray ordinalPath) {
     }
 
     /**
