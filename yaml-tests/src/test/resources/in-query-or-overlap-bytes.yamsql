@@ -1,5 +1,5 @@
 #
-# in-query-or-overlap.yamsql
+# in-query-or-overlap-bytes.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -16,9 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Ported from `FDBInQueryTest.testInQueryOrOverlap` — an OR of two `IN` lists on the same indexed
-# column that share a value (905), so the union has to deduplicate.
+---
+options:
+  supported_version: !current_version
 ---
 schema_template:
     create table my_simple_record(
@@ -32,10 +32,16 @@ schema_template:
     create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
     create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
     create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create table bin_record(id bigint, bin_value bytes, primary key(id))
+    create index bin_record_bin_value as select bin_value from bin_record
     WITH OPTIONS(INTERMINGLE_TABLES=true)
 ---
 include:
-    cascades-query-tests/includes/simple-record-100.yamsql
+    in-query-or-overlap-bytes-includes/simple-record-100.yamsql
+---
+setup:
+  steps:
+    - query: insert into bin_record values (1006, x'01'), (1005, x'02'), (1004, x'03'), (1003, x'04'), (1002, x'05'), (1001, x'ff'), (1007, null)
 ---
 test_block:
   name: in-query-or-overlap
@@ -54,4 +60,25 @@ test_block:
                           {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
                           {REC_NO: 97, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 903, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
                           {REC_NO: 99, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]}]
+---
+test_block:
+  # The same overlap shape over a BYTES column. The union deduplicates by comparing the BYTES values of
+  # the comparison key, which `KeyComparisons` has to order as unsigned byte strings.
+  name: in-query-or-overlap-bytes
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select id from bin_record where bin_value in (x'03', x'05', x'01') or bin_value in (x'06', x'05', x'04')
+      - unorderedResult: [{ID: 1002}, {ID: 1003}, {ID: 1004}, {ID: 1006}]
+    -
+      - query: select id from bin_record where bin_value in (x'ff', x'01') or bin_value in (x'ff', x'02')
+      - unorderedResult: [{ID: 1001}, {ID: 1005}, {ID: 1006}]
+    -
+      - query: select id from bin_record where bin_value in (x'02', x'03') or bin_value in (x'03', x'02')
+      - unorderedResult: [{ID: 1004}, {ID: 1005}]
+    -
+      - query: select id from bin_record where bin_value in (x'01') or bin_value in (x'02')
+      - unorderedResult: [{ID: 1005}, {ID: 1006}]
 ...
