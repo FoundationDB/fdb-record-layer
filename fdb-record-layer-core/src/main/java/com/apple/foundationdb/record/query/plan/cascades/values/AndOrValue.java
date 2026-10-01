@@ -233,10 +233,11 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                 if (operator == Operator.OR && rightPredicate.equals(ConstantPredicate.TRUE)) {
                     return rightPredicateOptional;
                 }
-                if (leftPredicate.equals(ConstantPredicate.NULL) || rightPredicate.equals(ConstantPredicate.NULL)) {
-                    return Optional.of(ConstantPredicate.NULL);
-                }
                 if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
+                    // FALSE (for AND) and TRUE (for OR) were short-cut above, so any remaining NULL makes the result NULL.
+                    if (leftPredicate.equals(ConstantPredicate.NULL) || rightPredicate.equals(ConstantPredicate.NULL)) {
+                        return Optional.of(ConstantPredicate.NULL);
+                    }
                     if (operator == Operator.AND) {
                         return Optional.of((leftPredicate.isTautology() && rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);
                     } else {

@@ -58,14 +58,88 @@ setup:
 test_block:
   name: where-boolean-operand
   preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
   tests:
     -
       # testSimplePlanWithConstantPredicateGraph — a `ConstantPredicate(true)` alongside the range predicate
       - query: select name as nameNew, rest_no as restNoNew from restaurant_record
                where rest_no > 1 and true
-      - supported_version: !current_version
       - explain: "SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)"
       - result: [{NAMENEW: 'Chez Thenardier', RESTNONEW: 1000},
                  {NAMENEW: 'ABC', RESTNONEW: 1001}]
+---
+# AND / OR / NOT whose operand is not itself a BooleanValue: a boolean literal, NULL, or a bound parameter.
+# Each such operand used to fail a `Verify` in AndOrValue / NotValue.toQueryPredicate. `rest_no > 1000`
+# matches only 1001, so each result shows how the operand combined with the comparison.
+test_block:
+  name: where-boolean-operand-non-boolean-value
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1000 and false
+      - result: []
+    -
+      - query: select rest_no from restaurant_record where false and rest_no > 1000
+      - result: []
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1000 or true
+      - unorderedResult: [{REST_NO: 1000}, {REST_NO: 1001}]
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1000 or false
+      - result: [{REST_NO: 1001}]
+    -
+      - query: select rest_no from restaurant_record where false or rest_no > 1000
+      - result: [{REST_NO: 1001}]
+    -
+      # Three-valued logic: TRUE AND NULL is NULL, which a WHERE clause rejects.
+      - query: select rest_no from restaurant_record where rest_no > 1000 and null
+      - result: []
+    -
+      # TRUE OR NULL is TRUE; FALSE OR NULL is NULL, so 1000 is still rejected.
+      - query: select rest_no from restaurant_record where rest_no > 1000 or null
+      - result: [{REST_NO: 1001}]
+    -
+      # FALSE AND NULL is FALSE, so NOT makes it TRUE for 1000; 1001 is NOT (NULL), i.e. NULL.
+      - query: select rest_no from restaurant_record where not (rest_no > 1000 and null)
+      - result: [{REST_NO: 1000}]
+    -
+      - query: select rest_no from restaurant_record where not true
+      - result: []
+    -
+      - query: select rest_no from restaurant_record where not false
+      - unorderedResult: [{REST_NO: 1000}, {REST_NO: 1001}]
+    -
+      # NOT NULL is NULL. Parenthesized: a bare `not null` is ambiguous to the parser.
+      - query: select rest_no from restaurant_record where not (null)
+      - result: []
+    -
+      # The literal operand sits one level down, under NOT.
+      - query: select rest_no from restaurant_record where rest_no > 1000 and not false
+      - result: [{REST_NO: 1001}]
+    -
+      # ... and under NOT over an AND.
+      - query: select rest_no from restaurant_record where not (rest_no > 1000 and true)
+      - result: [{REST_NO: 1000}]
+    -
+      # ... and inside a nested AND under an OR.
+      - query: select rest_no from restaurant_record where (rest_no > 1000 and true) or false
+      - result: [{REST_NO: 1001}]
+    -
+      # Bound parameters, rather than literals in the query text.
+      - query: select rest_no from restaurant_record where rest_no > 1000 and !!true!!
+      - result: [{REST_NO: 1001}]
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1000 and !!false!!
+      - result: []
+    -
+      # A parameter bound to NULL arrives with the NULL type rather than as a NullValue.
+      - query: select rest_no from restaurant_record where rest_no > 1000 and !! !n null !!
+      - result: []
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1000 or !! !n null !!
+      - result: [{REST_NO: 1001}]
 ...
 
