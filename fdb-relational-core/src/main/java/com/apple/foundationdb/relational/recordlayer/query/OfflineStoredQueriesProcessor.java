@@ -113,7 +113,7 @@ public final class OfflineStoredQueriesProcessor {
      * <p>Stored queries are planned with the planner's default options &mdash; this includes the
      * default case-sensitivity setting ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every
      * other planner-tunable &mdash; plus {@link Options.Name#PLAN_CACHE_WRITE_ONLY}, so each plan is
-     * stored without a cache lookup that could only miss.</p>
+     * stored without a cache lookup.</p>
      *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
