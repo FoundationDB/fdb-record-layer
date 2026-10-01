@@ -226,6 +226,12 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         merger.join();
 
         assertThat(failedInsert.get()).as("inserter threads must not fail unexpectedly").isNull();
+        // Asserted before the drain below, because a merge pass that throws is what makes that drain fail. A pass
+        // writes its lock record for a partition and deletes it only once that partition's task count reaches zero, so
+        // a pass that throws first leaves the record behind under an owner id no later pass shares. Later passes then
+        // skip the partition as owned, and on a single-partition index that leaves them nothing to do until the record
+        // ages out. Reporting the original exception here beats reporting its consequence two passes later.
+        assertThat(failedMerge.get()).as("merger thread must not fail unexpectedly").isNull();
         logger.info("insert phase done: committed={}, conflictRetries={}, backPressureRetries={}, mergerPasses={}",
                 committed.get(), conflictRetries.get(), backPressureRetries.get(), mergerPasses.get());
 

@@ -418,11 +418,22 @@ public interface KeyExpression extends PlanHashable {
         if (path.isEmpty()) {
             throw new InvalidExpressionException("attempt to create key expression using empty path");
         }
-        final String fieldName = path.get(path.size() - 1);
-        KeyExpression keyExpression = Key.Expressions.field(fieldName);
-        final List<String> fieldPrefix = path.subList(0, path.size() - 1);
-        for (int i = fieldPrefix.size() - 1; i >= 0; i --) {
-            keyExpression = Key.Expressions.field(fieldPrefix.get(i)).nest(keyExpression);
+        return fromPath(path.subList(0, path.size() - 1), Key.Expressions.field(path.get(path.size() - 1)));
+    }
+
+    /**
+     * Nests an expression under a path of scalar field hops, outermost hop first. An empty path returns the expression
+     * unchanged.
+     *
+     * @param path the fields to navigate before reaching {@code nested}
+     * @param nested the expression to evaluate against the record the path ends at
+     * @return the resulting {@link KeyExpression}
+     */
+    @Nonnull
+    static KeyExpression fromPath(@Nonnull final List<String> path, @Nonnull final KeyExpression nested) {
+        KeyExpression keyExpression = nested;
+        for (int i = path.size() - 1; i >= 0; i--) {
+            keyExpression = Key.Expressions.field(path.get(i)).nest(keyExpression);
         }
         return keyExpression;
     }
