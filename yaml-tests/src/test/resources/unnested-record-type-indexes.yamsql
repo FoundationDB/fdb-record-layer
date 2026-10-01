@@ -35,7 +35,8 @@ options:
 #   `item`          holds its array under a chain of non-repeated structs, so the constituent's nesting expression is
 #                   a path of several fields rather than one;
 #   `book`          holds structs inside the elements of its array, so a key column is a path into the exploded
-#                   element rather than a field of it.
+#                   element rather than a field of it;
+#   `venue`         names its own primary key in the index key, which the synthetic type's primary key also carries.
 schema_template:
   CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
 
@@ -71,6 +72,13 @@ schema_template:
     SELECT "a"."name"."last", "book"."title", "a"."score"
       FROM "book", "book"."authors" AS "a"
      ORDER BY "a"."name"."last", "book"."title", "a"."score"
+
+  CREATE TYPE AS STRUCT "slot" ("day" STRING, "seats" BIGINT)
+  CREATE TABLE "venue" ("venue_no" BIGINT, "city" STRING, "slots" "slot" ARRAY, PRIMARY KEY ("venue_no"))
+  CREATE INDEX "mv_pk_in_key" AS
+    SELECT SQ."day", "venue"."venue_no", SQ."seats"
+      FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+     ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
 ---
 setup:
   steps:
@@ -87,6 +95,9 @@ setup:
     - query: INSERT INTO "book"
              VALUES (1, 'Dune', [(('Frank', 'Herbert'), 9), (('Brian', 'Herbert'), 5)]),
                     (2, 'Emma', [(('Jane', 'Austen'), 8)])
+    - query: INSERT INTO "venue"
+             VALUES (1, 'SF', [('mon', 10), ('tue', 20)]),
+                    (2, 'LA', [('wed', 5)])
 ---
 test_block:
   tests:
@@ -265,4 +276,38 @@ test_block:
       - result: [
           {last: 'Herbert', title: 'Dune', score: 5},
           {last: 'Herbert', title: 'Dune', score: 9}]
+---
+# The parent table's primary key named in the index key, where the synthetic type's primary key already carries it. An
+# index over an unnesting does not trim the redundant component, so the column is simply stored twice.
+test_block:
+  name: primary-key-in-index-key
+  tests:
+    -
+      - query: SELECT SQ."day", "venue"."venue_no", SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
+      # `unnesting_0` sits at KEY:[5, 0] rather than KEY:[4, 0], so position 4 still holds the parent's primary key --
+      # `venue_no` really is in the entry twice. The covering map reads it from KEY:[1], the index key position, as the
+      # decoder keeps the first occurrence it finds and so never descends into the nested tuple for it.
+      - explain: "COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.day AS day, _.parent.venue_no AS venue_no, _.unnesting_0.seats AS seats)"
+      - result: [
+          {day: 'mon', venue_no: 1, seats: 10},
+          {day: 'tue', venue_no: 1, seats: 20},
+          {day: 'wed', venue_no: 2, seats: 5}]
+    -
+      - query: SELECT SQ."day", "venue"."venue_no", SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                WHERE SQ."day" = 'mon' AND "venue"."venue_no" = 1
+      # Being carried twice costs the column nothing: the occurrence in the index key is an ordinary scalar position, so
+      # it still has a placeholder of its own and both predicates bind the scan.
+      - explain: "COVERING(mv_pk_in_key [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS LONG)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.day AS day, _.parent.venue_no AS venue_no, _.unnesting_0.seats AS seats)"
+      - result: [{day: 'mon', venue_no: 1, seats: 10}]
+    -
+      - query: SELECT SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
+      # The sort columns are not selected, so the covering scan flows them for the sort and a second MAP drops them
+      # again. `venue_no` is read from KEY:[1] here too, even though it is only wanted for the ordering.
+      - explain: "COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.seats AS seats, _.unnesting_0.day AS day, _.parent.venue_no AS venue_no) | MAP (_.seats AS seats)"
+      - result: [{seats: 10}, {seats: 20}, {seats: 5}]
 ...
