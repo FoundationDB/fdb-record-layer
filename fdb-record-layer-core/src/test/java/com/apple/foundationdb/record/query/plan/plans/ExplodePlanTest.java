@@ -383,17 +383,16 @@ public class ExplodePlanTest {
                 new RecordQueryExplodePlan(collectionValue, false).toProto(newSerializationContext());
         Assertions.assertFalse(plainProto.hasZeroBasedOrdinality());
 
-        // A plan that leaves the field unset says nothing about the ordinal base, which this version no longer offers
-        // a choice of, so it deserializes to the 0-based ordinals every plan now flows.
+        // A plan that leaves the field unset predates the field, and so flowed the 1-based ordinals this version no
+        // longer produces. Rather than reinterpret its ordinals, deserializing it fails.
         final PRecordQueryExplodePlan unsetProto = PRecordQueryExplodePlan.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
                 .setWithOrdinality(true)
                 .build();
-        Assertions.assertEquals(withOrdinality,
-                RecordQueryExplodePlan.fromProto(newSerializationContext(), unsetProto));
+        Assertions.assertThrows(RecordCoreException.class,
+                () -> RecordQueryExplodePlan.fromProto(newSerializationContext(), unsetProto));
 
-        // Asking for 1-based ordinals outright is another matter: they are no longer produced, so rather than flowing
-        // ordinals the plan does not ask for, deserializing it fails.
+        // A plan that asks for 1-based ordinals outright is rejected for the same reason.
         final PRecordQueryExplodePlan oneBasedProto = PRecordQueryExplodePlan.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
                 .setWithOrdinality(true)
@@ -555,9 +554,11 @@ public class ExplodePlanTest {
         Assertions.assertFalse(opaqueProto.hasFlowsRecordConstructorValue());
 
         // ... and a plan serialized by such a version, which cannot have the field, deserializes to the opaque value.
+        // It still has to mark its ordinals 0-based, as a WITH ORDINALITY plan that does not is no longer accepted.
         final var legacyProto = PRecordQueryExplodePlan.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
                 .setWithOrdinality(true)
+                .setZeroBasedOrdinality(true)
                 .build();
         final var legacy = RecordQueryExplodePlan.fromProto(newSerializationContext(), legacyProto);
         Assertions.assertFalse(legacy.flowsRecordConstructorValue());
