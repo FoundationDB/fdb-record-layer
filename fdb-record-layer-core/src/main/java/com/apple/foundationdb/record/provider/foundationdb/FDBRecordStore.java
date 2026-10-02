@@ -194,6 +194,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // instead of a transactional rebuild.
     public static final int MAX_RECORDS_FOR_REBUILD = 200;
 
+    // The maximum number of records an in-line rebuild may scan when no UserVersionChecker was supplied. This is a
+    // safety net in case the record count estimate that led to the in-line rebuild was wrong.
+    private static final int DEFAULT_INLINE_REBUILD_RECORD_SCAN_LIMIT = MAX_RECORDS_FOR_REBUILD + 5;
+
     // The maximum number of index rebuilds to run in parallel
     // TODO: This should probably be configured through the PipelineSizer
     public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
@@ -4640,10 +4644,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        return rebuildIndexes(indexes, newStates, work, reason, oldMetaDataVersion, 0);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                   @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
+                                                   @Nonnull List<CompletableFuture<Void>> work,
+                                                   @Nonnull RebuildIndexReason reason,
+                                                   @Nullable Integer oldMetaDataVersion,
+                                                   int rebuildRecordScanLimit) {
         // Finish any pre-existing work items and resolve desired index states (which may query index states) before
         // rebuilding indexes (which writes index states)
         return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates ->
-                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
+                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion, rebuildRecordScanLimit));
     }
 
     @Nonnull
@@ -4651,6 +4665,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                      @Nonnull Map<Index, IndexState> desiredIndexStates,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        return rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion, 0);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                   @Nonnull Map<Index, IndexState> desiredIndexStates,
+                                                   @Nonnull RebuildIndexReason reason,
+                                                   @Nullable Integer oldMetaDataVersion,
+                                                   int rebuildRecordScanLimit) {
         List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
@@ -4670,7 +4693,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     IndexState indexState = desiredIndexStates.getOrDefault(index, IndexState.READABLE);
                     final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder),
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder,
+                                    rebuildRecordScanLimit),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
@@ -4719,6 +4743,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                          @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
                                                          @Nullable Integer oldMetaDataVersion,
                                                          @Nonnull StringBuilder errMessageBuilder) {
+        return rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder, 0);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> rebuildOrMarkIndex(@Nonnull Index index, @Nonnull IndexState indexState,
+                                                       @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
+                                                       @Nullable Integer oldMetaDataVersion,
+                                                       @Nonnull StringBuilder errMessageBuilder,
+                                                       int rebuildRecordScanLimit) {
         // Skip index rebuild if the index is on new record types. This may fail because of reusing an index name whose
         // state hasn't been cleared.
         if (!indexState.isDisabled() && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
@@ -4739,7 +4772,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case READABLE:
             default:
                 errMessageBuilder.append("rebuild index");
-                return rebuildIndex(index, reason);
+                return rebuildIndex(index, reason, rebuildRecordScanLimit);
         }
     }
 
@@ -4792,8 +4825,26 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.INTERNAL)
     @Nonnull
     @VisibleForTesting
-    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Resource usage for indexBuilder is too complicated for rules.
     public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nonnull RebuildIndexReason reason) {
+        return rebuildIndex(index, reason, 0);
+    }
+
+    /**
+     * Rebuild an index within a single transaction, as {@link #rebuildIndex(Index)} does, but abandon the build if it
+     * scans more than the given number of records. If the limit is exceeded, the index is marked
+     * {@linkplain IndexState#DISABLED disabled}, so that it can later be built by the {@link OnlineIndexer}.
+     *
+     * @param index the index to rebuild
+     * @param reason the reason the index is being rebuilt
+     * @param rebuildRecordScanLimit the maximum number of records that may be scanned, or 0 for unlimited
+     * @return a future that will complete when the index build has finished or been abandoned
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    @VisibleForTesting
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Resource usage for indexBuilder is too complicated for rules.
+    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nonnull RebuildIndexReason reason,
+                                                int rebuildRecordScanLimit) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
@@ -4814,23 +4865,31 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         long startTime = System.nanoTime();
-        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).build();
+        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setRebuildRecordScanLimit(rebuildRecordScanLimit))
+                .build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
                 .thenCompose(vignore -> markIndexReadable(index))
                 .handle((b, t) -> {
-                    if (t != null) {
-                        logExceptionAsWarn(KeyValueLogMessage.build("rebuilding index failed",
-                                LogMessageKeys.INDEX_NAME, index.getName(),
-                                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                                LogMessageKeys.REASON, reason.name(),
-                                LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
+                    if (t == null) {
+                        indexBuilder.close();
+                        return AsyncUtil.DONE;
                     }
+                    logExceptionAsWarn(KeyValueLogMessage.build("rebuilding index failed",
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                            LogMessageKeys.REASON, reason.name(),
+                            LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
+                    // The record count estimate that led to this in-line rebuild was wrong: disable the index
+                    // (rather than leaving it write-only) so a subsequent, properly throttled online build is required.
+                    final CompletableFuture<Void> recovery = IndexingBase.isRebuildRecordScanLimitExceededException(t)
+                            ? markIndexDisabled(index).thenApply(ignore -> null)
+                            : AsyncUtil.DONE;
                     // Only call method that builds in the current transaction, so never any pending work,
                     // so it would work to close before returning future, which would look better to SonarQube.
                     // But this is better if close ever does more.
-                    indexBuilder.close();
-                    return null;
-                });
+                    return recovery.whenComplete((ignore, ignoreEx) -> indexBuilder.close());
+                }).thenCompose(Function.identity());
 
         return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX,
                 context.instrument(reason.event, future, startTime),
@@ -4983,7 +5042,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
 
             Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
-            return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {
+            final int rebuildRecordScanLimit = userVersionChecker == null
+                                               ? DEFAULT_INLINE_REBUILD_RECORD_SCAN_LIMIT
+                                               : userVersionChecker.getInlineRebuildRecordScanLimit();
+            final RebuildIndexReason reason = newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS;
+            return rebuildIndexes(indexes, newStates, work, reason, oldMetaDataVersion, rebuildRecordScanLimit).thenRun(() -> {
                 // Log after checking all index states
                 maybeLogIndexesNeedingRebuilding(newStates, recordCountRef, recordsSizeRef, rebuildRecordCounts, newStore);
                 context.increment(FDBStoreTimer.Counts.INDEXES_NEED_REBUILDING, newStates.entrySet().size());
