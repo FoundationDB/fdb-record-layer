@@ -1,0 +1,13 @@
+versions-query-long-record:
+-   query: EXPLAIN select "__ROW_VERSION" as version, rec_no from my_long_record
+    ref: versions-query-long-record.yamsql:181
+    explain: SCAN(<,>) | TFILTER MY_LONG_RECORD | MAP (_.__ROW_VERSION AS VERSION,
+        _.REC_NO AS REC_NO)
+    task_count: 157
+    task_total_time_ms: 1
+    transform_count: 41
+    transform_time_ms: 0
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2

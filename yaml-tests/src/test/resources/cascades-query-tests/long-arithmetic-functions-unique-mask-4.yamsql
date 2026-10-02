@@ -1,0 +1,525 @@
+#
+# long-arithmetic-functions-unique-mask-4.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBLongArithmeticFunctionQueryTest.matchConstantMaskValue` -- whether a masked-column
+# predicate matches a masked-column index depends on the mask *value*, not just the operator.
+#
+# The source builds the mask as a `ConstantObjectValue` (a query parameter) and shows that binding it
+# to 4 matches an index built over `bitand(num_value_unique, 4)`, while 1 and 2 do not and fall back
+# to a scan. In SQL the same three cases are three literals, and `AstNormalizer` lifts each one into a
+# `ConstantObjectValue` — which is the source's ConstantObjectValue case.
+#
+# Data: 100 records with REC_NO = i and NUM_VALUE_UNIQUE = i; every other column unset. The source
+# projects only `rec_no`, so the mask = 4 plan can be a covering scan.
+#
+# Expect the two non-matching masks to plan as a *covering index* scan with the mask left as a residual
+# filter rather than the record scan the source asserts: NUM_VALUE_UNIQUE and REC_NO are both in
+# MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE, so nothing forces a record fetch. That is the documented
+# index-scan-for-record-scan divergence, and the load-bearing part of the assertion -- that
+# MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE_BITAND_4 is *not* used -- survives it.
+#
+# Unordered: the source asserts with containsInAnyOrder and imposes no ordering
+# (`RequestedOrdering.preserve()`), so there is no ORDER BY here either.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index my_simple_record_num_value_unique_bitand_4 as
+        select num_value_unique & 4 from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_UNIQUE, REPEATER)
+             VALUES
+               (0, 0, []),
+               (1, 1, []),
+               (2, 2, []),
+               (3, 3, []),
+               (4, 4, []),
+               (5, 5, []),
+               (6, 6, []),
+               (7, 7, []),
+               (8, 8, []),
+               (9, 9, []),
+               (10, 10, []),
+               (11, 11, []),
+               (12, 12, []),
+               (13, 13, []),
+               (14, 14, []),
+               (15, 15, []),
+               (16, 16, []),
+               (17, 17, []),
+               (18, 18, []),
+               (19, 19, []),
+               (20, 20, []),
+               (21, 21, []),
+               (22, 22, []),
+               (23, 23, []),
+               (24, 24, []),
+               (25, 25, []),
+               (26, 26, []),
+               (27, 27, []),
+               (28, 28, []),
+               (29, 29, []),
+               (30, 30, []),
+               (31, 31, []),
+               (32, 32, []),
+               (33, 33, []),
+               (34, 34, []),
+               (35, 35, []),
+               (36, 36, []),
+               (37, 37, []),
+               (38, 38, []),
+               (39, 39, []),
+               (40, 40, []),
+               (41, 41, []),
+               (42, 42, []),
+               (43, 43, []),
+               (44, 44, []),
+               (45, 45, []),
+               (46, 46, []),
+               (47, 47, []),
+               (48, 48, []),
+               (49, 49, []),
+               (50, 50, []),
+               (51, 51, []),
+               (52, 52, []),
+               (53, 53, []),
+               (54, 54, []),
+               (55, 55, []),
+               (56, 56, []),
+               (57, 57, []),
+               (58, 58, []),
+               (59, 59, []),
+               (60, 60, []),
+               (61, 61, []),
+               (62, 62, []),
+               (63, 63, []),
+               (64, 64, []),
+               (65, 65, []),
+               (66, 66, []),
+               (67, 67, []),
+               (68, 68, []),
+               (69, 69, []),
+               (70, 70, []),
+               (71, 71, []),
+               (72, 72, []),
+               (73, 73, []),
+               (74, 74, []),
+               (75, 75, []),
+               (76, 76, []),
+               (77, 77, []),
+               (78, 78, []),
+               (79, 79, []),
+               (80, 80, []),
+               (81, 81, []),
+               (82, 82, []),
+               (83, 83, []),
+               (84, 84, []),
+               (85, 85, []),
+               (86, 86, []),
+               (87, 87, []),
+               (88, 88, []),
+               (89, 89, []),
+               (90, 90, []),
+               (91, 91, []),
+               (92, 92, []),
+               (93, 93, []),
+               (94, 94, []),
+               (95, 95, []),
+               (96, 96, []),
+               (97, 97, []),
+               (98, 98, []),
+               (99, 99, [])
+---
+test_block:
+  name: long-arithmetic-functions-unique-mask-4
+  preset: single_repetition_ordered
+  tests:
+    -
+      # matchConstantMaskValue
+      # The index masks NUM_VALUE_UNIQUE with 4. The source runs the same query graph with the
+      # mask bound to a ConstantObjectValue of 1, 2 and then 4, and asserts that only 4 --
+      # the literal the index was built with -- matches the index; the other two have to scan.
+      #
+      # `AstNormalizer` lifts the mask literal into a `ConstantObjectValue`, which is exactly
+      # the source's ConstantObjectValue shape — see the generated explain.
+      #
+      # For each mask the source also probes three right-hand sides -- 0, the mask, and
+      # mask + 1 -- the last of which cannot be produced by the mask and must return nothing.
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 1 = 0
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: [{REC_NO: 0},
+                          {REC_NO: 2},
+                          {REC_NO: 4},
+                          {REC_NO: 6},
+                          {REC_NO: 8},
+                          {REC_NO: 10},
+                          {REC_NO: 12},
+                          {REC_NO: 14},
+                          {REC_NO: 16},
+                          {REC_NO: 18},
+                          {REC_NO: 20},
+                          {REC_NO: 22},
+                          {REC_NO: 24},
+                          {REC_NO: 26},
+                          {REC_NO: 28},
+                          {REC_NO: 30},
+                          {REC_NO: 32},
+                          {REC_NO: 34},
+                          {REC_NO: 36},
+                          {REC_NO: 38},
+                          {REC_NO: 40},
+                          {REC_NO: 42},
+                          {REC_NO: 44},
+                          {REC_NO: 46},
+                          {REC_NO: 48},
+                          {REC_NO: 50},
+                          {REC_NO: 52},
+                          {REC_NO: 54},
+                          {REC_NO: 56},
+                          {REC_NO: 58},
+                          {REC_NO: 60},
+                          {REC_NO: 62},
+                          {REC_NO: 64},
+                          {REC_NO: 66},
+                          {REC_NO: 68},
+                          {REC_NO: 70},
+                          {REC_NO: 72},
+                          {REC_NO: 74},
+                          {REC_NO: 76},
+                          {REC_NO: 78},
+                          {REC_NO: 80},
+                          {REC_NO: 82},
+                          {REC_NO: 84},
+                          {REC_NO: 86},
+                          {REC_NO: 88},
+                          {REC_NO: 90},
+                          {REC_NO: 92},
+                          {REC_NO: 94},
+                          {REC_NO: 96},
+                          {REC_NO: 98}]
+    -
+      # matchConstantMaskValue
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 1 = 1
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: [{REC_NO: 1},
+                          {REC_NO: 3},
+                          {REC_NO: 5},
+                          {REC_NO: 7},
+                          {REC_NO: 9},
+                          {REC_NO: 11},
+                          {REC_NO: 13},
+                          {REC_NO: 15},
+                          {REC_NO: 17},
+                          {REC_NO: 19},
+                          {REC_NO: 21},
+                          {REC_NO: 23},
+                          {REC_NO: 25},
+                          {REC_NO: 27},
+                          {REC_NO: 29},
+                          {REC_NO: 31},
+                          {REC_NO: 33},
+                          {REC_NO: 35},
+                          {REC_NO: 37},
+                          {REC_NO: 39},
+                          {REC_NO: 41},
+                          {REC_NO: 43},
+                          {REC_NO: 45},
+                          {REC_NO: 47},
+                          {REC_NO: 49},
+                          {REC_NO: 51},
+                          {REC_NO: 53},
+                          {REC_NO: 55},
+                          {REC_NO: 57},
+                          {REC_NO: 59},
+                          {REC_NO: 61},
+                          {REC_NO: 63},
+                          {REC_NO: 65},
+                          {REC_NO: 67},
+                          {REC_NO: 69},
+                          {REC_NO: 71},
+                          {REC_NO: 73},
+                          {REC_NO: 75},
+                          {REC_NO: 77},
+                          {REC_NO: 79},
+                          {REC_NO: 81},
+                          {REC_NO: 83},
+                          {REC_NO: 85},
+                          {REC_NO: 87},
+                          {REC_NO: 89},
+                          {REC_NO: 91},
+                          {REC_NO: 93},
+                          {REC_NO: 95},
+                          {REC_NO: 97},
+                          {REC_NO: 99}]
+    -
+      # matchConstantMaskValue
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 1 = 2
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: []
+    -
+      # matchConstantMaskValue
+      # mask = 2
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 2 = 0
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: [{REC_NO: 0},
+                          {REC_NO: 1},
+                          {REC_NO: 4},
+                          {REC_NO: 5},
+                          {REC_NO: 8},
+                          {REC_NO: 9},
+                          {REC_NO: 12},
+                          {REC_NO: 13},
+                          {REC_NO: 16},
+                          {REC_NO: 17},
+                          {REC_NO: 20},
+                          {REC_NO: 21},
+                          {REC_NO: 24},
+                          {REC_NO: 25},
+                          {REC_NO: 28},
+                          {REC_NO: 29},
+                          {REC_NO: 32},
+                          {REC_NO: 33},
+                          {REC_NO: 36},
+                          {REC_NO: 37},
+                          {REC_NO: 40},
+                          {REC_NO: 41},
+                          {REC_NO: 44},
+                          {REC_NO: 45},
+                          {REC_NO: 48},
+                          {REC_NO: 49},
+                          {REC_NO: 52},
+                          {REC_NO: 53},
+                          {REC_NO: 56},
+                          {REC_NO: 57},
+                          {REC_NO: 60},
+                          {REC_NO: 61},
+                          {REC_NO: 64},
+                          {REC_NO: 65},
+                          {REC_NO: 68},
+                          {REC_NO: 69},
+                          {REC_NO: 72},
+                          {REC_NO: 73},
+                          {REC_NO: 76},
+                          {REC_NO: 77},
+                          {REC_NO: 80},
+                          {REC_NO: 81},
+                          {REC_NO: 84},
+                          {REC_NO: 85},
+                          {REC_NO: 88},
+                          {REC_NO: 89},
+                          {REC_NO: 92},
+                          {REC_NO: 93},
+                          {REC_NO: 96},
+                          {REC_NO: 97}]
+    -
+      # matchConstantMaskValue
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 2 = 2
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: [{REC_NO: 2},
+                          {REC_NO: 3},
+                          {REC_NO: 6},
+                          {REC_NO: 7},
+                          {REC_NO: 10},
+                          {REC_NO: 11},
+                          {REC_NO: 14},
+                          {REC_NO: 15},
+                          {REC_NO: 18},
+                          {REC_NO: 19},
+                          {REC_NO: 22},
+                          {REC_NO: 23},
+                          {REC_NO: 26},
+                          {REC_NO: 27},
+                          {REC_NO: 30},
+                          {REC_NO: 31},
+                          {REC_NO: 34},
+                          {REC_NO: 35},
+                          {REC_NO: 38},
+                          {REC_NO: 39},
+                          {REC_NO: 42},
+                          {REC_NO: 43},
+                          {REC_NO: 46},
+                          {REC_NO: 47},
+                          {REC_NO: 50},
+                          {REC_NO: 51},
+                          {REC_NO: 54},
+                          {REC_NO: 55},
+                          {REC_NO: 58},
+                          {REC_NO: 59},
+                          {REC_NO: 62},
+                          {REC_NO: 63},
+                          {REC_NO: 66},
+                          {REC_NO: 67},
+                          {REC_NO: 70},
+                          {REC_NO: 71},
+                          {REC_NO: 74},
+                          {REC_NO: 75},
+                          {REC_NO: 78},
+                          {REC_NO: 79},
+                          {REC_NO: 82},
+                          {REC_NO: 83},
+                          {REC_NO: 86},
+                          {REC_NO: 87},
+                          {REC_NO: 90},
+                          {REC_NO: 91},
+                          {REC_NO: 94},
+                          {REC_NO: 95},
+                          {REC_NO: 98},
+                          {REC_NO: 99}]
+    -
+      # matchConstantMaskValue
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 2 = 3
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: []
+    -
+      # matchConstantMaskValue
+      # mask = 4
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 4 = 0
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: [{REC_NO: 0},
+                          {REC_NO: 1},
+                          {REC_NO: 2},
+                          {REC_NO: 3},
+                          {REC_NO: 8},
+                          {REC_NO: 9},
+                          {REC_NO: 10},
+                          {REC_NO: 11},
+                          {REC_NO: 16},
+                          {REC_NO: 17},
+                          {REC_NO: 18},
+                          {REC_NO: 19},
+                          {REC_NO: 24},
+                          {REC_NO: 25},
+                          {REC_NO: 26},
+                          {REC_NO: 27},
+                          {REC_NO: 32},
+                          {REC_NO: 33},
+                          {REC_NO: 34},
+                          {REC_NO: 35},
+                          {REC_NO: 40},
+                          {REC_NO: 41},
+                          {REC_NO: 42},
+                          {REC_NO: 43},
+                          {REC_NO: 48},
+                          {REC_NO: 49},
+                          {REC_NO: 50},
+                          {REC_NO: 51},
+                          {REC_NO: 56},
+                          {REC_NO: 57},
+                          {REC_NO: 58},
+                          {REC_NO: 59},
+                          {REC_NO: 64},
+                          {REC_NO: 65},
+                          {REC_NO: 66},
+                          {REC_NO: 67},
+                          {REC_NO: 72},
+                          {REC_NO: 73},
+                          {REC_NO: 74},
+                          {REC_NO: 75},
+                          {REC_NO: 80},
+                          {REC_NO: 81},
+                          {REC_NO: 82},
+                          {REC_NO: 83},
+                          {REC_NO: 88},
+                          {REC_NO: 89},
+                          {REC_NO: 90},
+                          {REC_NO: 91},
+                          {REC_NO: 96},
+                          {REC_NO: 97},
+                          {REC_NO: 98},
+                          {REC_NO: 99}]
+    -
+      # matchConstantMaskValue
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 4 = 4
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: [{REC_NO: 4},
+                          {REC_NO: 5},
+                          {REC_NO: 6},
+                          {REC_NO: 7},
+                          {REC_NO: 12},
+                          {REC_NO: 13},
+                          {REC_NO: 14},
+                          {REC_NO: 15},
+                          {REC_NO: 20},
+                          {REC_NO: 21},
+                          {REC_NO: 22},
+                          {REC_NO: 23},
+                          {REC_NO: 28},
+                          {REC_NO: 29},
+                          {REC_NO: 30},
+                          {REC_NO: 31},
+                          {REC_NO: 36},
+                          {REC_NO: 37},
+                          {REC_NO: 38},
+                          {REC_NO: 39},
+                          {REC_NO: 44},
+                          {REC_NO: 45},
+                          {REC_NO: 46},
+                          {REC_NO: 47},
+                          {REC_NO: 52},
+                          {REC_NO: 53},
+                          {REC_NO: 54},
+                          {REC_NO: 55},
+                          {REC_NO: 60},
+                          {REC_NO: 61},
+                          {REC_NO: 62},
+                          {REC_NO: 63},
+                          {REC_NO: 68},
+                          {REC_NO: 69},
+                          {REC_NO: 70},
+                          {REC_NO: 71},
+                          {REC_NO: 76},
+                          {REC_NO: 77},
+                          {REC_NO: 78},
+                          {REC_NO: 79},
+                          {REC_NO: 84},
+                          {REC_NO: 85},
+                          {REC_NO: 86},
+                          {REC_NO: 87},
+                          {REC_NO: 92},
+                          {REC_NO: 93},
+                          {REC_NO: 94},
+                          {REC_NO: 95}]
+    -
+      # matchConstantMaskValue
+      - query: select rec_no from my_simple_record
+               where num_value_unique & 4 = 5
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)"
+      - unorderedResult: []
+...

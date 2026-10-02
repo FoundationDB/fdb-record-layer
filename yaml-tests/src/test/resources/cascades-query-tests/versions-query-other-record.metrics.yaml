@@ -1,0 +1,14 @@
+versions-query-other-record:
+-   query: EXPLAIN select "__ROW_VERSION" as version, rec_no from my_other_record
+        where num_value_2 = 1
+    ref: versions-query-other-record.yamsql:187
+    explain: SCAN(<,>) | TFILTER MY_OTHER_RECORD | FILTER _.NUM_VALUE_2 EQUALS promote(@c11
+        AS INT) | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO AS REC_NO)
+    task_count: 242
+    task_total_time_ms: 2
+    transform_count: 66
+    transform_time_ms: 1
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2

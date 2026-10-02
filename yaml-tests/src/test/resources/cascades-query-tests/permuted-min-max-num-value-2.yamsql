@@ -1,0 +1,82 @@
+#
+# permuted-min-max-num-value-2.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBPermutedMinMaxQueryTest.testMaxWithInAndDupes` — a PERMUTED_MAX index over
+# max(num_value_2) grouped by (str_value_indexed, num_value_3_indexed), queried with an IN list on the
+# leading grouping column.
+#
+# Its own file: `max2ByStrValueAnd3` is the only index the hook adds, and it aggregates a different
+# column from the rest of the class.
+#
+# "AndDupes" is literal — every group's maximum is the same. STR_VALUE_INDEXED and NUM_VALUE_3_INDEXED
+# together fix i modulo 10, and the ten records in each such class run through every residue of i modulo
+# 3, so max(num_value_2) is 2 for all ten groups. The result is therefore asserted unordered: with the
+# whole sort key tied, the sequence is whatever order the in-union happens to drain its legs in, which
+# the source does not pin down either.
+#
+# See permuted-min-max.yamsql for how the permuted size is derived and why the `InComparisonCase`
+# parameterization collapses.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index max_num_value_2_by_str_value_three as
+        select str_value_indexed, max(num_value_2), num_value_3_indexed from my_simple_record
+        group by str_value_indexed, num_value_3_indexed
+        order by str_value_indexed, max(num_value_2), num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: permuted-min-max-num-value-2
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testMaxWithInAndDupes
+      # in-union over the aggregate index, comparison key (m, str_value_indexed,
+      # num_value_3_indexed).
+      - query: select str_value_indexed, num_value_3_indexed, max(num_value_2) as m
+               from my_simple_record
+               group by str_value_indexed, num_value_3_indexed
+               having str_value_indexed in ('even', 'odd')
+               order by max(num_value_2) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_2_BY_STR_VALUE_THREE [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)"
+      - unorderedResult: [{STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 0, M: 2},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, M: 2},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, M: 2},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3, M: 2},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, M: 2},
+                          {STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 0, M: 2},
+                          {STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, M: 2},
+                          {STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, M: 2},
+                          {STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 3, M: 2},
+                          {STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, M: 2}]
+...

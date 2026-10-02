@@ -1,0 +1,18 @@
+or-query-to-union-split-continuations:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 1 or
+        num_value_3_indexed = 3 or num_value_3_indexed = 5
+    ref: or-query-to-union-split-continuations.yamsql:155
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c15 AS INT)]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO) | FETCH'
+    task_count: 3553
+    task_total_time_ms: 29
+    transform_count: 637
+    transform_time_ms: 12
+    transform_yield_count: 204
+    insert_time_ms: 2
+    insert_new_count: 441
+    insert_reused_count: 51

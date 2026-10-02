@@ -1,0 +1,41 @@
+record-store-query:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_2 = 1
+    ref: record-store-query.yamsql:89
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
+        AS INT)])
+    task_count: 747
+    task_total_time_ms: 7
+    transform_count: 170
+    transform_time_ms: 4
+    transform_yield_count: 76
+    insert_time_ms: 0
+    insert_new_count: 89
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        and num_value_2 = 2
+    ref: record-store-query.yamsql:110
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
+        AS INT)])
+    task_count: 747
+    task_total_time_ms: 7
+    transform_count: 170
+    transform_time_ms: 4
+    transform_yield_count: 76
+    insert_time_ms: 0
+    insert_new_count: 89
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and str_value_indexed = 'even' and num_value_3_indexed = 3 and num_value_2
+        = 0
+    ref: record-store-query.yamsql:134
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c19
+        AS INT), EQUALS promote(@c15 AS INT)])
+    task_count: 830
+    task_total_time_ms: 8
+    transform_count: 183
+    transform_time_ms: 4
+    transform_yield_count: 77
+    insert_time_ms: 0
+    insert_new_count: 97
+    insert_reused_count: 7

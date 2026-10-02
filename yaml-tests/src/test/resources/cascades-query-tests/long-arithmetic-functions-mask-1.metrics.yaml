@@ -1,0 +1,37 @@
+long-arithmetic-functions-mask-1:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & 2 = 0
+    ref: long-arithmetic-functions-mask-1.yamsql:166
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
+        & @c7 EQUALS promote(@c9 AS INT)
+    task_count: 647
+    task_total_time_ms: 6
+    transform_count: 157
+    transform_time_ms: 3
+    transform_yield_count: 68
+    insert_time_ms: 0
+    insert_new_count: 81
+    insert_reused_count: 6
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & 2 = 1
+    ref: long-arithmetic-functions-mask-1.yamsql:221
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
+        & @c7 EQUALS promote(@c9 AS INT)
+    task_count: 647
+    task_total_time_ms: 6
+    transform_count: 157
+    transform_time_ms: 3
+    transform_yield_count: 68
+    insert_time_ms: 0
+    insert_new_count: 81
+    insert_reused_count: 6
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & 2 = 2
+    ref: long-arithmetic-functions-mask-1.yamsql:227
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
+        & @c7 EQUALS promote(@c9 AS INT)
+    task_count: 647
+    task_total_time_ms: 6
+    transform_count: 157
+    transform_time_ms: 3
+    transform_yield_count: 68
+    insert_time_ms: 0
+    insert_new_count: 81
+    insert_reused_count: 6

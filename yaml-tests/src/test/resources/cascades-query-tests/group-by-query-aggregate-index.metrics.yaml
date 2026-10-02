@@ -1,0 +1,14 @@
+group-by-query-aggregate-index:
+-   query: EXPLAIN select num_value_2, str_value_indexed, sum(num_value_3_indexed)
+        as total from my_simple_record group by num_value_2, str_value_indexed
+    ref: group-by-query-aggregate-index.yamsql:92
+    explain: 'AISCAN(AGG_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
+        | MAP (_._0 AS NUM_VALUE_2, _._1 AS STR_VALUE_INDEXED, _._2 AS TOTAL)'
+    task_count: 372
+    task_total_time_ms: 13
+    transform_count: 116
+    transform_time_ms: 11
+    transform_yield_count: 54
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1

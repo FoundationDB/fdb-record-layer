@@ -1,0 +1,43 @@
+in-query-union-sargable:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and
+        str_value_indexed in ('even') order by num_value_3_indexed
+    ref: in-query-union-sargable.yamsql:57
+    explain: '[IN arrayDistinct(@c7) ⋈ IN arrayDistinct(@c15)] INUNION q0, q1 -> {
+        ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS
+        q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)'
+    task_count: 2179
+    task_total_time_ms: 39
+    transform_count: 814
+    transform_time_ms: 17
+    transform_yield_count: 174
+    insert_time_ms: 3
+    insert_new_count: 275
+    insert_reused_count: 31
+-   query: EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and
+        str_value_indexed in ('odd') order by num_value_3_indexed
+    ref: in-query-union-sargable.yamsql:97
+    explain: '[IN arrayDistinct(@c7) ⋈ IN arrayDistinct(@c15)] INUNION q0, q1 -> {
+        ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS
+        q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)'
+    task_count: 2179
+    task_total_time_ms: 39
+    transform_count: 814
+    transform_time_ms: 17
+    transform_yield_count: 174
+    insert_time_ms: 3
+    insert_new_count: 275
+    insert_reused_count: 31
+-   query: EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and
+        str_value_indexed in ('even', 'odd', 'other') order by num_value_3_indexed
+    ref: in-query-union-sargable.yamsql:136
+    explain: '[IN arrayDistinct(@c7) ⋈ IN arrayDistinct(@c15)] INUNION q0, q1 -> {
+        ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS
+        q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)'
+    task_count: 2179
+    task_total_time_ms: 39
+    transform_count: 814
+    transform_time_ms: 17
+    transform_yield_count: 174
+    insert_time_ms: 3
+    insert_new_count: 275
+    insert_reused_count: 31

@@ -1,0 +1,15 @@
+covering-index-header-multi:
+-   query: EXPLAIN select * from my_record where str_value = 'abc' and header.num
+        = 1
+    ref: covering-index-header-multi.yamsql:47
+    explain: 'COVERING(MULTI [EQUALS promote(@c7 AS STRING)] -> [STR_VALUE: KEY:[0],
+        HEADER: [NUM: KEY:[2], PATH: KEY:[1], REC_NO: KEY:[3]]]) | FILTER _.HEADER.NUM
+        EQUALS promote(@c13 AS INT) | FETCH'
+    task_count: 399
+    task_total_time_ms: 12
+    transform_count: 90
+    transform_time_ms: 7
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 45
+    insert_reused_count: 3

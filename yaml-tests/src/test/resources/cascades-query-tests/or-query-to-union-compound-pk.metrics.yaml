@@ -1,0 +1,18 @@
+or-query-to-union-compound-pk:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and (num_value_3_indexed = 1 or num_value_3_indexed > 3)
+    ref: or-query-to-union-compound-pk.yamsql:55
+    explain: 'COVERING(STR_VALUE_3_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c12
+        AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], STR_VALUE_INDEXED:
+        KEY:[0]]) ∪ COVERING(STR_VALUE_3_INDEX [EQUALS promote(@c7 AS STRING), [GREATER_THAN
+        promote(@c16 AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE:
+        KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.NUM_VALUE_UNIQUE)
+        | FETCH'
+    task_count: 3062
+    task_total_time_ms: 27
+    transform_count: 556
+    transform_time_ms: 11
+    transform_yield_count: 199
+    insert_time_ms: 1
+    insert_new_count: 447
+    insert_reused_count: 42

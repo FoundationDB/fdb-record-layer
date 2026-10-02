@@ -1,0 +1,68 @@
+#
+# nested-field-query-reviewer-school-concat.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedWithAndConcat` — the same equality-then-inequality pair as
+# nested-field-query-reviewer.yamsql, but now `stats$school` concatenates both nested fields, so what
+# was a scan plus a residual filter becomes one scan range and nothing else.
+#
+# Its own file: the hook drops `stats$school` and re-adds it over
+# (stats.school_name, stats.start_date). The `setSubspaceKey` call that goes with the swap has no SQL
+# surface and needs none — a fresh schema template starts with no data.
+#
+# The source's two `RecordQuery`s — one nested `Query.and` under `field("stats").matches(...)`, one two
+# flat conjuncts — are the same SQL text, so only one query is ported. The distinction is in the shape
+# of the `QueryComponent` tree, which the SQL front end never builds.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_school as
+        select stats.school_name, stats.start_date from restaurant_reviewer
+        order by stats.school_name, stats.start_date
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer-school-concat
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedWithAndConcat
+      - query: select * from restaurant_reviewer
+               where stats.start_date > 0 and stats.school_name = 'Human University'
+      - explain: "ISCAN(STATS_SCHOOL [EQUALS promote(@c15 AS STRING), [GREATER_THAN promote(@c9 AS LONG)]])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+...
