@@ -53,4 +53,6 @@ public interface Visitor {
     void visit(@Nonnull View view);
 
     void visit(@Nonnull SyntheticTable syntheticTable);
+
+    void visit(@Nonnull DataType auxiliaryType);
 }
