@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
@@ -150,6 +151,17 @@ public class MetaDataProtoEditor {
     }
 
     /**
+     * Returns the top-level message type that contains {@code type}, or {@code type} itself if it isn’t a nested type.
+     */
+    @Nonnull
+    private static Descriptors.Descriptor getOutermostType(@Nonnull Descriptors.Descriptor type) {
+        while (type.getContainingType() != null) {
+            type = type.getContainingType();
+        }
+        return type;
+    }
+
+    /**
      * Returns the builder for the top-level message type with the given name, or {@code null} if none is found.
      */
     @Nullable
@@ -234,21 +246,34 @@ public class MetaDataProtoEditor {
                 || getMessageTypeUsage(messageType.toProto()) == RecordTypeOptions.Usage.UNION;
     }
 
+    /**
+     * Returns the fully qualified name of the top-level type {@code name} in package {@code namespace}, in the form
+     * returned by {@link Descriptors.GenericDescriptor#getFullName}.
+     */
+    @Nonnull
+    private static String qualify(@Nonnull String namespace, @Nonnull String name) {
+        return namespace.isEmpty() ? name : namespace + "." + name;
+    }
+
     @Nonnull
     private static String fullyQualifiedTypeName(@Nonnull String namespace, @Nonnull String typeName) {
-        if (typeName.startsWith(".")) {
-            return typeName;
-        } else if (!namespace.isEmpty()) {
-            return "." + namespace + "." + typeName;
-        } else {
-            return "." + typeName;
-        }
+        return typeName.startsWith(".") ? typeName : "." + qualify(namespace, typeName);
     }
 
     @Nonnull
     private static String fullyQualifiedTypeName(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder file,
                                                  @Nonnull String typeName) {
         return fullyQualifiedTypeName(file.getPackage(), typeName);
+    }
+
+    /**
+     * Returns {@code name} with its leading {@code oldPrefix} replaced by {@code newPrefix}. Also verifies that
+     * {@code name} indeed starts with {@code oldPrefix}.
+     */
+    @Nonnull
+    private static String replacePrefix(@Nonnull String name, @Nonnull String oldPrefix, @Nonnull String newPrefix) {
+        Verify.verify(name.startsWith(oldPrefix));
+        return newPrefix + name.substring(oldPrefix.length());
     }
 
     @VisibleForTesting
@@ -269,23 +294,35 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Returns the fully-qualified name of the message or enum type referenced by {@code field}, resolved against
-     * {@code messageDescriptor} by field number rather than name or position, since the number is the only
-     * identifier guaranteed to tie a mutable builder field to its resolved descriptor counterpart. Returns
-     * {@code null} if the field is of a primitive type, and so references no named type at all.
+     * Returns the message or enum type referenced by {@code field}, resolved against {@code messageDescriptor} by field
+     * number rather than name or position, since the number is the only identifier guaranteed to tie a mutable builder
+     * field to its resolved descriptor counterpart. Returns {@code null} if the field is of a primitive type, and so
+     * references no named type at all.
      */
     @Nullable
-    private static String resolveFieldTypeFullName(
+    private static Descriptors.GenericDescriptor resolveFieldType(
             @Nonnull Descriptors.Descriptor messageDescriptor,
             @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field) {
         final Descriptors.FieldDescriptor resolvedField = Objects.requireNonNull(
                 messageDescriptor.findFieldByNumber(field.getNumber()),
                 "Could not find field from protobuf in descriptor");
         return switch (resolvedField.getJavaType()) {
-            case MESSAGE -> "." + resolvedField.getMessageType().getFullName();
-            case ENUM -> "." + resolvedField.getEnumType().getFullName();
+            case MESSAGE -> resolvedField.getMessageType();
+            case ENUM -> resolvedField.getEnumType();
             default -> null;
         };
+    }
+
+    /**
+     * Returns the fully-qualified name of the message or enum type referenced by {@code field}, as resolved by
+     * {@link #resolveFieldType}, or {@code null} if the field references no named type at all.
+     */
+    @Nullable
+    private static String resolveFieldTypeFullName(
+            @Nonnull Descriptors.Descriptor messageDescriptor,
+            @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field) {
+        final Descriptors.GenericDescriptor type = resolveFieldType(messageDescriptor, field);
+        return type == null ? null : "." + type.getFullName();
     }
 
     /**
@@ -425,10 +462,14 @@ public class MetaDataProtoEditor {
         /** The new name. */
         @Nonnull
         private final String newName;
-        /** The fully qualified current name. */
+        /**
+         * The fully qualified current name, in the form returned by {@link Descriptors.GenericDescriptor#getFullName}.
+         */
         @Nonnull
         private final String fullName;
-        /** The fully qualified new name. */
+        /**
+         * The fully qualified new name, in the form returned by {@link Descriptors.GenericDescriptor#getFullName}.
+         */
         @Nonnull
         private final String fullNewName;
         /** The canonical union field name for the current name, i.e., {@code _name}. */
@@ -459,16 +500,17 @@ public class MetaDataProtoEditor {
         RecordTypeRename(@Nonnull String namespace, @Nonnull String name, @Nonnull String newName) {
             this.name = name;
             this.newName = newName;
-            this.fullName = fullyQualifiedTypeName(namespace, name);
-            this.fullNewName = fullyQualifiedTypeName(namespace, newName);
+            this.fullName = qualify(namespace, name);
+            this.fullNewName = qualify(namespace, newName);
             this.canonicalFieldName = canonicalUnionFieldName(name);
             this.newCanonicalFieldName = canonicalUnionFieldName(newName);
         }
     }
 
     /**
-     * A map of {@link RecordTypeRename}s, keyed by the record type’s current (simple) name, as built by
-     * {@link #analyzeRecordTypeRenames}. Also provides a lookup by fully qualified name, built lazily on first use.
+     * A map of {@link RecordTypeRename} objects, keyed by the current (simple) name of the record type, as built by
+     * {@link #analyzeRecordTypeRenames}. Also provides a lookup by descriptor, matching the fully qualified name, built
+     * lazily on first use.
      */
     private static final class RecordTypeRenames {
         @Nonnull
@@ -505,17 +547,18 @@ public class MetaDataProtoEditor {
         }
 
         /**
-         * Returns the rename whose (original) fully qualified name is {@code fullName}, if any.
+         * Returns the rename of the type described by {@code type}, if any, matching it by its (original) fully
+         * qualified name.
          */
         @Nullable
-        RecordTypeRename getByFullName(@Nonnull String fullName) {
+        RecordTypeRename get(@Nonnull Descriptors.GenericDescriptor type) {
             if (byFullName == null) {
                 byFullName = new HashMap<>();
                 for (final RecordTypeRename rename : byName.values()) {
                     byFullName.put(rename.fullName, rename);
                 }
             }
-            return byFullName.get(fullName);
+            return byFullName.get(type.getFullName());
         }
     }
 
@@ -1052,17 +1095,19 @@ public class MetaDataProtoEditor {
         // union’s fields.
         for (final DescriptorProtos.FieldDescriptorProto.Builder unionField : unionBuilder.getFieldBuilderList()) {
             // Skip fields that name no type at all. Only message- and enum-typed fields carry a `type_name`; scalar
-            // fields don’t. A union holding a scalar field would be unusual but technically legal proto.
+            // fields don’t. A union holding a scalar field would be malformed (though technically legal proto).
+            // (Ignoring such fields here rather than actively rejecting them leaves room for potentially introducing
+            // such non-record fields to the union later.)
             if (!unionField.hasTypeName() || unionField.getTypeName().isEmpty()) {
                 continue;
             }
 
-            final String fullReferencedName = resolveFieldTypeFullName(unionDescriptor, unionField);
-            if (fullReferencedName == null) {
+            final Descriptors.GenericDescriptor referencedType = resolveFieldType(unionDescriptor, unionField);
+            if (referencedType == null) {
                 continue;
             }
 
-            final RecordTypeRename rename = renames.getByFullName(fullReferencedName);
+            final RecordTypeRename rename = renames.get(referencedType);
             if (rename == null) {
                 continue;
             }
@@ -1205,44 +1250,32 @@ public class MetaDataProtoEditor {
 
     /**
      * Recursively rewrites {@code typeName} field references within a message type and its nested types. For each
-     * message or enum field, it resolves the original referenced type to its fully-qualified name and, if that type is
-     * or is nested within any renamed type, rewrites the field’s {@code typeName} accordingly.
+     * message or enum field, it resolves the referenced type and, if the outermost type containing it is renamed,
+     * rewrites the field’s {@code typeName} accordingly.
      */
     private static void renameRecordTypeUsagesInMessageType(
             @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
             @Nonnull RecordTypeRenames renames,
             @Nonnull Descriptors.Descriptor descriptorForMessage) {
         for (final DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
-            if (!field.hasTypeName() || field.getTypeName().isEmpty()) {
+            final Descriptors.GenericDescriptor referencedType = resolveFieldType(descriptorForMessage, field);
+            // Determine the message type that is, or directly contains, the referenced type.
+            final Descriptors.Descriptor messageType = referencedType instanceof Descriptors.EnumDescriptor enumType
+                                                       ? enumType.getContainingType()
+                                                       : (Descriptors.Descriptor) referencedType;
+            // Skip fields that reference no named type at all, or that reference a top-level enum. These field can’t be
+            // affected by any rename.
+            if (messageType == null) {
                 continue;
             }
-            final String fullReferencedName = resolveFieldTypeFullName(descriptorForMessage, field);
-            if (fullReferencedName == null) {
-                continue;
-            }
-
-            // Check the referenced type, then each of its containing types in turn, against the renamed types. To this
-            // end we truncate `candidateName` at the last '.' to walk from the referenced type up to its outermost
-            // containing type, which is equivalent to (but cheaper than) repeatedly calling `getContainingType()`.
-            // For example, if `fullReferencedName` is ".pkg.Outer.Inner" and "Outer" is being renamed to "NewOuter",
-            // `candidateName` first tries ".pkg.Outer.Inner" (no match), then ".pkg.Outer" (matches), yielding the
-            // rewritten type name ".pkg.NewOuter" + ".Inner" = ".pkg.NewOuter.Inner".
-            String candidateName = fullReferencedName;
-            while (true) {
-                // If `candidateName` is a renamed type, substitute its new name for the matched prefix, leaving any
-                // trailing nested-type suffix (e.g., ".InnerRecord") untouched.
-                final RecordTypeRename rename = renames.getByFullName(candidateName);
-                if (rename != null) {
-                    field.setTypeName(rename.fullNewName + fullReferencedName.substring(candidateName.length()));
-                    break;
-                }
-                // Strip the last name segment to move up to the containing type; stop once there is no more
-                // package/type prefix left (the leading '.' is always at index 0).
-                final int lastDot = candidateName.lastIndexOf('.');
-                if (lastDot <= 0) {
-                    break;
-                }
-                candidateName = candidateName.substring(0, lastDot);
+            // If the outermost type containing the referenced type is renamed, substitute its new name for the prefix,
+            // leaving any nested-type suffix (e.g., ".Inner") untouched.
+            final RecordTypeRename rename = renames.get(getOutermostType(messageType));
+            if (rename != null) {
+                // Note: A leading '.' indicates a fully qualified name in a `type_name`.
+                final String newTypeName =
+                        "." + replacePrefix(referencedType.getFullName(), rename.fullName, rename.fullNewName);
+                field.setTypeName(newTypeName);
             }
         }
 
@@ -1333,8 +1366,6 @@ public class MetaDataProtoEditor {
             @Nonnull RecordTypeRenames renames) {
         for (var unnested : unnestedRecordTypes) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
-                // The nested constituents would most likely be nested types, not record types, and thus would not be
-                // renamed.
                 if (constituent.getParent().isEmpty()) {
                     continue;
                 }
@@ -1346,15 +1377,12 @@ public class MetaDataProtoEditor {
                             .addLogInfo(LogMessageKeys.EXPECTED, name)
                             .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
                 }
-                // Walk up the containing-type chain. If the constituent’s type, or any type it is nested within, is
-                // being renamed, this non-parent reference to it can’t be safely updated.
-                for (Descriptors.Descriptor typeDescriptor = constituentTypeDescriptor;
-                        typeDescriptor != null;
-                        typeDescriptor = typeDescriptor.getContainingType()) {
-                    if (renames.getByFullName("." + typeDescriptor.getFullName()) != null) {
-                        throw new MetaDataException(
-                                "Renaming types used by non-parent unnested constituents is not supported");
-                    }
+                // If the constituent’s type, or the top-level type it is nested within, is being renamed, this
+                // non-parent reference to it can’t be safely updated.
+                // TODO Issue #4707: Support this case.
+                if (renames.get(getOutermostType(constituentTypeDescriptor)) != null) {
+                    throw new MetaDataException(
+                            "Renaming types used by non-parent unnested constituents is not supported");
                 }
             }
         }
@@ -1362,8 +1390,8 @@ public class MetaDataProtoEditor {
 
     /**
      * Renames the nested constituents of {@code MetaData.unnested_record_types} that directly name (as their own,
-     * non-nested type) any rename in {@code renames}. Callers must have already validated the rename via
-     * {@link #validateRecordTypeUsagesInUnnestedRecordTypes}.
+     * non-nested type) any {@code RECORD}-usage rename in {@code renames}. Callers must have already validated the
+     * rename via {@link #validateRecordTypeUsagesInUnnestedRecordTypes}.
      */
     private static void renameRecordTypeUsagesInUnnestedRecordTypes(
             @Nonnull List<RecordMetaDataProto.UnnestedRecordType.Builder> unnestedRecordTypes,
@@ -1371,9 +1399,9 @@ public class MetaDataProtoEditor {
         for (var unnested : unnestedRecordTypes) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
                 if (constituent.getParent().isEmpty()) {
-                    final RecordTypeRename rename = renames.get(constituent.getTypeName());
-                    if (rename != null) {
-                        constituent.setTypeName(rename.newName);
+                    final String newName = renames.get(constituent.getTypeName(), RecordTypeOptions.Usage.RECORD);
+                    if (newName != null) {
+                        constituent.setTypeName(newName);
                     }
                 }
             }
