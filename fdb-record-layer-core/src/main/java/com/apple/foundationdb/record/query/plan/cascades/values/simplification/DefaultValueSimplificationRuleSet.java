@@ -21,6 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.SubscriptValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -36,7 +42,17 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule();
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictArithmeticValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule<>(ArithmeticValue.class);
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictCastValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule<>(CastValue.class);
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictFieldValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule<>(FieldValue.class);
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictNotValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule<>(NotValue.class);
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictPromoteValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule<>(PromoteValue.class);
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseNullStrictSubscriptValueOverNullValueRule = new CollapseNullStrictValueOverNullValueRule<>(SubscriptValue.class);
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
     @Nonnull
@@ -48,7 +64,12 @@ public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Valu
     // See Simplification.executeRuleSetIteratively for more details.
     @Nonnull
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES = ImmutableSet.of(
-            collapseNullStrictValueOverNullValueRule,
+            collapseNullStrictArithmeticValueOverNullValueRule,
+            collapseNullStrictCastValueOverNullValueRule,
+            collapseNullStrictFieldValueOverNullValueRule,
+            collapseNullStrictNotValueOverNullValueRule,
+            collapseNullStrictPromoteValueOverNullValueRule,
+            collapseNullStrictSubscriptValueOverNullValueRule,
             composeFieldValueOverRecordConstructorRule,
             composeFieldValueOverFieldValueRule,
             collapseRecordConstructorOverFieldsToStarRule);
