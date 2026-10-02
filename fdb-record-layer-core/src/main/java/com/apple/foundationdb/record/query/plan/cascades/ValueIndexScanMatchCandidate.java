@@ -274,9 +274,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         partialMatch.getRegularMatchInfo().getConstraint());
 
         final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
-                indexEntryToLogicalRecord.getQueriedRecordType().getName(),
+                indexEntryToLogicalRecord.queriedRecordType().getName(),
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
-                indexEntryToLogicalRecord.getIndexKeyValueToPartialRecord());
+                indexEntryToLogicalRecord.indexKeyValueToPartialRecord());
 
         return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
@@ -294,8 +294,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 baseAlias,
                 sourceAlias,
                 targetAlias,
-                Iterables.concat(indexEntryToLogicalRecord.getLogicalKeyValues(),
-                        indexEntryToLogicalRecord.getLogicalValueValues()));
+                Iterables.concat(indexEntryToLogicalRecord.logicalKeyValues(),
+                        indexEntryToLogicalRecord.logicalValueValues()));
     }
 
     @Override

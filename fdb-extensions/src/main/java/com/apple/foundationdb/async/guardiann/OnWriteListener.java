@@ -37,6 +37,29 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
     };
 
     /**
+     * Callback method invoked after repartitioning has reconciled a set of vector references, reporting how many it
+     * discarded because they no longer describe where a vector lives — the vector having since been deleted, or moved
+     * to another cluster. Such a reference is still counted by the cluster it sits in, so a non-zero count means that
+     * cluster's recorded vector count had drifted above what it actually holds, and the split or merge decision was
+     * taken against the drifted figure.
+     * <p>
+     * Invoked on every reconciliation, including those that discard nothing, so that an implementor can relate the
+     * drift to how often repartitioning runs at all — a count of discarded references means little without knowing
+     * whether it came from one reconciliation or ten thousand.
+     * <p>
+     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     * need to observe the drift (e.g. for metrics).
+     *
+     * @param numDroppedMissingMetadata references whose vector no longer exists at all
+     * @param numDroppedSupersededMetadata references superseded by a newer copy of the same vector elsewhere
+     */
+    @SuppressWarnings("unused")
+    default void onVectorReferencesCleanedUp(final int numDroppedMissingMetadata,
+                                             final int numDroppedSupersededMetadata) {
+        // nothing
+    }
+
+    /**
      * Callback method that is invoked after a {@link AbstractDeferredTask} has been enqueued.
      * <p>
      * This is a default method with an empty implementation, allowing implementing classes to override it only if

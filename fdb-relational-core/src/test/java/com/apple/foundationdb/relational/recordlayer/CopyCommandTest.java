@@ -378,6 +378,42 @@ public class CopyCommandTest {
         });
     }
 
+    /**
+     * A {@code COPY} continuation cannot be executed at snaphot isolation; data changes would result in corrupt
+     * key-value pairs. The corresponding syntax-level check — that {@code OPTIONS (...)} cannot be attached to a
+     * {@code COPY} statement at all — is covered in {@code isolation-level-snapshot.yamsql}.
+     */
+    @Test
+    void copyContinuationRejectsSnapshotIsolation() throws RelationalException, SQLException {
+        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+
+        writeTestData(connectionUtils, testPath, tenKeyValueRecords());
+        connectionUtils.runAgainstCatalog(conn -> {
+            try (RelationalStatement stmt = conn.createStatement()) {
+                final int limit = 3;
+                stmt.setMaxRows(limit);
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
+                    while (rs.next()) {
+                        // drain the first page so that a resumable continuation is produced
+                    }
+                    final Continuation continuation = rs.getContinuation();
+                    assertFalse(continuation.atEnd());
+                    assertFalse(continuation.atBeginning());
+                    try (RelationalPreparedStatement ps =
+                            conn.prepareStatement("EXECUTE CONTINUATION ?param OPTIONS (ISOLATION LEVEL SNAPSHOT)")) {
+                        ps.setBytes("param", continuation.serialize());
+                        ps.setMaxRows(limit);
+                        RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                                .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION)
+                                .containsInMessage("only supported when continuing a SELECT query");
+                    }
+                }
+            }
+        });
+    }
+
     @Nonnull
     private static Continuation continueExport(final int limit,
                                                final RelationalConnection connection,

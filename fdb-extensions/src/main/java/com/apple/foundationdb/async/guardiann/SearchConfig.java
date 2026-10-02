@@ -44,9 +44,19 @@ import javax.annotation.Nonnull;
  *        tuned once and reused across searches asking for different {@code k}. In the pruned
  *        {@link Search#kNearestNeighborsSearch} the pool is the size of the {@code DistinctTopK} candidate pool; in the
  *        streaming {@link Search#searchOrderedByDistance} it is the reorder-window size of the almost-sorted iterator.
- *        Larger values improve recall/ordering at the cost of latency. Must be {@code >= 1.0} so the pool is never
- *        smaller than {@code k}. (This replaces the old, absolute {@code candidatePoolSize} — itself the rename of the
- *        misleadingly named {@code efSearch}, unrelated to HNSW's {@code efSearch}.)
+ *        Larger values improve recall/ordering at the cost of latency.
+ *        <p>
+ *        The headroom above {@code 1.0} is not only about recall: it is also what absorbs <em>stale</em> candidates.
+ *        A delete removes a vector's metadata but only reaps its cluster references from the clusters it probes, so
+ *        references to deleted vectors linger until maintenance consolidates those clusters, and
+ *        {@code Search.enrichResults} discards them after the pool has been assembled. A pool with less headroom than
+ *        the local share of stale references therefore returns fewer than {@code k} results. Under a delete-heavy
+ *        workload that share was measured above 20%, which is why the default leaves 40% rather than the 15% it
+ *        originally did.
+ *        <p>
+ *        Must be {@code >= 1.0} so the pool is never smaller than {@code k}. (This replaces the old, absolute
+ *        {@code candidatePoolSize} — itself the rename of the misleadingly named {@code efSearch}, unrelated to HNSW's
+ *        {@code efSearch}.)
  * @param searchMaxClusters the maximum number of cluster centroids to probe around the query
  * @param searchMinClustersBeforePruning the number of nearest clusters always retained before distance-ratio pruning
  *        is allowed to drop any (pruned search only; ignored by the streaming search)
@@ -67,7 +77,7 @@ public record SearchConfig(double candidatePoolFactor,
                            int centroidEfOutwardSearch,
                            int searchConcurrency) {
 
-    public static final double DEFAULT_CANDIDATE_POOL_FACTOR = 1.15d;
+    public static final double DEFAULT_CANDIDATE_POOL_FACTOR = 1.40d;
     public static final int DEFAULT_SEARCH_MAX_CLUSTERS = 48;
     public static final int DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING = 16;
     public static final double DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF = 1.5d;

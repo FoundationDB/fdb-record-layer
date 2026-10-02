@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -103,65 +104,98 @@ public class CommandUtil {
 
     private static RecordMetaData loadRecordMetaDataFromJson(String jsonFileName) {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
-        Set<String> neededDependencies = new LinkedHashSet<>();
-        Set<String> includedDependencies = new HashSet<>();
 
-        // These dependencies are automatically added, so we can treat them like they are bundled with the file dependencies
-        includedDependencies.add("record_metadata.proto");
-        includedDependencies.add("record_metadata_options.proto");
-        includedDependencies.add("tuple_fields.proto");
-
+        final JsonObject obj;
         try {
             String jsonStr = Files.readString(Paths.get(jsonFileName), StandardCharsets.UTF_8);
 
             // Load the definition into the meta-data proto
             JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, builder);
 
-            // Find the list of dependencies of the top-level file
-            JsonObject obj = JsonParser.parseString(jsonStr).getAsJsonObject();
-            JsonArray dependencyArray = obj.getAsJsonObject("records").getAsJsonArray("dependency");
-            for (JsonElement element : dependencyArray) {
-                String curDep = element.getAsString();
-                neededDependencies.add(curDep);
-            }
-
-            // Some dependencies may be included in the JSON descriptor itself and do not need to be
-            // provided from the environment
-            JsonArray includedDependencyDefinitions = obj.getAsJsonArray("dependencies");
-            if (includedDependencyDefinitions != null) {
-                for (JsonElement element : includedDependencyDefinitions) {
-                    JsonObject definition = element.getAsJsonObject();
-                    includedDependencies.add(definition.get("name").getAsString());
-                    if (definition.has("dependency")) {
-                        definition.getAsJsonArray("dependency")
-                                .forEach(dep -> neededDependencies.add(dep.getAsString()));
-                    }
-                }
-            }
+            obj = JsonParser.parseString(jsonStr).getAsJsonObject();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException("unable to read meta-data from " + jsonFileName, e);
         }
 
-        List<Descriptors.FileDescriptor> fileDescriptors = new ArrayList<>();
-        for (String dep: neededDependencies) {
-            if (includedDependencies.contains(dep)) {
-                continue;
-            }
-            try {
-                String fullClassName = getFullClassName(dep);
-                Class<?> act = Class.forName(fullClassName);
-                Method method = act.getMethod("getDescriptor");
-                fileDescriptors.add((Descriptors.FileDescriptor) method.invoke(null));
-            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException |
-                     IOException | ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        final List<Class<?>> dependencyClasses = dependencyClasses(externalDependencies(obj));
+
+        JsonExtensionMerger.merge(builder, obj, dependencyClasses);
 
         return RecordMetaData.newBuilder()
-                .addDependencies(fileDescriptors.toArray(new Descriptors.FileDescriptor[0]))
+                .addDependencies(fileDescriptors(dependencyClasses))
                 .setRecords(builder.build())
                 .getRecordMetaData();
+    }
+
+    /**
+     * Find the files the meta-data depends on that it does not carry itself, and so have to be provided from the
+     * environment.
+     *
+     * @param obj the JSON the meta-data was parsed from
+     * @return the names of the proto files to resolve, in the order the meta-data names them
+     */
+    @Nonnull
+    private static Set<String> externalDependencies(@Nonnull JsonObject obj) {
+        final Set<String> neededDependencies = new LinkedHashSet<>();
+        // These dependencies are automatically added, so we can treat them like they are bundled with the file dependencies
+        final Set<String> includedDependencies = new HashSet<>(
+                List.of("record_metadata.proto", "record_metadata_options.proto", "tuple_fields.proto"));
+
+        // Find the list of dependencies of the top-level file
+        for (JsonElement element : obj.getAsJsonObject("records").getAsJsonArray("dependency")) {
+            neededDependencies.add(element.getAsString());
+        }
+
+        // Some dependencies may be included in the JSON descriptor itself and do not need to be
+        // provided from the environment
+        final JsonArray includedDependencyDefinitions = obj.getAsJsonArray("dependencies");
+        if (includedDependencyDefinitions != null) {
+            for (JsonElement element : includedDependencyDefinitions) {
+                JsonObject definition = element.getAsJsonObject();
+                includedDependencies.add(definition.get("name").getAsString());
+                if (definition.has("dependency")) {
+                    definition.getAsJsonArray("dependency")
+                            .forEach(dep -> neededDependencies.add(dep.getAsString()));
+                }
+            }
+        }
+
+        neededDependencies.removeAll(includedDependencies);
+        return neededDependencies;
+    }
+
+    /**
+     * Resolve the generated outer class of each of the given proto files.
+     *
+     * @param dependencies the names of the proto files to resolve
+     * @return the class generated for each of them, in the same order
+     */
+    @Nonnull
+    private static List<Class<?>> dependencyClasses(@Nonnull Set<String> dependencies) {
+        final List<Class<?>> dependencyClasses = new ArrayList<>();
+        for (String dep : dependencies) {
+            try {
+                dependencyClasses.add(Class.forName(getFullClassName(dep)));
+            } catch (IOException | ClassNotFoundException e) {
+                throw new IllegalStateException("unable to resolve the generated class of " + dep, e);
+            }
+        }
+        return dependencyClasses;
+    }
+
+    @Nonnull
+    private static Descriptors.FileDescriptor[] fileDescriptors(@Nonnull List<Class<?>> dependencyClasses) {
+        final Descriptors.FileDescriptor[] fileDescriptors = new Descriptors.FileDescriptor[dependencyClasses.size()];
+        for (int i = 0; i < dependencyClasses.size(); i++) {
+            final Class<?> dependencyClass = dependencyClasses.get(i);
+            try {
+                Method method = dependencyClass.getMethod("getDescriptor");
+                fileDescriptors[i] = (Descriptors.FileDescriptor) method.invoke(null);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("unable to get the descriptor of " + dependencyClass.getName(), e);
+            }
+        }
+        return fileDescriptors;
     }
 
     private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {

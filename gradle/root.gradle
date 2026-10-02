@@ -19,6 +19,7 @@
  */
 
 import java.security.MessageDigest
+import javax.inject.Inject
 import groovy.json.JsonOutput
 
 /**
@@ -126,26 +127,102 @@ tasks.register('printDependentSubprojects') {
 
 apply plugin: 'jacoco'
 
+/**
+ * Explodes the main jar of every coverage subproject that actually exists into a single directory
+ * of `.class` files, which `codeCoverageReport` then analyzes.
+ *
+ * The only reason this task exists is to move the "does this subproject's jar exist?" question out
+ * of Gradle's configuration phase and into its execution phase. See the comment on
+ * `codeCoverageReport` below for why that matters. Everything it needs is declared as task
+ * properties and injected services, so it captures no Project state and is configuration-cache
+ * safe.
+ */
+abstract class StageCoverageClasses extends DefaultTask {
+    /**
+     * The main jar of every coverage subproject. Entries that do not exist are fine: a plain file
+     * collection fingerprints them as absent, unlike a `zipTree`, which fails the build as soon as
+     * it is resolved.
+     */
+    @Classpath
+    abstract ConfigurableFileCollection getJars()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @Inject
+    abstract ArchiveOperations getArchiveOperations()
+
+    @Inject
+    abstract FileSystemOperations getFileSystemOperations()
+
+    @TaskAction
+    void stage() {
+        // THE EXISTENCE CHECK. It runs here, at execution time, so it sees both jars that were
+        // built earlier in this same Gradle invocation and jars that were downloaded as CI
+        // artifacts before Gradle started.
+        def presentJars = jars.files.findAll { it.isFile() }
+        def archives = archiveOperations
+        // `sync`, not `copy`: classes staged by a previous run for a jar that is no longer present
+        // must not leak into the report.
+        fileSystemOperations.sync { spec ->
+            spec.into(outputDirectory)
+            spec.include('**/*.class')
+            spec.includeEmptyDirs = false
+            presentJars.each { jarFile ->
+                // One subdirectory per jar so that identically named entries from different
+                // subprojects (module-info.class, package-info.class, ...) cannot collide.
+                spec.from(archives.zipTree(jarFile)) { sub ->
+                    sub.into(jarFile.name.replaceFirst(/\.jar$/, ''))
+                }
+            }
+        }
+    }
+}
+
+def coverageSubprojects = subprojects.findAll { sp ->
+    sp.name != 'examples' &&
+        sp.name != 'fdb-record-layer-core-shaded' &&
+        sp.name != 'fdb-record-layer-jmh'
+}
+
+// Tasks that produce this report's raw inputs.
+// Use mustRunAfter, not dependsOn, so that we can download the jacoco/jar artifacts from parallel
+// jobs in our pull_request workflow, and then run codeCoverageReport to merge them without
+// rebuilding anything, while still getting the right order when the tests, the jars and the report
+// are all requested in a single invocation (such as our nightly builds).
+//
+// Note that everything below is resolved inside the `tasks.register` configuration closures rather
+// than here at script-evaluation time. Subprojects have not been evaluated yet while this file is
+// being read, so `sp.version` would still be 'unspecified' and `sp.tasks.withType(Test)` empty.
+def coverageInputTasks = {
+    def t = coverageSubprojects.collectMany { sp -> sp.tasks.withType(Test) }
+    t.addAll(coverageSubprojects.collectMany { sp -> sp.tasks.withType(Jar) })
+    return t
+}
+
+def coverageJars = {
+    coverageSubprojects.collect { sp ->
+        sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").get().asFile
+    }
+}
+
+def stagedClassesDir = { layout.buildDirectory.dir('coverage-classes').get().asFile }
+
+def stageCoverageClasses = tasks.register('stageCoverageClasses', StageCoverageClasses) {
+    // codeCoverageReport only mustRunAfter the jar tasks, so this task has to carry the same
+    // ordering constraint itself; `dependsOn` from codeCoverageReport is not enough to stop Gradle
+    // scheduling this before the jars are built.
+    mustRunAfter coverageInputTasks()
+    jars.setFrom(coverageJars())
+    outputDirectory.set(stagedClassesDir())
+}
+
 tasks.register('codeCoverageReport', JacocoReport) {
-    def coverageSubprojects = subprojects.findAll { sp ->
-        sp.name != 'examples' &&
-            sp.name != 'fdb-record-layer-core-shaded' &&
-            sp.name != 'fdb-record-layer-jmh'
-    }
+    // fileTree(stagedClassesDir) below carries no producer information, so the dependency on the
+    // task that populates it has to be declared explicitly.
+    dependsOn stageCoverageClasses
+    mustRunAfter coverageInputTasks()
 
-    // Add dependencies on test tasks that generate jacoco execution data
-    // use mustRunAfter so that we can download the jacoco/jar artifacts from parallel jobs
-    // in our pull_request workflow, and then run codeCoverageReport to merge, but this
-    // enforces the order, so that if you run the tests and codeCoverageReport in the same
-    // run (such as our nightly builds), gradle won't complain about implicit dependencies.
-    def t = coverageSubprojects.collectMany { sp ->
-        sp.tasks.withType(Test)
-    }
-    t.addAll(coverageSubprojects.collectMany { sp ->
-        sp.tasks.withType(Jar)
-    })
-
-    mustRunAfter t
     def data = coverageSubprojects.collectMany { sp ->
         sp.tasks.withType(Test).collect { testTask -> testTask.jacoco.destinationFile }
     }
@@ -158,24 +235,44 @@ tasks.register('codeCoverageReport', JacocoReport) {
         "**/generated/*", "**/grpc/v1/**/*"
     ]
 
-    // Since CI skips building/testing subprojects that a PR's diff couldn't have affected
-    // (see the `plan` job in pull_request.yml), not every coverageSubproject's jar is guaranteed
-    // to exist when this task runs against downloaded artifacts. Referencing a missing one via
-    // zipTree fails the build outright, so only include the built ones.
-    def builtSubprojects = coverageSubprojects.findAll { sp ->
-        sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").get().asFile.exists()
-    }
-
-    classDirectories.setFrom(builtSubprojects.collect { sp ->
-        sp.layout.buildDirectory.file("libs/${sp.name}-${sp.version}.jar").map { jf ->
-            zipTree(jf).matching {
-                exclude exclusions
-            }
-        }
+    // Two constraints have to hold simultaneously here, and the naive implementations satisfy only
+    // one of them:
+    //
+    //  1. A single-invocation build (`jar test ... codeCoverageReport`, see nightly.yml) starts
+    //     from a clean checkout, so NO jar exists while this task is being configured. Anything
+    //     that decides what to analyze during configuration -- or, with the configuration cache,
+    //     while the cache entry is being stored, which is also before any task runs -- yields an
+    //     empty report.
+    //  2. CI skips building/testing subprojects that a PR's diff could not have affected (see the
+    //     `plan` job in pull_request.yml), so some jars legitimately never exist. Referencing a
+    //     missing jar through zipTree fails the build outright as soon as this task's inputs are
+    //     fingerprinted, so those have to be dropped rather than analyzed.
+    //
+    // stageCoverageClasses reconciles the two: it performs the existence check in its @TaskAction,
+    // that is, at execution time and after the jar tasks, and explodes whatever it finds. What is
+    // left here is a directory-backed fileTree, which is the one file-collection primitive that is
+    // both lazy under the configuration cache (it is serialized as a directory plus pattern spec
+    // and walked when this task's inputs are fingerprinted) and tolerant of a missing directory,
+    // which yields an empty tree rather than an error.
+    classDirectories.setFrom(fileTree(stagedClassesDir()) {
+        exclude exclusions
     })
 
-    // These can come from source tree.
-    sourceDirectories.setFrom(files(builtSubprojects.sourceSets.main.allSource.srcDirs))
+    // These come from the source tree, so they are listed for every coverage subproject whether or
+    // not it was built: JaCoCo filters out source directories it has no analyzed classes for.
+    //
+    // Only the checked-in *Java* source directories, though. Resource directories are of no use to
+    // JaCoCo, and both they and the generated sources (protobuf under `.out/generated`, the
+    // version properties under `fdb-relational-api/src/gen`) are task outputs, so naming them here
+    // makes Gradle demand a dependency on generateProto/compileJava/createVersionPropertiesFile.
+    // That would force a compile in exactly the coverage-only CI jobs that deliberately run
+    // against downloaded jars. Generated classes are excluded from classDirectories above anyway,
+    // so there is nothing to map them back to.
+    def sourceDirs = coverageSubprojects.collectMany { sp ->
+        def buildPath = sp.layout.buildDirectory.get().asFile.toPath()
+        sp.sourceSets.main.java.srcDirs.findAll { !it.toPath().startsWith(buildPath) }
+    }
+    sourceDirectories.setFrom(files(sourceDirs))
 
     reports {
         xml.required = true
@@ -191,11 +288,6 @@ tasks.register('codeCoverageReport', JacocoReport) {
 // subproject jars. This task only creates files that don't already exist, so it never clobbers
 // real coverage data and is a no-op on normal test/coverage runs.
 tasks.register('createEmptyCoverageData') {
-    def coverageSubprojects = subprojects.findAll { sp ->
-        sp.name != 'examples' &&
-            sp.name != 'fdb-record-layer-core-shaded' &&
-            sp.name != 'fdb-record-layer-jmh'
-    }
     // Resolve the destination files to plain File objects at configuration time (mirroring how
     // codeCoverageReport builds its executionData) so the doLast action captures only a
     // serializable List<File> and stays compatible with the configuration cache.

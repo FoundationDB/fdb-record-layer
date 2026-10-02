@@ -658,7 +658,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case LESS_THAN_OR_EQUALS:
                     return Range.atMost(boundary);
                 case EQUALS: // fallthrough
-                case IS_NULL:
+                case IS_NULL: // fallthrough
+                case NOT_DISTINCT_FROM:
                     return Range.singleton(boundary);
                 default:
                     throw new RecordCoreException("cannot transform comparison to range").addLogInfo(LogMessageKeys.COMPARISON_VALUE, comparison);
@@ -730,6 +731,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             allowedComparisonTypes.add(Comparisons.Type.EQUALS);
             allowedComparisonTypes.add(Comparisons.Type.IS_NULL);
             allowedComparisonTypes.add(Comparisons.Type.NOT_NULL);
+            allowedComparisonTypes.add(Comparisons.Type.NOT_DISTINCT_FROM);
         }
 
         @Nonnull

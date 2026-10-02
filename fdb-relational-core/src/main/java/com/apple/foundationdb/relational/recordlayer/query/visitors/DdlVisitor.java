@@ -39,7 +39,6 @@ import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -55,6 +54,7 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.ExtremumEverStorage;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationOptions;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
@@ -257,7 +257,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
         final var indexId = visitUid(indexDefinitionContext.indexName);
 
         final var ddlCatalog = metadataBuilder.build();
@@ -272,12 +272,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 indexId.getName(), new IndexGenerationOptions(isUnique, containsNullableArray, false,
                         ExtremumEverStorage.ofLegacyAttribute(useLegacyBasedExtremumEver)));
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate().build();
+        return generator.generate();
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -310,12 +310,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate().build();
+        return indexGeneratorBuilder.build().generate();
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -362,7 +362,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate().setIndexType(IndexTypes.VECTOR).build();
+        final var result = indexGeneratorBuilder.build().generate();
+        result.indexBuilder().setIndexType(IndexTypes.VECTOR);
+        return result;
     }
 
     @Nonnull
@@ -556,12 +558,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var view = getViewMetadata(viewClause, metadataBuilder.build());
             metadataBuilder.addView(view);
         });
-        final var indexes = indexClauses.build().stream().map(clause -> Assert.castUnchecked(visit(clause), RecordLayerIndex.class)).collect(ImmutableList.toImmutableList());
-        for (final RecordLayerIndex index : indexes) {
-            final var table = metadataBuilder.extractTable(index.getTableName());
-            final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
-            metadataBuilder.addTable(tableWithIndex);
-        }
+        indexClauses.build().forEach(clause ->
+                Assert.castUnchecked(visit(clause), IndexGenerationResult.class).registerOn(metadataBuilder));
         return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 
@@ -779,9 +777,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // TODO: we should not disable literal processing for temporary macro functions, but UserDefinedMacroFunction
             //       doesn't support serializing its literals yet. This will be done as part of
             //       https://github.com/FoundationDB/fdb-record-layer/issues/4306.
-            final var bodyValue = Assert.castUnchecked(
-                    getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
-                            () -> visit(bodyCtx)), Expression.class).getUnderlying();
+            final int numOperators = fragment.getLogicalOperators().size();
+            final var bodyValue = visitWithDisabledLiteralProcessing(bodyCtx, Expression.class).getUnderlying();
+            // Reject subqueries in the body of a macro function. A subquery registers an operator in the plan fragment,
+            // which the body value would not range over.
+            Assert.thatUnchecked(
+                    fragment.getLogicalOperators().size() == numOperators,
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    "subqueries in the body of a macro function are not supported");
             finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyValue(bodyValue);
         } else {
             Assert.thatUnchecked(bodyCtx instanceof RelationalParser.StatementBodyContext,
@@ -792,9 +795,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             if (isTemporary) {
                 bodyOperator = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
             } else {
-                bodyOperator = Assert.castUnchecked(
-                        getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
-                                () -> visit(bodyCtx)), LogicalOperator.class);
+                bodyOperator = visitWithDisabledLiteralProcessing(bodyCtx, LogicalOperator.class);
             }
             finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyExpression(bodyOperator.getQuantifier().getRangesOver().get())
                     .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
@@ -859,6 +860,21 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(ctx.returnsTableType(), ErrorCode.UNSUPPORTED_OPERATION,
                 "table return type is not supported");
         return lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
+    }
+
+    /**
+     * Visits the given parse tree with literal processing disabled. For convenience, also casts the result of the
+     * visitation to the expected class.
+     *
+     * @param ctx the parse tree to visit
+     * @param resultClass the expected class of the result of the visitation
+     * @param <T> the type of the result of the visitation
+     * @return the result of the visitation
+     */
+    @Nonnull
+    private <T> T visitWithDisabledLiteralProcessing(@Nonnull ParserRuleContext ctx, @Nonnull Class<T> resultClass) {
+        final Object result = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visit(ctx));
+        return Assert.castUnchecked(result, resultClass);
     }
 
     @Nonnull

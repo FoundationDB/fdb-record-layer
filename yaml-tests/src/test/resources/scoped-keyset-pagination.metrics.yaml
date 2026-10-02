@@ -1,0 +1,35 @@
+scoped-keyset-pagination-tests:
+-   query: EXPLAIN SELECT id, ts FROM scoped_item_view(scope_id => ?) WHERE (ts =
+        ? AND id > ?) OR (ts > ?) ORDER BY ts DESC, id DESC
+    ref: scoped-keyset-pagination.yamsql:67
+    explain: ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG),
+        EQUALS promote(@c15 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE)
+        | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false ∪ ISCAN(SCOPED_ITEM_SCOPE_TS_IDX
+        [NOT_DISTINCT_FROM promote(@c9 AS LONG), [GREATER_THAN promote(@c15 AS LONG)]]
+        REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false
+        COMPARE BY (_.TS, _.ID) | MAP (_.ID AS ID, _.TS AS TS)
+    task_count: 2003
+    task_total_time_ms: 394
+    transform_count: 537
+    transform_time_ms: 224
+    transform_yield_count: 134
+    insert_time_ms: 26
+    insert_new_count: 248
+    insert_reused_count: 20
+-   query: EXPLAIN SELECT id, ts FROM scoped_item_view(scope_id => ?) WHERE (ts =
+        ? AND id > ?) OR (ts > ?) ORDER BY ts DESC, id DESC
+    ref: scoped-keyset-pagination.yamsql:83
+    explain: ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM NULL, EQUALS promote(@c15
+        AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE) | FILTER _.SCOPE.DELETED
+        IS_NULL OR _.SCOPE.DELETED EQUALS false ∪ ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM
+        NULL, [GREATER_THAN promote(@c15 AS LONG)]] REVERSE) | FILTER _.SCOPE.DELETED
+        IS_NULL OR _.SCOPE.DELETED EQUALS false COMPARE BY (_.TS, _.ID) | MAP (_.ID
+        AS ID, _.TS AS TS)
+    task_count: 2003
+    task_total_time_ms: 394
+    transform_count: 537
+    transform_time_ms: 224
+    transform_yield_count: 134
+    insert_time_ms: 26
+    insert_new_count: 248
+    insert_reused_count: 20

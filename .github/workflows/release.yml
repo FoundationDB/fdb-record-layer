@@ -366,7 +366,7 @@ jobs:
         # Only create the PR if we've otherwise been successful, but the push failed. Note that
         # we're checking the .outcome of the push step, which is applied before continue-on-error.
         if: success() && steps.push_updates.outcome == 'failure'
-        uses: peter-evans/create-pull-request@c9f8b51aaac1dfba340a97878061732b0e738ec1
+        uses: peter-evans/create-pull-request@11e8dc7c9cc95aabee9cfaa85faaec8b50907340
         id: pr_on_conflict
         with:
           branch: release-build
@@ -421,4 +421,4 @@ jobs:
         shell: bash
         run: echo "${{ needs.get-update-type.outputs.update-type }}"
       - name: Deploy Documentation
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

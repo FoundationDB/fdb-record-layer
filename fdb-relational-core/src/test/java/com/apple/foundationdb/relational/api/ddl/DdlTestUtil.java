@@ -26,8 +26,13 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
+import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
+import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
@@ -45,12 +50,77 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class DdlTestUtil {
+
+    /**
+     * Asserts that planning the given DDL is rejected, with the given error code and a message containing
+     * {@code errorMessage}.
+     *
+     * @param connection the connection to plan against
+     * @param schemaTemplateName the name of the schema template in the catalog
+     * @param databaseUri the database URI to plan against
+     * @param query the DDL statement expected to be rejected
+     * @param errorCode the expected error code
+     * @param errorMessage a substring the rejection message has to contain
+     * @throws Exception if anything other than planning fails
+     */
+    static void shouldFailWith(@Nonnull final RelationalConnectionRule connection,
+                               @Nonnull final String schemaTemplateName,
+                               @Nonnull final String databaseUri,
+                               @Nonnull final String query,
+                               @Nonnull final ErrorCode errorCode,
+                               @Nonnull final String errorMessage) throws Exception {
+        connection.setAutoCommit(false);
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        final RelationalException ve = assertThrows(RelationalException.class, () ->
+                getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), schemaTemplateName, databaseUri)
+                        .getPlan(query));
+        assertEquals(errorCode, ve.getErrorCode());
+        assertTrue(ve.getMessage().contains(errorMessage),
+                String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't",
+                        ve.getMessage(), errorMessage));
+        connection.rollback();
+        connection.setAutoCommit(true);
+    }
+
+    /**
+     * Plans and executes the given DDL with an injected metadata factory, so that any assertions the
+     * factory makes run against the schema template the statement builds, inside the transaction.
+     *
+     * @param connection the connection to plan against
+     * @param schemaTemplateName the name of the schema template in the catalog
+     * @param databaseUri the database URI to plan against
+     * @param query the DDL statement
+     * @param metadataOperationsFactory the factory holding the assertions
+     * @throws Exception if planning or execution fails
+     */
+    static void shouldWorkWithInjectedFactory(@Nonnull final RelationalConnectionRule connection,
+                                             @Nonnull final String schemaTemplateName,
+                                             @Nonnull final String databaseUri,
+                                             @Nonnull final String query,
+                                             @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+        connection.setAutoCommit(false);
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
+        final var plan = getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), schemaTemplateName, databaseUri,
+                metadataOperationsFactory, PreparedParams.empty(),
+                Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build()).getPlan(query);
+        // execute the plan so we run any extra test-driven verifications within the transactional closure.
+        plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
+                StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext())));
+        connection.rollback();
+        connection.setAutoCommit(true);
+    }
 
     @Nonnull
     static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,

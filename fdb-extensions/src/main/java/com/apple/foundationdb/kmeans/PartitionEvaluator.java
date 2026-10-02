@@ -59,10 +59,11 @@ public class PartitionEvaluator {
      *           - gammaImbalancePenalty * imbalancePenalty
      *           - deltaLowMarginPenalty * lowMarginPenalty
      * }</pre>
-     * Hard rejects are applied first ({@code minSmallestFrac}, {@code maxLargestFrac}, candidate
+     * Hard rejects are applied first ({@code minChildFraction}, {@code maxRelativeImbalance}, candidate
      * separation/low-margin thresholds when {@code candidate.k() >= 2}, and the absolute
      * {@code minRelativeSseGain}/{@code minScoreGain} floors); only if all of those pass is the
-     * candidate accepted.
+     * candidate accepted. Of these, only {@code minChildFraction} yields
+     * {@link Decision#INVALID_CANDIDATE}; the rest yield {@link Decision#KEEP_CURRENT}.
      * <p>
      * Symmetric handling: separation and low-margin rate are undefined when {@code k < 2}; this
      * method treats them as {@code 0} in the score formula and skips the corresponding hard
@@ -107,7 +108,10 @@ public class PartitionEvaluator {
         final double separationGain = nanToZero(candidateStats.separation()) - nanToZero(currentStats.separation());
         final double lowMarginPenalty =
                 Math.max(0.0d, nanToZero(candidateStats.lowMarginRate()) - nanToZero(currentStats.lowMarginRate()));
-        final double imbalancePenalty = Math.max(0.0d, candidateStats.imbalance() - currentStats.imbalance());
+        // Normalized on both sides: raw imbalance maxes out at (k-1)/k, so differencing it across a transition that
+        // changes k would charge the candidate for having more clusters rather than for being less balanced.
+        final double imbalancePenalty =
+                Math.max(0.0d, candidateStats.relativeImbalance() - currentStats.relativeImbalance());
 
         final double scoreGain =
                 parameters.alphaSseGain() * relativeSseGain +
@@ -117,19 +121,20 @@ public class PartitionEvaluator {
 
         final String transitionKind = "[" + current.k() + " → " + candidate.k() + "]";
 
-        if (candidateStats.smallestFrac() < parameters.minSmallestFrac()) {
+        if (candidateStats.smallestFrac() < parameters.minChildFraction()) {
             return invalid(currentStats, candidateStats, relativeSseGain, scoreGain,
                     transitionKind + " smallest cluster too small");
         }
-        if (candidateStats.largestFrac() > parameters.maxLargestFrac()) {
+        if (candidateStats.relativeImbalance() > parameters.maxRelativeImbalance()) {
             return keepCurrent(currentStats, candidateStats, relativeSseGain, scoreGain,
-                    transitionKind + " largest cluster too large");
+                    transitionKind + " candidate too imbalanced");
         }
 
         //
         // Separation and low-margin are undefined for a single-centroid candidate; the caller can
-        // still control whether such a candidate is acceptable through minRelativeSseGain,
-        // minScoreGain and minSmallestFrac/maxLargestFrac.
+        // still control whether such a candidate is acceptable through minRelativeSseGain and
+        // minScoreGain. The balance gates cannot reject it: a lone cluster has smallestFrac 1.0 and
+        // relativeImbalance 0.
         //
         if (candidate.k() >= 2) {
             if (Double.isNaN(candidateStats.separation()) ||
@@ -199,7 +204,7 @@ public class PartitionEvaluator {
     /**
      * Builds a {@link Decision#INVALID_CANDIDATE} {@link EvaluationResult} and logs the decision
      * and both partitions' statistics. Used for candidates that violate a structural hard reject
-     * (currently: smallest cluster fraction below {@code minSmallestFrac}).
+     * (currently: smallest cluster fraction below {@code minChildFraction}).
      *
      * @param currentStats statistics of the current partitioning
      * @param candidateStats statistics of the candidate partitioning
@@ -838,6 +843,28 @@ public class PartitionEvaluator {
                                  double smallestFrac, double maxRadius95, double medianMargin, double p10Margin,
                                  double lowMarginRate) {
         /**
+         * Returns {@link #imbalance()} rescaled to {@code [0, 1]} so that partitionings with different {@code k} are
+         * directly comparable.
+         * <p>
+         * {@code imbalance} is {@code Σ(fᵢ − 1/k)²}, the summed squared deviation of each cluster's share from its
+         * fair share. Its maximum is not 1 but {@code (k−1)/k} — attained when one cluster holds everything — so the
+         * raw value silently means different things at different {@code k}. Dividing by that maximum yields 0 for a
+         * perfectly even partitioning and 1 for a fully degenerate one, whatever {@code k} is.
+         * <p>
+         * A single-cluster partitioning is perfectly balanced by definition, so this is {@code 0} for {@code k == 1}
+         * rather than the {@code 0/0} the formula would otherwise produce. That is what lets a merge-to-one candidate
+         * pass any balance gate.
+         *
+         * @return the imbalance as a fraction of the worst achievable imbalance for this {@code k}
+         */
+        public double relativeImbalance() {
+            if (k < 2) {
+                return 0.0d;
+            }
+            return imbalance * k / (k - 1.0d);
+        }
+
+        /**
          * Logs every component of these stats at debug level, prefixed with
          * {@code messagePrefix}. No-op when debug logging is disabled on {@code logger}.
          *
@@ -846,9 +873,9 @@ public class PartitionEvaluator {
          */
         public void log(@Nonnull final Logger logger, @Nonnull final String messagePrefix) {
             if (logger.isTraceEnabled()) {
-                logger.trace("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
-                                ", maxRadius95={}, medianMargin={}, p10Margin={}, lowMarginRate={}",
-                        messagePrefix, k, sse, imbalance, separation, largestFrac, smallestFrac,
+                logger.trace("{} k={}, sse={}, imbalance={}, relativeImbalance={}, separation={}, largestFrac={}" +
+                                ", smallestFrac={}, maxRadius95={}, medianMargin={}, p10Margin={}, lowMarginRate={}",
+                        messagePrefix, k, sse, imbalance, relativeImbalance(), separation, largestFrac, smallestFrac,
                         maxRadius95, medianMargin, p10Margin, lowMarginRate);
             }
         }
@@ -858,13 +885,16 @@ public class PartitionEvaluator {
      * Tuning parameters that control when a candidate repartitioning is accepted or rejected, and
      * how the composite quality score is computed.
      * <p>
-     * The {@code minSmallestFrac} and {@code maxLargestFrac} thresholds apply to the candidate
-     * regardless of {@code k}; for a single-cluster candidate (k == 1) both
-     * {@code smallestFrac} and {@code largestFrac} are trivially {@code 1.0}, so callers should
-     * keep {@code minSmallestFrac <= 1.0} and {@code maxLargestFrac >= 1.0} if they want merges
-     * to a single cluster to be admissible. Callers should pick {@code minSmallestFrac} and
-     * {@code maxLargestFrac} based on their transition (e.g. tighter for an initial 1 → 2 split,
-     * looser for 2 → 3 or for merges).
+     * Balance is policed by two thresholds that deliberately measure different things.
+     * {@code minChildFraction} is a plain fraction because it stands in for an absolute vector count — "do not
+     * produce a cluster too small to be worth having" — and the population being partitioned does not depend on
+     * {@code k}. {@code maxRelativeImbalance} is normalized by {@code k} because spread does: the worst achievable
+     * {@link PartitionStats#imbalance()} is {@code (k−1)/k}, so only the rescaled
+     * {@link PartitionStats#relativeImbalance()} means the same thing at every {@code k}.
+     * <p>
+     * Both are safe for a single-cluster candidate without special-casing by the caller: {@code smallestFrac} is
+     * {@code 1.0} and {@code relativeImbalance()} is {@code 0}, so a merge to one cluster passes any setting of
+     * either. That is what makes a fallback merge structurally immune to the balance gates.
      *
      * @param distanceEstimator the distance estimator used for all distance computations
      * @param minRelativeSseGain minimum relative SSE (sum of squared errors) improvement required;
@@ -874,10 +904,12 @@ public class PartitionEvaluator {
      *        has fewer than two clusters
      * @param maxLowMarginRate maximum fraction of vectors with low assignment margin; not checked
      *        when the candidate has fewer than two clusters
-     * @param minSmallestFrac minimum fraction of vectors in the candidate's smallest cluster;
-     *        candidates that violate this are reported as {@link Decision#INVALID_CANDIDATE}
-     * @param maxLargestFrac maximum fraction of vectors in the candidate's largest cluster;
-     *        candidates that violate this are reported as {@link Decision#KEEP_CURRENT}. Use
+     * @param minChildFraction minimum fraction of vectors in the candidate's smallest cluster;
+     *        candidates that violate this are reported as {@link Decision#INVALID_CANDIDATE}. This is the only
+     *        balance threshold that can invalidate a candidate outright, so callers that must always have some
+     *        admissible candidate should keep it low. Use {@code 0.0} to disable.
+     * @param maxRelativeImbalance maximum {@link PartitionStats#relativeImbalance()} the candidate may have, in
+     *        {@code [0, 1]}; candidates that violate this are reported as {@link Decision#KEEP_CURRENT}. Use
      *        {@code 1.0} to disable this check.
      * @param lowMarginThreshold distance threshold below which a vector's assignment margin is
      *        considered "low"; if non-positive, a metric-dependent default is used
@@ -890,32 +922,51 @@ public class PartitionEvaluator {
      *        current partitioning to be accepted
      */
     public record Parameters(@Nonnull DistanceEstimator distanceEstimator, double minRelativeSseGain, double minSeparation,
-                             double maxLowMarginRate, double minSmallestFrac, double maxLargestFrac,
+                             double maxLowMarginRate, double minChildFraction, double maxRelativeImbalance,
                              double lowMarginThreshold, double alphaSseGain, double betaSeparationGain,
                              double gammaImbalancePenalty, double deltaLowMarginPenalty, double minScoreGain) {
+        /** Default minimum relative SSE improvement a candidate must show. */
+        public static final double DEFAULT_MIN_RELATIVE_SSE_GAIN = 0.10d;
+        /** Default inter-cluster separation floor. */
+        public static final double DEFAULT_MIN_SEPARATION = 0.3d;
+        /** Default ceiling on the fraction of vectors sitting near a cluster boundary. */
+        public static final double DEFAULT_MAX_LOW_MARGIN_RATE = 0.25d;
+        /** Default floor on the smallest cluster's share; see {@link #minChildFraction()}. */
+        public static final double DEFAULT_MIN_CHILD_FRACTION = 0.015d;
+        /** Default ceiling on {@link PartitionStats#relativeImbalance()}; {@code 1.0} disables the check. */
+        public static final double DEFAULT_MAX_RELATIVE_IMBALANCE = 1.0d;
+        /** Sentinel selecting the metric-dependent low-margin threshold. */
+        public static final double DEFAULT_LOW_MARGIN_THRESHOLD = -1.0d;
+        /** Default weight of the SSE-gain term in the composite score. */
+        public static final double DEFAULT_ALPHA_SSE_GAIN = 1.0d;
+        /** Default weight of the separation-gain term in the composite score. */
+        public static final double DEFAULT_BETA_SEPARATION_GAIN = 0.5d;
+        /** Default weight of the imbalance-penalty term in the composite score. */
+        public static final double DEFAULT_GAMMA_IMBALANCE_PENALTY = 1.0d;
+        /** Default weight of the low-margin-penalty term in the composite score. */
+        public static final double DEFAULT_DELTA_LOW_MARGIN_PENALTY = 0.75d;
+        /** Default minimum composite score improvement required to accept a candidate. */
+        public static final double DEFAULT_MIN_SCORE_GAIN = 0.05d;
+
         /**
-         * Convenience constructor that picks a moderately permissive set of defaults: 10%
-         * minimum relative SSE gain, separation floor of 0.3, max low-margin rate of 25%, smallest
-         * cluster fraction of 1.5%, no upper bound on the largest cluster, metric-default
-         * {@code lowMarginThreshold}, and the score weights
-         * {@code (alpha=1.0, beta=0.5, gamma=1.0, delta=0.75)} with a {@code minScoreGain} of
-         * {@code 0.05}. Tighten or loosen via the canonical constructor as needed.
+         * Convenience constructor that picks a moderately permissive set of defaults, each named by a
+         * {@code DEFAULT_*} constant above. Tighten or loosen via the canonical constructor as needed.
          *
          * @param distanceEstimator the distance estimator used for all distance computations
          */
         public Parameters(@Nonnull final DistanceEstimator distanceEstimator) {
             this(distanceEstimator,
-                    0.10d,
-                    0.3d,
-                    0.25d,
-                    0.015d,
-                    1.0d,
-                    -1.0d,
-                    1.0d,
-                    0.5d,
-                    1.0d,
-                    0.75d,
-                    0.05);
+                    DEFAULT_MIN_RELATIVE_SSE_GAIN,
+                    DEFAULT_MIN_SEPARATION,
+                    DEFAULT_MAX_LOW_MARGIN_RATE,
+                    DEFAULT_MIN_CHILD_FRACTION,
+                    DEFAULT_MAX_RELATIVE_IMBALANCE,
+                    DEFAULT_LOW_MARGIN_THRESHOLD,
+                    DEFAULT_ALPHA_SSE_GAIN,
+                    DEFAULT_BETA_SEPARATION_GAIN,
+                    DEFAULT_GAMMA_IMBALANCE_PENALTY,
+                    DEFAULT_DELTA_LOW_MARGIN_PENALTY,
+                    DEFAULT_MIN_SCORE_GAIN);
         }
     }
 

@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -229,6 +230,15 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Nonnull
         @Override
         public Cardinalities visitRecordQueryCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+            if (!(coveringIndexPlan.getIndexPlan() instanceof RecordQueryIndexPlan)) {
+                return Cardinalities.unknownMaxCardinality();
+            }
+            return visitRecordQueryIndexPlan((RecordQueryIndexPlan)coveringIndexPlan.getIndexPlan());
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecordQueryCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
             if (!(coveringIndexPlan.getIndexPlan() instanceof RecordQueryIndexPlan)) {
                 return Cardinalities.unknownMaxCardinality();
             }

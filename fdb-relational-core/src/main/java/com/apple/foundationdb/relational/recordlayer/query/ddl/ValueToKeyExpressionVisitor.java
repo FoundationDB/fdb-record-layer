@@ -76,6 +76,26 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
  * aggregate index is everything in the projection other than the single aggregate. Sort direction comes from the caller,
  * as an ordering function per column.
  * </p>
+ * <p>
+ * <b>Collapsing.</b> Key columns whose field paths share a prefix can be written in either of two ways. Collapsed, the
+ * shared prefix is navigated once and the columns hang underneath it; uncollapsed, every column is navigated from the
+ * root on its own:
+ * </p>
+ * <pre>{@code
+ * // collapsed
+ * field("A", FanOut).nest(concat(field("COL2"), field("COL3")))
+ * // uncollapsed
+ * concat(field("A", FanOut).nest(field("COL2")),
+ *        field("A", FanOut).nest(field("COL3")))
+ * }</pre>
+ * <p>
+ * The two diverge as soon as the shared prefix crosses a repeated field, since a navigation carrying a {@code FanOut}
+ * enumerates the array it steps into: collapsed, a single enumeration puts {@code COL2} and {@code COL3} of the same
+ * element in one entry; uncollapsed, two enumerations range independently and the entries are their cross product.
+ * Crossing no repeated field, the two stand for the same entries and differ only in shape. Collapsing also groups by
+ * prefix rather than by position, so it keeps the requested key order only where the columns sharing a prefix are
+ * adjacent. Which form is wanted does not follow from the values alone, so it is the caller's to choose.
+ * </p>
  */
 final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpression> {
 
@@ -108,10 +128,18 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
     @Nonnull
     private String indexType = IndexTypes.VALUE;
 
+    /**
+     * Whether a run of adjacent field paths may be collapsed under its shared prefix, as {@code r.s.a, r.s.b} into
+     * {@code field("R").nest(concat(A, B))}. See the class javadoc for when each form is the right one.
+     */
+    private final boolean allowCollapsing;
+
     private ValueToKeyExpressionVisitor(@Nonnull final Map<Value, String> orderingFunctions,
-                                        @Nonnull final ExtremumEverStorage extremumEverStorage) {
+                                        @Nonnull final ExtremumEverStorage extremumEverStorage,
+                                        final boolean allowCollapsing) {
         this.orderingFunctions = orderingFunctions;
         this.extremumEverStorage = extremumEverStorage;
+        this.allowCollapsing = allowCollapsing;
     }
 
     //
@@ -119,7 +147,10 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
     //
 
     /**
-     * Translates the result value of an index-defining select to the corresponding key expression and index type.
+     * Translates the result value of an index-defining select to the corresponding key expression and index type, for an
+     * index maintained from a stored table. A run of adjacent field paths is collapsed under its shared prefix, which is
+     * what a fan-out over a repeated field wants; {@link #translate(Value, Map, ExtremumEverStorage, boolean)} is the
+     * form to use when it must not be.
      *
      * @param value the result value of the select
      * @param orderingFunctions the ordering function per column, keyed by identity on the columns of {@code value}
@@ -131,7 +162,27 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
     public static Result translate(@Nonnull final Value value,
                                    @Nonnull final Map<Value, String> orderingFunctions,
                                    @Nonnull final ExtremumEverStorage extremumEverStorage) {
-        final var visitor = new ValueToKeyExpressionVisitor(orderingFunctions, extremumEverStorage);
+        return translate(value, orderingFunctions, extremumEverStorage, true);
+    }
+
+    /**
+     * Translates the result value of an index-defining select to the corresponding key expression and index type.
+     *
+     * @param value the result value of the select
+     * @param orderingFunctions the ordering function per column, keyed by identity on the columns of {@code value}
+     * @param extremumEverStorage which form an extremum-ever aggregate is stored in
+     * @param allowCollapsing whether a run of adjacent field paths may be collapsed under its shared prefix, as the class
+     * javadoc describes: true for an index on a stored table, where the collapsed navigation is the fan-out; false for
+     * one on an unnested synthetic table, whose constituents already hold one element each
+     *
+     * @return the key expression and the index type
+     */
+    @Nonnull
+    public static Result translate(@Nonnull final Value value,
+                                   @Nonnull final Map<Value, String> orderingFunctions,
+                                   @Nonnull final ExtremumEverStorage extremumEverStorage,
+                                   final boolean allowCollapsing) {
+        final var visitor = new ValueToKeyExpressionVisitor(orderingFunctions, extremumEverStorage, allowCollapsing);
         return new Result(Objects.requireNonNull(value.acceptVisitor(visitor)), visitor.indexType);
     }
 
@@ -277,8 +328,10 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
     //
 
     /**
-     * Combines sibling columns into one key expression. Adjacent {@link FieldValue}s nest under their shared prefix:
-     * {@code r.s.a, r.s.b} becomes {@code field("R").nest(concat(A, B))}.
+     * Combines sibling columns into one key expression, one component per column in key order, except that a run of
+     * adjacent {@link FieldValue}s may be collapsed under its shared prefix: {@code r.s.a, r.s.b} becomes
+     * {@code field("R").nest(concat(A, B))}. See the class javadoc for why collapsing is what an index on a stored table
+     * wants and what an index on an unnested synthetic table must not do.
      */
     @Nonnull
     private KeyExpression combine(@Nonnull final List<Value> values) {
@@ -288,14 +341,26 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
         if (values.size() == 1) {
             return ordered(values.get(0));
         }
-        // a run of adjacent field values forms one component; any other value forms its own
-        final List<FieldValueTrieNode> tries = new ArrayList<>(values.size());
         final List<KeyExpression> components = new ArrayList<>(values.size());
-        final PeekingIterator<Value> valueIterator = Iterators.peekingIterator(values.iterator());
-        while (valueIterator.hasNext()) {
-            components.add(valueIterator.peek() instanceof FieldValue
-                           ? nextFieldPaths(valueIterator, tries)
-                           : ordered(valueIterator.next()));
+        if (allowCollapsing) {
+            // a run of adjacent field values forms one component; any other value forms its own
+            final List<FieldValueTrieNode> tries = new ArrayList<>(values.size());
+            final PeekingIterator<Value> valueIterator = Iterators.peekingIterator(values.iterator());
+            while (valueIterator.hasNext()) {
+                components.add(valueIterator.peek() instanceof FieldValue
+                               ? nextFieldPaths(valueIterator, tries)
+                               : ordered(valueIterator.next()));
+            }
+        } else {
+            // Without the tries, the check they carry out -- that no field path is referenced from two disconnected key
+            // positions -- is not made here. For a constituent it is inverted anyway: referencing one twice is the whole
+            // point of the synthetic table. For a scalar array, which cannot be a constituent and so stays a fan-out, it
+            // still has to hold, and RecordLayerUnnestedSyntheticTableGenerator#checkSupported makes it instead. That
+            // leaves a non-repeated column at two key positions, which the tries reject only as a collision of map keys:
+            // with no fan-out involved, it is redundant rather than wrong.
+            for (final Value value : values) {
+                components.add(ordered(value));
+            }
         }
         return concatOf(components);
     }
@@ -383,10 +448,8 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
             indexType = IndexTypes.VERSION;
             return VersionKeyExpression.VERSION;
         }
-        // Protobuf storage references the storage name
-        final var storageName = Assert.notNullUnchecked(recordField.getFieldStorageName());
         if (!recordField.getFieldType().isArray()) {
-            return field(storageName, KeyExpression.FanType.None);
+            return field(storageName(accessor), KeyExpression.FanType.None);
         }
         // an array is indexable only through an unnest, which tags its accessor, or materialized whole
         Assert.thatUnchecked(accessor instanceof QuantifierValues.AnnotatedAccessor
@@ -394,12 +457,25 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
                 ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, cannot create index on array field '"
                         + recordField.getFieldName() + "' without unnesting");
-        return field(storageName, fanTypeForArray);
+        return field(storageName(accessor), fanTypeForArray);
     }
 
     private static boolean isRowVersion(@Nonnull final Type.Record.Field recordField) {
         return PseudoField.ROW_VERSION.getType().equals(recordField.getFieldType())
                 && PseudoField.ROW_VERSION.getFieldName().equals(recordField.getFieldName());
+    }
+
+    /**
+     * The name a field is referenced by in a key expression, which is its protobuf storage name rather than the name it
+     * was declared with.
+     *
+     * @param accessor one step of a field path
+     *
+     * @return the name to reference that field by
+     */
+    @Nonnull
+    static String storageName(@Nonnull final FieldValue.ResolvedAccessor accessor) {
+        return Assert.notNullUnchecked(accessor.getField().getFieldStorageName());
     }
 
     @Nonnull

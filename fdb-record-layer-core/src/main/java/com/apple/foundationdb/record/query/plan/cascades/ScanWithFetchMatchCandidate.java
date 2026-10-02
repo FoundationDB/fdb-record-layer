@@ -28,12 +28,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -143,6 +145,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         final var queriedRecordType = Iterables.getOnlyElement(queriedRecordTypes);
         final var builder = IndexKeyValueToPartialRecord.newBuilder(queriedRecordType);
         final var baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
+        final var covered = new IndexEntryToRecordValueHelper();
         final var logicalKeyValuesBuilder = ImmutableList.<Value>builder();
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
@@ -156,6 +159,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                         extractFromIndexEntryPair.getValue())) {
                     return Optional.empty();
                 }
+                recordCoveredField(covered, extractFromIndexEntryPair);
                 logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
             }
         }
@@ -173,6 +177,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                         extractFromIndexEntryPair.getValue())) {
                     return Optional.empty();
                 }
+                recordCoveredField(covered, extractFromIndexEntryPair);
                 logicalValueValuesBuilder.add(extractFromIndexEntryPair.getLeft());
             }
         }
@@ -183,51 +188,50 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
 
         return Optional.of(
                 new ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord(queriedRecordType, builder.build(),
-                        logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build()));
+                        logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build(),
+                        indexEntryToRecordValue(baseType, covered)));
     }
 
+    /**
+     * Records what the given extraction covers, descending a node per field of the path it fills, which may run into
+     * nested messages. Every name is present here, {@code addCoveringField} having already refused the extraction
+     * otherwise.
+     */
+    private static void recordCoveredField(@Nonnull final IndexEntryToRecordValueHelper covered,
+                                           @Nonnull final NonnullPair<FieldValue, Value> extraction) {
+        final var fieldValue = extraction.getKey();
+        var node = covered;
+        for (final var prefixFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
+            node = node.withChild(prefixFieldName.orElseThrow());
+        }
+        node.withChild(fieldValue.getLastFieldName().orElseThrow()).cover(extraction.getValue());
+    }
 
     /**
-     * Helper structure that allows us to precompute the mapping from index entry to the logical (partial record).
+     * The value reading an entry into the queried record, or {@code null} when one cannot be built and the copiers do the
+     * decoding instead. Nested covered fields need a value per submessage, which is not built yet.
      */
-    class IndexEntryToLogicalRecord {
-        @Nonnull
-        private final RecordType queriedRecordType;
-        @Nonnull
-        private final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord;
-        @Nonnull
-        private final List<Value> logicalKeyValues;
-        @Nonnull
-        private final List<Value> logicalValueValues;
-
-        public IndexEntryToLogicalRecord(@Nonnull final RecordType queriedRecordType,
-                                         @Nonnull final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord,
-                                         @Nonnull final List<Value> logicalKeyValues,
-                                         @Nonnull final List<Value> logicalValueValues) {
-            this.queriedRecordType = queriedRecordType;
-            this.indexKeyValueToPartialRecord = indexKeyValueToPartialRecord;
-            this.logicalKeyValues = logicalKeyValues;
-            this.logicalValueValues = logicalValueValues;
+    @Nullable
+    private static Value indexEntryToRecordValue(@Nonnull final Type baseType,
+                                                 @Nonnull final IndexEntryToRecordValueHelper covered) {
+        if (covered.getChildrenMap() == null || !(baseType instanceof Type.Record)) {
+            return null;
         }
+        return covered.toRecordValue((Type.Record)baseType);
+    }
 
-        @Nonnull
-        public RecordType getQueriedRecordType() {
-            return queriedRecordType;
-        }
-
-        @Nonnull
-        public IndexKeyValueToPartialRecord getIndexKeyValueToPartialRecord() {
-            return indexKeyValueToPartialRecord;
-        }
-
-        @Nonnull
-        public List<Value> getLogicalKeyValues() {
-            return logicalKeyValues;
-        }
-
-        @Nonnull
-        public List<Value> getLogicalValueValues() {
-            return logicalValueValues;
-        }
+    /**
+     * The precomputed mapping from an index entry to the logical (partial) record, both ways of decoding it.
+     *
+     * @param queriedRecordType the record type an entry decodes into
+     * @param indexKeyValueToPartialRecord the copiers that decode it
+     * @param logicalKeyValues what each entry key column reads from the record
+     * @param logicalValueValues what each entry value column reads from the record
+     * @param indexEntryToRecordValue the value that decodes it, or {@code null} if one cannot be built
+     */
+    record IndexEntryToLogicalRecord(@Nonnull RecordType queriedRecordType,
+                                     @Nonnull IndexKeyValueToPartialRecord indexKeyValueToPartialRecord,
+                                     @Nonnull List<Value> logicalKeyValues, @Nonnull List<Value> logicalValueValues,
+                                     @Nullable Value indexEntryToRecordValue) {
     }
 }

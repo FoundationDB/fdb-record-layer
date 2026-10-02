@@ -579,7 +579,6 @@ groupByItem
     : expression (AS? uid)? order=(ASC | DESC)? // in Relational we support named grouping columns.
     ;
 
-// done
 limitClause
     : LIMIT limit=limitClauseAtom (OFFSET offset=limitClauseAtom)?
     ;
@@ -598,6 +597,7 @@ statementOption
     | LOG QUERY
     | DRY RUN
     | PLAN RIGHT DEEP
+    | ISOLATION LEVEL SNAPSHOT
     ;
 
 // Transaction's Statements
@@ -1131,6 +1131,7 @@ aggregateWindowedFunction
         functionArg
         nullTreatmentClause?
         orderByClause?
+        aggregateLimitClause?
       ')' overClause?
     | functionName=GROUP_CONCAT '('
         aggregator=DISTINCT?
@@ -1142,6 +1143,10 @@ aggregateWindowedFunction
 
 nullTreatmentClause
     : nullTreatment=(IGNORE | RESPECT) NULLS
+    ;
+
+aggregateLimitClause
+    : LIMIT limit=decimalLiteral
     ;
 
 nonAggregateWindowedFunction

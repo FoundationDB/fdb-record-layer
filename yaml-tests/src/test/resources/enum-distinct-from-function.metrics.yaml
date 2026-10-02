@@ -1,0 +1,121 @@
+enum-distinct-from-function-tests:
+-   query: EXPLAIN SELECT * FROM NOT_HAPPY()
+    ref: enum-distinct-from-function.yamsql:70
+    explain: 'COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM
+        promote(''HAPPY'' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH'
+    task_count: 335
+    task_total_time_ms: 44
+    transform_count: 82
+    transform_time_ms: 16
+    transform_yield_count: 31
+    insert_time_ms: 2
+    insert_new_count: 39
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM HAPPY()
+    ref: enum-distinct-from-function.yamsql:74
+    explain: ISCAN(T_M_IDX [NOT_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1),
+        SAD(2)>)])
+    task_count: 332
+    task_total_time_ms: 43
+    transform_count: 80
+    transform_time_ms: 15
+    transform_yield_count: 32
+    insert_time_ms: 1
+    insert_new_count: 35
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM NEQ_HAPPY()
+    ref: enum-distinct-from-function.yamsql:79
+    explain: 'COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M NOT_EQUALS
+        promote(''HAPPY'' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH'
+    task_count: 335
+    task_total_time_ms: 168
+    transform_count: 82
+    transform_time_ms: 118
+    transform_yield_count: 31
+    insert_time_ms: 4
+    insert_new_count: 39
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM EQ_HAPPY()
+    ref: enum-distinct-from-function.yamsql:83
+    explain: ISCAN(T_M_IDX [EQUALS promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])
+    task_count: 332
+    task_total_time_ms: 168
+    transform_count: 80
+    transform_time_ms: 119
+    transform_yield_count: 32
+    insert_time_ms: 4
+    insert_new_count: 35
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM NOT_HAPPY_OR_LOW_ID()
+    ref: enum-distinct-from-function.yamsql:88
+    explain: 'COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.ID LESS_THAN
+        2 OR _.M IS_DISTINCT_FROM promote(''HAPPY'' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)
+        | FETCH'
+    task_count: 1078
+    task_total_time_ms: 121
+    transform_count: 228
+    transform_time_ms: 42
+    transform_yield_count: 73
+    insert_time_ms: 6
+    insert_new_count: 141
+    insert_reused_count: 19
+-   query: EXPLAIN SELECT * FROM NOT_MOOD('HAPPY')
+    ref: enum-distinct-from-function.yamsql:93
+    explain: 'COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM
+        promote(@c5 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH'
+    task_count: 446
+    task_total_time_ms: 167
+    transform_count: 107
+    transform_time_ms: 104
+    transform_yield_count: 42
+    insert_time_ms: 7
+    insert_new_count: 64
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM NOT_MOOD('SAD')
+    ref: enum-distinct-from-function.yamsql:97
+    explain: 'COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM
+        promote(@c5 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH'
+    task_count: 446
+    task_total_time_ms: 167
+    transform_count: 107
+    transform_time_ms: 104
+    transform_yield_count: 42
+    insert_time_ms: 7
+    insert_new_count: 64
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM NOT_HAPPY() WHERE ID > 2
+    ref: enum-distinct-from-function.yamsql:103
+    explain: SCAN([IS T, [GREATER_THAN promote(@c9 AS LONG)]]) | FILTER _.M IS_DISTINCT_FROM
+        promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)
+    task_count: 355
+    task_total_time_ms: 48
+    transform_count: 85
+    transform_time_ms: 18
+    transform_yield_count: 33
+    insert_time_ms: 2
+    insert_new_count: 41
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT * FROM T WHERE M IS DISTINCT FROM 'HAPPY'
+    ref: enum-distinct-from-function.yamsql:108
+    explain: 'COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM
+        promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH'
+    task_count: 312
+    task_total_time_ms: 38
+    transform_count: 77
+    transform_time_ms: 15
+    transform_yield_count: 29
+    insert_time_ms: 1
+    insert_new_count: 35
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM T WHERE M IS NOT DISTINCT FROM 'HAPPY'
+    ref: enum-distinct-from-function.yamsql:112
+    explain: ISCAN(T_M_IDX [NOT_DISTINCT_FROM promote(@c10 AS ENUM<JOYFUL(0), HAPPY(1),
+        SAD(2)>)])
+    task_count: 309
+    task_total_time_ms: 25
+    transform_count: 75
+    transform_time_ms: 11
+    transform_yield_count: 30
+    insert_time_ms: 1
+    insert_new_count: 31
+    insert_reused_count: 4

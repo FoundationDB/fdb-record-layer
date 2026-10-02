@@ -427,7 +427,7 @@ test_block:
     # characters '' and this was rejected as too long.
     -
       - query: select * from A WHERE A1 LIKE '''%' ESCAPE ''''
-      - supported_version: !current_version
+      - supported_version: 4.13.5.0
       - result: [{'%'}]
     -
       - query: select * from A WHERE A1 LIKE '\%'

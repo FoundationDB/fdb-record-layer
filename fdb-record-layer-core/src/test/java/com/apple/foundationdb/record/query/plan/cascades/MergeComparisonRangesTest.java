@@ -83,6 +83,58 @@ class MergeComparisonRangesTest {
     }
 
     /**
+     * {@code NOT_DISTINCT_FROM} (null-safe equality, i.e. {@code IS NOT DISTINCT FROM}) is
+     * semantically an equality comparison and must be usable as an equality-range boundary,
+     * just like {@code EQUALS}, so that it can be folded into an index scan.
+     */
+    @Test
+    void mergeNotDistinctFromIntoEmptyRangeProducesEqualityRangeWithNoResiduals() {
+        final Comparisons.Comparison ndf = ndf(5);
+        final ComparisonRange.MergeResult result = ComparisonRange.EMPTY.merge(ndf);
+
+        assertThat(result.getResidualComparisons())
+                .isEmpty();
+        assertThat(result.getComparisonRange().isEquality())
+                .isTrue();
+        assertThat(result.getComparisonRange().getEqualityComparison())
+                .isEqualTo(ndf);
+    }
+
+    /**
+     * {@code IS_DISTINCT_FROM} (the negation of null-safe equality) is semantically like
+     * {@code NOT_EQUALS}, not {@code EQUALS}: the set of matching rows is everything except (at
+     * most) one value, which isn't a contiguous range. Unlike {@code NOT_DISTINCT_FROM}, it must
+     * never be usable as a range boundary and should always remain a residual comparison.
+     */
+    @Test
+    void mergeIsDistinctFromAlwaysProducesResidual() {
+        final Comparisons.Comparison idf = idf(5);
+
+        // into EMPTY
+        final ComparisonRange.MergeResult fromEmpty = ComparisonRange.EMPTY.merge(idf);
+        assertThat(fromEmpty.getResidualComparisons())
+                .containsExactly(idf);
+        assertThat(fromEmpty.getComparisonRange().isEmpty())
+                .isTrue();
+
+        // into EQUALITY
+        final ComparisonRange equalityRange = ComparisonRange.from(eq(5));
+        final ComparisonRange.MergeResult fromEquality = equalityRange.merge(idf);
+        assertThat(fromEquality.getResidualComparisons())
+                .containsExactly(idf);
+        assertThat(fromEquality.getComparisonRange())
+                .isEqualTo(equalityRange);
+
+        // into INEQUALITY
+        final ComparisonRange inequalityRange = ComparisonRange.from(gt(3));
+        final ComparisonRange.MergeResult fromInequality = inequalityRange.merge(idf);
+        assertThat(fromInequality.getResidualComparisons())
+                .containsExactly(idf);
+        assertThat(fromInequality.getComparisonRange())
+                .isEqualTo(inequalityRange);
+    }
+
+    /**
      * A {@code NONE}-type comparison (e.g., NOT_EQUALS) cannot be merged into any range.
      * It is always returned as a residual and the range is unchanged.
      */
@@ -553,6 +605,14 @@ class MergeComparisonRangesTest {
 
     private static Comparisons.Comparison ne(int value) {
         return new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, value);
+    }
+
+    private static Comparisons.Comparison ndf(int value) {
+        return new Comparisons.SimpleComparison(Comparisons.Type.NOT_DISTINCT_FROM, value);
+    }
+
+    private static Comparisons.Comparison idf(int value) {
+        return new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, value);
     }
 
     private static Comparisons.Comparison gt(int value) {

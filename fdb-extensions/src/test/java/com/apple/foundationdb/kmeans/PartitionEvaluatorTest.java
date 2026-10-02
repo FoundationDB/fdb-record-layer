@@ -43,9 +43,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for {@link PartitionEvaluator}, with particular emphasis on the generalized parameter
- * surface (single {@code minSmallestFrac}/{@code maxLargestFrac} instead of per-{@code k} variants)
- * and on symmetric handling of {@code k == 1} on either side (splits, merges, and same-{@code k}
- * transitions).
+ * surface (a single {@code minChildFraction}/{@code maxRelativeImbalance} pair instead of
+ * per-{@code k} variants) and on symmetric handling of {@code k == 1} on either side (splits,
+ * merges, and same-{@code k} transitions).
  */
 class PartitionEvaluatorTest {
     private static final Logger logger = LoggerFactory.getLogger(PartitionEvaluatorTest.class);
@@ -171,8 +171,8 @@ class PartitionEvaluatorTest {
                 /*minRelativeSseGain*/ -10.0d,
                 /*minSeparation*/ 0.0d,
                 /*maxLowMarginRate*/ 1.0d,
-                /*minSmallestFrac*/ 0.0d,
-                /*maxLargestFrac*/ 1.0d,
+                /*minChildFraction*/ 0.0d,
+                /*maxRelativeImbalance*/ 1.0d,
                 /*lowMarginThreshold*/ -1.0d,
                 /*alphaSseGain*/ 1.0d,
                 /*betaSeparationGain*/ 0.0d,
@@ -262,8 +262,8 @@ class PartitionEvaluatorTest {
                 /*minRelativeSseGain*/ -10.0d,
                 /*minSeparation*/ Double.MAX_VALUE,
                 /*maxLowMarginRate*/ 0.0d,
-                /*minSmallestFrac*/ 0.0d,
-                /*maxLargestFrac*/ 1.0d,
+                /*minChildFraction*/ 0.0d,
+                /*maxRelativeImbalance*/ 1.0d,
                 /*lowMarginThreshold*/ -1.0d,
                 /*alphaSseGain*/ 1.0d,
                 /*betaSeparationGain*/ 1.0d,
@@ -307,8 +307,8 @@ class PartitionEvaluatorTest {
                 /*minRelativeSseGain*/ -10.0d,
                 /*minSeparation*/ 100.0d,
                 /*maxLowMarginRate*/ 1.0d,
-                /*minSmallestFrac*/ 0.0d,
-                /*maxLargestFrac*/ 1.0d,
+                /*minChildFraction*/ 0.0d,
+                /*maxRelativeImbalance*/ 1.0d,
                 /*lowMarginThreshold*/ -1.0d,
                 /*alphaSseGain*/ 1.0d, /*betaSeparationGain*/ 1.0d,
                 /*gammaImbalancePenalty*/ 1.0d, /*deltaLowMarginPenalty*/ 1.0d,
@@ -322,11 +322,11 @@ class PartitionEvaluatorTest {
         assertThat(result.reason()).contains("separation too low");
     }
 
-    // ---------------- minSmallestFrac flips ACCEPT to INVALID ----------------
+    // ---------------- minChildFraction flips ACCEPT to INVALID ----------------
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL})
-    void minSmallestFracTurnsImbalancedCandidateInvalid(final long seed) {
+    void minChildFractionTurnsImbalancedCandidateInvalid(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
         final List<RealVector> vectors = twoBlobs(rnd, 600);
 
@@ -344,26 +344,26 @@ class PartitionEvaluatorTest {
         final double candidateMinFrac = (double) candidateMin / vectors.size();
         assertThat(candidateMinFrac).isLessThan(0.10d);
 
-        // With a strict minSmallestFrac the candidate is INVALID.
-        final PartitionEvaluator.Parameters strict = withMinSmallestFrac(
+        // With a strict minChildFraction the candidate is INVALID.
+        final PartitionEvaluator.Parameters strict = withMinChildFraction(
                 new PartitionEvaluator.Parameters(EUCLIDEAN), 0.20d);
         assertThat(PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
                 Lens.identity(), strict).decision())
                 .isEqualTo(PartitionEvaluator.Decision.INVALID_CANDIDATE);
 
-        // With a permissive minSmallestFrac the candidate is no longer rejected on balance grounds.
-        final PartitionEvaluator.Parameters permissive = withMinSmallestFrac(
+        // With a permissive minChildFraction the candidate is no longer rejected on balance grounds.
+        final PartitionEvaluator.Parameters permissive = withMinChildFraction(
                 new PartitionEvaluator.Parameters(EUCLIDEAN), 0.0d);
         assertThat(PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
                 Lens.identity(), permissive).decision())
                 .isNotEqualTo(PartitionEvaluator.Decision.INVALID_CANDIDATE);
     }
 
-    // ---------------- maxLargestFrac flips ACCEPT to KEEP_CURRENT ----------------
+    // ---------------- maxRelativeImbalance flips ACCEPT to KEEP_CURRENT ----------------
 
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL})
-    void maxLargestFracTurnsAcceptIntoKeepCurrent(final long seed) {
+    void maxRelativeImbalanceTurnsAcceptIntoKeepCurrent(final long seed) {
         final SplittableRandom rnd = new SplittableRandom(seed);
         final List<RealVector> vectors = twoBlobs(rnd, 600);
 
@@ -375,8 +375,10 @@ class PartitionEvaluatorTest {
         final PartitionEvaluator.Partition<RealVector> candidate =
                 nearestPartition(twoCentroids, vectors, EUCLIDEAN);
 
-        final PartitionEvaluator.Parameters strict = withMaxLargestFrac(
-                new PartitionEvaluator.Parameters(EUCLIDEAN), 0.50d);
+        // At k == 2, relativeImbalance is the squared gap between the two shares, so a largestFrac
+        // of 0.5 corresponds to a threshold of exactly 0.
+        final PartitionEvaluator.Parameters strict = withMaxRelativeImbalance(
+                new PartitionEvaluator.Parameters(EUCLIDEAN), 0.0d);
         final PartitionEvaluator.Parameters defaultParams = new PartitionEvaluator.Parameters(EUCLIDEAN);
 
         final PartitionEvaluator.EvaluationResult tight =
@@ -386,22 +388,114 @@ class PartitionEvaluatorTest {
                 PartitionEvaluator.evaluate(vectors, current, vectors, candidate,
                         Lens.identity(), defaultParams);
 
-        // Either the largest is still <= 0.5 (then both decisions agree on ACCEPT) or the strict
-        // setting flips it to KEEP_CURRENT. Verify the latter scenario actually occurs under the
-        // 0.5 threshold by checking that the candidate's largestFrac is in fact > 0.5.
-        if (tight.candidateStats().largestFrac() > 0.50d) {
+        // Either the split is exactly even (then both decisions agree on ACCEPT) or the strict
+        // setting flips it to KEEP_CURRENT.
+        if (tight.candidateStats().relativeImbalance() > 0.0d) {
             assertThat(tight.decision()).isEqualTo(PartitionEvaluator.Decision.KEEP_CURRENT);
-            assertThat(tight.reason()).contains("largest cluster too large");
+            assertThat(tight.reason()).contains("too imbalanced");
             assertThat(relaxed.decision()).isEqualTo(PartitionEvaluator.Decision.ACCEPT_CANDIDATE);
         } else {
             assertThat(tight.decision())
-                    .as("if largestFrac <= 0.5 then 0.5 threshold should not flip the decision")
+                    .as("a perfectly even split should not be flipped by any threshold")
                     .isEqualTo(relaxed.decision());
         }
     }
 
-    // ---------------- both k == 1: no separation/margin contribution to the score ----------------
+    // ---------------- relativeImbalance orders candidates the old fraction pair misordered ----------------
 
+    /**
+     * Regression test for the gate this metric replaced. The old {@code minSmallestFrac} /
+     * {@code maxLargestFrac} pair was not monotone in balance: with the thresholds Guardiann used for a 2 → 3
+     * split (0.015 and 0.55) it <em>accepted</em> {@code (0.55, 0.435, 0.015)} while <em>rejecting</em>
+     * {@code (0.60, 0.20, 0.20)}, even though the latter is markedly more even. Judging both by their deviation
+     * from the fair {@code 1/k} share puts them in the right order.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void relativeImbalanceOrdersCandidatesTheFractionPairMisordered(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = twoBlobs(rnd, 1000);
+        assertThat(vectors).hasSize(2000);
+
+        // (0.55, 0.435, 0.015) — passed both old gates.
+        final PartitionEvaluator.PartitionStats lopsided = statsForSizes(vectors, 1100, 870, 30);
+        // (0.60, 0.20, 0.20) — failed the old maxLargestFrac gate at 0.55.
+        final PartitionEvaluator.PartitionStats evener = statsForSizes(vectors, 1200, 400, 400);
+
+        assertThat(lopsided.largestFrac()).isCloseTo(0.55d, org.assertj.core.data.Offset.offset(1.0e-9d));
+        assertThat(lopsided.smallestFrac()).isCloseTo(0.015d, org.assertj.core.data.Offset.offset(1.0e-9d));
+        assertThat(evener.largestFrac()).isCloseTo(0.60d, org.assertj.core.data.Offset.offset(1.0e-9d));
+
+        assertThat(lopsided.relativeImbalance()).isCloseTo(0.238d, org.assertj.core.data.Offset.offset(1.0e-3d));
+        assertThat(evener.relativeImbalance()).isCloseTo(0.160d, org.assertj.core.data.Offset.offset(1.0e-3d));
+        assertThat(evener.relativeImbalance())
+                .as("the candidate the old maxLargestFrac gate rejected is in fact the more balanced one")
+                .isLessThan(lopsided.relativeImbalance());
+    }
+
+    // ---------------- a single-cluster candidate is balanced by definition ----------------
+
+    /**
+     * A merge to one cluster must never be rejected on balance grounds, whatever the thresholds: it is the
+     * fallback the caller depends on when no other candidate survives. {@code relativeImbalance} is defined as
+     * {@code 0} at {@code k == 1} (rather than the {@code 0/0} the formula would give) precisely so this holds.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void singleClusterCandidatePassesEveryBalanceGate(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = twoBlobs(rnd, 300);
+
+        final List<RealVector> twoCentroids = ImmutableList.of(
+                new DoubleRealVector(new double[] {-5.0d, 0.0d, 0.0d}),
+                new DoubleRealVector(new double[] {+5.0d, 0.0d, 0.0d}));
+        final PartitionEvaluator.Partition<RealVector> current =
+                nearestPartition(twoCentroids, vectors, EUCLIDEAN);
+        final PartitionEvaluator.Partition<RealVector> candidate = singleClusterPartition(vectors);
+
+        // The strictest settings either gate can express.
+        final PartitionEvaluator.Parameters strictest = withMaxRelativeImbalance(
+                withMinChildFraction(new PartitionEvaluator.Parameters(EUCLIDEAN), 1.0d), 0.0d);
+
+        final PartitionEvaluator.EvaluationResult result =
+                PartitionEvaluator.evaluate(vectors, current, vectors, candidate, Lens.identity(), strictest);
+
+        assertThat(result.candidateStats().relativeImbalance()).isEqualTo(0.0d);
+        assertThat(result.decision())
+                .as("a merge to one cluster must stay admissible under any balance threshold")
+                .isNotEqualTo(PartitionEvaluator.Decision.INVALID_CANDIDATE);
+        assertThat(result.reason()).doesNotContain("too imbalanced");
+    }
+
+    // ---------------- imbalance is comparable across k ----------------
+
+    /**
+     * The soft imbalance penalty differences the candidate's imbalance against the current layout's, so the two
+     * must be measured on the same scale even when {@code k} differs. Raw imbalance is not: its maximum is
+     * {@code (k−1)/k}, so equally-balanced layouts score differently at different {@code k}, which charged a
+     * candidate for having more clusters. Normalizing removes that.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL})
+    void relativeImbalanceIsComparableAcrossK(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = twoBlobs(rnd, 600);
+        assertThat(vectors).hasSize(1200);
+
+        // (0.75, 0.25) at k=2 and (2/3, 1/6, 1/6) at k=3 are equally balanced relative to their own worst case.
+        final PartitionEvaluator.PartitionStats atK2 = statsForSizes(vectors, 900, 300);
+        final PartitionEvaluator.PartitionStats atK3 = statsForSizes(vectors, 800, 200, 200);
+
+        assertThat(atK2.relativeImbalance()).isCloseTo(0.25d, org.assertj.core.data.Offset.offset(1.0e-9d));
+        assertThat(atK3.relativeImbalance()).isCloseTo(0.25d, org.assertj.core.data.Offset.offset(1.0e-9d));
+
+        // The raw values these are derived from are NOT equal — that difference is exactly the bias.
+        assertThat(atK2.imbalance()).isCloseTo(0.125d, org.assertj.core.data.Offset.offset(1.0e-9d));
+        assertThat(atK3.imbalance()).isCloseTo(1.0d / 6.0d, org.assertj.core.data.Offset.offset(1.0e-9d));
+        assertThat(atK3.imbalance()).isGreaterThan(atK2.imbalance());
+    }
+
+    // ---------------- both k == 1: no separation/margin contribution to the score ----------------
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL})
     void bothSingleClusterScoreDrivenBySseAlone(final long seed) {
@@ -497,8 +591,8 @@ class PartitionEvaluatorTest {
                 /*minRelativeSseGain*/ -10.0d,
                 /*minSeparation*/ 100.0d,
                 /*maxLowMarginRate*/ 1.0d,
-                /*minSmallestFrac*/ 0.0d,
-                /*maxLargestFrac*/ 1.0d,
+                /*minChildFraction*/ 0.0d,
+                /*maxRelativeImbalance*/ 1.0d,
                 /*lowMarginThreshold*/ -1.0d,
                 /*alphaSseGain*/ 1.0d, /*betaSeparationGain*/ 1.0d,
                 /*gammaImbalancePenalty*/ 1.0d, /*deltaLowMarginPenalty*/ 1.0d,
@@ -539,8 +633,8 @@ class PartitionEvaluatorTest {
                 /*minRelativeSseGain*/ -10.0d,
                 /*minSeparation*/ 0.0d,
                 /*maxLowMarginRate*/ 0.10d,
-                /*minSmallestFrac*/ 0.0d,
-                /*maxLargestFrac*/ 1.0d,
+                /*minChildFraction*/ 0.0d,
+                /*maxRelativeImbalance*/ 1.0d,
                 /*lowMarginThreshold*/ -1.0d,
                 /*alphaSseGain*/ 1.0d, /*betaSeparationGain*/ 1.0d,
                 /*gammaImbalancePenalty*/ 1.0d, /*deltaLowMarginPenalty*/ 1.0d,
@@ -684,6 +778,44 @@ class PartitionEvaluatorTest {
                 ImmutableList.of(centroid), Lens.identity(), new int[vectors.size()]);
     }
 
+    /**
+     * Builds a candidate partition with exactly the given cluster sizes, so that size-derived statistics can be
+     * asserted precisely rather than depending on where a geometric assignment happens to land. Each centroid is
+     * the mean of its own group. The sizes must sum to {@code vectors.size()}.
+     */
+    @Nonnull
+    private static PartitionEvaluator.Partition<RealVector> partitionWithSizes(@Nonnull final List<RealVector> vectors,
+                                                                               @Nonnull final int... sizes) {
+        final int d = vectors.get(0).getNumDimensions();
+        final int[] assignments = new int[vectors.size()];
+        final List<RealVector> centroids = Lists.newArrayListWithCapacity(sizes.length);
+        int at = 0;
+        for (int c = 0; c < sizes.length; c++) {
+            final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
+            for (int i = 0; i < sizes[c]; i++) {
+                assignments[at] = c;
+                sum.addToThis(vectors.get(at));
+                at++;
+            }
+            centroids.add(sum.multiplyThisBy(1.0d / sizes[c]).toImmutable());
+        }
+        assertThat(at).as("cluster sizes must sum to the vector count").isEqualTo(vectors.size());
+        return new PartitionEvaluator.Partition<>(ImmutableList.copyOf(centroids), Lens.identity(), assignments);
+    }
+
+    /**
+     * Returns the {@link PartitionEvaluator.PartitionStats} the evaluator computes for a candidate with the given
+     * cluster sizes. Only size-derived statistics are meaningful here.
+     */
+    @Nonnull
+    private static PartitionEvaluator.PartitionStats statsForSizes(@Nonnull final List<RealVector> vectors,
+                                                                   @Nonnull final int... sizes) {
+        final PartitionEvaluator.Partition<RealVector> current = singleClusterPartition(vectors);
+        final PartitionEvaluator.Partition<RealVector> candidate = partitionWithSizes(vectors, sizes);
+        return PartitionEvaluator.evaluate(vectors, current, vectors, candidate, Lens.identity(),
+                new PartitionEvaluator.Parameters(EUCLIDEAN)).candidateStats();
+    }
+
     private static int countAssigned(@Nonnull final PartitionEvaluator.Partition<RealVector> p,
                                      final int cluster) {
         int n = 0;
@@ -699,25 +831,25 @@ class PartitionEvaluatorTest {
     private static PartitionEvaluator.Parameters withMinRelativeSseGain(
             @Nonnull final PartitionEvaluator.Parameters p, final double v) {
         return new PartitionEvaluator.Parameters(p.distanceEstimator(), v, p.minSeparation(),
-                p.maxLowMarginRate(), p.minSmallestFrac(), p.maxLargestFrac(), p.lowMarginThreshold(),
+                p.maxLowMarginRate(), p.minChildFraction(), p.maxRelativeImbalance(), p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());
     }
 
     @Nonnull
-    private static PartitionEvaluator.Parameters withMinSmallestFrac(
+    private static PartitionEvaluator.Parameters withMinChildFraction(
             @Nonnull final PartitionEvaluator.Parameters p, final double v) {
         return new PartitionEvaluator.Parameters(p.distanceEstimator(), p.minRelativeSseGain(), p.minSeparation(),
-                p.maxLowMarginRate(), v, p.maxLargestFrac(), p.lowMarginThreshold(),
+                p.maxLowMarginRate(), v, p.maxRelativeImbalance(), p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());
     }
 
     @Nonnull
-    private static PartitionEvaluator.Parameters withMaxLargestFrac(
+    private static PartitionEvaluator.Parameters withMaxRelativeImbalance(
             @Nonnull final PartitionEvaluator.Parameters p, final double v) {
         return new PartitionEvaluator.Parameters(p.distanceEstimator(), p.minRelativeSseGain(), p.minSeparation(),
-                p.maxLowMarginRate(), p.minSmallestFrac(), v, p.lowMarginThreshold(),
+                p.maxLowMarginRate(), p.minChildFraction(), v, p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());
     }
