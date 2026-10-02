@@ -575,7 +575,7 @@ public class SemanticAnalyzer {
         final ImmutableList.Builder<Expression> directMatchesBuilder = ImmutableList.builder();
         final ImmutableList.Builder<Expression> ephemeralDerivedBuilder = ImmutableList.builder();
         for (final var operator : operators) {
-            if (operator.getQuantifier() instanceof Quantifier.Existential) {
+            if (operator.getQuantifier() instanceof Quantifier.Scalar) {
                 continue;
             }
             final var operatorNameMaybe = operator.getName();

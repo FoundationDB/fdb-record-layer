@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Scalar;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
@@ -84,7 +84,7 @@ public final class Quantifiers {
 
     /**
      * Applies the “glue” that implements any semantics the given quantifier carries beyond simply flowing the records
-     * of its inner. An existential quantifier is wrapped in a {@link RecordQueryFirstOrDefaultPlan}, and a
+     * of its inner. A scalar quantifier is wrapped in a {@link RecordQueryFirstOrDefaultPlan}, and a
      * for-each quantifier with null-on-empty semantics in a {@link RecordQueryDefaultOnEmptyPlan}. Any other
      * quantifier needs no glue, in which case {@code reference} is returned unchanged. (The {@code quantifier} is
      * assumed to range over the logical counterpart to {@code reference}, and provides the alias and the flowed
@@ -108,8 +108,8 @@ public final class Quantifiers {
     public static Reference applyGlue(@Nonnull final FinalMemoizer memoizer,
                                       @Nonnull final Quantifier quantifier,
                                       @Nonnull final Reference reference) {
-        if (quantifier instanceof Existential existential) {
-            return memoizer.memoizePlan(RecordQueryFirstOrDefaultPlan.forExistential(existential, reference));
+        if (quantifier instanceof Scalar scalar) {
+            return memoizer.memoizePlan(RecordQueryFirstOrDefaultPlan.forScalar(scalar, reference));
         }
         if (isForEachWithNullOnEmpty(quantifier)) {
             return memoizer.memoizePlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, reference));
@@ -125,8 +125,8 @@ public final class Quantifiers {
     public static Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
                                                              @Nonnull final Quantifier quantifier,
                                                              @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
-        if (quantifier instanceof Existential existential) {
-            return memoizer.memoizePlanBuilder(RecordQueryFirstOrDefaultPlan.forExistential(existential, builder.reference()));
+        if (quantifier instanceof Scalar scalar) {
+            return memoizer.memoizePlanBuilder(RecordQueryFirstOrDefaultPlan.forScalar(scalar, builder.reference()));
         }
         if (isForEachWithNullOnEmpty(quantifier)) {
             return memoizer.memoizePlanBuilder(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, builder.reference()));
@@ -162,12 +162,12 @@ public final class Quantifiers {
     }
 
     /**
-     * Create a list of existential quantifiers from a list of expression references these quantifiers should range over.
+     * Create a list of scalar quantifiers from a list of expression references these quantifiers should range over.
      * @param rangesOverPlans iterable {@link Reference}s of of {@link RelationalExpression}s.
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
     @Nonnull
-    public static List<Existential> existentialQuantifiers(@Nonnull final Iterable<Reference> rangesOverPlans) {
+    public static List<Scalar> scalarQuantifiers(@Nonnull final Iterable<Reference> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::existential);
     }
 

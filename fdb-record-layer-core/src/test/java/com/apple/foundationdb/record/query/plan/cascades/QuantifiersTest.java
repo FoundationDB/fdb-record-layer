@@ -86,7 +86,7 @@ class QuantifiersTest {
      */
     @Test
     void testApplyGlue3() {
-        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        final Quantifier.Scalar quantifier = Quantifier.existential(scanReference);
         final Reference glued = Quantifiers.applyGlue(memoizer, quantifier, scanReference);
 
         final RelationalExpression wrapper = Iterables.getOnlyElement(glued.getFinalExpressions());
