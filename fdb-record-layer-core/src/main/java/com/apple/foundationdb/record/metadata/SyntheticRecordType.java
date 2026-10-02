@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
@@ -101,6 +103,20 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     @API(API.Status.INTERNAL)
     @Nonnull
     public abstract CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
+
+    /**
+     * Expands this type into the graph that assembles its records, so that an index defined on it can be matched
+     * against a query that performs the same assembly.
+     *
+     * @param accessHint an access hint to apply to the stored records the expansion reads
+     * @return an unsealed expansion assembling records of this type
+     */
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
+        throw new UnsupportedOperationException("cannot expand an index defined on a "
+                                                + getClass().getSimpleName());
+    }
 
     @Override
     public String toString() {
