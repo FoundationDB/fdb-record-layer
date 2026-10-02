@@ -178,6 +178,58 @@ test_block:
       - result: [
           {reviewer: 'Alice', region: 'north', rating: 4},
           {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # A range on the leading key column rather than an equality. The placeholder reserved for that column takes the
+      # inequality, so the scan is a one-sided range over the index instead of a scan of all of it with a filter.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" > 'Bob'
+      - explain: "COVERING(mv_split [[GREATER_THAN promote(@c32 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2}]
+    -
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" < 'Carol'
+      - explain: "COVERING(mv_split [[LESS_THAN promote(@c32 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3}]
+    -
+      # Both sides of the same column, which bound one range rather than two.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" > 'Alice' AND SQ."reviewer" < 'Dave'
+      - explain: "COVERING(mv_split [[GREATER_THAN promote(@c32 AS STRING) && LESS_THAN promote(@c38 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4}]
+    -
+      # An equality on the leading column followed by a range on the next one. The equality fixes the prefix and the
+      # range bounds the column after it, so the two columns still make a single scan range.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" < 'south'
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), [LESS_THAN promote(@c38 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # Equalities on both leading columns -- one from the unnesting, one from the parent row -- followed by a range on
+      # the third.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" > 4
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING), [GREATER_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [{reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" < 5
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING), [LESS_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [{reviewer: 'Alice', region: 'north', rating: 4}]
 ---
 # Identifiers a protobuf field cannot be named after. Every name on the path to the unnesting -- the table, the array,
 # and the columns of its elements -- needs escaping, and the index only matches if the candidate and the query agree on
