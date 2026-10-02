@@ -321,6 +321,42 @@ public class Primitives {
                                         final int layer,
                                         @Nonnull final Iterable<? extends NodeReference> neighborReferences,
                                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+        return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer,
+                neighborReferences, nodeCache, ignored -> {
+                });
+    }
+
+    /**
+     * As {@link #fetchNeighborhoodReferences(StorageAdapter, ReadTransaction, StorageTransform, int, Iterable, Map)},
+     * but reporting the references that turned out to name a node that does not exist.
+     * <p>
+     * A reference is reported only when this method actually read storage for it and found nothing, so the caller may
+     * treat every reported key as proven absent. The converse does not hold: a key that is <em>not</em> reported has
+     * not been shown to exist. In particular an inlining storage adapter answers from the vector inlined into the edge
+     * and never reads the node at all, so it reports nothing whatsoever, and a reference served from {@code nodeCache}
+     * is not re-checked. An empty report therefore means "nothing proven", never "nothing dead".
+     *
+     * @param <N> the type of the {@link NodeReference}
+     * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
+     * @param readTransaction the active {@link ReadTransaction} for database access
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
+     * @param layer the graph layer from which to fetch nodes
+     * @param neighborReferences the references to resolve
+     * @param nodeCache a cache mapping primary keys to {@link AbstractNode}s to avoid redundant fetches
+     * @param absentPrimaryKeyConsumer accepts the primary key of every reference this method read storage for and
+     *        found no node under
+     * @return a {@link CompletableFuture} of the references that resolved to a node
+     */
+    @Nonnull
+    <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVectorAndAdditionalValues>>
+            fetchNeighborhoodReferences(@Nonnull final StorageAdapter<N> storageAdapter,
+                                        @Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final StorageTransform storageTransform,
+                                        final int layer,
+                                        @Nonnull final Iterable<? extends NodeReference> neighborReferences,
+                                        @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
+                                        @Nonnull final Consumer<Tuple> absentPrimaryKeyConsumer) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
                     if (storageAdapter.isInliningStorageAdapter() && neighborReference.isNodeReferenceWithVector()) {
@@ -349,6 +385,12 @@ public class Primitives {
                         return new NodeReferenceWithVectorAndAdditionalValues(neighborReference.getPrimaryKey(),
                                 compactNode.getVector(), compactNode.getAdditionalValues());
                     }
+                    //
+                    // Storage was read for this reference and held no node under that key, so the reference names a
+                    // node that has been deleted. That is the only circumstance under which absence is proven; report
+                    // it before dropping the reference from the result.
+                    //
+                    absentPrimaryKeyConsumer.accept(neighborReference.getPrimaryKey());
                     return null;
                 });
     }
@@ -774,7 +816,8 @@ public class Primitives {
 
         if (isExtendCandidates) {
             return neighborReferences(storageAdapter, readTransaction, storageTransform, null, candidates,
-                    CandidatePredicate.tautology(), layer, nodeCache)
+                    CandidatePredicate.tautology(), layer, nodeCache, ignored -> {
+                    })
                     .thenApply(neighborsOfCandidates -> {
                         for (final NodeReferenceWithVector nodeReferenceWithVector : neighborsOfCandidates) {
                             final double distance = distanceEstimator.distance(nodeReferenceWithVector.getVector(), vector);
@@ -821,8 +864,45 @@ public class Primitives {
                       @Nonnull final CandidatePredicate samplingPredicate,
                       final int layer,
                       @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+        return neighbors(storageAdapter, readTransaction, storageTransform, random, initialNodeReferenceAndNodes,
+                samplingPredicate, layer, nodeCache, ignored -> {
+                });
+    }
+
+    /**
+     * As {@link #neighbors(StorageAdapter, ReadTransaction, StorageTransform, SplittableRandom, Collection,
+     * CandidatePredicate, int, Map)}, but reporting the neighbor references that turned out to name a node that does
+     * not exist. See
+     * {@link #fetchNeighborhoodReferences(StorageAdapter, ReadTransaction, StorageTransform, int, Iterable, Map,
+     * Consumer)} for what the report does and does not guarantee.
+     *
+     * @param <T> the type of the initial node references
+     * @param <N> the type of the {@link NodeReference}
+     * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
+     * @param readTransaction the active {@link ReadTransaction} for database access
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
+     * @param random a {@link SplittableRandom} to be used for sampling
+     * @param initialNodeReferenceAndNodes the nodes whose neighbors are computed
+     * @param samplingPredicate a predicate that restricts the number of neighbors to be fetched
+     * @param layer the graph layer from which to fetch nodes
+     * @param nodeCache a cache mapping primary keys to {@link AbstractNode}s to avoid redundant fetches
+     * @param absentPrimaryKeyConsumer accepts the primary key of every reference storage was read for and found no
+     *        node under
+     * @return a {@link CompletableFuture} of the neighbors that exist
+     */
+    <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
+            neighbors(@Nonnull final StorageAdapter<N> storageAdapter,
+                      @Nonnull final ReadTransaction readTransaction,
+                      @Nonnull final StorageTransform storageTransform,
+                      @Nonnull final SplittableRandom random,
+                      @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
+                      @Nonnull final CandidatePredicate samplingPredicate,
+                      final int layer,
+                      @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
+                      @Nonnull final Consumer<Tuple> absentPrimaryKeyConsumer) {
         return neighborReferences(storageAdapter, readTransaction, storageTransform, random,
-                initialNodeReferenceAndNodes, samplingPredicate, layer, nodeCache)
+                initialNodeReferenceAndNodes, samplingPredicate, layer, nodeCache, absentPrimaryKeyConsumer)
                 .thenCompose(neighbors ->
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
                                 neighbors, nodeCache))
@@ -857,11 +937,12 @@ public class Primitives {
                                @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                @Nonnull final CandidatePredicate samplingPredicate,
                                final int layer,
-                               @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                               @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
+                               @Nonnull final Consumer<Tuple> absentPrimaryKeyConsumer) {
         final Iterable<NodeReference> toBeFetched =
                 findNeighborReferences(initialNodeReferenceAndNodes, random, samplingPredicate);
         return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer, toBeFetched,
-                nodeCache);
+                nodeCache, absentPrimaryKeyConsumer);
     }
 
     /**

@@ -798,6 +798,25 @@ public class FDBStoreTimer extends StoreTimer {
          * actually held, so a split or merge decision was taken against the drifted figure.
          */
         VECTOR_STALE_REFERENCES_DROPPED("vector stale references dropped", false),
+        /**
+         * Count of opportunities to reap neighbor references naming deleted nodes, one per layer per delete (HNSW
+         * engine). The denominator for {@link #VECTOR_NEIGHBOR_REFERENCE_REAP_PASSES_WITH_DEAD} and
+         * {@link #VECTOR_NEIGHBOR_REFERENCES_REAPED}, neither of which means much on its own.
+         */
+        VECTOR_NEIGHBOR_REFERENCE_REAP_PASSES("vector neighbor reference reap passes", false),
+        /**
+         * Count of those passes that found at least one reference naming a deleted node (HNSW engine). Against
+         * {@link #VECTOR_NEIGHBOR_REFERENCE_REAP_PASSES} this gives the share of deletes that encountered the backlog
+         * at all, which is what says whether it is being worked off or is simply rare.
+         */
+        VECTOR_NEIGHBOR_REFERENCE_REAP_PASSES_WITH_DEAD("vector neighbor reference reap passes finding dead references", false),
+        /**
+         * Count of neighbor references reaped because they named a node an earlier delete had removed (HNSW engine).
+         * A delete only removes references to the node it deletes from the nodes it happens to visit, so a node it does
+         * not visit keeps a reference that no longer resolves; a later delete reaps those it reads storage for. A count
+         * that stays high across many deletes means references are being created about as fast as they are reaped.
+         */
+        VECTOR_NEIGHBOR_REFERENCES_REAPED("vector neighbor references reaped", false),
         /** Count of vector indexes disabled because a deferred-task count decoded to a negative (corrupt) value. */
         VECTOR_INDEX_DISABLED_ON_NEGATIVE_TASK_COUNT("vector indexes disabled on negative task count", false),
         /** Count of the writes to a {@code PendingWritesQueue}. */
