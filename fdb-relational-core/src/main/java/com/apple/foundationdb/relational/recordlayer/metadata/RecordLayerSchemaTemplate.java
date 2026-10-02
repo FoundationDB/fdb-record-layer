@@ -385,6 +385,20 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    /**
+     * Returns the joined synthetic record types of this template.
+     *
+     * @return the joined synthetic tables
+     */
+    @VisibleForTesting
+    @Nonnull
+    public Set<RecordLayerJoinedSyntheticTable> getJoinedSyntheticTables() {
+        return syntheticTables.stream()
+                .filter(RecordLayerJoinedSyntheticTable.class::isInstance)
+                .map(RecordLayerJoinedSyntheticTable.class::cast)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
     @Nonnull
     @Override
     public Map<String, StoredQuery> getStoredQueries() {
