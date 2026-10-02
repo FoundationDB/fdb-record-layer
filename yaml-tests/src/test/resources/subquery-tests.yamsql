@@ -262,13 +262,13 @@ test_block:
     -
       # View with a correlated EXISTS subquery in its WHERE clause.
       - query: SELECT * FROM V1
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - explain: "ISCAN(T4_i <,>) | FLATMAP q0 -> { SCAN([IS T1, [GREATER_THAN 1]]) | FILTER _.T2 EQUALS q0.id | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.i AS i) }"
       - unorderedResult: [{20}, {30}]
     -
       # The same for a function.
       - query: SELECT * FROM F1()
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - explain: "ISCAN(T4_i <,>) | FLATMAP q0 -> { SCAN([IS T1, [GREATER_THAN 1]]) | FILTER _.T2 EQUALS q0.id | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.i AS i) }"
       - unorderedResult: [{20}, {30}]
     -
@@ -280,19 +280,19 @@ test_block:
     -
       # View with a correlated NOT EXISTS subquery in its WHERE clause.
       - query: SELECT * FROM V4
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - explain: "ISCAN(T4_i <,>) | FLATMAP q0 -> { SCAN([IS T1, [GREATER_THAN 1]]) | FILTER _.T2 EQUALS q0.id | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.i AS i) }"
       - unorderedResult: [{10}]
     -
       # Function with an EXISTS subquery correlated to a parameter of the function (`x`).
       - query: SELECT * FROM F2(150)
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | FILTER _.i2 GREATER_THAN promote(@c5 AS LONG) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
       - unorderedResult: [{1}, {2}]
     -
       # View with a correlated EXISTS subquery in its SELECT list.
       - query: SELECT * FROM V3
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0.id] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (q0.id AS id, exists(q1) AS e) }"
       - unorderedResult: [{id: 1, e: true}, {id: 2, e: true}, {id: 3, e: false}]
     -
@@ -541,14 +541,14 @@ test_block:
       - query: CREATE SCHEMA TEMPLATE subquery_view_template_4
                  CREATE TABLE T1 (id INTEGER, T2 INTEGER, PRIMARY KEY(id))
                  CREATE FUNCTION F(IN x BOOLEAN DEFAULT EXISTS (SELECT id FROM T1)) AS SELECT id FROM T1 WHERE x
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - error: UNSUPPORTED_QUERY
     -
       # Macro function with an EXISTS subquery in its body. This is not supported.
       - query: CREATE SCHEMA TEMPLATE subquery_view_template_5
                  CREATE TABLE T1 (id INTEGER, T2 INTEGER, PRIMARY KEY(id))
                  CREATE FUNCTION M(IN x INTEGER) RETURNS BOOLEAN AS EXISTS (SELECT id FROM T1 WHERE T1.id = x)
-      - supported_version: !current_version
+      - supported_version: 4.15.3.0
       - error: UNSUPPORTED_QUERY
     -
       # Drop the schema templates created above, if any.
