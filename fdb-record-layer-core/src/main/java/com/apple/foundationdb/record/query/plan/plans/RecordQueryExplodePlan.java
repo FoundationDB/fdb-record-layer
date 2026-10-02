@@ -384,8 +384,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         builder.setCollectionValue(collectionValue.toValueProto(serializationContext));
         if (withOrdinality) {
             builder.setWithOrdinality(true);
-            // Ordinals are always 0-based, but a version that predates that being the default reads the ordinal base
-            // off this field, and would execute the plan 1-based without it.
+            // For compatibility with older versions that still read the `zero_based_ordinality` field:
             builder.setZeroBasedOrdinality(true);
         }
         if (flowsRecordConstructorValue) {
@@ -404,9 +403,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PRecordQueryExplodePlan proto) {
         final boolean withOrdinality = proto.getWithOrdinality();
-        if (withOrdinality && proto.hasZeroBasedOrdinality() && !proto.getZeroBasedOrdinality()) {
-            // A plan that asks for 1-based ordinals outright asks for something no longer produced. A plan that says
-            // nothing about the ordinal base is read as 0-based, which is the only base there is.
+        // We only support 0-based ordinals are supported. Therefore:
+        // * Reject plans before version 4.15.1.0 that had no `zero_based_ordinality` field yet (and produced 1-based ordinals).
+        // * Reject plans from version ≥4.15.1.0 that do not set `zero_based_ordinality` explicitly to true.
+        if (withOrdinality && (!proto.hasZeroBasedOrdinality() || !proto.getZeroBasedOrdinality())) {
             throw new RecordCoreException("explode plans flowing 1-based ordinals are no longer supported");
         }
         return new RecordQueryExplodePlan(

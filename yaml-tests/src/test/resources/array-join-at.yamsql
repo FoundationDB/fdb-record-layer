@@ -18,9 +18,7 @@
 # limitations under the License.
 ---
 options:
-  # `AT` itself works from 4.12.3.0, but only 4.15.1.0 marks its explode ordinals 0-based, and a continuation from an
-  # earlier version asks for the 1-based ordinals this version no longer flows.
-  supported_version: 4.15.1.0
+  supported_version: 4.12.3.0
 ---
 # Comprehensive integration tests for the PartiQL AT construct.
 schema_template:

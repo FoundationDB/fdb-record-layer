@@ -237,14 +237,12 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        // Note: This is written in a way that preserves the hashes of every combination that could be expressed
-        // before. A WITH ORDINALITY explode hashes the way one that was explicitly asked for 0-based ordinals hashed
-        // while the ordinal base was still a choice, and the record constructor flag only ever appends to what was
-        // hashed before, so with the flag unset nothing is appended at all.
+        // Note: The `if` blocks below are written to preserve the hashes produced by past versions of `ExplodeExpression`.
         final var hashedObjects = ImmutableList.builder().add(collectionValue);
         if (withOrdinality) {
-            hashedObjects.add(true);
-            hashedObjects.add(true);
+            hashedObjects.add(true);  // withOrdinality
+            // Add `true` to preserve the hashes from before PR #4704, when `zeroBasedOrdinality` was still a choice.
+            hashedObjects.add(true);  // zeroBasedOrdinality
         }
         if (flowsRecordConstructorValue) {
             hashedObjects.add("flowsRecordConstructorValue");
