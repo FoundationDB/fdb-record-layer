@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+
 import javax.annotation.Nonnull;
 import java.util.Optional;
 
@@ -35,6 +37,7 @@ final class SyntheticTableGeneratorFactory {
     /**
      * The generator for whichever kind of synthetic table the definition needs.
      *
+     * @param schemaTemplateBuilder the metadata the stored record types are looked up in
      * @param spec what the index is made of
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for
@@ -42,11 +45,19 @@ final class SyntheticTableGeneratorFactory {
      * @return the generator, empty when the index is maintained from a stored table
      */
     @Nonnull
-    static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final IndexSpec spec,
+    static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+                                                                     @Nonnull final IndexSpec spec,
                                                                      @Nonnull final String indexName,
                                                                      @Nonnull final QuantifierValues quantifierValues) {
-        // An unnesting only needs a synthetic table when the key reads through one in a way a fan-out cannot
-        // express, which is for the unnested generator to say.
-        return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        final var isJoin = quantifierValues.isJoin();
+        final var hasUnnesting = !quantifierValues.getExplodes().isEmpty();
+        if (isJoin && !hasUnnesting) {
+            return RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(schemaTemplateBuilder, spec,
+                    indexName, quantifierValues);
+        } else if (hasUnnesting && !isJoin) {
+            return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        } else {
+            return Optional.empty();
+        }
     }
 }
