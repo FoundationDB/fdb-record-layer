@@ -56,6 +56,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -72,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for checking the validity of the "split helper" utility class that handles breaking
@@ -425,6 +427,91 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             saveWithSplit(context, Tuple.from(823L), VERY_LONG_STRING, testConfig, sizes6);
 
             commit(context);
+        }
+    }
+
+    @MethodSource("testConfigsNoVersionInKey")
+    @ParameterizedTest(name = "saveAndDeleteWithIncompleteVersions[{0}]")
+    void saveAndDeleteWithIncompleteVersions(SplitHelperTestConfig testConfig) {
+        this.testConfig = testConfig;
+        final long baseKey = 1725L;
+
+        try (FDBRecordContext context = openContext()) {
+            // With incomplete versions
+            SplitHelper.SizeInfo sizeInfo1 = saveWithSplit(context, Tuple.from(baseKey), SHORT_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+            SplitHelper.SizeInfo sizeInfo2 = saveWithSplit(context, Tuple.from(baseKey + 1L), LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+            SplitHelper.SizeInfo sizeInfo3 = saveWithSplit(context, Tuple.from(baseKey + 2L), VERY_LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+
+            // Delete the records
+            deleteSplit(context, Tuple.from(baseKey), testConfig, sizeInfo1);
+            deleteSplit(context, Tuple.from(baseKey + 1L), testConfig, sizeInfo2);
+            deleteSplit(context, Tuple.from(baseKey + 2L), testConfig, sizeInfo3);
+
+            // All three records should be empty (in the same transaction as the write)
+            loadWithSplit(context, Tuple.from(baseKey), testConfig, null, null);
+            loadWithSplit(context, Tuple.from(baseKey + 1L), testConfig, null, null);
+            loadWithSplit(context, Tuple.from(baseKey + 2L), testConfig, null, null);
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            // All three records should be empty (after the transaction is committed)
+            loadWithSplit(context, Tuple.from(baseKey), testConfig, null, null);
+            loadWithSplit(context, Tuple.from(baseKey + 1L), testConfig, null, null);
+            loadWithSplit(context, Tuple.from(baseKey + 2L), testConfig, null, null);
+        }
+    }
+
+    @MethodSource("testConfigsNoVersionInKey")
+    @ParameterizedTest(name = "saveAndDeleteAndUpdateWithIncompleteVersions[{0}]")
+    void saveAndDeleteAndUpdateWithIncompleteVersions(SplitHelperTestConfig testConfig) {
+        this.testConfig = testConfig;
+        final long baseKey = 1250L;
+
+        final SplitHelper.SizeInfo sizeInfo1;
+        final SplitHelper.SizeInfo sizeInfo2;
+        final SplitHelper.SizeInfo sizeInfo3;
+        final byte[] commitVersion;
+        try (FDBRecordContext context = openContext()) {
+            // With incomplete versions
+            SplitHelper.SizeInfo sizeInfo1a = saveWithSplit(context, Tuple.from(baseKey), SHORT_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+            SplitHelper.SizeInfo sizeInfo2a = saveWithSplit(context, Tuple.from(baseKey + 1L), LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+            SplitHelper.SizeInfo sizeInfo3a = saveWithSplit(context, Tuple.from(baseKey + 2L), VERY_LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+
+            // Delete the records
+            deleteSplit(context, Tuple.from(baseKey), testConfig, sizeInfo1a);
+            deleteSplit(context, Tuple.from(baseKey + 1L), testConfig, sizeInfo2a);
+            deleteSplit(context, Tuple.from(baseKey + 2L), testConfig, sizeInfo3a);
+
+            // Save a new copy on top of the old records
+            sizeInfo1 = saveWithSplit(context, Tuple.from(baseKey), LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+            sizeInfo2 = saveWithSplit(context, Tuple.from(baseKey + 1L), VERY_LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+            sizeInfo3 = saveWithSplit(context, Tuple.from(baseKey + 2L), SHORT_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
+
+            // Loading the records (in the same transaction as the write) should match the new value
+            if (!testConfig.omitUnsplitSuffix && !testConfig.isDryRun) {
+                if (testConfig.splitLongRecords) {
+                    assertTrue(sizeInfo1.isVersionedInline());
+                    loadWithSplit(context, Tuple.from(baseKey), testConfig, sizeInfo1, LONG_STRING, FDBRecordVersion.incomplete(3));
+                    assertTrue(sizeInfo2.isVersionedInline());
+                    loadWithSplit(context, Tuple.from(baseKey + 1L), testConfig, sizeInfo2, VERY_LONG_STRING, FDBRecordVersion.incomplete(4));
+                }
+                assertTrue(sizeInfo3.isVersionedInline());
+                loadWithSplit(context, Tuple.from(baseKey + 2L), testConfig, sizeInfo3, SHORT_STRING, FDBRecordVersion.incomplete(5));
+            }
+
+            commit(context);
+            commitVersion = Objects.requireNonNull(context.getVersionStamp());
+        }
+        try (FDBRecordContext context = openContext()) {
+            // Values read after commit should match the second write, though with the version filled in
+            if (!testConfig.omitUnsplitSuffix && !testConfig.isDryRun) {
+                if (testConfig.splitLongRecords) {
+                    loadWithSplit(context, Tuple.from(baseKey), testConfig, sizeInfo1, LONG_STRING, FDBRecordVersion.complete(commitVersion, 3));
+                    loadWithSplit(context, Tuple.from(baseKey + 1L), testConfig, sizeInfo2, VERY_LONG_STRING, FDBRecordVersion.complete(commitVersion, 4));
+                }
+                loadWithSplit(context, Tuple.from(baseKey + 2L), testConfig, sizeInfo3, SHORT_STRING, FDBRecordVersion.complete(commitVersion, 5));
+            }
         }
     }
 

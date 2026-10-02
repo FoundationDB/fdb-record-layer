@@ -1773,25 +1773,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                         oldRecord);
                 addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
-                final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
-                if (useOldVersionFormat()) {
+                if (useOldVersionFormat() && metaData.isStoreRecordVersions()) {
+                    // Clear out the version key (including incomplete versions)
                     byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
-                    if (oldHasIncompleteVersion) {
-                        context.removeVersionMutation(versionKey);
-                    } else if (metaData.isStoreRecordVersions()) {
-                        ensureContextActive().clear(versionKey);
-                    }
+                    context.clear(versionKey);
                 }
-                CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
-                if (oldHasIncompleteVersion) {
-                    return updateIndexesFuture.thenApply(vignore -> {
-                        byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
-                        context.removeLocalVersion(versionKey);
-                        return true;
-                    });
-                } else {
-                    return updateIndexesFuture.thenApply(vignore -> true);
-                }
+                return updateSecondaryIndexes(oldRecord, null).thenApply(vignore -> true);
             });
         });
         return context.instrument(FDBStoreTimer.Events.DELETE_RECORD, result);
