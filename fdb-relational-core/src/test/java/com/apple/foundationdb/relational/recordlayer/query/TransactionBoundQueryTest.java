@@ -202,7 +202,7 @@ public class TransactionBoundQueryTest {
     }
 
     @Test
-    void ignoreSyntheticIndexes() throws SQLException, RelationalException {
+    void canUseUnnestedSyntheticRecordType() throws SQLException, RelationalException {
         RecordMetaData metaDataOrig = getUpdatedMetaData(metaDataBuilder -> { });
 
         RecordMetaData metaData = getUpdatedMetaData(metaDataBuilder -> {
@@ -240,7 +240,6 @@ public class TransactionBoundQueryTest {
                         .isPresent()
                         .get()
                         .satisfies(table ->
-                                // The table should contain only the index that Relational can process
                                 Assertions.assertThat(table.getIndexes())
                                         .map(Metadata::getName)
                                         .contains("aIndex")
@@ -249,8 +248,6 @@ public class TransactionBoundQueryTest {
                         );
 
                 try (RelationalStatement statement = connection.createStatement()) {
-                    // This query could use the unnested index if we planned against it correctly. In particular,
-                    // it could be executed as scan on the first two columns of the index
                     String sqlQuery = "SELECT e.value " +
                             "FROM t2, (SELECT key, value FROM t2.d) e " +
                             "WHERE t2.c = 'foo' AND e.key = 'bar'";
@@ -258,8 +255,9 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .doesNotContain("unnestedIndex")
-                                .contains("ISCAN(cIndex");
+                                .as("Planner should select the index on the unnested synthetic record type and bind both equalities")
+                                .containsPattern("COVERING\\(unnestedIndex \\[EQUALS [^,]+, EQUALS [^]]+\\]")
+                                .doesNotContain("ISCAN(cIndex");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }

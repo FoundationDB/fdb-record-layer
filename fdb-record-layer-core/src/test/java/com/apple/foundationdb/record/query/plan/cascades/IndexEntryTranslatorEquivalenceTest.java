@@ -46,6 +46,7 @@ import java.util.List;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -149,6 +150,65 @@ class IndexEntryTranslatorEquivalenceTest {
         assertEquals("KEY:[0]", ((RecordConstructorValue)recordValue).getColumns().stream()
                 .filter(column -> "num_value_2".equals(column.getField().getFieldName()))
                 .findFirst().orElseThrow().getValue().toString());
+    }
+
+    /**
+     * A {@link com.apple.foundationdb.record.metadata.expressions.ListKeyExpression} position holds its child in a
+     * nested tuple instead of flattening it, the way the primary key of a synthetic record type holds each of its
+     * constituents. The data of such a position therefore sit one level deeper, one element per column of the child:
+     * <pre>
+     *   primary key : list(header.(path, num), header.rec_no)
+     *   index str   : str_value
+     *   entry key   : ( "abc", ("/a", 1), (7) )   with the primary key appended
+     *   record      : MyRecord { str_value: "abc", header: { path: "/a", num: 1, rec_no: 7 } }
+     * </pre>
+     * Each of the three data of the two list positions is read on its own, at {@code [1, 0]}, {@code [1, 1]} and
+     * {@code [2, 0]} respectively.
+     */
+    @Test
+    void bothTranslatorsDescendIntoAListPosition() {
+        final var metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsWithHeaderProto.getDescriptor());
+        metaDataBuilder.getRecordType("MyRecord").setPrimaryKey(list(
+                field("header").nest(concatenateFields("path", "num")),
+                field("header").nest(field("rec_no"))));
+        metaDataBuilder.addIndex("MyRecord", new Index("str", field("str_value")));
+        final var metaData = metaDataBuilder.build();
+        final var recordType = metaData.getRecordType("MyRecord");
+        final var descriptor = recordType.getDescriptor();
+        final var baseType = Type.Record.fromDescriptor(descriptor);
+        final var baseAlias = Quantifier.current();
+        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
+
+        // One value per entry key column, as the index expansion produces them. A list position holds its child in a
+        // nested tuple, so its value is the record of the child's column values, however many there are.
+        final var indexKeyValues = ImmutableList.<Value>of(
+                FieldValue.ofFieldNames(baseObjectValue, List.of("str_value")),
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                        FieldValue.ofFieldNames(baseObjectValue, List.of("header", "path")),
+                        FieldValue.ofFieldNames(baseObjectValue, List.of("header", "num")))),
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                        FieldValue.ofFieldNames(baseObjectValue, List.of("header", "rec_no")))));
+
+        final var translators = ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(List.of(recordType),
+                baseAlias, baseType, indexKeyValues, ImmutableList.of()).orElseThrow();
+        final var recordValue = translators.indexEntryToRecordValue();
+        assertNotNull(recordValue, "a list position should still yield a value based translator");
+
+        final var entry = new IndexEntry(metaData.getIndex("str"),
+                Tuple.from("abc", Tuple.from("/a", 1L), Tuple.from(7L)), TupleHelpers.EMPTY);
+
+        final var byCopiers = translators.indexKeyValueToPartialRecord().toRecord(descriptor, entry);
+        final var byValue = evaluate(recordValue, entry);
+
+        // Non-vacuous: the three columns nested inside the two list positions are all recovered.
+        final var header = (Message)byCopiers.getField(descriptor.findFieldByName("header"));
+        final var headerDescriptor = descriptor.findFieldByName("header").getMessageType();
+        assertEquals("/a", header.getField(headerDescriptor.findFieldByName("path")));
+        assertEquals(1, header.getField(headerDescriptor.findFieldByName("num")));
+        assertEquals(7L, header.getField(headerDescriptor.findFieldByName("rec_no")));
+
+        assertSameRecord(descriptor, byCopiers, byValue);
     }
 
     @Nonnull

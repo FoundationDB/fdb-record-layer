@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -32,9 +33,12 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -43,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -72,6 +77,62 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
 
+    /**
+     * Returns the {@link SyntheticRecordType} an index is defined on, if it is defined on exactly one.
+     */
+    @Nonnull
+    private static Optional<SyntheticRecordType<?>> syntheticRecordTypeMaybe(
+            @Nonnull final Collection<RecordType> indexedRecordTypes) {
+        if (indexedRecordTypes.size() != 1) {
+            return Optional.empty();
+        }
+        final RecordType indexedRecordType = Iterables.getOnlyElement(indexedRecordTypes);
+        return indexedRecordType instanceof final SyntheticRecordType<?> syntheticRecordType
+               ? Optional.of(syntheticRecordType)
+               : Optional.empty();
+    }
+
+    /**
+     * Merges the expansion of an index key into the expansion of the synthetic type the index is defined on, if it is
+     * defined on one. An index on a stored type has no base expansion, and its key expansion is returned as it stands.
+     *
+     * <p>The key's values are written over {@code baseQuantifier}, which does not survive into the merged graph, so
+     * each is re-expressed over the record the base expansion assembles and simplified:
+     * {@code base.unnesting_0.reviewer} over {@code (parent AS parent, explode._0 AS unnesting_0, ...)} becomes
+     * {@code explode._0.reviewer}, the very value a query navigating the same unnesting flows.
+     *
+     * <p>Predicates and placeholders are translated separately because a placeholder is held in both lists and
+     * {@link GraphExpansion#seal()} pairs them up by value; translating one alone would leave a parameter whose
+     * predicate the select does not hold.
+     *
+     * @param baseExpansion the expansion assembling the synthetic type's records, or {@code null} if there is none
+     * @param keyExpansion the expansion of the index key, expressed over {@code baseQuantifier}
+     * @param baseQuantifier the quantifier {@code keyExpansion} is expressed over
+     * @return the key expansion merged into the base expansion, or the key expansion itself if there is no base
+     */
+    @Nonnull
+    private static GraphExpansion mergeWithBaseIfNeeded(@Nullable final GraphExpansion baseExpansion,
+                                                        @Nonnull final GraphExpansion keyExpansion,
+                                                        @Nonnull final Quantifier.ForEach baseQuantifier) {
+        if (baseExpansion == null) {
+            return keyExpansion;
+        }
+        final var ontoBaseRecord = TranslationMap.regularBuilder()
+                .when(baseQuantifier.getAlias())
+                .then((sourceAlias, leafValue) -> RecordConstructorValue.ofColumns(baseExpansion.getResultColumns()))
+                .build();
+        return GraphExpansion.ofOthers(
+                baseExpansion.toBuilder().removeAllResultColumns().build(),
+                keyExpansion.toBuilder()
+                        .removeAllPredicates()
+                        .addAllPredicates(keyExpansion.getPredicates().stream()
+                                .map(predicate -> predicate.translateCorrelations(ontoBaseRecord, true))
+                                .collect(ImmutableList.toImmutableList()))
+                        .replacePlaceholder(placeholder ->
+                                placeholder.translateLeafPredicate(ontoBaseRecord, true))
+                        .build());
+    }
+
     @Nonnull
     @Override
     public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
@@ -87,12 +148,22 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         // the instantiation of the type filter below to create a placeholder for the record type key parameter
         // alias and reuse it here. Similar to what we currently do for primary scans.
         //
-        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
-                queriedRecordTypeNames, baseType, null, accessHint));
+        @Nullable final GraphExpansion baseExpansion =
+                syntheticRecordTypeMaybe(queriedRecordTypes).map(recordType -> recordType.expand(accessHint)).orElse(null);
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
-
-        // add the value for the flow of records
-        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
+        final Quantifier.ForEach baseQuantifier;
+        final Value baseObjectValue;
+        if (baseExpansion == null) {
+            baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+                    queriedRecordTypeNames, baseType, null, accessHint));
+            baseObjectValue = baseQuantifier.getFlowedObjectValue();
+            // add the value for the flow of records
+            allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
+        } else {
+            // the base expansion's own quantifiers reach the graph when the key expansion is merged into it
+            baseQuantifier = Quantifier.forEach(Reference.initialOf(baseExpansion.seal().buildSelect()));
+            baseObjectValue = RecordConstructorValue.ofColumns(baseExpansion.getResultColumns());
+        }
 
         var rootExpression = index.getRootExpression();
 
@@ -105,8 +176,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         }
 
         final int keyValueSplitPoint;
-        if (rootExpression instanceof KeyWithValueExpression) {
-            final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression)rootExpression;
+        if (rootExpression instanceof final KeyWithValueExpression keyWithValueExpression) {
             keyValueSplitPoint = keyWithValueExpression.getSplitPoint();
             rootExpression = keyWithValueExpression.getInnerKey();
         } else {
@@ -190,15 +260,18 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             }
         }
 
-        final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final var sealedExpansion = completeExpansion.seal();
+        final var sealedExpansion = mergeWithBaseIfNeeded(
+                baseExpansion,
+                GraphExpansion.ofOthers(allExpansionsBuilder.build()),
+                baseQuantifier)
+                .seal();
         final var parameters =
                 sealedExpansion.getPlaceholders()
                         .stream()
                         .map(Placeholder::getParameterAlias)
                         .collect(ImmutableList.toImmutableList());
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse,
-                sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
+                sealedExpansion.buildSelectWithResultValue(baseObjectValue));
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),

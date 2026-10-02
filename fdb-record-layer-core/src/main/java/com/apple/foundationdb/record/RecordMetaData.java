@@ -775,10 +775,13 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
     }
 
-
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
-        final RecordType recordType = getRecordType(recordTypeName);
+        return getPlannerTypeForRecordType(getRecordType(recordTypeName));
+    }
+
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordType(@Nonnull RecordType recordType) {
         Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
         if (storeRecordVersions) {
             plannerType = plannerType.addPseudoFields();
@@ -788,13 +791,19 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
-        if (recordTypeNames.size() == 1) {
-            final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
-            return getPlannerType(recordTypeName);
+        return getPlannerTypeForRecordTypes(recordTypeNames.stream()
+                .map(this::getRecordType)
+                .collect(Collectors.toList()));
+    }
+
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        if (recordTypes.size() == 1) {
+            return getPlannerTypeForRecordType(Iterables.getOnlyElement(recordTypes));
         }
         // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
-        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypeNames.stream()
-                .map(this::getPlannerType)
+        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypes.stream()
+                .map(this::getPlannerTypeForRecordType)
                 .flatMap(type -> type.getFields().stream())
                 .collect(Collectors.groupingBy(Type.Record.Field::getFieldName,
                         LinkedHashMap::new,
