@@ -49,7 +49,7 @@ public class ImplementExplodeRule extends AbstractCascadesRule<ExplodeExpression
         final ExplodeExpression explodeExpression = call.get(root);
         final Value collectionValue = explodeExpression.getCollectionValue();
         final boolean isWithOrdinality = explodeExpression.isWithOrdinality();
-        final boolean isZeroBasedOrdinality = explodeExpression.isZeroBasedOrdinality();
-        call.yieldPlan(new RecordQueryExplodePlan(collectionValue, isWithOrdinality, isZeroBasedOrdinality));
+        final boolean flowsRecordConstructorValue = explodeExpression.flowsRecordConstructorValue();
+        call.yieldPlan(new RecordQueryExplodePlan(collectionValue, isWithOrdinality, flowsRecordConstructorValue));
     }
 }

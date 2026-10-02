@@ -8,6 +8,79 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.15
 
+{#release-4-15-3-0}
+
+### 4.15.3.0
+
+<h4> Bug Fixes </h4>
+
+* revert #4630 - [PR #4702](https://github.com/FoundationDB/fdb-record-layer/pull/4702)
+* Fix `EXISTS` subqueries being ignored in views and SQL functions - [PR #4673](https://github.com/FoundationDB/fdb-record-layer/pull/4673)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Reorganize and extend `subquery-tests.yamsql` - [PR #4667](https://github.com/FoundationDB/fdb-record-layer/pull/4667)
+
+</details>
+
+
+**[Full Changelog (4.15.2.0...4.15.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.15.2.0...4.15.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.12.18.0`, ❌`4.13.1.0`, ❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ✅`4.14.2.0`, ✅`4.15.1.0`, ✅`4.15.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/36941124647)
+
+
+
+{#release-4-15-2-0}
+
+### 4.15.2.0
+
+<h4> New Features </h4>
+
+* Let an explode declare the shape of the value it flows - [PR #4650](https://github.com/FoundationDB/fdb-record-layer/pull/4650)
+* Make an unsatisfiable Guardiann split diagnosable and correct the test child-size floor - [PR #4660](https://github.com/FoundationDB/fdb-record-layer/pull/4660)
+<h4> Bug Fixes </h4>
+
+* Resolve synthetic record types when evaluating an index predicate - [PR #4652](https://github.com/FoundationDB/fdb-record-layer/pull/4652)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove the unused `Expression.isAggregate()` method - [PR #4681](https://github.com/FoundationDB/fdb-record-layer/pull/4681)
+* Fix empty Teamscale coverage for the CI Tests and Mixed Mode Tests partitions - [PR #4666](https://github.com/FoundationDB/fdb-record-layer/pull/4666)
+* Bump org.jline:jline from 4.4.2 to 4.4.3 - [PR #4664](https://github.com/FoundationDB/fdb-record-layer/pull/4664)
+* Bump actions/setup-java from 6.0.0 to 6.0.1 in /actions/setup-base-env - [PR #4665](https://github.com/FoundationDB/fdb-record-layer/pull/4665)
+* Surface the merge failure that a stalled Guardiann drain currently hides - [PR #4661](https://github.com/FoundationDB/fdb-record-layer/pull/4661)
+
+</details>
+
+
+**[Full Changelog (4.15.1.0...4.15.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.15.1.0...4.15.2.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.12.16.0`, ❌`4.12.18.0`, ❌`4.13.1.0`, ❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ✅`4.14.2.0`, ✅`4.15.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/36707880057)
+
+
+
 {#release-4-15-1-0}
 
 ### 4.15.1.0
