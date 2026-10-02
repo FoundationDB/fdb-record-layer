@@ -35,15 +35,19 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,6 +66,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -163,7 +169,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void writeCheckExistsConcurrently() throws Exception {
+    void writeCheckExistsConcurrentlyInSeparateTransactions() throws Exception {
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
             openSimpleRecordStore(context1);
 
@@ -270,13 +276,43 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest(name = "saveRecordsConcurrently[{0}]")
-    @BooleanSource
-    void saveRecordsConcurrently(boolean disableConcurrencyManagement) throws Exception {
+    @Nonnull
+    private RecordMetaDataHook hookForConcurrentTests(boolean storeRecordVersions) {
+        return metaDataBuilder -> {
+            metaDataBuilder.setStoreRecordVersions(storeRecordVersions);
+
+            // We want to store large strings in str_value_indexed to force split records. Remove the index to prevent key size errors
+            metaDataBuilder.setSplitLongRecords(true);
+            metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+        };
+    }
+
+    @Nonnull
+    private TestRecords1Proto.MySimpleRecord createMySimpleRecord(int id, long recNo) {
+        return TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue3Indexed(id % 3)
+                .setNumValue2(id % 4)
+                .setStrValueIndexed(id % 37 == 0 ? longString : (id % 2L == 0L) ? "even" : "odd")
+                .setNumValueUnique(id + 100)
+                .build();
+    }
+
+    @Nonnull
+    static Stream<Arguments> saveRecordsConcurrently() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("disableConcurrencyManagement"),
+                ParameterizedTestUtils.booleans("storeRecordVersions")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void saveRecordsConcurrently(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
         final List<FDBStoredRecord<Message>> saved;
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            openSimpleRecordStore(context, hookForConcurrentTests(storeRecordVersions));
             storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement);
             recordStore = storeBuilder.open();
 
@@ -284,14 +320,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             // As they are each touching a different record, the operations should succeed regardless
             // of whether the concurrency manager is disabled.
             final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
-                    .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
-                            .setRecNo(id + 1000L)
-                            .setNumValue3Indexed(id % 3)
-                            .setNumValue2(id % 4)
-                            .setStrValueIndexed((id % 2L == 0L) ? "even" : "odd")
-                            .setNumValueUnique(id + 100)
-                            .build()
-                    )
+                    .mapToObj(id -> createMySimpleRecord(id, id + 1000L))
                     .map(recordStore::saveRecordAsync)
                     .toList();
             saved = AsyncUtil.getAll(futures).get();
@@ -318,30 +347,34 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void saveSameRecordConcurrently() throws Exception {
+    @ParameterizedTest(name = "saveSameRecordConcurrently[storeRecordVersions={0}]")
+    @BooleanSource
+    void saveSameRecordConcurrently(boolean storeRecordVersions) throws Exception {
         final FDBRecordStore.Builder storeBuilder;
         final List<FDBStoredRecord<Message>> saved;
         byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            openSimpleRecordStore(context, hookForConcurrentTests(storeRecordVersions));
             storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(false);
             recordStore = storeBuilder.open();
 
             // Create 100 futures, each one saving the same record (i.e., the same primary key), but with
-            // different values. Only one of these will succeed at the end, so 
-            final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
-                    .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
-                            .setRecNo(1000L)
-                            .setNumValue3Indexed(id % 3)
-                            .setNumValue2(id)
-                            .setStrValueIndexed((id % 2L == 0L) ? "even" : "odd")
-                            .setNumValueUnique(id)
-                            .build()
-                    )
-                    .map(recordStore::saveRecordAsync)
-                    .toList();
-            saved = AsyncUtil.getAll(futures).get();
+            // different values. Only one of these will succeed at the end
+            final ReadAndMutateResults<FDBStoredRecord<Message>> results = readAndMutateConcurrently(
+                    () -> recordStore.loadRecordAsync(Tuple.from(1000L)),
+                    id -> recordStore.saveRecordAsync(createMySimpleRecord(id, 1000L)),
+                    100);
+
+            saved = results.mutationResults;
+
+            // All the records read should be from the saved set, though which one exactly is a matter of timing
+            final Set<Message> savedMessages = saved.stream().map(FDBStoredRecord::getRecord).collect(Collectors.toSet());
+            for (FDBStoredRecord<Message> readRecord : results.readResults) {
+                if (readRecord == null) {
+                    continue;
+                }
+                assertThat(readRecord.getRecord(), in(savedMessages));
+            }
 
             commit(context);
             commitVersionstamp = Objects.requireNonNull(context.getVersionStamp());
@@ -362,9 +395,12 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                 FDBStoredRecord<Message> loadedRecord = loaded.get(i);
                 if (savedRecord.getRecord().equals(loadedRecord.getRecord())) {
                     found = true;
-                    assertNotNull(loadedRecord.getVersion());
-                    assertNotNull(savedRecord.getVersion());
-                    assertEquals(savedRecord.getVersion().withCommittedVersion(commitVersionstamp), loadedRecord.getVersion());
+                    if (storeRecordVersions) {
+                        assertEquals(savedRecord.getVersion().withCommittedVersion(commitVersionstamp), loadedRecord.getVersion());
+                    } else {
+                        assertNull(savedRecord.getVersion());
+                        assertNull(loadedRecord.getVersion());
+                    }
                 }
             }
             assertTrue(found, "no record found that matched original set");
@@ -375,24 +411,21 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void onlyOneConcurrentInsertSucceeds() throws Exception {
+    @ParameterizedTest(name = "onlyOneConcurrentInsertSucceeds[storeRecordVersions={0}]")
+    @BooleanSource
+    void onlyOneConcurrentInsertSucceeds(boolean storeRecordVersions) throws Exception {
         final FDBRecordStore.Builder storeBuilder;
         final List<FDBStoredRecord<Message>> inserted;
         byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            openSimpleRecordStore(context, hookForConcurrentTests(storeRecordVersions));
             storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(false);
             recordStore = storeBuilder.open();
 
-            final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
-                    .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
-                            .setRecNo(1000L + (id % 10))
-                            .setNumValue3Indexed(id % 3)
-                            .setNumValue2(id)
-                            .setStrValueIndexed((id % 2L == 0L) ? "even" : "odd")
-                            .build())
-                    .map(rec -> recordStore.insertRecordAsync(rec).handle((saved, err) -> {
+            final Random r = new Random();
+            final ReadAndMutateResults<FDBStoredRecord<Message>> results = readAndMutateConcurrently(
+                    () -> recordStore.loadRecordAsync(Tuple.from(1000L + r.nextInt(10))),
+                    id -> recordStore.insertRecordAsync(createMySimpleRecord(id, 1000L + (id % 10L))).handle((saved, err) -> {
                         if (err != null) {
                             if (err instanceof CompletionException) {
                                 err = err.getCause();
@@ -401,13 +434,23 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                             return null;
                         }
                         return saved;
-                    }))
-                    .toList();
-            final List<FDBStoredRecord<Message>> savedRecords = AsyncUtil.getAll(futures).get();
-            inserted = savedRecords.stream().filter(Objects::nonNull).toList();
+
+                    }), 100);
+
+            inserted = results.mutationResults.stream().filter(Objects::nonNull).toList();
             assertEquals(10, inserted.size());
-            final Set<Tuple> savedPrimaryKeys = inserted.stream().map(FDBStoredRecord::getPrimaryKey).collect(Collectors.toSet());
-            assertEquals(10, savedPrimaryKeys.size());
+            final Map<Tuple, FDBStoredRecord<Message>> savedByPrimaryKey = inserted.stream().collect(Collectors.toMap(FDBStoredRecord::getPrimaryKey, Function.identity()));
+            assertEquals(10, savedByPrimaryKey.size());
+
+            // Each read record should either be null or match the one that was saved
+            for (FDBStoredRecord<Message> readRecord : results.readResults) {
+                if (readRecord == null) {
+                    continue;
+                }
+                FDBStoredRecord<Message> expected = savedByPrimaryKey.get(readRecord.getPrimaryKey());
+                assertNotNull(expected);
+                assertEquals(expected.getRecord(), readRecord.getRecord());
+            }
 
             assertEquals(10, recordStore.getSnapshotRecordCount().get());
             assertEquals(10, recordStore.getSnapshotRecordUpdateCount().get());
@@ -423,21 +466,27 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                 final FDBStoredRecord<Message> stored = recordStore.loadRecord(insertedRecord.getPrimaryKey());
                 assertNotNull(stored);
                 assertEquals(insertedRecord.getRecord(), stored.getRecord());
-                assertEquals(Objects.requireNonNull(insertedRecord.getVersion()).withCommittedVersion(commitVersionstamp), stored.getVersion());
+                if (storeRecordVersions) {
+                    assertEquals(Objects.requireNonNull(insertedRecord.getVersion()).withCommittedVersion(commitVersionstamp), stored.getVersion());
+                } else {
+                    assertNull(insertedRecord.getVersion());
+                    assertNull(stored.getVersion());
+                }
             });
 
             scrubAllIndexes();
         }
     }
 
-    @Test
-    void deleteSameRecordConcurrently() throws Exception {
+    @ParameterizedTest(name = "deleteSameRecordConcurrently[storeRecordVersions={0}]")
+    @BooleanSource
+    void deleteSameRecordConcurrently(boolean storeRecordVersions) throws Exception {
         // Save a single record
         final FDBRecordStore.Builder storeBuilder;
         final FDBStoredRecord<Message> saved;
         byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            openSimpleRecordStore(context, hookForConcurrentTests(storeRecordVersions));
             storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(false);
             recordStore = storeBuilder.open();
 
@@ -457,36 +506,28 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).open();
 
-            // Fire off some reads before the first delete call
-            final List<CompletableFuture<FDBStoredRecord<Message>>> readFutures = new ArrayList<>();
-            Stream.generate(() -> recordStore.loadRecordAsync(saved.getPrimaryKey()))
-                    .limit(30)
-                    .forEach(readFutures::add);
-
-            // Now, issue multiple deletes
-            final List<CompletableFuture<Boolean>> deleteFutures = Stream.generate(() -> recordStore.deleteRecordAsync(saved.getPrimaryKey()))
-                    .limit(30)
-                    .toList();
-
-            // Add additional reads after the first delete
-            Stream.generate(() -> recordStore.loadRecordAsync(saved.getPrimaryKey()))
-                    .limit(30)
-                    .forEach(readFutures::add);
-
-            final List<FDBStoredRecord<Message>> readResults = AsyncUtil.getAll(readFutures).get();
-            final List<Boolean> deleteResults = AsyncUtil.getAll(deleteFutures).get();
+            // Concurrently do record reads and record deletes
+            ReadAndMutateResults<Boolean> results = readAndMutateConcurrently(
+                    () -> recordStore.loadRecordAsync(saved.getPrimaryKey()),
+                    ignore -> recordStore.deleteRecordAsync(saved.getPrimaryKey()),
+                    30);
 
             // Exactly one of the deletes should return true
-            assertEquals(1, deleteResults.stream()
+            assertEquals(1, results.mutationResults.stream()
                     .filter(deleted -> deleted)
                     .count());
 
             // All the read results should either be null (if they happened after the delete) or they should match the original record
-            readResults.stream()
+            results.readResults.stream()
                     .filter(Objects::nonNull)
                     .forEach(readRecord -> {
                         assertEquals(saved.getRecord(), readRecord.getRecord());
-                        assertEquals(Objects.requireNonNull(saved.getVersion()).withCommittedVersion(commitVersionstamp), readRecord.getVersion());
+                        if (storeRecordVersions) {
+                            assertEquals(Objects.requireNonNull(saved.getVersion()).withCommittedVersion(commitVersionstamp), readRecord.getVersion());
+                        } else {
+                            assertNull(saved.getVersion());
+                            assertNull(readRecord.getVersion());
+                        }
                     });
 
             assertEquals(0L, recordStore.getSnapshotRecordCount().get());
@@ -494,6 +535,32 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             scrubAllIndexes();
             commit(context);
         }
+    }
+
+    record ReadAndMutateResults<T>(List<FDBStoredRecord<Message>> readResults, List<T> mutationResults) {
+    }
+
+    @Nonnull
+    private <T> ReadAndMutateResults<T> readAndMutateConcurrently(@Nonnull Supplier<CompletableFuture<FDBStoredRecord<Message>>> doRead, @Nonnull IntFunction<CompletableFuture<T>> doMutation, int mutationCount) throws Exception {
+        // Fire off some reads before the first mutation
+        final List<CompletableFuture<FDBStoredRecord<Message>>> readFutures = new ArrayList<>();
+        Stream.generate(doRead)
+                .limit(30)
+                .forEach(readFutures::add);
+
+        // Now, issue multiple mutations
+        final List<CompletableFuture<T>> deleteFutures = IntStream.range(0, mutationCount)
+                .mapToObj(doMutation)
+                .toList();
+
+        // Add additional reads after the first delete
+        Stream.generate(doRead)
+                .limit(30)
+                .forEach(readFutures::add);
+
+        final List<FDBStoredRecord<Message>> readResults = AsyncUtil.getAll(readFutures).get();
+        final List<T> deleteResults = AsyncUtil.getAll(deleteFutures).get();
+        return new ReadAndMutateResults<>(readResults, deleteResults);
     }
 
     private static class TaskState {
@@ -522,15 +589,12 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         final int concurrentTasks = 100;
         final int totalTasks = 1000;
         final TaskState taskState = new TaskState();
+        final Random random = new Random(seed);
 
         final FDBRecordStore.Builder storeBuilder;
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.setStoreRecordVersions(true);
-                metaDataBuilder.setSplitLongRecords(true);
-                metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
-            });
+            openSimpleRecordStore(context, hookForConcurrentTests(random.nextBoolean()));
             // These tests fail if concurrence management is disabled. For this test, we also
             // assert on the default behavior (that the store starts with concurrency management
             // enabled). If this is changed, then this assert can be updated, but we still need
@@ -550,14 +614,15 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             // desirable or not
             assertFalse(recordStore.asBuilder().isConcurrencyManagementDisabled());
 
-            final Random random = new Random(seed);
-            final Queue<CompletableFuture<Void>> tasks = new ArrayDeque<>();
+            final Queue<CompletableFuture<Void>> tasks = new ArrayDeque<>(concurrentTasks);
             while (taskState.completed < totalTasks) {
                 while (tasks.size() < concurrentTasks && taskState.taskNumber < totalTasks) {
                     taskState.taskNumber++;
                     tasks.add(createRandomRecordOperation(random, taskState));
                 }
-                // Wait for the head of the queue to complete, then remove the leading head of tasks that have already completed
+                // Wait for the head of the queue to complete, then remove the leading head of tasks that have already completed.
+                // Note that while we could theoretically remove any task that has already completed, waiting in order
+                // on the queue items helps simplify the logic for finding a valid set of values for each record.
                 tasks.peek().get();
                 while (!tasks.isEmpty() && tasks.peek().isDone()) {
                     tasks.remove().get();

@@ -142,6 +142,13 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         final Map<Tuple, Set<Message>> candidatesByPrimaryKey = new HashMap<>();
         savedRecords.forEach(savedRecord ->
                 candidatesByPrimaryKey.computeIfAbsent(savedRecord.getPrimaryKey(), k -> Sets.newHashSet()).add(savedRecord.getRecord()));
+        assertThat(candidatesByPrimaryKey)
+                .hasSize(10)
+                .allSatisfy((primaryKey, valueSet) ->
+                        assertThat(valueSet)
+                                .as("record with primary key %s should have had at most 100 candidate values", primaryKey)
+                                .hasSizeLessThanOrEqualTo(100)
+                );
         try (final FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addVectorIndexes);
             for (final Map.Entry<Tuple, Set<Message>> entry : candidatesByPrimaryKey.entrySet()) {
@@ -191,6 +198,8 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                 saveRandomRecords(useAsync, this::addUngroupedVectorIndex, 1000, recNo -> baseRecordGenerator.apply(random.nextLong(50)));
         final Map<Tuple, Set<Message>> candidatesByPrimaryKey = new HashMap<>();
         savedRecords.forEach(saved -> candidatesByPrimaryKey.computeIfAbsent(saved.getPrimaryKey(), ignore -> Sets.newHashSet()).add(saved.getRecord()));
+        assertThat(candidatesByPrimaryKey)
+                .hasSize(50);
 
         final List<FDBStoredRecord<Message>> loadedRecords;
         try (FDBRecordContext context = openContext()) {

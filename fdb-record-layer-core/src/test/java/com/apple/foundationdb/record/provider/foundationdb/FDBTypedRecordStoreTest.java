@@ -344,7 +344,9 @@ public class FDBTypedRecordStoreTest {
         assertEquals(disableConcurrencyManager, builder.isConcurrencyManagementDisabled());
 
         // Basic smoke test of concurrency manager validation. The typed class delegates to the
-        //
+        // same methods as the untyped FDBRecordStore, so these methods are mainly covered
+        // by the tests of that class. But make sure that at a surface level that we get the
+        // same behavior just to make sure that those methods stay coupled.
         try (FDBRecordContext context = fdb.openContext()) {
             recordStore = builder.setContext(context).open();
 

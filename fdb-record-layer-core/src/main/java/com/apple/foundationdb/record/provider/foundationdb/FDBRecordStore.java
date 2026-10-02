@@ -578,8 +578,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         return concurrencyManager.doWithRecordWriteLock(primaryKey, () -> {
             // Chain the read off of the preload so that we can use the value loaded into the cache (if it hasn't been
-            // invalidated). Ignore any errors during the initial read, favoring instead to surface errors from loadRecordForUpdate
-            final CompletableFuture<FDBStoredRecord<M>> result = AsyncUtil.composeHandle(preload, (vignore, eignore) -> loadRecordForUpdate(typedSerializer, primaryKey))
+            // invalidated). Ignore any errors during the initial read, favoring instead to surface errors from loadRecordUnlockedForUpdate.
+            // Note that the explicit chaining here is partially defense in depth, as the concurrency manager should
+            // prevent us from acquiring the record write lock until after the read completes. However, if the store
+            // is configured to use the NoOpConcurrencyManager, then having the explicit chaining is more important.
+            final CompletableFuture<FDBStoredRecord<M>> result = AsyncUtil.composeHandle(preload, (vignore, eignore) -> loadRecordUnlockedForUpdate(typedSerializer, primaryKey))
                     .thenCompose(oldRecord -> {
                         if (oldRecord == null) {
                             if (existenceCheck.errorIfNotExists()) {
@@ -656,7 +659,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadRecordForUpdate(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull Tuple primaryKey) {
+    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadRecordUnlockedForUpdate(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull Tuple primaryKey) {
         // Note: this assumes that any existing record is compatible with the serializer (even if not of the same record type).
         // To relax that would perhaps mean catching errors and falling back to the untyped serializer.
         // This would in turn require care with the type parameters to updateSecondaryIndexes.
@@ -1088,6 +1091,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 () -> loadTypedRecordImpl(typedSerializer, primaryKey, executeState, snapshot));
     }
 
+    /**
+     * The underlying method for loading records. This is surfaced via several top-level APIs like
+     * {@link #loadRecord(Tuple)} or {@link #loadTypedRecord(RecordSerializer, Tuple, boolean)}.
+     * Note that it does not acquire a read lock (see {@link FDBRecordStoreConcurrencyManager#doWithRecordReadLock(Tuple, Supplier)})
+     * as it is expected the caller will have already done so.
+     *
+     * @param typedSerializer the serializer to use to deserialize the record
+     * @param primaryKey the record's primary key
+     * @param executeState an {@link ExecuteState} to update with any resources used in this operation
+     * @param snapshot whether the read should be done at snapshot isolation level
+     * @param <M> the type of message returned by this method
+     * @return a record loaded from the database
+     */
     @Nonnull
     private <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecordImpl(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                           @Nonnull final Tuple primaryKey,
@@ -1808,15 +1824,27 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 () -> AsyncUtil.composeHandle(preload, (vignore, eignore) -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun)));
     }
 
+    /**
+     * The underlying method for deleting records. This is surfaced via several top-level APIs like
+     * {@link #deleteRecord(Tuple)} or {@link #deleteTypedRecord(RecordSerializer, Tuple, boolean)}.
+     * Note that it does not acquire a write lock (see {@link FDBRecordStoreConcurrencyManager#doWithRecordWriteLock(Tuple, Supplier)})
+     * as it is expected the caller will have already done so.
+     *
+     * @param typedSerializer the serializer to use to deserialize the record
+     * @param primaryKey the record's primary key
+     * @param isDryRun whether this is a dry-run operation that should avoid actually modifying data
+     * @param <M> the type of message deleted by this method
+     * @return a Boolean specifying whether a record with the given primary key actually existed
+     */
     @Nonnull
     private <M extends Message> CompletableFuture<Boolean> deleteTypedRecordImpl(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                  @Nonnull Tuple primaryKey, boolean isDryRun) {
         if (isDryRun) {
-            return loadRecordForUpdate(typedSerializer, primaryKey)
+            return loadRecordUnlockedForUpdate(typedSerializer, primaryKey)
                     .thenCompose(oldRecord -> oldRecord == null ? AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE);
         }
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
-        CompletableFuture<Boolean> result = loadRecordForUpdate(typedSerializer, primaryKey).thenCompose(oldRecord -> {
+        CompletableFuture<Boolean> result = loadRecordUnlockedForUpdate(typedSerializer, primaryKey).thenCompose(oldRecord -> {
             if (oldRecord == null) {
                 return AsyncUtil.READY_FALSE;
             }

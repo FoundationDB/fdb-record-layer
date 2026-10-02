@@ -492,7 +492,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertThat(slidingWindow())
                     .hasSizeOf(windowSize)
                     .underlyingHnsw()
-                    // Should contain the limit (10) largest even records, as those the most relevant
+                    // Should contain the limit (10) largest even records, as those the most relevant.
+                    // If this fails, this is probably a sign that there is a problem with how the
+                    // underlying vector index manages concurrent updates.
                     .containsInAnyOrder(LongStream.range(totalRecords - 2 * windowSize, totalRecords).filter(l -> l % 2 == 0).toArray());
         }
     }
@@ -558,7 +560,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 40; i++) {
                 rec(i, i * 5);
             }
-            // With window size 5, the boundary key is relevance 100.
+            // With window size 20, the boundary key is relevance 100.
             saveAllWithConcurrency(totalRecords, concurrency, id -> {
                 // Mutate either the 5 most or 5 least relevant records
                 int recNo = random.nextInt(10);
@@ -589,10 +591,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 futures.addLast(recordStore.saveRecordAsync(recordGenerator.apply(startedSaves)));
                 startedSaves++;
             }
-            futures.peekFirst().get(1, TimeUnit.SECONDS);
-            while (!futures.isEmpty() && futures.peekFirst().isDone()) {
-                records.add(futures.pollFirst().get(1, TimeUnit.SECONDS));
-            }
+            records.add(futures.removeFirst().get(1, TimeUnit.SECONDS));
         }
         return records;
     }
