@@ -34,10 +34,10 @@ M
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˘;
+}Ö<
 Á
-array-agg-scenario–EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20å:
-ÁùÉîçø ÙÖÿ+(0Óêô	8¢@,¸SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }Î6digraph G {
+array-agg-scenario–EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20ò:
+ÁÓÀõÅø ÎÓç)(0∑‚€	8¢@,¸SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }˜6digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -47,13 +47,13 @@ M
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q14 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(STRING) AS _0 AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c60 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q94._0.url) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(STRING) AS _0 AS _0)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url AS _0)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.rid]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">doc_asset_by_rid</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -67,14 +67,6 @@ M
   13 -> 12 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 11 [ color="red" style="invis" ];
-  }
-  {
     3 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -85,10 +77,18 @@ M
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}Ä9
+  {
+    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 11 [ color="red" style="invis" ];
+  }
+}å9
 É
-array-agg-scenarioÏEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid = r.rid˜6
-'°èúÜı à¨òW(õ0¿‡∏8˛@∏àISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }»3digraph G {
+array-agg-scenarioÏEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid = r.ridÉ7
+'º©Ãòı ∫˜÷/(õ0ùìà8˛@∏àISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }‘3digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -98,31 +98,23 @@ M
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">doc_asset_by_rid</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner AS _0, LONG AS rid, STRING AS title, ARRAY(STRING) AS tags AS _1)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c53 IN q6.tags AND q14._0._0 EQUALS q6.rid</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c63 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c53 IN q6.tags AND q14._0._0 EQUALS q6.rid</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c63 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   3 -> 2 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ label=<&nbsp;q85> label="q85" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 6 [ color="red" style="invis" ];
-  }
   {
     7 -> 6 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
@@ -132,12 +124,20 @@ M
   {
     rank=same;
     rankDir=LR;
-    7 -> 8 [ color="red" style="invis" ];
+    8 -> 7 [ color="red" style="invis" ];
   }
-}◊=
+  {
+    8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 6 [ color="red" style="invis" ];
+  }
+}‚=
 Á
-array-agg-scenario–EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG((a.*)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20Í;
-Áâˆ¶ãø ìæ¸*(0õÎß8¢@,ßSCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }û8digraph G {
+array-agg-scenario–EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG((a.*)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20ı;
+Ááÿ†}ø Ö˛Ì((0ïÙò8¢@,ßSCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }™8digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -147,13 +147,13 @@ M
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q14 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, LONG AS rid, STRING AS url) AS _0 AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c62 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg((q94._0.aid AS aid, q94._0.rid AS rid, q94._0.url AS url)) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, LONG AS rid, STRING AS url) AS _0 AS _0)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url AS _0)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.rid]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">doc_asset_by_rid</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -167,6 +167,14 @@ M
   13 -> 12 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 11 [ color="red" style="invis" ];
+  }
+  {
     3 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -177,18 +185,10 @@ M
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-  {
-    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 11 [ color="red" style="invis" ];
-  }
-}“
+}—
 G
-array-agg-with-aggregate-index%EXPLAIN SELECT ARRAY_AGG(val) FROM T4Ü
-”–˝ºAX ¨àÔ,('0–Üº8!@uISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)digraph G {
+array-agg-with-aggregate-index%EXPLAIN SELECT ARRAY_AGG(val) FROM T4Ö
+”Úõù	X ÷µ∆('0—Ë#8!@uISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -203,10 +203,10 @@ G
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}·
+}‡
 Y
-array-agg-with-aggregate-index7EXPLAIN SELECT grp, ARRAY_AGG(val) FROM T4 GROUP BY grpÉ
-•ÕêÇ@R àù‰*($0÷Ï≤8@ÉISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)ﬁdigraph G {
+array-agg-with-aggregate-index7EXPLAIN SELECT grp, ARRAY_AGG(val) FROM T4 GROUP BY grpÇ
+•Ω’˛R ú∆–($0≤≠8@ÉISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)ﬁdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -219,10 +219,10 @@ Y
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}å
+}ã
 J
-array-agg-with-aggregate-index(EXPLAIN SELECT ARRAY_AGG((T4.*)) FROM T4Ω
-”»æÉLX ˛Äÿ6('0ûÚ§8!@ûISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)˝digraph G {
+array-agg-with-aggregate-index(EXPLAIN SELECT ARRAY_AGG((T4.*)) FROM T4º
+”È˘Ñ	X ÊÏ∑('0ºµ$8!@ûISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -237,10 +237,10 @@ J
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ã
+}À
 c
-array-agg-with-aggregate-indexAEXPLAIN SELECT grp, COUNT(*), ARRAY_AGG(val) FROM T4 GROUP BY grp‰
-•»ﬂ—JR Ë∑Â4($0çèÒ8@ßISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0, array_agg(_._0.val) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)õdigraph G {
+array-agg-with-aggregate-indexAEXPLAIN SELECT grp, COUNT(*), ARRAY_AGG(val) FROM T4 GROUP BY grp„
+•èéÊR äüÅ($0®Á8@ßISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0, array_agg(_._0.val) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -253,10 +253,10 @@ c
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ª
+}∫
 A
-array-agg-with-aggregate-indexEXPLAIN SELECT COUNT(*) FROM T4ı
-ŸÈâÕL~ …Â∆7(00ê¡ö8/@yAISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)€digraph G {
+array-agg-with-aggregate-indexEXPLAIN SELECT COUNT(*) FROM T4Ù
+ŸÂÓß~ ﬂÙ«	(00Ïá<8/@yAISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -269,10 +269,11 @@ A
   4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+}≤
 S
-array-agg-with-aggregate-index1EXPLAIN SELECT grp, SUM(val) FROM T4 GROUP BY grp€
-òÀ¶ﬂKy øÛ‡5(.0⁄ªÁ8$@bAISCAN(T4_sum_by_grp <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS grp, _._1 AS _1)ÿ
+array-agg-with-aggregate-index1EXPLAIN SELECT grp, SUM(val) FROM T4 GROUP BY grp⁄
+ò∑Ü≈y Í⁄ï
+(.0“‹58$@bAISCAN(T4_sum_by_grp <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS grp, _._1 AS _1)ÿ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -282,16 +283,16 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T4_sum_by_grp</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∑$
+}∫$
 õ
-array-agg-with-aggregate-indexyEXPLAIN SELECT t.id, sq.vals FROM T1 t, (SELECT ARRAY_AGG((d.*)) AS vals FROM T4 d WHERE d.grp = t.grp) sq WHERE t.id = 1ñ#
-‹Ô·¯Ô ˆﬂ€(R0ª·‹8c@ÅSCAN([IS T1, EQUALS promote(@c42 AS LONG)]) | FLATMAP q0 -> { ISCAN(T4_grp [EQUALS q0.grp]) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0.id AS id, q0._0._0 AS vals) }Ú digraph G {
+array-agg-with-aggregate-indexyEXPLAIN SELECT t.id, sq.vals FROM T1 t, (SELECT ARRAY_AGG((d.*)) AS vals FROM T4 d WHERE d.grp = t.grp) sq WHERE t.id = 1ô#
+‹ºıÎÔ ªˆâ(R0Õ›c8c@ÅSCAN([IS T1, EQUALS promote(@c42 AS LONG)]) | FLATMAP q0 -> { ISCAN(T4_grp [EQUALS q0.grp]) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0.id AS id, q0._0._0 AS vals) }ˆ digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.id AS id, q10._0._0 AS vals)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, ARRAY(LONG AS id, LONG AS grp, LONG AS val) AS vals)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS promote(@c42 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T4, big, T5, keywords, doc_rev, doc_asset, doc_meta, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q10 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS id, LONG AS grp, LONG AS val) AS _0 AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg((q115._0.id AS id, q115._0.grp AS grp, q115._0.val AS val)) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS id, LONG AS grp, LONG AS val) AS _0 AS _0)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val AS _0)" ];
@@ -312,4 +313,250 @@ digraph G {
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+}ƒ
+Z
+array-agg-order-byDEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val) FROM T5 GROUP BY grpÂ
+˘‘ß◊` ÓÎ°(40À∂+8%@ùISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)ßdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}»
+^
+array-agg-order-byHEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val ASC) FROM T5 GROUP BY grpÂ
+˘àÜ` Ú¿¢(40‘ü$8%@ùISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)ßdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}É
+_
+array-agg-order-byIEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val DESC) FROM T5 GROUP BY grpü
+˘Üñ°` ‰Çû(40˝º-8%@•ISCAN(T5_grp_val <,> REVERSE) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üì) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)Ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üì) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Œ
+\
+array-agg-order-byFEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY other) FROM T5 GROUP BY grpÌ
+˘Åÿ’
+` ‡°»(40‡ä38%@°ISCAN(T5_grp_other <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.other ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)´digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.other ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_other</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Æ
+H
+array-agg-order-by2EXPLAIN SELECT ARRAY_AGG(val ORDER BY val) FROM T5·
+«õíÉ
+W ƒŒï(00‚Ì8@ãISCAN(T5_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)µdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG) AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG) AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q68._0.val ORDER BY q68._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG) AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q68> label="q68" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}õ
+g
+array-agg-order-byQEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val DESC LIMIT 2) FROM T5 GROUP BY grpØ
+˘Ó–¬` ÛÁû(40⁄¯98%@≠ISCAN(T5_grp_val <,> REVERSE) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üì LIMIT 2) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)·digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üì LIMIT 2) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ø
+d
+array-agg-order-byNEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val), COUNT(*) FROM T5 GROUP BY grp∆
+˘ËﬁÇ` ˇ◊ó(40“∑38%@¡ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0, count_star(*) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)‰digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1, q6._1._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1, LONG AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üë) AS _0, count_star(*) AS _1)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0, LONG AS _1 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}◊
+l
+array-agg-order-byVEXPLAIN SELECT grp, ARRAY_AGG(other), ARRAY_AGG(val ORDER BY val) FROM T5 GROUP BY grpÊ
+˘ùë¨
+` Èµã(40öÄ"8%@…ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.other) AS _0, array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)¸digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1, q6._1._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1, ARRAY(LONG) AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.other) AS _0, array_agg(q85._0.val ORDER BY q85._0.val ‚Üë) AS _1)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0, ARRAY(LONG) AS _1 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}í
+y
+array-agg-order-bycEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val), ARRAY_AGG(other ORDER BY val) FROM T5 GROUP BY grpî
+˘îƒ‡` ∞◊ı(40øˇ+8%@ﬂISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0, array_agg(_._0.other ORDER BY _._0.val ‚Üë) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1, q6._1._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1, ARRAY(LONG) AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üë) AS _0, array_agg(q85._0.other ORDER BY q85._0.val ‚Üë) AS _1)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0, ARRAY(LONG) AS _1 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+h
+array-agg-order-byREXPLAIN SELECT grp, other, ARRAY_AGG(val ORDER BY val) FROM T5 GROUP BY grp, other◊
+Ω…ﬁªV ùÉ«(00…≤8@«ISCAN(T5_grp_other_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0) GROUP BY (_._0.grp AS _0, _._0.other AS _1) | MAP (_._0._0 AS grp, _._0._1 AS other, _._1._0 AS _2)Ôdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._0._1 AS other, q6._1._0 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, LONG AS other, ARRAY(LONG) AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q68._0.val ORDER BY q68._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q68._0.grp AS _0, q68._0.other AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_other_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q68> label="q68" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‘
+j
+array-agg-order-byTEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val ASC NULLS FIRST) FROM T5 GROUP BY grpÂ
+˘Ó¬Û
+` ≈∏(40≠∆)8%@ùISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)ßdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}é
+j
+array-agg-order-byTEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val DESC NULLS LAST) FROM T5 GROUP BY grpü
+˘ÔÁª` Ÿéã(40¡ì38%@•ISCAN(T5_grp_val <,> REVERSE) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üì) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)Ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üì) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Á
+_
+array-agg-order-byIEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY val, val) FROM T5 GROUP BY grpÉ
+˘Ω≠π` „áÏ(40◊√*8%@´ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ‚Üë, _._0.val ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)∑digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.val ‚Üë, q85._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ˇ
+c
+array-agg-order-byMEXPLAIN SELECT grp, ARRAY_AGG(other ORDER BY val, other) FROM T5 GROUP BY grpó
+ΩÔÎÑ	V ø≈ï(00ÿ¿8@µISCAN(T5_grp_val_other <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.other ORDER BY _._0.val ‚Üë, _._0.other ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)¡digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q68._0.other ORDER BY q68._0.val ‚Üë, q68._0.other ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q68._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val_other</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q68> label="q68" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Á
+_
+array-agg-order-byIEXPLAIN SELECT grp, ARRAY_AGG(val ORDER BY grp, val) FROM T5 GROUP BY grpÉ
+˘Òäœ` ¬…≥(40üœ68%@´ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.grp ‚Üë, _._0.val ‚Üë) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)∑digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS grp, q6._1._0 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS grp, ARRAY(LONG) AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q85._0.val ORDER BY q85._0.grp ‚Üë, q85._0.val ‚Üë) AS _0)</td></tr><tr><td align="left">GROUP BY (q85._0.grp AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, ARRAY(LONG) AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T5_grp_val</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS grp, LONG AS val, LONG AS other)" ];
+  3 -> 2 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

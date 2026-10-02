@@ -93,8 +93,12 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
         final var resultValue = groupByExpression.getResultValue(); // full result value
         final var groupingValue = groupByExpression.getGroupingValue();
 
+        // The in-call ORDER BY clause of the aggregates, normalized into primitive ordering parts. If there is no
+        // ORDER BY clause this is the empty “preserve” ordering.
+        final RequestedOrdering inCallOrdering = groupByExpression.getInCallOrdering(correlatedTo);
+
         final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
-        for (final var requestedOrdering : requestedOrderings) {
+        for (final RequestedOrdering requestedOrdering : requestedOrderings) {
             if (requestedOrdering.isPreserve()) {
                 toBePushedRequestedOrderingsBuilder.add(groupByExpression.getRequestedOrdering());
             } else {
@@ -112,9 +116,10 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
                 if (groupingValue == null || groupingValue.isConstant()) {
                     //
                     // No grouping or constant grouping, there is only 0-1 record(s), and that can naturally be
-                    // considered as ordered in any way needed.
+                    // considered as ordered in any way needed. An in-call ORDER BY of one of the aggregates still has
+                    // to be served, though, as it orders the rows within that single group.
                     //
-                    toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
+                    toBePushedRequestedOrderingsBuilder.add(inCallOrdering);
                 } else {
                     //
                     // We have a requested ordering as well as a grouping. Today, we push down the grouping by key parts
@@ -164,7 +169,11 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
                                     .stream()
                                     .map(value -> new RequestedOrderingPart(value, RequestedSortOrder.ANY))
                                     .forEach(resultOrderingPartsBuilder::add);
-                            toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.ofPrimitiveParts(resultOrderingPartsBuilder.build(),
+                            // The in-call sort keys order rows within a group, so they follow the grouping key parts.
+                            toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.ofPrimitiveParts(
+                                    RequestedOrdering.concatWithoutDuplicates(
+                                            resultOrderingPartsBuilder.build(),
+                                            inCallOrdering.getOrderingParts()),
                                     pushedRequestedOrdering.getDistinctness(), false));
                         }
                     }

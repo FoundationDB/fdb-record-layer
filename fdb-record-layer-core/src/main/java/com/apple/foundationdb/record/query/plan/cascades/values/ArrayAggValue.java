@@ -75,11 +75,15 @@ import java.util.function.Supplier;
  * used or the child expression type is already non-nullable; only a nullable child expression evaluated under
  * {@code RESPECT NULLS} produces a nullable element type.
  *
+ * <p><b>In-call {@code ORDER BY}:</b> The sort keys of an in-call {@code ORDER BY} clause are held as a single
+ * {@link SortKeysValue} child, following the aggregated expression. They are never evaluated. Instead, they are turned
+ * into an ordering requirement, which the enclosing {@code GroupByExpression} imposes on its input.
+ *
  * <p><b>Limit:</b> An in-call {@code LIMIT} caps the number of elements to collect, and thereby bounds both the array
  * held in memory and the partial state serialized into a continuation. Note that rows after the cap are still consumed,
  * since the group boundary has to be determined nevertheless, but they are neither converted nor retained.
  *
- * <p>{@code DISTINCT} and in-call {@code ORDER BY} clauses are not supported yet.
+ * <p>{@code DISTINCT} is not supported yet.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ArrayAggValue extends AbstractValue implements AggregateValue, StreamableAggregateValue {
@@ -103,6 +107,13 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      */
     private final int limit;
 
+    /**
+     * The sort keys of the in-call {@code ORDER BY} clause, or {@code null} if there is no such clause. (This is a
+     * proper child value, so that the sort key expressions are rebased and translated along with this value.)
+     */
+    @Nullable
+    private final SortKeysValue sortKeysValue;
+
     @Nonnull
     private final Supplier<Type.Array> resultTypeSupplier;
 
@@ -113,12 +124,15 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      * @param child the expression whose values are collected
      * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
      * @param limit the maximum number of elements to collect, or {@link #NO_LIMIT} if the aggregation is uncapped
+     * @param sortKeysValue the sort keys of the in-call {@code ORDER BY} clause, or {@code null} if there is none
      */
-    public ArrayAggValue(@Nonnull final Value child, final boolean ignoreNulls, final int limit) {
+    public ArrayAggValue(@Nonnull final Value child, final boolean ignoreNulls, final int limit,
+                         @Nullable final SortKeysValue sortKeysValue) {
         Verify.verify(limit == NO_LIMIT || limit >= 0);
         this.child = child;
         this.ignoreNulls = ignoreNulls;
         this.limit = limit;
+        this.sortKeysValue = sortKeysValue;
         // Note: The result type is always nullable, since ARRAY_AGG() must yield a NULL array for empty input.
         this.resultTypeSupplier = Suppliers.memoize(
                 () -> new Type.Array(true, ignoreNulls ? child.getResultType().notNullable() : child.getResultType()));
@@ -206,17 +220,30 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         return resultTypeSupplier.get();
     }
 
+    /**
+     * Returns the sort keys of the in-call {@code ORDER BY} clause, in declared order. The sort key values are
+     * expressed over the same input as {@link #child}.
+     *
+     * @return the sort keys, or an empty list if there is no in-call {@code ORDER BY} clause
+     */
+    @Nonnull
+    public List<SortKeysValue.SortKey> getSortKeys() {
+        return sortKeysValue == null ? ImmutableList.of() : sortKeysValue.getSortKeys();
+    }
+
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(child);
+        return sortKeysValue == null ? ImmutableList.of(child) : ImmutableList.of(child, sortKeysValue);
     }
 
     @Nonnull
     @Override
     public ArrayAggValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 1);
-        return new ArrayAggValue(Iterables.get(newChildren, 0), ignoreNulls, limit);
+        Verify.verify(Iterables.size(newChildren) == (sortKeysValue == null ? 1 : 2));
+        final SortKeysValue newSortKeysValue =
+                sortKeysValue == null ? null : (SortKeysValue)Iterables.get(newChildren, 1);
+        return new ArrayAggValue(Iterables.get(newChildren, 0), ignoreNulls, limit, newSortKeysValue);
     }
 
     @Nonnull
@@ -224,11 +251,15 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     public ExplainTokensWithPrecedence explain(
             @Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final ExplainTokens argument =
-                new ExplainTokens().addNested(Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens());
+                new ExplainTokens().addNested(Iterables.get(explainSuppliers, 0).get().getExplainTokens());
         if (ignoreNulls) {
             // Only the non-default IGNORE NULLS treatment is spelled out, so that a plain ARRAY_AGG() remains plain
             // in the explain string.
             argument.addWhitespace().addKeyword("IGNORE").addWhitespace().addKeyword("NULLS");
+        }
+        if (sortKeysValue != null) {
+            argument.addWhitespace().addKeyword("ORDER").addWhitespace().addKeyword("BY").addWhitespace()
+                    .addNested(Iterables.get(explainSuppliers, 1).get().getExplainTokens());
         }
         if (limit != NO_LIMIT) {
             argument.addWhitespace().addKeyword("LIMIT").addWhitespace().addToString(limit);
@@ -243,7 +274,11 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, ignoreNulls, limit);
+        // Note: This is written in a way that makes an ARRAY_AGG() without an in-call ORDER BY clause hash exactly
+        // as it would before the clause existed.
+        return sortKeysValue == null
+               ? PlanHashable.objectsPlanHash(mode, BASE_HASH, child, ignoreNulls, limit)
+               : PlanHashable.objectsPlanHash(mode, BASE_HASH, child, ignoreNulls, limit, sortKeysValue);
     }
 
     @Nonnull
@@ -270,11 +305,14 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     @Nonnull
     @Override
     public PArrayAggValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PArrayAggValue.newBuilder()
+        final PArrayAggValue.Builder builder = PArrayAggValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setIgnoreNulls(ignoreNulls)
-                .setLimit(limit)
-                .build();
+                .setLimit(limit);
+        if (sortKeysValue != null) {
+            builder.setSortKeys(sortKeysValue.toProto(serializationContext));
+        }
+        return builder.build();
     }
 
     @Nonnull
@@ -287,16 +325,21 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     public static ArrayAggValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PArrayAggValue proto) {
         final Value child = Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getChild()));
-        return new ArrayAggValue(child, proto.getIgnoreNulls(), proto.getLimit());
+        final SortKeysValue sortKeysValue =
+                proto.hasSortKeys() ? SortKeysValue.fromProto(serializationContext, proto.getSortKeys()) : null;
+        return new ArrayAggValue(child, proto.getIgnoreNulls(), proto.getLimit(), sortKeysValue);
     }
 
     /**
      * The {@code ARRAY_AGG(«expr»)} aggregation function.
      *
-     * <p>Note that this function takes two further arguments besides the user-facing {@code «expr»} argument: the null
+     * <p>Note that this function takes further arguments besides the user-facing {@code «expr»} argument: the null
      * treatment resolved from the call’s {@code {IGNORE|RESPECT} NULLS} clause, as a boolean literal, and the limit
-     * resolved from its {@code LIMIT} clause, as an integer literal. They are consumed during encapsulation rather than
-     * passed as children to the resulting {@link ArrayAggValue}.
+     * resolved from its {@code LIMIT} clause, as an integer literal. An in-call {@code ORDER BY} clause contributes one
+     * further argument, a {@link SortKeysValue} bundling all its sort keys; for compatibility with earlier server
+     * versions, a call without such a clause omits that argument altogether (rather than passing an empty bundle).
+     * The literal arguments are consumed during encapsulation rather than passed as children to the resulting
+     * {@link ArrayAggValue}.
      */
     @AutoService(BuiltInFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -306,6 +349,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
                     ImmutableList.of(new Type.Any(),
                             Type.primitiveType(Type.TypeCode.BOOLEAN),
                             Type.primitiveType(Type.TypeCode.INT)),
+                    new Type.Any(),
                     ArrayAggFn::encapsulate);
         }
 
@@ -313,7 +357,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         private static AggregateValue encapsulate(@Nonnull final BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
-            Verify.verify(arguments.size() == 3);
+            Verify.verify(arguments.size() >= 3);
             final Typed arg0 = arguments.get(0);
             final Typed arg1 = arguments.get(1);
             final Typed arg2 = arguments.get(2);
@@ -329,7 +373,28 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
             SemanticException.check(!arg0.getResultType().isUnresolved(),
                     SemanticException.ErrorCode.UNKNOWN_TYPE,
                     "Cannot resolve the argument type of ARRAY_AGG()");
-            return new ArrayAggValue((Value)arg0, ignoreNulls, limit);
+            return new ArrayAggValue((Value)arg0, ignoreNulls, limit, sortKeysValueOf(arguments));
+        }
+
+        /**
+         * Resolves the trailing in-call {@code ORDER BY} argument, if any.
+         */
+        @Nullable
+        private static SortKeysValue sortKeysValueOf(@Nonnull final List<? extends Typed> arguments) {
+            if (arguments.size() == 3) {
+                return null;
+            }
+            if (arguments.size() > 4 || !(arguments.get(3) instanceof SortKeysValue sortKeysValue)) {
+                throw new RecordCoreException(
+                        "the in-call ORDER BY clause of ARRAY_AGG() must be a single sort keys argument");
+            }
+            for (final SortKeysValue.SortKey sortKey : sortKeysValue.getSortKeys()) {
+                SemanticException.check(
+                        !sortKey.getValue().getResultType().isUnresolved(),
+                        SemanticException.ErrorCode.UNKNOWN_TYPE,
+                        "Cannot resolve the type of an ARRAY_AGG() sort key");
+            }
+            return sortKeysValue;
         }
     }
 
