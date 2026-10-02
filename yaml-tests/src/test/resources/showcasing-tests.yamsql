@@ -455,7 +455,8 @@ setup:
 # TRANSACTION SETUPS AND SETUP REFERENCES
 # ============================================================================
 # Define named transaction-scoped setup commands that can be referenced from
-# individual tests. Currently only CREATE TEMPORARY FUNCTION is supported.
+# individual tests. Currently only CREATE TEMPORARY FUNCTION and SET TRANSACTION VARIABLE are
+# supported.
 #
 #   ---
 #   transaction_setups:
