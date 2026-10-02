@@ -46,7 +46,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -489,6 +488,21 @@ public class MetaDataProtoEditorUnitTest {
                                     assertEquals(Map.of("parent", simpleRename("T2"), "child", "T1"),
                                             constituentTypeNames(renamed));
                                 }),
+                        Arguments.of("UnnestedRenamed.json",
+                                (Consumer<RecordMetaData>) renamed -> {
+                                    // "child" names T1, which is itself a renamed RECORD type, so it follows the rename
+                                    // just like "parent" does.
+                                    assertEquals(Map.of("parent", simpleRename("T2"), "child", simpleRename("T1")),
+                                            constituentTypeFullNames(renamed));
+                                }),
+                        Arguments.of("UnnestedRenamedNested.json",
+                                (Consumer<RecordMetaData>) renamed -> {
+                                    // "child" names T1.A1, which is nested within the renamed T1, so its fully
+                                    // qualified name follows the rename of T1.
+                                    assertEquals(
+                                            Map.of("parent", simpleRename("T2"), "child", simpleRename("T1") + ".A1"),
+                                            constituentTypeFullNames(renamed));
+                                }),
                         Arguments.of("Joined.json",
                                 (Consumer<RecordMetaData>) renamed -> {
                                     final SyntheticRecordType<?> join = renamed.getSyntheticRecordType("JOIN");
@@ -546,6 +560,17 @@ public class MetaDataProtoEditorUnitTest {
         return renamed.getSyntheticRecordType("__3_syntheticType_1").getConstituents().stream()
                 .collect(Collectors.toMap(SyntheticRecordType.Constituent::getName,
                         constituent -> constituent.getRecordType().getName()));
+    }
+
+    /**
+     * Like {@link #constituentTypeNames}, but maps each constituent to the fully qualified name of the message type it
+     * names, which also tells apart a type nested within a renamed type.
+     */
+    @Nonnull
+    private static Map<String, String> constituentTypeFullNames(final RecordMetaData renamed) {
+        return renamed.getSyntheticRecordType("__3_syntheticType_1").getConstituents().stream()
+                .collect(Collectors.toMap(SyntheticRecordType.Constituent::getName,
+                        constituent -> constituent.getRecordType().getDescriptor().getFullName()));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -708,24 +733,6 @@ public class MetaDataProtoEditorUnitTest {
         final Descriptors.Descriptor union = getMessage(renamed, "MyUnion");
         assertEquals(Set.of("_" + simpleRename("T1"), "_" + simpleRename("T2")),
                 union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
-    }
-
-    /**
-     * The rename must reject the schemas that rename a type used by a non-parent unnested constituent.
-     */
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "UnnestedRenamed.json",
-            "UnnestedRenamedNested.json",
-    })
-    void unsupported(String name) throws IOException {
-        final RecordMetaDataProto.MetaData originalProto = loadMetaData(name).build();
-        // Ensure that the original metadata is valid.
-        RecordMetaData.build(originalProto);
-        crossCheckRenameRecordTypesIsRejected(
-                originalProto,
-                MetaDataProtoEditorUnitTest::simpleRename,
-                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
     }
 
     /**
@@ -927,7 +934,7 @@ public class MetaDataProtoEditorUnitTest {
     /**
      * The mirror image of {@link #shadowedNestedTypeNameDoesNotBlockRename}. The fixture is the same but for the
      * constituent naming the top-level {@code T1} instead of {@code T2}’s shadowing nested type of the same name, so
-     * renaming {@code T1} must now be rejected.
+     * renaming {@code T1} must now rename the constituent too, while the shadowing nested type keeps its name.
      */
     @Test
     void shadowedNestedTypeNameDoesNotHideRename() throws IOException {
@@ -935,9 +942,11 @@ public class MetaDataProtoEditorUnitTest {
                 loadMetaData("UnnestedShadowedNameTopLevel.json").build();
         // Ensure that the original metadata is valid.
         RecordMetaData.build(originalProto);
-        crossCheckRenameRecordTypesIsRejected(originalProto,
+        final RecordMetaData renamed = runRename(originalProto,
                 name -> name.equals("T1") ? simpleRename("T1") : name,
-                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+                name -> name.equals(simpleRename("T1")) ? "T1" : name);
+        assertEquals(Map.of("parent", "T2", "child", simpleRename("T1")), constituentTypeFullNames(renamed));
+        assertNotNull(getMessage(renamed, "T2").findNestedTypeByName("T1"));
     }
 
     /**

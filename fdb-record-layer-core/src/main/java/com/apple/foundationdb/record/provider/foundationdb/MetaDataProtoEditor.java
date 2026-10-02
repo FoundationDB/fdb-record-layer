@@ -525,6 +525,25 @@ public class MetaDataProtoEditor {
             }
             return byFullName.get(type.getFullName());
         }
+
+        /**
+         * Returns the new fully qualified name of {@code type}, which must be a message or an enum type, if a rename
+         * affects it; otherwise, returns {@code null}. The new name substitutes the new name of the renamed outermost
+         * containing type for its old one, leaving any nested-type suffix (e.g., ".Inner") untouched.
+         */
+        @Nullable
+        String getNewFullName(@Nonnull Descriptors.GenericDescriptor type) {
+            // Determine the message type that is, or directly contains, the type. A top-level enum has none, so no
+            // rename can affect it.
+            final Descriptors.Descriptor messageType = type instanceof Descriptors.EnumDescriptor enumType
+                                                       ? enumType.getContainingType()
+                                                       : (Descriptors.Descriptor) type;
+            if (messageType == null) {
+                return null;
+            }
+            final RecordTypeRename rename = get(getOutermostType(messageType));
+            return rename == null ? null : replacePrefix(type.getFullName(), rename.fullName, rename.fullNewName);
+        }
     }
 
     /**
@@ -621,7 +640,7 @@ public class MetaDataProtoEditor {
         validateNoUnrenamableDefinitions(metadata);
 
         // Validate the `MetaData.unnested_record_types` constituents.
-        validateRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), fileDesc, renames);
+        validateRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), fileDesc);
 
         // Determine the usage of each renamed type by looking at the union message type within `MetaData.records`.
         determineRecordTypeUnionFieldsAndUsages(renames, unionDescriptor, union);
@@ -645,7 +664,7 @@ public class MetaDataProtoEditor {
         renameRecordTypeUsagesInJoinedRecordTypes(metadata.getJoinedRecordTypesBuilderList(), renames);
 
         // Rename `MetaData.unnested_record_types` constituents for every renamed type.
-        renameRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), renames);
+        renameRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), fileDesc, renames);
     }
 
     /**
@@ -1039,23 +1058,14 @@ public class MetaDataProtoEditor {
             @Nonnull Descriptors.Descriptor descriptorForMessage) {
         for (final DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
             final Descriptors.GenericDescriptor referencedType = resolveFieldType(descriptorForMessage, field);
-            // Determine the message type that is, or directly contains, the referenced type.
-            final Descriptors.Descriptor messageType = referencedType instanceof Descriptors.EnumDescriptor enumType
-                                                       ? enumType.getContainingType()
-                                                       : (Descriptors.Descriptor) referencedType;
-            // Skip fields that reference no named type at all, or that reference a top-level enum. These field can’t be
-            // affected by any rename.
-            if (messageType == null) {
+            // Skip fields that reference no named type at all.
+            if (referencedType == null) {
                 continue;
             }
-            // If the outermost type containing the referenced type is renamed, substitute its new name for the prefix,
-            // leaving any nested-type suffix (e.g., ".Inner") untouched.
-            final RecordTypeRename rename = renames.get(getOutermostType(messageType));
-            if (rename != null) {
+            final String newFullName = renames.getNewFullName(referencedType);
+            if (newFullName != null) {
                 // Note: A leading '.' indicates a fully qualified name in a `type_name`.
-                final String newTypeName =
-                        "." + replacePrefix(referencedType.getFullName(), rename.fullName, rename.fullNewName);
-                field.setTypeName(newTypeName);
+                field.setTypeName("." + newFullName);
             }
         }
 
@@ -1135,15 +1145,13 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Validates the nested constituents of {@code MetaData.unnested_record_types} affected by any renamed type.
-     * Any constituent whose type is nested within a renamed type, other than as that type’s own (non-nested)
-     * constituent, causes a {@link MetaDataException}, since renaming a type used by a non-parent unnested constituent
-     * is not supported.
+     * Validates that the type of every non-parent constituent of {@code MetaData.unnested_record_types} can be
+     * resolved, so that {@link #renameRecordTypeUsagesInUnnestedRecordTypes} can rewrite it if it is affected by a
+     * rename.
      */
     private static void validateRecordTypeUsagesInUnnestedRecordTypes(
             @Nonnull List<RecordMetaDataProto.UnnestedRecordType.Builder> unnestedRecordTypes,
-            @Nonnull Descriptors.FileDescriptor fileDescriptor,
-            @Nonnull RecordTypeRenames renames) {
+            @Nonnull Descriptors.FileDescriptor fileDescriptor) {
         for (var unnested : unnestedRecordTypes) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
                 if (constituent.getParent().isEmpty()) {
@@ -1157,24 +1165,19 @@ public class MetaDataProtoEditor {
                             .addLogInfo(LogMessageKeys.EXPECTED, name)
                             .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
                 }
-                // If the constituent’s type, or the top-level type it is nested within, is being renamed, this
-                // non-parent reference to it can’t be safely updated.
-                // TODO Issue #4707: Support this case.
-                if (renames.get(getOutermostType(constituentTypeDescriptor)) != null) {
-                    throw new MetaDataException(
-                            "Renaming types used by non-parent unnested constituents is not supported");
-                }
             }
         }
     }
 
     /**
-     * Renames the nested constituents of {@code MetaData.unnested_record_types} that directly name (as their own,
-     * non-nested type) any {@code RECORD}-usage rename in {@code renames}. Callers must have already validated the
-     * rename via {@link #validateRecordTypeUsagesInUnnestedRecordTypes}.
+     * Renames the constituents of {@code MetaData.unnested_record_types} affected by any rename in {@code renames}.
+     * The parent constituent names a {@code RECORD}-usage type by its simple name; a non-parent constituent names a
+     * message type by its fully qualified name, which also changes if the type is nested within a renamed type.
+     * Callers must have already validated the constituents via {@link #validateRecordTypeUsagesInUnnestedRecordTypes}.
      */
     private static void renameRecordTypeUsagesInUnnestedRecordTypes(
             @Nonnull List<RecordMetaDataProto.UnnestedRecordType.Builder> unnestedRecordTypes,
+            @Nonnull Descriptors.FileDescriptor fileDescriptor,
             @Nonnull RecordTypeRenames renames) {
         for (var unnested : unnestedRecordTypes) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
@@ -1182,6 +1185,14 @@ public class MetaDataProtoEditor {
                     final String newName = renames.get(constituent.getTypeName(), RecordTypeOptions.Usage.RECORD);
                     if (newName != null) {
                         constituent.setTypeName(newName);
+                    }
+                } else {
+                    final Descriptors.Descriptor constituentTypeDescriptor = Objects.requireNonNull(
+                            UnnestedRecordTypeBuilder.findDescriptorByName(fileDescriptor, constituent.getTypeName()),
+                            "Constituent descriptors must have been validated");
+                    final String newFullName = renames.getNewFullName(constituentTypeDescriptor);
+                    if (newFullName != null) {
+                        constituent.setTypeName(newFullName);
                     }
                 }
             }
