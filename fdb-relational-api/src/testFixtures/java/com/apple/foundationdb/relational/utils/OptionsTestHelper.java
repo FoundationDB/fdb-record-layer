@@ -47,6 +47,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3000L);
         builder = builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 4);
         builder = builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 2000L);
+        builder = builder.withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, true);
         builder = builder.withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true);
         builder = builder.withOption(Options.Name.LOG_QUERY, true);
         builder = builder.withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1000000L);

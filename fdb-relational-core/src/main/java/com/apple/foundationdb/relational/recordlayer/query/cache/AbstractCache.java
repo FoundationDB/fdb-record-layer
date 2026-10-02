@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * This represents a generic plan cache interface intended for streamlining interactions with the cache.
@@ -128,7 +127,7 @@ public abstract class AbstractCache<K, S, T, V> {
      * @param tertiaryKey The tertiary key of the item.
      * @param tertiaryKeyValueSupplier supplier for a tertiary key and value pair in case the item is not found.
      * @param valueWithEnvironmentDecorator decorates the retrieved value with an environment preparing it for execution.
-     * @param reductionFunction a function for choosing one matching value from a list of matches.
+     * @param reducer resolves the lookup against the tertiary cache contents.
      * @param metricCollector metric collector to consume events from interacting with the cache.
      * @return The value referenced {@code key} and {@code secondaryKey}.
      */
@@ -138,7 +137,7 @@ public abstract class AbstractCache<K, S, T, V> {
                              @Nonnull T tertiaryKey,
                              @Nonnull Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
                              @Nonnull Function<V, V> valueWithEnvironmentDecorator,
-                             @Nonnull Function<Stream<V>, V> reductionFunction,
+                             @Nonnull Reducer<T, V> reducer,
                              @Nonnull MetricCollector metricCollector);
 
     /**
