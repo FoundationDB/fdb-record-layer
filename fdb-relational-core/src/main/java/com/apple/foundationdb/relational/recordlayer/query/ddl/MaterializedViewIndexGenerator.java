@@ -94,18 +94,18 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
         spec.checkValidity();
-        final var unnestedTableGeneratorMaybe = RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
+        final var syntheticTableGeneratorMaybe = SyntheticTableGeneratorFactory.forDefinition(
                 spec, indexName, quantifierValues);
         final Type.Record tableType;
-        if (unnestedTableGeneratorMaybe.isPresent()) {
-            final var unnestedTableGenerator = unnestedTableGeneratorMaybe.get();
-            unnestedTableGenerator.checkSupported(spec);
-            spec = unnestedTableGenerator.rewrite(spec);
-            tableType = unnestedTableGenerator.getSyntheticType();
+        if (syntheticTableGeneratorMaybe.isPresent()) {
+            final var syntheticTableGenerator = syntheticTableGeneratorMaybe.get();
+            syntheticTableGenerator.checkSupported(spec);
+            spec = syntheticTableGenerator.rewrite(spec);
+            tableType = syntheticTableGenerator.getType();
         } else {
             tableType = spec.table().getType();
         }
-        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
+        final var translation = translateToKeyExpression(spec, syntheticTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
@@ -126,7 +126,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
         return new IndexGenerationResult(indexBuilder,
-                unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate).orElse(null));
+                syntheticTableGeneratorMaybe.map(SyntheticTableGenerator::generate).orElse(null));
     }
 
     /**
