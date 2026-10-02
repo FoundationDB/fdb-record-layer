@@ -1248,7 +1248,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M order by M.x) SQ";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is not supported in a subquery");
     }
 
     @Test
@@ -1257,7 +1257,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t where exists (select M.x from t.a AS M order by M.x)";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is not supported in a subquery");
     }
 
     @Test
