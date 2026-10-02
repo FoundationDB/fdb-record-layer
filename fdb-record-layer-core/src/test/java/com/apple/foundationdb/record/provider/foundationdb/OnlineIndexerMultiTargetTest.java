@@ -55,6 +55,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -586,6 +587,124 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
             context.commit();
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource({"byIndex", "allowTakeover"})
+    void testMultiTargetPartlyBuiltContinueSingle(boolean byIndex, boolean allowTakeover) {
+        // After a multi target crash, continue a single target - either by a source index or by a records scan
+
+        final int numRecords = 40;
+        final int chunkSize  = 7;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 3, new FDBStoreTimer(), newIndexerBuilder(indexes));
+
+        // 2. finish "indexB", to be used as a source index. The others keep the multi target stamp
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0))
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue())
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // 3. continue "indexA", either by "indexB" as a source index or by a records scan
+        // A by-index attempt always falls back to a by-records scan, hence the extra attempt
+        final int expectedAttempts = byIndex ? 2 : allowTakeover ? 1 : 2;
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(1))
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex(byIndex ? indexes.get(0).getName() : null)
+                        .allowTakeoverContinue(allowTakeover))
+                .build()) {
+            if (allowTakeover) {
+                indexBuilder.buildIndex();
+            } else {
+                // Without a takeover, no attempt may continue the multi target build. The reported mismatch is the
+                // requested one, not the internal by-records fallback.
+                final RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                final IndexingBase.PartlyBuiltException partlyBuilt = IndexingBase.getAPartlyBuiltExceptionIfApplicable(e);
+                assertNotNull(partlyBuilt, () -> "expected a PartlyBuiltException, got " + e);
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, partlyBuilt.getSavedStamp().getMethod());
+                assertTrue(partlyBuilt.getSavedStamp().getTargetIndexList().containsAll(List.of("indexA", "indexB", "indexC")));
+                assertEquals(byIndex ?
+                             IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX :
+                             IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS,
+                        partlyBuilt.getExpectedStamp().getMethod());
+            }
+            assertEquals(expectedAttempts, indexBuilder.getLastAttemptCount());
+        }
+
+        if (allowTakeover) {
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
+                context.commit();
+            }
+            scrubAndValidate(List.of(indexes.get(0), indexes.get(1)));
+        }
+    }
+
+    @Test
+    void testMismatchRebuildDoesNotLeakToTheNextOperation() {
+        // A mismatching stamp may be resolved by adjusting the policy to a rebuild. Assert that a following
+        // operation, performed by the very same indexer, starts over from the originally requested policy - and
+        // continues the partly built index instead of rebuilding it.
+
+        final int numRecords = 40;
+        final int chunkSize  = 7;
+        final int builtChunks = 3;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        final Index target = indexes.get(0);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        // 1. partly build both indexes as a multi target set
+        buildIndexAndCrashHalfway(chunkSize, builtChunks, new FDBStoreTimer(), newIndexerBuilder(indexes));
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(target, timer)
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD))
+                .build()) {
+            // 2. the multi target stamp mismatches this single target request, hence a rebuild
+            indexBuilder.buildIndex(true);
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+
+            // 3. partly build this index again, now with a matching (single target, by-records) stamp
+            disableAll(List.of(target));
+            buildIndexAndCrashHalfway(chunkSize, builtChunks, new FDBStoreTimer(), newIndexerBuilder(target));
+
+            // 4. the stamps match, hence the requested continuation - and not the previous operation's rebuild
+            timer.reset();
+            indexBuilder.buildIndex(true);
+            assertEquals(1, indexBuilder.getLastAttemptCount());
+            assertTrue(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED) < numRecords,
+                    "the partly built index should have been continued, not rebuilt");
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexState(target).isReadable());
+            context.commit();
+        }
+        scrubAndValidate(List.of(target));
     }
 
     @Test
