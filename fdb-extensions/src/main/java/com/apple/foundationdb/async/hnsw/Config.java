@@ -48,6 +48,12 @@ import javax.annotation.Nonnull;
  * @param maxNumConcurrentNodeFetches maximum concurrent node fetches during search and modification
  * @param maxNumConcurrentNeighborhoodFetches maximum concurrent neighborhood fetches during pruning
  * @param maxNumConcurrentDeleteFromLayer maximum concurrent delete operations per layer
+ * @param replacementEdgeMaxOutDegree out-degree below which a node that lost its reference to the node being deleted
+ *        is granted one replacement outgoing edge by the delete repair ({@code 0} disables that entirely, which leaves
+ *        the repair granting incoming edges only). Set it with
+ *        {@link ConfigBuilder#setReplacementEdgeMaxOutDegree(int)}. A value well above the average out-degree of the
+ *        graph stops bounding anything, because the gate then admits every node that lost an edge, and so raises that
+ *        average instead
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -67,7 +73,8 @@ public record Config(@Nonnull Metric metric,
                      int raBitQNumExBits,
                      int maxNumConcurrentNodeFetches,
                      int maxNumConcurrentNeighborhoodFetches,
-                     int maxNumConcurrentDeleteFromLayer) implements VectorEncodingConfig {
+                     int maxNumConcurrentDeleteFromLayer,
+                     int replacementEdgeMaxOutDegree) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
@@ -89,6 +96,8 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = 2;
+    // delete repair
+    public static final int DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE = DEFAULT_M / 2;
 
     public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
@@ -118,6 +127,8 @@ public record Config(@Nonnull Metric metric,
         Preconditions.checkArgument(maxNumConcurrentDeleteFromLayer > 0 &&
                         maxNumConcurrentDeleteFromLayer <= 10,
                 "maxNumConcurrentDeleteFromLayer must be (0, 10]");
+        Preconditions.checkArgument(replacementEdgeMaxOutDegree >= 0,
+                "replacementEdgeMaxOutDegree must be [0, MAX_INT]");
     }
 
     @Nonnull
@@ -126,7 +137,8 @@ public record Config(@Nonnull Metric metric,
                 efConstruction(), efRepair(), extendCandidates(), keepPrunedConnections(),
                 sampleVectorStatsProbability(), maintainStatsProbability(), statsThreshold(),
                 useRaBitQ(), raBitQNumExBits(), maxNumConcurrentNodeFetches(),
-                maxNumConcurrentNeighborhoodFetches(), maxNumConcurrentDeleteFromLayer());
+                maxNumConcurrentNeighborhoodFetches(), maxNumConcurrentDeleteFromLayer(),
+                replacementEdgeMaxOutDegree());
     }
 
     @Override
@@ -144,6 +156,7 @@ public record Config(@Nonnull Metric metric,
                 ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
                 ", maxNumConcurrentDeleteFromLayer=" + maxNumConcurrentDeleteFromLayer() +
+                ", replacementEdgeMaxOutDegree=" + replacementEdgeMaxOutDegree() +
                 "]";
     }
 
@@ -177,6 +190,8 @@ public record Config(@Nonnull Metric metric,
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
         private int maxNumConcurrentDeleteFromLayer = DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER;
 
+        private int replacementEdgeMaxOutDegree = DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE;
+
         public ConfigBuilder() {
         }
 
@@ -186,7 +201,7 @@ public record Config(@Nonnull Metric metric,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
-                             final int maxNumConcurrentDeleteFromLayer) {
+                             final int maxNumConcurrentDeleteFromLayer, final int replacementEdgeMaxOutDegree) {
             this.metric = metric;
             this.useInlining = useInlining;
             this.m = m;
@@ -204,6 +219,7 @@ public record Config(@Nonnull Metric metric,
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
             this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
+            this.replacementEdgeMaxOutDegree = replacementEdgeMaxOutDegree;
         }
 
         @Nonnull
@@ -374,12 +390,23 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public int getReplacementEdgeMaxOutDegree() {
+            return replacementEdgeMaxOutDegree;
+        }
+
+        @Nonnull
+        public ConfigBuilder setReplacementEdgeMaxOutDegree(final int replacementEdgeMaxOutDegree) {
+            this.replacementEdgeMaxOutDegree = replacementEdgeMaxOutDegree;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
                     getMMax0(), getEfConstruction(), getEfRepair(), isExtendCandidates(), isKeepPrunedConnections(),
                     getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                     isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
-                    getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
+                    getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer(),
+                    getReplacementEdgeMaxOutDegree());
         }
     }
 }
