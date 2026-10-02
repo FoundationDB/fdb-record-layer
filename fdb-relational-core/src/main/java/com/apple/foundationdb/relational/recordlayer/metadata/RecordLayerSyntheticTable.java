@@ -36,7 +36,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
-        permits RecordLayerUnnestedSyntheticTable {
+        permits RecordLayerUnnestedSyntheticTable, RecordLayerJoinedSyntheticTable {
 
     @Nonnull
     final Type.Record type;
