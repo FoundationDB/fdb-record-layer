@@ -777,9 +777,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // TODO: we should not disable literal processing for temporary macro functions, but UserDefinedMacroFunction
             //       doesn't support serializing its literals yet. This will be done as part of
             //       https://github.com/FoundationDB/fdb-record-layer/issues/4306.
-            final var bodyValue = Assert.castUnchecked(
-                    getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
-                            () -> visit(bodyCtx)), Expression.class).getUnderlying();
+            final int numOperators = fragment.getLogicalOperators().size();
+            final var bodyValue = visitWithDisabledLiteralProcessing(bodyCtx, Expression.class).getUnderlying();
+            // Reject subqueries in the body of a macro function. A subquery registers an operator in the plan fragment,
+            // which the body value would not range over.
+            Assert.thatUnchecked(
+                    fragment.getLogicalOperators().size() == numOperators,
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    "subqueries in the body of a macro function are not supported");
             finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyValue(bodyValue);
         } else {
             Assert.thatUnchecked(bodyCtx instanceof RelationalParser.StatementBodyContext,
@@ -790,9 +795,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             if (isTemporary) {
                 bodyOperator = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
             } else {
-                bodyOperator = Assert.castUnchecked(
-                        getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
-                                () -> visit(bodyCtx)), LogicalOperator.class);
+                bodyOperator = visitWithDisabledLiteralProcessing(bodyCtx, LogicalOperator.class);
             }
             finalStepBuilder = sqlFunctionBodyStepBuilder.withBodyExpression(bodyOperator.getQuantifier().getRangesOver().get())
                     .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
@@ -857,6 +860,21 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(ctx.returnsTableType(), ErrorCode.UNSUPPORTED_OPERATION,
                 "table return type is not supported");
         return lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
+    }
+
+    /**
+     * Visits the given parse tree with literal processing disabled. For convenience, also casts the result of the
+     * visitation to the expected class.
+     *
+     * @param ctx the parse tree to visit
+     * @param resultClass the expected class of the result of the visitation
+     * @param <T> the type of the result of the visitation
+     * @return the result of the visitation
+     */
+    @Nonnull
+    private <T> T visitWithDisabledLiteralProcessing(@Nonnull ParserRuleContext ctx, @Nonnull Class<T> resultClass) {
+        final Object result = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visit(ctx));
+        return Assert.castUnchecked(result, resultClass);
     }
 
     @Nonnull
