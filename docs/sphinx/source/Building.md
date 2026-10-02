@@ -94,6 +94,9 @@ Here is an overview of the available tasks:
 `performanceTest`
 : Runs the tests annotated with `@Tag(Tags.Performance)`. Such tests gather performance numbers rather than check correctness. We don’t run these on any regular cadence or automatically, but once written they’re valuable to keep around and re-run whenever you touch the associated production code.
 
+`indexScenarioTest`
+: Runs the tests annotated with `@Tag(Tags.IndexScenarios)`, and only those. These are the index-maintainer _scenario_ tests: a shared battery of scenarios (rebuild, write-only maintenance, snapshot isolation, group deletion, synthetic record types, …) that every index type is run through. The tag is applied automatically by the `@IndexScenarios` annotation, so adding a new index definition or a new scenario extends this task's coverage without any wiring. The task is registered for every module, so a plain `./gradlew indexScenarioTest` covers the definitions in both _fdb-record-layer-core_ and _fdb-record-layer-lucene_. See the framework's `README.md` under `indexes/scenarios` in the core module's test fixtures.
+
 `:fdb-extensions:scalarFallbackTest`
 : This task exists only in the _fdb-extensions_ module. It re-runs the vector math tests in that module with the scalar backend forced (via `-Dfdb.vector.simd=scalar`, no `--add-modules`). The module ships two interchangeable backends: a SIMD backend based on the `jdk.incubator.vector` API, and a scalar fallback. The standard `test` task exercises only the SIMD one; the `scalarFallbackTest` task covers the fallback. It is wired into `check`, so a normal build will run both. The selection of tests is affected by the following tags:
 

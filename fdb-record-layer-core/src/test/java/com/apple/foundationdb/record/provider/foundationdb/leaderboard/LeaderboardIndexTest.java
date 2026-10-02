@@ -50,7 +50,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.IndexScenarios;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetHashFunctions;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -129,6 +131,16 @@ public class LeaderboardIndexTest {
 
     protected FDBRecordContext openContext() {
         return fdb.openContext(null, metrics);
+    }
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new LeaderboardIndexDefinition(),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
     }
 
     public static final int TEN_UNITS = 2;

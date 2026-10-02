@@ -42,11 +42,13 @@ import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
@@ -88,6 +90,18 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexEngineTestSuite.class);
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        // Runs the whole scenario battery against whichever engine the concrete subclass pins, by handing
+        // the definition that subclass's index options.
+        scenario.runTest(
+                () -> new VectorIndexDefinition(indexOptions()),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
 
     @Nonnull
     static Stream<Arguments> randomSeedsWithAsync() {

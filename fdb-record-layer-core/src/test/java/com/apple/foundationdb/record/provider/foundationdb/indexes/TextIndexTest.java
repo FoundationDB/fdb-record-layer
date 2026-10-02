@@ -78,6 +78,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -228,6 +229,16 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @BeforeEach
     void resetRegistry() {
         TextTokenizerRegistryImpl.instance().reset();
+    }
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new TextIndexDefinition(),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
     }
 
     protected void openRecordStore(FDBRecordContext context) throws Exception {

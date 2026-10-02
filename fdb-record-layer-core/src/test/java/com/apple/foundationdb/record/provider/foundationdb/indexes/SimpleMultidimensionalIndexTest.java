@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -36,6 +38,16 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
  * Simple tests for Multidimensional Index.
  */
 class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new MultiDimensionalIndexDefinition(),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
 
     static Stream<Arguments> argumentsForBasicReads() {
         return Stream.of(
