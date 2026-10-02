@@ -174,6 +174,11 @@ public class Bindings {
     /**
      * Thrown by {@link #get(String)} when no binding exists for the requested name. A distinct
      * {@link RecordCoreException} subtype so a caller that can tolerate an absent binding catches this case alone.
+     *
+     * <p>There is one such caller: matching a filtered index in
+     * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges}, where a range
+     * boundary that cannot be built simply means the candidate does not match. Everywhere else an absent binding is a
+     * defect and must not be swallowed.</p>
      */
     @SuppressWarnings("serial")
     public static class MissingBindingException extends RecordCoreException {

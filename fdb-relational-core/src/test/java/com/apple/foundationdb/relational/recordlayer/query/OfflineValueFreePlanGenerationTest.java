@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -55,8 +56,9 @@ class OfflineValueFreePlanGenerationTest {
 
 
     /**
-     * The resulting constraint cannot be satisfied without a binding, which is what makes a value-free cache lookup a
-     * non-match rather than a false hit.
+     * The resulting constraint cannot be evaluated without a binding. Since the only caller that evaluates a
+     * constraint is a query looking its own plan up in the cache, and such a query binds every constant its plan
+     * references, an unbound context is a defect and raises rather than reporting a non-match.
      */
     @Test
     void declaredTypePlansNamedParameterValueFreeWithoutAStore() throws Exception {
@@ -71,10 +73,8 @@ class OfflineValueFreePlanGenerationTest {
         final var constraint = plan.getConstraint();
 
         assertThat(constraint.isConstrained()).isTrue();
-        // Dereferencing the value-free constant raises MissingBindingException, which compileTimeEval treats as
-        // unsatisfied.
-        assertThat(constraint.compileTimeEval(EvaluationContext.forTypeRepository(ParseHelpers.EMPTY_TYPE_REPOSITORY)))
-                .isFalse();
+        assertThatThrownBy(() -> constraint.compileTimeEval(EvaluationContext.forTypeRepository(ParseHelpers.EMPTY_TYPE_REPOSITORY)))
+                .isInstanceOf(Bindings.MissingBindingException.class);
     }
 
     @Test
@@ -88,10 +88,11 @@ class OfflineValueFreePlanGenerationTest {
                         PreparedParams.empty().withDeclaredTypeParams(Map.of("param_a", "BIGINT")))
                 .getPlan("select title from books where id = ?param_a");
 
-        assertThat(plan.getConstraint().isConstrained()).isTrue();
-        assertThat(plan.getConstraint()
-                .compileTimeEval(EvaluationContext.forTypeRepository(ParseHelpers.EMPTY_TYPE_REPOSITORY)))
-                .isFalse();
+        final var constraint = plan.getConstraint();
+
+        assertThat(constraint.isConstrained()).isTrue();
+        assertThatThrownBy(() -> constraint.compileTimeEval(EvaluationContext.forTypeRepository(ParseHelpers.EMPTY_TYPE_REPOSITORY)))
+                .isInstanceOf(Bindings.MissingBindingException.class);
     }
 
     @Test
