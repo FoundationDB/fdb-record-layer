@@ -93,9 +93,9 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
-        spec.checkValidity();
+        spec.checkValidity(quantifierValues);
         final var syntheticTableGeneratorMaybe = SyntheticTableGeneratorFactory.forDefinition(
-                spec, indexName, quantifierValues);
+                schemaTemplateBuilder, spec, indexName, quantifierValues);
         final Type.Record tableType;
         if (syntheticTableGeneratorMaybe.isPresent()) {
             final var syntheticTableGenerator = syntheticTableGeneratorMaybe.get();
@@ -105,6 +105,8 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         } else {
             tableType = spec.table().getType();
         }
+        // A column of a synthetic table names its constituent, which has to be navigated on its own rather than merged
+        // into a run with its neighbour.
         final var translation = translateToKeyExpression(spec, syntheticTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
