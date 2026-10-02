@@ -164,9 +164,9 @@ public abstract class IndexMaintainer {
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
-     * @return a packed message to save in the pending write queue
+     * @return a packed message to save in the pending write queue. Null is returned if no update is needed.
      */
-    @Nonnull
+    @Nullable
     @API(API.Status.EXPERIMENTAL)
     public <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {

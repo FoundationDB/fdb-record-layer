@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -42,8 +43,11 @@ import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -70,6 +74,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -568,6 +573,47 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
     }
 
     @Test
+    void pendingWriteQueueSkipsUnchangedVector() throws Exception {
+        // Test record rewriting without its vector changing
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        final HalfRealVector witnessVector = constantHalfVector(0.5f, 128);
+        final HalfRealVector vector = constantHalfVector(0.11f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            saveVectorRecord(2L, witnessVector); // witness that must not move
+            final FDBStoredRecord<Message> stored = saveVectorRecord(1L, vector);
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            final Any unchanged = maintainer.serializePendingWriteQueue(stored, rewriteWithVector(stored, vector));
+            assertThat(unchanged)
+                    .as("an unchanged vector is still deferred onto the queue; the skip happens on the way out")
+                    .isNotNull();
+
+            timer.reset();
+            maintainer.updateFromQueue(unchanged).join();
+            final long writesWhenUnchanged = timer.getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+            final long readsWhenUnchanged = timer.getCount(FDBStoreTimer.Counts.LOAD_INDEX_KEY);
+
+            assertThat(writesWhenUnchanged).isZero();
+            assertThat(readsWhenUnchanged).isZero();
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            final Any changed = maintainer.serializePendingWriteQueue(stored,
+                    rewriteWithVector(stored, constantHalfVector(0.9f, 128)));
+            timer.reset();
+            assertThat(changed).isNotNull();
+            maintainer.updateFromQueue(changed).join();
+            assertThat(timer.getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY))
+                    .as("a changed vector must still be applied")
+                    .isPositive();
+            commit(context);
+        }
+    }
+
+    @Test
     void updateFromQueueDeleteIsIdempotent() throws Exception {
         // Re-draining a delete entry (e.g. a retried indexer) must be a harmless no-op the second time: HNSW.delete
         // completes without error when the node is already gone.
@@ -675,6 +721,124 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         checkResultsGrouped(createIndexPlan(queryVector, k, "GroupedVectorIndex"), Integer.MAX_VALUE, expectedResults);
     }
 
+    @Test
+    void pendingWriteQueueSkipsRecordExcludedByFilter() throws Exception {
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final VectorIndexMaintainer maintainer = maintainerExcludingRecordsWithoutVector(index);
+
+            final FDBStoredRecord<Message> witness = saveVectorRecord(2L, constantHalfVector(0.5f, 128));
+            final FDBStoredRecord<Message> excluded = unsavedVectorRecord(witness, 1L, null);
+
+            assertThat(maintainer.serializePendingWriteQueue(null, excluded))
+                    .as("adding a record the filter excludes must not be deferred onto the queue")
+                    .isNull();
+            assertThat(maintainer.serializePendingWriteQueue(excluded, excluded))
+                    .as("changing a record that is excluded before and after must not be deferred either")
+                    .isNull();
+            assertThat(maintainer.serializePendingWriteQueue(excluded, null))
+                    .as("removing a record the filter excludes must not be deferred either")
+                    .isNull();
+
+            assertThat(nearestRecNos(index, query, 10))
+                    .as("only the witness was ever indexed")
+                    .containsExactly(2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueDefersInsertWhenRecordBecomesIncluded() throws Exception {
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final VectorIndexMaintainer maintainer = maintainerExcludingRecordsWithoutVector(index);
+
+            final FDBStoredRecord<Message> witness = saveVectorRecord(2L, constantHalfVector(0.5f, 128));
+            final FDBStoredRecord<Message> excluded = unsavedVectorRecord(witness, 1L, null);
+            final FDBStoredRecord<Message> included = unsavedVectorRecord(witness, 1L, constantHalfVector(0.11f, 128));
+
+            final Any entry = maintainer.serializePendingWriteQueue(excluded, included);
+            assertThat(entry).as("the included half still has to be deferred").isNotNull();
+            final IndexBuildProto.OldAndNewIndexEntries deferred =
+                    entry.unpack(IndexBuildProto.OldAndNewIndexEntries.class);
+            assertThat(deferred.getOldEntriesCount())
+                    .as("the excluded old half must not be deferred: there is nothing in the index to remove")
+                    .isZero();
+            assertThat(deferred.getNewEntriesCount()).isOne();
+
+            maintainer.updateFromQueue(entry).join();
+            assertThat(nearestRecNos(index, query, 10))
+                    .as("draining the insert-only payload must add the newly included record")
+                    .containsExactly(1L, 2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueDefersDeleteWhenRecordBecomesExcluded() throws Exception {
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final VectorIndexMaintainer maintainer = maintainerExcludingRecordsWithoutVector(index);
+
+            saveVectorRecord(2L, constantHalfVector(0.5f, 128)); // witness that must survive
+            final FDBStoredRecord<Message> included = saveVectorRecord(1L, constantHalfVector(0.11f, 128));
+            assertThat(nearestRecNos(index, query, 10)).containsExactly(1L, 2L);
+
+            final FDBStoredRecord<Message> excluded = unsavedVectorRecord(included, 1L, null);
+            final Any entry = maintainer.serializePendingWriteQueue(included, excluded);
+            assertThat(entry).as("the removal still has to be deferred").isNotNull();
+            final IndexBuildProto.OldAndNewIndexEntries deferred =
+                    entry.unpack(IndexBuildProto.OldAndNewIndexEntries.class);
+            assertThat(deferred.getOldEntriesCount()).isOne();
+            assertThat(deferred.getNewEntriesCount())
+                    .as("the excluded new half must not be deferred: it does not belong in the index")
+                    .isZero();
+
+            maintainer.updateFromQueue(entry).join();
+            assertThat(nearestRecNos(index, query, 10))
+                    .as("draining the delete-only payload must take the newly excluded record out of the index")
+                    .containsExactly(2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void pendingWriteQueueRoundTripsIncludedRecordWhenFilterPresent() throws Exception {
+        final HalfRealVector query = constantHalfVector(0.1f, 128);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final VectorIndexMaintainer maintainer = maintainerExcludingRecordsWithoutVector(index);
+
+            final FDBStoredRecord<Message> witness = saveVectorRecord(2L, constantHalfVector(0.5f, 128));
+            final FDBStoredRecord<Message> added = unsavedVectorRecord(witness, 1L, constantHalfVector(0.11f, 128));
+
+            maintainer.updateFromQueue(Objects.requireNonNull(maintainer.serializePendingWriteQueue(null, added))).join();
+            assertThat(nearestRecNos(index, query, 10))
+                    .as("an included record is added even though a filter is in force")
+                    .containsExactly(1L, 2L);
+
+            // Move it past the witness: uniform vectors make the resulting order unambiguous.
+            final FDBStoredRecord<Message> changed = unsavedVectorRecord(witness, 1L, constantHalfVector(0.9f, 128));
+            maintainer.updateFromQueue(Objects.requireNonNull(maintainer.serializePendingWriteQueue(added, changed))).join();
+            assertThat(nearestRecNos(index, query, 10))
+                    .as("an included record is updated in place, and repositioned by its new vector")
+                    .containsExactly(2L, 1L);
+
+            maintainer.updateFromQueue(Objects.requireNonNull(maintainer.serializePendingWriteQueue(changed, null))).join();
+            assertThat(nearestRecNos(index, query, 10))
+                    .as("an included record is removed, leaving the witness untouched")
+                    .containsExactly(2L);
+            commit(context);
+        }
+    }
+
     @Nonnull
     private FDBStoredRecord<Message> saveVectorRecord(final long recNo, @Nonnull final HalfRealVector vector) {
         final Message rec = VectorRecord.newBuilder()
@@ -683,6 +847,57 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                 .setVectorData(ByteString.copyFrom(vector.getRawData()))
                 .build();
         return recordStore.saveRecord(rec);
+    }
+
+    @Nonnull
+    private FDBStoredRecord<Message> rewriteWithVector(@Nonnull final FDBStoredRecord<Message> stored,
+                                                       @Nonnull final HalfRealVector vector) {
+        // The primary key is (group_id, rec_no), so both fields come back out of the record being rewritten.
+        final Tuple primaryKey = stored.getPrimaryKey();
+        final Message rec = VectorRecord.newBuilder()
+                .setGroupId(Ints.checkedCast(primaryKey.getLong(0)))
+                .setRecNo(primaryKey.getLong(1))
+                .setVectorData(ByteString.copyFrom(vector.getRawData()))
+                .build();
+        return FDBStoredRecord.newBuilder(rec)
+                .setPrimaryKey(primaryKey)
+                .setRecordType(stored.getRecordType())
+                .build();
+    }
+
+    /**
+     * A maintainer over the given index whose maintenance filter excludes records that have no vector yet — the shape
+     * of a record whose embedding has not been computed. Vector presence is the only property of a
+     * {@code VectorRecord} that can change without changing its primary key, so it is what lets a record cross the
+     * filter in place.
+     */
+    @Nonnull
+    private VectorIndexMaintainer maintainerExcludingRecordsWithoutVector(@Nonnull final Index index) {
+        final IndexMaintenanceFilter filter = (ignored, rec) ->
+                rec instanceof VectorRecord && ((VectorRecord)rec).hasVectorData()
+                ? IndexMaintenanceFilter.IndexValues.ALL
+                : IndexMaintenanceFilter.IndexValues.NONE;
+        return new VectorIndexMaintainer(new IndexMaintainerState(recordStore, index, filter));
+    }
+
+    /**
+     * Builds, without saving it, a record in group 0 (the group {@link #saveVectorRecord} uses) with the given rec-no,
+     * carrying the given vector or no vector at all when {@code vector} is {@code null}. The record type is taken from
+     * {@code template}.
+     */
+    @Nonnull
+    private FDBStoredRecord<Message> unsavedVectorRecord(@Nonnull final FDBStoredRecord<Message> template,
+                                                         final long recNo,
+                                                         @Nullable final HalfRealVector vector) {
+        final VectorRecord.Builder rec = VectorRecord.newBuilder().setGroupId(0).setRecNo(recNo);
+        if (vector != null) {
+            rec.setVectorData(ByteString.copyFrom(vector.getRawData()));
+        }
+        final Message message = rec.build();
+        return FDBStoredRecord.newBuilder(message)
+                .setPrimaryKey(Tuple.from(0L, recNo))
+                .setRecordType(template.getRecordType())
+                .build();
     }
 
     /**
