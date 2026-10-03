@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -55,17 +56,28 @@ public class Literals {
     private final List<OrderedLiteral> orderedLiterals;
 
     @Nonnull
-    private final Supplier<Map<String, Object>> asMapSupplier;
+    private final Supplier<Map<String, Object>> bindingsSupplier;
+
+    @Nonnull
+    private final Supplier<Map<String, OrderedLiteral>> byConstantIdSupplier;
 
     private Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
         // Using unmodifiableMap because it allows null values, which are valid here
         // and represent either null constants or null prepared parameters in queries.
-        this.asMapSupplier = Suppliers.memoize(() ->
+        // Value-free literals are excluded: a present key with a null value means bound to NULL, an absent key means
+        // no value at all.
+        this.bindingsSupplier = Suppliers.memoize(() ->
                 Collections.unmodifiableMap(
                         this.orderedLiterals
                                 .stream()
+                                .filter(literal -> !literal.isValueFree())
                                 .collect(LinkedHashMap::new, (m, v) -> m.put(v.getConstantId(), v.getLiteralObject()), LinkedHashMap::putAll)));
+        this.byConstantIdSupplier = Suppliers.memoize(() ->
+                Collections.unmodifiableMap(
+                        this.orderedLiterals
+                                .stream()
+                                .collect(LinkedHashMap::new, (m, v) -> m.put(v.getConstantId(), v), LinkedHashMap::putAll)));
     }
 
     @Nonnull
@@ -73,12 +85,37 @@ public class Literals {
         return orderedLiterals;
     }
 
-    public boolean isEmpty() {
-        return orderedLiterals.isEmpty();
+    /**
+     * Returns the values of these literals as constant bindings, keyed by constant id. A value-free literal
+     * contributes no entry, which is what leaves its constant id unbound in an {@link EvaluationContext}. An entry that
+     * is present with a {@code null} value is bound to {@code NULL}; for a point lookup prefer
+     * {@link #literalOf(String)}, which tells the two apart.
+     *
+     * @return the constant bindings these literals contribute
+     */
+    public Map<String, Object> asBindings() {
+        return bindingsSupplier.get();
     }
 
-    public Map<String, Object> asMap() {
-        return asMapSupplier.get();
+    /**
+     * Returns the literal registered at the given constant id, if there is one.
+     *
+     * @param constantId the constant id to look up
+     * @return the literal at {@code constantId}, or empty if none is registered
+     */
+    @Nonnull
+    public Optional<OrderedLiteral> literalOf(@Nonnull final String constantId) {
+        return Optional.ofNullable(byConstantIdSupplier.get().get(constantId));
+    }
+
+    /**
+     * Returns whether the literal at the given constant id is value-free, as opposed to bound to {@code NULL}.
+     *
+     * @param constantId the constant id to look up
+     * @return {@code true} if a value-free literal is registered at {@code constantId}
+     */
+    public boolean isValueFree(@Nonnull final String constantId) {
+        return literalOf(constantId).map(OrderedLiteral::isValueFree).orElse(false);
     }
 
     @Nonnull
@@ -162,14 +199,21 @@ public class Literals {
                     Assert.thatUnchecked(!currentLiterals.contains(orderedLiteral));
                 } else {
                     if (currentLiterals.contains(orderedLiteral)) {
-                        // verify that the actual literal objects are identical.
+                        // The id is already taken; importing is a no-op only if the identical literal took it. A
+                        // value-free literal and one bound to NULL both have a null object, so deepEquals must compare
+                        // the flag as well.
                         final var duplicate = currentLiterals.elementSet().stream()
                                 .filter(element -> element.equals(orderedLiteral)).findFirst().orElseThrow();
-                        Assert.thatUnchecked(orderedLiteral.deepEquals(duplicate));
+                        Assert.thatUnchecked(orderedLiteral.deepEquals(duplicate), ErrorCode.INTERNAL_ERROR,
+                                "conflicting literals for the same constant id");
                         return false;
                     }
                 }
-                literalReverseLookup.putIfAbsent(orderedLiteral.getLiteralObject(), orderedLiteral);
+                if (!orderedLiteral.isValueFree()) {
+                    // Not registered for reverse lookup: it would claim the null key and become the dedup target for a
+                    // literal genuinely bound to NULL.
+                    literalReverseLookup.putIfAbsent(orderedLiteral.getLiteralObject(), orderedLiteral);
+                }
                 currentLiterals.add(orderedLiteral);
             }
             return true;
@@ -180,6 +224,23 @@ public class Literals {
                                          @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
                                          final int tokenIndex) {
             final var literal = new OrderedLiteral(type, literalObject, unnamedParameterIndex, parameterName, tokenIndex, scope);
+            addLiteral(literal);
+            return literal;
+        }
+
+        /**
+         * Adds a <em>value-free</em> literal: it reserves its constant id and declares its type, but contributes no
+         * binding.
+         *
+         * @param type the declared type of the parameter
+         * @param parameterName the name of the parameter
+         * @param tokenIndex the token position of the parameter in the query
+         * @return the newly added value-free {@link OrderedLiteral}
+         */
+        @Nonnull
+        public OrderedLiteral addValueFreeLiteral(@Nonnull final Type type, @Nonnull final String parameterName,
+                                                 final int tokenIndex) {
+            final var literal = OrderedLiteral.forValueFreeNamedParameter(type, parameterName, tokenIndex, scope);
             addLiteral(literal);
             return literal;
         }
@@ -202,7 +263,8 @@ public class Literals {
             if (current.size() > 1) {
                 return Optional.empty();
             }
-            return Optional.of(literalReverseLookup.get(value));
+            // ofNullable: a value-free literal is not in the reverse lookup, so there may be no entry at all.
+            return Optional.ofNullable(literalReverseLookup.get(value));
         }
 
         @Nonnull
@@ -212,8 +274,13 @@ public class Literals {
             if (current.size() > 1) {
                 return Optional.empty();
             }
-            return Optional.of(literalReverseLookup.get(literals.stream().filter(l ->
-                    l.getConstantId().equals(constantId)).findFirst().orElseThrow().getLiteralObject()));
+            final var literal = literals.stream().filter(l ->
+                    l.getConstantId().equals(constantId)).findFirst().orElseThrow();
+            if (literal.isValueFree()) {
+                // A value-free literal has no value, so there is nothing to deduplicate against.
+                return Optional.empty();
+            }
+            return Optional.ofNullable(literalReverseLookup.get(literal.getLiteralObject()));
         }
 
         public void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
