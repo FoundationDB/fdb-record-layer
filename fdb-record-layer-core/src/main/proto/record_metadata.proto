@@ -230,6 +230,32 @@ message PStoredQuery {
   optional string name = 1;
   optional string query = 2;
   repeated string temp_functions = 3;
+
+  // One declared parameter of a stored query.
+  message PStoredQueryParameter {
+    optional string name = 1;
+    // The SQL text of the parameter's declaration, exactly as written after the parameter name: a type, optionally
+    // followed by a nullability clause. For example `BIGINT`, `BIGINT NOT NULL`, `VECTOR(128, FLOAT)` or
+    // `TYPE my_struct ARRAY`.
+    optional string declared_type = 2;
+  }
+  // The query's declared parameters. Empty when the query declares none.
+  repeated PStoredQueryParameter parameters = 4;
+
+  // One combination of parameter states that gets its own warmed plan.
+  message PPreparedCase {
+    message PParameterState {
+      optional string name = 1;
+      // One of exactly four canonical tokens: `IS_NULL`, `IS_NOT_NULL`, `IS_TRUE`, `IS_FALSE`. The record layer stores
+      // this payload and returns it without interpreting it.
+      optional string state = 2;
+    }
+    // Every parameter the query declares, each with its state. The SQL layer fills in a NOT NULL parameter the author
+    // left out of PREPARE FOR, so a reader never has to consult the declarations to learn what an omission meant.
+    repeated PParameterState parameter_states = 1;
+  }
+  // The combinations warmed for this query, one plan each. Empty exactly when the query declares no parameters.
+  repeated PPreparedCase prepared_cases = 5;
 }
 
 message JoinedRecordType {
