@@ -571,8 +571,8 @@ public class MetaDataProtoEditor {
      *
      * <p><b>Precondition:</b> The {@code renamer} must define a consistent, collision-free mapping. That is, no two
      * distinct existing top-level record types may map to the same new name, and no record type may be renamed to a
-     * name that collides with another (renamed or unchanged) top-level type, an imported record type, or a synthetic
-     * record type. If a collision is detected, no rename is performed, and a {@link MetaDataException} is thrown.
+     * name that collides with another (renamed or unchanged) top-level type, another record type, or a synthetic record
+     * type. If a collision is detected, no rename is performed, and a {@link MetaDataException} is thrown.
      *
      * <p>The following is an example of a simple, collision-free renaming. It prepends a fixed string to every name:
      * <pre>
@@ -592,9 +592,10 @@ public class MetaDataProtoEditor {
      * {@code MetaData.record_types} lists them). It cannot rename {@code NESTED} types or the union type itself.
      *
      * <p>Imported record types, i.e., those whose message type is defined in a dependency file rather than in
-     * {@code MetaData.records}, cannot be renamed by this metadata, so {@code renamer} is never applied to them. (Note
-     * that {@code renameRecordType}, by contrast, rejects such a rename outright, with a “No record type found”
-     * exception.) An imported record type can still be the cause of a collision, however.
+     * {@code MetaData.records}, cannot be renamed by this metadata. Since {@code renamer} is meant to apply to every
+     * record type, any rename is rejected outright if the union references an imported record type. (Note that
+     * {@code renameRecordType} likewise rejects a rename of an imported record type, with a “No record type found”
+     * exception, but it can still rename the other record types of such a metadata.)
      *
      * <p>Any rename is rejected outright if the metadata declares {@code user_defined_functions}, {@code views} or
      * {@code stored_queries}. Each of those holds a string that would need parsing to figure out the record types it
@@ -948,7 +949,7 @@ public class MetaDataProtoEditor {
      *
      * @param name the name of the record type
      * @param isTopLevel whether the record type is backed by a top-level message type in {@code MetaData.records} (as
-     *     opposed to an imported or a nested message type)
+     *     opposed to a nested message type)
      */
     private record UnionRecordType(@Nonnull String name, boolean isTopLevel) {
     }
@@ -956,7 +957,8 @@ public class MetaDataProtoEditor {
     /**
      * A helper for {@link #renameRecordTypes} that determines the record types of the metadata from the fields of the
      * union message type. Each union field defines a record type, named after the simple name of the message type it
-     * references. This is aligned with how {@link RecordMetaDataBuilder} determines the record types.
+     * references. This is aligned with how {@link RecordMetaDataBuilder} determines the record types. Raises
+     * {@link MetaDataException} if the union references an imported record type, which cannot be renamed here.
      */
     @Nonnull
     private static Set<UnionRecordType> unionRecordTypes(@Nonnull Descriptors.Descriptor unionDescriptor) {
@@ -967,11 +969,17 @@ public class MetaDataProtoEditor {
             if (unionField.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 continue;
             }
-            // Resolve each union field to the type it actually references. This tells apart a record type defined
-            // locally in `MetaData.records` from an imported record type.
+            // Reject an imported record type, i.e., one whose message type is defined in a dependency file rather than
+            // in `MetaData.records`. Resolving the union field to the type it actually references tells it apart from a
+            // local message type of the same name.
             final Descriptors.Descriptor descriptor = unionField.getMessageType();
-            final boolean isTopLevel = descriptor.getFile().equals(file) && descriptor.getContainingType() == null;
-            result.add(new UnionRecordType(descriptor.getName(), isTopLevel));
+            if (!descriptor.getFile().equals(file)) {
+                throw new MetaDataException(
+                        "Renaming record types with imported record types is not supported",
+                        LogMessageKeys.RECORD_TYPE,
+                        descriptor.getName());
+            }
+            result.add(new UnionRecordType(descriptor.getName(), descriptor.getContainingType() == null));
         }
         return result;
     }
@@ -988,8 +996,8 @@ public class MetaDataProtoEditor {
             @Nonnull Set<UnionRecordType> recordTypes) {
         final String namespace = metaDataBuilder.getRecords().getPackage();
         // Apply `renamer` to each record type this metadata defines itself, and build the map representing the
-        // renamings. Imported record types are skipped, and never passed to `renamer`, since this metadata cannot
-        // rename them.
+        // renamings. Record types backed by a nested message type are skipped, and never passed to `renamer`, since
+        // only top-level message types can be renamed here.
         final Map<String, RecordTypeRename> renames = new LinkedHashMap<>();
         for (final UnionRecordType recordType : recordTypes) {
             if (!recordType.isTopLevel()) {
@@ -1033,8 +1041,7 @@ public class MetaDataProtoEditor {
         }
 
         // Likewise for the other record types, which (unlike `getMessageTypeList()` above) also include those backed by
-        // an imported or a nested message type. `record_types` is checked in addition to the union, the way
-        // `renameRecordType` does.
+        // a nested message type. `record_types` is checked in addition to the union, the way `renameRecordType` does.
         final Set<String> otherRecordTypes = new HashSet<>(getRecordTypes(metaDataBuilder));
         for (final UnionRecordType recordType : recordTypes) {
             otherRecordTypes.add(recordType.name());

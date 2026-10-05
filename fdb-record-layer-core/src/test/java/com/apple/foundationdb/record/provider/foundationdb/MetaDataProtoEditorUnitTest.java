@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
+import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsImportedAndNewProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
@@ -793,20 +794,19 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
-     * Tests that an imported record type, i.e., one registered in {@code MetaData.record_types} whose message type
-     * lives in a dependency file rather than in {@code MetaData.records}, is left untouched by the rename, and that the
-     * renamer is not applied to it. (This is a documented divergence from {@link MetaDataProtoEditor#renameRecordType},
-     * which would reject such a rename outright.)
+     * Tests that an entry in {@code MetaData.record_types} without a corresponding union field, which therefore defines
+     * no record type, is left untouched by the rename, and that the renamer is not applied to it. (Note that
+     * {@link MetaDataProtoEditor#renameRecordType}, by contrast, rejects a rename of such a name outright.)
      */
     @Test
-    void batchedSkipsImportedType() throws IOException {
+    void batchedSkipsRecordTypeEntryWithoutUnionField() throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
         builder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder().setName("Imported").build());
         final RecordMetaDataProto.MetaData originalProto = builder.build();
         final Descriptors.FileDescriptor[] dependencies =
                 RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
 
-        // The batched path renames the real top-level types, and never consults the renamer for the imported one.
+        // The batched path renames the actual record types, and never consults the renamer for the extra entry.
         final Set<String> renamerSawNames = new LinkedHashSet<>();
         final RecordMetaDataProto.MetaData.Builder batchedBuilder = originalProto.toBuilder();
         MetaDataProtoEditor.renameRecordTypes(batchedBuilder, name -> {
@@ -817,7 +817,7 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals(List.of(simpleRename("T1"), simpleRename("T2"), "Imported"),
                 MetaDataProtoEditor.getRecordTypes(batchedBuilder));
 
-        // The one-by-one path, by contrast, rejects the very same rename.
+        // The one-by-one path, by contrast, rejects a rename of the extra entry.
         final MetaDataException exception = assertThrows(MetaDataException.class,
                 () -> MetaDataProtoEditor.renameRecordType(originalProto.toBuilder(), "Imported",
                         simpleRename("Imported"), dependencies));
@@ -825,14 +825,33 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
-     * Tests the case where a record type name refers to an imported message type while {@code MetaData.records} also
-     * declares an unrelated top-level message type of the same name. The renamer is not consulted for the name at all,
-     * so the imported record type keeps its name and the local message type is left alone too, being a {@code NESTED}
-     * type like any other. Unlike the other rename tests here, this one is batched-only, because
-     * {@link MetaDataProtoEditor#renameRecordType} does rename the local message type in this situation.
+     * Tests that the rename rejects any renaming when the union references an imported record type, i.e., one whose
+     * message type is defined in a dependency file rather than in {@code MetaData.records}, even for an identity
+     * renamer. In the fixture, every record type is imported.
      */
     @Test
-    void batchedSkipsImportedTypeShadowedByLocalMessage() {
+    void batchedRejectsImportedType() {
+        final RecordMetaDataProto.MetaData originalProto =
+                RecordMetaData.build(TestRecordsImportProto.getDescriptor()).toProto();
+        final Descriptors.FileDescriptor[] dependencies =
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
+        for (final UnaryOperator<String> renamer : List.<UnaryOperator<String>>of(
+                MetaDataProtoEditorUnitTest::simpleRename, UnaryOperator.identity())) {
+            final MetaDataException exception = assertThrows(MetaDataException.class,
+                    () -> MetaDataProtoEditor.renameRecordTypes(originalProto.toBuilder(), renamer, dependencies));
+            assertEquals("Renaming record types with imported record types is not supported", exception.getMessage());
+            crossCheckRenameRecordTypesIsRejected(originalProto, renamer, dependencies);
+        }
+    }
+
+    /**
+     * Tests that the rename rejects an imported record type even where {@code MetaData.records} also declares an
+     * unrelated top-level message type of the same name, before anything has been modified. Unlike the other exception
+     * tests here, this one is batched-only, because {@link MetaDataProtoEditor#renameRecordType} renames the local
+     * message type in this situation instead of rejecting the rename.
+     */
+    @Test
+    void batchedRejectsImportedTypeShadowedByLocalMessage() {
         final RecordMetaDataProto.MetaData originalProto =
                 RecordMetaData.build(TestRecordsImportedAndNewProto.getDescriptor()).toProto();
         final Descriptors.FileDescriptor[] dependencies =
@@ -846,26 +865,15 @@ public class MetaDataProtoEditorUnitTest {
 
         final Set<String> renamerSawNames = new LinkedHashSet<>();
         final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
-        MetaDataProtoEditor.renameRecordTypes(builder, name -> {
-            renamerSawNames.add(name);
-            return simpleRename(name);
-        }, dependencies);
-        final RecordMetaDataProto.MetaData renamedProto = builder.build();
-
-        // The renamer is never consulted for the imported record type, even though a local message type shares its
-        // name, so only the genuinely local record type is renamed.
-        assertEquals(Set.of("MyOtherRecord"), renamerSawNames);
-        assertEquals(List.of("MySimpleRecord", simpleRename("MyOtherRecord")),
-                MetaDataProtoEditor.getRecordTypes(builder));
-
-        final RecordMetaData renamed = RecordMetaData.build(renamedProto);
-        assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
-                renamed.getRecordType("MySimpleRecord").getDescriptor().getFullName());
-        // The local NESTED message type keeps its name, and both fields still point where they did.
-        assertEquals("MySimpleRecord",
-                getFieldMessageType(renamed, simpleRename("MyOtherRecord"), "simple").getName());
-        assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
-                getFieldMessageType(renamed, simpleRename("MyOtherRecord"), "imported_simple").getFullName());
+        final MetaDataException exception = assertThrows(MetaDataException.class,
+                () -> MetaDataProtoEditor.renameRecordTypes(builder, name -> {
+                    renamerSawNames.add(name);
+                    return simpleRename(name);
+                }, dependencies));
+        assertEquals("Renaming record types with imported record types is not supported", exception.getMessage());
+        // The rename is rejected before the renamer is consulted, and before anything has been modified.
+        assertEquals(Set.of(), renamerSawNames);
+        assertEquals(originalProto, builder.build());
     }
 
     /**
