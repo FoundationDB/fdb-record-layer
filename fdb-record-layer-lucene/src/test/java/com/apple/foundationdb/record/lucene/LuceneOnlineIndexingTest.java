@@ -200,12 +200,17 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            timer.reset();
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setIndex(index)
+                    .setTimer(timer)
                     .build()) {
                 indexBuilder.buildIndex(true);
             }
+            // already indexed: neither deleted nor re-added by the indexer
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
         }
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);

@@ -154,11 +154,11 @@ public final class LuceneIndexMaintainerHelper {
      * @param primaryKey the record primary key to look for
      * @return {@code true} if the record was found in the segment index
      */
-    public static boolean isIndexed(@Nonnull FDBDirectoryManager directoryManager,
-                                    @Nonnull LucenePrimaryKeySegmentIndex segmentIndex,
-                                    @Nonnull Tuple groupingKey,
-                                    @Nullable Integer partitionId,
-                                    @Nonnull Tuple primaryKey) {
+    static boolean isIndexed(@Nonnull FDBDirectoryManager directoryManager,
+                             @Nonnull LucenePrimaryKeySegmentIndex segmentIndex,
+                             @Nonnull Tuple groupingKey,
+                             @Nullable Integer partitionId,
+                             @Nonnull Tuple primaryKey) {
         try {
             return getDocumentIndexEntryWithRetry(directoryManager, segmentIndex, groupingKey, partitionId, primaryKey) != null;
         } catch (IOException e) {

@@ -391,6 +391,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Index a record scanned by the online indexer. A record that had already been indexed (e.g. by an explicit
      * update while the index was write-only) is skipped.
+     * @param newRecordUnfiltered the scanned record, before applying the index maintenance filter
+     * @param <M> type of message
+     * @return a future that is complete when the record is indexed or found to be already indexed
      */
     @Nonnull
     @Override
@@ -412,18 +415,24 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final Tuple groupingKey = entry.getKey();
         return partitioner.tryGetPartitionInfo(newRecord, groupingKey).thenCompose(partitionInfo -> {
             if (partitioner.isPartitioningEnabled() && partitionInfo == null) {
-                // no partition yet, hence not indexed
+                // no partition covers this record's partition key, so it cannot be indexed yet
                 return addRecord(newRecord, null, entry);
             }
             final Integer partitionId = partitionInfo == null ? null : partitionInfo.getId();
             final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
             if (segmentIndex == null) {
-                // No segment, no easy way to tell if it's indexed?
+                // cannot tell whether the record is already indexed: fall back to delete-then-insert
                 return updateRecord(newRecord, null, entry);
             }
-            return LuceneIndexMaintainerHelper.isIndexed(directoryManager, segmentIndex, groupingKey, partitionId, newRecord.getPrimaryKey())
-                   ? AsyncUtil.DONE
-                   : addRecord(newRecord, null, entry);
+            return shouldUseQueueAsync(groupingKey, partitionId).thenCompose(useQueue -> {
+                if (Boolean.TRUE.equals(useQueue)) {
+                    // queued writes are invisible to the segment index: fall back to delete-then-insert
+                    return updateRecord(newRecord, null, entry);
+                }
+                return LuceneIndexMaintainerHelper.isIndexed(directoryManager, segmentIndex, groupingKey, partitionId, newRecord.getPrimaryKey())
+                       ? AsyncUtil.DONE
+                       : addRecord(newRecord, null, entry);
+            });
         });
     }
 
