@@ -207,7 +207,8 @@ def configureTestTask = { String propertyPrefix, Task task ->
                    propertyPrefix + '.single',
                    propertyPrefix + '.maxParallelForks',
                    propertyPrefix + '.exclude',
-                   propertyPrefix + '.forkEvery']
+                   propertyPrefix + '.forkEvery',
+                   propertyPrefix + '.timeoutMinutes']
     System.properties.each { prop ->
         def prefix = "${propertyPrefix}.sysProp."
         if (!prop.key.startsWith(prefix.toString())) {
@@ -237,6 +238,15 @@ def configureTestTask = { String propertyPrefix, Task task ->
 
     task.debug = Boolean.getBoolean(propertyPrefix + '.debug')
     task.ignoreFailures = Boolean.getBoolean(propertyPrefix + '.ignoreFailures')
+
+    // Optional wall-clock limit for the whole test task. When exceeded, Gradle interrupts the task and
+    // fails the build (rather than CI cancelling the job), so the test reports are still written and
+    // CI can still publish them. Only set when given, so `<taskName>.timeoutMinutes` can override
+    // `allTest.timeoutMinutes`.
+    def timeoutMinutes = Integer.getInteger(propertyPrefix + '.timeoutMinutes')
+    if (timeoutMinutes != null) {
+        task.timeout = java.time.Duration.ofMinutes(timeoutMinutes)
+    }
 
     def excludes = System.getProperty(propertyPrefix + '.exclude')
     if (excludes != null) {
@@ -441,4 +451,18 @@ tasks.register('quickCheck') {
     description = 'Perform fast build verification'
 
     dependsOn testClasses
+}
+
+// Regenerates an HTML test report from the binary results left behind by an earlier run, without running any
+// tests. This exists for CI: when a test task hits its timeout (see `timeoutMinutes` above), Gradle interrupts it
+// and the normal HTML/XML reports end up incomplete, but the binary results are intact. All the Test tasks of
+// the project are combined into one report under `reports/tests/recovered`.
+tasks.register('recoverTestReports', TestReport) {
+    group = 'Verification'
+    description = 'Regenerate the HTML test report from existing binary test results (does not run tests)'
+
+    destinationDirectory = layout.buildDirectory.dir('reports/tests/recovered')
+    // `locationOnly` drops the dependency on the Test tasks, so this does not trigger running them.
+    // Directories that do not exist are ignored.
+    testResults.from(tasks.withType(Test).collect { it.binaryResultsDirectory.locationOnly })
 }

@@ -35,6 +35,14 @@ runs:
     uses: ./actions/run-gradle
     with:
       gradle_command: ${{ inputs.gradle_command }} -PcoreNotStrict -Ptests.ci=true ${{ inputs.gradle_args }}
+  # If a test task hit its Gradle timeout, its HTML/XML reports are incomplete. Rebuild the HTML reports
+  # (into <subproject>/.out/reports/tests/recovered) from the binary results so they are uploaded below.
+  - name: Recover test reports
+    if: ${{ failure() }}
+    continue-on-error: true
+    uses: ./actions/run-gradle
+    with:
+      gradle_command: recoverTestReports --continue
   - name: Test Summary
     shell: bash
     if: ${{ !cancelled() && hashFiles('.out/reports/test-summary.md') != '' }}

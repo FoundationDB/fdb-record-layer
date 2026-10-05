@@ -20,9 +20,16 @@ jobs:
   # so that we can find potential uncovered code that could expose bugs when multiple versions are running at the same
   # time.
   # It's possible that we could change the nightly tests to just be the nightly tests, and not the regular tests in the future.
+  #
+  # Timeouts: the test jobs below pass -DallTest.timeoutMinutes / -DdestructiveTest.timeoutMinutes so that Gradle
+  # fails a hung test task *before* GitHub's job timeout. If GitHub hits timeout-minutes, the job is cancelled and
+  # all the `!cancelled()` report steps in actions/gradle-test are skipped, so we lose the test reports. Keep
+  # (allTest + destructiveTest timeouts) comfortably below the job's timeout-minutes, leaving room for setup,
+  # compilation, and uploading reports.
   test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     permissions:
       contents: read
     steps:
@@ -37,7 +44,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -DallTest.timeoutMinutes=300 -DdestructiveTest.timeoutMinutes=30
       - name: Upload coverage to teamscale
         uses: ./actions/teamscale-upload
         with:
@@ -153,6 +160,8 @@ jobs:
           - subproject: fdb-extensions
             extra_tasks: ':fdb-extensions:scalarFallbackTest'
     runs-on: ubuntu-latest
+    # See the timeout comment on the `test` job
+    timeout-minutes: 360
     permissions:
       contents: read
     steps:
@@ -166,7 +175,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ matrix.extra_tasks }}
-          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=300 -DdestructiveTest.timeoutMinutes=30"
           report_name: nightly-${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -181,6 +190,8 @@ jobs:
   nightly_other_tests:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
+    # See the timeout comment on the `test` job
+    timeout-minutes: 360
     permissions:
       contents: read
     steps:
@@ -205,7 +216,7 @@ jobs:
             -x :fdb-record-layer-core:destructiveTest
             -x :fdb-record-layer-lucene:destructiveTest
             -x :yaml-tests:destructiveTest
-          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=300 -DdestructiveTest.timeoutMinutes=30"
           report_name: nightly-other-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
