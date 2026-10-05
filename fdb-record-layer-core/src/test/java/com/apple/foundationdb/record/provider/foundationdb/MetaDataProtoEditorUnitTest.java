@@ -895,9 +895,17 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals(Set.of(simpleRename("MySimpleRecord"), simpleRename("MyOtherRecord")),
                 renamed.getRecordTypes().keySet());
         // Indexes declared through the `(field).index` extension are named after their record type, so they follow
-        // the rename too. That is inherent to such metadata, which is why this is not a valid evolution of the original.
+        // the rename too.
         assertNotNull(originalMetaData.getIndex("MySimpleRecord$num_value_3_indexed"));
         assertNotNull(renamed.getIndex(simpleRename("MySimpleRecord") + "$num_value_3_indexed"));
+        // Assert that `MetaDataEvolutionValidator` rejects the result as an evolution of the original. Since the
+        // subspace key of an index defaults to its name, a renamed index is a different index.
+        final MetaDataException exception = assertThrows(MetaDataException.class,
+                () -> MetaDataEvolutionValidator.newBuilder()
+                        .setAllowNoVersionChange(true)
+                        .build()
+                        .validate(originalMetaData, renamed));
+        assertEquals("index missing in new meta-data", exception.getMessage());
     }
 
     /**
