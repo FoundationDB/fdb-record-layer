@@ -425,13 +425,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 return updateRecord(newRecord, null, entry);
             }
             return shouldUseQueueAsync(groupingKey, partitionId).thenCompose(useQueue -> {
+                // unlikely, but possible path
                 if (Boolean.TRUE.equals(useQueue)) {
                     // queued writes are invisible to the segment index: fall back to delete-then-insert
                     return updateRecord(newRecord, null, entry);
                 }
-                return LuceneIndexMaintainerHelper.isIndexed(directoryManager, segmentIndex, groupingKey, partitionId, newRecord.getPrimaryKey())
-                       ? AsyncUtil.DONE
-                       : addRecord(newRecord, null, entry);
+                return CompletableFuture.supplyAsync(() -> LuceneIndexMaintainerHelper.isIndexed(
+                                directoryManager, segmentIndex, groupingKey, partitionId, newRecord.getPrimaryKey()),
+                                state.context.getExecutor())
+                        .thenCompose(isIndexed -> Boolean.TRUE.equals(isIndexed) ? AsyncUtil.DONE : addRecord(newRecord, null, entry));
             });
         });
     }
