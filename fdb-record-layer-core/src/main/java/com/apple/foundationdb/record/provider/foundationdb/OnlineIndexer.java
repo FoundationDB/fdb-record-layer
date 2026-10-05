@@ -222,8 +222,8 @@ public class OnlineIndexer implements AutoCloseable {
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
                 if (!common.isMultiTarget() && !state.fallbackToRecordsScan) {
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS ||
-                            method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
-                        // Here: Partly built by records, possibly in multi target mode.
+                            method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS ||
+                            method == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
                         return indexingLauncherFallbackToRecordsScan(indexingFunc, state, attemptCount);
                     }
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
