@@ -74,12 +74,12 @@ test_block:
     -
       # PartiQL-style unnesting of an ARRAY column in the FROM clause.
       - query: SELECT id FROM T3, T3.nr AS nest WHERE nest.f = 23;
-      - explain: "ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f EQUALS promote(@c15 AS INT) AS q1 RETURN (q0.id AS id) }"
+      - explain: "ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _._0.f EQUALS promote(@c15 AS INT) AS q1 RETURN (q0.id AS id) }"
       - result: [{2}]
     -
       # The same unnesting, expressed as a FROM-clause subquery. The plan is the same as for the direct unnesting above.
       - query: SELECT id FROM T3, (SELECT * FROM T3.nr) AS nest WHERE nest.f = 23;
-      - explain: "ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f EQUALS promote(@c20 AS INT) AS q1 RETURN (q0.id AS id) }"
+      - explain: "ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _._0.f EQUALS promote(@c20 AS INT) AS q1 RETURN (q0.id AS id) }"
       - result: [{2}]
     -
       # FROM-clause subquery correlated to a preceding table source (`T1.T2`).
@@ -94,7 +94,7 @@ test_block:
                       (SELECT f FROM sq.nr WHERE f > 10) sq2
                 WHERE sq.i = 10
                   AND sq2.f IS NOT NULL
-      - explain: "ISCAN(T3_id_i [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f GREATER_THAN promote(@c31 AS INT) AND _.f NOT_NULL AS q1 RETURN (q0.id AS id, q0.i AS i) }"
+      - explain: "ISCAN(T3_id_i [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _._0.f GREATER_THAN promote(@c31 AS INT) AND _._0.f NOT_NULL AS q1 RETURN (q0.id AS id, q0.i AS i) }"
       - result: [{1, 10}, {1, 10}, {1, 10}]
     -
       # FROM-clause subquery containing a grouped query.
@@ -224,7 +224,7 @@ test_block:
     -
       # EXISTS subquery in a row of an inline VALUES table in the FROM clause.
       - query: SELECT * FROM VALUES (1, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)) AS t (a, e)
-      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c5 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { EXPLODE array((@c5 AS a, exists(q0) AS e)) AS q1 RETURN q1 }"
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c5 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { EXPLODE array((@c5 AS a, exists(q0) AS e)) AS q1 RETURN (q1._0.a AS a, q1._0.e AS e) }"
       - result: [{a: 1, e: true}]
     -
       # Correlated EXISTS subquery in the ON clause of an INNER JOIN.

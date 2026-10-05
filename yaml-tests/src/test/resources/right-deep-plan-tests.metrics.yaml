@@ -4,15 +4,15 @@ array-join-default-planner:
     ref: right-deep-plan-tests.yamsql:37
     explain: '[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
-        q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
+        q2.T2_REFS | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
-    task_count: 3317
-    task_total_time_ms: 209
-    transform_count: 1485
-    transform_time_ms: 42
-    transform_yield_count: 186
-    insert_time_ms: 14
-    insert_new_count: 401
+    task_count: 3297
+    task_total_time_ms: 283
+    transform_count: 1480
+    transform_time_ms: 62
+    transform_yield_count: 184
+    insert_time_ms: 19
+    insert_new_count: 403
     insert_reused_count: 57
 array-join-right-deep-planner:
 -   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
@@ -20,15 +20,15 @@ array-join-right-deep-planner:
     ref: right-deep-plan-tests.yamsql:56
     explain: '[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
-        q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
+        q2.T2_REFS | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
-    task_count: 1848
-    task_total_time_ms: 114
-    transform_count: 763
-    transform_time_ms: 26
-    transform_yield_count: 108
-    insert_time_ms: 3
-    insert_new_count: 226
+    task_count: 1828
+    task_total_time_ms: 169
+    transform_count: 758
+    transform_time_ms: 41
+    transform_yield_count: 106
+    insert_time_ms: 5
+    insert_new_count: 225
     insert_reused_count: 26
 array-join-right-deep-query-option:
 -   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
@@ -36,13 +36,13 @@ array-join-right-deep-query-option:
     ref: right-deep-plan-tests.yamsql:76
     explain: '[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
-        q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
+        q2.T2_REFS | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
-    task_count: 1848
-    task_total_time_ms: 114
-    transform_count: 763
-    transform_time_ms: 26
-    transform_yield_count: 108
-    insert_time_ms: 3
-    insert_new_count: 226
+    task_count: 1828
+    task_total_time_ms: 169
+    transform_count: 758
+    transform_time_ms: 41
+    transform_yield_count: 106
+    insert_time_ms: 5
+    insert_new_count: 225
     insert_reused_count: 26

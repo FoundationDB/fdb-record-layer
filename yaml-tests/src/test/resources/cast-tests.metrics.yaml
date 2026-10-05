@@ -325,46 +325,46 @@ cast-operator-tests:
     ref: cast-tests.yamsql:184
     explain: EXPLODE array((@c57 AS X), (@c61 AS X)) | MAP (NULL AS A, NULL AS B,
         NULL AS C, NULL AS D, NULL AS E, NULL AS F)
-    task_count: 114
-    task_total_time_ms: 0
-    transform_count: 27
+    task_count: 137
+    task_total_time_ms: 1
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as uuid) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:196
     explain: EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)
-    task_count: 114
-    task_total_time_ms: 0
-    transform_count: 27
+    task_count: 137
+    task_total_time_ms: 1
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as float) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:205
     explain: EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as bytes) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:211
     explain: EXPLODE array((@c10 AS X), (@c14 AS X)) | MAP (NULL AS _0)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as vector(10, half)) as a, cast(null as vector(15,
         float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as
@@ -372,13 +372,13 @@ cast-operator-tests:
     ref: cast-tests.yamsql:216
     explain: EXPLODE array((@c45 AS X), (@c49 AS X)) | MAP (NULL AS A, NULL AS B,
         NULL AS C)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as integer array) as a, cast(null as bigint array)
         as b, cast(null as string array) as c, cast(null as double array) as d, cast(null
@@ -387,46 +387,46 @@ cast-operator-tests:
     ref: cast-tests.yamsql:223
     explain: EXPLODE array((@c63 AS X), (@c67 AS X)) | MAP (NULL AS A, NULL AS B,
         NULL AS C, NULL AS D, NULL AS E, NULL AS F)
-    task_count: 114
-    task_total_time_ms: 0
-    transform_count: 27
+    task_count: 137
+    task_total_time_ms: 1
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as uuid array) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:235
     explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as float array) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:243
     explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as bytes array) from values (1), (2) as X(X)
     ref: cast-tests.yamsql:251
     explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (NULL AS _0)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select cast(null as vector(10, half) array) as a, cast(null as
         vector(15, float) array) as b, cast(null as vector(30, double) array) as c
@@ -434,11 +434,11 @@ cast-operator-tests:
     ref: cast-tests.yamsql:258
     explain: EXPLODE array((@c48 AS X), (@c52 AS X)) | MAP (NULL AS A, NULL AS B,
         NULL AS C)
-    task_count: 114
+    task_count: 137
     task_total_time_ms: 0
-    transform_count: 27
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0

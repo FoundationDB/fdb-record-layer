@@ -1,7 +1,7 @@
 subquery-from:
 -   query: EXPLAIN SELECT id FROM T3, T3.nr AS nest WHERE nest.f = 23;
     ref: subquery-tests.yamsql:77
-    explain: ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f EQUALS
+    explain: ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _._0.f EQUALS
         promote(@c15 AS INT) AS q1 RETURN (q0.id AS id) }
     task_count: 293
     task_total_time_ms: 132
@@ -14,7 +14,7 @@ subquery-from:
 -   query: EXPLAIN SELECT id FROM T3, (SELECT * FROM T3.nr) AS nest WHERE nest.f =
         23;
     ref: subquery-tests.yamsql:82
-    explain: ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f EQUALS
+    explain: ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _._0.f EQUALS
         promote(@c20 AS INT) AS q1 RETURN (q0.id AS id) }
     task_count: 328
     task_total_time_ms: 132
@@ -41,8 +41,8 @@ subquery-from:
         f FROM sq.nr WHERE f > 10) sq2 WHERE sq.i = 10 AND sq2.f IS NOT NULL
     ref: subquery-tests.yamsql:97
     explain: ISCAN(T3_id_i [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)])
-        | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f GREATER_THAN promote(@c31 AS
-        INT) AND _.f NOT_NULL AS q1 RETURN (q0.id AS id, q0.i AS i) }
+        | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _._0.f GREATER_THAN promote(@c31
+        AS INT) AND _._0.f NOT_NULL AS q1 RETURN (q0.id AS id, q0.i AS i) }
     task_count: 584
     task_total_time_ms: 162
     transform_count: 159
@@ -146,14 +146,14 @@ exists-subquery:
     ref: subquery-tests.yamsql:227
     explain: SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c5 AS INT) | MAP (_.id AS
         id) | DEFAULT NULL | FLATMAP q0 -> { EXPLODE array((@c5 AS a, exists(q0) AS
-        e)) AS q1 RETURN q1 }
-    task_count: 304
-    task_total_time_ms: 17
-    transform_count: 91
-    transform_time_ms: 5
-    transform_yield_count: 21
+        e)) AS q1 RETURN (q1._0.a AS a, q1._0.e AS e) }
+    task_count: 329
+    task_total_time_ms: 36
+    transform_count: 96
+    transform_time_ms: 10
+    transform_yield_count: 23
     insert_time_ms: 1
-    insert_new_count: 31
+    insert_new_count: 36
     insert_reused_count: 2
 -   query: EXPLAIN SELECT p.id, c.id AS cid FROM T5 p JOIN T6 c ON c.i1 = p.id AND
         EXISTS (SELECT id FROM T1 WHERE T1.id = c.id)

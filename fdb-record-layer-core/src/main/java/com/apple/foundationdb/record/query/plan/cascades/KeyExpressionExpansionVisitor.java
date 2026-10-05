@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
@@ -131,7 +132,6 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
-        final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
@@ -141,8 +141,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
-                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
-                value = state.registerValue(childBase.getFlowedObjectValue());
+                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(state.getBaseValue(), fieldNamePrefix);
+                value = state.registerValue(ExplodeExpression.elementValueOf(childBase));
                 column = Column.unnamedOf(value);
                 final GraphExpansion childExpansion;
                 if (state.isKey() && !state.isInternalExpansion()) {
@@ -162,9 +162,11 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .build();
             case Concatenate:
             case None:
-                // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
-                // via `FieldValue.ofFieldNames()`.
-                value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
+                // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field
+                // directly. The access is fused into the base, which is itself a field access when the base quantifier
+                // ranges over an explode: a field access whose child is another field access cannot be pulled up,
+                // since the pull-up rules relate a field path to the quantifier it is rooted in.
+                value = state.registerValue(FieldValue.ofFieldNamesAndFuseIfPossible(state.getBaseValue(), fieldNames));
                 if (state.isSelectStar()) {
                     if (state.isKey() && !state.isInternalExpansion()) {
                         return GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()));
@@ -258,7 +260,6 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
-        final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
 
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression child = nestingKeyExpression.getChild();
@@ -304,7 +305,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 }
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(state.getBaseValue(), fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
                         pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier).withFieldNamePrefix(ImmutableList.of()))));
@@ -537,6 +538,20 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         @Nonnull
         public Quantifier.ForEach getBaseQuantifier() {
             return baseQuantifier;
+        }
+
+        /**
+         * The value {@link #baseQuantifier} contributes as the base of a field access. That is its flowed object value,
+         * except under an unnesting: an {@link ExplodeExpression} flows the array element wrapped in a struct, so the
+         * base is the element within that wrapper.
+         *
+         * @return the value field accesses of the current state are relative to
+         */
+        @Nonnull
+        public Value getBaseValue() {
+            return baseQuantifier.getRangesOver().get() instanceof ExplodeExpression
+                   ? ExplodeExpression.elementValueOf(baseQuantifier)
+                   : baseQuantifier.getFlowedObjectValue();
         }
 
         @Nonnull

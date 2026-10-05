@@ -137,7 +137,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue, boolean withOrdinality) {
-        this(collectionValue, withOrdinality, false);
+        // every explode flows a record constructor: of the element alone, or of the element and the ordinal
+        this(collectionValue, withOrdinality, true);
     }
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue) {

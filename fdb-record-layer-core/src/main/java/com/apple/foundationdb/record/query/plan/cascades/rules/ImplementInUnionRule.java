@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
@@ -58,6 +59,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -131,6 +133,10 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
         int i = 0;
         for (final var explodeQuantifier : explodeQuantifiers) {
             final var explodeExpression = explodeExpressions.get(i++);
+            if (explodeExpression.isWithOrdinality()) {
+                // an in-union binds an element of the collection, and there is nowhere to put the ordinal
+                return;
+            }
             final Value explodeCollectionValue = explodeExpression.getCollectionValue();
 
             //
@@ -161,7 +167,19 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
         }
 
         final var inSources = sourcesBuilder.build();
-        
+
+        //
+        // An in-union binds the array element itself under the explode's alias, while the explode flows that element
+        // wrapped in a struct. Wrap what the alias stands for accordingly, so that an access of the element within the
+        // inner plans composes away to a plain reference to the binding.
+        //
+        final var quantifierToExplodeMap = new LinkedHashMap<Quantifier.ForEach, ExplodeExpression>();
+        int explodeIndex = 0;
+        for (final var explodeQuantifier : explodeQuantifiers) {
+            quantifierToExplodeMap.put(explodeQuantifier, explodeExpressions.get(explodeIndex++));
+        }
+        final var elementTranslationMap = ExplodeExpression.elementBindingTranslationMap(quantifierToExplodeMap);
+
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions =
                 PlanPartitions.rollUpTo(
@@ -202,7 +220,13 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
-                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlansFromOther(innerReference, planPartition.getPlans()));
+                    final var translatedReference =
+                            call.memoizeMemberPlansFromOther(innerReference, planPartition.getPlans())
+                                    .translateGraph(Memoizer.noMemoization(innerReference.getPlannerStage()),
+                                            elementTranslationMap, true);
+                    final Quantifier.Physical newInnerQuantifier =
+                            Quantifier.physical(call.memoizeFinalExpressionsFromOther(translatedReference,
+                                    translatedReference.getFinalExpressions()));
                     call.yieldPlan(
                             RecordQueryInUnionPlan.from(newInnerQuantifier,
                                     inSources,

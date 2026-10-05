@@ -39,12 +39,12 @@ test_block:
       - result: [{42}]
     -
       - query: select * from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c5 AS B, @c7 AS C, (@c10 AS X, promote(@c12 AS DOUBLE) AS Y, @c14 AS Z) AS W), (@c19 AS B, @c21 AS C, (@c24 AS X, @c26 AS Y, @c28 AS Z) AS W))"
+      - explain: "EXPLODE array((@c5 AS B, @c7 AS C, (@c10 AS X, promote(@c12 AS DOUBLE) AS Y, @c14 AS Z) AS W), (@c19 AS B, @c21 AS C, (@c24 AS X, @c26 AS Y, @c28 AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS C, _._0.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
       - query: select B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c9 AS B, @c11 AS C, (@c14 AS X, promote(@c16 AS DOUBLE) AS Y, @c18 AS Z) AS W), (@c23 AS B, @c25 AS C, (@c28 AS X, @c30 AS Y, @c32 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
+      - explain: "EXPLODE array((@c9 AS B, @c11 AS C, (@c14 AS X, promote(@c16 AS DOUBLE) AS Y, @c18 AS Z) AS W), (@c23 AS B, @c25 AS C, (@c28 AS X, @c30 AS Y, @c32 AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS C, _._0.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
@@ -57,22 +57,22 @@ test_block:
                  {B: 11, C: 3.0, W: [{X: 'd', Y: 'e', Z: [10, 20, 30]}]}]
     -
       - query: select A.B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c11 AS B, @c13 AS C, (@c16 AS X, promote(@c18 AS DOUBLE) AS Y, @c20 AS Z) AS W), (@c25 AS B, @c27 AS C, (@c30 AS X, @c32 AS Y, @c34 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
+      - explain: "EXPLODE array((@c11 AS B, @c13 AS C, (@c16 AS X, promote(@c18 AS DOUBLE) AS Y, @c20 AS Z) AS W), (@c25 AS B, @c27 AS C, (@c30 AS X, @c32 AS Y, @c34 AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS C, _._0.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
       - query: select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c15 AS B, @c17 AS C, (@c20 AS X, promote(@c22 AS DOUBLE) AS Y, @c24 AS Z) AS W), (@c29 AS B, @c31 AS C, (@c34 AS X, @c36 AS Y, @c38 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
+      - explain: "EXPLODE array((@c15 AS B, @c17 AS C, (@c20 AS X, promote(@c22 AS DOUBLE) AS Y, @c24 AS Z) AS W), (@c29 AS B, @c31 AS C, (@c34 AS X, @c36 AS Y, @c38 AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS Q, _._0.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3},
                  {B: 10, Q: 90.2, X: 5}]
     -
       - query: select * from (select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u
-      - explain: "EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE) AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
+      - explain: "EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE) AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42 AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS Q, _._0.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3},
                  {B: 10, Q: 90.2, X: 5}]
     -
       - query: select * from (select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u where b < 8
-      - explain: "EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE) AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42 AS Z) AS W)) | FILTER _.B LESS_THAN @c67 | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
+      - explain: "EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE) AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42 AS Z) AS W)) | FILTER _._0.B LESS_THAN promote(@c67 AS INT) | MAP (_._0.B AS B, _._0.C AS Q, _._0.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3}]
     -
       - query: select * from range(1, 4)

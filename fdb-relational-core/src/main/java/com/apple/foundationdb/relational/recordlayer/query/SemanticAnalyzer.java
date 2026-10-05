@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -398,7 +399,7 @@ public class SemanticAnalyzer {
         if (qualifier == null) {
             final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
-                    .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
+                    .map(SemanticAnalyzer::starValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
 
         // Case 2: qualifying a table, e.g. SELECT T.* FROM T, R;
@@ -409,10 +410,10 @@ public class SemanticAnalyzer {
             // Star can only be expanded on a record (struct) type. Examples of non-record qualifier types are scalars
             // (e.g., when unnesting a scalar array, as in `SELECT integer.* FROM T, T.integer_array AS integer`)
             // as well as VECTOR, ENUM, and UUID.
-            Assert.thatUnchecked(logicalTable.getQuantifier().getFlowedObjectType().isRecord(),
+            Assert.thatUnchecked(starValue(logicalTable.getQuantifier()).getResultType().isRecord(),
                     ErrorCode.INVALID_COLUMN_REFERENCE,
                     () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
-            return Star.overQuantifier(optionalQualifier, logicalTable.getQuantifier().getFlowedObjectValue(),
+            return Star.overQuantifier(optionalQualifier, starValue(logicalTable.getQuantifier()),
                     qualifier.getName(), logicalTable.getOutput().nonEphemeralVisible());
         }
 
@@ -432,6 +433,22 @@ public class SemanticAnalyzer {
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
         final var expressions = expandStructExpression(expression).nonEphemeralVisible();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
+    }
+
+    /**
+     * The value a {@code *} stands for over the given quantifier. That is the value it flows, except under an
+     * unnesting: a star expands to the fields of the array element, so the element is what it stands for. The ordinal
+     * of an unnesting with ordinality is ephemeral and hence not part of the expansion.
+     *
+     * @param quantifier the quantifier a star is expanded over
+     *
+     * @return the value the star stands for
+     */
+    @Nonnull
+    private static Value starValue(@Nonnull final Quantifier quantifier) {
+        return quantifier.getRangesOver().get() instanceof ExplodeExpression
+               ? ExplodeExpression.elementValueOf(quantifier)
+               : quantifier.getFlowedObjectValue();
     }
 
     @Nonnull

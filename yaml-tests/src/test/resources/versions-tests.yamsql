@@ -471,7 +471,7 @@ test_block:
       - query: select "__ROW_VERSION", id, col1
            from t4
            where 3 in t4.col4
-      - explain: "ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }"
+      - explain: "ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _._0 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }"
       - unorderedResult: [
            {__ROW_VERSION: !not_null _, ID:  9, COL1: "a" },
            {__ROW_VERSION: !not_null _, ID: 11, COL1: "b" },
@@ -630,7 +630,7 @@ test_block:
       - query: select "__ROW_VERSION", id, col1, col3
            from t4
            where col3 in (1, 3, 5)
-      - explain: "EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }"
+      - explain: "EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0._0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }"
       - result: [
            {__ROW_VERSION: !not_null _, ID: 19, COL1: "b", COL3: 1 },
            {__ROW_VERSION: !not_null _, ID: 20, COL1: "b", COL3: 1 },
