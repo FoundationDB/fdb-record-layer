@@ -366,11 +366,46 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .build())
                 .build()) {
 
-            IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
+            IndexingByIndex.ValidationException e = assertThrows(IndexingBase.UnusableSourceIndexException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("source index is not scannable"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    void testIndexFromIndexNoFallbackOnUnrelatedValidationFailure() {
+        // A validation failure that isn't related to the source index should not trigger a fallback to a by-records scan
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 3;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        disableAll(List.of(tgtIndex));
+
+        // the source index is usable, but there is another validation failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .build())
+                .build()) {
+
+            IndexingBase.ValidationException e = assertThrows(IndexingBase.ValidationException.class, indexBuilder::buildIndex);
+            assertFalse(IndexingBase.isUnusableSourceIndexException(e));
+            assertTrue(e.getMessage().contains("Index state is not as expected"));
+            assertEquals(1, indexBuilder.getLastAttemptCount());
+        }
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
     }
 
     @SuppressWarnings("try")

@@ -99,7 +99,7 @@ public class IndexingByIndex extends IndexingBase {
         if (policy.getSourceIndex() != null) {
             return metaData.getIndex(policy.getSourceIndex());
         }
-        throw new ValidationException("no source index",
+        throw new UnusableSourceIndexException("no source index",
                 LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
                 LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
                 LogMessageKeys.INDEXER_ID, common.getIndexerId());
@@ -135,7 +135,7 @@ public class IndexingByIndex extends IndexingBase {
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
-        validateOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
+        validateSourceOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
         boolean isIdempotent = maintainer.isIdempotent();
         final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
 
@@ -212,7 +212,7 @@ public class IndexingByIndex extends IndexingBase {
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         final Index srcIndex = getSourceIndex(store.getRecordMetaData());
-        validateOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
+        validateSourceOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE);
@@ -234,18 +234,28 @@ public class IndexingByIndex extends IndexingBase {
                                null );
     }
 
+    private void validateSourceOrThrowEx(boolean isValid, @Nonnull String msg) {
+        // A failure here means that the target index cannot be built by this source index, but may be built otherwise
+        if (!isValid) {
+            throw new UnusableSourceIndexException(msg,
+                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                    LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
+                    LogMessageKeys.INDEXER_ID, common.getIndexerId());
+        }
+    }
+
     private void validateSourceAndTargetIndexes(FDBRecordStore store) {
         // first validate that both source and target are of a single, similar, type
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index srcIndex = getSourceIndex(metaData);
         final Collection<RecordType> srcRecordTypes = metaData.recordTypesForIndex(srcIndex);
 
-        validateOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
-        validateOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
-        validateOrThrowEx(srcRecordTypes.stream().noneMatch(RecordType::isSynthetic), "source index is on synthetic record types");
-        validateOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
-        validateOrThrowEx(IndexTypes.VALUE.equals(srcIndex.getType()), "source index is not a VALUE index");
-        validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
+        validateSourceOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
+        validateSourceOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
+        validateSourceOrThrowEx(srcRecordTypes.stream().noneMatch(RecordType::isSynthetic), "source index is on synthetic record types");
+        validateSourceOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
+        validateSourceOrThrowEx(IndexTypes.VALUE.equals(srcIndex.getType()), "source index is not a VALUE index");
+        validateSourceOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
     }
 
     private void validateIdempotenceIfNecessary(@Nonnull FDBRecordStore store, @Nonnull IndexMaintainer maintainer) {
@@ -255,7 +265,7 @@ public class IndexingByIndex extends IndexingBase {
         // indexes. After this format version, we are assured that all updates will check the index type first and
         // respond appropriately
         if (!store.getFormatVersionEnum().isAtLeast(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE)) {
-            validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
+            validateSourceOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
         }
     }
 }

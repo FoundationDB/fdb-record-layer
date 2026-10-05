@@ -1295,6 +1295,20 @@ public abstract class IndexingBase {
     }
 
     /**
+     * Thrown when the requested source index cannot be used to build the target index.
+     */
+    @SuppressWarnings("serial")
+    public static class UnusableSourceIndexException extends ValidationException {
+        UnusableSourceIndexException(@Nonnull String msg, @Nullable Object... keyValues) {
+            super(msg, keyValues);
+        }
+    }
+
+    public static boolean isUnusableSourceIndexException(@Nullable Throwable ex) {
+        return findException(ex, UnusableSourceIndexException.class) != null;
+    }
+
+    /**
      * Thrown when the indexing process exceeds the time limit.
      */
     @SuppressWarnings("serial")
