@@ -50,6 +50,7 @@ import java.util.stream.LongStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -975,6 +976,86 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         scrubAndValidate(List.of(tgtIndex));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testIndexFromIndexPartlyBuiltRefuseMultiTargetContinuation(boolean allowTakeover) {
+        // partly build two indexes, each by a different source index, then assert that a multi target
+        // indexing of both cannot continue them
+        final int numRecords = 80;
+        final int chunkSize  = 10;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index srcIndex2 = new Index("src_index2", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        Index tgtIndex2 = new Index("tgt_index2", field("num_value_2"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(srcIndex, srcIndex2, tgtIndex, tgtIndex2));
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex2);
+
+        // partly build tgt_index by src_index, and tgt_index2 by src_index2
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, new FDBStoreTimer(),
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build());
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex2, chunkSize, 3, new FDBStoreTimer(),
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index2")
+                        .forbidRecordScan()
+                        .build());
+
+        // attempt a multi target continuation, expect failure. A takeover cannot help - no takeover type
+        // converts a by-index build to a multi target one.
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(List.of(tgtIndex, tgtIndex2))
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue(allowTakeover))
+                .setLimit(chunkSize)
+                .build()) {
+            final RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            final IndexingBase.PartlyBuiltException partlyBuilt = IndexingBase.getAPartlyBuiltExceptionIfApplicable(e);
+            assertNotNull(partlyBuilt, () -> "expected a PartlyBuiltException, got " + e);
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, partlyBuilt.getSavedStamp().getMethod());
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, partlyBuilt.getExpectedStamp().getMethod());
+            // no adjustment applies to a multi target indexing, hence a single attempt
+            assertEquals(1, indexBuilder.getLastAttemptCount());
+        }
+
+        // the refused attempt should not have changed the indexes, each can still be continued by its source index
+        for (Index tgt : List.of(tgtIndex, tgtIndex2)) {
+            try (FDBRecordContext context = openContext()) {
+                assertFalse(recordStore.getIndexState(tgt).isReadable());
+                context.commit();
+            }
+        }
+        final Map<Index, String> sources = Map.of(tgtIndex, "src_index", tgtIndex2, "src_index2");
+        for (Map.Entry<Index, String> entry : sources.entrySet()) {
+            final FDBStoreTimer timer = new FDBStoreTimer();
+            openSimpleMetaData(hook);
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(entry.getKey(), timer)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setSourceIndex(entry.getValue())
+                            .forbidRecordScan()
+                            .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
+                    .setLimit(chunkSize)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+            // continued - not rebuilt
+            assertTrue(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED) < numRecords);
+        }
+        scrubAndValidate(List.of(tgtIndex, tgtIndex2));
     }
 
     @Test
