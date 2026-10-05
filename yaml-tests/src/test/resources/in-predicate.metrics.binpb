@@ -921,7 +921,7 @@ U
 }®"
 i
 	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)∫!
-§î∑ô'ß á”È(60º“∏8s@ˆSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG))) | FLATMAP q1 -> { EXPLODE q0.NUMBERS WITH ORDINALITY | FILTER _._0 EQUALS q1 AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }°digraph G {
+§î∑ô'ß á”È(60º“∏8s@ˆEXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }°digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -957,49 +957,50 @@ i
     rankDir=LR;
     4 -> 5 [ color="red" style="invis" ];
   }
-}ô"
+}É"
 i
-	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)´!
-§ù¸Ü.ß ¿≠Ä(60ÔÂˆ8s@ÌEXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ZERO BASED ORDINALITY | FILTER _._1 + 1 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }õdigraph G {
+	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)ï!
+ôËíñ"¶ Ä¡»
+(50ÑÒ8r@‚EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._1 + 1 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q92</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c23)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS N, q4._1 + 1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._1 + 1 EQUALS q62</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ZERO BASED ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._1 + 1 EQUALS q62</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   3 -> 1 [ label=<&nbsp;q92> label="q92" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    6 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
-  {
-    7 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    5 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    4 -> 5 [ color="red" style="invis" ];
-  }
 }∏
 j
 	unnamed-2]EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)…
-é	©Ú¸1∆ ®∑ó(F0ﬁ¡ø8å@	’[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } }–digraph G {
+é	©Ú¸1∆ ®∑ó(F0ﬁ¡ø8å@	’[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1030,7 +1031,7 @@ j
 }â"
 r
 	unnamed-2eEXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')í!
-§ƒÛõ%ß ‘æ’(60∆˝ö8s@›SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c23) | FLATMAP q1 -> { EXPLODE q0.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q1 AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) }ídigraph G {
+§ƒÛõ%ß ‘æ’(60∆˝ö8s@›EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

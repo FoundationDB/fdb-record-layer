@@ -204,8 +204,10 @@ public class StoredQueriesTest {
             final var connectionUtils = new ConnectionUtils(engineDriver);
 
             // OfflineStoredQueriesProcessor ran during fresh-engine construction and
-            // warmed both stored queries: 2 L3 cache misses.
-            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            // warmed both stored queries. Warming stores without a lookup, so it bumps
+            // WRITE_ONLY_STORE and neither TERTIARY counter.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             // Connect via the fresh driver and verify the fresh engine's cache has 2 plans
             Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
@@ -220,7 +222,7 @@ public class StoredQueriesTest {
             });
             // query hit the cache: hit counter +1, miss counter unchanged.
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             // 2 plans in the cache
             Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
@@ -234,7 +236,7 @@ public class StoredQueriesTest {
             });
             // query hit the cache too: hit counter +1, miss counter still unchanged.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             // 2 plans in the cache
             Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
@@ -248,9 +250,10 @@ public class StoredQueriesTest {
             });
             // new (3) plan in the cache
             Assertions.assertEquals(Long.valueOf(3), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
-            // SELECT col2 is NOT pre-warmed: miss counter +1, hit counter unchanged.
+            // SELECT col2 is NOT pre-warmed: this is the only real lookup miss, so the miss counter
+            // goes to 1 while hit stays put. Warming itself never touched these two counters.
             Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            Assertions.assertEquals(3, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
         }
     }
 
@@ -409,9 +412,15 @@ public class StoredQueriesTest {
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
             final var connectionUtils = new ConnectionUtils(engineDriver);
 
-            // OfflineStoredQueriesProcessor ran during fresh-engine construction and
-            // both stored queries attempted to generate plan
-            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            // OfflineStoredQueriesProcessor ran during fresh-engine construction and attempted both
+            // stored queries: the one naming a column that does not exist failed to plan, the other
+            // was stored. Asserted on the warm-up's own counters, which say this directly.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED));
+            // One store, for the query that planned. Warming stores without a lookup, so neither
+            // TERTIARY counter moves.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
 
             // but only one query has valid column and was planned
@@ -463,9 +472,11 @@ public class StoredQueriesTest {
 
             // The stored query SELECT (which calls the temp function) is planned and cached.
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
-            // exactly one TERTIARY_MISS — for the stored query SELECT (DDL planning of the temp
-            // function itself goes through CACHE_BYPASS and does not bump TERTIARY counters).
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            // exactly one store — for the stored query SELECT (DDL planning of the temp function
+            // itself goes through CACHE_BYPASS). Warming stores without a lookup, so neither
+            // TERTIARY counter moves.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
         }
     }
@@ -493,8 +504,9 @@ public class StoredQueriesTest {
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
             final var connectionUtils = new ConnectionUtils(engineDriver);
 
-            // pre-warmed: 1 stored query (SELECT * FROM sq1(10)) cached.
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            // pre-warmed: 1 stored query (SELECT * FROM sq1(10)) stored without a lookup.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
@@ -519,9 +531,9 @@ public class StoredQueriesTest {
                 c.rollback();
             });
 
-            // SELECT hit the pre-warmed cache: hit +1, miss unchanged, cache size unchanged.
+            // SELECT hit the pre-warmed cache: hit +1, miss still zero, cache size unchanged.
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
@@ -541,7 +553,8 @@ public class StoredQueriesTest {
 
             // sq2 references sq1; both must install correctly for the SELECT to plan.
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
         }
     }

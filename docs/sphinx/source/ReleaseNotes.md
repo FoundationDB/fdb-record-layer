@@ -8,6 +8,39 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.15
 
+{#release-4-15-3-0}
+
+### 4.15.3.0
+
+<h4> Bug Fixes </h4>
+
+* revert #4630 - [PR #4702](https://github.com/FoundationDB/fdb-record-layer/pull/4702)
+* Fix `EXISTS` subqueries being ignored in views and SQL functions - [PR #4673](https://github.com/FoundationDB/fdb-record-layer/pull/4673)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Reorganize and extend `subquery-tests.yamsql` - [PR #4667](https://github.com/FoundationDB/fdb-record-layer/pull/4667)
+
+</details>
+
+
+**[Full Changelog (4.15.2.0...4.15.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.15.2.0...4.15.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.12.18.0`, ❌`4.13.1.0`, ❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ✅`4.14.2.0`, ✅`4.15.1.0`, ✅`4.15.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/36941124647)
+
+
+
 {#release-4-15-2-0}
 
 ### 4.15.2.0
