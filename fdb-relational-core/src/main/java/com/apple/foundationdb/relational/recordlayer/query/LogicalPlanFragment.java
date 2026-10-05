@@ -127,6 +127,10 @@ public final class LogicalPlanFragment {
         this.operators = LogicalOperators.ofSingle(logicalOperator);
     }
 
+    public void setOperators(@Nonnull LogicalOperators logicalOperators) {
+        this.operators = logicalOperators;
+    }
+
     public void setState(@Nonnull State state) {
         this.state = Optional.of(state);
     }

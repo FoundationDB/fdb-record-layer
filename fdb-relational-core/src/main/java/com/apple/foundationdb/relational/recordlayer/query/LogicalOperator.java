@@ -312,8 +312,7 @@ public class LogicalOperator {
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final boolean withOrdinality = atAlias.isPresent();
-        // Ask for 0-based ordinals: `AT` is 1-based per the SQL standard, but the one is added below, where the `AT`
-        // alias is bound, so that the ordinal an index candidate matches against is the position it stores.
+        // for the case when `withOrdinality` is true, we ask for a RecordConstructor value.
         final var explode = new ExplodeExpression(expression.getUnderlying(), withOrdinality, withOrdinality);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
         final QuantifiedObjectValue flowedObjectValue = resultingQuantifier.getFlowedObjectValue();

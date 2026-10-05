@@ -89,11 +89,13 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTestBase.class);
 
-    // A single OnlineIndexer.mergeIndex() drains the whole backlog on its own: it loops the per-partition claim/drain
-    // internally under one stable session id (so it holds each prefix's lease across transactions) until nothing is
-    // outstanding, retrying transient FDB failures — and follow-up tasks a drain enqueues keep the per-prefix count
-    // positive, so they are drained within that same pass. One pass therefore suffices for a quiescent index; this tiny
-    // bound is only a backstop so a pass that returns with work still outstanding fails the test rather than looping.
+    // Passes of OnlineIndexer.mergeIndex() allowed before the drain is declared failed. Deliberately tiny, and not a
+    // statement about how deep a cascade of follow-up tasks can get: a pass loops internally (in IndexingMerger) until
+    // the maintainer reports nothing it can do, and follow-up tasks a drain enqueues keep the partition's count
+    // positive, so they are retired within that same pass. What a pass cannot do is work on a partition whose merge
+    // lock record names another owner — it skips such a partition and, having nothing else to do, returns having
+    // drained nothing. More passes do not help in that case, since the record is only reclaimed once it ages out, so
+    // this bound stays small: one retry, then fail and let the cause be investigated.
     private static final int MERGE_DRAIN_MAX_PASSES = 2;
 
     /**
@@ -307,6 +309,13 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                                                                final int numRecords,
                                                                final double nullProbability) throws Exception {
         final var recordGenerator = getRecordGenerator(random, nullProbability);
+        return saveRandomRecords(useAsync, hook, numRecords, recordGenerator);
+    }
+
+    protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
+                                                               @Nonnull final RecordMetaDataHook hook,
+                                                               final int numRecords,
+                                                               @Nonnull Function<Long, VectorRecord> recordGenerator) throws Exception {
         if (useAsync) {
             return asyncBatch(hook, numRecords, 100,
                     recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo)));
@@ -391,7 +400,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                               @Nonnull final Metric metric) {
         return storedRecords.stream()
                 .map(storedRecord -> {
-                    final VectorRecord vectorRecord = (VectorRecord)storedRecord.getRecord();
+                    final VectorRecord vectorRecord = VectorRecord.newBuilder().mergeFrom(storedRecord.getRecord()).build();
                     final RealVector storedVector =
                             RealVector.fromBytes(vectorRecord.getVectorData().toByteArray());
                     return new NodeReferenceWithDistance(Tuple.from(vectorRecord.getRecNo()),

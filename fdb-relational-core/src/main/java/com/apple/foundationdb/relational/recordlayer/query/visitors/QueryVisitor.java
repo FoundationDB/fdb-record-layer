@@ -71,6 +71,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue.ofUnnamed;
@@ -708,11 +709,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (inlineTableItemContext.inlineTableDefinition() != null) {
             typeMaybe = visitInlineTableDefinition(inlineTableItemContext.inlineTableDefinition());
             Assert.thatUnchecked(!inlineTableItemContext.recordConstructorForInlineTable().isEmpty());
+            // Probe all rows to determine their maximum type, which becomes the target type of the inline table. The
+            // rows are visited for real below.
             Type type = null;
             for (final var inlineTableContext : inlineTableItemContext.recordConstructorForInlineTable()) {
-                final var rowExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->  visitRecordConstructorForInlineTable(inlineTableContext));
-                type = type == null ? rowExpression.getUnderlying().getResultType()
-                        : Type.maximumType(type, rowExpression.getUnderlying().getResultType());
+                final Expression rowExpression = probe(() -> visitRecordConstructorForInlineTable(inlineTableContext));
+                final Type resultType = rowExpression.getUnderlying().getResultType();
+                type = type == null ? resultType : Type.maximumType(type, resultType);
             }
             final var actualInlineTableType = type;
             final var inlineTypedWithNames = TypeUtils.setFieldNames(actualInlineTableType, typeMaybe.getRight());
@@ -967,11 +970,36 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return orderBys;
     }
 
+    /**
+     * Determines whether the given select list contains an aggregate function, which makes the query a grouped query
+     * even without a {@code GROUP BY} clause.
+     */
     private boolean hasAggregations(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
-        return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
-                () -> Streams.stream(visitSelectElements(selectElementsContext))
-                        .anyMatch(expression -> !Iterables.isEmpty(Expression.Utils.filterUnderlyingAggregates(expression)))
-        );
+        // This is a probe, as the select list is visited for real only once it is known whether the query is grouped.
+        return probe(() -> {
+            return Streams.stream(visitSelectElements(selectElementsContext))
+                    .anyMatch(expr -> !Iterables.isEmpty(Expression.Utils.filterUnderlyingAggregates(expr)));
+        });
+    }
+
+    /**
+     * Runs the given visitation as a probe, that is, with literal processing disabled, and restores the operators of
+     * the current plan fragment afterward. This is used for visitations that only inspect their result and that are
+     * repeated for real later. Otherwise, the literals they encounter would be registered twice, and so would the
+     * operators they register in the current plan fragment for subqueries.
+     *
+     * @param visitation the visitation to run
+     * @param <T> the type of the result of the visitation
+     * @return the result of the visitation
+     */
+    private <T> T probe(@Nonnull final Supplier<T> visitation) {
+        final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
+        final LogicalOperators operators = fragment.getLogicalOperators();
+        try {
+            return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(visitation);
+        } finally {
+            fragment.setOperators(operators);
+        }
     }
 
     @Nonnull

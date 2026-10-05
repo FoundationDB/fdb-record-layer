@@ -88,7 +88,7 @@ public abstract class IndexPredicate {
         final String typeName = type.getName();
         final String keyName = typeName + "#" + objectQuantifier.getId();
         return queryPredicateMap.computeIfAbsent(keyName, ignored -> {
-            final RecordType recordType = metaData.getRecordType(typeName);
+            final RecordType recordType = metaData.getIndexableRecordType(typeName);
             Type.Record typeRecord = Type.Record.fromDescriptor(recordType.getDescriptor());
             Value recordValue = QuantifiedObjectValue.of(objectQuantifier, typeRecord);
             return toPredicate(recordValue);

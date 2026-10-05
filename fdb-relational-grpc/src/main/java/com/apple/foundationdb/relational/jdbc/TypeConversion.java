@@ -734,6 +734,9 @@ public class TypeConversion {
                 case PLAN_RIGHT_DEEP:
                     builder.setPlanRightDeep((Boolean)entry.getValue());
                     break;
+                case PLAN_CACHE_WRITE_ONLY:
+                    builder.setPlanCacheWriteOnly((Boolean)entry.getValue());
+                    break;
                 case ISOLATION_LEVEL_SNAPSHOT:
                     builder.setIsolationLevel(((Boolean)entry.getValue())
                             ? com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SNAPSHOT
@@ -890,6 +893,9 @@ public class TypeConversion {
         }
         if (protoOptions.hasPlanRightDeep()) {
             builder.withOption(Options.Name.PLAN_RIGHT_DEEP, protoOptions.getPlanRightDeep());
+        }
+        if (protoOptions.hasPlanCacheWriteOnly()) {
+            builder.withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, protoOptions.getPlanCacheWriteOnly());
         }
         if (protoOptions.hasIsolationLevel()) {
             final boolean snapshot;

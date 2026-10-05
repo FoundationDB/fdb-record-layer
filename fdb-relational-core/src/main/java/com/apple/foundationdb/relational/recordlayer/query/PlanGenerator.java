@@ -58,6 +58,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer.NormalizationResult.QueryCachingFlags;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
+import com.apple.foundationdb.relational.recordlayer.query.cache.Reducer;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -90,6 +91,27 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedT
 @API(API.Status.EXPERIMENTAL)
 public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
+
+    /**
+     * Picks the cheapest of the cached plans that match the lookup, by {@link StableSelectorCostModel}. It captures
+     * nothing and holds no per-query state, so a single instance serves every {@code PlanGenerator}.
+     */
+    @Nonnull
+    private static final Reducer<PhysicalPlanEquivalence, Plan<?>> CHEAPEST_PLAN_REDUCER =
+            Reducer.of(plans -> plans.reduce(null, (acc, candidate) -> {
+                if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
+                    final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
+                    final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
+                    final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
+                    if (bestQueryPlanSoFar == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
+                        return candidate;
+                    } else {
+                        return acc;
+                    }
+                } else {
+                    return candidate;
+                }
+            }));
 
     /**
      * An optional plan cache used to improve performance by storing execution plans.
@@ -184,7 +206,15 @@ public final class PlanGenerator {
             // currently exists in the cache.
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
-            // otherwise, lookup the query in the cache
+            // Look the query up in the cache. Write-only skips the lookup: its reducer never selects, so the stored
+            // keys are never compared and no PhysicalPlanEquivalence comparison takes place. Either way the entry is
+            // stored under a key built straight from the constraint, so an entry already held under an equal
+            // constraint is replaced.
+            final Reducer<PhysicalPlanEquivalence, Plan<?>> reducer =
+                    options.getOption(Options.Name.PLAN_CACHE_WRITE_ONLY)
+                    ? Reducer.writeOnly()
+                    : CHEAPEST_PLAN_REDUCER;
+
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
@@ -202,20 +232,7 @@ public final class PlanGenerator {
                                 return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
-                            plans -> plans.reduce(null, (acc, candidate) -> {
-                                if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
-                                    final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
-                                    final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
-                                    final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
-                                    if (bestQueryPlanSoFar == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
-                                        return candidate;
-                                    } else {
-                                        return acc;
-                                    }
-                                } else {
-                                    return candidate;
-                                }
-                            }),
+                            reducer,
                             planContext.getMetricsCollector()
                     )
             );
