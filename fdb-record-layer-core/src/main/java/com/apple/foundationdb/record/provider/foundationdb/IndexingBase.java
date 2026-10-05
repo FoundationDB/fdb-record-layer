@@ -1253,14 +1253,21 @@ public abstract class IndexingBase {
     }
 
     public static boolean isValidationException(@Nullable Throwable ex) {
-        for (Throwable current = ex;
-                current != null;
-                current = current.getCause()) {
-            if (current instanceof ValidationException) {
-                return true;
-            }
+        return findException(ex, ValidationException.class) != null;
+    }
+
+    /**
+     * Thrown when the requested source index cannot be used to build the target index.
+     */
+    @SuppressWarnings("serial")
+    public static class UnusableSourceIndexException extends ValidationException {
+        UnusableSourceIndexException(@Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
         }
-        return false;
+    }
+
+    public static boolean isUnusableSourceIndexException(@Nullable Throwable ex) {
+        return findException(ex, UnusableSourceIndexException.class) != null;
     }
 
     /**

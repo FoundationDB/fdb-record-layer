@@ -257,8 +257,8 @@ public class OnlineIndexer implements AutoCloseable {
             throw partlyBuiltException;
         }
 
-        if (state.policy.isByIndex() && IndexingBase.isValidationException(ex)) {
-            // Validation failed - the source index cannot be used for records scanning
+        if (state.policy.isByIndex() && IndexingBase.isUnusableSourceIndexException(ex)) {
+            // Here: the source index cannot be used for records scanning
             if (state.sourceIndexAdjusted) {
                 // Here: we tried to continue a previous indexing session by its source index, but that index isn't
                 // usable. The only recovery, as it seems, is to rebuild by the originally requested policy.
