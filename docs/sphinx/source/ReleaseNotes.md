@@ -4,6 +4,54 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-16}
+
+## 4.16
+
+{#release-4-16-1-0}
+
+### 4.16.1.0
+
+<h4> Breaking Changes </h4>
+
+* Bump minor version to 4.16 - [PR #4709](https://github.com/FoundationDB/fdb-record-layer/pull/4709)
+* Remove shaded variant from our published artifacts - [PR #4662](https://github.com/FoundationDB/fdb-record-layer/pull/4662)
+* Flow the `WITH ORDINALITY` struct as a record constructor value - [PR #4696](https://github.com/FoundationDB/fdb-record-layer/pull/4696)
+* Stop publishing `fdb-record-layer-core`'s `-all` variant - [PR #4663](https://github.com/FoundationDB/fdb-record-layer/pull/4663)
+<h4> New Features </h4>
+
+* Guard `loadRecord`, `deleteRecord`, and `saveRecord` behind `AsyncLock`s - [PR #4523](https://github.com/FoundationDB/fdb-record-layer/pull/4523)
+* Stop supporting 1-based explode ordinals - [PR #4704](https://github.com/FoundationDB/fdb-record-layer/pull/4704)
+* PLAN_CACHE_WRITE_ONLY planner option - [PR #4654](https://github.com/FoundationDB/fdb-record-layer/pull/4654)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix peter-evans/create-pull-request version to v8.1.1 (the latest release) instead of HEAD - [PR #4703](https://github.com/FoundationDB/fdb-record-layer/pull/4703)
+* Add a test for resuming a SQL continuation whose index was replaced - [PR #4705](https://github.com/FoundationDB/fdb-record-layer/pull/4705)
+* Bump idna from 3.19 to 3.20 in /docs/sphinx - [PR #4701](https://github.com/FoundationDB/fdb-record-layer/pull/4701)
+* Bump org.jline:jline from 4.4.3 to 4.4.5 - [PR #4698](https://github.com/FoundationDB/fdb-record-layer/pull/4698)
+* Bump urllib3 from 2.7.0 to 2.8.0 in /docs/sphinx - [PR #4700](https://github.com/FoundationDB/fdb-record-layer/pull/4700)
+
+</details>
+
+
+**[Full Changelog (4.15.3.0...4.16.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.15.3.0...4.16.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.1.0`, ❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/37315080487)
+
+
+
 {#release-4-15}
 
 ## 4.15
