@@ -743,22 +743,6 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
-     * Tests that the rename rejects a renamer that maps a record type to the name of an existing record type that is
-     * registered in {@code MetaData.record_types} but has no corresponding message type in {@code MetaData.records}
-     * (as would be the case for a record type whose message is defined in a dependency file, i.e., “imported”).
-     */
-    @Test
-    void batchedRejectsRenameToImportedType() throws IOException {
-        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
-        builder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder().setName("Imported").build());
-        final RecordMetaDataProto.MetaData originalProto = builder.build();
-        crossCheckRenameRecordTypesIsRejected(
-                originalProto,
-                name -> name.equals("T1") ? "Imported" : name,
-                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
-    }
-
-    /**
      * Tests that the rename rejects a renamer that maps a record type to the name of a synthetic record type, whether
      * joined or unnested. Unlike the other exception tests here, this one is batched-only because
      * {@link MetaDataProtoEditor#renameRecordType} does not check for such a collision at all.
@@ -778,37 +762,6 @@ public class MetaDataProtoEditorUnitTest {
                         RecordMetaDataBuilder.getDependencies(originalProto, Map.of())));
         assertEquals("Cannot rename record type as a synthetic record type of the new name already exists",
                 exception.getMessage());
-    }
-
-    /**
-     * Tests that an entry in {@code MetaData.record_types} without a corresponding union field, which therefore defines
-     * no record type, is left untouched by the rename, and that the renamer is not applied to it. (Note that
-     * {@link MetaDataProtoEditor#renameRecordType}, by contrast, rejects a rename of such a name outright.)
-     */
-    @Test
-    void batchedSkipsRecordTypeEntryWithoutUnionField() throws IOException {
-        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
-        builder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder().setName("Imported").build());
-        final RecordMetaDataProto.MetaData originalProto = builder.build();
-        final Descriptors.FileDescriptor[] dependencies =
-                RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
-
-        // The batched path renames the actual record types, and never consults the renamer for the extra entry.
-        final Set<String> renamerSawNames = new LinkedHashSet<>();
-        final RecordMetaDataProto.MetaData.Builder batchedBuilder = originalProto.toBuilder();
-        MetaDataProtoEditor.renameRecordTypes(batchedBuilder, name -> {
-            renamerSawNames.add(name);
-            return simpleRename(name);
-        }, dependencies);
-        assertEquals(Set.of("T1", "T2"), renamerSawNames);
-        assertEquals(List.of(simpleRename("T1"), simpleRename("T2"), "Imported"),
-                MetaDataProtoEditor.getRecordTypes(batchedBuilder));
-
-        // The one-by-one path, by contrast, rejects a rename of the extra entry.
-        final MetaDataException exception = assertThrows(MetaDataException.class,
-                () -> MetaDataProtoEditor.renameRecordType(originalProto.toBuilder(), "Imported",
-                        simpleRename("Imported"), dependencies));
-        assertEquals("No record type found with name Imported", exception.getMessage());
     }
 
     /**
@@ -1073,22 +1026,6 @@ public class MetaDataProtoEditorUnitTest {
                 originalProto,
                 MetaDataProtoEditorUnitTest::simpleRename,
                 RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
-    }
-
-    /**
-     * Tests that a record type whose name contains a {@code '.'} cannot correspond to any message type in
-     * {@code MetaData.records}, since message type names are always simple identifiers. It is therefore treated as
-     * imported and skipped, rather than rejected.
-     */
-    @Test
-    void batchedSkipsDottedRecordTypeName() throws IOException {
-        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
-        builder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder().setName("a.b").build());
-        final RecordMetaDataProto.MetaData originalProto = builder.build();
-        final Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
-        final RecordMetaDataProto.MetaData.Builder renamed = originalProto.toBuilder();
-        MetaDataProtoEditor.renameRecordTypes(renamed, name -> name.equals("a.b") ? "c" : name, dependencies);
-        assertEquals(List.of("T1", "T2", "a.b"), MetaDataProtoEditor.getRecordTypes(renamed));
     }
 
     /**

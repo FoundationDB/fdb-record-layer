@@ -571,8 +571,8 @@ public class MetaDataProtoEditor {
      *
      * <p><b>Precondition:</b> The {@code renamer} must define a consistent, collision-free mapping. That is, no two
      * distinct existing top-level record types may map to the same new name, and no record type may be renamed to a
-     * name that collides with another (renamed or unchanged) top-level type, another record type, or a synthetic record
-     * type. If a collision is detected, no rename is performed, and a {@link MetaDataException} is thrown.
+     * name that collides with another (renamed or unchanged) top-level type or a synthetic record type. If a collision
+     * is detected, no rename is performed, and a {@link MetaDataException} is thrown.
      *
      * <p>The following is an example of a simple, collision-free renaming. It prepends a fixed string to every name:
      * <pre>
@@ -1032,16 +1032,6 @@ public class MetaDataProtoEditor {
             final String name = messageType.getName();
             if (!renames.containsKey(name) && inverse.containsKey(name)) {
                 throw new MetaDataException("Cannot rename record type as a type of the new name already exists",
-                        LogMessageKeys.RECORD_TYPE, inverse.get(name),
-                        LogMessageKeys.NEW_RECORD_TYPE, name);
-            }
-        }
-
-        // Likewise for the names listed in `MetaData.record_types`, the way `renameRecordType` checks them.
-        for (final String name : getRecordTypes(metaDataBuilder)) {
-            if (!renames.containsKey(name) && inverse.containsKey(name)) {
-                throw new MetaDataException(
-                        "Cannot rename record type as a record type of the new name already exists",
                         LogMessageKeys.RECORD_TYPE, inverse.get(name),
                         LogMessageKeys.NEW_RECORD_TYPE, name);
             }
