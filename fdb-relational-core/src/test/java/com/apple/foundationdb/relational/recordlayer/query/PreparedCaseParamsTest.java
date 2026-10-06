@@ -38,8 +38,9 @@ class PreparedCaseParamsTest {
     void isNullBindsARealNull() {
         final var params = PreparedCaseParams.of(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NULL));
 
-        // containsKey, not a non-null value: this is what makes the parameter value-bound rather than value-free.
-        assertThat(params.hasNamedParamValue("P")).isTrue();
+        // containsKey, not a non-null value: this is what makes the parameter value-bound rather than value-free,
+        // which is observable as its declared type never being offered for planning.
+        assertThat(params.unboundDeclaredTypeMaybe("P")).isEmpty();
         assertThat(params.namedParamValue("P")).isNull();
     }
 
@@ -56,21 +57,23 @@ class PreparedCaseParamsTest {
     void isNotNullLeavesTheParameterWithoutAValue() {
         final var params = PreparedCaseParams.of(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NOT_NULL));
 
-        assertThat(params.hasNamedParamValue("P")).isFalse();
-        assertThat(params.declarationMaybe("P")).contains("BIGINT");
+        // A declared type comes back only for a parameter without a value, so this covers both at once.
+        assertThat(params.unboundDeclaredTypeMaybe("P")).contains("BIGINT");
     }
 
     /**
-     * Harmless because a declaration is only read for a parameter with no value, so nothing is filtered per case.
+     * Every declaration is passed on whatever the case pins a parameter to, which is harmless because a declared type
+     * is only ever read for a parameter left without a value. That is what is checked here: the bound one offers
+     * nothing to plan from, the value-free one offers its type.
      */
     @Test
-    void everyDeclarationIsPassedOnWhateverTheStateIs() {
+    void aBoundParameterNeverOffersItsDeclaredType() {
         final var params = PreparedCaseParams.of(
                 Map.of("BOUND", "BIGINT", "FREE", "STRING"),
                 Map.of("BOUND", ParameterState.IS_NULL, "FREE", ParameterState.IS_NOT_NULL));
 
-        assertThat(params.declarationMaybe("BOUND")).contains("BIGINT");
-        assertThat(params.declarationMaybe("FREE")).contains("STRING");
+        assertThat(params.unboundDeclaredTypeMaybe("BOUND")).isEmpty();
+        assertThat(params.unboundDeclaredTypeMaybe("FREE")).contains("STRING");
     }
 
     @Test
@@ -83,8 +86,7 @@ class PreparedCaseParamsTest {
 
         assertThat(params.namedParamValue("ZONE")).isNull();
         assertThat(params.namedParamValue("WIDE")).isEqualTo(Boolean.FALSE);
-        assertThat(params.hasNamedParamValue("ADOPTER")).isFalse();
-        assertThat(params.declarationMaybe("ADOPTER")).contains("INTEGER NOT NULL");
+        assertThat(params.unboundDeclaredTypeMaybe("ADOPTER")).contains("INTEGER NOT NULL");
     }
 
     /**
