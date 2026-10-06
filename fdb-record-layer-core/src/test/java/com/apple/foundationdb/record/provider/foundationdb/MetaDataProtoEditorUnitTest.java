@@ -663,25 +663,25 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
-     * Tests that a union field referencing a message nested inside a renamed type has its {@code typeName} rewritten
-     * to follow the renamed parent. The nested type itself is registered as a record type but is not top-level, so the
-     * renamer is never applied to it.
+     * Tests that the rename rejects any renaming when the union references a record type backed by a message type
+     * nested within another one, even if the renamer leaves that record type alone or is the identity. In the fixture,
+     * the union references {@code T2.Inner}, which makes {@code Inner} such a record type.
      */
     @Test
-    void batchedRenamesUnionFieldReferenceToNestedType() throws IOException {
+    void batchedRejectsNestedRecordType() throws IOException {
         final RecordMetaDataProto.MetaData originalProto = loadMetaData("UnionFieldToNestedType.json").build();
-        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
-        MetaDataProtoEditor.renameRecordTypes(builder,
+        final Descriptors.FileDescriptor[] dependencies =
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
+        for (final UnaryOperator<String> renamer : List.<UnaryOperator<String>>of(
                 name -> name.equals("T2") ? simpleRename("T2") : name,
-                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
-        final RecordMetaData renamed = RecordMetaData.build(builder.build());
-        // "Inner" cannot be renamed, since it is not a top-level message type, but it moves with its parent.
-        assertEquals(Set.of(simpleRename("T2"), "Inner"), renamed.getRecordTypes().keySet());
-        assertEquals(simpleRename("T2") + ".Inner",
-                renamed.getRecordType("Inner").getDescriptor().getFullName());
-        final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
-        assertEquals(simpleRename("T2") + ".Inner",
-                union.findFieldByName("_Inner").getMessageType().getFullName());
+                name -> name.equals("T2") ? "Inner" : name,
+                UnaryOperator.identity())) {
+            final MetaDataException exception = assertThrows(MetaDataException.class,
+                    () -> MetaDataProtoEditor.renameRecordTypes(originalProto.toBuilder(), renamer, dependencies));
+            assertEquals("Renaming record types with record types backed by nested message types is not supported",
+                    exception.getMessage());
+            crossCheckRenameRecordTypesIsRejected(originalProto, renamer, dependencies);
+        }
     }
 
     /**
@@ -755,19 +755,6 @@ public class MetaDataProtoEditorUnitTest {
         crossCheckRenameRecordTypesIsRejected(
                 originalProto,
                 name -> name.equals("T1") ? "Imported" : name,
-                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
-    }
-
-    /**
-     * Tests that the rename rejects a renamer that maps a record type to the name of a record type backed by a nested
-     * message type. In the fixture, the union references {@code T2.Inner}, which makes {@code Inner} a record type.
-     */
-    @Test
-    void batchedRejectsRenameToNestedRecordType() throws IOException {
-        final RecordMetaDataProto.MetaData originalProto = loadMetaData("UnionFieldToNestedType.json").build();
-        crossCheckRenameRecordTypesIsRejected(
-                originalProto,
-                name -> name.equals("T2") ? "Inner" : name,
                 RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
     }
 
