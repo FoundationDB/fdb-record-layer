@@ -362,4 +362,93 @@ test_block:
       # again. `venue_no` is read from KEY:[1] here too, even though it is only wanted for the ordering.
       - explain: "COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.seats AS seats, _.unnesting_0.day AS day, _.parent.venue_no AS venue_no) | MAP (_.seats AS seats)"
       - result: [{seats: 10}, {seats: 20}, {seats: 5}]
+---
+test_block:
+  name: index-scan-with-fetch
+  tests:
+    -
+      - query: SELECT "venue"."city", SQ."day", SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                WHERE SQ."day" = 'mon'
+      - explain: "ISCAN(mv_pk_in_key [EQUALS promote(@c32 AS STRING)]) | MAP (_.parent.city AS city, _.unnesting_0.day AS day, _.unnesting_0.seats AS seats)"
+      - result: [{city: 'SF', day: 'mon', seats: 10}]
+    -
+      - query: SELECT "venue"."city", SQ."day"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                ORDER BY SQ."day"
+      - explain: "ISCAN(mv_pk_in_key <,>) | MAP (_.parent.city AS city, _.unnesting_0.day AS day)"
+      - result: [{city: 'SF', day: 'mon'}, {city: 'SF', day: 'tue'}, {city: 'LA', day: 'wed'}]
+    -
+      - query: SELECT "a"."name"."first" AS "first", "a"."name"."last" AS "last", "book"."title"
+                 FROM "book", "book"."authors" AS "a"
+                WHERE "a"."name"."last" = 'Herbert'
+                ORDER BY "a"."name"."last", "book"."title", "a"."score"
+      - explain: "ISCAN(mv_deep_element [EQUALS promote(@c35 AS STRING)]) | MAP (_.unnesting_0.name.first AS first, _.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score) | MAP (_.first AS first, _.last AS last, _.title AS title)"
+      - result: [
+          {first: 'Brian', last: 'Herbert', title: 'Dune'},
+          {first: 'Frank', last: 'Herbert', title: 'Dune'}]
+    -
+      - query: SELECT "item"."meta"."owner" AS "owner", SQ."label", SQ."weight"
+                 FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+                WHERE SQ."label" = 'hammer'
+      - explain: "ISCAN(mv_deep_array [EQUALS promote(@c40 AS STRING)]) | MAP (_.parent.meta.owner AS owner, _.unnesting_0.label AS label, _.unnesting_0.weight AS weight)"
+      - result: [{owner: 'ann', label: 'hammer', weight: 7}]
+---
+test_block:
+  name: aggregations
+  tests:
+    -
+      - query: SELECT COUNT(*) AS "n"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS n)"
+      - result: [{n: 5}]
+    -
+      - query: SELECT SUM(SQ."rating") AS "total"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
+      - result: [{total: 18}]
+    -
+      - query: SELECT SQ."reviewer" AS "reviewer", COUNT(*) AS "n"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+             GROUP BY SQ."reviewer"
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (count_star(*) AS _0) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS reviewer, _._1._0 AS n)"
+      - unorderedResult: [
+          {reviewer: 'Alice', n: 2},
+          {reviewer: 'Bob', n: 1},
+          {reviewer: 'Carol', n: 1},
+          {reviewer: 'Dave', n: 1}]
+    -
+      - query: SELECT SQ."reviewer" AS "reviewer", SUM(SQ."rating") AS "total", MAX(SQ."rating") AS "best"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+             GROUP BY SQ."reviewer"
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0, max_l(_._1.rating) AS _1) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS reviewer, _._1._0 AS total, _._1._1 AS best)"
+      - unorderedResult: [
+          {reviewer: 'Alice', total: 9, best: 5},
+          {reviewer: 'Bob', total: 3, best: 3},
+          {reviewer: 'Carol', total: 4, best: 4},
+          {reviewer: 'Dave', total: 2, best: 2}]
+    -
+      # Grouping on a column of the parent row, which sits between the two unnested columns in the key.
+      - query: SELECT "restaurant"."region" AS "region", COUNT(*) AS "n"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+             GROUP BY "restaurant"."region"
+      - error: "0AF00"
+    -
+      - query: SELECT SUM(SQ."rating") AS "total"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice'
+      - explain: "ISCAN(mv_split [EQUALS promote(@c29 AS STRING)]) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
+      - result: [{total: 9}]
+    -
+      - query: SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
+                 FROM "book", "book"."authors" AS "a"
+             GROUP BY "a"."name"."last"
+      - explain: "ISCAN(mv_deep_element <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (max_l(_._1.score) AS _0) GROUP BY (_._1.name.last AS _0) | MAP (_._0._0 AS last, _._1._0 AS best)"
+      - unorderedResult: [{last: 'Austen', best: 8}, {last: 'Herbert', best: 9}]
+    -
+      - query: SELECT "venue"."venue_no" AS "venue_no", SUM(SQ."seats") AS "total"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+             GROUP BY "venue"."venue_no"
+      - explain: "SCAN([IS venue]) | FLATMAP q0 -> { EXPLODE q0.slots AS q1 RETURN (q0 AS _0, q1 AS _1) } | AGG (sum_l(_._1.seats) AS _0) GROUP BY (_._0.venue_no AS _0) | MAP (_._0._0 AS venue_no, _._1._0 AS total)"
+      - unorderedResult: [{venue_no: 1, total: 30}, {venue_no: 2, total: 5}]
 ...
