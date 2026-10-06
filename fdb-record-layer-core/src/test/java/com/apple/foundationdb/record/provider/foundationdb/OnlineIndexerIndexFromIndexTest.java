@@ -1093,9 +1093,11 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         scrubAndValidate(List.of(tgtIndex, tgtIndex2));
     }
 
-    @Test
-    void testIndexFromIndexOtherSrcIndexBecomesUnusable() {
-        // start indexing by src_index, attempt continue with src_index2
+    @ParameterizedTest
+    @BooleanSource
+    void testIndexFromIndexOtherSrcIndexBecomesUnusable(boolean requestedSrcIndexUnusable) {
+        // start indexing by src_index, attempt continue with src_index2. If src_index2 is unusable too, expect
+        // a fallback to a by-records scan
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 88;
         final int chunkSize  = 15;
@@ -1128,15 +1130,17 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .forbidRecordScan()
                         .build());
 
-        // make 'prev' source unreadable
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder(srcIndex).build()) {
-                // change src_index back to writeOnly
-                recordStore.markIndexWriteOnly(srcIndex).join();
-                indexBuilder.rebuildIndex(recordStore);
-                context.commit();
-                assertFalse(recordStore.getIndexState(srcIndex).isReadable());
+        // make 'prev' source unreadable, and possibly the requested one too
+        for (Index unusableSrcIndex : requestedSrcIndexUnusable ? List.of(srcIndex, srcIndex2) : List.of(srcIndex)) {
+            openSimpleMetaData(hook);
+            try (FDBRecordContext context = openContext()) {
+                try (OnlineIndexer indexBuilder = newIndexerBuilder(unusableSrcIndex).build()) {
+                    // change the source index back to writeOnly
+                    recordStore.markIndexWriteOnly(unusableSrcIndex).join();
+                    indexBuilder.rebuildIndex(recordStore);
+                    context.commit();
+                    assertFalse(recordStore.getIndexState(unusableSrcIndex).isReadable());
+                }
             }
         }
 
@@ -1150,8 +1154,13 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .build()) {
             indexBuilder.buildIndex(true);
+            // 1. by src_index2 - mismatches the partly built by src_index
+            // 2. by src_index, continuing the previous session - src_index isn't usable
+            // 3. by src_index2, rebuilding
+            // 4. if src_index2 isn't usable either - by records, rebuilding
+            assertEquals(requestedSrcIndexUnusable ? 4 : 3, indexBuilder.getLastAttemptCount());
         }
-        // total of records scan - all by src_index2
+        // total of records scan - all by the final method
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
