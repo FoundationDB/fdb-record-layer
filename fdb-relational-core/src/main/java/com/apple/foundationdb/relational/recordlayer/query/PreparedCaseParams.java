@@ -46,15 +46,15 @@ final class PreparedCaseParams {
     /**
      * Builds the parameters for one case.
      *
-     * @param declarations the parameter list, from parameter name to the SQL text of its declaration
+     * @param declaredTypeParams the parameter list, from parameter name to the SQL text of its declaration
      * @param preparedCase the case, from parameter name to the state it is pinned to
      * @return the parameters to plan this case with
      */
     @Nonnull
-    static PreparedParams of(@Nonnull final Map<String, String> declarations,
+    static PreparedParams of(@Nonnull final Map<String, String> declaredTypeParams,
                              @Nonnull final Map<String, StoredQuery.ParameterState> preparedCase) {
         // A HashMap, since IS_NULL binds a real null and neither Map.of nor ImmutableMap accepts one. The distinction
-        // matters: hasNamedParamValue asks containsKey, so bound-to-null is value-bound while absent is value-free.
+        // matters: a named value bound to null is value-bound, while an absent one is value-free.
         final var values = new HashMap<String, Object>();
         for (final var entry : preparedCase.entrySet()) {
             final var parameterName = entry.getKey();
@@ -71,7 +71,7 @@ final class PreparedCaseParams {
                 case IS_NOT_NULL:
                     // Left without a value on purpose. Checked all the same, so that a state with no declaration
                     // behind it fails about the missing declaration rather than about a missing value.
-                    Assert.thatUnchecked(declarations.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
+                    Assert.thatUnchecked(declaredTypeParams.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
                             () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
                     break;
                 default:
@@ -79,6 +79,6 @@ final class PreparedCaseParams {
                             "unhandled prepared case state " + entry.getValue());
             }
         }
-        return PreparedParams.ofNamed(values).withDeclarations(declarations);
+        return PreparedParams.ofNamed(values).withDeclaredTypeParams(declaredTypeParams);
     }
 }
