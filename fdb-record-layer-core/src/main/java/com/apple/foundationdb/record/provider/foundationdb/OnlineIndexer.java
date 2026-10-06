@@ -298,18 +298,9 @@ public class OnlineIndexer implements AutoCloseable {
                     // All are readable
                     return AsyncUtil.DONE;
                 }
-                if (!state.fallbackToRecordsScan) {
-                    // Some are readable, probably by another process. Call regular indexing to check/mark readable
-                    return indexingLauncherFallbackToRecordsScan(indexingFunc, state, attemptCount);
-                }
-                if (attemptCount < INDEXING_ATTEMPTS_RECURSION_LIMIT) {
-                    // Here: the fallback had already been applied, yet some targets are still unreadable. A peer
-                    // process is probably in the middle of marking them readable. Retry and let the next attempt find them all readable.
-                    return indexingLauncher(indexingFunc, state, attemptCount);
-                }
-                // Here: the targets' mixed readability seems stable - probably a peer process had failed to mark
-                // them all readable. Fall through and throw the original exception, which is more informative than
-                // the "too many attempts" one.
+                // Here: some targets are readable. A peer process is probably in the middle of marking them readable, or had
+                // failed to (possibly due to a uniqueness violation). Attempt marking them readable too.
+                return newIndexer(state.policy).markIndexReadable(true).thenApply(ignore -> null);
             }
         }
 

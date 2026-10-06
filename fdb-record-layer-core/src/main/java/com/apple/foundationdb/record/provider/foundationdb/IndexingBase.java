@@ -1252,10 +1252,6 @@ public abstract class IndexingBase {
         }
     }
 
-    public static boolean isValidationException(@Nullable Throwable ex) {
-        return findException(ex, ValidationException.class) != null;
-    }
-
     /**
      * Thrown when the requested source index cannot be used to build the target index.
      */
