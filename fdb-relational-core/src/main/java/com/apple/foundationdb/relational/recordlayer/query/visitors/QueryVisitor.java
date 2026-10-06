@@ -281,7 +281,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         Expressions selectExpressions;
         List<OrderByExpression> orderBys = List.of();
-        if (simpleTableContext.groupByClause() != null || hasAggregations(simpleTableContext.selectElements())) {
+        final var groupByClause = simpleTableContext.groupByClause();
+        final var havingClause = simpleTableContext.havingClause();
+        // Treat the query as grouped if it has a GROUP BY clause, a HAVING clause, or an aggregate function in the
+        // select list. As per standard SQL, if there is no GROUP BY clause, `GROUP BY ()` is implied.
+        if (groupByClause != null || havingClause != null || hasAggregations(simpleTableContext.selectElements())) {
             // Combine the FROM and WHERE clauses into a single operator that produces the rows to be grouped.
             final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
             var selectWhere = LogicalOperator.generateSelectWhere(getDelegate().getLogicalOperators(), outerCorrelations, where, getDelegate().isForDdl());
@@ -291,7 +295,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             // GROUP BY clause are rejected. (A subquery registers an operator in the plan fragment, which the grouping
             // would not range over.)
             final Expressions groupByExpressions;
-            final var groupByClause = simpleTableContext.groupByClause();
             if (groupByClause == null) {
                 groupByExpressions = Expressions.empty();
             } else {
@@ -312,7 +315,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             // registers in the plan fragment correspond to subqueries.
             final int numOperators = getDelegate().getLogicalOperators().size();
             selectExpressions = visitSelectElements(simpleTableContext.selectElements());
-            where = Optional.ofNullable(simpleTableContext.havingClause() == null ? null : visitHavingClause(simpleTableContext.havingClause()));
+            where = Optional.ofNullable(havingClause == null ? null : visitHavingClause(havingClause));
 
             // Set the subqueries of the select list and the HAVING clause aside, so that only the grouped rows feed
             // into the GROUP BY. The subqueries are evaluated on top of it, where they are constant for every group.

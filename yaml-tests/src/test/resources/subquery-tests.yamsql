@@ -394,34 +394,34 @@ test_block:
       - result: []
     -
       # Uncorrelated EXISTS subquery in the HAVING clause of a query without GROUP BY or aggregate functions.
-      # TODO Issue #4680: This currently ignores the HAVING clause and returns every row.
+      # The HAVING clause alone makes all rows a single group, so the query yields a single row.
       - query: SELECT 7 AS x FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - explain: "COVERING(T4_i <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (@c1 AS x)"
-      - unorderedResult: [{x: 7}, {x: 7}, {x: 7}]
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c18 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }"
+      - result: [{x: 7}]
     -
       # The same but with an empty subquery, which rejects the single group.
-      # TODO Issue #4680: This currently ignores the HAVING clause and returns every row.
       - query: SELECT 7 AS x FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - explain: "COVERING(T4_i <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (@c1 AS x)"
-      - unorderedResult: [{x: 7}, {x: 7}, {x: 7}]
-    -
-      # The same but over an empty input, which still forms a single group.
-      # TODO Issue #4680: This currently ignores the HAVING clause and returns no rows.
-      - query: SELECT 7 AS x FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - explain: "COVERING(T4_i [[GREATER_THAN promote(@c11 AS INT)]] -> [i: KEY:[0], id: KEY:[2]]) | MAP (@c1 AS x)"
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c18 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }"
       - result: []
     -
+      # The same but over an empty input, which still forms a single group.
+      - query: SELECT 7 AS x FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
+      - supported_version: !current_version
+      - explain: "ISCAN(T4_i [[GREATER_THAN promote(@c11 AS INT)]]) | MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c24 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (7 AS x) }"
+      - result: [{x: 7}]
+    -
       # The same but with an aggregate function only in the HAVING clause, and without a subquery.
-      # TODO Issue #4680: This currently ignores the HAVING clause and returns every row.
       - query: SELECT 7 AS x FROM T4 HAVING COUNT(*) > 5
-      - explain: "COVERING(T4_i <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (@c1 AS x)"
-      - unorderedResult: [{x: 7}, {x: 7}, {x: 7}]
+      - supported_version: !current_version
+      - explain: "ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c12 AS LONG) | MAP (7 AS x)"
+      - result: []
     -
       # The same but selecting a column that is neither grouped nor aggregated.
-      # TODO Issue #4680: This is currently accepted, ignoring the HAVING clause.
       - query: SELECT T4.i FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - explain: "COVERING(T4_i <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (_.i AS i)"
-      - unorderedResult: [{i: 10}, {i: 20}, {i: 30}]
+      - supported_version: !current_version
+      - error: GROUPING_ERROR
     -
       # The same but with an aliased grouping column.
       - query: SELECT g FROM T4 GROUP BY T4.i AS g HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
