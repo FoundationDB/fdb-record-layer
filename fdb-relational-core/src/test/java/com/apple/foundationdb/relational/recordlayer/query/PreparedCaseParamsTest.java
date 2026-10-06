@@ -67,7 +67,7 @@ class PreparedCaseParamsTest {
      * nothing to plan from, the value-free one offers its type.
      */
     @Test
-    void aBoundParameterNeverOffersItsDeclaredType() {
+    void boundParameterNeverOffersItsDeclaredType() {
         final var params = PreparedCaseParams.of(
                 Map.of("BOUND", "BIGINT", "FREE", "STRING"),
                 Map.of("BOUND", ParameterState.IS_NULL, "FREE", ParameterState.IS_NOT_NULL));
