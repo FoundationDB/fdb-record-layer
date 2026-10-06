@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Maintain a B-tree index of primary key to segment and doc id.
@@ -54,6 +55,14 @@ public interface LucenePrimaryKeySegmentIndex {
      */
     @Nullable
     DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException;
+
+    /**
+     * Check whether the index has an entry for the given primary key in a given segment.
+     * @param primaryKey the document's record's primary key
+     * @return a future that completes with {@code true} if an entry was found for the primary key
+     */
+    @Nonnull
+    CompletableFuture<Boolean> hasPrimaryKeyAsync(@Nonnull Tuple primaryKey);
 
     /**
      * Add or delete the primary key/segment/docId from the index.

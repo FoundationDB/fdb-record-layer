@@ -146,27 +146,6 @@ public final class LuceneIndexMaintainerHelper {
     }
 
     /**
-     * Check whether a record is already indexed, by looking it up in the primary key segment index.
-     * @param directoryManager the directory manager
-     * @param segmentIndex the primary key segment index
-     * @param groupingKey the grouping key for the index
-     * @param partitionId the partition ID for the index
-     * @param primaryKey the record primary key to look for
-     * @return {@code true} if the record was found in the segment index
-     */
-    static boolean isIndexed(@Nonnull FDBDirectoryManager directoryManager,
-                             @Nonnull LucenePrimaryKeySegmentIndex segmentIndex,
-                             @Nonnull Tuple groupingKey,
-                             @Nullable Integer partitionId,
-                             @Nonnull Tuple primaryKey) {
-        try {
-            return getDocumentIndexEntryWithRetry(directoryManager, segmentIndex, groupingKey, partitionId, primaryKey) != null;
-        } catch (IOException e) {
-            throw LuceneExceptions.toRecordCoreException("Issue finding document", e, "record", primaryKey);
-        }
-    }
-
-    /**
      * Try to find the document for the given record in the segment index.
      * This method would first try to find the document using the existing reader. If it can't, it will refresh the reader
      * and try again. The incentive for this is when the documents have been updated in memory (e.g. in the same transaction), the

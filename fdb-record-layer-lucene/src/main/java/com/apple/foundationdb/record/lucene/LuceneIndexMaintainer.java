@@ -430,9 +430,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     // queued writes are invisible to the segment index: fall back to delete-then-insert
                     return updateRecord(newRecord, null, entry);
                 }
-                return CompletableFuture.supplyAsync(() -> LuceneIndexMaintainerHelper.isIndexed(
-                                directoryManager, segmentIndex, groupingKey, partitionId, newRecord.getPrimaryKey()),
-                                state.context.getExecutor())
+                return segmentIndex.hasPrimaryKeyAsync(newRecord.getPrimaryKey())
                         .thenCompose(isIndexed -> Boolean.TRUE.equals(isIndexed) ? AsyncUtil.DONE : addRecord(newRecord, null, entry));
             });
         });

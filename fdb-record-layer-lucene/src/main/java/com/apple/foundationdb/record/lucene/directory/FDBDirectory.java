@@ -1213,7 +1213,22 @@ public class FDBDirectory extends Directory {
     // Map stored segment id back to segment name.
     @Nullable
     public String primaryKeySegmentName(long segmentId) {
-        for (Map.Entry<String, FDBLuceneFileReference> entry : getFileReferenceCache().entrySet()) {
+        return primaryKeySegmentName(getFileReferenceCache(), segmentId);
+    }
+
+    /**
+     * Map stored segment id back to segment name, without blocking on loading the file reference cache.
+     * @param segmentId the id of the segment (see {@link #primaryKeySegmentId})
+     * @return a future that completes with the segment name, or with {@code null} if not found
+     */
+    @Nonnull
+    public CompletableFuture<String> primaryKeySegmentNameAsync(long segmentId) {
+        return getFileReferenceCacheAsync().thenApply(cache -> primaryKeySegmentName(cache, segmentId));
+    }
+
+    @Nullable
+    private static String primaryKeySegmentName(@Nonnull Map<String, FDBLuceneFileReference> fileReferenceCache, long segmentId) {
+        for (Map.Entry<String, FDBLuceneFileReference> entry : fileReferenceCache.entrySet()) {
             if (entry.getValue().getId() == segmentId) {
                 final String fileName = entry.getKey();
                 if (!fileName.endsWith(".pky")) {
