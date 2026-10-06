@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import java.time.Duration
+import java.time.Instant
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
@@ -201,6 +203,50 @@ abstract class TestTmpDirCleaner {
 
 def testTmpDirCleaner = objects.newInstance(TestTmpDirCleaner)
 
+// Optional wall-clock limits for Test tasks. When a limit is hit, Gradle interrupts the task and fails the build
+// (rather than, say, CI cancelling the job), so CI can still publish the test reports (see `recoverTestReports`).
+//  - `-DallTest.timeoutMinutes=N` is a single budget shared by every Test task in the build (across all
+//    subprojects, whether they run sequentially or in parallel). The clock starts when the first Test task starts.
+//  - `-D<taskName>.timeoutMinutes=M` additionally caps each task with that name (e.g. `destructiveTest`).
+// Each task's timeout is the smaller of the two, evaluated when the task starts.
+//
+// The shared deadline lives in a build service: it is created once per build, at execution time, so the deadline
+// is not frozen into the configuration cache.
+abstract class TestDeadlineService implements BuildService<Params> {
+    interface Params extends BuildServiceParameters {
+        Property<Integer> getTimeoutMinutes()
+    }
+
+    private final Instant deadline =
+            Instant.now().plus(Duration.ofMinutes(getParameters().getTimeoutMinutes().get()))
+
+    Duration remaining() {
+        def remaining = Duration.between(Instant.now(), deadline)
+        // Gradle requires a positive timeout. If the budget is already used up, time out (nearly) immediately.
+        return remaining.compareTo(Duration.ofSeconds(1)) < 0 ? Duration.ofSeconds(1) : remaining
+    }
+}
+
+def testTotalTimeoutMinutes = Integer.getInteger('allTest.timeoutMinutes')
+def testDeadlineService = testTotalTimeoutMinutes == null ? null :
+        gradle.sharedServices.registerIfAbsent('testDeadline', TestDeadlineService) {
+            parameters.timeoutMinutes = testTotalTimeoutMinutes
+        }
+
+def configureTestTimeout = { Test task ->
+    def taskTimeoutMinutes = Integer.getInteger(task.name + '.timeoutMinutes')
+    def taskTimeout = taskTimeoutMinutes == null ? null : Duration.ofMinutes(taskTimeoutMinutes)
+    if (testDeadlineService != null) {
+        task.usesService(testDeadlineService)
+        task.timeout = testDeadlineService.map { service ->
+            def remaining = service.remaining()
+            taskTimeout != null && taskTimeout < remaining ? taskTimeout : remaining
+        }
+    } else if (taskTimeout != null) {
+        task.timeout = taskTimeout
+    }
+}
+
 def configureTestTask = { String propertyPrefix, Task task ->
     def handled = [propertyPrefix + '.ignoreFailures',
                    propertyPrefix + '.debug',
@@ -239,14 +285,8 @@ def configureTestTask = { String propertyPrefix, Task task ->
     task.debug = Boolean.getBoolean(propertyPrefix + '.debug')
     task.ignoreFailures = Boolean.getBoolean(propertyPrefix + '.ignoreFailures')
 
-    // Optional wall-clock limit for the whole test task. When exceeded, Gradle interrupts the task and
-    // fails the build (rather than CI cancelling the job), so the test reports are still written and
-    // CI can still publish them. Only set when given, so `<taskName>.timeoutMinutes` can override
-    // `allTest.timeoutMinutes`.
-    def timeoutMinutes = Integer.getInteger(propertyPrefix + '.timeoutMinutes')
-    if (timeoutMinutes != null) {
-        task.timeout = java.time.Duration.ofMinutes(timeoutMinutes)
-    }
+    // `<prefix>.timeoutMinutes` is handled separately by `configureTestTimeout` below, since the `allTest`
+    // flavor is a budget shared across all Test tasks rather than a per-task setting.
 
     def excludes = System.getProperty(propertyPrefix + '.exclude')
     if (excludes != null) {
@@ -286,6 +326,7 @@ tasks.withType(Test).configureEach { Test theTask ->
 
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
+    configureTestTimeout(theTask)
     testLogging {
         events 'failed'
         exceptionFormat = 'full'
