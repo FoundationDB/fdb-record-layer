@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -239,7 +240,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 primaryKey,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                                resolveFetchIndexRecords(),
                                 reverseScanOrder,
                                 false,
                                 partialMatch.getMatchCandidate(),
@@ -266,7 +267,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                        resolveFetchIndexRecords(),
                         isReverse,
                         false,
                         partialMatch.getMatchCandidate(),
@@ -279,7 +280,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 indexEntryToLogicalRecord.indexKeyValueToPartialRecord());
 
         return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
-                coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+                coveringIndexPlan::pushValueThroughFetch, baseRecordType, resolveFetchIndexRecords()));
     }
 
     @Nonnull
@@ -296,6 +297,18 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 targetAlias,
                 Iterables.concat(indexEntryToLogicalRecord.logicalKeyValues(),
                         indexEntryToLogicalRecord.logicalValueValues()));
+    }
+
+    @Nonnull
+    private RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords resolveFetchIndexRecords() {
+        final var anySynthetic = queriedRecordTypes.stream().anyMatch(RecordType::isSynthetic);
+        if (anySynthetic && !queriedRecordTypes.stream().allMatch(RecordType::isSynthetic)) {
+            throw new RecordCoreException("cannot mix regular and synthetic record types in index candidate")
+                    .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
+        }
+        return anySynthetic
+               ? RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.SYNTHETIC_CONSTITUENTS
+               : RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
     }
 
     @Override
