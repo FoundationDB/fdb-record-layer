@@ -104,19 +104,10 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     @Nonnull
     public abstract CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
 
-    /**
-     * Expands this type into the graph that assembles its records, so that an index defined on it can be matched
-     * against a query that performs the same assembly.
-     *
-     * @param accessHint an access hint to apply to the stored records the expansion reads
-     * @return an unsealed expansion assembling records of this type
-     */
     @Nonnull
+    @Override
     @API(API.Status.INTERNAL)
-    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
-        throw new UnsupportedOperationException("cannot expand an index defined on a "
-                                                + getClass().getSimpleName());
-    }
+    public abstract GraphExpansion expand(@Nonnull AccessHint accessHint);
 
     @Override
     public String toString() {

@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -50,7 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -382,23 +381,14 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Override
     @API(API.Status.INTERNAL)
     public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
-        final RecordMetaData metaData = getRecordMetaData();
-        final NestedConstituent parentConstituent = getParentConstituent();
-        final RecordType parentRecordType = parentConstituent.getRecordType();
-        final Quantifier.ForEach parentQuantifier =
-                Quantifier.forEach(ExpansionVisitor.createBaseRef(metaData.getRecordTypes().keySet(),
-                        ImmutableSet.of(parentRecordType.getName()),
-                        metaData.getPlannerType(parentRecordType.getName()), null,
-                        accessHint));
-
+        final GraphExpansion parentExpansion = getParentConstituent().getRecordType().expand(accessHint);
         final Map<String, Value> elementValuesByConstituent = new HashMap<>();
-        final GraphExpansion.Builder builder = GraphExpansion.builder();
+        final GraphExpansion.Builder builder = parentExpansion.toBuilder().removeAllResultColumns();
         final ImmutableList.Builder<Column<? extends Value>> positionColumns = ImmutableList.builder();
         for (final NestedConstituent constituent : getConstituents()) {
             final Value elementValue;
             if (constituent.isParent()) {
-                builder.addQuantifier(parentQuantifier);
-                elementValue = parentQuantifier.getFlowedObjectValue();
+                elementValue = Iterables.getOnlyElement(parentExpansion.getResultColumns()).getValue();
             } else {
                 final Value ownerElementValue =
                         Objects.requireNonNull(elementValuesByConstituent.get(constituent.getParentName()));

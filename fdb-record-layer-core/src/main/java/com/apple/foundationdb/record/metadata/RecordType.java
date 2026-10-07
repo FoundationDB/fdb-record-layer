@@ -24,7 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -233,6 +238,19 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @API(API.Status.EXPERIMENTAL)
     public boolean isSynthetic() {
         return false;
+    }
+
+
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
+        final Quantifier.ForEach quantifier =
+                Quantifier.forEach(ExpansionVisitor.createBaseRef(metaData.getRecordTypes().keySet(),
+                        ImmutableSet.of(getName()), metaData.getPlannerType(getName()), null, accessHint));
+        return GraphExpansion.builder()
+                .addQuantifier(quantifier)
+                .addResultValue(quantifier.getFlowedObjectValue())
+                .build();
     }
 
     @Override
