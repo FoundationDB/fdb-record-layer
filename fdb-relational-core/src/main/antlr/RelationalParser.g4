@@ -657,8 +657,7 @@ showStatement
     ;
 
 setStatement
-    : SET variableClause ('=' | ':=') expression
-      (',' variableClause ('=' | ':=') expression)*                             #setVariable
+    : SET TRANSACTION VARIABLE varName=uid '=' varValue=constant                 #setTransactionVariable
     | SET charSet (charsetName | DEFAULT)          #setCharset
     | SET NAMES
         (charsetName (COLLATE collationName)? | DEFAULT)                        #setNames
@@ -670,10 +669,6 @@ setStatement
 
 
 // details
-
-variableClause
-    : LOCAL_ID | ( ('@' '@')? (GLOBAL | SESSION | LOCAL)  )? uid
-    ;
 
 //    Other administrative statements
 
@@ -1390,7 +1385,7 @@ keywordsCanBeId
     | TEXT | TEMPORARY | TEMPTABLE | THAN | TRADITIONAL
     | TRANSACTION | TRANSACTIONAL | TRIGGERS | TRUNCATE | UNDEFINED | UNDOFILE
     | UNDO_BUFFER_SIZE | UNINSTALL | UNKNOWN | UNTIL | UPGRADE | USA | USER | USE_FRM | USER_RESOURCES
-    | VALIDATION | VALUE | VAR_POP | VAR_SAMP | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT
+    | VALIDATION | VALUE | VAR_POP | VAR_SAMP | VARIABLE | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT
     | WRAPPER | X509 | XA | XA_RECOVER_ADMIN | XML
     ;
 

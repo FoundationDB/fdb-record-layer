@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -102,6 +103,12 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
                                                                  @Nonnull final String temporaryFunctionName) {
         return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getSetLocalVariableConstantAction(@Nonnull String name, @Nullable Object value) {
+        return new SetLocalVariableConstantAction(name, value);
     }
 
     public static class Builder {
