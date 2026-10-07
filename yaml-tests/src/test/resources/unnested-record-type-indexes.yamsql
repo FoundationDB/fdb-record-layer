@@ -363,27 +363,23 @@ test_block:
       - explain: "COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.seats AS seats, _.unnesting_0.day AS day, _.parent.venue_no AS venue_no) | MAP (_.seats AS seats)"
       - result: [{seats: 10}, {seats: 20}, {seats: 5}]
 ---
-# Queries that select a column the index does not store. The scan can still be driven by the index, but the row has to
-# be fetched to supply the missing column, so the plan is an `ISCAN` followed by a fetch rather than a covering scan.
+# Queries that select a column the index does not store.
 test_block:
   name: index-scan-with-fetch
   tests:
     -
-      # `city` is a column of the parent row that the index key does not mention.
       - query: SELECT "venue"."city", SQ."day", SQ."seats"
                  FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
                 WHERE SQ."day" = 'mon'
       - explain: "ISCAN(mv_pk_in_key [EQUALS promote(@c32 AS STRING)]) | MAP (_.parent.city AS city, _.unnesting_0.day AS day, _.unnesting_0.seats AS seats)"
       - result: [{city: 'SF', day: 'mon', seats: 10}]
     -
-      # The same over the whole index, without a predicate to narrow the scan.
       - query: SELECT "venue"."city", SQ."day"
                  FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
                 ORDER BY SQ."day"
       - explain: "ISCAN(mv_pk_in_key <,>) | MAP (_.parent.city AS city, _.unnesting_0.day AS day)"
       - result: [{city: 'SF', day: 'mon'}, {city: 'SF', day: 'tue'}, {city: 'LA', day: 'wed'}]
     -
-      # A sibling of an indexed column inside the exploded element: `last` is in the key, `first` is not.
       - query: SELECT "a"."name"."first" AS "first", "a"."name"."last" AS "last", "book"."title"
                  FROM "book", "book"."authors" AS "a"
                 WHERE "a"."name"."last" = 'Herbert'
@@ -393,33 +389,33 @@ test_block:
           {first: 'Brian', last: 'Herbert', title: 'Dune'},
           {first: 'Frank', last: 'Herbert', title: 'Dune'}]
     -
-      # A column of a struct on the way down to the array, which the constituent's nesting expression passes through
-      # without indexing.
       - query: SELECT "item"."meta"."owner" AS "owner", SQ."label", SQ."weight"
                  FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
                 WHERE SQ."label" = 'hammer'
       - explain: "ISCAN(mv_deep_array [EQUALS promote(@c40 AS STRING)]) | MAP (_.parent.meta.owner AS owner, _.unnesting_0.label AS label, _.unnesting_0.weight AS weight)"
       - result: [{owner: 'ann', label: 'hammer', weight: 7}]
 ---
-# Aggregates over an unnesting whose index is a plain (non-aggregate) index. The index supplies the rows to aggregate --
-# covering where every column it needs is in the key -- and the aggregation runs on top of the scan.
+# Aggregates over an unnesting whose index is a plain (non-aggregate) index.
 test_block:
   name: aggregations
   tests:
     -
       # no grouping
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT COUNT(*) AS "n"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
       - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS n)"
       - result: [{n: 5}]
     -
       # no grouping
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT SUM(SQ."rating") AS "total"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
       - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
       - result: [{total: 18}]
     -
       # Grouping on the leading key column, which the index already orders by.
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT SQ."reviewer" AS "reviewer", COUNT(*) AS "n"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
              GROUP BY SQ."reviewer"
@@ -430,6 +426,7 @@ test_block:
           {reviewer: 'Carol', n: 1},
           {reviewer: 'Dave', n: 1}]
     -
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT SQ."reviewer" AS "reviewer", SUM(SQ."rating") AS "total", MAX(SQ."rating") AS "best"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
              GROUP BY SQ."reviewer"
@@ -445,12 +442,14 @@ test_block:
              GROUP BY "restaurant"."region"
       - error: "0AF00"
     -
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT SUM(SQ."rating") AS "total"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
                 WHERE SQ."reviewer" = 'Alice'
       - explain: "ISCAN(mv_split [EQUALS promote(@c29 AS STRING)]) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
       - result: [{total: 9}]
     -
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
                  FROM "book", "book"."authors" AS "a"
              GROUP BY "a"."name"."last"
