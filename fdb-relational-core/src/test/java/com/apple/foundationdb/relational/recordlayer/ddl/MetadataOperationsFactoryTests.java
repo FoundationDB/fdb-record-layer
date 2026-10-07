@@ -84,7 +84,7 @@ public class MetadataOperationsFactoryTests {
     void createTemporaryFunctionOperationDoesNotChangeInvokedRoutine() throws RelationalException {
         final var mockedInvokedRoutine = Mockito.mock(RecordLayerInvokedRoutine.class);
         final var mockedUdf = Mockito.mock(UserDefinedFunction.class);
-        when(mockedInvokedRoutine.getUserDefinedFunctionProvider()).thenReturn((ignore) -> mockedUdf);
+        when(mockedInvokedRoutine.getUserDefinedFunctionProvider()).thenReturn((ignore, localVars) -> mockedUdf);
         when(mockedInvokedRoutine.getName()).thenReturn("routine1");
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
