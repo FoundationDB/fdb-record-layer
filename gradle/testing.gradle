@@ -217,43 +217,47 @@ abstract class TestDeadlineService implements BuildService<Params> {
         Property<Integer> getTimeoutMinutes()
     }
 
+    private static final Logger LOGGER = Logging.getLogger(TestDeadlineService)
+
     private final Instant deadline =
             Instant.now().plus(Duration.ofMinutes(getParameters().getTimeoutMinutes().get()))
 
-    Duration remaining() {
+    // Called by Gradle when it reads the task's timeout, which happens just before the task starts.
+    // `cap` is the task's own `<taskName>.timeoutMinutes` limit, or null if there is none.
+    Duration timeoutFor(String taskPath, Duration cap) {
         def remaining = Duration.between(Instant.now(), deadline)
+        def timeout = cap != null && cap < remaining ? cap : remaining
         // Gradle requires a positive timeout. If the budget is already used up, time out (nearly) immediately.
-        return remaining.compareTo(Duration.ofSeconds(1)) < 0 ? Duration.ofSeconds(1) : remaining
+        if (timeout < Duration.ofSeconds(1)) {
+            timeout = Duration.ofSeconds(1)
+        }
+        LOGGER.lifecycle("Timeout for ${taskPath}: ${formatDuration(timeout)} " +
+                "(shared budget remaining: ${formatDuration(remaining)})")
+        return timeout
+    }
+
+    private static String formatDuration(Duration duration) {
+        // e.g. PT1M55.123S -> 1m 55s
+        return duration.withNanos(0).toString().substring(2).replaceAll(/(\d[HMS])(?!$)/, '$1 ').toLowerCase()
     }
 }
 
 def testTotalTimeoutMinutes = Integer.getInteger('allTest.timeoutMinutes')
-def testDeadlineService = null
-if (testTotalTimeoutMinutes == null) {
-    System.out.println("Not registering the service")
-} else {
-    System.out.println("Registering the service with a total timeout of ${testTotalTimeoutMinutes}")
-    gradle.sharedServices.registerIfAbsent('testDeadline', TestDeadlineService) {
-        parameters.timeoutMinutes = testTotalTimeoutMinutes
-    }
-}
+def testDeadlineService = testTotalTimeoutMinutes == null ? null :
+        gradle.sharedServices.registerIfAbsent('testDeadline', TestDeadlineService) {
+            parameters.timeoutMinutes = testTotalTimeoutMinutes
+        }
 
 def configureTestTimeout = { Test task ->
     def taskTimeoutMinutes = Integer.getInteger(task.name + '.timeoutMinutes')
-    def requestedTimeout = taskTimeoutMinutes == null ? null : Duration.ofMinutes(taskTimeoutMinutes)
+    def taskTimeout = taskTimeoutMinutes == null ? null : Duration.ofMinutes(taskTimeoutMinutes)
     if (testDeadlineService != null) {
+        // Capture the path as a String, rather than the task itself, in the provider below.
+        def taskPath = task.path
         task.usesService(testDeadlineService)
-        task.timeout = testDeadlineService.map { service ->
-            def remaining = service.remaining()
-            def taskTimeout = requestedTimeout != null && requestedTimeout < remaining ? requestedTimeout : remaining
-            System.out.println("Setting task timeout for ${task.name} to ${taskTimeout} (service: ${remaining})")
-            taskTimeout
-        }
-    } else if (requestedTimeout != null) {
-        task.timeout = requestedTimeout
-        System.out.println("Setting task timeout for ${task.name} to ${requestedTimeout} (service: null)")
-    } else {
-        System.out.println("Not setting a timeout for ${task.name}")
+        task.timeout = testDeadlineService.map { service -> service.timeoutFor(taskPath, taskTimeout) }
+    } else if (taskTimeout != null) {
+        task.timeout = taskTimeout
     }
 }
 
