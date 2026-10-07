@@ -270,7 +270,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         buildIndexWithTimer(index);
-        // queued writes are invisible to the segment index: every record is queued as delete-then-insert
         assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
         // drain the queue
         try (final FDBRecordContext context = openContext()) {

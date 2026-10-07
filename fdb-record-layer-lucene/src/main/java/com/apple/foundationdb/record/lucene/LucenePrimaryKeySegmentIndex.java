@@ -57,7 +57,7 @@ public interface LucenePrimaryKeySegmentIndex {
     DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException;
 
     /**
-     * Check whether the index has an entry for the given primary key in a given segment.
+     * Check whether the index has an entry for the given primary key.
      * @param primaryKey the document's record's primary key
      * @return a future that completes with {@code true} if an entry was found for the primary key
      */
