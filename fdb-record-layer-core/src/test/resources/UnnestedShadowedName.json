@@ -28,16 +28,6 @@
             "name": "ID",
             "number": 1,
             "type": "TYPE_INT64"
-          },
-          {
-            "name": "T2",
-            "number": 2,
-            "type": "TYPE_INT64"
-          },
-          {
-            "name": "A",
-            "number": 3,
-            "type": "TYPE_INT64"
           }
         ]
       },
@@ -50,51 +40,28 @@
             "type": "TYPE_INT64"
           },
           {
-            "name": "B",
+            "name": "sub",
             "number": 2,
-            "type": "TYPE_INT64"
+            "label": "LABEL_REPEATED",
+            "type": "TYPE_MESSAGE",
+            "type_name": "T2.T1"
+          }
+        ],
+        "nested_type": [
+          {
+            "name": "T1",
+            "field": [
+              {
+                "name": "V",
+                "number": 1,
+                "type": "TYPE_STRING"
+              }
+            ]
           }
         ]
       }
     ]
   },
-
-  "joined_record_types": [
-    {
-      "name": "JOIN",
-      "record_type_key": {
-        "long_value": -1
-      },
-      "join_constituents": [
-        {
-          "name": "T1",
-          "record_type": "T1"
-        },
-        {
-          "name": "T2",
-          "record_type": "T2"
-        }
-      ],
-      "joins": [
-        {
-          "left": "T1",
-          "left_expression": {
-            "field": {
-              "field_name": "T2",
-              "fan_type": "SCALAR"
-            }
-          },
-          "right": "T2",
-          "right_expression": {
-            "field": {
-              "field_name": "ID",
-              "fan_type": "SCALAR"
-            }
-          }
-        }
-      ]
-    }
-  ],
   "record_types": [
     {
       "name": "T1",
@@ -113,6 +80,31 @@
           "fan_type": "SCALAR"
         }
       }
+    }
+  ],
+  "unnested_record_types": [
+    {
+      "name": "__3_syntheticType_1",
+      "record_type_key": {
+        "long_value": -1
+      },
+      "nested_constituents": [
+        {
+          "name": "parent",
+          "type_name": "T2"
+        },
+        {
+          "name": "child",
+          "parent": "parent",
+          "type_name": "T2.T1",
+          "nesting_expression": {
+            "field": {
+              "field_name": "sub",
+              "fan_type": "FAN_OUT"
+            }
+          }
+        }
+      ]
     }
   ]
 }
