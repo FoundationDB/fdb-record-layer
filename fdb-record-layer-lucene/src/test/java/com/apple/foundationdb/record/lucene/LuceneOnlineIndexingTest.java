@@ -99,7 +99,6 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTest.complexPartit
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
@@ -174,9 +173,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(allFiles.length < 12);
     }
 
-    @Test
-    void luceneOnlineIndexingRecordSavedWhileWriteOnly() {
-        Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingRecordSavedWhileWriteOnly(boolean usePrimaryKeySegmentIndexV2) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
         disableIndex(index, SIMPLE_DOC);
         // saved while the index is disabled: not indexed
         try (final FDBRecordContext context = openContext()) {
@@ -202,9 +202,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertIndexedOnce(index, Set.of(1001L, 1002L, 1003L, 2001L, 2002L));
     }
 
-    @Test
-    void luceneOnlineIndexingRecordDeletedWhileWriteOnly() {
-        Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingRecordDeletedWhileWriteOnly(boolean usePrimaryKeySegmentIndexV2) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
         disableIndex(index, SIMPLE_DOC);
         // saved while the index is disabled: not indexed
         try (final FDBRecordContext context = openContext()) {
@@ -242,13 +243,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertIndexedOnce(index, Set.of(1002L, 1003L, 2002L));
     }
 
-    @Test
-    void luceneOnlineIndexingWithPendingWriteQueue() {
-        Index index = LuceneIndexTestUtils.simpleTextSuffixesIndex(options -> {
-            // implied by the primary key segment index V2
-            options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
-            options.put(PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
-        });
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingWithPendingWriteQueue(boolean usePrimaryKeySegmentIndexV2) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
         disableIndex(index, SIMPLE_DOC);
         // saved while the index is disabled: not indexed
         try (final FDBRecordContext context = openContext()) {
@@ -281,6 +279,20 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         assertIndexedOnce(index, Set.of(1001L, 1002L, 2001L));
+    }
+
+    @Nonnull
+    private static Index simpleTextSuffixesWithPrimaryKeySegmentIndex(boolean usePrimaryKeySegmentIndexV2) {
+        // note: the pending write queue is enabled, but only used during an ongoing merge
+        return LuceneIndexTestUtils.simpleTextSuffixesIndex(options -> {
+            if (usePrimaryKeySegmentIndexV2) {
+                // implied by the primary key segment index V2
+                options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
+                options.put(PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
+            } else {
+                options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
+            }
+        });
     }
 
     private void leaveIndexWriteOnly(Index index) {
