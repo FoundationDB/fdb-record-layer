@@ -44,7 +44,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -628,8 +627,7 @@ public class Primitives {
                                       final int mMax,
                                       @Nonnull final NeighborsChangeSet<N> neighborChangeSet,
                                       @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final int numNeighbors =
-                Iterables.size(neighborChangeSet.merge()); // this is a view over the iterable neighbors in the set
+        final int numNeighbors = neighborChangeSet.size();
         if (numNeighbors < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {

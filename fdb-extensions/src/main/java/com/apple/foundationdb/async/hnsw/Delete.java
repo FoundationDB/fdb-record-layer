@@ -343,8 +343,8 @@ class Delete {
                                             // it.
                                             //
                                             repairContext.candidatesThatLostTheirEdge().entrySet()
-                                                    .removeIf(lostEdgeEntry -> Iterables.size(Objects.requireNonNull(
-                                                            candidateChangeSetMap.get(lostEdgeEntry.getKey())).merge())
+                                                    .removeIf(lostEdgeEntry -> Objects.requireNonNull(
+                                                            candidateChangeSetMap.get(lostEdgeEntry.getKey())).size()
                                                             > lostEdgeEntry.getValue());
 
                                             final ImmutableMap.Builder<Tuple, NodeReferenceWithVector> candidateReferencesMapBuilder =
@@ -741,16 +741,7 @@ class Delete {
         final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap = repairContext.candidateChangeSets();
         for (final Tuple primaryKey : repairContext.candidatesThatLostTheirEdge().keySet()) {
             final NeighborsChangeSet<N> changeSet = Objects.requireNonNull(candidateChangeSetMap.get(primaryKey));
-
-            //
-            // One pass over the pending neighbor list yields both quantities this decision needs: how many outgoing
-            // edges the node is left with, and which nodes those edges point at.
-            //
-            final Set<Tuple> outNeighborPrimaryKeys = Sets.newHashSet();
-            for (final N outNeighbor : changeSet.merge()) {
-                outNeighborPrimaryKeys.add(outNeighbor.getPrimaryKey());
-            }
-            if (outNeighborPrimaryKeys.size() >= maxOutDegree) {
+            if (changeSet.size() >= maxOutDegree) {
                 continue;
             }
 
@@ -763,7 +754,7 @@ class Delete {
             NodeReferenceWithDistance target = replacementTargets.get(primaryKey);
             if (target == null) {
                 target = nearestUnreferencedCandidate(Objects.requireNonNull(candidateReferencesMap.get(primaryKey)),
-                        outNeighborPrimaryKeys, candidateReferencesMap, distanceEstimator);
+                        changeSet, candidateReferencesMap, distanceEstimator);
             }
             if (target == null) {
                 continue;
@@ -787,23 +778,24 @@ class Delete {
      * those that pointed at the node being deleted without being pointed at by it. A direct neighbor without a recorded
      * target already pointed at every candidate, so this returns {@code null} for it.
      *
+     * @param <N> type parameter extending {@link NodeReference}
      * @param reference the node a replacement edge is being chosen for
-     * @param outNeighborPrimaryKeys the nodes it already points at
+     * @param changeSet that node's pending neighbor list, consulted for the nodes it already points at
      * @param candidateReferencesMap the candidates with their vectors, keyed by primary key
      * @param distanceEstimator an estimator for distances
      * @return the closest candidate not already pointed at, or {@code null}
      */
     @Nullable
-    private static NodeReferenceWithDistance
+    private static <N extends NodeReference> NodeReferenceWithDistance
             nearestUnreferencedCandidate(@Nonnull final NodeReferenceWithVector reference,
-                                         @Nonnull final Set<Tuple> outNeighborPrimaryKeys,
+                                         @Nonnull final NeighborsChangeSet<N> changeSet,
                                          @Nonnull final Map<Tuple, NodeReferenceWithVector> candidateReferencesMap,
                                          @Nonnull final DistanceEstimator distanceEstimator) {
         NodeReferenceWithDistance nearest = null;
         for (final NodeReferenceWithVector candidate : candidateReferencesMap.values()) {
             final Tuple candidatePrimaryKey = candidate.getPrimaryKey();
             if (candidatePrimaryKey.equals(reference.getPrimaryKey())
-                    || outNeighborPrimaryKeys.contains(candidatePrimaryKey)) {
+                    || changeSet.containsNeighbor(candidatePrimaryKey)) {
                 continue;
             }
             final double distance = distanceEstimator.distance(candidate.getVector(), reference.getVector());
