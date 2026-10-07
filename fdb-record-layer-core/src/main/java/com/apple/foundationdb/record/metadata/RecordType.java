@@ -240,7 +240,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
         return false;
     }
 
-
     @Nonnull
     @API(API.Status.INTERNAL)
     public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
