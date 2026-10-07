@@ -93,6 +93,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.matrix != '[]'
     strategy:
+      fail-fast: false
       matrix:
         subproject: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ubuntu-latest
