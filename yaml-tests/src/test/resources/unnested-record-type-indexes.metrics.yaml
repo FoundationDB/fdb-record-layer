@@ -418,7 +418,7 @@ index-scan-with-fetch:
     insert_reused_count: 1
 -   query: EXPLAIN SELECT "venue"."city", SQ."day" FROM "venue", (SELECT "day", "seats"
         FROM "venue"."slots") AS SQ ORDER BY SQ."day"
-    ref: unnested-record-type-indexes.yamsql:382
+    ref: unnested-record-type-indexes.yamsql:383
     explain: ISCAN(mv_pk_in_key <,>) | MAP (_.parent.city AS city, _.unnesting_0.day
         AS day)
     task_count: 240
@@ -432,7 +432,7 @@ index-scan-with-fetch:
 -   query: EXPLAIN SELECT "a"."name"."first" AS "first", "a"."name"."last" AS "last",
         "book"."title" FROM "book", "book"."authors" AS "a" WHERE "a"."name"."last"
         = 'Herbert' ORDER BY "a"."name"."last", "book"."title", "a"."score"
-    ref: unnested-record-type-indexes.yamsql:389
+    ref: unnested-record-type-indexes.yamsql:391
     explain: ISCAN(mv_deep_element [EQUALS promote(@c35 AS STRING)]) | MAP (_.unnesting_0.name.first
         AS first, _.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score
         AS score) | MAP (_.first AS first, _.last AS last, _.title AS title)
@@ -447,7 +447,7 @@ index-scan-with-fetch:
 -   query: EXPLAIN SELECT "item"."meta"."owner" AS "owner", SQ."label", SQ."weight"
         FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags")
         AS SQ WHERE SQ."label" = 'hammer'
-    ref: unnested-record-type-indexes.yamsql:396
+    ref: unnested-record-type-indexes.yamsql:401
     explain: ISCAN(mv_deep_array [EQUALS promote(@c40 AS STRING)]) | MAP (_.parent.meta.owner
         AS owner, _.unnesting_0.label AS label, _.unnesting_0.weight AS weight)
     task_count: 369
@@ -461,7 +461,7 @@ index-scan-with-fetch:
 aggregations:
 -   query: EXPLAIN SELECT COUNT(*) AS "n" FROM "restaurant", (SELECT "reviewer", "rating"
         FROM "restaurant"."reviews") AS SQ
-    ref: unnested-record-type-indexes.yamsql:407
+    ref: unnested-record-type-indexes.yamsql:413
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS n)
@@ -475,7 +475,7 @@ aggregations:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SUM(SQ."rating") AS "total" FROM "restaurant", (SELECT "reviewer",
         "rating" FROM "restaurant"."reviews") AS SQ
-    ref: unnested-record-type-indexes.yamsql:411
+    ref: unnested-record-type-indexes.yamsql:418
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)
     task_count: 365
@@ -488,7 +488,7 @@ aggregations:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SQ."reviewer" AS "reviewer", COUNT(*) AS "n" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ GROUP BY SQ."reviewer"
-    ref: unnested-record-type-indexes.yamsql:417
+    ref: unnested-record-type-indexes.yamsql:425
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (count_star(*) AS _0) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS reviewer,
         _._1._0 AS n)
@@ -503,7 +503,7 @@ aggregations:
 -   query: EXPLAIN SELECT SQ."reviewer" AS "reviewer", SUM(SQ."rating") AS "total",
         MAX(SQ."rating") AS "best" FROM "restaurant", (SELECT "reviewer", "rating"
         FROM "restaurant"."reviews") AS SQ GROUP BY SQ."reviewer"
-    ref: unnested-record-type-indexes.yamsql:422
+    ref: unnested-record-type-indexes.yamsql:435
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (sum_l(_._1.rating) AS _0, max_l(_._1.rating) AS _1) GROUP BY (_._1.reviewer
         AS _0) | MAP (_._0._0 AS reviewer, _._1._0 AS total, _._1._1 AS best)
@@ -517,7 +517,7 @@ aggregations:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SUM(SQ."rating") AS "total" FROM "restaurant", (SELECT "reviewer",
         "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer" = 'Alice'
-    ref: unnested-record-type-indexes.yamsql:434
+    ref: unnested-record-type-indexes.yamsql:452
     explain: ISCAN(mv_split [EQUALS promote(@c29 AS STRING)]) | MAP (_.parent AS _0,
         _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY
         NULL | MAP (_._0._0 AS total)
@@ -531,7 +531,7 @@ aggregations:
     insert_reused_count: 1
 -   query: EXPLAIN SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
         FROM "book", "book"."authors" AS "a" GROUP BY "a"."name"."last"
-    ref: unnested-record-type-indexes.yamsql:440
+    ref: unnested-record-type-indexes.yamsql:459
     explain: ISCAN(mv_deep_element <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1)
         | AGG (max_l(_._1.score) AS _0) GROUP BY (_._1.name.last AS _0) | MAP (_._0._0
         AS last, _._1._0 AS best)
@@ -546,7 +546,7 @@ aggregations:
 -   query: EXPLAIN SELECT "venue"."venue_no" AS "venue_no", SUM(SQ."seats") AS "total"
         FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ GROUP BY
         "venue"."venue_no"
-    ref: unnested-record-type-indexes.yamsql:446
+    ref: unnested-record-type-indexes.yamsql:466
     explain: SCAN([IS venue]) | FLATMAP q0 -> { EXPLODE q0.slots AS q1 RETURN (q0
         AS _0, q1 AS _1) } | AGG (sum_l(_._1.seats) AS _0) GROUP BY (_._0.venue_no
         AS _0) | MAP (_._0._0 AS venue_no, _._1._0 AS total)
@@ -557,4 +557,19 @@ aggregations:
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 28
+    insert_reused_count: 0
+zzprobe:
+-   query: EXPLAIN SELECT SQ."reviewer" AS "rv", COUNT(*) AS "n" FROM "restaurant",
+        (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ GROUP BY SQ."reviewer"
+    ref: unnested-record-type-indexes.yamsql:474
+    explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
+        (count_star(*) AS _0) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS rv,
+        _._1._0 AS n)
+    task_count: 329
+    task_total_time_ms: 21
+    transform_count: 99
+    transform_time_ms: 7
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 32
     insert_reused_count: 0
