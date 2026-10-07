@@ -444,6 +444,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      *
      * @see #visitOuterJoin
      * @see #visitSimpleTable
+     * @see #visitCrossJoin
      */
     @Nullable
     @Override
@@ -467,6 +468,31 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final Expression expression = Assert.castUnchecked(expressionCtx.accept(this), Expression.class);
             fragment.addInnerJoinExpression(expression);
         }
+        return null;
+    }
+
+    /**
+     * Visits a {@code CROSS JOIN} clause and adds the right-side table source to the current plan fragment.
+     *
+     * <p>A {@code CROSS JOIN} has no {@code ON} or {@code USING} clause, this method does not add a join predicate.
+     * It is equivalent to listing the tables with commas in the {@code FROM} clause (e.g. {@code FROM T1, T2}), and
+     * produces the Cartesian product of both sides unless a {@code WHERE} clause filters it.
+     *
+     * <p>Since cross joins are associative and commutative, this method does <em>not</em> immediately fold the left and
+     * right sides into a single relational expression. Instead, it accumulates the right-side operator in the current
+     * plan fragment. All accumulated operators are later merged into a single flat {@link SelectExpression} by
+     * {@link #visitSimpleTable}.
+     *
+     * @see #visitInnerJoin
+     * @see #visitSimpleTable
+     */
+    @Nullable
+    @Override
+    public Void visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+        LogicalOperator rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this),
+                LogicalOperator.class);
+        final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
+        fragment.addOperator(rightTableSource);
         return null;
     }
 

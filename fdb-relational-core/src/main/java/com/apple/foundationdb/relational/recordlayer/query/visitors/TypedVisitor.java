@@ -358,6 +358,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 
+    @Nullable
+    @Override
+    Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx);
+
     @Nonnull
     @Override
     Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx);
