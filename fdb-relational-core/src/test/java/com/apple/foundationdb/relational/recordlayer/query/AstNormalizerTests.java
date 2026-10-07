@@ -979,6 +979,43 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseDqlStatementWithoutPlanCacheWriteOnlySetsItToFalse() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_CACHE_WRITE_ONLY, false));
+    }
+
+    @Test
+    void parseDqlStatementWithPlanCacheWriteOnlySetsItToTrue() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42 options (plan cache write only)",
+                         "  select * from t1   where   col1 > 42 options (  plan   cache  write   only    )"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_CACHE_WRITE_ONLY, true));
+    }
+
+    @Test
+    void parseDqlStatementWithBothPlanOptionsSetsBoth() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42 options (plan right deep, plan cache write only)"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true, Options.Name.PLAN_CACHE_WRITE_ONLY, true));
+    }
+
+    @Test
     void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
