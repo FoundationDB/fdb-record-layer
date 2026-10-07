@@ -228,22 +228,32 @@ abstract class TestDeadlineService implements BuildService<Params> {
 }
 
 def testTotalTimeoutMinutes = Integer.getInteger('allTest.timeoutMinutes')
-def testDeadlineService = testTotalTimeoutMinutes == null ? null :
-        gradle.sharedServices.registerIfAbsent('testDeadline', TestDeadlineService) {
-            parameters.timeoutMinutes = testTotalTimeoutMinutes
-        }
+def testDeadlineService = null
+if (testTotalTimeoutMinutes == null) {
+    System.out.println("Not registering the service")
+} else {
+    System.out.println("Registering the service with a total timeout of ${testTotalTimeoutMinutes}")
+    gradle.sharedServices.registerIfAbsent('testDeadline', TestDeadlineService) {
+        parameters.timeoutMinutes = testTotalTimeoutMinutes
+    }
+}
 
 def configureTestTimeout = { Test task ->
     def taskTimeoutMinutes = Integer.getInteger(task.name + '.timeoutMinutes')
-    def taskTimeout = taskTimeoutMinutes == null ? null : Duration.ofMinutes(taskTimeoutMinutes)
+    def requestedTimeout = taskTimeoutMinutes == null ? null : Duration.ofMinutes(taskTimeoutMinutes)
     if (testDeadlineService != null) {
         task.usesService(testDeadlineService)
         task.timeout = testDeadlineService.map { service ->
             def remaining = service.remaining()
-            taskTimeout != null && taskTimeout < remaining ? taskTimeout : remaining
+            def taskTimeout = requestedTimeout != null && requestedTimeout < remaining ? requestedTimeout : remaining
+            System.out.println("Setting task timeout for ${task.name} to ${taskTimeout} (service: ${remaining})")
+            taskTimeout
         }
-    } else if (taskTimeout != null) {
-        task.timeout = taskTimeout
+    } else if (requestedTimeout != null) {
+        task.timeout = requestedTimeout
+        System.out.println("Setting task timeout for ${task.name} to ${requestedTimeout} (service: null)")
+    } else {
+        System.out.println("Not setting a timeout for ${task.name}")
     }
 }
 
