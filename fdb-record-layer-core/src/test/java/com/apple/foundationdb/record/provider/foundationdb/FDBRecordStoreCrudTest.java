@@ -45,7 +45,6 @@ import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.protobuf.Message;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -305,7 +304,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    static Stream<Arguments> saveRecordsConcurrently() {
+    static Stream<Arguments> concurrencyManagementAndRecordVersions() {
         return ParameterizedTestUtils.cartesianProduct(
                 ParameterizedTestUtils.booleans("disableConcurrencyManagement"),
                 ParameterizedTestUtils.booleans("storeRecordVersions")
@@ -331,7 +330,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @MethodSource
+    @MethodSource("concurrencyManagementAndRecordVersions")
     void saveRecordsConcurrently(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
         final List<FDBStoredRecord<Message>> saved;
         final FDBRecordStore.Builder storeBuilder;
@@ -371,7 +370,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
      * @throws Exception encountered during the test
      */
     @ParameterizedTest
-    @MethodSource("saveRecordsConcurrently")
+    @MethodSource("concurrencyManagementAndRecordVersions")
     void saveRecordsWithUncachedSubspaceProvider(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
@@ -407,7 +406,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
      * @throws Exception encountered during the test
      */
     @ParameterizedTest
-    @MethodSource("saveRecordsConcurrently")
+    @MethodSource("concurrencyManagementAndRecordVersions")
     void deleteRecordsWithUncachedSubspaceProvider(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
         final FDBRecordStore.Builder storeBuilder;
         final List<FDBStoredRecord<Message>> saved;
@@ -470,7 +469,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public CompletableFuture<Subspace> getSubspaceAsync(@NonNull final FDBRecordContext context) {
+        public CompletableFuture<Subspace> getSubspaceAsync(@Nonnull final FDBRecordContext context) {
             // Simulate an "uncached" subspace provider resolution by waiting between 0 and 5 ms before
             // returning a result. The randomness here ensures that two concurrent calls to resolve the
             // same subspace sometimes get their results back in different orders
@@ -479,7 +478,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                     .thenCompose(ignore -> underlying.getSubspaceAsync(context));
         }
 
-        @NonNull
+        @Nonnull
         @Override
         public LogMessageKeys logKey() {
             return underlying.logKey();
