@@ -165,6 +165,7 @@ jobs:
             -x :fdb-record-layer-core:destructiveTest
             -x :fdb-record-layer-lucene:destructiveTest
             -x :yaml-tests:destructiveTest
+            -DallTest.timeoutMinutes=3
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
           report_name: other-test-reports
       - name: Publish Coverage Data
