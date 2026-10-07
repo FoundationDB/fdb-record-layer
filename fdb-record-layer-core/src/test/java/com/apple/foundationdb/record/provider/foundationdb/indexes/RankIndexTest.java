@@ -71,7 +71,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.HashMultiset;
@@ -83,6 +82,7 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -334,7 +334,15 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Stream<Arguments> concurrentMutationsToRankIndex() {
-        return ParameterizedTestUtils.cartesianProduct(Stream.of(1, 10, 100), ParameterizedTestUtils.booleans("disableConcurrencyManagement"));
+        // Rank indexes don't have support for true concurrent updates, i.e., they rely on the
+        // store's concurrency manager preventing multiple updates to the same index. So for now,
+        // only run with a concurrency > 1 if the store does not disable the concurrency manager.
+        return Stream.of(
+                Arguments.of(1, Named.of("!disableConcurrencyManagement", false)),
+                Arguments.of(10, Named.of("!disableConcurrencyManagement", false)),
+                Arguments.of(100, Named.of("!disableConcurrencyManagement", false)),
+                Arguments.of(1, Named.of("disableConcurrencyManagement", true))
+        );
     }
 
     /**
@@ -382,15 +390,11 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .toList();
         final RecordFunction<Long> rank = Query.rank("score").getFunction();
 
-        // Validate records are internally consistent. That is not guaranteed by the rank index at the moment,
-        // so if the store's concurrency manager is disabled and there were concurrent writes, so skip this check
-        // in that case
-        if (!disableConcurrencyManagement || concurrency == 1) {
-            try (FDBRecordContext context = openContext()) {
-                openRecordStore(context);
-                recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
-                checkRankConcurrently(rank, sortedRecords, concurrency);
-            }
+        // Validate records are internally consistent.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+            checkRankConcurrently(rank, sortedRecords, concurrency);
         }
         // Rebuild the index and try again. This time, the index should be corrected and return the right information
         try (FDBRecordContext context = openContext()) {
