@@ -1,0 +1,6 @@
+Diagram(
+    Terminal('GET_VARIABLE'),
+    Terminal('('),
+    NonTerminal('name'),
+    Terminal(')'),
+)
