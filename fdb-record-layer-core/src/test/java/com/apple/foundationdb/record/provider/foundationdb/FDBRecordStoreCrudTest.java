@@ -23,16 +23,20 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
@@ -41,6 +45,7 @@ import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.protobuf.Message;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -53,7 +58,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +70,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -306,6 +312,24 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         );
     }
 
+    private void validateSavedRecords(@Nonnull List<FDBStoredRecord<Message>> saved) throws Exception {
+        final List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(saved.stream()
+                .map(FDBStoredRecord::getPrimaryKey)
+                .map(recordStore::loadRecordAsync)
+                .toList()
+        ).get();
+        assertEquals(saved.size(), loaded.size(), "saved and loaded lists should have the same size");
+        for (int i = 0; i < saved.size(); i++) {
+            FDBStoredRecord<Message> savedRecord = saved.get(i);
+            FDBStoredRecord<Message> loadedRecord = loaded.get(i);
+            assertEquals(savedRecord.getRecord(), loadedRecord.getRecord());
+        }
+        assertEquals(saved.size(), recordStore.getSnapshotRecordCount().get());
+        assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
+
+        scrubAllIndexes();
+    }
+
     @ParameterizedTest
     @MethodSource
     void saveRecordsConcurrently(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
@@ -329,21 +353,141 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).open();
-            final List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(saved.stream()
+            validateSavedRecords(saved);
+        }
+    }
+
+    /**
+     * Regression test against <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4718">Issue #4718</a>.
+     * There was a problem in the way that the concurrency manager was set up that meant that within
+     * {@link FDBRecordStore#saveTypedRecord(RecordSerializer, Message, FDBRecordStoreBase.RecordExistenceCheck, FDBRecordVersion, FDBRecordStoreBase.VersionstampSaveBehavior)},
+     * we'd sometimes attempt to acquire a write lock, then wait on a read. But the read could be queued behind
+     * the same write lock, leading to a deadlock. This deadlock was only possible if the subspace provider to the
+     * store did not immediately return a cached value, so we simulate that by using a {@link UncachedSubspaceProvider}.
+     * This injects a random delay before returning the subspace.
+     *
+     * @param disableConcurrencyManagement whether the concurrency manager should be disabled entirely
+     * @param storeRecordVersions whether the store uses record versions
+     * @throws Exception encountered during the test
+     */
+    @ParameterizedTest
+    @MethodSource("saveRecordsConcurrently")
+    void saveRecordsWithUncachedSubspaceProvider(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
+        final FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hookForConcurrentTests(storeRecordVersions));
+            storeBuilder = recordStore.asBuilder()
+                    .setDisableConcurrencyManagement(disableConcurrencyManagement)
+                    .setSubspaceProvider(new UncachedSubspaceProvider(recordStore.getSubspaceProvider()));
+            commit(context);
+        }
+
+        final List<FDBStoredRecord<Message>> saved = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder.setContext(context).open();
+                saved.add(recordStore.saveRecordAsync(createMySimpleRecord(i, i + 1000L)).get(5, TimeUnit.SECONDS));
+                commit(context);
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).open();
+            validateSavedRecords(saved);
+        }
+    }
+
+    /**
+     * Regression test against <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4718">Issue #4718</a>.
+     * This operates like {@link #saveRecordsWithUncachedSubspaceProvider(boolean, boolean)}, but excercising a
+     * similar bug in {@link FDBRecordStore#deleteTypedRecord(RecordSerializer, Tuple, boolean)}.
+     *
+     * @param disableConcurrencyManagement whether the concurrency manager should be disabled entirely
+     * @param storeRecordVersions whether the store uses record versions
+     * @throws Exception encountered during the test
+     */
+    @ParameterizedTest
+    @MethodSource("saveRecordsConcurrently")
+    void deleteRecordsWithUncachedSubspaceProvider(boolean disableConcurrencyManagement, boolean storeRecordVersions) throws Exception {
+        final FDBRecordStore.Builder storeBuilder;
+        final List<FDBStoredRecord<Message>> saved;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hookForConcurrentTests(storeRecordVersions));
+
+            final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 50)
+                    .mapToObj(id -> createMySimpleRecord(id, id + 1000L))
+                    .map(recordStore::saveRecordAsync)
+                    .toList();
+            saved = AsyncUtil.getAll(futures).get();
+
+            // Save the store builder but with an uncached subspace provider
+            storeBuilder = recordStore.asBuilder()
+                    .setDisableConcurrencyManagement(disableConcurrencyManagement)
+                    .setSubspaceProvider(new UncachedSubspaceProvider(recordStore.getSubspaceProvider()));
+            commit(context);
+        }
+
+        for (FDBStoredRecord<Message> savedRecord : saved) {
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder.setContext(context).open();
+                recordStore.deleteRecordAsync(savedRecord.getPrimaryKey()).get(5, TimeUnit.SECONDS);
+                commit(context);
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).open();
+
+            List<CompletableFuture<FDBStoredRecord<Message>>> futures = saved.stream()
                     .map(FDBStoredRecord::getPrimaryKey)
                     .map(recordStore::loadRecordAsync)
-                    .toList()
-            ).get();
-            assertEquals(saved.size(), loaded.size(), "saved and loaded lists should have the same size");
-            for (int i = 0; i < saved.size(); i++) {
-                FDBStoredRecord<Message> savedRecord = saved.get(i);
-                FDBStoredRecord<Message> loadedRecord = loaded.get(i);
-                assertEquals(savedRecord.getRecord(), loadedRecord.getRecord());
+                    .toList();
+            List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(futures).get();
+            for (FDBStoredRecord<Message> loadedRecord : loaded) {
+                // All the records should be deleted now
+                assertNull(loadedRecord);
             }
-            assertEquals(saved.size(), recordStore.getSnapshotRecordCount().get());
-            assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
 
+            assertEquals(0L, recordStore.getSnapshotRecordCount().get());
+            assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
             scrubAllIndexes();
+        }
+    }
+
+    private static class UncachedSubspaceProvider implements SubspaceProvider {
+        @Nonnull
+        private final SubspaceProvider underlying;
+
+        public UncachedSubspaceProvider(@Nonnull SubspaceProvider underlying) {
+            this.underlying = underlying;
+        }
+
+        @Nonnull
+        @Override
+        public Subspace getSubspace(@Nonnull final FDBRecordContext context) {
+            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync(context));
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Subspace> getSubspaceAsync(@NonNull final FDBRecordContext context) {
+            // Simulate an "uncached" subspace provider resolution by waiting between 0 and 5 ms before
+            // returning a result. The randomness here ensures that two concurrent calls to resolve the
+            // same subspace sometimes get their results back in different orders
+            long delay = ThreadLocalRandom.current().nextLong(0, 5);
+            return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS, context.getScheduledExecutor())
+                    .thenCompose(ignore -> underlying.getSubspaceAsync(context));
+        }
+
+        @NonNull
+        @Override
+        public LogMessageKeys logKey() {
+            return underlying.logKey();
+        }
+
+        @Override
+        public String toString(@Nonnull final FDBRecordContext context) {
+            return underlying.toString(context);
         }
     }
 
@@ -568,7 +712,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         private int updates;
         private int completed;
         @Nonnull
-        private final Map<Tuple, Deque<Pair<Integer, Message>>> historyByRecord = new ConcurrentHashMap<>();
+        private final Map<Tuple, Set<Pair<Integer, Message>>> historyByRecord = new ConcurrentHashMap<>();
     }
 
     /**
@@ -605,6 +749,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        final Map<Tuple, Message> finalState;
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).open();
 
@@ -630,35 +775,49 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                 }
             }
             assertTrue(tasks.isEmpty());
-            validateRecordsAfterRun(taskState);
+            finalState = validateRecordsAfterRun(taskState, null);
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).open();
-            validateRecordsAfterRun(taskState);
+            validateRecordsAfterRun(taskState, finalState);
             scrubAllIndexes();
         }
     }
 
-    private void validateRecordsAfterRun(@Nonnull TaskState taskState) throws Exception {
-        // The updates index should contain one udpate for every update started during the test
+    @Nonnull
+    private Map<Tuple, Message> validateRecordsAfterRun(@Nonnull TaskState taskState, @Nullable Map<Tuple, Message> expectedFinalState) throws Exception {
+        // The updates index should contain one update for every update started during the test
         assertEquals(taskState.updates, recordStore.getSnapshotRecordUpdateCount().get());
 
-        // Make sure the most recent update is persisted for each record
+        // Writes to the same record are not necessarily applied in the order they were created, so the persisted
+        // value can be any write in the history. Null is only possible if the record was never written or was deleted
+        final Map<Tuple, Message> finalState = new HashMap<>();
         int expectedCount = 0;
-        for (Map.Entry<Tuple, Deque<Pair<Integer, Message>>> entry : taskState.historyByRecord.entrySet()) {
+        for (Map.Entry<Tuple, Set<Pair<Integer, Message>>> entry : taskState.historyByRecord.entrySet()) {
             final Tuple primaryKey = entry.getKey();
-            final Pair<Integer, Message> mostRecentUpdate = entry.getValue().peekFirst();
-            @Nullable final Message expectedMessage = mostRecentUpdate == null ? null : mostRecentUpdate.getRight();
+            final Set<Message> possibleValues = new HashSet<>();
+            for (Pair<Integer, Message> update : entry.getValue()) {
+                possibleValues.add(update.getRight());
+            }
+            if (possibleValues.isEmpty()) {
+                possibleValues.add(null);
+            }
             FDBStoredRecord<Message> loaded = recordStore.loadRecord(primaryKey);
             @Nullable final Message readMessage = loaded == null ? null : loaded.getRecord();
-            assertEquals(expectedMessage, readMessage);
-            if (expectedMessage != null) {
+            assertThat(readMessage, in(possibleValues));
+            if (expectedFinalState != null) {
+                // The state read after committing should match what was read before
+                assertEquals(expectedFinalState.get(primaryKey), readMessage);
+            }
+            finalState.put(primaryKey, readMessage);
+            if (readMessage != null) {
                 expectedCount++;
             }
         }
         assertEquals(expectedCount, recordStore.getSnapshotRecordCount().get());
+        return finalState;
     }
 
     @Nonnull
@@ -668,7 +827,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         double choice = random.nextDouble();
         final long recNo = (long) random.nextGaussian(0, 10);
         final Tuple primaryKey = Tuple.from(recNo);
-        Deque<Pair<Integer, Message>> recordHistory = taskState.historyByRecord.computeIfAbsent(primaryKey, ignored -> new ConcurrentLinkedDeque<>());
+        Set<Pair<Integer, Message>> recordHistory = taskState.historyByRecord.computeIfAbsent(primaryKey, ignored -> ConcurrentHashMap.newKeySet());
         if (choice < 0.3) {
             // Read the record at this primary key.
             return recordStore.loadRecordAsync(primaryKey).thenApply(stored -> {
@@ -706,16 +865,22 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                     .setStrValueIndexed(random.nextDouble() < 0.05 ? longString : "blah")
                     .setNumValue3Indexed(random.nextInt(3))
                     .build();
-            recordHistory.addFirst(Pair.of(taskNumber, rec));
+            recordHistory.add(Pair.of(taskNumber, rec));
             taskState.updates++;
             return recordStore.saveRecordAsync(rec).thenApply(ignored -> null);
         } else {
             // Delete the record.
-            recordHistory.addFirst(Pair.of(taskNumber, null));
+            recordHistory.add(Pair.of(taskNumber, null));
             return recordStore.deleteRecordAsync(primaryKey).thenApply(deleted -> {
-                final Set<Message> possibleValues = possibleValuesForRecord(recordHistory, completed);
+                // Exclude this delete itself, as it always contributes a null
+                final Set<Pair<Integer, Message>> otherWrites = recordHistory.stream()
+                        .filter(update -> Objects.requireNonNull(update.getLeft()) != taskNumber)
+                        .collect(Collectors.toSet());
+                final Set<Message> possibleValues = possibleValuesForRecord(otherWrites, completed);
                 if (deleted) {
-                    assertTrue(anyNonNull(possibleValues), "record previously existed, so some non-null value must be possible");
+                    assertTrue(anyNonNull(possibleValues), "record previously existed, so some save must have been applied");
+                } else {
+                    assertTrue(canBeNull(possibleValues), "record did not exist, so it must be the initial state or an earlier delete");
                 }
                 return null;
             });
@@ -723,30 +888,25 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Compute the set of possible values for a record given its history. The history array should be sorted
-     * in reverse chronological order with the latest writes to the history coming at the front. When a
-     * task is started, some tail of the history is already completed. Any read must therefore be some
-     * value that was either (1) begun after all the completed tasks or (2) was the final write completed.
-     * Note that we're relying here on the way that write locks are managed in the {@link com.apple.foundationdb.record.locking.LockRegistry}.
-     * That is to say, that we always enqueue later writes on top of older writes, so they end up executing
-     * in the order in which they are created.
+     * Compute the set of possible values for a record given its history. Writes to the same record are
+     * serialized by the lock registry, but not necessarily in the order they were created, as each write
+     * first waits on a preload. So the only ordering guarantee is that tasks numbered at most {@code completedAtStart}
+     * had finished before the read began. Any write in the history (completed or not) may be the most recently
+     * applied one, and the initial "does not exist" state is only possible if no write had completed yet.
      *
-     * @param history the history of values for the record in descending version order
-     * @param completedAtStart the final update that is guaranteed to have completed after the read started
+     * @param history the history of writes for the record
+     * @param completedAtStart the number of tasks that are guaranteed to have completed when the read started
      * @return a set of possible values the read could be
      */
     @Nonnull
-    private static Set<Message> possibleValuesForRecord(@Nonnull Deque<Pair<Integer, Message>> history, int completedAtStart) {
+    private static Set<Message> possibleValuesForRecord(@Nonnull Set<Pair<Integer, Message>> history, int completedAtStart) {
         Set<Message> possibleValues = new HashSet<>();
-        boolean foundOldest = false;
+        boolean anyCompleted = false;
         for (final Pair<Integer, Message> pair : history) {
             possibleValues.add(pair.getRight());
-            if (Objects.requireNonNull(pair.getLeft()) < completedAtStart) {
-                foundOldest = true;
-                break;
-            }
+            anyCompleted |= Objects.requireNonNull(pair.getLeft()) <= completedAtStart;
         }
-        if (!foundOldest) {
+        if (!anyCompleted) {
             possibleValues.add(null);
         }
         return possibleValues;

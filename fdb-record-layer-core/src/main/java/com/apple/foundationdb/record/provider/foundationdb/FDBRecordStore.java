@@ -574,15 +574,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         //
         // We could remove this if we update the concurrency manager to allow concurrent record mutations in
         // the same store. See: FDBConcurrencyManager::doWithRecordWriteLock for why that is not yet possible
-        final CompletableFuture<Void> preload = preloadRecordAsync(primaryKey);
-
-        return concurrencyManager.doWithRecordWriteLock(primaryKey, () -> {
+        return AsyncUtil.composeHandle(preloadRecordAsync(primaryKey), (vignore, eignore) -> concurrencyManager.doWithRecordWriteLock(primaryKey, () -> {
             // Chain the read off of the preload so that we can use the value loaded into the cache (if it hasn't been
             // invalidated). Ignore any errors during the initial read, favoring instead to surface errors from loadRecordUnlockedForUpdate.
             // Note that the explicit chaining here is partially defense in depth, as the concurrency manager should
             // prevent us from acquiring the record write lock until after the read completes. However, if the store
             // is configured to use the NoOpConcurrencyManager, then having the explicit chaining is more important.
-            final CompletableFuture<FDBStoredRecord<M>> result = AsyncUtil.composeHandle(preload, (vignore, eignore) -> loadRecordUnlockedForUpdate(typedSerializer, primaryKey))
+            final CompletableFuture<FDBStoredRecord<M>> result = loadRecordUnlockedForUpdate(typedSerializer, primaryKey)
                     .thenCompose(oldRecord -> {
                         if (oldRecord == null) {
                             if (existenceCheck.errorIfNotExists()) {
@@ -621,7 +619,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         });
                     });
             return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
-        });
+        }));
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -1820,8 +1818,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // modified to not serialize all record mutations on a given store.
         final CompletableFuture<Void> preload = preloadRecordAsync(primaryKey);
 
-        return concurrencyManager.doWithRecordWriteLock(primaryKey,
-                () -> AsyncUtil.composeHandle(preload, (vignore, eignore) -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun)));
+        return AsyncUtil.composeHandle(preload, (vignore, eignore) ->
+                concurrencyManager.doWithRecordWriteLock(primaryKey, () -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun)));
     }
 
     /**
