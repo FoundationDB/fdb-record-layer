@@ -71,7 +71,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.HashMultiset;
