@@ -143,13 +143,13 @@ test_block:
       # Uncorrelated EXISTS subquery in the SELECT list of a grouped query.
       # It is evaluated on top of the grouping, where it is constant for every group.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - unorderedResult: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
     -
       # The same but with an EXISTS subquery that is false for every group.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99) AS e FROM T4 GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - unorderedResult: [{i: 10, e: false}, {i: 20, e: false}, {i: 30, e: false}]
     -
@@ -159,19 +159,19 @@ test_block:
                  FROM T4
                 WHERE EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id AND T1.id > 1)
              GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c42 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | FLATMAP q1 -> { SCAN([IS T1, [GREATER_THAN promote(@c42 AS INT)]]) | FILTER _.T2 EQUALS q1.id | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - unorderedResult: [{i: 20, e: true}, {i: 30, e: true}]
     -
       # The same but selecting an aliased grouping column.
       - query: SELECT g, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i AS g
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c14 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS g, exists(q0) AS e) }"
       - unorderedResult: [{g: 10, e: true}, {g: 20, e: true}, {g: 30, e: true}]
     -
       # The same but with NOT EXISTS.
       - query: SELECT T4.i, NOT EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c17 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, NOT exists(q0) AS e) }"
       - unorderedResult: [{i: 10, e: false}, {i: 20, e: false}, {i: 30, e: false}]
     -
@@ -179,7 +179,7 @@ test_block:
       - query: SELECT p.id, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e, COUNT(*) AS n
                  FROM T5 p JOIN T6 c ON c.i1 = p.id
              GROUP BY p.id
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5]) | FLATMAP q1 -> { ISCAN(T6_i1 [EQUALS q1.id]) AS q2 RETURN (q1 AS _0, q2 AS _1) } | AGG (count_star(*) AS _0) GROUP BY (_._0.id AS _0) AS q0 RETURN (q0._0._0 AS id, exists(q0) AS e, q0._1._0 AS n) }"
       - unorderedResult: [{id: 1, e: true, n: 2}, {id: 2, e: true, n: 2}]
     -
@@ -187,7 +187,7 @@ test_block:
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i
                UNION ALL
                SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99) AS e FROM T4 GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) } ⊎ SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c45 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q1 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q1) AS e) }"
       - unorderedResult: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true},
                           {i: 10, e: false}, {i: 20, e: false}, {i: 30, e: false}]
@@ -195,7 +195,7 @@ test_block:
       # The same but in a CTE.
       - query: WITH g AS (SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i)
                SELECT * FROM g
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c20 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - unorderedResult: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
     -
@@ -205,13 +205,13 @@ test_block:
     -
       # Uncorrelated EXISTS subquery in the SELECT list of an aggregate query without GROUP BY.
       - query: SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c19 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0, 0l) AS n, exists(q0) AS e) }"
       - result: [{n: 3, e: true}]
     -
       # The same but over an empty input, which still yields a single row.
       - query: SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 WHERE T4.i > 100
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "ISCAN(T4_i [[GREATER_THAN promote(@c30 AS INT)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c19 AS INT) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (coalesce_long(q0._0._0, 0l) AS n, exists(q1) AS e) }"
       - result: [{n: 0, e: true}]
     -
@@ -219,13 +219,13 @@ test_block:
       - query: SELECT T4.i, SUM(CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 1 ELSE 0 END) AS s
                  FROM T4
              GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c20 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (sum_i(pick(ConditionSelector(exists(q0), TRUE), @c20, @c25)) AS _0) GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, q0._1._0 AS s) }"
       - unorderedResult: [{i: 10, s: 1}, {i: 20, s: 1}, {i: 30, s: 1}]
     -
       # The same but in an aggregate query without GROUP BY, so that the aggregate sees several rows.
       - query: SELECT SUM(CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 1 ELSE 0 END) AS s FROM T4
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (sum_i(pick(ConditionSelector(exists(q0), TRUE), @c16, @c21)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0._0._0 AS s) }"
       - result: [{s: 3}]
     -
@@ -235,14 +235,14 @@ test_block:
       - query: SELECT T4.i, SUM(CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id) THEN 1 ELSE 0 END) AS s
                  FROM T4
              GROUP BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - error: GROUPING_ERROR
     -
       # EXISTS subquery in the SELECT list, containing a grouped query with an EXISTS subquery in its own SELECT list.
       - query: SELECT p.id,
                       EXISTS (SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) FROM T4 GROUP BY T4.i) AS e
                  FROM T5 p
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS _1) } | DEFAULT NULL | FLATMAP q1 -> { SCAN([IS T5]) AS q2 RETURN (q2.id AS id, exists(q1) AS e) }"
       - unorderedResult: [{id: 1, e: true}, {id: 2, e: true}, {id: 3, e: true}]
     -
@@ -322,7 +322,7 @@ test_block:
     -
       # Temporary function with an uncorrelated EXISTS subquery in the HAVING clause of a grouped query.
       - query: SELECT * FROM TF2()
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - setupReference: temporary_function_with_grouped_exists
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@cTF234 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) }"
       - unorderedResult: [{10}, {20}, {30}]
@@ -351,81 +351,81 @@ test_block:
     -
       # EXISTS subquery in GROUP BY. This is not supported.
       - query: SELECT COUNT(*) AS n FROM T4 GROUP BY EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - error: UNSUPPORTED_QUERY
     -
       # Uncorrelated EXISTS subquery in the HAVING clause.
       # It is evaluated on top of the grouping, where it is constant for every group.
       - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) }"
       - unorderedResult: [{10}, {20}, {30}]
     -
       # The same but with an empty subquery, which rejects every group.
       - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) }"
       - unorderedResult: []
     -
       # The same but with NOT EXISTS.
       - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING NOT EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c24 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) }"
       - unorderedResult: [{10}, {20}, {30}]
     -
       # The same but as one term of an OR disjunction.
       # Unlike above, the plan evaluates the EXISTS subquery inside the FLATMAP over the groups, i.e., once per group.
       - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING T4.i = 10 OR EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c29 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER q0._0._0 EQUALS promote(@c16 AS INT) OR _ NOT_NULL AS q1 RETURN (q0._0._0 AS i) }"
       - unorderedResult: [{10}]
     -
       # Uncorrelated EXISTS subquery in the HAVING clause of an aggregate query without GROUP BY, over an empty input.
       # The single group is kept.
       - query: SELECT COUNT(*) AS n FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c27 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN promote(@c14 AS INT)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0, 0l) AS n) }"
       - result: [{n: 0}]
     -
       # The same but with an empty subquery, which rejects the single group.
       - query: SELECT COUNT(*) AS n FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c27 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN promote(@c14 AS INT)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0, 0l) AS n) }"
       - result: []
     -
       # Uncorrelated EXISTS subquery in the HAVING clause of a query without GROUP BY or aggregate functions.
       # The HAVING clause alone makes all rows a single group, so the query yields a single row.
       - query: SELECT 7 AS x FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c18 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }"
       - result: [{x: 7}]
     -
       # The same but with an empty subquery, which rejects the single group.
       - query: SELECT 7 AS x FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c18 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }"
       - result: []
     -
       # The same but over an empty input, which still forms a single group.
       - query: SELECT 7 AS x FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "ISCAN(T4_i [[GREATER_THAN promote(@c11 AS INT)]]) | MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c24 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (7 AS x) }"
       - result: [{x: 7}]
     -
       # The same but with an aggregate function only in the HAVING clause, and without a subquery.
       - query: SELECT 7 AS x FROM T4 HAVING COUNT(*) > 5
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c12 AS LONG) | MAP (7 AS x)"
       - result: []
     -
       # The same but selecting a column that is neither grouped nor aggregated.
       - query: SELECT T4.i FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - error: GROUPING_ERROR
     -
       # The same but with an aliased grouping column.
       - query: SELECT g FROM T4 GROUP BY T4.i AS g HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS g) }"
       - unorderedResult: [{10}, {20}, {30}]
     -
@@ -438,7 +438,7 @@ test_block:
                  FROM T4
              GROUP BY T4.i
                HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 2)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c39 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - unorderedResult: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
     -
@@ -450,7 +450,7 @@ test_block:
                                 FROM T4
                             GROUP BY T4.i
                               HAVING EXISTS (SELECT id FROM T1 WHERE T1.id = p.id AND T1.id > 1))
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { SCAN([IS T1, [GREATER_THAN promote(@c41 AS INT)]]) | FILTER promote(_.id AS LONG) EQUALS q0.id | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q1 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) } | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
       - unorderedResult: [{2}, {3}]
     -
@@ -478,7 +478,7 @@ test_block:
     -
       # The same in a grouped query.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i ORDER BY e
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - error: UNSUPPORTED_QUERY
     -
       # Uncorrelated EXISTS subquery in the SELECT list, referred to by its alias in ORDER BY. This is not supported.
@@ -496,7 +496,7 @@ test_block:
     -
       # The same in a grouped query, with an uncorrelated EXISTS subquery.
       - query: SELECT T4.i AS g, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i ORDER BY g
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c18 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS g, exists(q0) AS e) }"
       - result: [{g: 10, e: true}, {g: 20, e: true}, {g: 30, e: true}]
     -
@@ -506,7 +506,7 @@ test_block:
     -
       # Uncorrelated EXISTS subquery in the SELECT list of a grouped query that is sorted by its grouping column.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i ORDER BY T4.i
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - result: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
 ---
@@ -529,12 +529,12 @@ test_block:
     -
       # EXISTS subquery on the right-hand side of UPDATE…SET. This is not supported.
       - query: UPDATE T4 SET i = CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN i ELSE 0 END WHERE id = 1
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - error: UNSUPPORTED_QUERY
     -
       # EXISTS subquery supplying a value in INSERT…VALUES. This is not supported.
       - query: INSERT INTO T4 VALUES (9, CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 90 ELSE 0 END)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - error: UNSUPPORTED_QUERY
     -
       # Insert a row for the DELETE below.
@@ -567,11 +567,11 @@ test_block:
                  CREATE TABLE T4 (id INTEGER, i INTEGER, PRIMARY KEY(id))
                  CREATE INDEX T4_i AS SELECT i FROM T4
                  CREATE VIEW V AS SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - count: 0
     -
       - query: DROP SCHEMA TEMPLATE subquery_view_template_1
-      - supported_version: !current_version
+      - supported_version: 4.16.3.0
       - count: 0
     -
       # View with an EXISTS subquery in the HAVING clause of a grouped query, correlated to a non-grouping column (`T4.id`).
