@@ -414,8 +414,8 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
      *
      * <p>The explode is created {@code WITH ORDINALITY}, so it flows an anonymous {@code (element, ordinal)} struct.
      * The ordinal is needed to reconstruct the {@code __positions} field of a synthetic record, without which the
-     * synthetic primary key cannot be expressed. It is asked for 0-based, and the struct is asked for as a record
-     * constructor, so that the element and the ordinal are sub-values a query's values can be matched against.
+     * synthetic primary key cannot be expressed. The struct is asked for as a record constructor, so that the
+     * element and the ordinal are sub-values a query's values can be matched against.
      *
      * @param ownerElementValue the record the array hangs off
      * @param nestingExpression the constituent's nesting expression
@@ -426,8 +426,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                                                             @Nonnull final KeyExpression nestingExpression) {
         final Quantifier.ForEach explodeQuantifier =
                 Quantifier.forEach(Reference.initialOf(new ExplodeExpression(
-                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true, true,
-                        true)));
+                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true, true)));
         return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
                 .seal()
                 .buildSimpleSelectOverQuantifier(explodeQuantifier)));

@@ -115,12 +115,10 @@ class UnnestedRecordTypeExpansionTest {
         assertThat(scan.getAccessHints().getAccessHintSet(), contains(ACCESS_HINT));
         assertEquals(parentQuantifier.getFlowedObjectValue(), columnValue(expansion, PARENT));
 
-        // The nested constituent explodes `parent.map.entry`, with ordinality so that positions can be recovered. The
-        // ordinals are asked for 0-based, so that an ordinal is a position rather than one more than it.
+        // The nested constituent explodes `parent.map.entry`, with ordinality so that positions can be recovered.
         final Quantifier entryQuantifier = expansion.getQuantifiers().get(1);
         final ExplodeExpression explode = assertSelectOverExplode(entryQuantifier);
         assertTrue(explode.isWithOrdinality());
-        assertTrue(explode.isZeroBasedOrdinality());
         assertEquals(FieldValue.ofFieldNames(parentQuantifier.getFlowedObjectValue(), List.of("map", "entry")),
                 explode.getCollectionValue());
 
