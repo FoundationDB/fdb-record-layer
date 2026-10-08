@@ -8,6 +8,24 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.16
 
+{#release-4-16-3-0}
+
+### 4.16.3.0
+
+
+
+**[Full Changelog (4.16.2.0...4.16.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.16.2.0...4.16.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/37783531528)
+
+
+
 {#release-4-16-2-0}
 
 ### 4.16.2.0
