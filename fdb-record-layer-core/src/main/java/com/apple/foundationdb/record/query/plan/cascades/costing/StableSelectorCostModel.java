@@ -18,15 +18,20 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Comparator;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * A comparator implementing a simple cost model for the {@link CascadesPlanner} to choose the plan with the smallest
@@ -34,25 +39,36 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
-public class StableSelectorCostModel implements CascadesCostModel {
+public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPlan>, Comparator<RecordQueryPlan> {
+    @Nonnull
+    private static final Tiebreaker<RecordQueryPlan> tiebreaker =
+            Tiebreaker.combineTiebreakers(ImmutableList.of(
+                    PlanningCostModel.planHashTiebreaker(),
+                    PickRightTiebreaker.pickRightTiebreaker()));
+
     @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return RecordQueryPlannerConfiguration.defaultPlannerConfiguration();
     }
 
+    @Nonnull
     @Override
-    public int compare(@Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
-        //
-        // If plans are indistinguishable from a cost perspective, select one by planHash. This makes the cost model
-        // stable (select the same plan on subsequent plannings).
-        //
-        if ((a instanceof PlanHashable) && (b instanceof PlanHashable)) {
-            int hA = ((PlanHashable)a).planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
-            int hB = ((PlanHashable)b).planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
-            return Integer.compare(hA, hB);
-        }
+    public Optional<RecordQueryPlan> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return costExpressions(expressions).getOnlyExpressionMaybe();
+    }
 
-        return 0;
+    @Nonnull
+    private TiebreakerResult<RecordQueryPlan> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
+        return Tiebreaker.ofContext(getConfiguration(), expressions, RecordQueryPlan.class)
+                .thenApply(tiebreaker);
+    }
+
+    @Override
+    public int compare(@Nonnull final RecordQueryPlan a,
+                       @Nonnull final RecordQueryPlan b) {
+        return tiebreaker.compare(getConfiguration(),
+                new PlanOpsMap(a), new PlanOpsMap(b),
+                a, b);
     }
 }

@@ -597,6 +597,7 @@ statementOption
     | LOG QUERY
     | DRY RUN
     | PLAN RIGHT DEEP
+    | PLAN CACHE WRITE ONLY
     | ISOLATION LEVEL SNAPSHOT
     ;
 

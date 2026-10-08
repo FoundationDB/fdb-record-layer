@@ -181,7 +181,6 @@ abstract class StageCoverageClasses extends DefaultTask {
 
 def coverageSubprojects = subprojects.findAll { sp ->
     sp.name != 'examples' &&
-        sp.name != 'fdb-record-layer-core-shaded' &&
         sp.name != 'fdb-record-layer-jmh'
 }
 

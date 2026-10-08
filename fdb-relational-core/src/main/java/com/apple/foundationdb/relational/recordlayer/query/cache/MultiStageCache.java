@@ -45,7 +45,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * This is a simple generic cache of caches of caches that employs LRU and TTL expiration policies. It uses the {@link Caffeine}
@@ -172,7 +171,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                     @Nonnull final T tertiaryKey,
                     @Nonnull final Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
-                    @Nonnull final Function<Stream<V>, V> reductionFunction,
+                    @Nonnull final Reducer<T, V> reducer,
                     @Nonnull final MetricCollector metricCollector) {
         metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION, pendingPrimaryLruEvictions.getAndSet(0));
         metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION, pendingSecondaryLruEvictions.getAndSet(0));
@@ -229,16 +228,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
             return tertiaryCacheBuilder.build();
         });
 
-        final var result = reductionFunction.apply(tertiaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(tertiaryKey)).map(Map.Entry::getValue));
-        if (result != null) {
-            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT);
-            return valueWithEnvironmentDecorator.apply(result);
-        } else {
-            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
-            final var keyValuePair = tertiaryKeyValueSupplier.get();
-            tertiaryCache.put(keyValuePair.getKey(), keyValuePair.getValue());
-            return keyValuePair.getValue();
-        }
+        return reducer.reduce(tertiaryCache.asMap(), tertiaryKey, tertiaryKeyValueSupplier,
+                valueWithEnvironmentDecorator, metricCollector);
     }
 
     @VisibleForTesting

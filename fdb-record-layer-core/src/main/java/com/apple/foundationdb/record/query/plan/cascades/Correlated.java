@@ -26,6 +26,7 @@ import com.google.common.base.Equivalence;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 
@@ -112,6 +113,15 @@ public interface Correlated<S extends Correlated<S>> {
      */
     default boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
         return getCorrelatedTo().contains(alias);
+    }
+
+    /**
+     * Test if the current correlated object is correlated to any of the passed {@link CorrelationIdentifier} objects.
+     * @param aliases a set of {@link CorrelationIdentifier} objects
+     * @return {@code true} if this object is correlated to at least one of {@code aliases}, {@code false} otherwise
+     */
+    default boolean isCorrelatedToAny(@Nonnull final Set<CorrelationIdentifier> aliases) {
+        return !Collections.disjoint(getCorrelatedTo(), aliases);
     }
 
     /**

@@ -203,7 +203,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContextContext) {
         if (!getDelegate().isTopLevel()) {
-            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
+            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is not supported in a subquery");
         }
         final List<OrderByExpression> exprs = visitOrderByExpressions(orderByClauseContextContext.orderByExpression());
         getDelegate().getSemanticAnalyzer().validateOrderByColumns(exprs);
@@ -657,12 +657,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
          * - Thirdly, Expression-visitor wraps the subquery in Exists predicate and returns
          *   it to LogicalOperator-visitor.
          */
+        // Reject subqueries outside a query, such as in the default value of a function parameter. A subquery
+        // must register its operator in the current plan fragment, and there is no plan fragment outside a query.
+        Assert.thatUnchecked(
+                getDelegate().getCurrentPlanFragmentMaybe().isPresent(),
+                ErrorCode.UNSUPPORTED_QUERY,
+                "subqueries are not supported outside of a query");
         final var selectOperator = visitQuery(ctx.query());
         final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
         final var underlyingValue = new ExistsValue(QuantifiedObjectValue.of(asExistential.getQuantifier()));
-        if (getDelegate().getPlanGenerationContext().shouldProcessLiteral()) {
-            getDelegate().getCurrentPlanFragment().addOperator(asExistential);
-        }
+        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
         return Expression.ofUnnamed(underlyingValue);
     }
 
