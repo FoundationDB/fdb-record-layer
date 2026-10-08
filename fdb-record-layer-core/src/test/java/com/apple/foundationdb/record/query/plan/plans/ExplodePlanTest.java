@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
@@ -543,7 +544,7 @@ public class ExplodePlanTest {
         final var collectionValue = LiteralValue.ofList(List.of("a", "b", "c"));
         final var query = new ExplodeExpression(collectionValue);
 
-        final var recordConstructorCandidate = new ExplodeExpression(collectionValue, true, false, true);
+        final var recordConstructorCandidate = new ExplodeExpression(collectionValue, true, true);
         final var matchInfo = Iterables.getOnlyElement(query.subsumedBy(recordConstructorCandidate, AliasMap.emptyMap(),
                 IdentityBiMap.create(), EvaluationContext.empty()));
 
@@ -556,7 +557,7 @@ public class ExplodePlanTest {
         // An opaque candidate offers nothing but itself to match against. Subsumption still holds -- the candidate does
         // produce an element wherever the query does -- but nothing of the query's value is expressible in terms of the
         // candidate, so the match carries an empty mapping and the element cannot be pulled up through it.
-        final var opaqueCandidate = new ExplodeExpression(collectionValue, true, false, false);
+        final var opaqueCandidate = new ExplodeExpression(collectionValue, true, false);
         final var opaqueMatchInfo = Iterables.getOnlyElement(query.subsumedBy(opaqueCandidate, AliasMap.emptyMap(),
                 IdentityBiMap.create(), EvaluationContext.empty()));
         Assertions.assertTrue(opaqueMatchInfo.getMaxMatchMap().getMap().isEmpty());
