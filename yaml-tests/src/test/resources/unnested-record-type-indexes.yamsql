@@ -1,0 +1,603 @@
+#
+# unnested-record-type-indexes.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+# `mv_split` requires a synthetic record type: `reviewer` and `rating` both come from one review, but `region` (a
+# column of the parent row) sits between them.
+#
+# The other three tables repeat that shape over an unnesting that is harder to reach:
+#   `resta.urant$t` has non-protobuf compliant names
+#   `item`          holds its array under a chain of non-repeated structs
+#   `book`          holds structs inside the elements of its array
+#   `venue`         names its own primary key in the index key
+#
+# `kiosk`, `shop`, `stall` and `booth` hold the same rows under different combinations of an index on the stored table
+# and an index on the synthetic type, to test which of the two the planner picks.
+schema_template:
+  CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
+
+  CREATE TABLE "restaurant" ("rest_no" BIGINT, "region" STRING, "reviews" "review" ARRAY, PRIMARY KEY ("rest_no"))
+  CREATE INDEX "mv_split" AS
+    SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+      FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+     ORDER BY SQ."reviewer", "restaurant"."region", SQ."rating"
+
+  CREATE TYPE AS STRUCT "re.view$t" ("re.viewer" STRING, "ra$ting" BIGINT)
+  CREATE TABLE "resta.urant$t" ("rest.no" BIGINT, "re.gion" STRING, "re.views" "re.view$t" ARRAY,
+                                PRIMARY KEY ("rest.no"))
+  CREATE INDEX "mv.split$esc" AS
+    SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+      FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views") AS SQ
+     ORDER BY SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+
+  CREATE TYPE AS STRUCT "tag" ("label" STRING, "weight" BIGINT)
+  CREATE TYPE AS STRUCT "tag_set" ("tags" "tag" ARRAY, "note" STRING)
+  CREATE TYPE AS STRUCT "item_meta" ("tag_set" "tag_set", "owner" STRING)
+
+  CREATE TABLE "item" ("item_no" BIGINT, "kind" STRING, "meta" "item_meta", PRIMARY KEY ("item_no"))
+  CREATE INDEX "mv_deep_array" AS
+    SELECT SQ."label", "item"."kind", SQ."weight"
+      FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+     ORDER BY SQ."label", "item"."kind", SQ."weight"
+
+  CREATE TYPE AS STRUCT "author_name" ("first" STRING, "last" STRING)
+  CREATE TYPE AS STRUCT "author" ("name" "author_name", "score" BIGINT)
+
+  CREATE TABLE "book" ("book_no" BIGINT, "title" STRING, "authors" "author" ARRAY, PRIMARY KEY ("book_no"))
+  CREATE INDEX "mv_deep_element" AS
+    SELECT "a"."name"."last", "book"."title", "a"."score"
+      FROM "book", "book"."authors" AS "a"
+     ORDER BY "a"."name"."last", "book"."title", "a"."score"
+
+  CREATE TYPE AS STRUCT "slot" ("day" STRING, "seats" BIGINT)
+  CREATE TABLE "venue" ("venue_no" BIGINT, "city" STRING, "slots" "slot" ARRAY, PRIMARY KEY ("venue_no"))
+  CREATE INDEX "mv_pk_in_key" AS
+    SELECT SQ."day", "venue"."venue_no", SQ."seats"
+      FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+     ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
+
+  CREATE TYPE AS STRUCT "line" ("sku" STRING, "qty" BIGINT)
+
+  CREATE TABLE "kiosk" ("kiosk_no" BIGINT, "city" STRING, "lines" "line" ARRAY, PRIMARY KEY ("kiosk_no"))
+  CREATE INDEX "kiosk_city" AS SELECT "city" FROM "kiosk" ORDER BY "city"
+
+  CREATE TABLE "shop" ("shop_no" BIGINT, "city" STRING, "owner" STRING, "lines" "line" ARRAY, PRIMARY KEY ("shop_no"))
+  CREATE INDEX "shop_city" AS SELECT "city" FROM "shop" ORDER BY "city"
+  CREATE INDEX "shop_sku_city_qty" AS
+    SELECT SQ."sku", "shop"."city", SQ."qty"
+      FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+     ORDER BY SQ."sku", "shop"."city", SQ."qty"
+
+  CREATE TABLE "stall" ("stall_no" BIGINT, "city" STRING, "owner" STRING, "lines" "line" ARRAY, PRIMARY KEY ("stall_no"))
+  CREATE INDEX "stall_city" AS SELECT "city" FROM "stall" ORDER BY "city"
+  CREATE INDEX "stall_city_sku_owner_qty" AS
+    SELECT "stall"."city", SQ."sku", "stall"."owner", SQ."qty"
+      FROM "stall", (SELECT "sku", "qty" FROM "stall"."lines") AS SQ
+     ORDER BY "stall"."city", SQ."sku", "stall"."owner", SQ."qty"
+
+  CREATE TABLE "booth" ("booth_no" BIGINT, "city" STRING, "owner" STRING, "lines" "line" ARRAY, PRIMARY KEY ("booth_no"))
+  CREATE INDEX "booth_city_sku_owner_qty" AS
+    SELECT "booth"."city", SQ."sku", "booth"."owner", SQ."qty"
+      FROM "booth", (SELECT "sku", "qty" FROM "booth"."lines") AS SQ
+     ORDER BY "booth"."city", SQ."sku", "booth"."owner", SQ."qty"
+---
+setup:
+  steps:
+    - query: INSERT INTO "restaurant"
+             VALUES (1, 'north', [('Alice', 5), ('Bob', 3)]),
+                    (2, 'south', [('Carol', 4)]),
+                    (3, 'north', [('Dave', 2), ('Alice', 4)])
+    - query: INSERT INTO "resta.urant$t"
+             VALUES (1, 'north', [('Alice', 5), ('Bob', 3)]),
+                    (2, 'south', [('Carol', 4)])
+    - query: INSERT INTO "item"
+             VALUES (1, 'tool', (([('hammer', 7), ('nail', 2)], 'n1'), 'ann')),
+                    (2, 'toy', (([('kite', 4)], 'n2'), 'bob'))
+    - query: INSERT INTO "book"
+             VALUES (1, 'Dune', [(('Frank', 'Herbert'), 9), (('Brian', 'Herbert'), 5)]),
+                    (2, 'Emma', [(('Jane', 'Austen'), 8)])
+    - query: INSERT INTO "venue"
+             VALUES (1, 'SF', [('mon', 10), ('tue', 20)]),
+                    (2, 'LA', [('wed', 5)])
+    - query: INSERT INTO "kiosk"
+             VALUES (1, 'SF', [('apple', 2), ('pear', 1), ('apple', 2)]),
+                    (2, 'LA', [('apple', 5)]),
+                    (3, 'SF', [('fig', 7)])
+    - query: INSERT INTO "shop"
+             VALUES (1, 'SF', 'ann', [('apple', 2), ('pear', 1), ('apple', 2)]),
+                    (2, 'LA', 'bob', [('apple', 5)]),
+                    (3, 'SF', 'cat', [('fig', 7)])
+    - query: INSERT INTO "stall"
+             VALUES (1, 'SF', 'ann', [('apple', 2), ('pear', 1), ('apple', 2)]),
+                    (2, 'LA', 'bob', [('apple', 5)]),
+                    (3, 'SF', 'cat', [('fig', 7)])
+    - query: INSERT INTO "booth"
+             VALUES (1, 'SF', 'ann', [('apple', 2), ('pear', 1), ('apple', 2)]),
+                    (2, 'LA', 'bob', [('apple', 5)]),
+                    (3, 'SF', 'cat', [('fig', 7)])
+---
+test_block:
+  tests:
+    -
+      # The query the index was defined for. The index supplies the requested ordering, so no sort is needed, and
+      # every selected column is in the index key, so the scan is covering.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                ORDER BY SQ."reviewer", "restaurant"."region", SQ."rating"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2}]
+    -
+      # The same unnesting without an ORDER BY. The index still answers it; the result order is not guaranteed.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - unorderedResult: [
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2},
+          {reviewer: 'Alice', region: 'north', rating: 4}]
+    -
+      # Selecting a prefix of the key rather than all of it.
+      - query: SELECT SQ."reviewer"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                ORDER BY SQ."reviewer"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer)"
+      - result: [
+          {reviewer: 'Alice'},
+          {reviewer: 'Alice'},
+          {reviewer: 'Bob'},
+          {reviewer: 'Carol'},
+          {reviewer: 'Dave'}]
+    -
+      # PartiQL-style unnesting binds the array element directly rather than packing it into a subquery tuple. The
+      # index is defined with the subquery spelling, but both describe the same unnesting.
+      - query: SELECT "r"."reviewer", "restaurant"."region", "r"."rating"
+                 FROM "restaurant", "restaurant"."reviews" AS "r"
+                ORDER BY "r"."reviewer", "restaurant"."region", "r"."rating"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2}]
+    -
+      # An equality on the leading key column. The index's placeholders live on the same select as the constituents'
+      # quantifiers, so a predicate over the unnesting can be matched against them and bind the scan.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice'
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # A full key prefix, spanning the unnesting and the parent row, binds both key columns.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north'
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # An equality on the unnesting reached through the PartiQL spelling of the same unnesting.
+      - query: SELECT "r"."reviewer", "restaurant"."region", "r"."rating"
+                 FROM "restaurant", "restaurant"."reviews" AS "r"
+                WHERE "r"."reviewer" = 'Alice'
+      - explain: "COVERING(mv_split [EQUALS promote(@c25 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # A range on the leading key column rather than an equality. The placeholder reserved for that column takes the
+      # inequality, so the scan is a one-sided range over the index instead of a scan of all of it with a filter.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" > 'Bob'
+      - explain: "COVERING(mv_split [[GREATER_THAN promote(@c32 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2}]
+    -
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" < 'Carol'
+      - explain: "COVERING(mv_split [[LESS_THAN promote(@c32 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3}]
+    -
+      # Both sides of the same column, which bound one range rather than two.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" > 'Alice' AND SQ."reviewer" < 'Dave'
+      - explain: "COVERING(mv_split [[GREATER_THAN promote(@c32 AS STRING) && LESS_THAN promote(@c38 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4}]
+    -
+      # An equality on the leading column followed by a range on the next one. The equality fixes the prefix and the
+      # range bounds the column after it, so the two columns still make a single scan range.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" < 'south'
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), [LESS_THAN promote(@c38 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # Equalities on both leading columns -- one from the unnesting, one from the parent row -- followed by a range on
+      # the third.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" > 4
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING), [GREATER_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [{reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" < 5
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING), [LESS_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [{reviewer: 'Alice', region: 'north', rating: 4}]
+---
+# Identifiers a protobuf field cannot be named after. Every name on the path to the unnesting -- the table, the array,
+# and the columns of its elements -- needs escaping, and the index only matches if the candidate and the query agree on
+# the escaped names.
+test_block:
+  name: escaped-identifiers
+  tests:
+    -
+      - query: SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+                 FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views") AS SQ
+                ORDER BY SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+      - explain: "COVERING(mv.split$esc <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer, _.parent.re.gion AS re.gion, _.unnesting_0.ra$ting AS ra$ting)"
+      - result: [
+          {'re.viewer': 'Alice', 're.gion': 'north', 'ra$ting': 5},
+          {'re.viewer': 'Bob', 're.gion': 'north', 'ra$ting': 3},
+          {'re.viewer': 'Carol', 're.gion': 'south', 'ra$ting': 4}]
+    -
+      # The PartiQL spelling of the same unnesting, with the array reached through an escaped name.
+      - query: SELECT "r"."re.viewer", "resta.urant$t"."re.gion", "r"."ra$ting"
+                 FROM "resta.urant$t", "resta.urant$t"."re.views" AS "r"
+                ORDER BY "r"."re.viewer", "resta.urant$t"."re.gion", "r"."ra$ting"
+      - explain: "COVERING(mv.split$esc <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer, _.parent.re.gion AS re.gion, _.unnesting_0.ra$ting AS ra$ting)"
+      - result: [
+          {'re.viewer': 'Alice', 're.gion': 'north', 'ra$ting': 5},
+          {'re.viewer': 'Bob', 're.gion': 'north', 'ra$ting': 3},
+          {'re.viewer': 'Carol', 're.gion': 'south', 'ra$ting': 4}]
+    -
+      # An equality on the leading key column binds the scan, so the escaped names also have to line up between the
+      # query's predicate value and the candidate's placeholder.
+      - query: SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
+                 FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views") AS SQ
+                WHERE SQ."re.viewer" = 'Alice'
+      - explain: "COVERING(mv.split$esc [EQUALS promote(@c32 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer, _.parent.re.gion AS re.gion, _.unnesting_0.ra$ting AS ra$ting)"
+      - result: [{'re.viewer': 'Alice', 're.gion': 'north', 'ra$ting': 5}]
+---
+# An array under a chain of non-repeated structs: the constituent's nesting expression is `meta.tag_set.tags` rather
+# than a single field, so the explode's collection value is a path of field accesses.
+test_block:
+  name: deeply-nested-array
+  tests:
+    -
+      - query: SELECT SQ."label", "item"."kind", SQ."weight"
+                 FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+                ORDER BY SQ."label", "item"."kind", SQ."weight"
+      - explain: "COVERING(mv_deep_array <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind, _.unnesting_0.weight AS weight)"
+      - result: [
+          {label: 'hammer', kind: 'tool', weight: 7},
+          {label: 'kite', kind: 'toy', weight: 4},
+          {label: 'nail', kind: 'tool', weight: 2}]
+    -
+      - query: SELECT "t"."label", "item"."kind", "t"."weight"
+                 FROM "item", "item"."meta"."tag_set"."tags" AS "t"
+                ORDER BY "t"."label", "item"."kind", "t"."weight"
+      - explain: "COVERING(mv_deep_array <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind, _.unnesting_0.weight AS weight)"
+      - result: [
+          {label: 'hammer', kind: 'tool', weight: 7},
+          {label: 'kite', kind: 'toy', weight: 4},
+          {label: 'nail', kind: 'tool', weight: 2}]
+    -
+      - query: SELECT SQ."label", "item"."kind", SQ."weight"
+                 FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+                WHERE SQ."label" = 'hammer'
+      - explain: "COVERING(mv_deep_array [EQUALS promote(@c36 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind, _.unnesting_0.weight AS weight)"
+      - result: [{label: 'hammer', kind: 'tool', weight: 7}]
+---
+# An array whose elements carry a struct of their own, with a key column reached through it: `a.name.last` is a path
+# into the exploded element rather than one of its fields.
+test_block:
+  name: deeply-nested-element
+  tests:
+    -
+      - query: SELECT "a"."name"."last" AS "last", "book"."title", "a"."score"
+                 FROM "book", "book"."authors" AS "a"
+                ORDER BY "a"."name"."last", "book"."title", "a"."score"
+      - explain: "COVERING(mv_deep_element <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score)"
+      - result: [
+          {last: 'Austen', title: 'Emma', score: 8},
+          {last: 'Herbert', title: 'Dune', score: 5},
+          {last: 'Herbert', title: 'Dune', score: 9}]
+    -
+      # The subquery spelling of the same unnesting, flowing the element's struct and reaching into it outside.
+      - query: SELECT SQ."name"."last" AS "last", "book"."title", SQ."score"
+                 FROM "book", (SELECT "name", "score" FROM "book"."authors") AS SQ
+                ORDER BY SQ."name"."last", "book"."title", SQ."score"
+      - explain: "COVERING(mv_deep_element <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score)"
+      - result: [
+          {last: 'Austen', title: 'Emma', score: 8},
+          {last: 'Herbert', title: 'Dune', score: 5},
+          {last: 'Herbert', title: 'Dune', score: 9}]
+    -
+      - query: SELECT "a"."name"."last" AS "last", "book"."title", "a"."score"
+                 FROM "book", "book"."authors" AS "a"
+                WHERE "a"."name"."last" = 'Herbert'
+                ORDER BY "a"."name"."last", "book"."title", "a"."score"
+      - explain: "COVERING(mv_deep_element [EQUALS promote(@c31 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score)"
+      - result: [
+          {last: 'Herbert', title: 'Dune', score: 5},
+          {last: 'Herbert', title: 'Dune', score: 9}]
+---
+# The parent table's primary key named in the index key, where the synthetic type's primary key already carries it. An
+# index over an unnesting does not trim the redundant component, so the column is simply stored twice.
+test_block:
+  name: primary-key-in-index-key
+  tests:
+    -
+      - query: SELECT SQ."day", "venue"."venue_no", SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
+      # `unnesting_0` sits at KEY:[5, 0] rather than KEY:[4, 0], so position 4 still holds the parent's primary key --
+      # `venue_no` really is in the entry twice. The covering map reads it from KEY:[1], the index key position, as the
+      # decoder keeps the first occurrence it finds and so never descends into the nested tuple for it.
+      - explain: "COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.day AS day, _.parent.venue_no AS venue_no, _.unnesting_0.seats AS seats)"
+      - result: [
+          {day: 'mon', venue_no: 1, seats: 10},
+          {day: 'tue', venue_no: 1, seats: 20},
+          {day: 'wed', venue_no: 2, seats: 5}]
+    -
+      - query: SELECT SQ."day", "venue"."venue_no", SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                WHERE SQ."day" = 'mon' AND "venue"."venue_no" = 1
+      # Being carried twice costs the column nothing: the occurrence in the index key is an ordinary scalar position, so
+      # it still has a placeholder of its own and both predicates bind the scan.
+      - explain: "COVERING(mv_pk_in_key [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS LONG)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.day AS day, _.parent.venue_no AS venue_no, _.unnesting_0.seats AS seats)"
+      - result: [{day: 'mon', venue_no: 1, seats: 10}]
+    -
+      - query: SELECT SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
+      # The sort columns are not selected, so the covering scan flows them for the sort and a second MAP drops them
+      # again. `venue_no` is read from KEY:[1] here too, even though it is only wanted for the ordering.
+      - explain: "COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.seats AS seats, _.unnesting_0.day AS day, _.parent.venue_no AS venue_no) | MAP (_.seats AS seats)"
+      - result: [{seats: 10}, {seats: 20}, {seats: 5}]
+---
+# Queries that select a column the index does not store.
+test_block:
+  name: index-scan-with-fetch
+  tests:
+    -
+      - query: SELECT "venue"."city", SQ."day", SQ."seats"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                WHERE SQ."day" = 'mon'
+      - explain: "ISCAN(mv_pk_in_key [EQUALS promote(@c32 AS STRING)]) | MAP (_.parent.city AS city, _.unnesting_0.day AS day, _.unnesting_0.seats AS seats)"
+      - result: [{city: 'SF', day: 'mon', seats: 10}]
+    -
+      - query: SELECT "venue"."city", SQ."day"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                ORDER BY SQ."day"
+      - explain: "ISCAN(mv_pk_in_key <,>) | MAP (_.parent.city AS city, _.unnesting_0.day AS day)"
+      - result: [{city: 'SF', day: 'mon'}, {city: 'SF', day: 'tue'}, {city: 'LA', day: 'wed'}]
+    -
+      - query: SELECT "a"."name"."first" AS "first", "a"."name"."last" AS "last", "book"."title"
+                 FROM "book", "book"."authors" AS "a"
+                WHERE "a"."name"."last" = 'Herbert'
+                ORDER BY "a"."name"."last", "book"."title", "a"."score"
+      - explain: "ISCAN(mv_deep_element [EQUALS promote(@c35 AS STRING)]) | MAP (_.unnesting_0.name.first AS first, _.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score AS score) | MAP (_.first AS first, _.last AS last, _.title AS title)"
+      - result: [
+          {first: 'Brian', last: 'Herbert', title: 'Dune'},
+          {first: 'Frank', last: 'Herbert', title: 'Dune'}]
+    -
+      - query: SELECT "item"."meta"."owner" AS "owner", SQ."label", SQ."weight"
+                 FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ
+                WHERE SQ."label" = 'hammer'
+      - explain: "ISCAN(mv_deep_array [EQUALS promote(@c40 AS STRING)]) | MAP (_.parent.meta.owner AS owner, _.unnesting_0.label AS label, _.unnesting_0.weight AS weight)"
+      - result: [{owner: 'ann', label: 'hammer', weight: 7}]
+---
+# Aggregates over an unnesting whose index is a plain (non-aggregate) index.
+test_block:
+  name: aggregations
+  tests:
+    -
+      # no grouping
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
+      - query: SELECT COUNT(*) AS "n"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS n)"
+      - result: [{n: 5}]
+    -
+      # no grouping
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
+      - query: SELECT SUM(SQ."rating") AS "total"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
+      - result: [{total: 18}]
+    -
+      # Grouping on the leading key column, which the index already orders by.
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
+      - query: SELECT SQ."reviewer" AS "reviewer", COUNT(*) AS "n"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+             GROUP BY SQ."reviewer"
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (count_star(*) AS _0) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS reviewer, _._1._0 AS n)"
+      - unorderedResult: [
+          {reviewer: 'Alice', n: 2},
+          {reviewer: 'Bob', n: 1},
+          {reviewer: 'Carol', n: 1},
+          {reviewer: 'Dave', n: 1}]
+    -
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
+      - query: SELECT SQ."reviewer" AS "reviewer", SUM(SQ."rating") AS "total", MAX(SQ."rating") AS "best"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+             GROUP BY SQ."reviewer"
+      - explain: "ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0, max_l(_._1.rating) AS _1) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS reviewer, _._1._0 AS total, _._1._1 AS best)"
+      - unorderedResult: [
+          {reviewer: 'Alice', total: 9, best: 5},
+          {reviewer: 'Bob', total: 3, best: 3},
+          {reviewer: 'Carol', total: 4, best: 4},
+          {reviewer: 'Dave', total: 2, best: 2}]
+    -
+      - query: SELECT "restaurant"."region" AS "region", COUNT(*) AS "n"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+             GROUP BY "restaurant"."region"
+      - error: "0AF00"
+    -
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
+      - query: SELECT SUM(SQ."rating") AS "total"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice'
+      - explain: "ISCAN(mv_split [EQUALS promote(@c29 AS STRING)]) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
+      - result: [{total: 9}]
+    -
+      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
+      - query: SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
+                 FROM "book", "book"."authors" AS "a"
+             GROUP BY "a"."name"."last"
+      - explain: "ISCAN(mv_deep_element <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (max_l(_._1.score) AS _0) GROUP BY (_._1.name.last AS _0) | MAP (_._0._0 AS last, _._1._0 AS best)"
+      - unorderedResult: [{last: 'Austen', best: 8}, {last: 'Herbert', best: 9}]
+    -
+      - query: SELECT "venue"."venue_no" AS "venue_no", SUM(SQ."seats") AS "total"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+             GROUP BY "venue"."venue_no"
+      - explain: "SCAN([IS venue]) | FLATMAP q0 -> { EXPLODE q0.slots AS q1 RETURN (q0 AS _0, q1 AS _1) } | AGG (sum_l(_._1.seats) AS _0) GROUP BY (_._0.venue_no AS _0) | MAP (_._0._0 AS venue_no, _._1._0 AS total)"
+      - unorderedResult: [{venue_no: 1, total: 30}, {venue_no: 2, total: 5}]
+---
+# These tests focus on which index the planner picks when a query that unnests could use either an index on the stored
+# table or an index on the synthetic type.
+#
+# An index on the stored table only serves the parent leg (explode is nested-loop joined):
+#   ISCAN(<stored table index>) | FLATMAP q0 -> { EXPLODE q0.lines ... }
+# On the other hand, an index on the synthetic record type serves both legs together, so it applies only to a query
+# that unnests.
+#
+# The cost model, hence, play a decisive role - prefer plan with fewer residual predicates, and only on a tie the plan
+# with fewer fetches.
+test_block:
+  name: stored-table-index-vs-synthetic-type-index
+  tests:
+    -
+      # only simple index.
+      - query: SELECT "kiosk"."kiosk_no", SQ."sku", SQ."qty"
+                 FROM "kiosk", (SELECT "sku", "qty" FROM "kiosk"."lines") AS SQ
+                WHERE "kiosk"."city" = 'SF'
+      - explain: "ISCAN(kiosk_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1.sku AS sku, q1.qty AS qty) }"
+      - unorderedResult: [
+          {kiosk_no: 1, sku: 'apple', qty: 2},
+          {kiosk_no: 1, sku: 'pear', qty: 1},
+          {kiosk_no: 1, sku: 'apple', qty: 2},
+          {kiosk_no: 3, sku: 'fig', qty: 7}]
+    -
+      # simple index with binding, and residual `sku = 'apple'` filters on explode
+      # produces.
+      - query: SELECT "kiosk"."kiosk_no", SQ."qty"
+                 FROM "kiosk", (SELECT "sku", "qty" FROM "kiosk"."lines") AS SQ
+                WHERE "kiosk"."city" = 'SF' AND SQ."sku" = 'apple'
+      - explain: "ISCAN(kiosk_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines | FILTER _.sku EQUALS promote(@c34 AS STRING) AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1.qty AS qty) }"
+      - unorderedResult: [{kiosk_no: 1, qty: 2}, {kiosk_no: 1, qty: 2}]
+    -
+      # both index considered. simple index has lesser number of predicates. The index on the synthetic type covers the
+      # query but cannot seek on `city`.
+      - query: SELECT "shop"."shop_no", SQ."sku", SQ."qty"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE "shop"."city" = 'SF'
+      - explain: "ISCAN(shop_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines AS q1 RETURN (q0.shop_no AS shop_no, q1.sku AS sku, q1.qty AS qty) }"
+      - unorderedResult: [
+          {shop_no: 1, sku: 'apple', qty: 2},
+          {shop_no: 1, sku: 'pear', qty: 1},
+          {shop_no: 1, sku: 'apple', qty: 2},
+          {shop_no: 3, sku: 'fig', qty: 7}]
+    -
+      # `sku` only. index on the synthetic type is covering and absorbs the predicate.
+      - query: SELECT "shop"."city", SQ."qty"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE SQ."sku" = 'apple'
+      - explain: "COVERING(shop_sku_city_qty [EQUALS promote(@c28 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [city: KEY:[1], shop_no: KEY:[4, 1]], unnesting_0: [qty: KEY:[2], sku: KEY:[0]]]) | MAP (_.parent.city AS city, _.unnesting_0.qty AS qty)"
+      - unorderedResult: [{city: 'SF', qty: 2}, {city: 'SF', qty: 2}, {city: 'LA', qty: 5}]
+    -
+      # 2 predicates. index on the synthetic type absorbs more predicates (both).
+      - query: SELECT SQ."qty"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE SQ."sku" = 'apple' AND "shop"."city" = 'SF'
+      - explain: "COVERING(shop_sku_city_qty [EQUALS promote(@c24 AS STRING), EQUALS promote(@c30 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [city: KEY:[1], shop_no: KEY:[4, 1]], unnesting_0: [qty: KEY:[2], sku: KEY:[0]]]) | MAP (_.unnesting_0.qty AS qty)"
+      - unorderedResult: [{qty: 2}, {qty: 2}]
+    -
+      # both index would need to fetch. index on the stored table applies it.
+      - query: SELECT "shop"."owner", SQ."sku"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE "shop"."city" = 'SF'
+      - explain: "ISCAN(shop_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines AS q1 RETURN (q0.owner AS owner, q1.sku AS sku) }"
+      - unorderedResult: [
+          {owner: 'ann', sku: 'apple'},
+          {owner: 'ann', sku: 'pear'},
+          {owner: 'ann', sku: 'apple'},
+          {owner: 'cat', sku: 'fig'}]
+    -
+      - query: SELECT "shop"."owner", SQ."qty"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE SQ."sku" = 'apple'
+      - explain: "ISCAN(shop_sku_city_qty [EQUALS promote(@c28 AS STRING)]) | MAP (_.parent.owner AS owner, _.unnesting_0.qty AS qty)"
+      - unorderedResult: [{owner: 'ann', qty: 2}, {owner: 'ann', qty: 2}, {owner: 'bob', qty: 5}]
+    -
+      - query: SELECT "shop"."owner", SQ."qty"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE "shop"."city" = 'SF' AND SQ."sku" = 'apple'
+      - explain: "ISCAN(shop_sku_city_qty [EQUALS promote(@c34 AS STRING), EQUALS promote(@c28 AS STRING)]) | MAP (_.parent.owner AS owner, _.unnesting_0.qty AS qty)"
+      - unorderedResult: [{owner: 'ann', qty: 2}, {owner: 'ann', qty: 2}]
+    -
+      # Both indexes absorb predicate. Covering index (on synthetic record type) wins.
+      - query: SELECT "stall"."stall_no", "stall"."owner", SQ."sku", SQ."qty"
+                 FROM "stall", (SELECT "sku", "qty" FROM "stall"."lines") AS SQ
+                WHERE "stall"."city" = 'SF'
+      - explain: "COVERING(stall_city_sku_owner_qty [EQUALS promote(@c36 AS STRING)] -> [__positions: [unnesting_0: KEY:[6, 0]], parent: [city: KEY:[0], owner: KEY:[2], stall_no: KEY:[5, 1]], unnesting_0: [qty: KEY:[3], sku: KEY:[1]]]) | MAP (_.parent.stall_no AS stall_no, _.parent.owner AS owner, _.unnesting_0.sku AS sku, _.unnesting_0.qty AS qty)"
+      - unorderedResult: [
+          {stall_no: 1, owner: 'ann', sku: 'apple', qty: 2},
+          {stall_no: 1, owner: 'ann', sku: 'pear', qty: 1},
+          {stall_no: 1, owner: 'ann', sku: 'apple', qty: 2},
+          {stall_no: 3, owner: 'cat', sku: 'fig', qty: 7}]
+    -
+      # no unnesting, the index on the synthetic type does not apply.
+      - query: SELECT "stall_no", "owner" FROM "stall" WHERE "city" = 'SF'
+      - explain: "ISCAN(stall_city [EQUALS promote(@c9 AS STRING)]) | MAP (_.stall_no AS stall_no, _.owner AS owner)"
+      - unorderedResult: [{stall_no: 1, owner: 'ann'}, {stall_no: 3, owner: 'cat'}]
+    -
+      # no index on the stored table and the index on the synthetic type does not apply. Fall back to primary scan.
+      - query: SELECT "booth_no", "owner" FROM "booth" WHERE "city" = 'SF'
+      - explain: "SCAN([IS booth]) | FILTER _.city EQUALS promote(@c9 AS STRING) | MAP (_.booth_no AS booth_no, _.owner AS owner)"
+      - unorderedResult: [{booth_no: 1, owner: 'ann'}, {booth_no: 3, owner: 'cat'}]
+...

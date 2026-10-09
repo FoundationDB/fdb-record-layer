@@ -32,13 +32,13 @@ all-tests:
     ref: valid-identifiers.yamsql:166
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
-    task_count: 899
-    task_total_time_ms: 101
-    transform_count: 320
-    transform_time_ms: 38
-    transform_yield_count: 69
-    insert_time_ms: 1
-    insert_new_count: 94
+    task_count: 724
+    task_total_time_ms: 87
+    transform_count: 263
+    transform_time_ms: 48
+    transform_yield_count: 60
+    insert_time_ms: 2
+    insert_new_count: 73
     insert_reused_count: 3
 -   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
         where id = 1

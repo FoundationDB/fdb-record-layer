@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
@@ -203,7 +204,21 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
-        throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
+        if (listKeyExpression.getColumnSize() > 1) {
+            throw new RecordCoreException("cannot expand ListKeyExpression in scalar expansion");
+        }
+
+        final ScalarVisitorState state = getCurrentState();
+        final KeyExpression child = Iterables.getOnlyElement(listKeyExpression.getChildren());
+
+        // The child occupies a single position whose value is the nested tuple of the child's own columns, so it is a
+        // record of their values -- a record of one for a single-column child, as that tuple is nested all the same.
+        final List<KeyExpression> positions = child.normalizeKeyForPositions();
+        final ImmutableList.Builder<Value> valuesBuilder = ImmutableList.builder();
+        for (final KeyExpression position : positions) {
+            valuesBuilder.add(pop(position.expand(push(state))));
+        }
+        return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
     }
 
     @Nonnull

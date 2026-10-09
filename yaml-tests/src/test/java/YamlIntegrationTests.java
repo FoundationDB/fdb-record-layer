@@ -483,6 +483,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void unnestedRecordTypeIndexes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("unnested-record-type-indexes.yamsql");
+    }
+
+    @TestTemplate
     public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("update-delete-returning.yamsql");
     }
