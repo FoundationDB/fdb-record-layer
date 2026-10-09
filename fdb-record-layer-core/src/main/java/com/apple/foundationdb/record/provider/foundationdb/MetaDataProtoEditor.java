@@ -972,11 +972,13 @@ public class MetaDataProtoEditor {
                 continue;
             }
 
-            // If multiple fields reference this record type, prefer the canonically-named one; otherwise, keep the
-            // one with the highest field number.
+            // If multiple fields reference this record type, prefer the canonically named one; otherwise, keep the
+            // one with the highest field number. This is the same rule which `RecordMetaDataBuilder.remapUnionField()`
+            // uses to choose the union field that records of the type are written under. The two must be kept in sync.
             if (rename.unionField == null
                     || rename.canonicalFieldName.equals(unionField.getName())
-                    || unionField.getNumber() > rename.unionField.getNumber()) {
+                    || (!rename.canonicalFieldName.equals(rename.unionField.getName())
+                            && unionField.getNumber() > rename.unionField.getNumber())) {
                 rename.unionField = unionField;
             }
         }
