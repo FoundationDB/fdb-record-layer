@@ -50,6 +50,7 @@ import java.util.stream.LongStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -265,6 +266,42 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testIndexFromIndexFallbackDoesNotLeakToTheNextOperation() {
+        // A fallback adjusts the indexing policy. Assert that a following operation, performed by the very same
+        // indexer, starts over from the originally requested policy - and attempts the by-index build again.
+        this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 6;
+        final long otherRecords = 5;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateDataSimpleAndOther(numRecords, otherRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .build())
+                .build()) {
+            // the by-index attempt is rejected by the format version, then a single fallback to a by-records scan
+            indexBuilder.buildIndex(true);
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+
+            // start over with the same indexer - the requested by-index policy should be attempted again
+            disableAll(List.of(tgtIndex));
+            indexBuilder.buildIndex(true);
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+        }
+        scrubAndValidate(List.of(tgtIndex));
+    }
+
+    @Test
     void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
         // Attempt to build a non-idempotent index at old format version where this is not supported. This should
         // error as falling back to a record scan is not enabled
@@ -329,11 +366,46 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .build())
                 .build()) {
 
-            IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
+            IndexingByIndex.ValidationException e = assertThrows(IndexingBase.UnusableSourceIndexException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("source index is not scannable"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    void testIndexFromIndexNoFallbackOnUnrelatedValidationFailure() {
+        // A validation failure that isn't related to the source index should not trigger a fallback to a by-records scan
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 3;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        disableAll(List.of(tgtIndex));
+
+        // the source index is usable, but there is another validation failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .build())
+                .build()) {
+
+            IndexingBase.ValidationException e = assertThrows(IndexingBase.ValidationException.class, indexBuilder::buildIndex);
+            assertFalse(IndexingBase.isUnusableSourceIndexException(e));
+            assertTrue(e.getMessage().contains("Index state is not as expected"));
+            assertEquals(1, indexBuilder.getLastAttemptCount());
+        }
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
     }
 
     @SuppressWarnings("try")
@@ -941,9 +1013,91 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         scrubAndValidate(List.of(tgtIndex));
     }
 
-    @Test
-    void testIndexFromIndexOtherSrcIndexBecomesUnusable() {
-        // start indexing by src_index, attempt continue with src_index2
+    @ParameterizedTest
+    @BooleanSource
+    void testIndexFromIndexPartlyBuiltRefuseMultiTargetContinuation(boolean allowTakeover) {
+        // partly build two indexes, each by a different source index, then assert that a multi target
+        // indexing of both cannot continue them
+        final int numRecords = 80;
+        final int chunkSize  = 10;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index srcIndex2 = new Index("src_index2", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        Index tgtIndex2 = new Index("tgt_index2", field("num_value_2"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(srcIndex, srcIndex2, tgtIndex, tgtIndex2));
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex2);
+
+        // partly build tgt_index by src_index, and tgt_index2 by src_index2
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, new FDBStoreTimer(),
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build());
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex2, chunkSize, 3, new FDBStoreTimer(),
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index2")
+                        .forbidRecordScan()
+                        .build());
+
+        // attempt a multi target continuation, expect failure. A takeover cannot help - no takeover type
+        // converts a by-index build to a multi target one.
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(List.of(tgtIndex, tgtIndex2))
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue(allowTakeover))
+                .setLimit(chunkSize)
+                .build()) {
+            final RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            final IndexingBase.PartlyBuiltException partlyBuilt = IndexingBase.getAPartlyBuiltExceptionIfApplicable(e);
+            assertNotNull(partlyBuilt, () -> "expected a PartlyBuiltException, got " + e);
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, partlyBuilt.getSavedStamp().getMethod());
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, partlyBuilt.getExpectedStamp().getMethod());
+            // no adjustment applies to a multi target indexing, hence a single attempt
+            assertEquals(1, indexBuilder.getLastAttemptCount());
+        }
+
+        // the refused attempt should not have changed the indexes, each can still be continued by its source index
+        for (Index tgt : List.of(tgtIndex, tgtIndex2)) {
+            try (FDBRecordContext context = openContext()) {
+                assertFalse(recordStore.getIndexState(tgt).isReadable());
+                context.commit();
+            }
+        }
+        final Map<Index, String> sources = Map.of(tgtIndex, "src_index", tgtIndex2, "src_index2");
+        for (Map.Entry<Index, String> entry : sources.entrySet()) {
+            final FDBStoreTimer timer = new FDBStoreTimer();
+            openSimpleMetaData(hook);
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(entry.getKey(), timer)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setSourceIndex(entry.getValue())
+                            .forbidRecordScan()
+                            .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
+                    .setLimit(chunkSize)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+            // continued - not rebuilt
+            assertTrue(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED) < numRecords);
+        }
+        scrubAndValidate(List.of(tgtIndex, tgtIndex2));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testIndexFromIndexOtherSrcIndexBecomesUnusable(boolean requestedSrcIndexUnusable) {
+        // start indexing by src_index, attempt continue with src_index2. If src_index2 is unusable too, expect
+        // a fallback to a by-records scan
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 88;
         final int chunkSize  = 15;
@@ -976,15 +1130,17 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .forbidRecordScan()
                         .build());
 
-        // make 'prev' source unreadable
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder(srcIndex).build()) {
-                // change src_index back to writeOnly
-                recordStore.markIndexWriteOnly(srcIndex).join();
-                indexBuilder.rebuildIndex(recordStore);
-                context.commit();
-                assertFalse(recordStore.getIndexState(srcIndex).isReadable());
+        // make 'prev' source unreadable, and possibly the requested one too
+        for (Index unusableSrcIndex : requestedSrcIndexUnusable ? List.of(srcIndex, srcIndex2) : List.of(srcIndex)) {
+            openSimpleMetaData(hook);
+            try (FDBRecordContext context = openContext()) {
+                try (OnlineIndexer indexBuilder = newIndexerBuilder(unusableSrcIndex).build()) {
+                    // change the source index back to writeOnly
+                    recordStore.markIndexWriteOnly(unusableSrcIndex).join();
+                    indexBuilder.rebuildIndex(recordStore);
+                    context.commit();
+                    assertFalse(recordStore.getIndexState(unusableSrcIndex).isReadable());
+                }
             }
         }
 
@@ -998,8 +1154,13 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .build()) {
             indexBuilder.buildIndex(true);
+            // 1. by src_index2 - mismatches the partly built by src_index
+            // 2. by src_index, continuing the previous session - src_index isn't usable
+            // 3. by src_index2, rebuilding
+            // 4. if src_index2 isn't usable either - by records, rebuilding
+            assertEquals(requestedSrcIndexUnusable ? 4 : 3, indexBuilder.getLastAttemptCount());
         }
-        // total of records scan - all by src_index2
+        // total of records scan - all by the final method
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
