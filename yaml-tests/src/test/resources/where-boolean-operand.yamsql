@@ -1,0 +1,190 @@
+#
+# where-boolean-operand.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create type as struct restaurant_review(reviewer bigint, rating integer)
+    create type as struct restaurant_tag(value string, weight integer)
+    create table restaurant_record(
+        rest_no bigint,
+        name string,
+        reviews restaurant_review array,
+        tags restaurant_tag array,
+        customer string array,
+        primary key(rest_no))
+    create index restaurant_record_name as select name from restaurant_record
+    create index review_rating as
+        select sq.rating from restaurant_record as r, (select rating from r.reviews) sq
+        order by sq.rating
+    create index tag as
+        select sq.value, sq.weight from restaurant_record as r, (select value, weight from r.tags) sq
+        order by sq.value, sq.weight
+    create index customers as
+        select sq.c from restaurant_record as r, (select c from r.customer as c) sq order by sq.c
+    create index customers_name as
+        select sq.c, r.name from restaurant_record as r, (select c from r.customer as c) sq
+        order by sq.c, r.name
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_RECORD (REST_NO, NAME, REVIEWS, TAGS, CUSTOMER)
+             VALUES
+               (1000, 'Chez Thenardier',
+                [(1, 100), (2, 0)],
+                [('latmosphere', 10), ('les aliments', 70)],
+                ['jean', 'fantine', 'cosette', 'eponine']),
+               (1001, 'ABC',
+                [(1, 34), (2, 110)],
+                [('latmosphere', 40), ('les aliments', 20)],
+                ['gavroche', 'enjolras', 'eponine']),
+               (1002, 'Cafe Musain',
+                [(3, 80), (4, 45)],
+                [('latmosphere', 90), ('les aliments', 30)],
+                ['enjolras', 'combeferre', 'marius']),
+               (1003, 'Gorbeau',
+                [(5, 12)],
+                [('les aliments', 5)],
+                ['valjean', 'cosette'])
+---
+test_block:
+  name: where-boolean-operand
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      # testSimplePlanWithConstantPredicateGraph — a `ConstantPredicate(true)` alongside the range predicate
+      - query: select name as nameNew, rest_no as restNoNew from restaurant_record
+               where rest_no > 1 and true
+      - explain: "SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)"
+      - result: [{NAMENEW: 'Chez Thenardier', RESTNONEW: 1000},
+                 {NAMENEW: 'ABC', RESTNONEW: 1001},
+                 {NAMENEW: 'Cafe Musain', RESTNONEW: 1002},
+                 {NAMENEW: 'Gorbeau', RESTNONEW: 1003}]
+---
+# AND / OR / NOT whose operand is not itself a BooleanValue: a boolean literal, NULL, or a bound parameter.
+# Each such operand used to fail a `Verify` in AndOrValue / NotValue.toQueryPredicate.
+# `rest_no > 1001` is TRUE for 1002 and 1003 and FALSE for 1000 and 1001, so each result shows how the
+# operand combined with the comparison. A conjunct that is always FALSE or NULL rejects every row whatever
+# the data, so those queries are OR-ed with `rest_no = 1000`: getting exactly [1000] shows that the
+# conjunction rejected 1002 and 1003, i.e. that the operand was not treated as TRUE or dropped.
+test_block:
+  name: where-boolean-operand-non-boolean-value
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select rest_no from restaurant_record where (rest_no > 1001 and false) or rest_no = 1000
+      - explain: "SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      - query: select rest_no from restaurant_record where (false and rest_no > 1001) or rest_no = 1000
+      - explain: "SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1001 or true
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1000}, {REST_NO: 1001}, {REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1001 or false
+      - explain: "SCAN([[GREATER_THAN promote(@c7 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      - query: select rest_no from restaurant_record where false or rest_no > 1001
+      - explain: "SCAN([[GREATER_THAN promote(@c9 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      # Three-valued logic: TRUE AND NULL is NULL, which a WHERE clause rejects, so 1002 and 1003 are not returned.
+      - query: select rest_no from restaurant_record where (rest_no > 1001 and null) or rest_no = 1000
+      - explain: "SCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ∪ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      # FALSE AND NULL is FALSE, so NOT makes it TRUE for 1000 and 1001; 1002 and 1003 are NOT (NULL), i.e. NULL.
+      - query: select rest_no from restaurant_record where not (rest_no > 1001 and null)
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO LESS_THAN_OR_EQUALS promote(@c9 AS LONG) OR NOT null | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1000}, {REST_NO: 1001}]
+    -
+      # TRUE OR NULL is TRUE; FALSE OR NULL is NULL, so 1000 and 1001 are still rejected.
+      - query: select rest_no from restaurant_record where rest_no > 1001 or null
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      # NOT (TRUE OR NULL) is FALSE for 1002 and 1003; NOT (FALSE OR NULL) is NULL, so only the
+      # `rest_no = 1000` disjunct lets a row through and 1001 is rejected.
+      - query: select rest_no from restaurant_record where not (rest_no > 1001 or null) or rest_no = 1000
+      - explain: "SCAN([[LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER NOT null ∪ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c16 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      - query: select rest_no from restaurant_record where not true or rest_no = 1000
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT true OR _.REST_NO EQUALS promote(@c10 AS LONG) | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      - query: select rest_no from restaurant_record where not false
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT false | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1000}, {REST_NO: 1001}, {REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      # NOT NULL is NULL. Parenthesized: a bare `not null` is ambiguous to the parser.
+      - query: select rest_no from restaurant_record where not (null) or rest_no = 1000
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER null OR _.REST_NO EQUALS promote(@c12 AS LONG) | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      # The literal operand sits one level down, under NOT.
+      - query: select rest_no from restaurant_record where rest_no > 1001 and not false
+      - explain: "SCAN([[GREATER_THAN promote(@c7 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER NOT false | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      # ... and under NOT over an AND.
+      - query: select rest_no from restaurant_record where not (rest_no > 1001 and true)
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT _.REST_NO GREATER_THAN promote(@c9 AS LONG) OR NOT @c11 EQUALS true | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1000}, {REST_NO: 1001}]
+    -
+      # ... and inside a nested AND under an OR.
+      - query: select rest_no from restaurant_record where (rest_no > 1001 and true) or false
+      - explain: "SCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+---
+# The same operands as bound parameters rather than literals in the query text. Forced to run as prepared
+# statements: as simple statements the parameters would be inlined as literals, duplicating the block above.
+test_block:
+  name: where-boolean-operand-parameter
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+    statement_type: prepared
+  tests:
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1001 and !!true!!
+      - explain: "SCAN([[GREATER_THAN promote(@c7 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+    -
+      - query: select rest_no from restaurant_record where (rest_no > 1001 and !!false!!) or rest_no = 1000
+      - explain: "SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      # A parameter bound to NULL arrives with the NULL type rather than as a NullValue.
+      - query: select rest_no from restaurant_record where (!! !n null !! and rest_no > 1001) or rest_no = 1000
+      - explain: "SCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ∪ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)"
+      - result: [{REST_NO: 1000}]
+    -
+      - query: select rest_no from restaurant_record where rest_no > 1001 or !! !n null !!
+      - explain: "COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)"
+      - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+...
