@@ -55,6 +55,12 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     private final Map<Tuple, N> insertedNeighborsMap;
 
     /**
+     * Established here rather than counted on demand, see {@link NeighborsChangeSet#size()}. An inserted key the
+     * parent already holds replaces that entry instead of adding one.
+     */
+    private final int size;
+
+    /**
      * Creates a new {@code InsertNeighborsChangeSet}.
      * <p>
      * This constructor initializes the change set with its parent and a list of neighbors
@@ -73,6 +79,13 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         }
 
         this.insertedNeighborsMap = insertedNeighborsMapBuilder.build();
+        int numInsertedNotInParent = 0;
+        for (final Tuple insertedPrimaryKey : this.insertedNeighborsMap.keySet()) {
+            if (!parent.containsNeighbor(insertedPrimaryKey)) {
+                numInsertedNotInParent ++;
+            }
+        }
+        this.size = parent.size() + numInsertedNotInParent;
     }
 
     /**
@@ -98,6 +111,16 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * set of neighbors from this node and all its ancestors.
      * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
      */
+    @Override
+    public int size() {
+        return size;
+    }
+
+    @Override
+    public boolean containsNeighbor(@Nonnull final Tuple primaryKey) {
+        return insertedNeighborsMap.containsKey(primaryKey) || parent.containsNeighbor(primaryKey);
+    }
+
     @Nonnull
     @Override
     public Iterable<N> merge() {
