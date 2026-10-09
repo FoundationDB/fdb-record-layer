@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
@@ -101,6 +103,11 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     @API(API.Status.INTERNAL)
     @Nonnull
     public abstract CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
+
+    @Nonnull
+    @Override
+    @API(API.Status.INTERNAL)
+    public abstract GraphExpansion expand(@Nonnull AccessHint accessHint);
 
     @Override
     public String toString() {

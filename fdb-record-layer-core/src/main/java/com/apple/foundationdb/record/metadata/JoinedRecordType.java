@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -214,6 +216,13 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
                     .setRightExpression(join.getRightExpression().toKeyExpression());
         }
         return typeBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.INTERNAL)
+    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
+        throw new UnsupportedOperationException("cannot expand an index defined on a " + getClass().getSimpleName());
     }
 
 }
