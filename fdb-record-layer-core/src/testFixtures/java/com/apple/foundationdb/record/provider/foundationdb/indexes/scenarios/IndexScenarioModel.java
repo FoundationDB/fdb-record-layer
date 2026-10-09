@@ -1,0 +1,200 @@
+/*
+ * indexScenarioModel.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
+
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData.GroupingMode;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData.SyntheticKind;
+import com.google.protobuf.Message;
+
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * The store and index operations an {@link IndexScenario} is built from, for one {@link IndexDefinition}
+ * in one configuration, chosen by the factory that creates it: {@link #ungrouped}, {@link #grouped},
+ * or {@link #synthetic} (over a joined or unnested record type).
+ *
+ * <p>The model builds the metadata for its configuration, generates matching records, and runs each
+ * operation in its own transaction. It applies the definition's hooks so that scenarios do not have
+ * to: {@link IndexDefinition#setupIndex} is run when the model is created, and
+ * {@link IndexDefinition#configureStore} on every store it opens. Scan results should be compared
+ * with {@link #assertScanResultsEqual} and {@link #assertScanResultsNotEqual}, so that index types
+ * that cannot use exact list equality can relax the comparison.
+ */
+public final class IndexScenarioModel {
+    private enum RecordSource {
+        SCENARIO, JOINED_CONSTITUENTS, UNNESTED_PARENTS
+    }
+
+    private final IndexDefinition definition;
+    private final RecordMetaData metaData;
+    private final Index index;
+    private final RecordSource recordSource;
+    private final Supplier<FDBRecordContext> openContext;
+    private final FDBRecordStore.Builder storeBuilder;
+
+    private IndexScenarioModel(final IndexDefinition definition, final RecordMetaData metaData,
+                               final RecordSource recordSource, final Supplier<FDBRecordContext> openContext,
+                               final FDBRecordStore.Builder storeBuilder) {
+        this.definition = definition;
+        this.metaData = metaData;
+        this.index = metaData.getIndex(ScenarioRecords.INDEX_NAME);
+        this.recordSource = recordSource;
+        this.openContext = openContext;
+        this.storeBuilder = storeBuilder;
+        storeBuilder.setMetaDataProvider(metaData);
+        runAgainstStore(store -> definition.setupIndex(store, index));
+    }
+
+    /** Ungrouped normal scenario (the default). */
+    public static IndexScenarioModel ungrouped(final IndexDefinition definition,
+                                               final Supplier<FDBRecordContext> openContext,
+                                               final FDBRecordStore.Builder storeBuilder) {
+        return new IndexScenarioModel(definition,
+                IndexScenarioMetaData.forScenario(definition, GroupingMode.UNGROUPED),
+                RecordSource.SCENARIO, openContext, storeBuilder);
+    }
+
+    /** Grouped normal scenario: the index is grouped by {@code group} and primary keys are aligned. */
+    public static IndexScenarioModel grouped(final IndexDefinition definition,
+                                             final Supplier<FDBRecordContext> openContext,
+                                             final FDBRecordStore.Builder storeBuilder) {
+        return new IndexScenarioModel(definition,
+                IndexScenarioMetaData.forScenario(definition, GroupingMode.GROUPED),
+                RecordSource.SCENARIO, openContext, storeBuilder);
+    }
+
+    /** Synthetic-type scenario: the index is over a joined or unnested record type. */
+    public static IndexScenarioModel synthetic(final IndexDefinition definition, final SyntheticKind kind,
+                                               final Supplier<FDBRecordContext> openContext,
+                                               final FDBRecordStore.Builder storeBuilder) {
+        final RecordSource source = kind == SyntheticKind.JOINED
+                ? RecordSource.JOINED_CONSTITUENTS : RecordSource.UNNESTED_PARENTS;
+        return new IndexScenarioModel(definition, IndexScenarioMetaData.forSynthetic(definition, kind),
+                source, openContext, storeBuilder);
+    }
+
+    public RecordMetaData getMetaData() {
+        return metaData;
+    }
+
+    public Index getIndex() {
+        return index;
+    }
+
+    /** Generate the records to save for this scenario's configuration. */
+    public List<Message> generateRecords(final int count) {
+        switch (recordSource) {
+            case JOINED_CONSTITUENTS:
+                return ScenarioRecords.joinedConstituents(count, definition);
+            case UNNESTED_PARENTS:
+                return ScenarioRecords.unnestedParents(count, definition);
+            case SCENARIO:
+            default:
+                return ScenarioRecords.scenarioRecords(count, definition);
+        }
+    }
+
+    /** Generate records that do not contribute an entry to the index under test. */
+    public List<Message> generateOtherRecords(final int count) {
+        return ScenarioRecords.otherRecords(count);
+    }
+
+    public void assertScanResultsEqual(final List<IndexEntry> expected, final List<IndexEntry> actual) {
+        assertTrue(definition.scanResultsEqual(expected, actual),
+                () -> "index scan results differ:\n  expected=" + expected + "\n  actual=" + actual);
+    }
+
+    public void assertScanResultsNotEqual(final List<IndexEntry> unexpected, final List<IndexEntry> actual) {
+        assertFalse(definition.scanResultsEqual(unexpected, actual),
+                () -> "index scan results unexpectedly equal:\n  both=" + actual);
+    }
+
+    public void saveRecords(List<Message> records) {
+        runAgainstStore(store1 -> records.forEach(store1::saveRecord));
+    }
+
+    public List<IndexEntry> scanIndex() {
+        return applyToStore(store -> definition.scanIndex(store, index, ScanProperties.FORWARD_SCAN).asList().join());
+    }
+
+    public IndexState getIndexState() {
+        return applyToStore(store -> store.getIndexState(index));
+    }
+
+    public void markIndexDisabled() {
+        runAgainstStore(store -> store.markIndexDisabled(index).join());
+    }
+
+    public void markIndexWriteOnly() {
+        runAgainstStore(store -> store.markIndexWriteOnly(index).join());
+    }
+
+    public void buildIndex() {
+        try (OnlineIndexer indexer = getIndexerBuilder()
+                .build()) {
+            indexer.buildIndex();
+        }
+    }
+
+    public OnlineIndexer.Builder getIndexerBuilder() {
+        return OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .addTargetIndex(index);
+    }
+
+    public <T> T applyToStore(Function<FDBRecordStore, T> consumer) {
+        T result;
+        try (FDBRecordContext context = openContext.get()) {
+            final FDBRecordStore store = openStore(context);
+            result = consumer.apply(store);
+            context.commit();
+        }
+        return result;
+    }
+
+    public void runAgainstStore(Consumer<FDBRecordStore> consumer) {
+        try (FDBRecordContext context = openContext.get()) {
+            final FDBRecordStore store = openStore(context);
+            consumer.accept(store);
+            context.commit();
+        }
+    }
+
+    private FDBRecordStore openStore(final FDBRecordContext context) {
+        final FDBRecordStore store = storeBuilder.setContext(context).createOrOpen();
+        definition.configureStore(store);
+        return store;
+    }
+}
