@@ -383,7 +383,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
         final GraphExpansion parentExpansion = getParentConstituent().getRecordType().expand(accessHint);
         final Map<String, Value> elementValuesByConstituent = new HashMap<>();
-        final GraphExpansion.Builder builder = parentExpansion.toBuilder().removeAllResultColumns();
+        final GraphExpansion.Builder builder = GraphExpansion.builder().addAllQuantifiers(parentExpansion.getQuantifiers());
         final ImmutableList.Builder<Column<? extends Value>> positionColumns = ImmutableList.builder();
         for (final NestedConstituent constituent : getConstituents()) {
             final Value elementValue;
