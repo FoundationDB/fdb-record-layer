@@ -38,6 +38,7 @@ import com.google.common.base.VerifyException;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public final class ExceptionUtil {
@@ -51,7 +52,9 @@ public final class ExceptionUtil {
         } else if (re instanceof UncheckedRelationalException) {
             return ((UncheckedRelationalException) re).unwrap();
         } else if (re instanceof VerifyException) {
-            return new RelationalException(re.getMessage(), ErrorCode.INTERNAL_ERROR, re);
+            // Verify.verify(false) throws a VerifyException with a null message; fall back to something more useful than a literal "null" reaching the client.
+            final String message = Objects.requireNonNullElseGet(re.getMessage(), () -> "internal invariant violated (" + re.getClass().getSimpleName() + ")");
+            return new RelationalException(message, ErrorCode.INTERNAL_ERROR, re);
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }

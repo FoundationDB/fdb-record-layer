@@ -56,7 +56,27 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
 
 /**
- * A rule that implements a sort expression by removing this expression if appropriate.
+ * Implementation rule for {@link LogicalSortExpression}. Rather than introducing a physical sort operator, this rule
+ * <em>absorbs</em> the sort expression: it inspects the {@link Ordering} of the inner plan partition and yields the
+ * inner plans directly if that ordering already satisfies the requested one.
+ *
+ * <p>The rule covers three cases:
+ * <ol>
+ * <li><em>Preserve-order request.</em> If the requested ordering is {@link RequestedOrdering#isPreserve() preserve},
+ * then any inner ordering is acceptable and the inner plans are yielded as-is.
+ * <li><em>Strict ordering via unique index.</em> Otherwise, if the inner ordering satisfies the requested ordering,
+ * every inner plan is yielded. Plans backed by a unique
+ * {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate MatchCandidate} where the requested ordering
+ * (plus equality-bound prefix) covers all key columns are marked as
+ * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#strictlySorted strictly sorted}.
+ * <li><em>Distinct, fully covered ordering.</em> In addition, if the records in the inner partition are distinct and
+ * every value in the inner ordering is either bound by an equality predicate or appears in the requested ordering, then
+ * the inner plans cannot tie on the requested keys. A strictly sorted variant of each inner plan is therefore yielded
+ * as well.
+ * </ol>
+ *
+ * <p>If the inner ordering does not satisfy the requested ordering, the rule yields nothing, and the planner has to rely
+ * on some other strategy, such as picking a differently ordered inner plan.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -82,12 +102,27 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
-        final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
-
         final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
-        if (requestedOrdering.isPreserve()) {
-            call.yieldPlans(innerPlanPartition.getPlans());
+        final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
+        final Set<RecordQueryPlan> innerPlans = satisfyingPlans(call, requestedOrdering, innerPlanPartition);
+        // If the inner ordering does not satisfy the request, the sort cannot be absorbed.
+        if (innerPlans.isEmpty()) {
             return;
+        }
+        call.yieldPlans(innerPlans);
+    }
+
+    /**
+     * Returns the inner plans that satisfy the requested ordering, each marked as
+     * {@link RecordQueryPlan#strictlySorted} where that can be established, or an empty set if the inner ordering does
+     * not satisfy the request at all.
+     */
+    @Nonnull
+    private static Set<RecordQueryPlan> satisfyingPlans(@Nonnull final ImplementationCascadesRuleCall call,
+                                                        @Nonnull final RequestedOrdering requestedOrdering,
+                                                        @Nonnull final PlanPartition innerPlanPartition) {
+        if (requestedOrdering.isPreserve()) {
+            return innerPlanPartition.getPlans();
         }
 
         final List<OrderingPart.RequestedOrderingPart> requestedOrderingParts = requestedOrdering.getOrderingParts();
@@ -107,8 +142,10 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
                 ordering.satisfies(requestedOrdering.withDistinctness(RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
 
         if (!isSatisfyingOrdering) {
-            return;
+            return ImmutableSet.of();
         }
+
+        final var resultExpressions = new LinkedIdentitySet<RecordQueryPlan>();
 
         final boolean isDistinct = innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords());
         if (isDistinct) {
@@ -116,16 +153,12 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
                     .getSet()
                     .stream()
                     .allMatch(value -> sortValuesSet.contains(value) || equalityBoundKeys.contains(value))) {
-                final var strictlySortedInnerPlans =
-                        innerPlanPartition.getPlans()
-                                .stream()
-                                .map(plan -> plan.strictlySorted(call))
-                                .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                call.yieldPlans(strictlySortedInnerPlans);
+                innerPlanPartition.getPlans()
+                        .stream()
+                        .map(plan -> plan.strictlySorted(call))
+                        .forEach(resultExpressions::add);
             }
         }
-
-        final var resultExpressions = new LinkedIdentitySet<RecordQueryPlan>();
 
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
@@ -139,7 +172,7 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
             }
         }
 
-        call.yieldPlans(resultExpressions);
+        return resultExpressions;
     }
 
     private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int numKeys) {

@@ -87,6 +87,8 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofInteger(IndexOptions.HNSW_EF_CONSTRUCTION);
     public static final VectorOptionKey<Integer> HNSW_EF_REPAIR =
             VectorOptionKey.ofInteger(IndexOptions.HNSW_EF_REPAIR);
+    public static final VectorOptionKey<Integer> HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE =
+            VectorOptionKey.ofInteger(IndexOptions.HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE);
     public static final VectorOptionKey<Boolean> HNSW_EXTEND_CANDIDATES =
             VectorOptionKey.ofBoolean(IndexOptions.HNSW_EXTEND_CANDIDATES);
     public static final VectorOptionKey<Boolean> HNSW_KEEP_PRUNED_CONNECTIONS =
@@ -174,6 +176,7 @@ public final class VectorIndexOptionKeys {
             METRIC, NUM_DIMENSIONS, SAMPLE_VECTOR_STATS_PROBABILITY, MAINTAIN_STATS_PROBABILITY, STATS_THRESHOLD,
             USE_RABITQ, RABITQ_NUM_EX_BITS,
             HNSW_USE_INLINING, HNSW_M, HNSW_M_MAX, HNSW_M_MAX_0, HNSW_EF_CONSTRUCTION, HNSW_EF_REPAIR,
+            HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE,
             HNSW_EXTEND_CANDIDATES, HNSW_KEEP_PRUNED_CONNECTIONS, HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER,
             HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
             GUARDIANN_PRIMARY_CLUSTER_MIN, GUARDIANN_MERGE_MAX_EVER_FRACTION, GUARDIANN_PRIMARY_CLUSTER_MAX,

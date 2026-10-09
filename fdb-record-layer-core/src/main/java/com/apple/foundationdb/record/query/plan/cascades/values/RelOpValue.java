@@ -166,9 +166,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             if (absorbedMaybe.isPresent()) {
                 return absorbedMaybe;
             }
-            final var invertedComparison = Comparisons.invertComparisonType(comparisonType);
-            if (invertedComparison != null) {
-                absorbedMaybe = rightChild.transformComparisonMaybe(invertedComparison, leftChild);
+            final var swappedComparison = Comparisons.swapComparisonType(comparisonType);
+            if (swappedComparison != null) {
+                absorbedMaybe = rightChild.transformComparisonMaybe(swappedComparison, leftChild);
                 if (absorbedMaybe.isPresent()) {
                     return absorbedMaybe;
                 }
@@ -295,23 +295,11 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     private static Comparisons.Type swapBinaryComparisonOperator(@Nonnull Comparisons.Type type) {
-        switch (type) {
-            case EQUALS:
-            case NOT_EQUALS:
-            case NOT_DISTINCT_FROM:
-            case IS_DISTINCT_FROM:
-                return type;
-            case LESS_THAN:
-                return Comparisons.Type.GREATER_THAN;
-            case LESS_THAN_OR_EQUALS:
-                return Comparisons.Type.GREATER_THAN_OR_EQUALS;
-            case GREATER_THAN:
-                return Comparisons.Type.LESS_THAN;
-            case GREATER_THAN_OR_EQUALS:
-                return Comparisons.Type.LESS_THAN_OR_EQUALS;
-            default:
-                throw new IllegalArgumentException("cannot swap comparison " + type);
+        final Comparisons.Type result = Comparisons.swapComparisonType(type);
+        if (result == null) {
+            throw new IllegalArgumentException("cannot swap comparison " + type);
         }
+        return result;
     }
 
     /**
