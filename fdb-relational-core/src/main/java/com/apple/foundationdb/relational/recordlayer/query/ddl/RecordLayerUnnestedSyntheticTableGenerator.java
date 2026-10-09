@@ -68,7 +68,7 @@ import java.util.Optional;
  * defined on a synthetic table is rejected by {@link #checkSupported}, separately from the definitions
  * {@link IndexSpec#checkValidity} rejects for any index.
  */
-final class RecordLayerUnnestedSyntheticTableGenerator {
+final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTableGenerator {
 
     /**
      * Prefixes the name of a synthetic table, keeping it out of the space of names a user can declare.
@@ -311,6 +311,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * @return the same index, in the synthetic table's coordinates
      */
     @Nonnull
+    @Override
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
         Assert.isNullUnchecked(spec.predicate(), ErrorCode.UNSUPPORTED_OPERATION,
                 "predicate on an index over an unnested synthetic table");
@@ -350,7 +351,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      */
     @Nonnull
     private List<Value> rewrite(@Nonnull final List<Value> values) {
-        final var rewriter = new Rewriter(new QueriedValue(getSyntheticType()));
+        final var rewriter = new Rewriter(new QueriedValue(getType()));
         return values.stream()
                 .map(value -> Objects.requireNonNull(value.acceptVisitor(rewriter)))
                 .collect(ImmutableList.toImmutableList());
@@ -429,7 +430,8 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     }
 
     @Nonnull
-    Type.Record getSyntheticType() {
+    @Override
+    public Type.Record getType() {
         return syntheticType.get();
     }
 
@@ -464,6 +466,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * @return the synthetic table, which the caller has to register alongside the index
      */
     @Nonnull
+    @Override
     public RecordLayerSyntheticTable.Builder generate() {
         final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticType.get())
                 .setAlias(parentAlias)
@@ -483,7 +486,8 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      *
      * @param spec what the index is made of
      */
-    void checkSupported(@Nonnull final IndexSpec spec) {
+    @Override
+    public void checkSupported(@Nonnull final IndexSpec spec) {
         final var projection = spec.projection();
         Assert.thatUnchecked(projection.aggregate() == null,
                 ErrorCode.UNSUPPORTED_OPERATION,
