@@ -103,13 +103,15 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
         final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
+        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
         final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final Set<RecordQueryPlan> innerPlans = satisfyingPlans(call, requestedOrdering, innerPlanPartition);
         // If the inner ordering does not satisfy the request, the sort cannot be absorbed.
         if (innerPlans.isEmpty()) {
             return;
         }
-        call.yieldPlans(innerPlans);
+        final var builder = innerQuantifier.applyGlue(call, call.memoizePlansBuilder(innerPlans));
+        call.yieldPlans(builder.members());
     }
 
     /**

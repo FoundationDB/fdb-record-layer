@@ -33,8 +33,10 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctReco
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
@@ -70,8 +72,11 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+
+    @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
-            logicalDistinctExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
+            logicalDistinctExpression(only(innerQuantifierMatcher));
 
     public ImplementDistinctRule() {
         super(root);
@@ -79,17 +84,19 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
-            call.yieldPlans(innerPlanPartition.getPlans());
-        } else {
-            // these create duplicates
-            call.yieldPlan(
-                    new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                            Quantifier.physical(
-                                    call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans()))));
+        // If the inner plans create duplicates, wrap a `RecordQueryUnorderedPrimaryKeyDistinctPlan` around.
+        Set<RecordQueryPlan> plans = innerPlanPartition.getPlans();
+        if (!innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
+            final Reference innerPlansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
+            final Quantifier.Physical innerPhysicalQuantifier = Quantifier.physical(innerPlansReference);
+            plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
         }
+
+        final var builder = innerQuantifier.applyGlue(call, call.memoizePlansBuilder(plans));
+        call.yieldPlans(builder.members());
     }
 }

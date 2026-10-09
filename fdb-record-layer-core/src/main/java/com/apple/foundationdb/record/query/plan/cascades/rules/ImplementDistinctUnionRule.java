@@ -62,8 +62,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
@@ -93,7 +93,7 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
             logicalUnionExpression(allForEachQuantifiersMatcher);
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = forEachQuantifier(unionExpressionMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = plainForEachQuantifier(unionExpressionMatcher);
     @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
             logicalDistinctExpression(exactly(unionForEachQuantifierMatcher));
@@ -206,7 +206,11 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> {
+                                                final Reference legReference =
+                                                        call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans());
+                                                return quantifier.applyGlue(call, legReference);
+                                            })
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 

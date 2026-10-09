@@ -80,7 +80,11 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
 
         final ImmutableList<Quantifier.Physical> quantifiers =
                 Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) -> {
+                                    final Reference legReference =
+                                            call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans());
+                                    return quantifier.applyGlue(call, legReference);
+                                })
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
