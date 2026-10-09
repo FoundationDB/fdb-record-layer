@@ -160,8 +160,17 @@ test_block:
       - query: select rest_no from restaurant_record where (rest_no > 1001 and true) or false
       - explain: "SCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
       - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
+---
+# The same operands as bound parameters rather than literals in the query text. Forced to run as prepared
+# statements: as simple statements the parameters would be inlined as literals, duplicating the block above.
+test_block:
+  name: where-boolean-operand-parameter
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+    statement_type: prepared
+  tests:
     -
-      # Bound parameters, rather than literals in the query text.
       - query: select rest_no from restaurant_record where rest_no > 1001 and !!true!!
       - explain: "SCAN([[GREATER_THAN promote(@c7 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)"
       - unorderedResult: [{REST_NO: 1002}, {REST_NO: 1003}]
@@ -171,8 +180,8 @@ test_block:
       - result: [{REST_NO: 1000}]
     -
       # A parameter bound to NULL arrives with the NULL type rather than as a NullValue.
-      - query: select rest_no from restaurant_record where (rest_no > 1001 and !! !n null !!) or rest_no = 1000
-      - explain: "SCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ∪ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)"
+      - query: select rest_no from restaurant_record where (!! !n null !! and rest_no > 1001) or rest_no = 1000
+      - explain: "SCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ∪ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)"
       - result: [{REST_NO: 1000}]
     -
       - query: select rest_no from restaurant_record where rest_no > 1001 or !! !n null !!

@@ -213,13 +213,14 @@ where-boolean-operand-non-boolean-value:
     insert_time_ms: 1
     insert_new_count: 55
     insert_reused_count: 4
+where-boolean-operand-parameter:
 -   query: EXPLAIN select rest_no from restaurant_record where rest_no > 1001 and
         ?
-    ref: where-boolean-operand.yamsql:166
+    ref: where-boolean-operand.yamsql:175
     explain: SCAN([[GREATER_THAN promote(@c7 AS LONG)]]) | TFILTER RESTAURANT_RECORD
         | MAP (_.REST_NO AS REST_NO)
     task_count: 502
-    task_total_time_ms: 20
+    task_total_time_ms: 19
     transform_count: 125
     transform_time_ms: 9
     transform_yield_count: 44
@@ -228,42 +229,42 @@ where-boolean-operand-non-boolean-value:
     insert_reused_count: 4
 -   query: EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and
         ?) or rest_no = 1000
-    ref: where-boolean-operand.yamsql:170
+    ref: where-boolean-operand.yamsql:179
     explain: SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP
         (_.REST_NO AS REST_NO)
     task_count: 502
-    task_total_time_ms: 56
+    task_total_time_ms: 54
     transform_count: 124
-    transform_time_ms: 21
+    transform_time_ms: 22
     transform_yield_count: 44
     insert_time_ms: 3
     insert_new_count: 55
     insert_reused_count: 4
--   query: EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and
-        null) or rest_no = 1000
-    ref: where-boolean-operand.yamsql:175
-    explain: 'SCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD
+-   query: EXPLAIN select rest_no from restaurant_record where (? and rest_no > 1001)
+        or rest_no = 1000
+    ref: where-boolean-operand.yamsql:184
+    explain: 'SCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD
         | FILTER null ∪ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO:
         KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE
         BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)'
     task_count: 4929
-    task_total_time_ms: 292
+    task_total_time_ms: 153
     transform_count: 899
-    transform_time_ms: 104
+    transform_time_ms: 53
     transform_yield_count: 266
-    insert_time_ms: 28
+    insert_time_ms: 14
     insert_new_count: 655
     insert_reused_count: 59
--   query: EXPLAIN select rest_no from restaurant_record where rest_no > 1001 or null
-    ref: where-boolean-operand.yamsql:179
+-   query: EXPLAIN select rest_no from restaurant_record where rest_no > 1001 or ?
+    ref: where-boolean-operand.yamsql:188
     explain: 'COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]])
         | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO
         AS REST_NO)'
     task_count: 1352
-    task_total_time_ms: 69
+    task_total_time_ms: 42
     transform_count: 290
-    transform_time_ms: 27
+    transform_time_ms: 18
     transform_yield_count: 88
-    insert_time_ms: 9
+    insert_time_ms: 3
     insert_new_count: 170
     insert_reused_count: 20
