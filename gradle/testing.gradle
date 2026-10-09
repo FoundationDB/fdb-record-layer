@@ -508,16 +508,41 @@ tasks.register('quickCheck') {
     dependsOn testClasses
 }
 
-// Regenerates an HTML test report from the binary results left behind by an earlier run, without running any
-// tests. This exists for CI: when a test task hits its timeout (see `timeoutMinutes` above), Gradle interrupts it
-// and the normal HTML/XML reports end up incomplete, but the binary results are intact. All the Test tasks of
-// the project are combined into one report under `reports/tests/recovered`.
-tasks.register('recoverTestReports', TestReport) {
+// Repairs the HTML test reports of Test tasks that were interrupted, without running any tests. This exists for
+// CI: when a test task hits its timeout (see `timeoutMinutes` above), Gradle interrupts it and its normal HTML/XML
+// reports end up incomplete (e.g. no `index.html`), but the binary results are intact.
+//
+// Each Test task `<name>` gets a `<name>RecoverReport` task that regenerates the HTML report from the binary
+// results into the Test task's usual report directory. It only does anything if that report is incomplete, so
+// complete reports (whether the tests passed or failed) are left alone. `recoverTestReports` runs all of them.
+def recoverTestReports = tasks.register('recoverTestReports') {
     group = 'Verification'
-    description = 'Regenerate the HTML test report from existing binary test results (does not run tests)'
+    description = 'Regenerate incomplete HTML test reports (e.g. after a timeout) from binary results (does not run tests)'
+}
 
-    destinationDirectory = layout.buildDirectory.dir('reports/tests/recovered')
-    // `locationOnly` drops the dependency on the Test tasks, so this does not trigger running them.
-    // Directories that do not exist are ignored.
-    testResults.from(tasks.withType(Test).collect { it.binaryResultsDirectory.locationOnly })
+// Use `afterEvaluate` so this also picks up Test tasks registered by the subproject's own build file.
+afterEvaluate {
+    tasks.withType(Test).names.each { testTaskName ->
+        def recoverTask = tasks.register("${testTaskName}RecoverReport", TestReport) {
+            group = 'Verification'
+            description = "Regenerate the HTML report of ${testTaskName} if it is incomplete (does not run tests)"
+
+            def testTask = tasks.named(testTaskName, Test).get()
+            // Never run the tests as part of this, but if both are run, run this afterwards.
+            mustRunAfter(testTask)
+            def binaryResultsDir = testTask.binaryResultsDirectory.get().asFile
+            def htmlReportDir = testTask.reports.html.outputLocation.get().asFile
+            // `locationOnly` drops the dependency on the Test task. A directory that does not exist is ignored.
+            testResults.from(testTask.binaryResultsDirectory.locationOnly)
+            destinationDirectory = htmlReportDir
+
+            // A complete report has an `index.html` written after the binary results.
+            onlyIf("the ${testTaskName} HTML report is incomplete") {
+                def results = new File(binaryResultsDir, 'results-generic.bin')
+                def index = new File(htmlReportDir, 'index.html')
+                results.exists() && (!index.exists() || index.lastModified() < results.lastModified())
+            }
+        }
+        recoverTestReports.configure { dependsOn(recoverTask) }
+    }
 }
