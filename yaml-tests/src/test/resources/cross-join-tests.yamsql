@@ -1,0 +1,335 @@
+#
+# cross-join-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
+    create index empDept as select dept_id from emp
+    create index empName as select lname, fname from emp order by lname, fname
+
+    create table dept(id bigint, name string, primary key(id))
+    create index deptName as select name from dept
+
+    create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
+    create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
+    create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
+    create table ja(c1 bigint, c2 bigint, primary key(c1))
+    create table jb(c1 bigint, c3 bigint, primary key(c1))
+    create table jd(c1 bigint, c4 bigint, primary key(c1))
+    create table je(c1 bigint, c6 bigint, primary key(c1))
+---
+setup:
+  steps:
+    - query: INSERT INTO EMP
+        VALUES (1, 'Jack', 'Williams', 1),
+               (2, 'Thomas', 'Johnson', 1),
+               (3, 'Daniel', 'Miller', null),
+               (4, 'Chloe', 'Jones', 2),
+               (5, 'Charlotte', 'Garcia', 2),
+               (6, 'Harry', 'Smith', null)
+    - query: INSERT INTO DEPT
+        VALUES (1, 'Engineering'),
+               (2, 'Sales'),
+               (3, 'Marketing'),
+               (null, 'Top Secret')
+    - query: INSERT INTO PROJECT
+        VALUES (1, 'OLAP', 'Support OLAP queries', 3),
+               (2, 'SEO', 'Increase visibility on popular search engines', 8),
+               (3, 'Feedback', 'Turn customer feedback into actionable items', 5)
+    - query: INSERT INTO A VALUES(1, 0, 100,0)
+    - query: INSERT INTO B VALUES (4, 0, 0, 200)
+    - query: INSERT INTO ja VALUES(1, 2)
+    - query: INSERT INTO jb VALUES(1, 3)
+    - query: INSERT INTO jd VALUES(1, 4)
+    # je is intentionally left empty
+---
+test_block:
+  name: join-tests
+  tests:
+    -
+      - query: select ida from a where exists (select ida from a where ida = 1);
+      - result: [{!l 1}]
+    -
+      - query: select sq2.y, sq1.x from (select ida as x from a) sq1, (select idb as y from b) sq2;
+      - result: [{!l 4, !l 1}]
+
+    # Basic CROSS JOIN: Cartesian product, equivalence with the comma syntax
+    -
+      # simple CROSS JOIN using comma: 3 projects x 4 departments = 12 rows
+      - query: SELECT project.name, dept.name FROM project, dept
+      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { ISCAN(DEPTNAME <,>) AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
+      - unorderedResult: [
+          { 'OLAP', 'Engineering' }, { 'OLAP', 'Sales' }, { 'OLAP', 'Marketing' }, { 'OLAP', 'Top Secret' },
+          { 'SEO', 'Engineering' }, { 'SEO', 'Sales' }, { 'SEO', 'Marketing' }, { 'SEO', 'Top Secret' },
+          { 'Feedback', 'Engineering' }, { 'Feedback', 'Sales' }, { 'Feedback', 'Marketing' }, { 'Feedback', 'Top Secret' } ]
+    -
+      # simple CROSS JOIN: same rows as the comma syntax above
+      - query: SELECT project.name, dept.name FROM project CROSS JOIN dept
+      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { ISCAN(DEPTNAME <,>) AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
+      - unorderedResult: [
+          { 'OLAP', 'Engineering' }, { 'OLAP', 'Sales' }, { 'OLAP', 'Marketing' }, { 'OLAP', 'Top Secret' },
+          { 'SEO', 'Engineering' }, { 'SEO', 'Sales' }, { 'SEO', 'Marketing' }, { 'SEO', 'Top Secret' },
+          { 'Feedback', 'Engineering' }, { 'Feedback', 'Sales' }, { 'Feedback', 'Marketing' }, { 'Feedback', 'Top Secret' } ]
+    -
+      # CROSS JOIN keywords are case-insensitive
+      - query: SELECT project.name, dept.name FROM project cross join dept
+      - unorderedResult: [
+          { 'OLAP', 'Engineering' }, { 'OLAP', 'Sales' }, { 'OLAP', 'Marketing' }, { 'OLAP', 'Top Secret' },
+          { 'SEO', 'Engineering' }, { 'SEO', 'Sales' }, { 'SEO', 'Marketing' }, { 'SEO', 'Top Secret' },
+          { 'Feedback', 'Engineering' }, { 'Feedback', 'Sales' }, { 'Feedback', 'Marketing' }, { 'Feedback', 'Top Secret' } ]
+    -
+      # CROSS JOIN is commutative: swapping the sides yields the same rows
+      - query: SELECT project.name, dept.name FROM dept CROSS JOIN project
+      - unorderedResult: [
+          { 'OLAP', 'Engineering' }, { 'OLAP', 'Sales' }, { 'OLAP', 'Marketing' }, { 'OLAP', 'Top Secret' },
+          { 'SEO', 'Engineering' }, { 'SEO', 'Sales' }, { 'SEO', 'Marketing' }, { 'SEO', 'Top Secret' },
+          { 'Feedback', 'Engineering' }, { 'Feedback', 'Sales' }, { 'Feedback', 'Marketing' }, { 'Feedback', 'Top Secret' } ]
+    -
+      # row count of the Cartesian product: 6 employees x 4 departments
+      - query: SELECT count(*) FROM emp CROSS JOIN dept
+      - result: [{24}]
+    -
+      # the comma syntax produces the same count
+      - query: SELECT count(*) FROM emp, dept
+      - result: [{24}]
+    -
+      # NULL values (including a NULL primary key) are carried through the cartesian product unchanged
+      - query: SELECT emp.fname, dept.id FROM emp CROSS JOIN dept WHERE emp.id = 1
+      - unorderedResult: [
+          { 'Jack', 1 }, { 'Jack', 2 }, { 'Jack', 3 }, { 'Jack', !null _ } ]
+    -
+      # a WHERE filter that touches both sides independently
+      - query: SELECT emp.id, dept.id FROM emp CROSS JOIN dept WHERE emp.id <= 2 AND dept.id <= 2
+      - unorderedResult: [
+          { !pos 1: 1, !pos 2: 1 }, { !pos 1: 1, !pos 2: 2 },
+          { !pos 1: 2, !pos 2: 1 }, { !pos 1: 2, !pos 2: 2 } ]
+    -
+      # SELECT * keeps the columns of both sides, including both copies of a shared column name
+      - query: select * from ja cross join jb
+      - result: [{!pos 1: 1, !pos 2: 2, !pos 3: 1, !pos 4: 3}]
+    -
+      # qualified access to both copies of a shared column name
+      - query: select ja.c1, jb.c1 from ja cross join jb
+      - result: [{!pos 1: 1, !pos 2: 1}]
+    -
+      # CROSS JOIN does not merge shared columns, so an unqualified reference is ambiguous
+      - query: select c1 from ja cross join jb
+      - error: AMBIGUOUS_COLUMN
+    -
+      # columns that exist on only one side can be referenced unqualified
+      - query: select c2, c3 from ja cross join jb
+      - result: [{c2: 2, c3: 3}]
+    -
+      # referencing a column that does not exist on either side
+      - query: select ja.c1 from ja cross join jb where jb.c2 = 2
+      - error: UNDEFINED_COLUMN
+
+    # TODO ISSUE #4170: the expected results of the tests below that compare emp.dept_id with dept.id capture the
+    # current behavior. This happens because the join predicate is planned as an index or primary key lookup, and
+    # `ScanComparisons.toTupleRange()` turns a NULL comparand into a scan range that matches NULL keys. Standard SQL
+    # semantics would drop these rows which have NULL = NULL comparisons
+    -
+      # CROSS JOIN filtered on the join key; NULL dept_id matches the NULL dept id (see NOTE above)
+      - query: SELECT emp.fname, dept.name FROM emp CROSS JOIN dept WHERE emp.dept_id = dept.id
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) AS q1 RETURN (q1.FNAME AS FNAME, q0.NAME AS NAME) }"
+      - unorderedResult: [
+          { 'Jack', 'Engineering' }, { 'Thomas', 'Engineering' },
+          { 'Chloe', 'Sales' }, { 'Charlotte', 'Sales' },
+          { 'Daniel', 'Top Secret' }, { 'Harry', 'Top Secret' } ]
+    -
+      # the equivalent INNER JOIN ... ON should return the same rows
+      - query: SELECT emp.fname, dept.name FROM emp INNER JOIN dept ON emp.dept_id = dept.id;
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) AS q1 RETURN (q1.FNAME AS FNAME, q0.NAME AS NAME) }"
+      - unorderedResult: [
+          { 'Jack', 'Engineering' }, { 'Thomas', 'Engineering' },
+          { 'Chloe', 'Sales' }, { 'Charlotte', 'Sales' },
+          { 'Daniel', 'Top Secret' }, { 'Harry', 'Top Secret' } ]
+    -
+      # CROSS JOIN + WHERE plans to the same join as the comma syntax
+      - query: select ja.c2, jb.c3 from ja cross join jb where ja.c1 = jb.c1
+      - explain: "SCAN([IS JB]) | FLATMAP q0 -> { SCAN([IS JA, EQUALS q0.C1]) AS q1 RETURN (q1.C2 AS C2, q0.C3 AS C3) }"
+      - result: [{c2: 2, c3: 3}]
+    -
+      # same as above
+      - query: select ja.c2, jb.c3 from ja, jb where ja.c1 = jb.c1
+      - explain: "SCAN([IS JB]) | FLATMAP q0 -> { SCAN([IS JA, EQUALS q0.C1]) AS q1 RETURN (q1.C2 AS C2, q0.C3 AS C3) }"
+      - result: [{c2: 2, c3: 3}]
+    -
+      # same as above
+      - query: select ja.c2, jb.c3 from ja join jb on ja.c1 = jb.c1
+      - explain: "SCAN([IS JB]) | FLATMAP q0 -> { SCAN([IS JA, EQUALS q0.C1]) AS q1 RETURN (q1.C2 AS C2, q0.C3 AS C3) }"
+      - result: [{c2: 2, c3: 3}]
+    -
+      # an unfiltered CROSS JOIN plans the same as the comma syntax
+      - query: select ja.c2, jb.c3 from ja cross join jb
+      - explain: "SCAN([IS JB]) | FLATMAP q0 -> { SCAN([IS JA]) AS q1 RETURN (q1.C2 AS C2, q0.C3 AS C3) }"
+      - result: [{c2: 2, c3: 3}]
+    -
+      # same as above
+      - query: select ja.c2, jb.c3 from ja, jb
+      - explain: "SCAN([IS JB]) | FLATMAP q0 -> { SCAN([IS JA]) AS q1 RETURN (q1.C2 AS C2, q0.C3 AS C3) }"
+      - result: [{c2: 2, c3: 3}]
+
+    # Mix-match with other JOIN types
+    -
+      # three-way CROSS JOIN without a filter: 1 x 1 x 1 row
+      - query: select ja.c2, jb.c3, jd.c4 from ja cross join jb cross join jd
+      - result: [{c2: 2, c3: 3, c4: 4}]
+    -
+      # three-way CROSS JOIN without a filter: 6 x 4 x 3 rows
+      - query: SELECT count(*) FROM emp CROSS JOIN dept CROSS JOIN project
+      - result: [{72}]
+    -
+      # (TODO Issue #4170 - fix plan and result) three-way CROSS JOIN with join predicates in WHERE
+      - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept CROSS JOIN project
+          WHERE emp.dept_id = dept.id AND project.emp_id = emp.id
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+    -
+      # the WHERE predicate may relate the first and the last table of the chain
+      - query: SELECT emp.fname, project.name FROM emp CROSS JOIN dept CROSS JOIN project
+          WHERE project.emp_id = emp.id AND dept.id = 3
+      - unorderedResult: [{ 'Daniel', 'OLAP' }, { 'Charlotte', 'Feedback' }]
+    -
+      # (TODO Issue #4170 - fix plan and result) CROSS JOIN followed by an INNER JOIN ... ON that references the first table
+      - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept JOIN project ON project.emp_id = emp.id
+          WHERE emp.dept_id = dept.id
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }"
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+    -
+      # INNER JOIN ... ON followed by a CROSS JOIN
+      - query: SELECT emp.fname, project.name, dept.name FROM emp JOIN project ON project.emp_id = emp.id CROSS JOIN dept
+          WHERE dept.id = 2
+      - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS promote(@c32 AS LONG)]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.FNAME AS FNAME, q3._0.NAME AS _1, q3._1.NAME AS _2) }"
+      - unorderedResult: [{ 'Daniel', 'OLAP', 'Sales' }, { 'Charlotte', 'Feedback', 'Sales' }]
+    -
+      # INNER JOIN ... USING followed by a CROSS JOIN
+      - query: select * from ja join jb using(c1) cross join jd
+      - result: [{!pos 1: 1, !pos 2: 2, !pos 3: 3, !pos 4: 1, !pos 5: 4}]
+    -
+      # CROSS JOIN followed by INNER JOIN ... USING: the USING column is ambiguous on the left side
+      - query: select * from ja cross join jb join jd using(c1)
+      - error: AMBIGUOUS_COLUMN
+    -
+      # (TODO Issue #4170 - fix plan and result) CROSS JOIN mixed with the comma syntax
+      - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept, project
+          WHERE emp.dept_id = dept.id AND project.emp_id = emp.id
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }"
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+    -
+      # (TODO Issue #4170 - fix plan and result) CROSS JOIN followed by a LEFT JOIN: the CROSS JOIN operands are
+      # collapsed before the outer join
+      - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept LEFT JOIN project ON project.emp_id = emp.id
+          WHERE emp.dept_id = dept.id
+      - unorderedResult: [
+          { 'Jack', 'Engineering', !null _ }, { 'Thomas', 'Engineering', !null _ },
+          { 'Chloe', 'Sales', !null _ }, { 'Charlotte', 'Sales', 'Feedback' },
+          { 'Daniel', 'Top Secret', 'OLAP' }, { 'Harry', 'Top Secret', !null _ } ]
+    -
+      # LEFT JOIN followed by a CROSS JOIN
+      - query: SELECT emp.fname, project.name, dept.name FROM emp LEFT JOIN project ON project.emp_id = emp.id CROSS JOIN dept
+          WHERE dept.id = 3
+      - unorderedResult: [
+          { 'Jack', !null _, 'Marketing' }, { 'Thomas', !null _, 'Marketing' }, { 'Daniel', 'OLAP', 'Marketing' },
+          { 'Chloe', !null _, 'Marketing' }, { 'Charlotte', 'Feedback', 'Marketing' }, { 'Harry', !null _, 'Marketing' } ]
+
+  # Self Joins
+    -
+      # self CROSS JOIN with aliases
+      - query: select x.c1, y.c1 from ja as x cross join ja as y
+      - result: [{!pos 1: 1, !pos 2: 1}]
+    -
+      # self CROSS JOIN with aliases (without AS) and a filter: pairs of colleagues in the same department.
+      # Unlike the emp.dept_id = dept.id joins above, this predicate does not treat NULL = NULL as true, so Daniel
+      # and Harry (both NULL dept_id) are correctly not paired up.
+      - query: SELECT e1.fname, e2.fname FROM emp e1 CROSS JOIN emp e2 WHERE e1.dept_id = e2.dept_id AND e1.id < e2.id
+      - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q0.DEPT_ID EQUALS _.DEPT_ID AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.FNAME AS _0, q1.FNAME AS _1) }"
+      - unorderedResult: [{ 'Jack', 'Thomas' }, { 'Chloe', 'Charlotte' }]
+    -
+      # CROSS JOIN between a table and a derived table
+      - query: SELECT emp.fname, y.name FROM emp CROSS JOIN (SELECT name FROM dept WHERE id = 1) AS y WHERE emp.id = 6
+      - result: [{ 'Harry', 'Engineering' }]
+    -
+      # CROSS JOIN inside a derived table
+      - query: select * from (select ja.c1 as x, jb.c3 as y from ja cross join jb) as t
+      - result: [{x: 1, y: 3}]
+    -
+      # CROSS JOIN inside a correlated EXISTS subquery; Daniel's NULL dept_id matches 'Top Secret'
+      - query: SELECT fname FROM emp WHERE EXISTS (SELECT * FROM dept CROSS JOIN project
+          WHERE project.emp_id = emp.id AND dept.id = emp.dept_id)
+      - unorderedResult: [{ 'Charlotte' }, { 'Daniel' }]
+    -
+      # (TODO Issue #4170 - fix plan and result) CROSS JOIN inside a correlated NOT EXISTS subquery
+      - query: SELECT fname FROM emp WHERE NOT EXISTS (SELECT * FROM dept CROSS JOIN project
+          WHERE project.emp_id = emp.id AND dept.id = emp.dept_id)
+      - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID AS q2 RETURN (q1.ID AS _0, q1.NAME AS _1, q2.ID AS _2, q2.NAME AS _3, q2.DSC AS DSC, q2.EMP_ID AS EMP_ID) } | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q3 RETURN (q0.FNAME AS FNAME) }"
+      - unorderedResult: [{ 'Jack' }, { 'Thomas' }, { 'Chloe' }, { 'Harry' }]
+
+    # Cross Join with Empty tables
+    -
+      # CROSS JOIN with an empty table on the right yields no rows
+      - query: select * from ja cross join je
+      - result: []
+    -
+      # CROSS JOIN with an empty table on the left yields no rows
+      - query: select * from je cross join ja
+      - result: []
+    -
+      # count over an empty product
+      - query: select count(*) from ja cross join je
+      - result: [{0}]
+    -
+      # CROSS JOIN with a derived table that filters out every row
+      - query: select ja.c1 from ja cross join (select * from jb where c1 = 100) as x
+      - result: []
+    -
+      # a WHERE filter that is never satisfied
+      - query: SELECT emp.fname FROM emp CROSS JOIN dept WHERE emp.id = dept.id AND emp.id > 100
+      - result: []
+
+  # Syntax Rejected by Grammar
+    -
+      # CROSS JOIN does not accept an ON join predicate
+      - query: SELECT fname, lname, name FROM emp CROSS JOIN dept ON emp.dept_id = dept.id
+      - supported_version: !current_version
+      - error: SYNTAX_ERROR
+    -
+      # CROSS JOIN does not accept a USING join predicate
+      - query: SELECT fname, lname, name FROM emp CROSS JOIN dept USING (id)
+      - supported_version: !current_version
+      - error: SYNTAX_ERROR
+    -
+      # CROSS JOIN with a truncated USING clause
+      - query: SELECT fname, lname, name FROM emp CROSS JOIN dept USING
+      - error: SYNTAX_ERROR
+    -
+      # CROSS JOIN requires a right-hand table
+      - query: SELECT fname FROM emp CROSS JOIN
+      - error: SYNTAX_ERROR
+    -
+      # CROSS cannot be combined with INNER
+      - query: SELECT fname FROM emp CROSS INNER JOIN dept
+      - error: SYNTAX_ERROR
+    -
+      # INNER cannot be combined with CROSS
+      - query: SELECT fname FROM emp INNER CROSS JOIN dept
+      - error: SYNTAX_ERROR
+...

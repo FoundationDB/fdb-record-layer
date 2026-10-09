@@ -507,11 +507,12 @@ inlineTableDefinition
     ;
 
 joinPart
-    : (INNER | CROSS)? JOIN tableSourceItem
+    : (INNER)? JOIN tableSourceItem
       (
         ON expression
         | USING '(' uidList ')'
       )?                                                            #innerJoin
+    | CROSS JOIN tableSourceItem                                    #crossJoin
     | STRAIGHT_JOIN tableSourceItem (ON expression)?                #straightJoin
     | (LEFT | RIGHT) OUTER? JOIN tableSourceItem
         (
