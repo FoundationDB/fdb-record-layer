@@ -64,6 +64,7 @@ class OfflineValueFreePlanGenerationTest {
     void declaredTypePlansNamedParameterValueFreeWithoutAStore() throws Exception {
         final var plan = PlanGenerator.create(
                         booksTemplate(),
+                        booksTemplate().toRecordMetadata(),
                         NoOpMetadataOperationsFactory.INSTANCE,
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
@@ -82,6 +83,7 @@ class OfflineValueFreePlanGenerationTest {
         final var plan = PlanGenerator.create(
                         Optional.empty(),
                         booksTemplate(),
+                        booksTemplate().toRecordMetadata(),
                         new RecordStoreState(null, null),
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
@@ -149,6 +151,7 @@ class OfflineValueFreePlanGenerationTest {
     private QueryPlanConstraint planConstraint(@Nonnull final PreparedParams preparedParams) throws Exception {
         return PlanGenerator.create(
                         booksTemplate(),
+                        booksTemplate().toRecordMetadata(),
                         NoOpMetadataOperationsFactory.INSTANCE,
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
@@ -184,9 +187,11 @@ class OfflineValueFreePlanGenerationTest {
     void namedParameterWithoutDeclaredTypeOrValueIsRejected() {
         assertThatThrownBy(() -> PlanGenerator.create(
                         booksTemplate(),
+                        booksTemplate().toRecordMetadata(),
                         NoOpMetadataOperationsFactory.INSTANCE,
                         NoOpMetricCollector.INSTANCE,
-                        Options.NONE)
+                        Options.NONE,
+                        PreparedParams.empty())
                 .getPlan("select title from books where id = ?param_a"))
                 .isInstanceOf(RelationalException.class)
                 .hasMessageContaining("No value found for parameter param_a");

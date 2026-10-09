@@ -50,6 +50,8 @@ import java.util.function.Function;
  *       hands the same instance back for every event. Suitable for non-transactional paths (e.g.
  *       engine startup work) that still want their metrics surfaced on the engine-wide
  *       registry.</li>
+ *   <li>{@link #fromStoreTimer(StoreTimer)} &mdash; hands the supplied {@link StoreTimer} back for every
+ *       event.</li>
  * </ul>
  *
  * <p>Writes ({@link #increment}, {@link #clock}) resolve the timer per call and no-op if the
@@ -87,6 +89,14 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     @Nonnull
     public static StoreTimerMetricCollector fromMetricRegistry(@Nonnull final MetricRegistry registry) {
         final StoreTimer timer = new MetricRegistryStoreTimer(registry);
+        return new StoreTimerMetricCollector(event -> timer);
+    }
+
+    /**
+     * Hands {@code timer} back for every event lookup. All metrics land on the supplied timer.
+     */
+    @Nonnull
+    public static StoreTimerMetricCollector fromStoreTimer(@Nonnull final StoreTimer timer) {
         return new StoreTimerMetricCollector(event -> timer);
     }
 
