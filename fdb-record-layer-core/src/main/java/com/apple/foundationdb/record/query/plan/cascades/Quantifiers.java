@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Scalar;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
@@ -101,12 +101,12 @@ public class Quantifiers {
     }
 
     /**
-     * Create a list of existential quantifiers from a list of expression references these quantifiers should range over.
+     * Create a list of scalar quantifiers from a list of expression references these quantifiers should range over.
      * @param rangesOverPlans iterable {@link Reference}s of of {@link RelationalExpression}s.
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
     @Nonnull
-    public static List<Existential> existentialQuantifiers(@Nonnull final Iterable<Reference> rangesOverPlans) {
+    public static List<Scalar> scalarQuantifiers(@Nonnull final Iterable<Reference> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::existential);
     }
 

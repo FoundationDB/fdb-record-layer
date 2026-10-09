@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Scalar;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -135,8 +135,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </p>
  *
  * <p>
- * Discussion as to why they are matching: for further explanations see {@link RelationalExpression#subsumedBy}. First note
- * that the quantifier over {@code c2} is existential (of type {@link Existential}. That also means that this quantifier
+ * Discussion as to why they are matching: for further explanations see {@link RelationalExpression#subsumedBy}. First,
+ * note that the quantifier over {@code c2} is an existential {@link Scalar} quantifier. That also means that it
  * does not ever positively contribute to the cardinality of the select expression. It only filters out the outer if
  * the inner does not produce any records. In some sense it is very similar to a predicate. In fact it is a predicate
  * defined on a sub query. Now if {@code ca} is known to subsume {@code c1} we can replace the query expression with
