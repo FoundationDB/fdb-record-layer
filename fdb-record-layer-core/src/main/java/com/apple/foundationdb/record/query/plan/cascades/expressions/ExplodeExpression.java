@@ -289,18 +289,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     /**
      * Establishes that an explode <em>without</em> ordinality is subsumed by an explode <em>with</em> ordinality over
-     * the same collection. The candidate emits one {@code (element, ordinal)} struct per element this expression
-     * emits just element. That satisfies subsumption: the candidate produces at least everything the query may produce.
-     * This case cannot be dealt with by {@link #exactlySubsumedBy}, whose {@code equalsWithoutChildren} compares
-     * {@link #isWithOrdinality()}.
-     *
-     * <p>No {@link com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence} is needed to relate the two
-     * result values: a candidate that {@linkplain #flowsRecordConstructorValue() flows a record constructor} has this
-     * expression's element value as a reachable sub-value, so the correspondence is found structurally, and the mapping
-     * it yields points at
-     * the candidate's element column. That is what lets the enclosing select express a navigation into the element as
-     * {@code q._0.field}. A candidate that flows the opaque value offers nothing to reach, and the match carries an
-     * empty mapping.
+     * the same collection. The candidate emits one {@code (element, ordinal)} struct per element, however this expression
+     * emits just element. That satisfies subsumption: the candidate produces at least everything the query may produce.    
      *
      * @param candidateExpression the candidate explode, which must be {@code WITH ORDINALITY}
      * @param bindingAliasMap a map of aliases defining the equivalence between quantifiers
