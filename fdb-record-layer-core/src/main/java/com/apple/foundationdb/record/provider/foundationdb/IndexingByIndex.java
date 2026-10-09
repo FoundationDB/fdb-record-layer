@@ -193,6 +193,7 @@ public class IndexingByIndex extends IndexingBase {
         return AsyncUtil.whileTrue(() -> {
             validateSourceAndTargetIndexes(store);
             return rebuildRangeOnly(store, nextResultCont.get(), recordScanned).thenApply(cont -> {
+                checkRebuildRecordScanLimit(recordScanned.get());
                 if (cont == null) {
                     return false;
                 }
