@@ -438,7 +438,10 @@ class Delete {
                                             }
 
                                             if (!needNewEntryNode) {
-                                                // only the offer of a delete of the entry node is ever used
+                                                //
+                                                // If the caller does not need a new entry node, we can just return
+                                                // a future producing null here.
+                                                //
                                                 return CompletableFuture.completedFuture(null);
                                             }
 
@@ -519,7 +522,6 @@ class Delete {
         }
 
         final NodeReferenceWithVector anyCandidateFinal = anyCandidate;
-        @SuppressWarnings("unchecked")
         final AsyncIterable<AbstractNode<N>> layerNodes =
                 (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(transaction, layer, null, scanLimit);
         return AsyncUtil.collect(layerNodes, getExecutor())
