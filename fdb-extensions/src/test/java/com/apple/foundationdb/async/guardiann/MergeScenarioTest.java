@@ -95,7 +95,7 @@ public class MergeScenarioTest implements BaseTest {
 
     private static Database db;
     private static Guardiann guardiann;
-    private static TestHelpers.TestOnWriteListener onWriteListener;
+    private static GuardiannTestHelpers.TestOnWriteListener onWriteListener;
 
     @Nonnull
     @Override
@@ -119,8 +119,8 @@ public class MergeScenarioTest implements BaseTest {
     public static void setUpDb() {
         db = dbExtension.getDatabase();
 
-        onWriteListener = new TestHelpers.TestOnWriteListener();
-        final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
+        onWriteListener = new GuardiannTestHelpers.TestOnWriteListener();
+        final GuardiannTestHelpers.TestOnReadListener onReadListener = new GuardiannTestHelpers.TestOnReadListener();
 
         final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, CLUSTER_MAX,
                         PRIMARY_CLUSTER_MIN)
@@ -228,6 +228,6 @@ public class MergeScenarioTest implements BaseTest {
     }
 
     private void deleteRecords(@Nonnull final List<PrimaryKeyAndVector> records) throws Exception {
-        TestHelpers.deleteToCompletion(getDb(), guardiann, records);
+        GuardiannTestHelpers.deleteToCompletion(getDb(), guardiann, records);
     }
 }

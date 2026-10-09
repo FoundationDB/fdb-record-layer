@@ -95,7 +95,7 @@ public class CollapseScenarioTest implements BaseTest {
     private static Database db;
 
     /** Set by {@link #newGuardiann} so each test can read the COLLAPSE task counter. */
-    private TestHelpers.TestOnWriteListener onWriteListener;
+    private GuardiannTestHelpers.TestOnWriteListener onWriteListener;
 
     @Nonnull
     @Override
@@ -848,7 +848,7 @@ public class CollapseScenarioTest implements BaseTest {
 
     @Nonnull
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
-        onWriteListener = new TestHelpers.TestOnWriteListener();
+        onWriteListener = new GuardiannTestHelpers.TestOnWriteListener();
         final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, primaryClusterMax, 1)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
@@ -860,7 +860,7 @@ public class CollapseScenarioTest implements BaseTest {
                 TestExecutors.defaultThreadPool(),
                 config,
                 onWriteListener,
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnReadListener());
     }
 
     /** The first SIFT-small base vector, used as the vector we insert many identical copies of. */
