@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+import java.time.Duration
+import java.time.Instant
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
@@ -201,13 +203,72 @@ abstract class TestTmpDirCleaner {
 
 def testTmpDirCleaner = objects.newInstance(TestTmpDirCleaner)
 
+// Optional wall-clock limits for Test tasks. When a limit is hit, Gradle interrupts the task and fails the build
+// (rather than, say, CI cancelling the job), so CI can still publish the test reports (see `recoverTestReports`).
+//  - `-DallTest.timeoutMinutes=N` is a single budget shared by every Test task in the build (across all
+//    subprojects, whether they run sequentially or in parallel). The clock starts when the first Test task starts.
+//  - `-D<taskName>.timeoutMinutes=M` additionally caps each task with that name (e.g. `destructiveTest`).
+// Each task's timeout is the smaller of the two, evaluated when the task starts.
+//
+// The shared deadline lives in a build service: it is created once per build, at execution time, so the deadline
+// is not frozen into the configuration cache.
+abstract class TestDeadlineService implements BuildService<Params> {
+    interface Params extends BuildServiceParameters {
+        Property<Integer> getTimeoutMinutes()
+    }
+
+    private static final Logger LOGGER = Logging.getLogger(TestDeadlineService)
+
+    private final Instant deadline =
+            Instant.now().plus(Duration.ofMinutes(getParameters().getTimeoutMinutes().get()))
+
+    // Called by Gradle when it reads the task's timeout, which happens just before the task starts.
+    // `cap` is the task's own `<taskName>.timeoutMinutes` limit, or null if there is none.
+    Duration timeoutFor(String taskPath, Duration cap) {
+        def remaining = Duration.between(Instant.now(), deadline)
+        def timeout = cap != null && cap < remaining ? cap : remaining
+        // Gradle requires a positive timeout. If the budget is already used up, time out (nearly) immediately.
+        if (timeout < Duration.ofSeconds(1)) {
+            timeout = Duration.ofSeconds(1)
+        }
+        LOGGER.lifecycle("Timeout for ${taskPath}: ${formatDuration(timeout)} " +
+                "(shared budget remaining: ${formatDuration(remaining)})")
+        return timeout
+    }
+
+    private static String formatDuration(Duration duration) {
+        // e.g. PT1M55.123S -> 1m 55s
+        return duration.withNanos(0).toString().substring(2).replaceAll(/(\d[HMS])(?!$)/, '$1 ').toLowerCase()
+    }
+}
+
+def testTotalTimeoutMinutes = Integer.getInteger('allTest.timeoutMinutes')
+def testDeadlineService = testTotalTimeoutMinutes == null ? null :
+        gradle.sharedServices.registerIfAbsent('testDeadline', TestDeadlineService) {
+            parameters.timeoutMinutes = testTotalTimeoutMinutes
+        }
+
+def configureTestTimeout = { Test task ->
+    def taskTimeoutMinutes = Integer.getInteger(task.name + '.timeoutMinutes')
+    def taskTimeout = taskTimeoutMinutes == null ? null : Duration.ofMinutes(taskTimeoutMinutes)
+    if (testDeadlineService != null) {
+        // Capture the path as a String, rather than the task itself, in the provider below.
+        def taskPath = task.path
+        task.usesService(testDeadlineService)
+        task.timeout = testDeadlineService.map { service -> service.timeoutFor(taskPath, taskTimeout) }
+    } else if (taskTimeout != null) {
+        task.timeout = taskTimeout
+    }
+}
+
 def configureTestTask = { String propertyPrefix, Task task ->
     def handled = [propertyPrefix + '.ignoreFailures',
                    propertyPrefix + '.debug',
                    propertyPrefix + '.single',
                    propertyPrefix + '.maxParallelForks',
                    propertyPrefix + '.exclude',
-                   propertyPrefix + '.forkEvery']
+                   propertyPrefix + '.forkEvery',
+                   propertyPrefix + '.timeoutMinutes']
     System.properties.each { prop ->
         def prefix = "${propertyPrefix}.sysProp."
         if (!prop.key.startsWith(prefix.toString())) {
@@ -237,6 +298,9 @@ def configureTestTask = { String propertyPrefix, Task task ->
 
     task.debug = Boolean.getBoolean(propertyPrefix + '.debug')
     task.ignoreFailures = Boolean.getBoolean(propertyPrefix + '.ignoreFailures')
+
+    // `<prefix>.timeoutMinutes` is handled separately by `configureTestTimeout` below, since the `allTest`
+    // flavor is a budget shared across all Test tasks rather than a per-task setting.
 
     def excludes = System.getProperty(propertyPrefix + '.exclude')
     if (excludes != null) {
@@ -276,6 +340,7 @@ tasks.withType(Test).configureEach { Test theTask ->
 
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
+    configureTestTimeout(theTask)
     testLogging {
         events 'failed'
         exceptionFormat = 'full'
@@ -441,4 +506,43 @@ tasks.register('quickCheck') {
     description = 'Perform fast build verification'
 
     dependsOn testClasses
+}
+
+// Repairs the HTML test reports of Test tasks that were interrupted, without running any tests. This exists for
+// CI: when a test task hits its timeout (see `timeoutMinutes` above), Gradle interrupts it and its normal HTML/XML
+// reports end up incomplete (e.g. no `index.html`), but the binary results are intact.
+//
+// Each Test task `<name>` gets a `<name>RecoverReport` task that regenerates the HTML report from the binary
+// results into the Test task's usual report directory. It only does anything if that report is incomplete, so
+// complete reports (whether the tests passed or failed) are left alone. `recoverTestReports` runs all of them.
+def recoverTestReports = tasks.register('recoverTestReports') {
+    group = 'Verification'
+    description = 'Regenerate incomplete HTML test reports (e.g. after a timeout) from binary results (does not run tests)'
+}
+
+// Use `afterEvaluate` so this also picks up Test tasks registered by the subproject's own build file.
+afterEvaluate {
+    tasks.withType(Test).names.each { testTaskName ->
+        def recoverTask = tasks.register("${testTaskName}RecoverReport", TestReport) {
+            group = 'Verification'
+            description = "Regenerate the HTML report of ${testTaskName} if it is incomplete (does not run tests)"
+
+            def testTask = tasks.named(testTaskName, Test).get()
+            // Never run the tests as part of this, but if both are run, run this afterwards.
+            mustRunAfter(testTask)
+            def binaryResultsDir = testTask.binaryResultsDirectory.get().asFile
+            def htmlReportDir = testTask.reports.html.outputLocation.get().asFile
+            // `locationOnly` drops the dependency on the Test task. A directory that does not exist is ignored.
+            testResults.from(testTask.binaryResultsDirectory.locationOnly)
+            destinationDirectory = htmlReportDir
+
+            // A complete report has an `index.html` written after the binary results.
+            onlyIf("the ${testTaskName} HTML report is incomplete") {
+                def results = new File(binaryResultsDir, 'results-generic.bin')
+                def index = new File(htmlReportDir, 'index.html')
+                results.exists() && (!index.exists() || index.lastModified() < results.lastModified())
+            }
+        }
+        recoverTestReports.configure { dependsOn(recoverTask) }
+    }
 }
