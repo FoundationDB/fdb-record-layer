@@ -28,7 +28,6 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
@@ -37,18 +36,11 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
@@ -70,7 +62,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -88,15 +79,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 @Tag(Tags.RequiresFDB)
 public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTestBase.class);
-
-    // Passes of OnlineIndexer.mergeIndex() allowed before the drain is declared failed. Deliberately tiny, and not a
-    // statement about how deep a cascade of follow-up tasks can get: a pass loops internally (in IndexingMerger) until
-    // the maintainer reports nothing it can do, and follow-up tasks a drain enqueues keep the partition's count
-    // positive, so they are retired within that same pass. What a pass cannot do is work on a partition whose merge
-    // lock record names another owner — it skips such a partition and, having nothing else to do, returns having
-    // drained nothing. More passes do not help in that case, since the record is only reclaimed once it ages out, so
-    // this bound stays small: one retry, then fail and let the cause be investigated.
-    private static final int MERGE_DRAIN_MAX_PASSES = 2;
 
     /**
      * The index options a subclass creates its vector indexes with. These select the engine
@@ -210,19 +192,9 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * @param metaData the metadata whose index to merge
      * @param indexName the vector index to merge
      */
-    @SuppressWarnings("PMD.CloseResource") // the outer context only builds the store for OnlineIndexer config
     protected void mergeVectorIndexOnce(@Nonnull final RecordMetaData metaData, @Nonnull final String indexName) {
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openStore(context, metaData);
-            final Index index = store.getRecordMetaData().getIndex(indexName);
-            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                    .setRecordStore(store)
-                    .setIndex(index)
-                    .setTimer(new FDBStoreTimer())
-                    .build()) {
-                indexer.mergeIndex();
-            }
-        }
+        VectorIndexTestSupport.mergeVectorIndexOnce(this::openContext, context -> openStore(context, metaData),
+                indexName);
     }
 
     /**
@@ -233,14 +205,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      */
     protected void mergeVectorIndexToCompletion(@Nonnull final RecordMetaData metaData,
                                                 @Nonnull final String indexName) throws Exception {
-        for (int pass = 0; pass < MERGE_DRAIN_MAX_PASSES; pass++) {
-            mergeVectorIndexOnce(metaData, indexName);
-            if (!vectorIndexHasOutstandingWork(metaData, indexName)) {
-                return;
-            }
-        }
-        throw new AssertionError(String.format("merge did not drain the backlog for %s within %d passes",
-                indexName, MERGE_DRAIN_MAX_PASSES));
+        VectorIndexTestSupport.mergeVectorIndexToCompletion(this::openContext, context -> openStore(context, metaData),
+                indexName);
     }
 
     /**
@@ -252,12 +218,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      */
     protected boolean vectorIndexHasOutstandingWork(@Nonnull final RecordMetaData metaData,
                                                     @Nonnull final String indexName) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openStore(context, metaData);
-            final VectorIndexMaintainer maintainer =
-                    (VectorIndexMaintainer)store.getIndexMaintainer(store.getRecordMetaData().getIndex(indexName));
-            return maintainer.hasOutstandingWork().get();
-        }
+        return VectorIndexTestSupport.vectorIndexHasOutstandingWork(this::openContext,
+                context -> openStore(context, metaData), indexName);
     }
 
     protected static Function<Long, VectorRecord> getRecordGenerator(@Nonnull final Random random,
@@ -414,29 +376,13 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     @Nonnull
     protected static RecordQueryIndexPlan createIndexPlan(@Nonnull final HalfRealVector queryVector, final int k,
                                                         @Nonnull final String indexName) {
-        final VectorIndexScanComparisons vectorIndexScanComparisons =
-                createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty());
-
-        final Type.Record baseRecordType =
-                Type.Record.fromFieldDescriptorsMap(
-                        Type.Record.toFieldDescriptorMap(VectorRecord.getDescriptor().getFields()));
-
-        return new RecordQueryIndexPlan(indexName, field("recNo"),
-                vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
-                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY, false, false,
-                Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
+        return VectorIndexTestSupport.createIndexPlan(queryVector, k, indexName, VectorRecord.getDescriptor());
     }
 
     @Nonnull
     protected static VectorIndexScanComparisons createVectorIndexScanComparisons(@Nonnull final HalfRealVector queryVector, final int k,
                                                                                @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
-        final Comparisons.DistanceRankValueComparison distanceRankComparison =
-                new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                        new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
-                        new LiteralValue<>(k), null, null);
-
-        return VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY,
-                distanceRankComparison, vectorIndexScanOptions);
+        return VectorIndexTestSupport.createVectorIndexScanComparisons(queryVector, k, vectorIndexScanOptions);
     }
 
     protected static void logRecord(final long recNo, @Nonnull final ByteString vectorData) {
