@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -84,7 +83,7 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
                                 (planPartition, quantifier) -> {
                                     final Reference legReference =
                                             call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans());
-                                    return Quantifiers.applyGlue(call, quantifier, legReference);
+                                    return quantifier.applyGlue(call, legReference);
                                 })
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());

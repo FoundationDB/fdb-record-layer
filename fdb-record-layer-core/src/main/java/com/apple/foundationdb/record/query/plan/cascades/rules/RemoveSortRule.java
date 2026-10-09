@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -111,7 +110,7 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
         if (innerPlans.isEmpty()) {
             return;
         }
-        final var builder = Quantifiers.applyGlue(call, innerQuantifier, call.memoizePlansBuilder(innerPlans));
+        final var builder = innerQuantifier.applyGlue(call, call.memoizePlansBuilder(innerPlans));
         call.yieldPlans(builder.members());
     }
 

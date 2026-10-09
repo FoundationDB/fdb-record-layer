@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
@@ -77,7 +76,7 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
         final var innerReference = call.get(innerReferenceMatcher);
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
         for (final PlanPartition partition : innerPlanPartitions) {
-            final var builder = Quantifiers.applyGlue(call, innerQuantifier,
+            final var builder = innerQuantifier.applyGlue(call,
                     call.memoizeMemberPlansBuilder(innerReference, partition.getPlans()));
             call.yieldPlans(builder.members());
         }

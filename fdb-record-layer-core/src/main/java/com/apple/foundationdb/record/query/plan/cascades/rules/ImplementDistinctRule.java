@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -97,7 +96,7 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
             plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
         }
 
-        final var builder = Quantifiers.applyGlue(call, innerQuantifier, call.memoizePlansBuilder(plans));
+        final var builder = innerQuantifier.applyGlue(call, call.memoizePlansBuilder(plans));
         call.yieldPlans(builder.members());
     }
 }
