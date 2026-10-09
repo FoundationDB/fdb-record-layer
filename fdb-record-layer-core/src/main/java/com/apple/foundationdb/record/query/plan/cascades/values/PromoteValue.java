@@ -221,9 +221,10 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         this.inValue = inValue;
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
-        this.isSimplePromotion = promoteToType.isPrimitive() || promoteToType.isUuid() ||
-                (promoteToType instanceof Type.Array &&
-                         Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
+        // Arrays are represented in-memory as plain Lists regardless of element type (the protobuf wrapper-message
+        // representation for nullable arrays is a storage-serialization detail that eval() never needs), so no
+        // descriptor is required here even when the element type is a record or enum.
+        this.isSimplePromotion = promoteToType.isPrimitive() || promoteToType.isUuid() || promoteToType instanceof Type.Array;
     }
 
     @Nonnull
@@ -262,7 +263,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             if (promoteToType.isEnum()) {
                 genericDescriptor = context.getTypeRepository().getEnumDescriptor(promoteToType);
             } else {
-                Verify.verify(promoteToType.isRecord());
+                Verify.verify(promoteToType.isRecord(), "unexpected promotion target type: %s", promoteToType);
                 genericDescriptor = context.getTypeRepository().getMessageDescriptor(promoteToType);
             }
         }

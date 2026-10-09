@@ -348,6 +348,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void promoteStructArray(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("promote-struct-array.yamsql");
+    }
+
+    @TestTemplate
     public void pseudoFieldClash(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("pseudo-field-clash.yamsql");
     }
