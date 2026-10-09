@@ -223,9 +223,9 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Reference reference) {
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
             return isNullOnEmpty
-                   ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, reference))
+                   ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, referenceSupplier.get()))
                    : Optional.empty();
         }
 
@@ -436,8 +436,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Reference reference) {
-            return Optional.of(RecordQueryFirstOrDefaultPlan.forExistential(this, reference));
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+            return Optional.of(RecordQueryFirstOrDefaultPlan.forExistential(this, referenceSupplier.get()));
         }
 
         @Nonnull
@@ -863,7 +863,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      */
     @Nonnull
     public final Reference applyGlue(@Nonnull final FinalMemoizer memoizer, @Nonnull final Reference reference) {
-        return createGluePlan(reference).map(memoizer::memoizePlan).orElse(reference);
+        return createGluePlan(() -> reference).map(memoizer::memoizePlan).orElse(reference);
     }
 
     /**
@@ -873,15 +873,17 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     public final Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
                                                             @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
-        return createGluePlan(builder.reference()).map(memoizer::memoizePlanBuilder).orElse(builder);
+        // Only obtain the reference if glue is needed, as doing so memoizes the plans of the builder.
+        return createGluePlan(builder::reference).map(memoizer::memoizePlanBuilder).orElse(builder);
     }
 
     /**
-     * Creates the glue plan for {@link #applyGlue(FinalMemoizer, Reference)} over {@code reference}, or returns
-     * {@code Optional.empty()} if this quantifier needs no glue, which is the default.
+     * Creates the glue plan for {@link #applyGlue(FinalMemoizer, Reference)} over the reference that
+     * {@code referenceSupplier} provides, or returns {@code Optional.empty()} if this quantifier needs no glue, which
+     * is the default. Implementations must not call {@code referenceSupplier} unless glue is needed.
      */
     @Nonnull
-    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Reference reference) {
+    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
         return Optional.empty();
     }
 

@@ -25,12 +25,15 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -109,5 +112,27 @@ class QuantifierTest {
         final RelationalExpression wrapper = Iterables.getOnlyElement(glued.members());
         assertThat(wrapper).isInstanceOf(RecordQueryDefaultOnEmptyPlan.class);
         assertWrapsScanPlan(wrapper, quantifier);
+    }
+
+    /**
+     * Tests that the {@link Memoizer.ReferenceOfPlansBuilder} variant of {@code applyGlue()} does not obtain the
+     * reference of the builder for a quantifier that needs no glue, since doing so memoizes the plans of the builder.
+     */
+    @Test
+    void testApplyGlue5() {
+        final Memoizer.ReferenceOfPlansBuilder builder = new Memoizer.ReferenceOfPlansBuilder() {
+            @Nonnull
+            @Override
+            public Reference reference() {
+                throw new AssertionError("reference() must not be called");
+            }
+
+            @Nonnull
+            @Override
+            public Set<? extends RecordQueryPlan> members() {
+                return ImmutableSet.of(scanPlan);
+            }
+        };
+        assertThat(Quantifier.forEach(scanReference).applyGlue(memoizer, builder)).isSameAs(builder);
     }
 }
