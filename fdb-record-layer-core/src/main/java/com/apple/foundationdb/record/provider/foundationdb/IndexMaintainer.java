@@ -153,6 +153,16 @@ public abstract class IndexMaintainer {
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                      @Nullable FDBIndexableRecord<M> newRecord);
 
+    /**
+     * Update associated index for a scanned record during online indexing.
+      * @param newRecord a scanned record that needs to be indexed.
+     * @param <M> type of message
+     * @return a future that is complete when the index update is done
+     */
+    @Nonnull
+    public <M extends Message> CompletableFuture<Void> updateFromIndexer(@Nullable FDBIndexableRecord<M> newRecord) {
+        return update(null, newRecord);
+    }
 
     /**
      * Serialize the old/new record pair into an {@link com.google.protobuf.Any}-packed message describing the deferred

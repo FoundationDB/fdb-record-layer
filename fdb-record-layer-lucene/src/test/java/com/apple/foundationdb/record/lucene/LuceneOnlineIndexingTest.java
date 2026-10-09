@@ -29,8 +29,10 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -100,6 +102,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_T
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.fullTextSearch;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -168,6 +171,174 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         String[] allFiles = listFiles(index);
         assertTrue(allFiles.length < 12);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingRecordSavedWhileWriteOnly(boolean usePrimaryKeySegmentIndexV2) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
+        disableIndex(index, SIMPLE_DOC);
+        // saved while the index is disabled: not indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1001L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
+            recordStore.saveRecord(createSimpleDocument(1003L, WAYLON + " who?", 1));
+            context.commit();
+        }
+        leaveIndexWriteOnly(index);
+        // indexed by the saves, before the online indexer scans them
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON + " again", 2));
+            recordStore.saveRecord(createSimpleDocument(2001L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(2002L, WAYLON, 2));
+            context.commit();
+        }
+        buildIndexWithTimer(index);
+        // only the records that were not indexed yet are added, nothing is deleted
+        assertEquals(2, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertIndexedOnce(index, Set.of(1001L, 1002L, 1003L, 2001L, 2002L));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingRecordDeletedWhileWriteOnly(boolean usePrimaryKeySegmentIndexV2) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
+        disableIndex(index, SIMPLE_DOC);
+        // saved while the index is disabled: not indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1001L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
+            recordStore.saveRecord(createSimpleDocument(1003L, WAYLON + " who?", 1));
+            context.commit();
+        }
+        leaveIndexWriteOnly(index);
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(2001L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(2002L, WAYLON, 2));
+            context.commit();
+        }
+        // delete documents after they were added, and a record that was never indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.deleteRecord(Tuple.from(2001L)));
+            assertTrue(recordStore.deleteRecord(Tuple.from(2002L)));
+            assertTrue(recordStore.deleteRecord(Tuple.from(1001L)));
+            context.commit();
+        }
+        // add a deleted document back
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(2002L, WAYLON + " again", 2));
+            context.commit();
+        }
+        buildIndexWithTimer(index);
+        // only the records that were not indexed yet are added, nothing is deleted
+        assertEquals(2, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertIndexedOnce(index, Set.of(1002L, 1003L, 2002L));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingWithPendingWriteQueue(boolean usePrimaryKeySegmentIndexV2) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
+        disableIndex(index, SIMPLE_DOC);
+        // saved while the index is disabled: not indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1001L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
+            context.commit();
+        }
+        leaveIndexWriteOnly(index);
+        // indexed by the save, before the online indexer scans it
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(2001L, WAYLON + " who?", 2));
+            context.commit();
+        }
+        // an ongoing merge makes the writes go to the pending write queue
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager.getManager(state).getDirectory(null, null).setOngoingMergeIndicator();
+            context.commit();
+        }
+        buildIndexWithTimer(index);
+        assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
+        // drain the queue
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.getIndexMaintainer(index).mergeIndex().join();
+            context.commit();
+        }
+        assertIndexedOnce(index, Set.of(1001L, 1002L, 2001L));
+    }
+
+    @Nonnull
+    private static Index simpleTextSuffixesWithPrimaryKeySegmentIndex(boolean usePrimaryKeySegmentIndexV2) {
+        // note: the pending write queue is enabled, but only used during an ongoing merge
+        return LuceneIndexTestUtils.simpleTextSuffixesIndex(options -> {
+            if (usePrimaryKeySegmentIndexV2) {
+                // implied by the primary key segment index V2
+                options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
+                options.put(PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
+            } else {
+                options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
+            }
+        });
+    }
+
+    private void leaveIndexWriteOnly(Index index) {
+        // start indexing, but stop before indexing any record - leaving the index write-only
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final RuntimeException stopBuildException = new RuntimeException("stop build");
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setConfigLoader(config -> {
+                        throw stopBuildException;
+                    })
+                    .build()) {
+                assertSame(stopBuildException, assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(true)));
+            }
+        }
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.getIndexState(index).isWriteOnly());
+        }
+    }
+
+    private void buildIndexWithTimer(Index index) {
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            timer.reset();
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+    }
+
+    private void assertIndexedOnce(Index index, Set<Long> expectedDocIds) {
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.getIndexState(index).isReadable());
+            final List<Long> docIds = recordStore.scanIndex(index, fullTextSearch(recordStore, index, "*:*", false), null, ScanProperties.FORWARD_SCAN)
+                    .map(indexEntry -> indexEntry.getPrimaryKey().getLong(0))
+                    .asList().join();
+            assertEquals(expectedDocIds.size(), docIds.size(), () -> "duplicate documents: " + docIds);
+            assertEquals(expectedDocIds, Set.copyOf(docIds));
+        }
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -53,6 +54,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -150,6 +152,25 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);
         }
+    }
+
+    @Override
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public CompletableFuture<Boolean> hasPrimaryKeyAsync(@Nonnull Tuple primaryKey) {
+        return directory.getAgilityContext().apply(context -> {
+            final Subspace keySubspace = subspace.subspace(primaryKey);
+            final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
+                    .setContext(context)
+                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .build();
+            // ignore entries of unknown segments, as findDocument does
+            return kvs.filterAsync(kv -> directory.primaryKeySegmentNameAsync(keySubspace.unpack(kv.getKey()).getLong(0))
+                            .thenApply(Objects::nonNull), 1)
+                    .onNext()
+                    .thenApply(RecordCursorResult::hasNext)
+                    .whenComplete((result, err) -> kvs.close());
+        });
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
