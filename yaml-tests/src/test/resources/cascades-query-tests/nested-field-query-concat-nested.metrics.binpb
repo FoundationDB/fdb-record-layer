@@ -1,0 +1,34 @@
+È
+
+f
+ nested-field-query-concat-nestedBEXPLAIN select * from calendar_event where alarm_index.version = 3˛	
+€¯ˇôS ©€å( 0ï≠8&@,ISCAN(VERSIONS [EQUALS promote(@c9 AS INT)])≤	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, BYTES AS CONTENT, BYTES AS PROPS, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS ALARM_INDEX, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS EVENT_INDEX)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">VERSIONS</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, BYTES AS CONTENT, BYTES AS PROPS, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS ALARM_INDEX, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS EVENT_INDEX)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ø
+Ç
+ nested-field-query-concat-nested^EXPLAIN select * from calendar_event where alarm_index.version = 2 and event_index.version = 6∑
+
+€©ÚÊR Ω¶s( 0¸Ö8&@IISCAN(VERSIONS [EQUALS promote(@c9 AS INT), EQUALS promote(@c15 AS INT)])œ	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT), EQUALS promote(@c15 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, BYTES AS CONTENT, BYTES AS PROPS, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS ALARM_INDEX, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS EVENT_INDEX)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">VERSIONS</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, BYTES AS CONTENT, BYTES AS PROPS, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS ALARM_INDEX, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS EVENT_INDEX)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ñ
+É
+ nested-field-query-concat-nested_EXPLAIN select * from calendar_event where alarm_index.version > 1 order by alarm_index.versionç
+
+ìòÙ∆F ◊£c(0ï¿	8@4ISCAN(VERSIONS [[GREATER_THAN promote(@c9 AS INT)]])∫	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c9 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, BYTES AS CONTENT, BYTES AS PROPS, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS ALARM_INDEX, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS EVENT_INDEX)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">VERSIONS</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, BYTES AS CONTENT, BYTES AS PROPS, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS ALARM_INDEX, INT AS VERSION, ARRAY(LONG AS START, LONG AS END) AS RECURRENCE AS EVENT_INDEX)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -1,0 +1,17 @@
+Ω
+{
+versions-query-other-record\EXPLAIN select "__ROW_VERSION" as version, rec_no from my_other_record where num_value_2 = 1Ω
+Úé‹ûB ïãH(0≈8@çSCAN(<,>) | TFILTER MY_OTHER_RECORD | FILTER _.NUM_VALUE_2 EQUALS promote(@c11 AS INT) | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO AS REC_NO)êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q27.__ROW_VERSION AS VERSION, q27.REC_NO AS REC_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS VERSION, LONG AS REC_NO)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.NUM_VALUE_2 EQUALS promote(@c11 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [MY_OTHER_RECORD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [MY_OTHER_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

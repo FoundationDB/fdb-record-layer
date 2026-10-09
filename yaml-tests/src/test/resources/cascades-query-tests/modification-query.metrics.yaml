@@ -1,0 +1,176 @@
+modification-query-insert:
+-   query: EXPLAIN insert into restaurant_record values (100, 'Burger King', [], [],
+        []), (200, 'Heirloom Cafe', [], [], []) options(dry run)
+    ref: modification-query.yamsql:108
+    explain: EXPLODE array((promote(@c5 AS LONG) AS REST_NO, @c7 AS NAME, array()
+        AS REVIEWS, array() AS TAGS, array() AS CUSTOMER), (promote(@c20 AS LONG)
+        AS REST_NO, @c22 AS NAME, array() AS REVIEWS, array() AS TAGS, array() AS
+        CUSTOMER)) | INSERT INTO RESTAURANT_RECORD
+    task_count: 85
+    task_total_time_ms: 0
+    transform_count: 16
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select * from restaurant_record
+    ref: modification-query.yamsql:114
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>)
+    task_count: 254
+    task_total_time_ms: 2
+    transform_count: 69
+    transform_time_ms: 1
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+-   query: EXPLAIN insert into restaurant_record values (100, 'Burger King', [], [],
+        []), (200, 'Heirloom Cafe', [], [], [])
+    ref: modification-query.yamsql:121
+    explain: EXPLODE array((promote(@c5 AS LONG) AS REST_NO, @c7 AS NAME, array()
+        AS REVIEWS, array() AS TAGS, array() AS CUSTOMER), (promote(@c20 AS LONG)
+        AS REST_NO, @c22 AS NAME, array() AS REVIEWS, array() AS TAGS, array() AS
+        CUSTOMER)) | INSERT INTO RESTAURANT_RECORD
+    task_count: 85
+    task_total_time_ms: 0
+    transform_count: 16
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select * from restaurant_record
+    ref: modification-query.yamsql:127
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>)
+    task_count: 254
+    task_total_time_ms: 2
+    transform_count: 69
+    transform_time_ms: 1
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+modification-query-delete:
+-   query: EXPLAIN delete from restaurant_record where rest_no = 100 options(dry run)
+    ref: modification-query.yamsql:163
+    explain: SCAN([EQUALS promote(@c6 AS LONG)]) | TFILTER RESTAURANT_RECORD | DELETE
+    task_count: 368
+    task_total_time_ms: 8
+    transform_count: 90
+    transform_time_ms: 3
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 44
+    insert_reused_count: 3
+-   query: EXPLAIN select * from restaurant_record
+    ref: modification-query.yamsql:168
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>)
+    task_count: 254
+    task_total_time_ms: 2
+    transform_count: 69
+    transform_time_ms: 1
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+-   query: EXPLAIN delete from restaurant_record where rest_no = 100
+    ref: modification-query.yamsql:174
+    explain: SCAN([EQUALS promote(@c6 AS LONG)]) | TFILTER RESTAURANT_RECORD | DELETE
+    task_count: 368
+    task_total_time_ms: 8
+    transform_count: 90
+    transform_time_ms: 3
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 44
+    insert_reused_count: 3
+-   query: EXPLAIN select * from restaurant_record
+    ref: modification-query.yamsql:179
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>)
+    task_count: 254
+    task_total_time_ms: 2
+    transform_count: 69
+    transform_time_ms: 1
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+modification-query-update:
+-   query: EXPLAIN update restaurant_record set name = name + ' McDonalds' where rest_no
+        = 100
+    ref: modification-query.yamsql:200
+    explain: SCAN([EQUALS promote(@c11 AS LONG)]) | TFILTER RESTAURANT_RECORD | DISTINCT
+        BY PK | UPDATE RESTAURANT_RECORD
+    task_count: 491
+    task_total_time_ms: 10
+    transform_count: 105
+    transform_time_ms: 6
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 4
+-   query: EXPLAIN update restaurant_record set name = name + ' McDonalds' where rest_no
+        = 100 returning "old".name as old_name, "new".name as new_name options(dry
+        run)
+    ref: modification-query.yamsql:210
+    explain: SCAN([EQUALS promote(@c11 AS LONG)]) | TFILTER RESTAURANT_RECORD | DISTINCT
+        BY PK | UPDATE RESTAURANT_RECORD | MAP (_.old.NAME AS OLD_NAME, _.new.NAME
+        AS NEW_NAME)
+    task_count: 549
+    task_total_time_ms: 5
+    transform_count: 120
+    transform_time_ms: 2
+    transform_yield_count: 44
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 4
+-   query: EXPLAIN select * from restaurant_record
+    ref: modification-query.yamsql:216
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>)
+    task_count: 254
+    task_total_time_ms: 2
+    transform_count: 69
+    transform_time_ms: 1
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+modification-query-stable-plan-hash:
+-   query: EXPLAIN update restaurant_reviewer set stats.start_date = 3 where id =
+        100
+    ref: modification-query.yamsql:232
+    explain: SCAN([EQUALS promote(@c11 AS LONG)]) | TFILTER RESTAURANT_REVIEWER |
+        DISTINCT BY PK | UPDATE RESTAURANT_REVIEWER
+    task_count: 713
+    task_total_time_ms: 5
+    transform_count: 140
+    transform_time_ms: 2
+    transform_yield_count: 53
+    insert_time_ms: 0
+    insert_new_count: 89
+    insert_reused_count: 7
+-   query: EXPLAIN update restaurant_record set reviews = [(1, 34), (2, 14)] where
+        rest_no = 100
+    ref: modification-query.yamsql:238
+    explain: SCAN([EQUALS promote(@c21 AS LONG)]) | TFILTER RESTAURANT_RECORD | DISTINCT
+        BY PK | UPDATE RESTAURANT_RECORD
+    task_count: 491
+    task_total_time_ms: 5
+    transform_count: 105
+    transform_time_ms: 2
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 4
+-   query: EXPLAIN select * from restaurant_record where rest_no = 100
+    ref: modification-query.yamsql:243
+    explain: SCAN([EQUALS promote(@c7 AS LONG)]) | TFILTER RESTAURANT_RECORD
+    task_count: 352
+    task_total_time_ms: 4
+    transform_count: 85
+    transform_time_ms: 2
+    transform_yield_count: 38
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 3

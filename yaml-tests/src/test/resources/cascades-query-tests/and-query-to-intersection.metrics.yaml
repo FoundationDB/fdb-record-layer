@@ -1,0 +1,59 @@
+and-query-to-intersection:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_3_indexed = 3
+    ref: and-query-to-intersection.yamsql:71
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 874
+    task_total_time_ms: 13
+    transform_count: 187
+    transform_time_ms: 7
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 101
+    insert_reused_count: 6
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_3_indexed = 3
+    ref: and-query-to-intersection.yamsql:87
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 874
+    task_total_time_ms: 13
+    transform_count: 187
+    transform_time_ms: 7
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 101
+    insert_reused_count: 6
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed like 'e%'
+        and num_value_3_indexed = 3
+    ref: and-query-to-intersection.yamsql:104
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c11 AS INT)])
+        | FILTER _.STR_VALUE_INDEXED LIKE @c7 ESCAPE 'null'
+    task_count: 800
+    task_total_time_ms: 11
+    transform_count: 180
+    transform_time_ms: 5
+    transform_yield_count: 77
+    insert_time_ms: 0
+    insert_new_count: 101
+    insert_reused_count: 8
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        and num_value_3_indexed = 0
+    ref: and-query-to-intersection.yamsql:120
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 874
+    task_total_time_ms: 13
+    transform_count: 187
+    transform_time_ms: 7
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 101
+    insert_reused_count: 6

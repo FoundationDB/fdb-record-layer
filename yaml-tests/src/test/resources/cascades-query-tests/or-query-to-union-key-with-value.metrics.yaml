@@ -1,0 +1,80 @@
+or-query-to-union-key-with-value:
+-   query: EXPLAIN select num_value_unique, num_value_3_indexed from my_simple_record
+        where num_value_3_indexed = 0 or num_value_3_indexed = 2 order by num_value_2
+    ref: or-query-to-union-key-with-value.yamsql:67
+    explain: 'COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO:
+        KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13 AS INT)] ->
+        [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0],
+        REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED, _.REC_NO)
+        | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED,
+        _.NUM_VALUE_2 AS NUM_VALUE_2) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE,
+        _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 837
+    task_total_time_ms: 10
+    transform_count: 217
+    transform_time_ms: 4
+    transform_yield_count: 83
+    insert_time_ms: 0
+    insert_new_count: 81
+    insert_reused_count: 8
+-   query: EXPLAIN select num_value_unique, num_value_3_indexed from my_simple_record
+        where num_value_3_indexed = 0 or num_value_3_indexed = 2 order by num_value_2
+        desc
+    ref: or-query-to-union-key-with-value.yamsql:113
+    explain: 'COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] REVERSE
+        -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE:
+        VALUE:[0], REC_NO: KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13
+        AS INT)] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE:
+        VALUE:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED,
+        _.REC_NO) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED
+        AS NUM_VALUE_3_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 837
+    task_total_time_ms: 9
+    transform_count: 217
+    transform_time_ms: 4
+    transform_yield_count: 83
+    insert_time_ms: 0
+    insert_new_count: 81
+    insert_reused_count: 8
+-   query: EXPLAIN select num_value_unique, num_value_3_indexed from my_simple_record
+        where num_value_3_indexed = 0 or num_value_3_indexed = 2 order by num_value_2,
+        rec_no
+    ref: or-query-to-union-key-with-value.yamsql:159
+    explain: 'COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO:
+        KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13 AS INT)] ->
+        [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0],
+        REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO, _.NUM_VALUE_3_INDEXED)
+        | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED,
+        _.NUM_VALUE_2 AS NUM_VALUE_2, _.REC_NO AS REC_NO) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 789
+    task_total_time_ms: 9
+    transform_count: 209
+    transform_time_ms: 4
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 75
+    insert_reused_count: 7
+-   query: EXPLAIN select num_value_unique, num_value_3_indexed from my_simple_record
+        where num_value_3_indexed = 0 or num_value_3_indexed = 2 order by num_value_2
+        desc, rec_no desc
+    ref: or-query-to-union-key-with-value.yamsql:205
+    explain: 'COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] REVERSE
+        -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE:
+        VALUE:[0], REC_NO: KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13
+        AS INT)] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE:
+        VALUE:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO, _.NUM_VALUE_3_INDEXED)
+        | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED,
+        _.NUM_VALUE_2 AS NUM_VALUE_2, _.REC_NO AS REC_NO) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 789
+    task_total_time_ms: 10
+    transform_count: 209
+    transform_time_ms: 4
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 75
+    insert_reused_count: 7

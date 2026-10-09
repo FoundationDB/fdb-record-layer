@@ -1,0 +1,816 @@
+ø
+â
+recursive-queriesÛEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 250 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) select id, parent from ancestors∞
+›Ö–¡¿ ˝Ú¯(á0Éù¶8–@˜RUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q233.ID AS ID, q233.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q233> label="q233" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}Ÿ
+£
+recursive-queriesçEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 250 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order pre_order select id, parent from ancestors∞
+∂„Ú‚∫ ◊¸Ê(Ñ0â¸°8∆@˜RUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q233.ID AS ID, q233.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q233> label="q233" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}œ2
+•
+recursive-queriesèEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 250 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order level_order select id, parent from ancestors§0
+≠
+ÁÔÄ
+∏ ˜¯ﬂ(a0≤›<8∂@ØRUNION q0, q1 { INITIAL { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(ID_PARENT_IDX [EQUALS q2.PARENT]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)“-digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">ANCESTORSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q199> label="q199" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q197> label="q197" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  9 -> 6 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 6 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    9 -> 6 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 9 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+}Æ&
+ê
+recursive-queries˙EXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id in (250, 40) union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) select id, parent from ancestorsò$
+â$À©ß¯ ı¯Ô(¸0¶ÊÎ8ﬂ@®RUNION-DFS PREORDER q0 { [IN arrayDistinct(promote(@c14 AS ARRAY(LONG)))] | INJOIN q1 -> { ISCAN(ID_PARENT_IDX [EQUALS q1]) } } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)À!digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q452.ID AS ID, q452.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(promote(@c14 AS ARRAY(LONG))))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q175]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q452> label="q452" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 4 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 7 [ color="red" style="invis" ];
+  }
+}»&
+™
+recursive-queriesîEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id in (250, 40) union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order pre_order select id, parent from ancestorsò$
+ˆ#ïú…ˆ †±Ó(˚0•˘ÿ8—@®RUNION-DFS PREORDER q0 { [IN arrayDistinct(promote(@c14 AS ARRAY(LONG)))] | INJOIN q1 -> { ISCAN(ID_PARENT_IDX [EQUALS q1]) } } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)À!digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q452.ID AS ID, q452.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(promote(@c14 AS ARRAY(LONG))))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q175]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 4 [ label=<&nbsp;q452> label="q452" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}«:
+¨
+recursive-queriesñEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id in (250, 40) union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order level_order select id, parent from ancestorsï8
+ÔæÃ“™ êîŸ(†0•ßz8·@‡RUNION q0, q1 { INITIAL { [IN arrayDistinct(promote(@c14 AS ARRAY(LONG)))] | INJOIN q2 -> { ISCAN(ID_PARENT_IDX [EQUALS q2]) } | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q3 -> { ISCAN(ID_PARENT_IDX [EQUALS q3.PARENT]) AS q4 RETURN (q4.ID AS ID, q4.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)ë5digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q175]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(promote(@c14 AS ARRAY(LONG))))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">ANCESTORSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q314> label="q314" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q316> label="q316" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  9 -> 5 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 5 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 7 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 7 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  13 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  14 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+  {
+    11 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    12 -> 11 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 9 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+}Ω
+á
+recursive-queriesÒEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) select id, parent from ancestors∞
+›Ö–¡¿ ˝Ú¯(á0Éù¶8–@˜RUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q233.ID AS ID, q233.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q233> label="q233" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}◊
+°
+recursive-queriesãEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order pre_order select id, parent from ancestors∞
+∂„Ú‚∫ ◊¸Ê(Ñ0â¸°8∆@˜RUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q233.ID AS ID, q233.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q233> label="q233" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+}–2
+£
+recursive-queriesçEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order level_order select id, parent from ancestorsß0
+≠
+ÁÔÄ
+∏ ˜¯ﬂ(a0≤›<8∂@ØRUNION q0, q1 { INITIAL { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(ID_PARENT_IDX [EQUALS q2.PARENT]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)’-digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">ANCESTORSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q197> label="q197" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q199> label="q199" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  9 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 7 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 7 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    11 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 11 [ color="red" style="invis" ];
+  }
+}∂"
+ç
+recursive-queries˜EXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) select id, parent from descendants£ 
+≥ﬂüø∏ ◊¢ (Ñ0¶ﬂg8¡@	áRUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)¯digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q251.ID AS ID, q251.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q245.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q251> label="q251" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q245> label="q245" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+}–"
+ß
+recursive-queriesëEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) traversal order pre_order select id, parent from descendants£ 
+åÆ∫Œ≤ ≤°É(Å0 ©Y8∑@	áRUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)¯digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q251.ID AS ID, q251.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q245.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q251> label="q251" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q245> label="q245" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}“"
+®
+recursive-queriesíEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) traversal order post_order select id, parent from descendants§ 
+åÑöﬁ≤ ô◊Ç(Å0›“]8∑@	àRUNION-DFS POSTORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)¯digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q251.ID AS ID, q251.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q245.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q251> label="q251" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q245> label="q245" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}Œ6
+©
+recursive-queriesìEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) traversal order level_order select id, parent from descendantsü4
+À
+Å·ª
+¿ ˝ƒ√(b0»±D8ª@	øRUNION q0, q1 { INITIAL { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(PARENT_ID_IDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)Ω1digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">DESCENDANTSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">DESCENDANTSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q10.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">DESCENDANTSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PARENT_ID_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q205> label="q205" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q207> label="q207" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 8 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 10 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  13 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 7 [ color="red" style="invis" ];
+  }
+  {
+    10 -> 8 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    11 -> 10 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+}∑"
+é
+recursive-queries¯EXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 10 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) select id, parent from descendants£ 
+≥ﬂüø∏ ◊¢ (Ñ0¶ﬂg8¡@	áRUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)¯digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q251.ID AS ID, q251.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q245.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q251> label="q251" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q245> label="q245" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}—"
+®
+recursive-queriesíEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 10 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) traversal order pre_order select id, parent from descendants£ 
+åÆ∫Œ≤ ≤°É(Å0 ©Y8∑@	áRUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)¯digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q251.ID AS ID, q251.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q245.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q251> label="q251" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q245> label="q245" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}”"
+©
+recursive-queriesìEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 10 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) traversal order post_order select id, parent from descendants§ 
+åÑöﬁ≤ ô◊Ç(Å0›“]8∑@	àRUNION-DFS POSTORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)¯digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q251.ID AS ID, q251.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q245.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q251> label="q251" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q245> label="q245" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+}œ6
+™
+recursive-queriesîEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 10 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where a.id = h.parent) traversal order level_order select id, parent from descendantsü4
+À
+Å·ª
+¿ ˝ƒ√(b0»±D8ª@	øRUNION q0, q1 { INITIAL { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(PARENT_ID_IDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)Ω1digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">DESCENDANTSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">DESCENDANTSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8.ID EQUALS q10.PARENT</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PARENT_ID_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">DESCENDANTSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q205> label="q205" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q207> label="q207" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  9 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 7 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 7 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  13 -> 11 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+  {
+    11 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 11 [ color="red" style="invis" ];
+  }
+}Õ
+ó
+recursive-queries-continuationsÛEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 250 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) select id, parent from ancestors∞
+›Ö–¡¿ ˝Ú¯(á0Éù¶8–@˜RUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q233.ID AS ID, q233.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q233> label="q233" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}Á
+±
+recursive-queries-continuationsçEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 250 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order pre_order select id, parent from ancestors∞
+∂„Ú‚∫ ◊¸Ê(Ñ0â¸°8∆@˜RUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(ID_PARENT_IDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q233.ID AS ID, q233.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q233> label="q233" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}‡2
+≥
+recursive-queries-continuationsèEXPLAIN with recursive ancestors as ( select id, parent from simple_hierarchical_record where id = 250 union all select h.id, h.parent from ancestors as a, simple_hierarchical_record as h where h.id = a.parent) traversal order level_order select id, parent from ancestorsß0
+≠
+ÁÔÄ
+∏ ˜¯ﬂ(a0≤›<8∂@ØRUNION q0, q1 { INITIAL { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(ID_PARENT_IDX [EQUALS q2.PARENT]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)’-digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">ANCESTORSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">ANCESTORSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.PARENT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q197> label="q197" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q199> label="q199" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 8 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 7 [ color="red" style="invis" ];
+  }
+  {
+    11 -> 8 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 11 [ color="red" style="invis" ];
+  }
+}»
+õ
+recursive-queries-continuations˜EXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where h.parent = a.id) select id, parent from descendantsß
+ÁÊÊÂ√ ≠—Û(á0Ôû^8Õ@ÛRUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(PARENT_ID_IDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q235.ID AS ID, q235.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PARENT_ID_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q235> label="q235" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}„
+µ
+recursive-queries-continuationsëEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where h.parent = a.id) traversal order pre_order select id, parent from descendants®
+¿öå˙Ω ÛÀÎ(Ñ0„ñã8√@ÛRUNION-DFS PREORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(PARENT_ID_IDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q235.ID AS ID, q235.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PARENT_ID_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q235> label="q235" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}‰
+∂
+recursive-queries-continuationsíEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where h.parent = a.id) traversal order post_order select id, parent from descendants®
+¿àæåΩ ›õô(Ñ0Õ±d8√@ÙRUNION-DFS POSTORDER q0 { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(PARENT_ID_IDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">RECURSIVE derived(q14, q16)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q235.ID AS ID, q235.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PARENT_ID_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q16> label="q16" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q235> label="q235" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+}‚2
+∑
+recursive-queries-continuationsìEXPLAIN with recursive descendants as ( select id, parent from simple_hierarchical_record where id = 1 union all select h.id, h.parent from descendants as a, simple_hierarchical_record as h where h.parent = a.id) traversal order level_order select id, parent from descendants•0
+∑
+¸È‚	ª ≤ö˘(a0◊´@8∑@´RUNION q0, q1 { INITIAL { ISCAN(ID_PARENT_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(PARENT_ID_IDX [EQUALS q2.ID]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)◊-digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q20.ID AS ID, q20.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Recursive Union</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">TempTableInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">DESCENDANTSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q10.ID AS ID, q10.PARENT AS PARENT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temporary Buffer</td></tr><tr><td align="left">DESCENDANTSforInsert</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="goldenrod2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">ID_PARENT_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Temp Table Scan</td></tr><tr><td align="left">DESCENDANTSforScan</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q8.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PARENT_ID_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PARENT)" ];
+  3 -> 2 [ label=<&nbsp;q199> label="q199" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q201> label="q201" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  7 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  9 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 7 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 7 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    11 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 11 [ color="red" style="invis" ];
+  }
+}

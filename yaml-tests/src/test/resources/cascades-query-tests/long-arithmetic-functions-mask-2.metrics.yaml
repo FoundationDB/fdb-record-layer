@@ -1,0 +1,34 @@
+long-arithmetic-functions-mask-2:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & 2 = 0
+    ref: long-arithmetic-functions-mask-2.yamsql:172
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_BITAND_2 [EQUALS promote(@c9 AS INT)])
+    task_count: 644
+    task_total_time_ms: 6
+    transform_count: 157
+    transform_time_ms: 3
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & 2 = 1
+    ref: long-arithmetic-functions-mask-2.yamsql:227
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_BITAND_2 [EQUALS promote(@c9 AS INT)])
+    task_count: 644
+    task_total_time_ms: 6
+    transform_count: 157
+    transform_time_ms: 3
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & 2 = 2
+    ref: long-arithmetic-functions-mask-2.yamsql:233
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_BITAND_2 [EQUALS promote(@c9 AS INT)])
+    task_count: 644
+    task_total_time_ms: 6
+    transform_count: 157
+    transform_time_ms: 3
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 79
+    insert_reused_count: 7

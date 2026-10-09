@@ -1,0 +1,34 @@
+“	
+I
+record-store-query-continuation&EXPLAIN select * from my_simple_recordÑ	
+êó˚˜e πùé(10…–8(@/ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)µdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ü
+
+i
+record-store-query-continuationFEXPLAIN select * from my_simple_record where str_value_indexed = 'odd'±	
+ª¥Ú‹Ü –ƒ®(:0Æñ8D@IISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)])«digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_STR_VALUE_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Å
+_
+record-store-query-continuation<EXPLAIN select * from my_simple_record where num_value_2 = 0ù
+óìÆ›É ˆÊ∞(70ÕÏ8B@_ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 EQUALS promote(@c7 AS INT)ùdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.NUM_VALUE_2 EQUALS promote(@c7 AS INT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_STR_VALUE_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

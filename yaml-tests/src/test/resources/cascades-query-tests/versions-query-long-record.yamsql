@@ -1,0 +1,284 @@
+#
+# versions-query-long-record.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBVersionsQueryTest.versionsInProjectionOnlyFromScanOfOnlyType` — the same
+# version-out-of-a-scan case as `versions-query-other-record.yamsql`, but over a store whose only
+# record type is the one being queried and with no predicate at all.
+#
+# Its own file because the source switches protos: `openAnyRecordStore(TestRecords2Proto…)` with a
+# hook that only calls `setStoreRecordVersions(true)`, giving one record type, MyLongRecord, and no
+# indexes. test_records_2.proto sets `split_long_records = true`, which is already the yamsql
+# default (`RecordLayerSchemaTemplate.Builder` starts with `enableLongRows = true`), so no option is
+# needed for it.
+#
+# Data mirrors the loop in the source: ten transactions of ten records each, with
+# rec_no = i * 100 + j and bytes_value = "blah_<i>_<j>" as UTF-8 bytes, written here as hex
+# literals. The source asserts a (rec_no -> version) map, so no row order is asserted.
+---
+schema_template:
+    create table my_long_record(
+        rec_no bigint,
+        bytes_value bytes,
+        primary key(rec_no))
+    WITH OPTIONS(INTERMINGLE_TABLES=true, STORE_ROW_VERSIONS=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (0, x'626c61685f305f30'),
+            (1, x'626c61685f305f31'),
+            (2, x'626c61685f305f32'),
+            (3, x'626c61685f305f33'),
+            (4, x'626c61685f305f34'),
+            (5, x'626c61685f305f35'),
+            (6, x'626c61685f305f36'),
+            (7, x'626c61685f305f37'),
+            (8, x'626c61685f305f38'),
+            (9, x'626c61685f305f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (100, x'626c61685f315f30'),
+            (101, x'626c61685f315f31'),
+            (102, x'626c61685f315f32'),
+            (103, x'626c61685f315f33'),
+            (104, x'626c61685f315f34'),
+            (105, x'626c61685f315f35'),
+            (106, x'626c61685f315f36'),
+            (107, x'626c61685f315f37'),
+            (108, x'626c61685f315f38'),
+            (109, x'626c61685f315f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (200, x'626c61685f325f30'),
+            (201, x'626c61685f325f31'),
+            (202, x'626c61685f325f32'),
+            (203, x'626c61685f325f33'),
+            (204, x'626c61685f325f34'),
+            (205, x'626c61685f325f35'),
+            (206, x'626c61685f325f36'),
+            (207, x'626c61685f325f37'),
+            (208, x'626c61685f325f38'),
+            (209, x'626c61685f325f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (300, x'626c61685f335f30'),
+            (301, x'626c61685f335f31'),
+            (302, x'626c61685f335f32'),
+            (303, x'626c61685f335f33'),
+            (304, x'626c61685f335f34'),
+            (305, x'626c61685f335f35'),
+            (306, x'626c61685f335f36'),
+            (307, x'626c61685f335f37'),
+            (308, x'626c61685f335f38'),
+            (309, x'626c61685f335f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (400, x'626c61685f345f30'),
+            (401, x'626c61685f345f31'),
+            (402, x'626c61685f345f32'),
+            (403, x'626c61685f345f33'),
+            (404, x'626c61685f345f34'),
+            (405, x'626c61685f345f35'),
+            (406, x'626c61685f345f36'),
+            (407, x'626c61685f345f37'),
+            (408, x'626c61685f345f38'),
+            (409, x'626c61685f345f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (500, x'626c61685f355f30'),
+            (501, x'626c61685f355f31'),
+            (502, x'626c61685f355f32'),
+            (503, x'626c61685f355f33'),
+            (504, x'626c61685f355f34'),
+            (505, x'626c61685f355f35'),
+            (506, x'626c61685f355f36'),
+            (507, x'626c61685f355f37'),
+            (508, x'626c61685f355f38'),
+            (509, x'626c61685f355f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (600, x'626c61685f365f30'),
+            (601, x'626c61685f365f31'),
+            (602, x'626c61685f365f32'),
+            (603, x'626c61685f365f33'),
+            (604, x'626c61685f365f34'),
+            (605, x'626c61685f365f35'),
+            (606, x'626c61685f365f36'),
+            (607, x'626c61685f365f37'),
+            (608, x'626c61685f365f38'),
+            (609, x'626c61685f365f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (700, x'626c61685f375f30'),
+            (701, x'626c61685f375f31'),
+            (702, x'626c61685f375f32'),
+            (703, x'626c61685f375f33'),
+            (704, x'626c61685f375f34'),
+            (705, x'626c61685f375f35'),
+            (706, x'626c61685f375f36'),
+            (707, x'626c61685f375f37'),
+            (708, x'626c61685f375f38'),
+            (709, x'626c61685f375f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (800, x'626c61685f385f30'),
+            (801, x'626c61685f385f31'),
+            (802, x'626c61685f385f32'),
+            (803, x'626c61685f385f33'),
+            (804, x'626c61685f385f34'),
+            (805, x'626c61685f385f35'),
+            (806, x'626c61685f385f36'),
+            (807, x'626c61685f385f37'),
+            (808, x'626c61685f385f38'),
+            (809, x'626c61685f385f39')
+    - query: INSERT INTO MY_LONG_RECORD
+            (REC_NO, BYTES_VALUE)
+          VALUES
+            (900, x'626c61685f395f30'),
+            (901, x'626c61685f395f31'),
+            (902, x'626c61685f395f32'),
+            (903, x'626c61685f395f33'),
+            (904, x'626c61685f395f34'),
+            (905, x'626c61685f395f35'),
+            (906, x'626c61685f395f36'),
+            (907, x'626c61685f395f37'),
+            (908, x'626c61685f395f38'),
+            (909, x'626c61685f395f39')
+---
+test_block:
+  name: versions-query-long-record
+  preset: single_repetition_ordered
+  tests:
+    -
+      # versionsInProjectionOnlyFromScanOfOnlyType
+      - query: select "__ROW_VERSION" as version, rec_no from my_long_record
+      - explain: "SCAN(<,>) | TFILTER MY_LONG_RECORD | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO AS REC_NO)"
+      - unorderedResult: [
+          {VERSION: !not_null _, REC_NO: 0},
+          {VERSION: !not_null _, REC_NO: 1},
+          {VERSION: !not_null _, REC_NO: 2},
+          {VERSION: !not_null _, REC_NO: 3},
+          {VERSION: !not_null _, REC_NO: 4},
+          {VERSION: !not_null _, REC_NO: 5},
+          {VERSION: !not_null _, REC_NO: 6},
+          {VERSION: !not_null _, REC_NO: 7},
+          {VERSION: !not_null _, REC_NO: 8},
+          {VERSION: !not_null _, REC_NO: 9},
+          {VERSION: !not_null _, REC_NO: 100},
+          {VERSION: !not_null _, REC_NO: 101},
+          {VERSION: !not_null _, REC_NO: 102},
+          {VERSION: !not_null _, REC_NO: 103},
+          {VERSION: !not_null _, REC_NO: 104},
+          {VERSION: !not_null _, REC_NO: 105},
+          {VERSION: !not_null _, REC_NO: 106},
+          {VERSION: !not_null _, REC_NO: 107},
+          {VERSION: !not_null _, REC_NO: 108},
+          {VERSION: !not_null _, REC_NO: 109},
+          {VERSION: !not_null _, REC_NO: 200},
+          {VERSION: !not_null _, REC_NO: 201},
+          {VERSION: !not_null _, REC_NO: 202},
+          {VERSION: !not_null _, REC_NO: 203},
+          {VERSION: !not_null _, REC_NO: 204},
+          {VERSION: !not_null _, REC_NO: 205},
+          {VERSION: !not_null _, REC_NO: 206},
+          {VERSION: !not_null _, REC_NO: 207},
+          {VERSION: !not_null _, REC_NO: 208},
+          {VERSION: !not_null _, REC_NO: 209},
+          {VERSION: !not_null _, REC_NO: 300},
+          {VERSION: !not_null _, REC_NO: 301},
+          {VERSION: !not_null _, REC_NO: 302},
+          {VERSION: !not_null _, REC_NO: 303},
+          {VERSION: !not_null _, REC_NO: 304},
+          {VERSION: !not_null _, REC_NO: 305},
+          {VERSION: !not_null _, REC_NO: 306},
+          {VERSION: !not_null _, REC_NO: 307},
+          {VERSION: !not_null _, REC_NO: 308},
+          {VERSION: !not_null _, REC_NO: 309},
+          {VERSION: !not_null _, REC_NO: 400},
+          {VERSION: !not_null _, REC_NO: 401},
+          {VERSION: !not_null _, REC_NO: 402},
+          {VERSION: !not_null _, REC_NO: 403},
+          {VERSION: !not_null _, REC_NO: 404},
+          {VERSION: !not_null _, REC_NO: 405},
+          {VERSION: !not_null _, REC_NO: 406},
+          {VERSION: !not_null _, REC_NO: 407},
+          {VERSION: !not_null _, REC_NO: 408},
+          {VERSION: !not_null _, REC_NO: 409},
+          {VERSION: !not_null _, REC_NO: 500},
+          {VERSION: !not_null _, REC_NO: 501},
+          {VERSION: !not_null _, REC_NO: 502},
+          {VERSION: !not_null _, REC_NO: 503},
+          {VERSION: !not_null _, REC_NO: 504},
+          {VERSION: !not_null _, REC_NO: 505},
+          {VERSION: !not_null _, REC_NO: 506},
+          {VERSION: !not_null _, REC_NO: 507},
+          {VERSION: !not_null _, REC_NO: 508},
+          {VERSION: !not_null _, REC_NO: 509},
+          {VERSION: !not_null _, REC_NO: 600},
+          {VERSION: !not_null _, REC_NO: 601},
+          {VERSION: !not_null _, REC_NO: 602},
+          {VERSION: !not_null _, REC_NO: 603},
+          {VERSION: !not_null _, REC_NO: 604},
+          {VERSION: !not_null _, REC_NO: 605},
+          {VERSION: !not_null _, REC_NO: 606},
+          {VERSION: !not_null _, REC_NO: 607},
+          {VERSION: !not_null _, REC_NO: 608},
+          {VERSION: !not_null _, REC_NO: 609},
+          {VERSION: !not_null _, REC_NO: 700},
+          {VERSION: !not_null _, REC_NO: 701},
+          {VERSION: !not_null _, REC_NO: 702},
+          {VERSION: !not_null _, REC_NO: 703},
+          {VERSION: !not_null _, REC_NO: 704},
+          {VERSION: !not_null _, REC_NO: 705},
+          {VERSION: !not_null _, REC_NO: 706},
+          {VERSION: !not_null _, REC_NO: 707},
+          {VERSION: !not_null _, REC_NO: 708},
+          {VERSION: !not_null _, REC_NO: 709},
+          {VERSION: !not_null _, REC_NO: 800},
+          {VERSION: !not_null _, REC_NO: 801},
+          {VERSION: !not_null _, REC_NO: 802},
+          {VERSION: !not_null _, REC_NO: 803},
+          {VERSION: !not_null _, REC_NO: 804},
+          {VERSION: !not_null _, REC_NO: 805},
+          {VERSION: !not_null _, REC_NO: 806},
+          {VERSION: !not_null _, REC_NO: 807},
+          {VERSION: !not_null _, REC_NO: 808},
+          {VERSION: !not_null _, REC_NO: 809},
+          {VERSION: !not_null _, REC_NO: 900},
+          {VERSION: !not_null _, REC_NO: 901},
+          {VERSION: !not_null _, REC_NO: 902},
+          {VERSION: !not_null _, REC_NO: 903},
+          {VERSION: !not_null _, REC_NO: 904},
+          {VERSION: !not_null _, REC_NO: 905},
+          {VERSION: !not_null _, REC_NO: 906},
+          {VERSION: !not_null _, REC_NO: 907},
+          {VERSION: !not_null _, REC_NO: 908},
+          {VERSION: !not_null _, REC_NO: 909},
+        ]
+...

@@ -1,0 +1,118 @@
+long-arithmetic-functions-unique-mask-4:
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 1
+        = 0
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:179
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 1
+        = 1
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:234
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 1
+        = 2
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:289
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 2
+        = 0
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:296
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 2
+        = 2
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:351
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 2
+        = 3
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:406
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 4
+        = 0
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:413
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 4
+        = 4
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:470
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10
+-   query: EXPLAIN select rec_no from my_simple_record where num_value_unique & 4
+        = 5
+    ref: long-arithmetic-functions-unique-mask-4.yamsql:523
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_UNIQUE
+        & @c7 EQUALS promote(@c9 AS INT) | MAP (_.REC_NO AS REC_NO)
+    task_count: 822
+    task_total_time_ms: 11
+    transform_count: 215
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 97
+    insert_reused_count: 10

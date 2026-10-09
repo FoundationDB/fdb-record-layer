@@ -1,0 +1,12 @@
+Ω
+Ê
+nested-field-query-complex«EXPLAIN select * from restaurant_record as r where r.name = 'something' and r.name = 'something' and r.rest_no = 1 and exists (select 1 from r.reviews as rv where rv.reviewer = 10 and rv.rating = 20)—
+
+£•àÅ° ∫∆œ(]0…èf8Ç@àISCAN(COMPLEX [EQUALS promote(@c11 AS STRING), EQUALS promote(@c23 AS LONG), EQUALS promote(@c40 AS LONG), EQUALS promote(@c46 AS INT)])¶	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS STRING), EQUALS promote(@c23 AS LONG), EQUALS promote(@c40 AS LONG), EQUALS promote(@c46 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">COMPLEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

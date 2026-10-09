@@ -1,0 +1,182 @@
+#
+# recursive-queries-forest.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `RecursiveQueriesTest.descendantsOfNodeAcrossContinuations` — the half of that test
+# parameterized on `sampleForest()` rather than `sampleHierarchy()`.
+#
+# Its own file because the data set differs: a *forest*, two roots, so the recursion is seeded with
+# two rows and each traversal has to finish one tree before starting the next.
+#
+#               1                    500
+#            ┌─────┐              ┌─────┐
+#           ┌┘     └┐            ┌┘     └┐
+#          10       20          510      520
+#       ┌──┼──┐   ┌──┼──┐        │
+#      40  50  70 100  210      550
+#          │
+#         250
+#
+# The index set is the same as `recursive-queries.yamsql` — `setupRecordStoreMetadata(context, true)`,
+# i.e. primary key `id` plus `parentIdIdx` = concat(parent, id) and `idParentIdx` = concat(id, parent).
+#
+# The seeding temp table holds {1 -> -1, 500 -> -1}, which is `where parent = -1`: both roots, and
+# `parent_id_idx` delivers them by ascending id, matching the order the source inserts them in.
+#
+# All four of the source's cases for this hierarchy resume across continuations, so every block here
+# is paged. The source's schedule is [1, 2, 4, -1]; `maxRows:` is one value for the whole block, so
+# these use `maxRows: 1` and list every page. The sequence asserted is the concatenation the source
+# asserts — only the split points differ.
+---
+schema_template:
+    create table simple_hierarchical_record(id bigint, parent bigint, primary key(id))
+    create index parent_id_idx as select parent, id from simple_hierarchical_record
+        order by parent, id
+    create index id_parent_idx as select id, parent from simple_hierarchical_record
+        order by id, parent
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: insert into simple_hierarchical_record(id, parent)
+             values (1, -1),
+                    (10, 1),
+                    (20, 1),
+                    (40, 10),
+                    (50, 10),
+                    (70, 10),
+                    (100, 20),
+                    (210, 20),
+                    (250, 50),
+                    (500, -1),
+                    (510, 500),
+                    (520, 500),
+                    (550, 510)
+---
+test_block:
+  name: recursive-queries-forest
+  preset: single_repetition_ordered
+  tests:
+    -
+      # descendantsOfNodeAcrossContinuations — sampleForest, seed {1 -> -1, 500 -> -1}, ANY traversal.
+      # The optimizer prefers pre-order when given ANY, so the whole of root 1's tree comes out
+      # before root 500's.
+      - query: with recursive descendants as (
+                   select id, parent from simple_hierarchical_record where parent = -1
+                   union all
+                   select h.id, h.parent from descendants as a, simple_hierarchical_record as h
+                       where h.parent = a.id)
+               select id, parent from descendants
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(PARENT_ID_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(PARENT_ID_IDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - maxRows: 1
+      - result: [{ID: 1, PARENT: -1}]
+      - result: [{ID: 10, PARENT: 1}]
+      - result: [{ID: 40, PARENT: 10}]
+      - result: [{ID: 50, PARENT: 10}]
+      - result: [{ID: 250, PARENT: 50}]
+      - result: [{ID: 70, PARENT: 10}]
+      - result: [{ID: 20, PARENT: 1}]
+      - result: [{ID: 100, PARENT: 20}]
+      - result: [{ID: 210, PARENT: 20}]
+      - result: [{ID: 500, PARENT: -1}]
+      - result: [{ID: 510, PARENT: 500}]
+      - result: [{ID: 550, PARENT: 510}]
+      - result: [{ID: 520, PARENT: 500}]
+      - result: []
+    -
+      # descendantsOfNodeAcrossContinuations — sampleForest, PREORDER traversal.
+      - query: with recursive descendants as (
+                   select id, parent from simple_hierarchical_record where parent = -1
+                   union all
+                   select h.id, h.parent from descendants as a, simple_hierarchical_record as h
+                       where h.parent = a.id)
+               traversal order pre_order
+               select id, parent from descendants
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(PARENT_ID_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(PARENT_ID_IDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - maxRows: 1
+      - result: [{ID: 1, PARENT: -1}]
+      - result: [{ID: 10, PARENT: 1}]
+      - result: [{ID: 40, PARENT: 10}]
+      - result: [{ID: 50, PARENT: 10}]
+      - result: [{ID: 250, PARENT: 50}]
+      - result: [{ID: 70, PARENT: 10}]
+      - result: [{ID: 20, PARENT: 1}]
+      - result: [{ID: 100, PARENT: 20}]
+      - result: [{ID: 210, PARENT: 20}]
+      - result: [{ID: 500, PARENT: -1}]
+      - result: [{ID: 510, PARENT: 500}]
+      - result: [{ID: 550, PARENT: 510}]
+      - result: [{ID: 520, PARENT: 500}]
+      - result: []
+    -
+      # descendantsOfNodeAcrossContinuations — sampleForest, POSTORDER traversal.
+      # Each root is emitted last within its own tree: ... 20, 1 for the first, ... 520, 500 for the
+      # second.
+      - query: with recursive descendants as (
+                   select id, parent from simple_hierarchical_record where parent = -1
+                   union all
+                   select h.id, h.parent from descendants as a, simple_hierarchical_record as h
+                       where h.parent = a.id)
+               traversal order post_order
+               select id, parent from descendants
+      - explain: "RUNION-DFS POSTORDER q0 { ISCAN(PARENT_ID_IDX [EQUALS promote(@c14 AS LONG)]) } { RECURSIVE COVERING(PARENT_ID_IDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]]) | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - maxRows: 1
+      - result: [{ID: 40, PARENT: 10}]
+      - result: [{ID: 250, PARENT: 50}]
+      - result: [{ID: 50, PARENT: 10}]
+      - result: [{ID: 70, PARENT: 10}]
+      - result: [{ID: 10, PARENT: 1}]
+      - result: [{ID: 100, PARENT: 20}]
+      - result: [{ID: 210, PARENT: 20}]
+      - result: [{ID: 20, PARENT: 1}]
+      - result: [{ID: 1, PARENT: -1}]
+      - result: [{ID: 550, PARENT: 510}]
+      - result: [{ID: 510, PARENT: 500}]
+      - result: [{ID: 520, PARENT: 500}]
+      - result: [{ID: 500, PARENT: -1}]
+      - result: []
+    -
+      # descendantsOfNodeAcrossContinuations — sampleForest, LEVEL traversal.
+      #
+      # Level order interleaves the two trees: 1, 500 | 10, 20, 510, 520 | 40, 50, 70, 100, 210, 550
+      # | 250, which is the source's expectation. Within a level the two candidate emission orders —
+      # by the parent that produced the row, and by ascending id — agree for this forest.
+      - query: with recursive descendants as (
+                   select id, parent from simple_hierarchical_record where parent = -1
+                   union all
+                   select h.id, h.parent from descendants as a, simple_hierarchical_record as h
+                       where h.parent = a.id)
+               traversal order level_order
+               select id, parent from descendants
+      - explain: "RUNION q0, q1 { INITIAL { ISCAN(PARENT_ID_IDX [EQUALS promote(@c14 AS LONG)]) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(PARENT_ID_IDX [EQUALS q2.ID]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)"
+      - maxRows: 1
+      - result: [{ID: 1, PARENT: -1}]
+      - result: [{ID: 500, PARENT: -1}]
+      - result: [{ID: 10, PARENT: 1}]
+      - result: [{ID: 20, PARENT: 1}]
+      - result: [{ID: 510, PARENT: 500}]
+      - result: [{ID: 520, PARENT: 500}]
+      - result: [{ID: 40, PARENT: 10}]
+      - result: [{ID: 50, PARENT: 10}]
+      - result: [{ID: 70, PARENT: 10}]
+      - result: [{ID: 100, PARENT: 20}]
+      - result: [{ID: 210, PARENT: 20}]
+      - result: [{ID: 550, PARENT: 510}]
+      - result: [{ID: 250, PARENT: 50}]
+      - result: []
+...

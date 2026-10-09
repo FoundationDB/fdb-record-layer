@@ -1,0 +1,83 @@
+#
+# nested-field-query-complex.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nested4` — one index whose key mixes non-repeated columns with
+# a fan-out over a repeated nested message, and a query that binds all four of its components.
+#
+# Its own file: the hook adds `complex` and `composite` on top of the base RestaurantRecord index set.
+#
+# The hook's third index, `duplicates` = concat(field("name"), field("name")), is not reproduced. It
+# exists to show that `RecordQueryPlanner` does not recognise the duplicated condition and plans an
+# extraneous intersection against it; the Cascades assertion never mentions it. SQL cannot express it
+# either — a projection cannot name the same column twice. The duplicated *predicate* is what this
+# port keeps, and that is the part Cascades has to fold.
+#
+# No row matches, exactly as in the source, which asserts the plan and never executes it.
+---
+schema_template:
+    create type as struct restaurant_review(reviewer bigint, rating integer)
+    create type as struct restaurant_tag(value string, weight integer)
+    create table restaurant_record(
+        rest_no bigint,
+        name string,
+        reviews restaurant_review array,
+        tags restaurant_tag array,
+        customer string array,
+        primary key(rest_no))
+    create index restaurant_record_name as select name from restaurant_record
+    create index review_rating as
+        select sq.rating from restaurant_record as r, (select rating from r.reviews) sq
+        order by sq.rating
+    create index tag as
+        select sq.value, sq.weight from restaurant_record as r, (select value, weight from r.tags) sq
+        order by sq.value, sq.weight
+    create index customers as
+        select sq.c from restaurant_record as r, (select c from r.customer as c) sq order by sq.c
+    create index customers_name as
+        select sq.c, r.name from restaurant_record as r, (select c from r.customer as c) sq
+        order by sq.c, r.name
+    create index complex as
+        select r.name, r.rest_no, sq.reviewer, sq.rating
+        from restaurant_record as r, (select reviewer, rating from r.reviews) sq
+        order by r.name, r.rest_no, sq.reviewer, sq.rating
+    create index composite as select name, rest_no from restaurant_record order by name, rest_no
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_RECORD (REST_NO, NAME, REVIEWS, TAGS, CUSTOMER)
+             VALUES
+               (101, 'The Emperors Three Tables', [(1, 10), (2, 3)], [('Lilliput', 5)], []),
+               (102, 'Small Frys Fried Victuals', [(1, 5), (2, 5)], [('Lilliput', 1)], [])
+---
+test_block:
+  name: nested-field-query-complex
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nested4
+      # NAME is constrained twice by the same equality. Cascades folds the duplicate and binds all four
+      # components of `complex`; the old planner leaves one copy behind as a residual filter.
+      - query: select * from restaurant_record as r
+               where r.name = 'something' and r.name = 'something' and r.rest_no = 1
+                 and exists (select 1 from r.reviews as rv
+                             where rv.reviewer = 10 and rv.rating = 20)
+      - explain: "ISCAN(COMPLEX [EQUALS promote(@c11 AS STRING), EQUALS promote(@c23 AS LONG), EQUALS promote(@c40 AS LONG), EQUALS promote(@c46 AS INT)])"
+      - result: []
+...

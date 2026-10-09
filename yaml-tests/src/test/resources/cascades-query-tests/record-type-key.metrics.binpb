@@ -1,0 +1,33 @@
+¬	
+9
+record-type-key&EXPLAIN select * from my_simple_recordÑ	
+˝àﬁ¨f ùô˛(10·¯8%@/ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)µdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}°
+
+L
+record-type-key9EXPLAIN select * from my_simple_record where rec_no < 400–	
+„ÌÏ¸ä É ‚(<0ÍÒ'8L@=SCAN([IS MY_SIMPLE_RECORD, [LESS_THAN promote(@c7 AS LONG)]])Údigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS MY_SIMPLE_RECORD, [LESS_THAN promote(@c7 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [MY_OTHER_RECORD, MY_SIMPLE_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ü
+]
+record-type-keyJEXPLAIN select * from my_simple_record where rec_no > 200 and rec_no < 500§
+
+„±‹úä àÁÙ(<0‰œ38L@cSCAN([IS MY_SIMPLE_RECORD, [GREATER_THAN promote(@c7 AS LONG) && LESS_THAN promote(@c11 AS LONG)]])†	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS MY_SIMPLE_RECORD, [GREATER_THAN promote(@c7 AS LONG) &amp;&amp; LESS_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [MY_OTHER_RECORD, MY_SIMPLE_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

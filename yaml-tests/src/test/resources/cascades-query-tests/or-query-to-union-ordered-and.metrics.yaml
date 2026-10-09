@@ -1,0 +1,18 @@
+or-query-to-union-ordered-and:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        or (num_value_3_indexed = 1 and num_value_unique = 909) order by num_value_2
+    ref: or-query-to-union-ordered-and.yamsql:56
+    explain: 'COVERING(STR_2 [EQUALS promote(@c7 AS STRING)] -> [NUM_VALUE_2: KEY:[1],
+        REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(NU_2 [EQUALS promote(@c16
+        AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[2]])
+        ∩ COVERING(N3_2 [EQUALS promote(@c12 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO) COMPARE BY
+        (_.NUM_VALUE_2, _.REC_NO) | FETCH'
+    task_count: 1636
+    task_total_time_ms: 22
+    transform_count: 436
+    transform_time_ms: 14
+    transform_yield_count: 195
+    insert_time_ms: 0
+    insert_new_count: 150
+    insert_reused_count: 17

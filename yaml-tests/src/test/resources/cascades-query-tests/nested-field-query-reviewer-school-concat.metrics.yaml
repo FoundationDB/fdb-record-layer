@@ -1,0 +1,14 @@
+nested-field-query-reviewer-school-concat:
+-   query: EXPLAIN select * from restaurant_reviewer where stats.start_date > 0 and
+        stats.school_name = 'Human University'
+    ref: nested-field-query-reviewer-school-concat.yamsql:64
+    explain: ISCAN(STATS_SCHOOL [EQUALS promote(@c15 AS STRING), [GREATER_THAN promote(@c9
+        AS LONG)]])
+    task_count: 459
+    task_total_time_ms: 8
+    transform_count: 109
+    transform_time_ms: 4
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 53
+    insert_reused_count: 5

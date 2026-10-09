@@ -1,0 +1,75 @@
+#
+# repeated-field-query.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRepeatedFieldQueryTest.testComplexQuery7` — a predicate on one element of a
+# repeated column must go through the fan-out index and then deduplicate by primary key, because one
+# record can produce several index entries.
+#
+# `Query.field("repeater").oneOfThem().equalsValue(100)` has no single-token SQL equivalent. The
+# closest faithful form is a correlated `EXISTS` over the unnested array, which keeps the
+# one-row-per-record semantics that `setRemoveDuplicates(true)` gives the source. (A plain array join
+# — `FROM my_simple_record AS r, r.repeater AS v WHERE v = 100` — would emit one row per matching
+# element instead.)
+#
+# The source saves REC_NO 1337 twice, first with REPEATER = [100, 100] and then with [100], to check
+# that the stale fan-out entry is cleaned up. The INSERT + UPDATE below reproduces that.
+#
+# Plan divergence: the source asserts `unorderedPrimaryKeyDistinctPlan` around this scan and the SQL plan
+# has no distinct operator. Harmless here — the fan-out component is equality-bound, so the scan can
+# match at most one element per record. The operator in the source comes from `RecordQuery`'s
+# `removeDuplicates` flag, not from the planner; see .out/issue-exists-fanout-no-distinct.md.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index multi_index as select str_value_indexed, num_value_2, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_2, num_value_3_indexed
+    create index repeater_fanout as
+        select sq.v from my_simple_record as r, (select v from r.repeater as v) as sq order by sq.v
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, REPEATER) VALUES (1337, [100, 100])
+    - query: UPDATE MY_SIMPLE_RECORD SET REPEATER = [100] WHERE REC_NO = 1337
+---
+test_block:
+  name: repeated-field-query
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testComplexQuery7
+      - query: select * from my_simple_record as r
+               where exists (select v from r.repeater as v where v = 100)
+      - explain: "ISCAN(REPEATER_FANOUT [EQUALS @c20])"
+      - result: [{REC_NO: 1337, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _,
+                  NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: [100]}]
+...
