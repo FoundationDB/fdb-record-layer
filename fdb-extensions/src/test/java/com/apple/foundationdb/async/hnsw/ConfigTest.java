@@ -52,6 +52,8 @@ class ConfigTest {
         final int maxNumConcurrentNeighborhoodFetches = 2;
         final int maxNumConcurrentDeleteFromLayer = Config.DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER + 1;
 
+        final int replacementEdgeMaxOutDegree = Config.DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE + 1;
+
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.useInlining()).isNotEqualTo(useInlining);
         Assertions.assertThat(defaultConfig.m()).isNotEqualTo(m);
@@ -73,6 +75,8 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.maxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
         Assertions.assertThat(defaultConfig.maxNumConcurrentDeleteFromLayer()).isNotEqualTo(maxNumConcurrentDeleteFromLayer);
 
+        Assertions.assertThat(defaultConfig.replacementEdgeMaxOutDegree()).isNotEqualTo(replacementEdgeMaxOutDegree);
+
         final Config newConfig =
                 defaultConfig.toBuilder()
                         .setMetric(metric)
@@ -92,6 +96,7 @@ class ConfigTest {
                         .setMaxNumConcurrentNodeFetches(maxNumConcurrentNodeFetches)
                         .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .setMaxNumConcurrentDeleteFromLayer(maxNumConcurrentDeleteFromLayer)
+                        .setReplacementEdgeMaxOutDegree(replacementEdgeMaxOutDegree)
                         .build(768);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -114,6 +119,8 @@ class ConfigTest {
         Assertions.assertThat(newConfig.maxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
         Assertions.assertThat(newConfig.maxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
         Assertions.assertThat(newConfig.maxNumConcurrentDeleteFromLayer()).isEqualTo(maxNumConcurrentDeleteFromLayer);
+
+        Assertions.assertThat(newConfig.replacementEdgeMaxOutDegree()).isEqualTo(replacementEdgeMaxOutDegree);
     }
 
     @Test

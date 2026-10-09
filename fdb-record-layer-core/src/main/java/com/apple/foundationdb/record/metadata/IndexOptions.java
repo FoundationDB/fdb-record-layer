@@ -367,6 +367,18 @@ public class IndexOptions {
     public static final String HNSW_EF_REPAIR = "hnswEfRepair";
 
     /**
+     * HNSW-only: Out-degree below which the delete repair grants one replacement outgoing edge to a node that lost its
+     * reference to a deleted node and received no edge from the repair in its place. The repair adds edges only
+     * towards the nodes the deleted node pointed at, so without a replacement a node that participates in many deletes
+     * can be left with no outgoing edge, and then cannot be traversed through. The replacement restores the out-degree
+     * the node had before the delete, so it never raises a node above that. Setting this to {@code 0} disables
+     * replacement edges.
+     * The default value is set to {@link Config#DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE}.
+     * @see Config#replacementEdgeMaxOutDegree()
+     */
+    public static final String HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE = "hnswReplacementEdgeMaxOutDegree";
+
+    /**
      * HNSW-only: Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is
      * to be extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
      * connected to during the insert operation. The default value is set to {@link Config#DEFAULT_EXTEND_CANDIDATES}.
