@@ -135,4 +135,16 @@ class QuantifierTest {
         };
         assertThat(Quantifier.forEach(scanReference).applyGlue(memoizer, builder)).isSameAs(builder);
     }
+
+    /**
+     * Tests that both variants of {@code applyGlue()} return their input unchanged for a physical quantifier.
+     */
+    @Test
+    void testApplyGlue6() {
+        final Quantifier.Physical quantifier = Quantifier.physical(scanReference);
+        assertThat(quantifier.applyGlue(memoizer, scanReference)).isSameAs(scanReference);
+
+        final Memoizer.ReferenceOfPlansBuilder builder = memoizer.memoizePlansBuilder(ImmutableList.of(scanPlan));
+        assertThat(quantifier.applyGlue(memoizer, builder)).isSameAs(builder);
+    }
 }
