@@ -43,8 +43,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithDefaultOnEmptyOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.withNullOnEmpty;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -56,7 +56,7 @@ public class EliminateNullOnEmptyRule extends AbstractCascadesRule<SelectExpress
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> nullOnEmptyQuantifiers =
-            atLeastOne(forEachQuantifierWithDefaultOnEmptyOverRef(anyRef()));
+            atLeastOne(withNullOnEmpty(true, forEachQuantifier()));
 
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(nullOnEmptyQuantifiers);
