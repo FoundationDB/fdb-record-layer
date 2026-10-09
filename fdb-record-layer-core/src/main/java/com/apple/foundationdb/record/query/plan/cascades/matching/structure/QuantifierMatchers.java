@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -48,7 +47,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * case for most rules.
  * <li>{@link #forEachQuantifier} and {@link #forEachQuantifierOverRef} match any for-each quantifier. Only rules that
  * honor the extra semantics should use them, for example by handing the quantifier on unchanged, or by implementing its
- * semantics in the plans they yield, via {@link Quantifiers#applyGlue}.
+ * semantics in the plans they yield, via {@link Quantifier#applyGlue}.
  * </ul>
  * Rules that use the plain matchers are expected never to encounter a non-plain quantifier. If that assumption turns
  * out to be wrong, the rule does not fire, rather than silently dropping the semantics of the quantifier and producing

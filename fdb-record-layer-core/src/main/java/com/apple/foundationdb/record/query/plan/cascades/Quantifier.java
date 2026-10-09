@@ -34,6 +34,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -217,6 +219,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             // the nullability of our returned type to reflect that
             Type baseType = super.getFlowedObjectType();
             return baseType.overrideIfNullable(isNullOnEmpty);
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Reference reference) {
+            return isNullOnEmpty
+                   ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, reference))
+                   : Optional.empty();
         }
 
         @Override
@@ -422,6 +432,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         public Type getFlowedObjectType() {
             return super.getFlowedObjectType().nullable();
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Reference reference) {
+            return Optional.of(RecordQueryFirstOrDefaultPlan.forExistential(this, reference));
         }
 
         @Nonnull
@@ -823,6 +839,50 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         final var resolvedTypeAcrossReference = getRangesOver().getResultType();
         Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
         return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
+    }
+
+    /**
+     * Applies the “glue” that implements any semantics this quantifier carries beyond simply flowing the records of
+     * its inner. An existential quantifier wraps {@code reference} in a {@link RecordQueryFirstOrDefaultPlan}, and a
+     * for-each quantifier with null-on-empty semantics wraps it in a {@link RecordQueryDefaultOnEmptyPlan}. Any other
+     * quantifier needs no glue, in which case {@code reference} is returned unchanged. (This quantifier is assumed to
+     * range over the logical counterpart to {@code reference}, and provides the alias and the flowed object type.)
+     *
+     * <p>An implementation rule that matches a quantifier which may need glue must apply it to the plans it yields; see
+     * {@link com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers QuantifierMatchers}.
+     * The rule does not need to apply the glue directly over the plans implementing the inner of the quantifier,
+     * though. It may also apply it over plans that it adds on top of those, provided that these added plans produce an
+     * empty result exactly if their input is empty. The glue then triggers in the same cases. Some plans even require
+     * this; a primary-key distinct plan, for instance, cannot operate on the {@code NULL} record that an
+     * {@code ON EMPTY NULL} flows. Moreover, the glue either flows the records of its input unchanged or flows a single
+     * record, so it preserves any distinctness and ordering that its input guarantees.
+     *
+     * @param memoizer the memoizer to memoize the wrapper plan into
+     * @param reference the reference to wrap
+     * @return either {@code reference} itself, or a reference for the wrapper, as described
+     */
+    @Nonnull
+    public final Reference applyGlue(@Nonnull final FinalMemoizer memoizer, @Nonnull final Reference reference) {
+        return createGluePlan(reference).map(memoizer::memoizePlan).orElse(reference);
+    }
+
+    /**
+     * Variant of {@link #applyGlue(FinalMemoizer, Reference)} that takes a {@link Memoizer.ReferenceOfPlansBuilder}
+     * instead of a {@link Reference}.
+     */
+    @Nonnull
+    public final Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
+                                                            @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
+        return createGluePlan(builder.reference()).map(memoizer::memoizePlanBuilder).orElse(builder);
+    }
+
+    /**
+     * Creates the glue plan for {@link #applyGlue(FinalMemoizer, Reference)} over {@code reference}, or returns
+     * {@code Optional.empty()} if this quantifier needs no glue, which is the default.
+     */
+    @Nonnull
+    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Reference reference) {
+        return Optional.empty();
     }
 
     /**

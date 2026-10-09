@@ -1,5 +1,5 @@
 /*
- * QuantifiersTest.java
+ * QuantifierTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,9 +35,9 @@ import javax.annotation.Nonnull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link Quantifiers}.
+ * Tests for {@link Quantifier}.
  */
-class QuantifiersTest {
+class QuantifierTest {
     @Nonnull
     private final Memoizer memoizer = Memoizer.noMemoization(PlannerStage.PLANNED);
     @Nonnull
@@ -61,7 +61,7 @@ class QuantifiersTest {
      */
     @Test
     void testApplyGlue1() {
-        assertThat(Quantifiers.applyGlue(memoizer, Quantifier.forEach(scanReference), scanReference))
+        assertThat(Quantifier.forEach(scanReference).applyGlue(memoizer, scanReference))
                 .isSameAs(scanReference);
     }
 
@@ -72,7 +72,7 @@ class QuantifiersTest {
     @Test
     void testApplyGlue2() {
         final Quantifier.ForEach quantifier = Quantifier.forEachWithNullOnEmpty(scanReference);
-        final Reference glued = Quantifiers.applyGlue(memoizer, quantifier, scanReference);
+        final Reference glued = quantifier.applyGlue(memoizer, scanReference);
 
         final RelationalExpression wrapper = Iterables.getOnlyElement(glued.getFinalExpressions());
         assertThat(wrapper).isInstanceOf(RecordQueryDefaultOnEmptyPlan.class);
@@ -87,7 +87,7 @@ class QuantifiersTest {
     @Test
     void testApplyGlue3() {
         final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
-        final Reference glued = Quantifiers.applyGlue(memoizer, quantifier, scanReference);
+        final Reference glued = quantifier.applyGlue(memoizer, scanReference);
 
         final RelationalExpression wrapper = Iterables.getOnlyElement(glued.getFinalExpressions());
         assertThat(wrapper).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
@@ -102,10 +102,10 @@ class QuantifiersTest {
     @Test
     void testApplyGlue4() {
         final Memoizer.ReferenceOfPlansBuilder builder = memoizer.memoizePlansBuilder(ImmutableList.of(scanPlan));
-        assertThat(Quantifiers.applyGlue(memoizer, Quantifier.forEach(scanReference), builder)).isSameAs(builder);
+        assertThat(Quantifier.forEach(scanReference).applyGlue(memoizer, builder)).isSameAs(builder);
 
         final Quantifier.ForEach quantifier = Quantifier.forEachWithNullOnEmpty(scanReference);
-        final Memoizer.ReferenceOfPlansBuilder glued = Quantifiers.applyGlue(memoizer, quantifier, builder);
+        final Memoizer.ReferenceOfPlansBuilder glued = quantifier.applyGlue(memoizer, builder);
         final RelationalExpression wrapper = Iterables.getOnlyElement(glued.members());
         assertThat(wrapper).isInstanceOf(RecordQueryDefaultOnEmptyPlan.class);
         assertWrapsScanPlan(wrapper, quantifier);

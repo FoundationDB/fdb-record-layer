@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -309,7 +308,7 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
     private Quantifier.Physical planPartitionToPhysical(@Nonnull final ImplementationCascadesRuleCall call, @Nonnull final Quantifier quantifier, @Nonnull final Reference reference, @Nonnull final List<QueryPredicate> predicates, @Nonnull final PlanPartition planPartition) {
         var ref = call.memoizeMemberPlansFromOther(reference, planPartition.getPlans());
 
-        ref = Quantifiers.applyGlue(call, quantifier, ref);
+        ref = quantifier.applyGlue(call, ref);
 
         if (!predicates.isEmpty()) {
             final var newLowerQuantifier = Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref);

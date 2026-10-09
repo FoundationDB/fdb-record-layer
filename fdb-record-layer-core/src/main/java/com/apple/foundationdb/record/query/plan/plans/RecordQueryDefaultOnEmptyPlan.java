@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -89,20 +88,19 @@ public class RecordQueryDefaultOnEmptyPlan extends AbstractRelationalExpressionW
     /**
      * Constructs a {@link RecordQueryDefaultOnEmptyPlan} that implements the null-on-empty semantics carried by the
      * given for-each quantifier. The returned plan ranges over {@code innerReference} via a physical quantifier with
-     * the same alias as {@code quantifier}, and emits a single null row (typed as the flowed object type of the
-     * for-each) when the inner produces no records.
+     * the same alias as {@code forEach}, and emits a single null row (typed as the flowed object type of the for-each)
+     * when the inner produces no records.
      *
-     * @param quantifier a quantifier satisfying {@link Quantifiers#isForEachWithNullOnEmpty}
+     * @param forEach a for-each quantifier with null-on-empty semantics
      * @param innerReference the reference whose plans should be wrapped
      * @return a new {@link RecordQueryDefaultOnEmptyPlan}
      */
     @Nonnull
-    public static RecordQueryDefaultOnEmptyPlan forNullOnEmpty(@Nonnull final Quantifier quantifier,
+    public static RecordQueryDefaultOnEmptyPlan forNullOnEmpty(@Nonnull final Quantifier.ForEach forEach,
                                                                @Nonnull final Reference innerReference) {
-        Verify.verify(Quantifiers.isForEachWithNullOnEmpty(quantifier));
+        Verify.verify(forEach.isNullOnEmpty());
         Debugger.sanityCheck(() -> Verify.verify(
                 innerReference.getFinalExpressions().stream().allMatch(RecordQueryPlan.class::isInstance)));
-        final var forEach = (Quantifier.ForEach)quantifier;
         final Quantifier.Physical inner
                 = Quantifier.physicalBuilder().withAlias(forEach.getAlias()).build(innerReference);
         final NullValue onEmptyResultValue = new NullValue(forEach.getFlowedObjectType());

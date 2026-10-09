@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -136,7 +135,7 @@ public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpres
         }
 
         // Add a FIRST_OR_DEFAULT or an ON EMPTY NULL node if the quantifier requires it.
-        builder = Quantifiers.applyGlue(call, innerQuantifier, builder);
+        builder = innerQuantifier.applyGlue(call, builder);
 
         // Add a FILTER if there are non-tautology predicates.
         final var nonTautologyPredicates =

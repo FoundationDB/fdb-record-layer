@@ -40,8 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.graph.Predicat
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
@@ -69,69 +67,10 @@ import java.util.stream.StreamSupport;
 /**
  * Auxiliary class containing factory methods and helpers for {@link Quantifier}.
  */
-public final class Quantifiers {
+public class Quantifiers {
 
     private Quantifiers() {
         // prevent instantiation
-    }
-
-    /**
-     * Returns whether the given quantifier is a for-each quantifier with null-on-empty semantics.
-     */
-    public static boolean isForEachWithNullOnEmpty(@Nonnull final Quantifier quantifier) {
-        return quantifier instanceof ForEach forEach && forEach.isNullOnEmpty();
-    }
-
-    /**
-     * Applies the “glue” that implements any semantics the given quantifier carries beyond simply flowing the records
-     * of its inner. An existential quantifier is wrapped in a {@link RecordQueryFirstOrDefaultPlan}, and a
-     * for-each quantifier with null-on-empty semantics in a {@link RecordQueryDefaultOnEmptyPlan}. Any other
-     * quantifier needs no glue, in which case {@code reference} is returned unchanged. (The {@code quantifier} is
-     * assumed to range over the logical counterpart to {@code reference}, and provides the alias and the flowed
-     * object type.)
-     *
-     * <p>An implementation rule that matches a quantifier which may need glue must apply it to the plans it yields; see
-     * {@link com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers QuantifierMatchers}.
-     * The rule does not need to apply the glue directly over the plans implementing the inner of the quantifier,
-     * though. It may also apply it over plans that it adds on top of those, provided that these added plans produce an
-     * empty result exactly if their input is empty. The glue then triggers in the same cases. Some plans even require
-     * this; a primary-key distinct plan, for instance, cannot operate on the {@code NULL} record that an
-     * {@code ON EMPTY NULL} flows. Moreover, the glue either flows the records of its input unchanged or flows a single
-     * record, so it preserves any distinctness and ordering that its input guarantees.
-     *
-     * @param memoizer the memoizer to memoize the wrapper plan into
-     * @param quantifier the quantifier that ranges over the logical counterpart of {@code reference}
-     * @param reference the reference to wrap
-     * @return either {@code reference} itself, or a reference for the wrapper, as described
-     */
-    @Nonnull
-    public static Reference applyGlue(@Nonnull final FinalMemoizer memoizer,
-                                      @Nonnull final Quantifier quantifier,
-                                      @Nonnull final Reference reference) {
-        if (quantifier instanceof Existential existential) {
-            return memoizer.memoizePlan(RecordQueryFirstOrDefaultPlan.forExistential(existential, reference));
-        }
-        if (isForEachWithNullOnEmpty(quantifier)) {
-            return memoizer.memoizePlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, reference));
-        }
-        return reference;
-    }
-
-    /**
-     * Variant of {@link #applyGlue(FinalMemoizer, Quantifier, Reference)} that takes a
-     * {@link Memoizer.ReferenceOfPlansBuilder} instead of a {@link Reference}.
-     */
-    @Nonnull
-    public static Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
-                                                             @Nonnull final Quantifier quantifier,
-                                                             @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
-        if (quantifier instanceof Existential existential) {
-            return memoizer.memoizePlanBuilder(RecordQueryFirstOrDefaultPlan.forExistential(existential, builder.reference()));
-        }
-        if (isForEachWithNullOnEmpty(quantifier)) {
-            return memoizer.memoizePlanBuilder(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, builder.reference()));
-        }
-        return builder;
     }
 
     @Nonnull
