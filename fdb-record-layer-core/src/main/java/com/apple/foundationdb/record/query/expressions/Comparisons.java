@@ -1035,7 +1035,7 @@ public class Comparisons {
         @Nullable
         @Override
         public Value getValue() {
-            return LiteralValue.ofScalar(getComparand());
+            return new LiteralValue<>(getComparand());
         }
 
         @Nonnull
