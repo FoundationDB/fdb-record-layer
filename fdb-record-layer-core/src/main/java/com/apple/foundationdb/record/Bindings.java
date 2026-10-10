@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PParameterComparison.PBindingKind;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
@@ -133,7 +134,7 @@ public class Bindings {
         } else if (parent != null) {
             return parent.get(name);
         } else {
-            throw new RecordCoreException("Missing binding for " + name);
+            throw new MissingBindingException("Missing binding").addLogInfo(LogMessageKeys.NAME, name);
         }
     }
 
@@ -168,6 +169,22 @@ public class Bindings {
     @Override
     public String toString() {
         return "Bindings(" + asMappingList() + ")";
+    }
+
+    /**
+     * Thrown by {@link #get(String)} when no binding exists for the requested name. A distinct
+     * {@link RecordCoreException} subtype so a caller that can tolerate an absent binding catches this case alone.
+     *
+     * <p>There is one such caller: matching a filtered index in
+     * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges}, where a range
+     * boundary that cannot be built simply means the candidate does not match. Everywhere else an absent binding is a
+     * defect and must not be swallowed.</p>
+     */
+    @SuppressWarnings("serial")
+    public static class MissingBindingException extends RecordCoreException {
+        public MissingBindingException(@Nonnull final String message) {
+            super(message);
+        }
     }
 
     /**
