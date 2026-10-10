@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -276,7 +278,40 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
             return ImmutableList.of();
         }
 
+        if (!withOrdinality
+                && candidateExpression instanceof final ExplodeExpression candidateExplodeExpression
+                && candidateExplodeExpression.isWithOrdinality()) {
+            return subsumedByWithOrdinality(candidateExplodeExpression, bindingAliasMap, partialMatchMap);
+        }
+
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
+    }
+
+    /**
+     * Establishes that an explode <em>without</em> ordinality is subsumed by an explode <em>with</em> ordinality over
+     * the same collection. The candidate emits one {@code (element, ordinal)} struct per element, however this expression
+     * emits just element. That satisfies subsumption: the candidate produces at least everything the query may produce.    
+     *
+     * @param candidateExpression the candidate explode, which must be {@code WITH ORDINALITY}
+     * @param bindingAliasMap a map of aliases defining the equivalence between quantifiers
+     * @param partialMatchMap a map from quantifier to the {@link PartialMatch} pulled up along that quantifier
+     * @return an iterable containing a {@link MatchInfo} if subsumption holds, empty otherwise
+     */
+    @Nonnull
+    private Iterable<MatchInfo> subsumedByWithOrdinality(@Nonnull final ExplodeExpression candidateExpression,
+                                                         @Nonnull final AliasMap bindingAliasMap,
+                                                         @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        if (!collectionValue.semanticEquals(candidateExpression.getCollectionValue(), bindingAliasMap)) {
+            return ImmutableList.of();
+        }
+
+        final var maxMatchMap =
+                MaxMatchMap.compute(getResultValue(), candidateExpression.getResultValue(),
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()));
+
+        return MatchInfo.RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
     }
 
     @Nonnull
