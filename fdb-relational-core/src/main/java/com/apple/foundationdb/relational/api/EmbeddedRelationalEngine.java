@@ -22,11 +22,17 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.OfflineStoredQueriesProcessor;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 
@@ -39,15 +45,20 @@ public class EmbeddedRelationalEngine {
 
     private final MetricRegistry metricRegistry;
 
+    @Nullable
+    private final RelationalPlanCache planCache;
+
     //TODO(bfines) eventually we need to move StoreCatalog into StorageCluster
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
     public EmbeddedRelationalEngine(List<StorageCluster> fdbClusters,
-                                  @Nonnull MetricRegistry metricRegistry) {
+                                  @Nonnull MetricRegistry metricRegistry,
+                                  @Nullable RelationalPlanCache planCache) {
         if (fdbClusters.isEmpty()) {
             throw new IllegalArgumentException("Must specify at least one FDB cluster to connect to");
         }
         this.clusters = fdbClusters;
         this.metricRegistry = metricRegistry;
+        this.planCache = planCache;
     }
 
     public Collection<StorageCluster> getStorageClusters() {
@@ -56,5 +67,27 @@ public class EmbeddedRelationalEngine {
 
     public MetricSet getEngineMetrics() {
         return metricRegistry;
+    }
+
+    @Nullable
+    public RelationalPlanCache getPlanCache() {
+        return planCache;
+    }
+
+    /**
+     * Plans the stored queries of a schema template and puts the plans into the plan cache. Takes the schema
+     * template, the record metadata, a metric collector and the planner options. Does nothing if the engine has no
+     * plan cache.
+     *
+     * <p>The record metadata and the options must be the ones queries get at runtime.</p>
+     */
+    public void planStoredQueries(@Nonnull RecordLayerSchemaTemplate schemaTemplate,
+                                  @Nonnull RecordMetaData recordMetaData,
+                                  @Nonnull MetricCollector metricCollector,
+                                  @Nonnull Options options) {
+        final RelationalPlanCache cache = getPlanCache();
+        if (cache != null) {
+            OfflineStoredQueriesProcessor.planStoredQueries(cache, schemaTemplate, recordMetaData, metricCollector, options);
+        }
     }
 }

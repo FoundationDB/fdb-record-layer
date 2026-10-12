@@ -82,7 +82,7 @@ public final class RecordLayerEngine {
             OfflineStoredQueriesProcessor.planStoredQueriesForSchemaTemplates(planCache, mEngine, templates);
         }
 
-        return new EmbeddedRelationalEngine(clusters, mEngine);
+        return new EmbeddedRelationalEngine(clusters, mEngine, planCache);
     }
 
     private static MetricRegistry convertToRecordLayerEngine(@Nullable MetricRegistry metricsEngine) {
