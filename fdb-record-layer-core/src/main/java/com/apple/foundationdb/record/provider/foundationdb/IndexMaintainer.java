@@ -155,7 +155,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Update associated index for a scanned record during online indexing.
-      * @param newRecord a scanned record that needs to be indexed.
+     * @param newRecord a scanned record that needs to be indexed.
      * @param <M> type of message
      * @return a future that is complete when the index update is done
      */

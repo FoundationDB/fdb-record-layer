@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsReader;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -137,21 +136,11 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
 
     @Override
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Boolean> hasPrimaryKeyAsync(@Nonnull Tuple primaryKey) {
-        return directory.getAgilityContext().apply(context -> {
-            final Subspace keySubspace = subspace.subspace(primaryKey);
-            final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
-                    .setContext(context)
-                    .setScanProperties(ScanProperties.FORWARD_SCAN)
-                    .build();
-            // ignore entries of unknown segments, as findDocument does
-            return kvs.filterAsync(kv -> directory.primaryKeySegmentNameAsync(keySubspace.unpack(kv.getKey()).getLong(0))
-                            .thenApply(Objects::nonNull), 1)
-                    .onNext()
-                    .thenApply(RecordCursorResult::hasNext)
-                    .whenComplete((result, err) -> kvs.close());
-        });
+        // any entry means that the record had been indexed, even if its segment is unknown
+        return directory.getAgilityContext().apply(context ->
+                context.ensureActive().getRange(subspace.subspace(primaryKey).range(), 1).asList()
+                        .thenApply(keyValues -> !keyValues.isEmpty()));
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
