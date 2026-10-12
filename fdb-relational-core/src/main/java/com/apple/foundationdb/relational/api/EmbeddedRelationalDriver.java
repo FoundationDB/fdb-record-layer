@@ -22,9 +22,12 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -96,6 +99,22 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
             return frl.connect(existingTransaction);
         } catch (RelationalException ve) {
             throw ve.toSqlException();
+        }
+    }
+
+    /**
+     * Plans the stored queries of a schema template and puts the plans into the engine's plan cache. Takes the schema
+     * template, the record metadata, a metric collector and the planner options. Does nothing if there is no engine
+     * or the engine has no plan cache.
+     *
+     * <p>The record metadata and the options must be the ones queries get at runtime.</p>
+     */
+    public void planStoredQueries(@Nonnull RecordLayerSchemaTemplate schemaTemplate,
+                                  @Nonnull RecordMetaData recordMetaData,
+                                  @Nonnull MetricCollector metricCollector,
+                                  @Nonnull Options options) {
+        if (engine != null) {
+            engine.planStoredQueries(schemaTemplate, recordMetaData, metricCollector, options);
         }
     }
 
