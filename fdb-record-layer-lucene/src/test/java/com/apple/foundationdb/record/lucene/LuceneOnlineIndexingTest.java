@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
@@ -70,7 +71,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,6 +92,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
@@ -286,6 +290,81 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         NONE,
         V1,
         V2
+    }
+
+    static Stream<Arguments> luceneOnlineIndexingDataModelWhileWriteOnly() {
+        return Stream.of(false, true).flatMap(isGrouped ->
+                Stream.of(false, true).flatMap(isSynthetic ->
+                        Stream.of(false, true).flatMap(primaryKeySegmentIndexEnabled ->
+                                Stream.of(0, 10)
+                                        // Without a primary key segment index, the indexer's delete-by-query of a record
+                                        // that was indexed while write-only does not decrement the partition count, but
+                                        // the following insert increments it (as it did before updateFromIndexer)
+                                        .filter(partitionHighWatermark -> primaryKeySegmentIndexEnabled || partitionHighWatermark == 0)
+                                        .map(partitionHighWatermark ->
+                                                Arguments.of(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, partitionHighWatermark)))));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void luceneOnlineIndexingDataModelWhileWriteOnly(boolean isGrouped, boolean isSynthetic,
+                                                     boolean primaryKeySegmentIndexEnabled, int partitionHighWatermark) throws IOException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(9876543L,
+                (context, metaData, storePath) -> FDBRecordStore.newBuilder()
+                        .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                        .setKeySpacePath(storePath)
+                        .setContext(context)
+                        .setMetaDataProvider(metaData),
+                pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
+                .setPartitionHighWatermark(partitionHighWatermark)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            dataModel.createOrOpenRecordStore(context).markIndexDisabled(dataModel.index).join();
+            context.commit();
+        }
+        // saved while the index is disabled: not indexed
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(2, context, 1);
+            dataModel.saveRecords(2, context, 2);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            dataModel.createOrOpenRecordStore(context).markIndexWriteOnly(dataModel.index).join();
+            context.commit();
+        }
+        // indexed while WRITE_ONLY before the online indexer scans them.
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(2, context, 1);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            timer.reset();
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(dataModel.createOrOpenRecordStore(context))
+                    .setIndex(dataModel.index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+        if (primaryKeySegmentIndexEnabled) {
+            // only the records that were not indexed yet are added, nothing is deleted
+            assertEquals(4, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+        } else {
+            // cannot tell whether a record is already indexed: every scanned record is deleted by query, then added
+            assertEquals(6, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+            assertEquals(6, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(dataModel.createOrOpenRecordStore(context).getIndexState(dataModel.index).isReadable());
+        }
+        dataModel.validate(this::openContext);
     }
 
     @Nonnull
