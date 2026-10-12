@@ -184,3 +184,100 @@ join-tests:
     insert_time_ms: 4
     insert_new_count: 127
     insert_reused_count: 8
+-   query: EXPLAIN SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept
+        CROSS JOIN project WHERE emp.dept_id = dept.id AND project.emp_id = emp.id
+    ref: cross-join-tests.yamsql:344
+    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
+        FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
+        (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1,
+        q3._1.NAME AS _2) }
+    task_count: 2555
+    task_total_time_ms: 605
+    transform_count: 793
+    transform_time_ms: 215
+    transform_yield_count: 176
+    insert_time_ms: 26
+    insert_new_count: 388
+    insert_reused_count: 35
+-   query: EXPLAIN SELECT emp.fname, dept.name, project.name FROM emp JOIN dept ON
+        emp.dept_id = dept.id JOIN project ON project.emp_id = emp.id
+    ref: cross-join-tests.yamsql:350
+    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
+        FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
+        (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1,
+        q3._1.NAME AS _2) }
+    task_count: 2555
+    task_total_time_ms: 145
+    transform_count: 793
+    transform_time_ms: 61
+    transform_yield_count: 176
+    insert_time_ms: 9
+    insert_new_count: 388
+    insert_reused_count: 35
+-   query: EXPLAIN SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept
+        LEFT JOIN project ON project.emp_id = emp.id WHERE emp.dept_id = dept.id AND
+        dept.name = 'Sales'
+    ref: cross-join-tests.yamsql:358
+    explain: ISCAN(DEPTNAME [EQUALS promote(@c41 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT
+        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
+        q1.ID | ON EMPTY NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME
+        AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }
+    task_count: 1453
+    task_total_time_ms: 210
+    transform_count: 434
+    transform_time_ms: 93
+    transform_yield_count: 124
+    insert_time_ms: 7
+    insert_new_count: 201
+    insert_reused_count: 12
+-   query: EXPLAIN SELECT emp.fname, dept.name, project.name FROM emp JOIN dept ON
+        emp.dept_id = dept.id AND dept.name = 'Sales' LEFT JOIN project ON project.emp_id
+        = emp.id
+    ref: cross-join-tests.yamsql:364
+    explain: ISCAN(DEPTNAME [EQUALS promote(@c29 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT
+        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
+        q1.ID | ON EMPTY NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME
+        AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }
+    task_count: 1435
+    task_total_time_ms: 289
+    transform_count: 431
+    transform_time_ms: 131
+    transform_yield_count: 122
+    insert_time_ms: 11
+    insert_new_count: 197
+    insert_reused_count: 12
+-   query: EXPLAIN SELECT emp.fname, project.name FROM emp CROSS JOIN dept RIGHT JOIN
+        project ON project.emp_id = emp.id WHERE emp.dept_id = dept.id AND dept.name
+        = 'Sales'
+    ref: cross-join-tests.yamsql:372
+    explain: 'SCAN([IS PROJECT]) | FLATMAP q0 -> { COVERING(EMPDEPT <,> -> [DEPT_ID:
+        KEY:[0], ID: KEY:[2]]) | FILTER q0.EMP_ID EQUALS _.ID | FETCH | FLATMAP q1
+        -> { ISCAN(DEPTNAME <,>) AS q2 RETURN (q1.ID AS _0, q1.FNAME AS FNAME, q1.LNAME
+        AS LNAME, q1.DEPT_ID AS DEPT_ID, q2.ID AS _4, q2.NAME AS NAME) } | FILTER
+        _.DEPT_ID EQUALS _._4 AND _.NAME EQUALS promote(@c37 AS STRING) AS q3 RETURN
+        (q3.FNAME AS FNAME, q0.NAME AS NAME) }'
+    task_count: 1236
+    task_total_time_ms: 145
+    transform_count: 324
+    transform_time_ms: 46
+    transform_yield_count: 103
+    insert_time_ms: 5
+    insert_new_count: 181
+    insert_reused_count: 10
+-   query: EXPLAIN SELECT emp.fname, project.name FROM emp JOIN dept ON emp.dept_id
+        = dept.id AND dept.name = 'Sales' RIGHT JOIN project ON project.emp_id = emp.id
+    ref: cross-join-tests.yamsql:379
+    explain: 'SCAN([IS PROJECT]) | FLATMAP q0 -> { ISCAN(DEPTNAME [EQUALS promote(@c25
+        AS STRING)]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID:
+        KEY:[0], ID: KEY:[2]]) | FILTER q0.EMP_ID EQUALS _.ID | FETCH AS q2 RETURN
+        (q2.ID AS _0, q2.FNAME AS FNAME, q2.LNAME AS LNAME, q2.DEPT_ID AS DEPT_ID,
+        q1.ID AS _4, q1.NAME AS NAME) } | ON EMPTY NULL AS q3 RETURN (q3.FNAME AS
+        FNAME, q0.NAME AS NAME) }'
+    task_count: 1670
+    task_total_time_ms: 157
+    transform_count: 427
+    transform_time_ms: 65
+    transform_yield_count: 136
+    insert_time_ms: 6
+    insert_new_count: 242
+    insert_reused_count: 14
