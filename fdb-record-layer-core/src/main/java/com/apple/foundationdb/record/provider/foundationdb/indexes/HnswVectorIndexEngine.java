@@ -196,6 +196,8 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.HNSW_M_MAX_0, index, builder::setMMax0);
         applyInteger(VectorIndexOptionKeys.HNSW_EF_CONSTRUCTION, index, builder::setEfConstruction);
         applyInteger(VectorIndexOptionKeys.HNSW_EF_REPAIR, index, builder::setEfRepair);
+        applyInteger(VectorIndexOptionKeys.HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE, index,
+                builder::setReplacementEdgeMaxOutDegree);
         applyBoolean(VectorIndexOptionKeys.HNSW_EXTEND_CANDIDATES, index, builder::setExtendCandidates);
         applyBoolean(VectorIndexOptionKeys.HNSW_KEEP_PRUNED_CONNECTIONS, index, builder::setKeepPrunedConnections);
         applyDouble(VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY, index,
@@ -243,6 +245,8 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                 newConfig.efConstruction(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.HNSW_EF_REPAIR, oldConfig.efRepair(),
                 newConfig.efRepair(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE,
+                oldConfig.replacementEdgeMaxOutDegree(), newConfig.replacementEdgeMaxOutDegree(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.HNSW_EXTEND_CANDIDATES, oldConfig.extendCandidates(),
                 newConfig.extendCandidates(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.HNSW_KEEP_PRUNED_CONNECTIONS,

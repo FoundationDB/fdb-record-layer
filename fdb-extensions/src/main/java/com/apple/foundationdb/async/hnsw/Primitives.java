@@ -582,6 +582,18 @@ public class Primitives {
     }
 
     /**
+     * The maximum number of neighbors a node may keep on the given layer: {@link Config#mMax0()} on layer 0 and
+     * {@link Config#mMax()} on every layer above it. Layer 0 holds every node and is the layer a search ends on, which
+     * is why it has its own, larger limit.
+     *
+     * @param layer the layer
+     * @return the maximum number of neighbors a node may keep on {@code layer}
+     */
+    int getMMaxForLayer(final int layer) {
+        return layer == 0 ? getConfig().mMax0() : getConfig().mMax();
+    }
+
+    /**
      * Prunes the neighborhood of a given node if its number of connections exceeds the maximum allowed ({@code mMax}).
      * <p>
      * This is a maintenance operation for the HNSW graph. When new nodes are added, an existing node's neighborhood

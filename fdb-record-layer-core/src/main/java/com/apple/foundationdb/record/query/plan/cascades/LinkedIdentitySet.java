@@ -25,7 +25,6 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.AbstractSet;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -52,7 +51,7 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
         this.members = Sets.newLinkedHashSet();
     }
 
-    public LinkedIdentitySet(@Nonnull final Collection<? extends T> collection) {
+    public LinkedIdentitySet(@Nonnull final Iterable<? extends T> collection) {
         this.members = Sets.newLinkedHashSet();
         collection.forEach(element -> this.members.add(identity.wrap(element)));
     }

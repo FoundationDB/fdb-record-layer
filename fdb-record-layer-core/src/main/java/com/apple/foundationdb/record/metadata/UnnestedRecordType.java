@@ -25,14 +25,31 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -42,7 +59,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
 
 /**
  * A {@linkplain SyntheticRecordType synthetic record type} representing an unnesting of some kind of
@@ -356,5 +375,77 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
             }
         }
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.INTERNAL)
+    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
+        final GraphExpansion parentExpansion = getParentConstituent().getRecordType().expand(accessHint);
+        final Map<String, Value> elementValuesByConstituent = new HashMap<>();
+        final GraphExpansion.Builder builder = GraphExpansion.builder().addAllQuantifiers(parentExpansion.getQuantifiers());
+        final ImmutableList.Builder<Column<? extends Value>> positionColumns = ImmutableList.builder();
+        for (final NestedConstituent constituent : getConstituents()) {
+            final Value elementValue;
+            if (constituent.isParent()) {
+                elementValue = Iterables.getOnlyElement(parentExpansion.getResultColumns()).getValue();
+            } else {
+                final Value ownerElementValue =
+                        Objects.requireNonNull(elementValuesByConstituent.get(constituent.getParentName()));
+                final Quantifier.ForEach constituentQuantifier =
+                        constituentQuantifier(ownerElementValue, constituent.getNestingExpression());
+                builder.addQuantifier(constituentQuantifier);
+                final Value flowedValue = constituentQuantifier.getFlowedObjectValue();
+                elementValue = FieldValue.ofOrdinalNumber(flowedValue, 0);
+                final Value positionValue = PromoteValue.inject(FieldValue.ofOrdinalNumber(flowedValue, 1),
+                        Type.primitiveType(Type.TypeCode.LONG, false));
+                positionColumns.add(Column.of(Optional.of(constituent.getName()), positionValue));
+            }
+            elementValuesByConstituent.put(constituent.getName(), elementValue);
+            builder.addResultColumn(Column.of(Optional.of(constituent.getName()), elementValue));
+        }
+        builder.addResultColumn(Column.of(Optional.of(POSITIONS_FIELD),
+                RecordConstructorValue.ofColumns(positionColumns.build())));
+        return builder.build();
+    }
+
+    /**
+     * Builds the quantifier standing for one constituent: a select over an explode of the constituent's array.
+     *
+     * <p>The explode is created {@code WITH ORDINALITY}, so it flows an anonymous {@code (element, ordinal)} struct.
+     * The ordinal is needed to reconstruct the {@code __positions} field of a synthetic record, without which the
+     * synthetic primary key cannot be expressed. The struct is asked for as a record constructor, so that the
+     * element and the ordinal are sub-values a query's values can be matched against.
+     *
+     * @param ownerElementValue the record the array hangs off
+     * @param nestingExpression the constituent's nesting expression
+     * @return a quantifier flowing {@code (element, ordinal)} structs for the constituent's array
+     */
+    @Nonnull
+    private static Quantifier.ForEach constituentQuantifier(@Nonnull final Value ownerElementValue,
+                                                            @Nonnull final KeyExpression nestingExpression) {
+        final Quantifier.ForEach explodeQuantifier =
+                Quantifier.forEach(Reference.initialOf(new ExplodeExpression(
+                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true, true)));
+        return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
+                .seal()
+                .buildSimpleSelectOverQuantifier(explodeQuantifier)));
+    }
+
+    @Nonnull
+    private static List<String> arrayFieldPath(@Nonnull final KeyExpression nestingExpression) {
+        final ImmutableList.Builder<String> pathBuilder = ImmutableList.builder();
+        KeyExpression current = nestingExpression;
+        while (current instanceof final NestingKeyExpression nesting) {
+            final FieldKeyExpression parent = nesting.getParent();
+            pathBuilder.add(ProtoUtils.toUserIdentifier(parent.getFieldName()));
+            final var wrapperFanType = NullableArrayTypeUtils.matchArrayWrapper(nesting);
+            if (wrapperFanType.isPresent()) {
+                return pathBuilder.build();
+            }
+            current = nesting.getChild();
+        }
+        pathBuilder.add(ProtoUtils.toUserIdentifier(((FieldKeyExpression)current).getFieldName()));
+        return pathBuilder.build();
     }
 }

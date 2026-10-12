@@ -542,9 +542,7 @@ public class Insert {
                                                 insertSet);
                                     }
 
-                                    final int currentMMax =
-                                            layer == 0 ? getConfig().mMax0() : getConfig().mMax();
-
+                                    final int mMax = primitives.getMMaxForLayer(layer);
                                     return forEach(selectedNeighbors,
                                             selectedNeighbor -> {
                                                 final NodeReferenceWithDistance selectedNeighborReference =
@@ -554,7 +552,7 @@ public class Insert {
                                                         Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
                                                 return primitives.pruneNeighborsIfNecessary(storageAdapter, transaction,
                                                         storageTransform, distanceEstimator, layer, selectedNeighborReference,
-                                                        currentMMax, changeSet, nodeCache)
+                                                        mMax, changeSet, nodeCache)
                                                         .thenApply(nodeReferencesAndNodes -> {
                                                             if (nodeReferencesAndNodes == null) {
                                                                 return changeSet;

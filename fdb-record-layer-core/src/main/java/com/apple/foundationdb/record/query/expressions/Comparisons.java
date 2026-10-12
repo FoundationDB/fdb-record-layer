@@ -696,25 +696,50 @@ public class Comparisons {
         }
     }
 
+    /**
+     * Returns the comparison type that is the logical negation of the given one, or {@code null} if the comparison
+     * cannot be negated that way.
+     *
+     * <p>Note the difference from {@link #swapComparisonType}, which keeps the meaning of the comparison but exchanges
+     * its operands: Negating {@code <} yields {@code >=}, whereas swapping {@code <} yields {@code >}.
+     *
+     * @param type the comparison type to negate
+     * @return the negated comparison type, or {@code null} if there is none
+     * @see #swapComparisonType
+     */
     @Nullable
     public static Type invertComparisonType(@Nonnull final Type type) {
-        if (type.isUnary()) {
-            return null;
-        }
-        switch (type) {
-            case EQUALS:
-                return Type.NOT_EQUALS;
-            case LESS_THAN:
-                return Type.GREATER_THAN_OR_EQUALS;
-            case LESS_THAN_OR_EQUALS:
-                return Type.GREATER_THAN;
-            case GREATER_THAN:
-                return Type.LESS_THAN_OR_EQUALS;
-            case GREATER_THAN_OR_EQUALS:
-                return Type.LESS_THAN;
-            default:
-                return null;
-        }
+        return switch (type) {
+            case EQUALS -> Type.NOT_EQUALS;
+            case LESS_THAN -> Type.GREATER_THAN_OR_EQUALS;
+            case LESS_THAN_OR_EQUALS -> Type.GREATER_THAN;
+            case GREATER_THAN -> Type.LESS_THAN_OR_EQUALS;
+            case GREATER_THAN_OR_EQUALS -> Type.LESS_THAN;
+            default -> null;
+        };
+    }
+
+    /**
+     * Returns the comparison type that holds when the two operands of a binary comparison are exchanged, or
+     * {@code null} if the comparison cannot be reoriented that way.
+     *
+     * <p>Note the difference from {@link #invertComparisonType}, which negates the comparison instead of exchanging its
+     * operands.
+     *
+     * @param type the comparison type to reorient
+     * @return the reoriented comparison type, or {@code null} if there is none
+     * @see #invertComparisonType
+     */
+    @Nullable
+    public static Type swapComparisonType(@Nonnull final Type type) {
+        return switch (type) {
+            case EQUALS, NOT_EQUALS, NOT_DISTINCT_FROM, IS_DISTINCT_FROM -> type;
+            case LESS_THAN -> Type.GREATER_THAN;
+            case LESS_THAN_OR_EQUALS -> Type.GREATER_THAN_OR_EQUALS;
+            case GREATER_THAN -> Type.LESS_THAN;
+            case GREATER_THAN_OR_EQUALS -> Type.LESS_THAN_OR_EQUALS;
+            default -> null;
+        };
     }
 
     @Nullable

@@ -8,6 +8,65 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.16
 
+{#release-4-16-3-0}
+
+### 4.16.3.0
+
+
+
+**[Full Changelog (4.16.2.0...4.16.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.16.2.0...4.16.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/37783531528)
+
+
+
+{#release-4-16-2-0}
+
+### 4.16.2.0
+
+<h4> New Features </h4>
+
+* Optimize `MetaDataProtoEditor.renameRecordTypes()` - [PR #4536](https://github.com/FoundationDB/fdb-record-layer/pull/4536)
+* Support uncorrelated `EXISTS` subqueries in the select list and `HAVING` clause of grouped queries - [PR #4671](https://github.com/FoundationDB/fdb-record-layer/pull/4671)
+<h4> Bug Fixes </h4>
+
+* Swap rather than negate a comparison that is absorbed by its right operand - [PR #4713](https://github.com/FoundationDB/fdb-record-layer/pull/4713)
+* Remove potential deadlock during `saveRecord` and `deleteRecord` that could occur if the subspace was not cached - [PR #4719](https://github.com/FoundationDB/fdb-record-layer/pull/4719)
+* Honor the `HAVING` clause in queries without `GROUP BY` or aggregate functions - [PR #4682](https://github.com/FoundationDB/fdb-record-layer/pull/4682)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Refactor cost model by splitting up the various steps into defined tiebreakers - [PR #3993](https://github.com/FoundationDB/fdb-record-layer/pull/3993)
+* Resolve flaky test `RankIndexTest.concurrentMutationsToRankIndex` by disabling unsafe concurrency mode - [PR #4716](https://github.com/FoundationDB/fdb-record-layer/pull/4716)
+* Fix flaky TransactionBoundDatabaseTest.copyMultipleStores - [PR #4717](https://github.com/FoundationDB/fdb-record-layer/pull/4717)
+* Refactor `RemoveSortRule` - [PR #4689](https://github.com/FoundationDB/fdb-record-layer/pull/4689)
+
+</details>
+
+
+**[Full Changelog (4.16.1.0...4.16.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.16.1.0...4.16.2.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/37766901845)
+
+
+
 {#release-4-16-1-0}
 
 ### 4.16.1.0
