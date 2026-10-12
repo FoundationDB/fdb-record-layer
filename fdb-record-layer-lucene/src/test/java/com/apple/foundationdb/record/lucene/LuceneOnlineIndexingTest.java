@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
@@ -69,6 +71,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +92,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
@@ -168,6 +174,267 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         String[] allFiles = listFiles(index);
         assertTrue(allFiles.length < 12);
+    }
+
+    @ParameterizedTest
+    @EnumSource(PrimaryKeySegmentIndexVersion.class)
+    void luceneOnlineIndexingRecordSavedWhileWriteOnly(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) throws IOException {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(primaryKeySegmentIndexVersion);
+        disableIndex(index, SIMPLE_DOC);
+        // saved while the index is disabled: not indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1001L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
+            recordStore.saveRecord(createSimpleDocument(1003L, WAYLON + " who?", 1));
+            context.commit();
+        }
+        markIndexWriteOnly(index);
+        // indexed by the saves, before the online indexer scans them
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON + " again", 2));
+            recordStore.saveRecord(createSimpleDocument(2001L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(2002L, WAYLON, 2));
+            context.commit();
+        }
+        buildIndexWithTimer(index);
+        assertIndexerUpdates(primaryKeySegmentIndexVersion, 2, 5);
+        assertIndexedOnce(index, Set.of(1001L, 1002L, 1003L, 2001L, 2002L));
+    }
+
+    @ParameterizedTest
+    @EnumSource(PrimaryKeySegmentIndexVersion.class)
+    void luceneOnlineIndexingRecordDeletedWhileWriteOnly(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) throws IOException {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(primaryKeySegmentIndexVersion);
+        disableIndex(index, SIMPLE_DOC);
+        // saved while the index is disabled: not indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1001L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
+            recordStore.saveRecord(createSimpleDocument(1003L, WAYLON + " who?", 1));
+            context.commit();
+        }
+        markIndexWriteOnly(index);
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(2001L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(2002L, WAYLON, 2));
+            context.commit();
+        }
+        // delete documents after they were added, and a record that was never indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.deleteRecord(Tuple.from(2001L)));
+            assertTrue(recordStore.deleteRecord(Tuple.from(2002L)));
+            assertTrue(recordStore.deleteRecord(Tuple.from(1001L)));
+            context.commit();
+        }
+        // add a deleted document back
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(2002L, WAYLON + " again", 2));
+            context.commit();
+        }
+        buildIndexWithTimer(index);
+        assertIndexerUpdates(primaryKeySegmentIndexVersion, 2, 3);
+        assertIndexedOnce(index, Set.of(1002L, 1003L, 2002L));
+    }
+
+    @ParameterizedTest
+    @EnumSource(PrimaryKeySegmentIndexVersion.class)
+    void luceneOnlineIndexingWithPendingWriteQueue(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) throws IOException {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(primaryKeySegmentIndexVersion);
+        disableIndex(index, SIMPLE_DOC);
+        // saved while the index is disabled: not indexed
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1001L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
+            context.commit();
+        }
+        markIndexWriteOnly(index);
+        // indexed by the save, before the online indexer scans it
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(2001L, WAYLON + " who?", 2));
+            context.commit();
+        }
+        // an ongoing merge makes the writes go to the pending write queue
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager.getManager(state).getDirectory(null, null).setOngoingMergeIndicator();
+            context.commit();
+        }
+        buildIndexWithTimer(index);
+        // queued writes are invisible to the segment index: every record is queued as delete-then-insert
+        assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
+        // the queue is drained by the merge that follows the indexer's commit
+        assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR));
+        assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+        if (primaryKeySegmentIndexVersion == PrimaryKeySegmentIndexVersion.NONE) {
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+            assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+        } else {
+            // only the record that was saved while write-only can be deleted by its primary key
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+            assertEquals(2, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+        }
+        assertIndexedOnce(index, Set.of(1001L, 1002L, 2001L));
+    }
+
+    private enum PrimaryKeySegmentIndexVersion {
+        NONE,
+        V1,
+        V2
+    }
+
+    static Stream<Arguments> luceneOnlineIndexingDataModelWhileWriteOnly() {
+        return Stream.of(false, true).flatMap(isGrouped ->
+                Stream.of(false, true).flatMap(isSynthetic ->
+                        Stream.of(false, true).flatMap(primaryKeySegmentIndexEnabled ->
+                                Stream.of(0, 10)
+                                        // Without a primary key segment index, the indexer's delete-by-query of a record
+                                        // that was indexed while write-only does not decrement the partition count, but
+                                        // the following insert increments it (as it did before updateFromIndexer)
+                                        .filter(partitionHighWatermark -> primaryKeySegmentIndexEnabled || partitionHighWatermark == 0)
+                                        .map(partitionHighWatermark ->
+                                                Arguments.of(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, partitionHighWatermark)))));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void luceneOnlineIndexingDataModelWhileWriteOnly(boolean isGrouped, boolean isSynthetic,
+                                                     boolean primaryKeySegmentIndexEnabled, int partitionHighWatermark) throws IOException {
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(9876543L,
+                (context, metaData, storePath) -> FDBRecordStore.newBuilder()
+                        .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                        .setKeySpacePath(storePath)
+                        .setContext(context)
+                        .setMetaDataProvider(metaData),
+                pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
+                .setPartitionHighWatermark(partitionHighWatermark)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            dataModel.createOrOpenRecordStore(context).markIndexDisabled(dataModel.index).join();
+            context.commit();
+        }
+        // saved while the index is disabled: not indexed
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(2, context, 1);
+            dataModel.saveRecords(2, context, 2);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            dataModel.createOrOpenRecordStore(context).markIndexWriteOnly(dataModel.index).join();
+            context.commit();
+        }
+        // indexed while WRITE_ONLY before the online indexer scans them.
+        try (FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(2, context, 1);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            timer.reset();
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(dataModel.createOrOpenRecordStore(context))
+                    .setIndex(dataModel.index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+        if (primaryKeySegmentIndexEnabled) {
+            // only the records that were not indexed yet are added, nothing is deleted
+            assertEquals(4, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+        } else {
+            // cannot tell whether a record is already indexed: every scanned record is deleted by query, then added
+            assertEquals(6, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+            assertEquals(6, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(dataModel.createOrOpenRecordStore(context).getIndexState(dataModel.index).isReadable());
+        }
+        dataModel.validate(this::openContext);
+    }
+
+    @Nonnull
+    private static Index simpleTextSuffixesWithPrimaryKeySegmentIndex(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) {
+        // note: the pending write queue is enabled, but only used during an ongoing merge
+        return LuceneIndexTestUtils.simpleTextSuffixesIndex(options -> {
+            switch (primaryKeySegmentIndexVersion) {
+                case V1:
+                    options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
+                    break;
+                case V2:
+                    // implied by the primary key segment index V2
+                    options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
+                    options.put(PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+
+    private void assertIndexerUpdates(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion,
+                                      int notIndexedCount, int scannedCount) {
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+        if (primaryKeySegmentIndexVersion == PrimaryKeySegmentIndexVersion.NONE) {
+            // cannot tell whether a record is already indexed: every scanned record is deleted by query, then added
+            assertEquals(scannedCount, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+            assertEquals(scannedCount, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+        } else {
+            // only the records that were not indexed yet are added, nothing is deleted
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+            assertEquals(notIndexedCount, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+        }
+    }
+
+    private void markIndexWriteOnly(Index index) {
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.markIndexWriteOnly(index).join();
+            context.commit();
+        }
+    }
+
+    private void buildIndexWithTimer(Index index) {
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            timer.reset();
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+        }
+    }
+
+    private void assertIndexedOnce(Index index, Set<Long> expectedDocIds) throws IOException {
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertTrue(recordStore.getIndexState(index).isReadable());
+        }
+        // ungrouped and unpartitioned: a single group, and the timestamps are not used
+        final Map<Tuple, Tuple> expectedDocuments = expectedDocIds.stream()
+                .collect(Collectors.toMap(Tuple::from, docId -> Tuple.from()));
+        new LuceneIndexTestValidator(this::openContext, context -> {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            return recordStore;
+        }).validate(index, Map.of(Tuple.from(), expectedDocuments), "*:*");
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
@@ -464,13 +731,13 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     private String randomText(Random rn) {
-        switch (rn.nextInt() % 4) {
-            case 0: return ENGINEER_JOKE;
-            case 1: return WAYLON;
-            case 2: return WAYLON + " says who?";
-            case 3: return ENGINEER_JOKE + " is it really funny?";
-            default: return ENGINEER_JOKE + WAYLON ;
-        }
+        return switch (rn.nextInt() % 4) {
+            case 0 -> ENGINEER_JOKE;
+            case 1 -> WAYLON;
+            case 2 -> WAYLON + " says who?";
+            case 3 -> ENGINEER_JOKE + " is it really funny?";
+            default -> ENGINEER_JOKE + WAYLON;
+        };
     }
 
     private int randomGroup(Random rn) {
@@ -781,7 +1048,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    void luceneOnlineIndexingTestNoMergeIfFilteredOutRecords(boolean filterOut) throws IOException {
+    void luceneOnlineIndexingTestNoMergeIfFilteredOutRecords(boolean filterOut) {
         Index index = new Index(
                 "Map_with_auto_complete$entry-value",
                 new GroupingKeyExpression(field("entry",
@@ -1111,7 +1378,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private static class Terrible2MergingIndexMaintainer extends LuceneIndexMaintainer {
         private final IndexMaintainerState state;
-        private static int pseodoFound = 0;
 
         protected Terrible2MergingIndexMaintainer(final IndexMaintainerState state) {
             super(state, state.context.getExecutor());
@@ -1269,7 +1535,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private static class TerribleRebalanceIndexMaintainer extends LuceneIndexMaintainer {
         private final IndexMaintainerState state;
-        private static int pseodoFound = 0;
 
         protected TerribleRebalanceIndexMaintainer(final IndexMaintainerState state) {
             super(state, state.context.getExecutor());
