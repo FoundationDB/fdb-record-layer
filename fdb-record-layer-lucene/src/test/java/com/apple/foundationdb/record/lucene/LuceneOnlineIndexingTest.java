@@ -71,6 +71,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -174,9 +175,9 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void luceneOnlineIndexingRecordSavedWhileWriteOnly(boolean usePrimaryKeySegmentIndexV2) {
-        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
+    @EnumSource(PrimaryKeySegmentIndexVersion.class)
+    void luceneOnlineIndexingRecordSavedWhileWriteOnly(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(primaryKeySegmentIndexVersion);
         disableIndex(index, SIMPLE_DOC);
         // saved while the index is disabled: not indexed
         try (final FDBRecordContext context = openContext()) {
@@ -186,7 +187,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1003L, WAYLON + " who?", 1));
             context.commit();
         }
-        leaveIndexWriteOnly(index);
+        markIndexWriteOnly(index);
         // indexed by the saves, before the online indexer scans them
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -196,16 +197,14 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         buildIndexWithTimer(index);
-        // only the records that were not indexed yet are added, nothing is deleted
-        assertEquals(2, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
-        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertIndexerUpdates(primaryKeySegmentIndexVersion, 2, 5);
         assertIndexedOnce(index, Set.of(1001L, 1002L, 1003L, 2001L, 2002L));
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void luceneOnlineIndexingRecordDeletedWhileWriteOnly(boolean usePrimaryKeySegmentIndexV2) {
-        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
+    @EnumSource(PrimaryKeySegmentIndexVersion.class)
+    void luceneOnlineIndexingRecordDeletedWhileWriteOnly(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(primaryKeySegmentIndexVersion);
         disableIndex(index, SIMPLE_DOC);
         // saved while the index is disabled: not indexed
         try (final FDBRecordContext context = openContext()) {
@@ -215,7 +214,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1003L, WAYLON + " who?", 1));
             context.commit();
         }
-        leaveIndexWriteOnly(index);
+        markIndexWriteOnly(index);
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.saveRecord(createSimpleDocument(2001L, ENGINEER_JOKE, 2));
@@ -237,16 +236,14 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         buildIndexWithTimer(index);
-        // only the records that were not indexed yet are added, nothing is deleted
-        assertEquals(2, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
-        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        assertIndexerUpdates(primaryKeySegmentIndexVersion, 2, 3);
         assertIndexedOnce(index, Set.of(1002L, 1003L, 2002L));
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void luceneOnlineIndexingWithPendingWriteQueue(boolean usePrimaryKeySegmentIndexV2) {
-        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(usePrimaryKeySegmentIndexV2);
+    @EnumSource(PrimaryKeySegmentIndexVersion.class)
+    void luceneOnlineIndexingWithPendingWriteQueue(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) {
+        Index index = simpleTextSuffixesWithPrimaryKeySegmentIndex(primaryKeySegmentIndexVersion);
         disableIndex(index, SIMPLE_DOC);
         // saved while the index is disabled: not indexed
         try (final FDBRecordContext context = openContext()) {
@@ -255,7 +252,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1002L, WAYLON, 1));
             context.commit();
         }
-        leaveIndexWriteOnly(index);
+        markIndexWriteOnly(index);
         // indexed by the save, before the online indexer scans it
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -280,38 +277,50 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertIndexedOnce(index, Set.of(1001L, 1002L, 2001L));
     }
 
+    private enum PrimaryKeySegmentIndexVersion {
+        NONE,
+        V1,
+        V2
+    }
+
     @Nonnull
-    private static Index simpleTextSuffixesWithPrimaryKeySegmentIndex(boolean usePrimaryKeySegmentIndexV2) {
+    private static Index simpleTextSuffixesWithPrimaryKeySegmentIndex(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion) {
         // note: the pending write queue is enabled, but only used during an ongoing merge
         return LuceneIndexTestUtils.simpleTextSuffixesIndex(options -> {
-            if (usePrimaryKeySegmentIndexV2) {
-                // implied by the primary key segment index V2
-                options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
-                options.put(PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
-            } else {
-                options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
+            switch (primaryKeySegmentIndexVersion) {
+                case V1:
+                    options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
+                    break;
+                case V2:
+                    // implied by the primary key segment index V2
+                    options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
+                    options.put(PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
+                    break;
+                default:
+                    break;
             }
         });
     }
 
-    private void leaveIndexWriteOnly(Index index) {
-        // start indexing, but stop before indexing any record - leaving the index write-only
-        try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            final RuntimeException stopBuildException = new RuntimeException("stop build");
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
-                    .setIndex(index)
-                    .setConfigLoader(config -> {
-                        throw stopBuildException;
-                    })
-                    .build()) {
-                assertSame(stopBuildException, assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(true)));
-            }
+    private void assertIndexerUpdates(PrimaryKeySegmentIndexVersion primaryKeySegmentIndexVersion,
+                                      int notIndexedCount, int scannedCount) {
+        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        if (primaryKeySegmentIndexVersion == PrimaryKeySegmentIndexVersion.NONE) {
+            // cannot tell whether a record is already indexed: every scanned record is deleted by query, then added
+            assertEquals(scannedCount, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+            assertEquals(scannedCount, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+        } else {
+            // only the records that were not indexed yet are added, nothing is deleted
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+            assertEquals(notIndexedCount, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
         }
+    }
+
+    private void markIndexWriteOnly(Index index) {
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            assertTrue(recordStore.getIndexState(index).isWriteOnly());
+            recordStore.markIndexWriteOnly(index).join();
+            context.commit();
         }
     }
 
