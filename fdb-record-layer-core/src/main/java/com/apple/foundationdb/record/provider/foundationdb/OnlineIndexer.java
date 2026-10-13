@@ -225,7 +225,7 @@ public class OnlineIndexer implements AutoCloseable {
             throw partlyBuiltException;
         }
 
-        if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
+        if (indexingPolicy.isByIndex() && IndexingBase.isValidationException(ex)) {
             // Validation failed - the source index cannot be used for records scanning
             if (requestedPolicy != null) {
                 // We tried to continue a previous indexing session, but failed. The best recovery, as it seems,
@@ -268,6 +268,23 @@ public class OnlineIndexer implements AutoCloseable {
                 fallbackToRecordsScan = true;
                 return indexingLauncher(indexingFunc, attemptCount);
             }
+        }
+
+        final IndexingBase.EnqueueFromIndexerException enqueueException = IndexingBase.getEnqueueFromIndexerExceptionIfApplicable(ex);
+        if (enqueueException != null) {
+            // The indexer must not push items to the pending write queue. Merge (and drains the queue), then retry.
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Indexer attempted to enqueue, merging before retry",
+                                LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                                LogMessageKeys.INDEX_NAME, enqueueException.getIndex().getName())
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            return mergeIndexAsync().thenCompose(ignore -> {
+                // mergeIndexAsync may have set a new indexer, retry with a fresh one
+                indexer = null;
+                return indexingLauncher(indexingFunc, attemptCount, requestedPolicy);
+            });
         }
 
         // No handling, throw the error.

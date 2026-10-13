@@ -1253,14 +1253,32 @@ public abstract class IndexingBase {
     }
 
     public static boolean isValidationException(@Nullable Throwable ex) {
-        for (Throwable current = ex;
-                current != null;
-                current = current.getCause()) {
-            if (current instanceof ValidationException) {
-                return true;
-            }
+        return findException(ex, ValidationException.class) != null;
+    }
+
+    /**
+     * Thrown when the indexing process attempts to enqueue an item in pending write queue.
+     */
+    @SuppressWarnings("serial")
+    public static class EnqueueFromIndexerException extends RecordCoreException {
+        @Nonnull
+        private final Index index;
+
+        public EnqueueFromIndexerException(@Nonnull String msg, @Nonnull Index index, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+            this.index = index;
+            addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
         }
-        return false;
+
+        @Nonnull
+        public Index getIndex() {
+            return index;
+        }
+    }
+
+    @Nullable
+    public static EnqueueFromIndexerException getEnqueueFromIndexerExceptionIfApplicable(@Nullable Throwable ex) {
+        return findException(ex, EnqueueFromIndexerException.class);
     }
 
     /**

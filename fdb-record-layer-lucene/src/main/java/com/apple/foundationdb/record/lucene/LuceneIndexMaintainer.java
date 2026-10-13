@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.IndexMaintenanceUtils;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
@@ -427,8 +428,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return shouldUseQueueAsync(groupingKey, partitionId).thenCompose(useQueue -> {
                 // unlikely, but possible path
                 if (Boolean.TRUE.equals(useQueue)) {
-                    // queued writes are invisible to the segment index: fall back to delete-then-insert
-                    return updateRecord(newRecord, null, entry);
+                    // the indexer must never push items to the pending write queue
+                    throw new IndexingBase.EnqueueFromIndexerException("Indexer attempted to enqueue a record", state.index,
+                            LogMessageKeys.INDEX_NAME, state.index.getName(),
+                            LogMessageKeys.GROUPING_KEY, groupingKey,
+                            LogMessageKeys.PARTITION_ID, partitionId,
+                            LogMessageKeys.PRIMARY_KEY, newRecord.getPrimaryKey());
                 }
                 return segmentIndex.hasPrimaryKeyAsync(newRecord.getPrimaryKey())
                         .thenCompose(isIndexed -> Boolean.TRUE.equals(isIndexed) ? AsyncUtil.DONE : addRecord(newRecord, null, entry));
