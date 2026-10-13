@@ -102,7 +102,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             lockStartTime = System.nanoTime();
             fileLockSet(false);
             agilityContext.flush();
-            agilityContext.setCommitCheck(this::ensureValidIfNotClosed);
+            agilityContext.addCommitCheck(this::ensureValidIfNotClosed);
             logSelf("FileLock: Successfully created a file lock");
         }
 

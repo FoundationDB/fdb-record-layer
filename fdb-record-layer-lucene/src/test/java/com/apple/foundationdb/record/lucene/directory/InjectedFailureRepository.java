@@ -52,10 +52,19 @@ public class InjectedFailureRepository {
         LUCENE_MAINTAINER_SKIP_INDEX_UPDATE,
     }
 
+    /**
+     * The points at which an injected action runs.
+     */
+    public enum Hooks {
+        LUCENE_BEFORE_MERGE_INDEX,
+        LUCENE_AFTER_MERGE_INDEX,
+    }
+
     // The injected failure state
     private EnumMap<Methods, FailureDescription> failureDescriptions = new EnumMap<>(Methods.class);
     private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
     private EnumMap<Flags, Boolean> flagsMap = new EnumMap<>(Flags.class);
+    private EnumMap<Hooks, Runnable> hooksMap = new EnumMap<>(Hooks.class);
 
     public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
         failureDescriptions.put(method, new FailureDescription(method, exception, count));
@@ -81,6 +90,17 @@ public class InjectedFailureRepository {
 
     public boolean hasFlag(@Nonnull Flags flag) {
         return Optional.ofNullable(flagsMap.get(flag)).orElse(false);
+    }
+
+    public void setHook(@Nonnull Hooks hook, @Nonnull Runnable action) {
+        hooksMap.put(hook, action);
+    }
+
+    public void runHook(@Nonnull Hooks hook) {
+        final Runnable action = hooksMap.get(hook);
+        if (action != null) {
+            action.run();
+        }
     }
 
     public void checkFailureForIoException(@Nonnull final Methods method) throws IOException {

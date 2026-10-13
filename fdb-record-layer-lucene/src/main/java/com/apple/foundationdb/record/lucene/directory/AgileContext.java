@@ -34,7 +34,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -77,7 +79,7 @@ public class AgileContext implements AgilityContext {
     private boolean committingNow = false;
     private long prevCommitCheckTime;
     private boolean closed = false;
-    private Function<FDBRecordContext, CompletableFuture<Void>> commitCheck;
+    private final List<Function<FDBRecordContext, CompletableFuture<Void>>> commitChecks = new CopyOnWriteArrayList<>();
     private Throwable lastException = null;
 
     @SuppressWarnings("this-escape")
@@ -103,8 +105,8 @@ public class AgileContext implements AgilityContext {
     }
 
     @Override
-    public void setCommitCheck(final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
-        this.commitCheck = commitCheck;
+    public void addCommitCheck(final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
+        commitChecks.add(commitCheck);
     }
 
     @Override
@@ -124,7 +126,7 @@ public class AgileContext implements AgilityContext {
                 ensureOpen();
                 final FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                 currentContext = database.openContext(contextConfig);
-                addCommitCheckToContext(currentContext, commitCheck);
+                addCommitChecksToContext(currentContext, commitChecks);
                 creationTime = now();
                 prevCommitCheckTime = creationTime;
                 currentWriteSize = 0;
@@ -132,8 +134,8 @@ public class AgileContext implements AgilityContext {
         }
     }
 
-    private static void addCommitCheckToContext(final FDBRecordContext commitCheckContext, @Nullable final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
-        if (commitCheck != null) {
+    private static void addCommitChecksToContext(final FDBRecordContext commitCheckContext, final List<Function<FDBRecordContext, CompletableFuture<Void>>> commitChecks) {
+        for (Function<FDBRecordContext, CompletableFuture<Void>> commitCheck : commitChecks) {
             commitCheckContext.addCommitCheck(() -> commitCheck.apply(commitCheckContext));
         }
     }

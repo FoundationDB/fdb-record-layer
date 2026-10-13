@@ -28,12 +28,16 @@ import org.apache.lucene.store.LockFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.Map;
 
 /**
  * A Testing-focused {@link FDBDirectoryWrapper} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
+    @Nonnull
+    private final InjectedFailureRepository injectedFailures;
+
     MockedFDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                               @Nonnull final Tuple key,
                               final int mergeDirectoryCount,
@@ -46,6 +50,14 @@ public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
         // Set the injectedFailures at the end of the constructor since createDirectory() is called from the constructor
         // and we can't pass the injected failures to it yet.
         ((MockedFDBDirectory)getDirectory()).setInjectedFailures(injectedFailures);
+        this.injectedFailures = injectedFailures;
+    }
+
+    @Override
+    public void mergeIndex() throws IOException {
+        injectedFailures.runHook(InjectedFailureRepository.Hooks.LUCENE_BEFORE_MERGE_INDEX);
+        super.mergeIndex();
+        injectedFailures.runHook(InjectedFailureRepository.Hooks.LUCENE_AFTER_MERGE_INDEX);
     }
 
     @Nonnull
