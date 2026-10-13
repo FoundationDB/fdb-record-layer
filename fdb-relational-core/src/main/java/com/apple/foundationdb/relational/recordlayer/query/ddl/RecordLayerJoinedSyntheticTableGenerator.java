@@ -64,7 +64,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * Builds the joined synthetic table an index is defined on, for a definition whose columns come from more than one
  * stored table.
  *
- * <p>Every constituent is inner-joined, one per joined table in the order the plan found them. The equalities relating
+ * <p>Every constituent is inner-joined, one per joined table. The equalities relating
  * the tables become the synthetic table's join conditions — a joined record is precisely the combination of stored
  * records that satisfies them, so there is nothing left to filter.
  */
@@ -145,8 +145,9 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     }
 
     /**
-     * Assigns each joined table a constituent alias derived from the definition: the position its table was found at,
-     * so the same DDL always yields the same metadata.
+     * Assigns each joined table a numbered constituent alias, rather than one taken from the plan's correlations, whose
+     * values differ between runs of the same DDL. The constituents carry no order, so which table gets which number is
+     * not fixed either, and nothing may depend on it.
      *
      * @param constituents the joined tables, by the correlation each is bound to
      *

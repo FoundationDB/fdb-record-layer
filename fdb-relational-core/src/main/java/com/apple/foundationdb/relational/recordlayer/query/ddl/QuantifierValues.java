@@ -153,7 +153,9 @@ final class QuantifierValues {
         @Nonnull
         @Override
         public Value visitQuantifiedObjectValue(@Nonnull final QuantifiedObjectValue element) {
-            if (constituents.containsKey(element.getAlias())) {
+            // A column of a join has to keep which of the tables it is read from, so it stops at that table's
+            // correlation; a single table's resolves down to its record, as for any other quantifier.
+            if (constituents.size() > 1 && constituents.containsKey(element.getAlias())) {
                 return element;
             }
             // what a quantifier stands for may reference another
