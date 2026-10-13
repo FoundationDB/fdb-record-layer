@@ -23,20 +23,23 @@ package com.apple.foundationdb.relational.recordlayer.query.ddl;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerJoinedSyntheticTable;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -44,12 +47,15 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -95,7 +101,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     private final Supplier<SplitPredicates> split;
 
     @Nonnull
-    private final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder;
+    private final Map<String, RecordLayerTable> tableByStorageName;
 
     @Nonnull
     private final String syntheticTableName;
@@ -105,13 +111,14 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
 
     private RecordLayerJoinedSyntheticTableGenerator(@Nonnull final Map<CorrelationIdentifier, ConstituentInfo> constituents,
                                        @Nullable final QueryPredicate predicate,
+                                       @Nonnull final Set<RecordLayerTable> sourceTables,
                                        @Nonnull final QuantifierValues quantifierValues,
-                                       @Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
                                        @Nonnull final String syntheticTableName) {
         this.constituents = constituents;
         this.quantifierValues = quantifierValues;
         this.split = Suppliers.memoize(() -> splitPredicates(predicate, constituents.keySet()));
-        this.schemaTemplateBuilder = schemaTemplateBuilder;
+        this.tableByStorageName = sourceTables.stream().collect(ImmutableMap.toImmutableMap(table ->
+                        Objects.requireNonNull(table.getType().getStorageName()), Function.identity(), (first, second) -> first));
         this.syntheticTableName = syntheticTableName;
         this.syntheticType = Suppliers.memoize(this::computeSyntheticType);
     }
@@ -120,7 +127,6 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      * A generator for the index's joined synthetic table, the definition having been found to range over more than one
      * stored table.
      *
-     * @param schemaTemplateBuilder the metadata the stored record types are looked up in
      * @param spec what the index is made of, whose predicate carries the join conditions
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for, and which of them are stored tables
@@ -128,15 +134,14 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      * @return a generator for the synthetic table, which every join needs
      */
     @Nonnull
-    static Optional<RecordLayerJoinedSyntheticTableGenerator> initIfNeeded(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
-                                                                          @Nonnull final IndexSpec spec,
-                                                                          @Nonnull final String indexName,
-                                                                          @Nonnull final QuantifierValues quantifierValues) {
+    static Optional<RecordLayerJoinedSyntheticTableGenerator> initIfNeeded(@Nonnull final IndexSpec spec,
+                                                                           @Nonnull final String indexName,
+                                                                           @Nonnull final QuantifierValues quantifierValues) {
         final var constituents = nameConstituents(quantifierValues.getConstituents());
         // A synthetic table exists for one index, so its name carries that index's.
         final var syntheticTableName = JOINED_TABLE_NAME_PREFIX + indexName;
         return Optional.of(new RecordLayerJoinedSyntheticTableGenerator(constituents, spec.predicate(),
-                quantifierValues, schemaTemplateBuilder, syntheticTableName));
+                spec.source().tables().keySet(), quantifierValues, syntheticTableName));
     }
 
     /**
@@ -149,12 +154,12 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      */
     @Nonnull
     private static Map<CorrelationIdentifier, ConstituentInfo> nameConstituents(
-            @Nonnull final Map<CorrelationIdentifier, String> constituents) {
+            @Nonnull final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents) {
         final var named = ImmutableMap.<CorrelationIdentifier, ConstituentInfo>builder();
         var ordinal = 0;
         for (final var entry : constituents.entrySet()) {
             named.put(entry.getKey(),
-                    new ConstituentInfo(CONSTITUENT_ALIAS_PREFIX + ordinal++, entry.getValue()));
+                    new ConstituentInfo(CONSTITUENT_ALIAS_PREFIX + ordinal++, entry.getValue().getLeft()));
         }
         return named.build();
     }
@@ -173,10 +178,11 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      */
     @Override
     public void checkSupported(@Nonnull final IndexSpec spec) {
-        // Stated in the order that gives the clearest reason first: what the shape is, before what it lacks.
         Assert.thatUnchecked(!quantifierValues.hasOuterJoin(), ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, an outer join is not supported on an index over a joined synthetic table");
-        Assert.thatUnchecked(quantifierValues.constituentsShareOneSelect(), ErrorCode.UNSUPPORTED_OPERATION,
+        // A join's conditions are read off the predicates of the select its tables are quantifiers of, so every table
+        // has to be a quantifier of the same one: tables in nested selects are not related by any one select's predicates.
+        Assert.thatUnchecked(shareOneOwner(quantifierValues.getConstituents().values()), ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, the joined tables must be selected from directly rather than through a subquery");
         final var projection = spec.projection();
         Assert.thatUnchecked(projection.aggregate() == null, ErrorCode.UNSUPPORTED_OPERATION,
@@ -185,26 +191,55 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         // would make the index depend on which side it was read through.
         Assert.thatUnchecked(projection.versionValues().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, a version column cannot be part of an index over a joined synthetic table");
+        final var predicates = split.get();
+        // Every table has to be related to the others, directly or through another table: one left out would be joined
+        // to every combination of the rest, which is never what an index wants and is maintained on every insert into it.
+        Assert.thatUnchecked(relatesEveryConstituent(predicates.joinConditions(), constituents), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, an index over more than one table requires a join condition relating them, every table to the others");
+    }
+
+    private static boolean relatesEveryConstituent(@Nonnull final List<JoinCondition> joinConditions,
+                                                   @Nonnull Map<CorrelationIdentifier, ConstituentInfo> constituents) {
+        final var related = new HashSet<CorrelationIdentifier>();
+        related.add(constituents.keySet().iterator().next());
+        var grew = true;
+        while (grew) {
+            grew = false;
+            for (final var condition : joinConditions) {
+                if (related.contains(condition.leftAlias()) || related.contains(condition.rightAlias())) {
+                    grew |= related.add(condition.leftAlias());
+                    grew |= related.add(condition.rightAlias());
+                }
+            }
+        }
+        return related.size() == constituents.size();
+    }
+
+    /**
+     * Whether the tables are all quantifiers of one expression.
+     */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static boolean shareOneOwner(@Nonnull final Collection<NonnullPair<String, RelationalExpression>> constituents) {
+        final var owner = constituents.iterator().next().getRight();
+        return constituents.stream().allMatch(constituent -> constituent.getRight() == owner);
     }
 
     /**
      * Splits the definition's predicates into the equalities that relate two constituents, which become the synthetic
      * table's join conditions, and everything else, which stays a filter on the joined record.
-     *
-     * <p>Both DDL spellings arrive here identically: an {@code INNER JOIN ... ON} condition is conjoined into the
-     * {@code WHERE} predicate while the query graph is built, so either way the join appears as an equality predicate
-     * relating two constituents.
      */
     @Nonnull
     private static SplitPredicates splitPredicates(@Nullable final QueryPredicate predicate,
                                                    @Nonnull final Set<CorrelationIdentifier> constituents) {
-        // Without a condition the synthetic table would be the full cross product of its constituents, which is never
-        // what an index wants and would be maintained on every insert into either table.
-        final var conjunction = Assert.notNullUnchecked(predicate, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, an index over more than one table requires a join condition relating them");
+        if (predicate == null) {
+            return new SplitPredicates(List.of(), List.of());
+        }
         final var joinConditions = ImmutableList.<JoinCondition>builder();
         final var residuals = ImmutableList.<QueryPredicate>builder();
-        for (final var conjunct : conjuncts(conjunction)) {
+        final var childPredicates = predicate instanceof AndPredicate
+                                    ? List.copyOf(((AndPredicate)predicate).getChildren())
+                                    : List.of(predicate);
+        for (final var conjunct : childPredicates) {
             final var joinCondition = asJoinCondition(conjunct, constituents);
             if (joinCondition.isPresent()) {
                 joinConditions.add(joinCondition.get());
@@ -212,32 +247,19 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
                 residuals.add(conjunct);
             }
         }
-        final var result = new SplitPredicates(joinConditions.build(), residuals.build());
-        Assert.thatUnchecked(!result.joinConditions().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, an index over more than one table requires a join condition relating them");
-        return result;
-    }
-
-    @Nonnull
-    private static List<QueryPredicate> conjuncts(@Nonnull final QueryPredicate predicate) {
-        // A single condition arrives on its own; several are conjoined, and each conjunct is considered on its own.
-        return predicate instanceof AndPredicate
-               ? ImmutableList.copyOf(((AndPredicate)predicate).getChildren())
-               : ImmutableList.of(predicate);
+        return new SplitPredicates(joinConditions.build(), residuals.build());
     }
 
     /**
-     * Whether a conjunct is an equality between columns of two different constituents, and so a join condition rather
-     * than a filter. Anything else — a comparison against a literal, an inequality, two columns of one constituent — is
-     * a filter on the joined record and is left to {@link #rewriteResidual}.
+     * Whether a predicate is an equality between columns of two different constituents. If so, represent it as a
+     * {@link JoinCondition}.
      */
     @Nonnull
     private static Optional<JoinCondition> asJoinCondition(@Nonnull final QueryPredicate predicate,
                                                            @Nonnull final Set<CorrelationIdentifier> constituents) {
-        if (!(predicate instanceof PredicateWithValueAndRanges)) {
+        if (!(predicate instanceof final PredicateWithValueAndRanges withRanges)) {
             return Optional.empty();
         }
-        final var withRanges = (PredicateWithValueAndRanges)predicate;
         final var comparisons = withRanges.getComparisons();
         if (comparisons.size() != 1) {
             return Optional.empty();
@@ -248,11 +270,11 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         }
         final var left = constituentColumnOf(withRanges.getValue(), constituents);
         final var right = constituentColumnOf(((Comparisons.ValueComparison)comparison).getComparandValue(), constituents);
-        if (left.isEmpty() || right.isEmpty() || left.get().alias().equals(right.get().alias())) {
+        if (left.isEmpty() || right.isEmpty() || left.get().getLeft().equals(right.get().getLeft())) {
             return Optional.empty();
         }
-        return Optional.of(new JoinCondition(left.get().alias(), left.get().keyExpression(),
-                right.get().alias(), right.get().keyExpression()));
+        return Optional.of(new JoinCondition(left.get().getLeft(), left.get().getRight(),
+                right.get().getLeft(), right.get().getRight()));
     }
 
     /**
@@ -260,12 +282,11 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      * constituent's record. Empty when the value is not a column of one constituent.
      */
     @Nonnull
-    private static Optional<ConstituentColumn> constituentColumnOf(@Nonnull final Value value,
+    private static Optional<NonnullPair<CorrelationIdentifier, KeyExpression>> constituentColumnOf(@Nonnull final Value value,
                                                                    @Nonnull final Set<CorrelationIdentifier> constituents) {
-        if (!(value instanceof FieldValue)) {
+        if (!(value instanceof final FieldValue fieldValue)) {
             return Optional.empty();
         }
-        final var fieldValue = (FieldValue)value;
         final var correlations = fieldValue.getCorrelatedTo();
         if (correlations.size() != 1) {
             return Optional.empty();
@@ -283,27 +304,28 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
             final var storageName = Assert.notNullUnchecked(accessors.get(i).getField().getFieldStorageName());
             keyExpression = keyExpression == null ? field(storageName) : field(storageName).nest(keyExpression);
         }
-        return Optional.of(new ConstituentColumn(alias, Objects.requireNonNull(keyExpression)));
+        return Optional.of(NonnullPair.of(alias, Objects.requireNonNull(keyExpression)));
     }
 
     /**
-     * A filter the definition applies on top of the join, re-expressed against the synthetic record so that it can be
-     * stored with the index and evaluated as the joined record is maintained.
+     * A filter the definition applies on top of the join, re-expressed against the synthetic record to be stored with
+     * the index and evaluated as the joined record is maintained.
      */
     @Nonnull
     private QueryPredicate rewriteResidual(@Nonnull final QueryPredicate residual) {
-        Assert.thatUnchecked(residual instanceof PredicateWithValueAndRanges, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, a filter on an index over a joined synthetic table must compare a column against a constant");
-        final var withRanges = (PredicateWithValueAndRanges)residual;
-        // Only the column side is re-rooted, so a comparison whose other side reads a constituent would be left naming a
-        // correlation the synthetic record does not have. Rejected rather than silently mis-stored.
-        for (final var comparison : withRanges.getComparisons()) {
-            Assert.thatUnchecked(comparison.getCorrelatedTo().stream().noneMatch(constituents::containsKey),
-                    ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, a filter on an index over a joined synthetic table cannot compare two of the joined tables");
-        }
-        final var rewriter = new Rewriter(new QueriedValue(getType()));
-        return withRanges.withValue(Objects.requireNonNull(withRanges.getValue().acceptVisitor(rewriter)));
+        final var root = new QueriedValue(getType());
+        return residual.replaceValuesMaybe(value -> Optional.ofNullable(value.replace(leafValue -> {
+            if (leafValue instanceof FieldValue fieldValue && fieldValue.getChild() instanceof QuantifiedObjectValue quantified) {
+                final var constituent = constituents.get(quantified.getAlias());
+                if (constituent != null) {
+                    final var names = ImmutableList.<String>builder().add(constituent.alias());
+                    fieldValue.getFieldPath().getFieldAccessors()
+                            .forEach(accessor -> names.add(accessor.getField().getFieldName()));
+                    return FieldValue.ofFieldNames(root, names.build());
+                }
+            }
+            return leafValue;
+        }))).orElseThrow();
     }
 
     /**
@@ -315,8 +337,8 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
 
     /**
      * The same index, made of the joined synthetic table rather than the stored records: it is the record type the index
-     * is on, and the projection and ordering are resolved against it. The predicate is dropped, having been consumed as
-     * the join conditions.
+     * is on, and the projection, ordering and residual filters are resolved against it. The join conditions are dropped
+     * from the predicate, having been consumed by the synthetic table.
      *
      * @param spec what the index is made of, resolved against the stored records
      *
@@ -327,13 +349,12 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
         Assert.isNullUnchecked(spec.groupBy(), "group by on an index over a joined synthetic table");
         final var residualPredicates = split.get().residuals();
-        // Normalised after re-rooting, so that what is checked to be storable is the form actually stored.
         final var residual = residualPredicates.isEmpty()
                              ? null
-                             : IndexPredicates.normalize(residualPredicates.stream()
+                             : IndexPredicates.conjoin(residualPredicates.stream()
                                      .map(this::rewriteResidual)
                                      .collect(ImmutableList.toImmutableList()));
-        return new IndexSpec(spec.scanCount(), spec.table(), residual, null,
+        return new IndexSpec(1, IndexSpec.Source.of(generate()), residual, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }
@@ -424,7 +445,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         final var fields = ImmutableList.<DataType.StructType.Field>builder();
         var fieldNumber = 1;
         for (final var constituent : constituents.values()) {
-            final var tableType = schemaTemplateBuilder.findTableByStorageName(constituent.recordTypeName()).getDatatype();
+            final var tableType = tableByStorageName.get(constituent.recordTypeName()).getDatatype();
             fields.add(DataType.StructType.Field.from(constituent.alias(), tableType, fieldNumber++));
         }
         return (Type.Record)DataTypeUtils.toRecordLayerType(
@@ -443,18 +464,12 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         final var builder = RecordLayerJoinedSyntheticTable.newBuilder(syntheticType.get());
         constituents.values().forEach(constituent ->
                 builder.addConstituent(constituent.alias(),
-                        schemaTemplateBuilder.findTableByStorageName(constituent.recordTypeName()).getType()));
+                        tableByStorageName.get(constituent.recordTypeName()).getType()));
         split.get().joinConditions().forEach(condition ->
                 builder.addJoinCondition(new RecordLayerJoinedSyntheticTable.JoinCondition(
                         aliasOf(condition.leftAlias()), condition.leftExpression(),
                         aliasOf(condition.rightAlias()), condition.rightExpression())));
         return builder;
-    }
-
-    /**
-     * One side of a join condition: the constituent it reads from, and the column within that constituent's record.
-     */
-    private record ConstituentColumn(@Nonnull CorrelationIdentifier alias, @Nonnull KeyExpression keyExpression) {
     }
 
     /**
