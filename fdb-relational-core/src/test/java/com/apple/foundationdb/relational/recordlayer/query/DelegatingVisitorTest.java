@@ -773,9 +773,36 @@ public class DelegatingVisitorTest {
         Assertions.assertThat(plan).isInstanceOf(QueryPlan.LogicalQueryPlan.class);
         final var resultType = ((QueryPlan.LogicalQueryPlan)plan).getRelationalExpression().getResultType().getInnerType();
 
-        Assertions.assertThat(resultType).isInstanceOf(Type.Record.class);
-        Assertions.assertThat(resultType).isNotNull();
+        Assertions.assertThat(resultType).isInstanceOf(Type.Record.class).isNotNull();
         Assertions.assertThat(((Type.Record)resultType).getFields()).hasSize(2);
+    }
+
+    /**
+     * Covers {@link DelegatingVisitor#visitCrossJoin} and {@link BaseVisitor#visitCrossJoin}: the delegating visitor
+     * must forward the call to its delegate, i.e. {@code BaseVisitor}.
+     */
+    @Test
+    void visitCrossJoinTest() {
+        testSimple("CROSS JOIN table1",
+                RelationalParser::joinPart,
+                (visitor, ctx) -> visitor.visitCrossJoin((RelationalParser.CrossJoinContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nullable
+                    @Override
+                    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+                        called.set(true); // verifies correct delegation
+                        return super.visitCrossJoin(ctx);
+                    }
+
+                    // Stub the table lookup: only a joinPart is parsed here, so there is no plan fragment and the real
+                    // visitAtomTableItem would fail when BaseVisitor#visitCrossJoin visits the right-side table source.
+                    @Nonnull
+                    @Override
+                    public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext ctx) {
+                        return Mockito.mock(LogicalOperator.class);
+                    }
+                });
     }
 
     /**
