@@ -48,15 +48,15 @@ final class SyntheticTableGeneratorFactory {
     static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final IndexSpec spec,
                                                                      @Nonnull final String indexName,
                                                                      @Nonnull final QuantifierValues quantifierValues) {
-        final var numScans = spec.source().tables().values().stream().mapToInt(Integer::intValue).sum();
+        final var scanCount = spec.scanCount();
         final var hasUnnesting = !quantifierValues.getExplodes().isEmpty();
-        if (numScans != 1 && hasUnnesting) {
+        if (scanCount != 1 && hasUnnesting) {
             // The two kinds do not compose yet, and no one kind can serve a definition needing both.
             throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, an unnesting cannot be combined with a join");
-        } else if (numScans > 1) {
+        } else if (scanCount > 1) {
             return RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
-        } else if (numScans == 1 && hasUnnesting) {
+        } else if (scanCount == 1 && hasUnnesting) {
             return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
         } else {
             return Optional.empty();
