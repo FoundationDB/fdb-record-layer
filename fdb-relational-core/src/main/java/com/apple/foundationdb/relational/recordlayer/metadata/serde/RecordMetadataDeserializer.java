@@ -244,20 +244,16 @@ public class RecordMetadataDeserializer {
             @Nonnull final JoinedRecordType joinedRecordType) {
         final var type = Type.Record.fromDescriptorPreservingName(joinedRecordType.getDescriptor());
         final RecordLayerJoinedSyntheticTable.Builder builder = RecordLayerJoinedSyntheticTable.newBuilder(type);
-
         for (final JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
             final Type.Record constituentType = Type.Record.fromDescriptorPreservingName(
                     recordMetaData.getRecordType(constituent.getRecordType().getName()).getDescriptor());
             builder.addConstituent(constituent.getName(), constituentType);
         }
-
         for (final JoinedRecordType.Join join : joinedRecordType.getJoins()) {
             builder.addJoinCondition(new RecordLayerJoinedSyntheticTable.JoinCondition(
                     join.getLeft().getName(), join.getLeftExpression(),
                     join.getRight().getName(), join.getRightExpression()));
         }
-
-        // Reconstruct indexes defined on this synthetic type.
         for (final Index index : joinedRecordType.getIndexes()) {
             builder.addIndex(RecordLayerIndex.from(type.getName(), type.getStorageName(), index));
         }
