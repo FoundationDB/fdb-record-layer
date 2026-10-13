@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
@@ -1777,10 +1776,12 @@ public class SchemaTemplateSerDeTests {
 
         final var recordMetaData = serializeWithSyntheticType(template, syntheticName);
         final var joinedRecordType = (JoinedRecordType) recordMetaData.getSyntheticRecordTypes().get(syntheticName);
-        Assertions.assertEquals(List.of("a.tenant = b.tenant", "a.id = b.id"), joinedRecordType.getJoins().stream()
-                .map(join -> join.getLeft().getName() + "." + ((FieldKeyExpression) join.getLeftExpression()).getFieldName()
-                        + " = " + join.getRight().getName() + "." + ((FieldKeyExpression) join.getRightExpression()).getFieldName())
-                .collect(Collectors.toList()));
+        Assertions.assertEquals(List.of(joinOn("a", "tenant", "b", "tenant"), joinOn("a", "id", "b", "id")),
+                joinedRecordType.getJoins().stream()
+                        .map(join -> new RecordLayerJoinedSyntheticTable.JoinCondition(
+                                join.getLeft().getName(), join.getLeftExpression(),
+                                join.getRight().getName(), join.getRightExpression()))
+                        .collect(Collectors.toList()));
 
         final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
         Assertions.assertEquals(List.of(joinOn("a", "tenant", "b", "tenant"), joinOn("a", "id", "b", "id")),
