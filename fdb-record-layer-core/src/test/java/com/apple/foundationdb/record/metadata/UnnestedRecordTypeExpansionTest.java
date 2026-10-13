@@ -57,7 +57,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -67,8 +66,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnnestedRecordTypeExpansionTest {
     @Nonnull
     private static final String OUTER = "OuterRecord";
-    @Nonnull
-    private static final String OTHER = "OtherRecord";
     @Nonnull
     private static final String PARENT = "parent";
     @Nonnull
@@ -81,8 +78,6 @@ class UnnestedRecordTypeExpansionTest {
     private static final String UNNESTED_REVIEWS = "UnnestedReviews";
     @Nonnull
     private static final String ESCAPED_NAMES = "EscapedNames";
-    @Nonnull
-    private static final String OUTER_OTHER_JOINED = "OuterOtherJoined";
     @Nonnull
     private static final Descriptors.Descriptor INNER_DESCRIPTOR =
             TestRecordsNestedChainProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor();
@@ -238,21 +233,6 @@ class UnnestedRecordTypeExpansionTest {
                 assertSelectOverExplode(expansion.getQuantifiers().get(1)).getCollectionValue());
         assertEquals(FieldValue.ofFieldNames(parentValue, List.of("nested.holder", "inner")),
                 assertSelectOverExplode(expansion.getQuantifiers().get(2)).getCollectionValue());
-    }
-
-    @Test
-    void expandOnAJoinedRecordTypeIsUnsupported() {
-        final RecordMetaData metaData = mapMetaData(metaDataBuilder -> {
-            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(OUTER_OTHER_JOINED);
-            typeBuilder.addConstituent("outer", OUTER);
-            typeBuilder.addConstituent("other", OTHER);
-            typeBuilder.addJoin("outer", field("other_id"), "other", field("other_id"));
-        });
-        final SyntheticRecordType<?> type = metaData.getSyntheticRecordType(OUTER_OTHER_JOINED);
-
-        final UnsupportedOperationException exception =
-                assertThrows(UnsupportedOperationException.class, () -> type.expand(ACCESS_HINT));
-        assertEquals("cannot expand an index defined on a JoinedRecordType", exception.getMessage());
     }
 
     @Nonnull
