@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
-interface TiebreakerResult<T extends RelationalExpression> {
+public interface TiebreakerResult<T extends RelationalExpression> {
 
     @Nonnull
     TiebreakerResult<T> thenApply(@Nonnull Tiebreaker<? super T> nextTiebreaker);

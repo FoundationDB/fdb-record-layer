@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRe
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.costing.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -92,32 +91,26 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedT
 public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
     @Nonnull
-    private static final StableSelectorCostModel stableSelectorCostModel = new StableSelectorCostModel();
+    private static final PlanCacheCostModel planCacheCostModel = new PlanCacheCostModel();
 
     /**
-     * Picks the cheapest of the cached plans that match the lookup, by {@link StableSelectorCostModel}. It captures
-     * nothing and holds no per-query state, so a single instance serves every {@code PlanGenerator}.
+     * Picks the cheapest of the cached plans that match the lookup. Captures nothing, so a single instance serves
+     * every {@code PlanGenerator}. Uses the cost model as a comparator rather than calling
+     * {@link PlanCacheCostModel#getBestExpression} so the chosen {@link RecordQueryPlan} need not be re-associated
+     * with its {@link Plan}.
      */
     @Nonnull
     private static final Reducer<PhysicalPlanEquivalence, Plan<?>> CHEAPEST_PLAN_REDUCER =
             Reducer.of(plans -> plans.reduce(null, (acc, candidate) -> {
-                if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
-                    final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
-                    final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
-                    final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
-                    if (bestQueryPlanSoFar == null ||
-                            // It would be nice to replace this with a call to `stableSelectorCostModel.getBestExpression`
-                            // This currently can't be done without pulling the RecordQueryPlans out of the QueryPlan objects,
-                            // running the cost model, and then re-associate it with the original Plan<?>, which is a bit
-                            // costly. So, for now, just use the cost model as a comparator
-                            stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
-                        return candidate;
-                    } else {
-                        return acc;
-                    }
-                } else {
+                if (!(candidate instanceof QueryPlan.PhysicalQueryPlan)) {
                     return candidate;
                 }
+                if (acc == null) {
+                    return candidate;
+                }
+                final var candidateQueryPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
+                final var bestSoFar = Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
+                return planCacheCostModel.compare(candidateQueryPlan, bestSoFar) < 0 ? candidate : acc;
             }));
 
     /**
