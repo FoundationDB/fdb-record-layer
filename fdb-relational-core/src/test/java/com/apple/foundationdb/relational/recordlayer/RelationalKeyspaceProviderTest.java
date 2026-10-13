@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.assertj.core.api.Assertions;
@@ -27,6 +28,13 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Tests of the {@link RelationalKeyspaceProvider} ensuring that database URIs can be turned into key space paths
@@ -98,5 +106,50 @@ public class RelationalKeyspaceProviderTest {
                 .isEqualTo(keyspaceProvider.getKeySpace().path(defaultDomain)
                         .add(RelationalKeyspaceProvider.DB_NAME_DIR, "theDatabase")
                         .add(RelationalKeyspaceProvider.DEFAULT_SCHEMA_DIR));
+    }
+
+    /**
+     * Concurrently register the same domain from many threads and ensure the keyspace
+     * tree ends up with exactly one subdirectory per domain name. Without synchronization
+     * on {@link RelationalKeyspaceProvider#registerDomainIfNotExists(String)}, two callers
+     * can both observe "not present" and both add the same domain, leaving duplicate
+     * subdirectories that later cause path resolution to throw.
+     */
+    @Test
+    void concurrentRegisterDomainIsAtomic() throws Exception {
+        final int threadCount = 32;
+        final String domainName = "CONCURRENT_DOMAIN";
+        final ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        try {
+            final CountDownLatch startLatch = new CountDownLatch(1);
+            final List<Future<?>> futures = new ArrayList<>(threadCount);
+            for (int i = 0; i < threadCount; i++) {
+                futures.add(executor.submit(() -> {
+                    startLatch.await();
+                    keyspaceProvider.registerDomainIfNotExists(domainName);
+                    return null;
+                }));
+            }
+            // Release all threads at once to maximize the chance of a race.
+            startLatch.countDown();
+            for (Future<?> future : futures) {
+                future.get(30, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        final long matchingSubdirectories = keyspaceProvider.getKeySpace().getRoot().getSubdirectories().stream()
+                .map(KeySpaceDirectory::getName)
+                .filter(domainName::equals)
+                .count();
+        Assertions.assertThat(matchingSubdirectories)
+                .as("registerDomainIfNotExists should not register the same domain more than once")
+                .isEqualTo(1L);
+
+        // The resulting path should still be resolvable without ambiguity.
+        URI uri = URI.create("/" + domainName + "/theDatabase");
+        var dbPath = keyspaceProvider.toDatabasePath(uri);
+        Assertions.assertThat(dbPath.toUri()).isEqualTo(uri);
     }
 }
