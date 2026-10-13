@@ -73,7 +73,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     private static final String JOINED_TABLE_NAME_PREFIX = "__joined_";
 
     /**
-     * Prefixes the alias of each joined constituent, numbered by the order its table was found in.
+     * Prefixes the numbered alias of each joined constituent.
      */
     private static final String CONSTITUENT_ALIAS_PREFIX = "joined_";
 
@@ -146,8 +146,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
 
     /**
      * Assigns each joined table a numbered constituent alias, rather than one taken from the plan's correlations, whose
-     * values differ between runs of the same DDL. The constituents carry no order, so which table gets which number is
-     * not fixed either, and nothing may depend on it.
+     * values differ between runs of the same DDL.
      *
      * @param constituents the joined tables, by the correlation each is bound to
      *
