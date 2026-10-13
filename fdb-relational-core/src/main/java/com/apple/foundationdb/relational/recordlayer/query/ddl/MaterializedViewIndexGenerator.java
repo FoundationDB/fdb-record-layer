@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -36,6 +35,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
@@ -93,18 +93,15 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
-        spec.checkValidity(quantifierValues);
         final var syntheticTableGeneratorMaybe = SyntheticTableGeneratorFactory.forDefinition(
-                schemaTemplateBuilder, spec, indexName, quantifierValues);
-        final Type.Record tableType;
+                spec, indexName, quantifierValues);
         if (syntheticTableGeneratorMaybe.isPresent()) {
             final var syntheticTableGenerator = syntheticTableGeneratorMaybe.get();
             syntheticTableGenerator.checkSupported(spec);
             spec = syntheticTableGenerator.rewrite(spec);
-            tableType = syntheticTableGenerator.getType();
-        } else {
-            tableType = spec.table().getType();
         }
+        spec.checkValidity();
+        final var tableType = spec.source().getRecordType();
         // A column of a synthetic table names its constituent, which has to be navigated on its own rather than merged
         // into a run with its neighbour.
         final var translation = translateToKeyExpression(spec, syntheticTableGeneratorMaybe.isEmpty());
@@ -116,7 +113,8 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
                 .setIndexType(indexType);
         final var predicate = spec.predicate();
         if (predicate != null) {
-            indexBuilder.setPredicate(IndexPredicate.fromQueryPredicate(predicate).toProto());
+            indexBuilder.setPredicate(IndexPredicate.fromQueryPredicate(
+                    IndexPredicates.normalize(List.of(predicate))).toProto());
         }
 
         var keyExpression = translation.keyExpression();
@@ -127,8 +125,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         }
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
-        return new IndexGenerationResult(indexBuilder,
-                syntheticTableGeneratorMaybe.map(SyntheticTableGenerator::generate).orElse(null));
+        return new IndexGenerationResult(indexBuilder, spec.source().syntheticTableBuilder());
     }
 
     /**

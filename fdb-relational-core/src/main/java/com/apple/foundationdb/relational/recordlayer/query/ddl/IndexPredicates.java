@@ -44,10 +44,11 @@ final class IndexPredicates {
     }
 
     /**
-     * The residual conjunction of the select's predicates, normalised to DNF and checked to be one the deserializer
-     * supports. Falls back to the un-normalised conjunction when the DNF cannot be expressed as ranges.
+     * A predicate as it is stored with an index: the residual conjunction of the given predicates, normalised to DNF and
+     * checked to be one the deserializer supports. Falls back to the un-normalised conjunction when the DNF cannot be
+     * expressed as ranges. The predicates have to be over the record type the index is on.
      *
-     * @param predicates the predicates the select carries, at least one
+     * @param predicates the predicates to store, at least one
      *
      * @return the predicate to store
      */
@@ -63,14 +64,7 @@ final class IndexPredicates {
     }
 
     /**
-     * The conjunction of the select's predicates, as they stand. A join's predicates become the joined synthetic table's
-     * join conditions rather than a predicate stored with the index, so neither the DNF normalisation nor the check that
-     * the deserializer can read it back applies — and the join conditions are read off the predicates in the form the
-     * plan built them.
-     *
-     * @param predicates the predicates the select carries, at least one
-     *
-     * @return the conjunction, unnormalised
+     * The conjunction of the given predicates.
      */
     @Nonnull
     static QueryPredicate conjoin(@Nonnull final List<? extends QueryPredicate> predicates) {

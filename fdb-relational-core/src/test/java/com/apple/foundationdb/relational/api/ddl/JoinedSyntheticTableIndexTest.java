@@ -518,7 +518,7 @@ public class JoinedSyntheticTableIndexTest {
         shouldFailWith(TWO_TABLE_SCHEMA
                         + "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b "
                         + "WHERE a.k = b.k AND a.x > b.y order by a.x, b.y ",
-                "cannot compare two of the joined tables");
+                "Unsupported predicate");
     }
 
     @Test
@@ -536,6 +536,18 @@ public class JoinedSyntheticTableIndexTest {
         shouldFailWith(TWO_TABLE_SCHEMA
                         + "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b order by a.x, b.y ",
                 "requires a join condition relating them");
+    }
+
+    /**
+     * A condition relating some of the tables is not enough: the one it leaves out would be joined to every pair of the
+     * others, the cross product the rule against a missing condition exists to prevent.
+     */
+    @Test
+    void tableUnrelatedToTheOthersIsRejected() throws Exception {
+        shouldFailWith(THREE_TABLE_SCHEMA
+                        + "CREATE INDEX mv1 AS SELECT a.x, b.y, c.z FROM T1 AS a, T2 AS b, T3 AS c "
+                        + "WHERE a.k = b.k order by a.x, b.y, c.z ",
+                "every table to the others");
     }
 
     @Test

@@ -20,7 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -37,7 +38,6 @@ final class SyntheticTableGeneratorFactory {
     /**
      * The generator for whichever kind of synthetic table the definition needs.
      *
-     * @param schemaTemplateBuilder the metadata the stored record types are looked up in
      * @param spec what the index is made of
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for
@@ -45,16 +45,18 @@ final class SyntheticTableGeneratorFactory {
      * @return the generator, empty when the index is maintained from a stored table
      */
     @Nonnull
-    static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
-                                                                     @Nonnull final IndexSpec spec,
+    static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final IndexSpec spec,
                                                                      @Nonnull final String indexName,
                                                                      @Nonnull final QuantifierValues quantifierValues) {
-        final var isJoin = quantifierValues.isJoin();
+        final var numScans = spec.source().tables().values().stream().mapToInt(Integer::intValue).sum();
         final var hasUnnesting = !quantifierValues.getExplodes().isEmpty();
-        if (isJoin && !hasUnnesting) {
-            return RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(schemaTemplateBuilder, spec,
-                    indexName, quantifierValues);
-        } else if (hasUnnesting && !isJoin) {
+        if (numScans != 1 && hasUnnesting) {
+            // The two kinds do not compose yet, and no one kind can serve a definition needing both.
+            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, an unnesting cannot be combined with a join");
+        } else if (numScans > 1) {
+            return RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        } else if (numScans == 1 && hasUnnesting) {
             return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
         } else {
             return Optional.empty();
