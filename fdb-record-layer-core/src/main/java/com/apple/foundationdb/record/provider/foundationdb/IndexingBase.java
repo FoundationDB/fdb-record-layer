@@ -1040,10 +1040,10 @@ public abstract class IndexingBase {
                 // This particular index is synthetic, handle with care
                 final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
                 final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
-                return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
+                return syntheticPlan.execute(store, rec).forEachAsync(maintainer::updateFromIndexer, 1);
             }
             // update simple index
-            return store.getIndexMaintainer(indexContext.index).update(null, rec);
+            return store.getIndexMaintainer(indexContext.index).updateFromIndexer(rec);
         });
     }
 
