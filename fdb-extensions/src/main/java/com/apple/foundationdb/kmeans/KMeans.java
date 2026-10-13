@@ -82,6 +82,30 @@ public final class KMeans {
     }
 
     /**
+     * Returns the per-vector geometric objective of the closed-form single-cluster fit of {@code vectors}: their mean
+     * squared L2 distance to their mean in Euclidean mode, and their mean cosine distance to their (normalized) mean in
+     * cosine mode. This is the natural scale of the base objective that the size-balancing penalty competes with in
+     * {@link #fit}, so a balancing strength given relative to it, {@code lambda = lambdaRel * scale}, exerts the same
+     * pressure whatever the metric and the number of dimensions. Consumes no randomness.
+     *
+     * @param distanceEstimator the distance estimator; its metric must be {@code EUCLIDEAN_METRIC} or
+     *                          {@code COSINE_METRIC}, as for {@link #fit}
+     * @param vectorLens lens that extracts a {@link RealVector} from each input element
+     * @param vectors the input points; must not be empty
+     * @param <V> caller's input vector representation
+     * @return the mean per-vector objective of the single-cluster fit
+     */
+    public static <V> double singleClusterObjectivePerVector(@Nonnull final DistanceEstimator distanceEstimator,
+                                                             @Nonnull final Lens<V, RealVector> vectorLens,
+                                                             @Nonnull final List<V> vectors) {
+        Preconditions.checkArgument(!vectors.isEmpty(), "vectors must not be empty");
+        final MetricAdapter metricAdapter = fromEstimator(distanceEstimator);
+        final int numDimensions = getVector(vectorLens, vectors, 0).getNumDimensions();
+        return singleClusterResult(metricAdapter, vectorLens, Lens.<RealVector>identity(), vectors, numDimensions)
+                .objective() / vectors.size();
+    }
+
+    /**
      * Fits {@code k} clusters using a restartable Lloyd-style squared-L2 k-means with k-means++
      * initialization. Returns the best (lowest geometric SSE) result across all restarts.
      * <p>

@@ -563,6 +563,14 @@ public class IndexOptions {
     /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
     public static final String GUARDIANN_K_MEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
 
+    /**
+     * Guardiann-only: the size-balancing strengths k-means tries for a split, in order, as comma-separated doubles
+     * (e.g. {@code "0.0,0.016,0.064"}). Each is relative to the per-vector objective of the population being
+     * repartitioned; a split moves on to the next strength only when every candidate of the previous one was rejected
+     * outright. Non-empty, non-negative and strictly increasing.
+     */
+    public static final String GUARDIANN_K_MEANS_BALANCING_LADDER = "guardiannKMeansBalancingLadder";
+
     /** Guardiann-only: outer clusters considered as replication/migration targets during reassign. */
     public static final String GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS = "guardiannReassignNumNeighboringClusters";
 
