@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
@@ -428,6 +429,80 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertNoHeartbeatsLeft(storeBuilder);
     }
 
+    @Test
+    void testStandaloneMergeBlockedByActiveIndexingSession() {
+        final String indexType = "mergeBlockedByActiveSessionIndex";
+        final AtomicBoolean mergeRan = new AtomicBoolean(false);
+        TestFactory.register(indexType, recordMergeRan(mergeRan));
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        markWriteOnlyAndAddForeignHeartbeat(storeBuilder, true);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            Assertions.assertThrows(SynchronizedSessionLockedException.class, indexer::mergeIndex);
+        }
+        assertThat(mergeRan).isFalse();
+    }
+
+    @Test
+    void testStandaloneMergeIgnoresExpiredIndexingSession() throws InterruptedException {
+        final String indexType = "mergeIgnoresExpiredSessionIndex";
+        final AtomicBoolean mergeRan = new AtomicBoolean(false);
+        TestFactory.register(indexType, recordMergeRan(mergeRan));
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        markWriteOnlyAndAddForeignHeartbeat(storeBuilder, true);
+        Thread.sleep(10);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setLeaseLengthMillis(1)
+                .build()) {
+            indexer.mergeIndex();
+        }
+        assertThat(mergeRan).isTrue();
+    }
+
+    @Test
+    void testStandaloneMergeOfReadableIndexIgnoresHeartbeats() {
+        final String indexType = "mergeReadableIgnoresHeartbeatsIndex";
+        final AtomicBoolean mergeRan = new AtomicBoolean(false);
+        TestFactory.register(indexType, recordMergeRan(mergeRan));
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        markWriteOnlyAndAddForeignHeartbeat(storeBuilder, false);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            indexer.mergeIndex();
+        }
+        assertThat(mergeRan).isTrue();
+    }
+
+    @Nonnull
+    private static Function<IndexMaintainerState, CompletableFuture<Void>> recordMergeRan(final AtomicBoolean mergeRan) {
+        return state -> {
+            adjustMergeControl(state);
+            mergeRan.set(true);
+            return AsyncUtil.DONE;
+        };
+    }
+
+    private void markWriteOnlyAndAddForeignHeartbeat(@Nonnull final FDBRecordStore.Builder storeBuilder, boolean markWriteOnly) {
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
+            if (markWriteOnly) {
+                store.markIndexWriteOnly(index).join();
+            }
+            new IndexingHeartbeat(UUID.randomUUID(), "Test", 0, false).updateHeartbeat(store, index);
+            context.commit();
+        }
+    }
+
     @Nonnull
     private static Function<IndexMaintainerState, CompletableFuture<Void>> observeHeartbeatDuringMerge(
             final AtomicBoolean callbackPresent,
@@ -636,7 +711,10 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     "timeoutExceptionIndex",
                     "nonRetriableRepartitionIndex",
                     "heartbeatDuringBuildIndex",
-                    "heartbeatRegularMergeIndex"
+                    "heartbeatRegularMergeIndex",
+                    "mergeBlockedByActiveSessionIndex",
+                    "mergeIgnoresExpiredSessionIndex",
+                    "mergeReadableIgnoresHeartbeatsIndex"
             );
         }
 

@@ -1083,7 +1083,21 @@ public abstract class IndexingBase {
     }
 
     public CompletableFuture<Void> mergeIndexes() {
-        return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
+        return checkNoActiveIndexingSession()
+                .thenCompose(ignore -> mergeIndexes(new HashSet<>(common.getTargetIndexes())));
+    }
+
+    private CompletableFuture<Void> checkNoActiveIndexingSession() {
+        if (heartbeat != null) {
+            return AsyncUtil.DONE; // part of a build session, which already holds the heartbeat lease
+        }
+        // Stand-alone merge: do not start if another indexer is actively building any of the target indexes
+        final IndexingHeartbeat checker = new IndexingHeartbeat(common.getIndexerId(), "MERGE",
+                common.config.getLeaseLengthMillis(), false);
+        return getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
+                .thenCompose(store -> forEachTargetIndex(index -> store.getIndexState(index).isWriteOnly() ?
+                                                                  checker.checkHeartbeats(store, index) :
+                                                                  AsyncUtil.DONE)));
     }
 
     private CompletableFuture<Void> mergeIndexes(Set<Index> indexesToMerge) {
@@ -1267,7 +1281,6 @@ public abstract class IndexingBase {
         public EnqueueFromIndexerException(@Nonnull String msg, @Nonnull Index index, @Nullable Object ... keyValues) {
             super(msg, keyValues);
             this.index = index;
-            addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
         }
 
         @Nonnull
