@@ -174,17 +174,6 @@ public class EvaluationContext {
     }
 
     /**
-     * Whether the context contains a binding for the evaluation timestamp.
-     * <p>
-     * The evaluation timestamp is a constant timestamp returned by current datetime value functions.
-     *
-     * @return whether a value is bound to the evaluation timestamp
-     */
-    public boolean containsEvaluationTimestamp() {
-        return containsBinding(Bindings.Internal.EVALUATION_TIMESTAMP.bindingName(""));
-    }
-
-    /**
      * Get the value bound to the evaluation timestamp
      * <p>
      * The evaluation timestamp is a constant timestamp returned by current datetime value functions.

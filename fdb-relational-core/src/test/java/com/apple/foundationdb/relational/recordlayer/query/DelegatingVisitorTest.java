@@ -781,4 +781,116 @@ public class DelegatingVisitorTest {
         Assertions.assertThat(result.getSingleItem().getUnderlying()).isEqualTo(LiteralValue.ofScalar(42));
         Assertions.assertThat(called.get()).isTrue();
     }
+
+    @Test
+    void visitDatetimeValueFunctionCallTest() {
+        testSimple("CURRENT_TIMESTAMP()",
+                RelationalParser::functionCall,
+                (visitor, ctx) -> visitor.visitDatetimeValueFunctionCall((RelationalParser.DatetimeValueFunctionCallContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitDatetimeValueFunctionCall(@Nonnull RelationalParser.DatetimeValueFunctionCallContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDatetimeValueFunctionTest() {
+        testSimple("CURRENT_TIMESTAMP",
+                RelationalParser::datetimeValueFunction,
+                DelegatingVisitor::visitDatetimeValueFunction,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitDatetimeValueFunction(@Nonnull RelationalParser.DatetimeValueFunctionContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDatetimePlusMinusIntervalExpressionTest() {
+        testSimple("CURRENT_TIMESTAMP() + INTERVAL '1' DAY",
+                RelationalParser::datetimeIntervalMathExpression,
+                (visitor, ctx) -> visitor.visitDatetimePlusMinusIntervalExpression((RelationalParser.DatetimePlusMinusIntervalExpressionContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitDatetimePlusMinusIntervalExpression(@Nonnull RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitIntervalPlusDatetimeExpressionTest() {
+        testSimple("INTERVAL '1' DAY + CURRENT_TIMESTAMP()",
+                RelationalParser::datetimeIntervalMathExpression,
+                (visitor, ctx) -> visitor.visitIntervalPlusDatetimeExpression((RelationalParser.IntervalPlusDatetimeExpressionContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitIntervalPlusDatetimeExpression(@Nonnull RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitIntervalLiteralTest() {
+        testSimple("INTERVAL '1' DAY",
+                RelationalParser::intervalLiteral,
+                DelegatingVisitor::visitIntervalLiteral,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitIntervalLiteral(@Nonnull RelationalParser.IntervalLiteralContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDayTimeIntervalQualifierTest() {
+        testSimple("DAY TO SECOND",
+                RelationalParser::intervalQualifier,
+                (visitor, ctx) -> visitor.visitDayTimeIntervalQualifier((RelationalParser.DayTimeIntervalQualifierContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitDayTimeIntervalQualifier(@Nonnull RelationalParser.DayTimeIntervalQualifierContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDayTimeIntervalFieldTest() {
+        testSimple("SECOND",
+                RelationalParser::dayTimeIntervalField,
+                DelegatingVisitor::visitDayTimeIntervalField,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitDayTimeIntervalField(@Nonnull RelationalParser.DayTimeIntervalFieldContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
 }

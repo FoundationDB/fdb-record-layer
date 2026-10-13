@@ -1,25 +1,25 @@
 basic-sql-function-tests:
 -   query: EXPLAIN select col1 from t1 where timestamp > CURRENT_TIMESTAMP()
-    ref: datetime-value-functions.yamsql:36
+    ref: datetime-value-functions.yamsql:54
     explain: 'COVERING(I1 [[GREATER_THAN current_timestamp()]] -> [COL1: KEY:[2],
         TIMESTAMP: KEY:[0]]) | MAP (_.COL1 AS COL1)'
     task_count: 307
-    task_total_time_ms: 25
+    task_total_time_ms: 26
     transform_count: 87
-    transform_time_ms: 11
+    transform_time_ms: 10
     transform_yield_count: 25
     insert_time_ms: 1
     insert_new_count: 29
     insert_reused_count: 2
 -   query: EXPLAIN select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL
         '10' DAY
-    ref: datetime-value-functions.yamsql:40
+    ref: datetime-value-functions.yamsql:58
     explain: SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp() -
         @c12 | MAP (_.COL1 AS COL1)
     task_count: 208
-    task_total_time_ms: 93
+    task_total_time_ms: 105
     transform_count: 61
-    transform_time_ms: 70
+    transform_time_ms: 84
     transform_yield_count: 17
     insert_time_ms: 3
     insert_new_count: 18

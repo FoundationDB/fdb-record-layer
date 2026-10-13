@@ -1337,6 +1337,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitSpecificFunctionCall(ctx);
     }
 
+    @Nonnull
     @Override
     public Object visitDatetimeValueFunctionCall(final RelationalParser.DatetimeValueFunctionCallContext ctx) {
         return getDelegate().visitDatetimeValueFunctionCall(ctx);
