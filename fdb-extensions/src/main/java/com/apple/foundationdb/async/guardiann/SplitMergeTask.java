@@ -369,47 +369,13 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                             config.kMeansBalancingLadder().get(0)));
                                 }, config.splitMergeConcurrency(), executor)
                         .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
-                            // The candidates were fitted above with the first strength of the balancing ladder. Only if
-                            // none of them is admissible are the same primary vectors re-fitted with the next, stronger
-                            // balancing, and so on. The re-fits draw from fresh splits of this task's random source:
-                            // they only happen where the split used to fail outright, so a split with an admissible
-                            // candidate sees exactly the same random draws as before.
-                            final List<Double> balancingLadder = config.kMeansBalancingLadder();
-                            List<RepartitioningCandidate> candidates = assignmentCandidates;
-                            Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap =
-                                    scoreSplitCandidates(estimator, innerClusters, candidates);
-                            Optional<RepartitioningCandidate> bestValidCandidateOptional =
+                            final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap =
+                                    evaluateAlongBalancingLadder(random, estimator, innerClusters, assignmentCandidates);
+                            final Optional<RepartitioningCandidate> bestValidCandidateOptional =
                                     selectBestCandidateMaybe(candidateToEvaluationResultMap);
-                            int rung = 0;
-                            while (bestValidCandidateOptional.isEmpty() && rung + 1 < balancingLadder.size()) {
-                                rung++;
-                                final double balancingStrength = balancingLadder.get(rung);
-                                final List<RepartitioningCandidate> refittedCandidates =
-                                        Lists.newArrayListWithCapacity(candidates.size());
-                                for (final RepartitioningCandidate candidate : candidates) {
-                                    refittedCandidates.add(candidate == null
-                                                           ? null
-                                                           : fitPrimaryVectors(candidate.classification(),
-                                                                   candidate.primaryVectorReferences(), random.split(),
-                                                                   estimator,
-                                                                   candidate.classification().coreClusters().size() + 1,
-                                                                   config.kMeansMaxIterations(),
-                                                                   config.kMeansMaxRestarts(), balancingStrength));
-                                }
-                                candidates = refittedCandidates;
-                                candidateToEvaluationResultMap = scoreSplitCandidates(estimator, innerClusters, candidates);
-                                bestValidCandidateOptional = selectBestCandidateMaybe(candidateToEvaluationResultMap);
-                            }
-                            if (rung > 0 && logger.isDebugEnabled()) {
-                                logger.debug("split of cluster {} {} with balancing strength {} (rung {} of {})",
-                                        getTargetClusterId(),
-                                        bestValidCandidateOptional.isPresent() ? "found a candidate" : "found no candidate",
-                                        balancingLadder.get(rung), rung, balancingLadder);
-                            }
-                            final RepartitioningCandidate split1to2Candidate = Objects.requireNonNull(candidates.get(0));
                             if (bestValidCandidateOptional.isEmpty()) {
                                 if (enqueueCollapseIfNecessary(transaction, random,
-                                        split1to2Candidate.primaryVectorReferences(),
+                                        Objects.requireNonNull(assignmentCandidates.get(0)).primaryVectorReferences(),
                                         getTargetClusterId(), centroid)) {
                                     primitives.writeClusterMetadata(transaction,
                                             targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
@@ -420,6 +386,60 @@ class SplitMergeTask extends AbstractDeferredTask {
                             }
                             return bestValidCandidateOptional.get();
                         }));
+    }
+
+    /**
+     * Evaluates a split's candidates along the balancing ladder ({@link Config#kMeansBalancingLadder()}): first the
+     * candidates as fitted with its first strength, then, as long as none of them is admissible, the same primary
+     * vectors re-fitted with each next, stronger one. The re-fits draw from fresh splits of the task's random source:
+     * they only happen where the split used to fail outright, so a split with an admissible candidate sees exactly the
+     * same random draws as before.
+     *
+     * @param random the task's random source
+     * @param estimator the distance estimator
+     * @param innerClusters the core clusters, the target first
+     * @param initialCandidates the 1-to-2 candidate and the 2-to-3 candidate (or {@code null}), in that order, fitted
+     *        with the first strength of the ladder
+     *
+     * @return the candidates of the first strength that produced an admissible one (or, failing that, of the last
+     *         strength), with their verdicts
+     */
+    @Nonnull
+    private Map<RepartitioningCandidate, EvaluationResult> evaluateAlongBalancingLadder(
+            @Nonnull final SplittableRandom random,
+            @Nonnull final DistanceEstimator estimator,
+            @Nonnull final List<Cluster> innerClusters,
+            @Nonnull final List<RepartitioningCandidate> initialCandidates) {
+        final Config config = getConfig();
+        final List<Double> balancingLadder = config.kMeansBalancingLadder();
+        List<RepartitioningCandidate> candidates = initialCandidates;
+        Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap =
+                scoreSplitCandidates(estimator, innerClusters, candidates);
+        int rung = 0;
+        while (selectBestCandidateMaybe(candidateToEvaluationResultMap).isEmpty() && rung + 1 < balancingLadder.size()) {
+            rung++;
+            final double balancingStrength = balancingLadder.get(rung);
+            final List<RepartitioningCandidate> refittedCandidates = Lists.newArrayListWithCapacity(candidates.size());
+            for (final RepartitioningCandidate candidate : candidates) {
+                refittedCandidates.add(candidate == null
+                                       ? null
+                                       : fitPrimaryVectors(candidate.classification(),
+                                               candidate.primaryVectorReferences(), random.split(), estimator,
+                                               candidate.classification().coreClusters().size() + 1,
+                                               config.kMeansMaxIterations(), config.kMeansMaxRestarts(),
+                                               balancingStrength));
+            }
+            candidates = refittedCandidates;
+            candidateToEvaluationResultMap = scoreSplitCandidates(estimator, innerClusters, candidates);
+        }
+        if (rung > 0 && logger.isDebugEnabled()) {
+            logger.debug("split of cluster {} {} with balancing strength {} (rung {} of {})",
+                    getTargetClusterId(),
+                    selectBestCandidateMaybe(candidateToEvaluationResultMap).isPresent()
+                    ? "found a candidate" : "found no candidate",
+                    balancingLadder.get(rung), rung, balancingLadder);
+        }
+        return candidateToEvaluationResultMap;
     }
 
     /**
