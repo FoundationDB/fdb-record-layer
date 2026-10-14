@@ -416,7 +416,8 @@ Join conditions
 - Join conditions should be specified in the ``WHERE`` clause (for comma-separated tables and ``CROSS JOIN``) or the ``ON`` clause (for ``INNER JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``).
 - A ``CROSS JOIN`` takes no ``ON`` condition, but its rows can be filtered with a ``WHERE`` clause (see `Cross join (Cartesian product)`_).
 - Use ``AND`` to combine multiple join conditions and filters.
-- Omitting join conditions produces a Cartesian product (all combinations of rows).
+- ``INNER JOIN`` (or ``JOIN``) requires an ``ON`` condition or a ``USING`` column list; omitting both is a syntax error.
+- Comma-separated tables or a ``CROSS JOIN`` without a ``WHERE`` condition produce a Cartesian product (all combinations of rows).
 
 See also
 ========
