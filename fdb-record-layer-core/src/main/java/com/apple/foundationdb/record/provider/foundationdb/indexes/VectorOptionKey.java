@@ -225,10 +225,10 @@ public final class VectorOptionKey<T> implements PlanHashable {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static VectorOptionKey<List<Double>> ofDoubleList(@Nonnull final String canonicalName,
-                                                             @Nonnull final String... aliases) {
+    public static VectorOptionKey<List<Double>> ofDoubleList(@Nonnull final String canonicalName) {
         // Comma-separated on the wire; the serializer joins with "," so the stored form round-trips through the parser.
-        return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), (Class<List<Double>>)(Class<?>)List.class,
+        // No legacy aliases: list-valued options postdate the renaming that the other factories' aliases cover.
+        return new VectorOptionKey<>(canonicalName, ImmutableList.of(), (Class<List<Double>>)(Class<?>)List.class,
                 value -> Arrays.stream(value.split(",")).map(String::trim).map(Double::parseDouble)
                         .collect(ImmutableList.toImmutableList()),
                 values -> values.stream().map(String::valueOf).collect(Collectors.joining(",")));
