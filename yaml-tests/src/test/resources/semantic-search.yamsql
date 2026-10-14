@@ -212,6 +212,10 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+      # Gated to the current version: d3 and d5 sit 1.7e-4 apart here, which is inside the
+      # one-ulp gap between the old truncating HALF encoding and the new rounded one, so a
+      # mixed-version run can order them d4,d5,d3,d2,d1 instead.
+      - supported_version: !current_version
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
     -
