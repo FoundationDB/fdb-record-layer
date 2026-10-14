@@ -68,9 +68,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -482,6 +484,50 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertThat(mergeRan).isTrue();
     }
 
+    @Test
+    void testEnqueueFromIndexerWaitsForMergeLockLeaseBeforeRetry() {
+        final String indexType = "enqueueWhileMergeLockTakenIndex";
+        final long leaseRemainingMillis = 300;
+        // Long enough to tell apart a delay that falls back to the heartbeat's lease length
+        final long heartbeatLeaseMillis = 60_000;
+        final AtomicLong lastLockTakenNanos = new AtomicLong(0);
+        final AtomicLong retryNanos = new AtomicLong(0);
+        final AtomicBoolean enqueueAttempted = new AtomicBoolean(false);
+        // Another process holds the merge lock, hence every merge attempt fails
+        final Function<IndexMaintainerState, CompletableFuture<Void>> mergeLockTaken = state -> {
+            adjustMergeControl(state);
+            lastLockTakenNanos.set(System.nanoTime());
+            throw new FDBExceptions.FDBStoreLockTakenException("Lock taken", null, leaseRemainingMillis);
+        };
+        // The first record update attempts to enqueue, the following ones (after the retry) succeed
+        final Function<IndexMaintainerState, CompletableFuture<Void>> enqueueOnce = state -> {
+            if (enqueueAttempted.compareAndSet(false, true)) {
+                throw new IndexingBase.EnqueueFromIndexerException("Indexer attempted to enqueue a record", state.index);
+            }
+            retryNanos.compareAndSet(0, System.nanoTime());
+            return AsyncUtil.DONE;
+        };
+        TestFactory.register(indexType, mergeLockTaken, true, enqueueOnce);
+
+        final FDBRecordStore.Builder storeBuilder = createStoreWithUnbuiltIndex(indexType, 20);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setMaxAttempts(1)
+                .setLeaseLengthMillis(heartbeatLeaseMillis)
+                .build()) {
+            indexer.buildIndex();
+        }
+
+        assertThat(enqueueAttempted).isTrue();
+        assertThat(lastLockTakenNanos.get()).isPositive();
+        assertThat(retryNanos.get()).isPositive();
+        // The retry waited for the time left for the lock's lease, not for the heartbeat's lease length
+        assertThat(TimeUnit.NANOSECONDS.toMillis(retryNanos.get() - lastLockTakenNanos.get()))
+                .isGreaterThanOrEqualTo(leaseRemainingMillis)
+                .isLessThan(heartbeatLeaseMillis / 2);
+    }
+
     @Nonnull
     private static Function<IndexMaintainerState, CompletableFuture<Void>> recordMergeRan(final AtomicBoolean mergeRan) {
         return state -> {
@@ -586,6 +632,12 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
         private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation,
                              boolean buildable) {
+            register(name, mergeImplementation, buildable, null);
+        }
+
+        private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation,
+                                     boolean buildable,
+                                     @Nullable Function<IndexMaintainerState, CompletableFuture<Void>> updateImplementation) {
             maintainers.put(name, state -> new IndexMaintainer(state) {
                 @Nonnull
                 @Override
@@ -598,6 +650,9 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
                     if (!buildable) {
                         throw new UnsupportedOperationException();
+                    }
+                    if (updateImplementation != null) {
+                        return updateImplementation.apply(state);
                     }
                     state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(state.index);
                     return AsyncUtil.DONE;
@@ -714,7 +769,8 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     "heartbeatRegularMergeIndex",
                     "mergeBlockedByActiveSessionIndex",
                     "mergeIgnoresExpiredSessionIndex",
-                    "mergeReadableIgnoresHeartbeatsIndex"
+                    "mergeReadableIgnoresHeartbeatsIndex",
+                    "enqueueWhileMergeLockTakenIndex"
             );
         }
 

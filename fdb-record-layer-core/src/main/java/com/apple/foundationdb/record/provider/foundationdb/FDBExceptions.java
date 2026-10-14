@@ -156,8 +156,26 @@ public class FDBExceptions {
      */
     @SuppressWarnings("serial")
     public static class FDBStoreLockTakenException extends RecordCoreRetriableTransactionException {
+        @Nullable
+        private final Long leaseRemainingMillis;
+
         public FDBStoreLockTakenException(String message, Exception cause) {
+            this(message, cause, null);
+        }
+
+        public FDBStoreLockTakenException(String message, Exception cause, @Nullable Long leaseRemainingMillis) {
             super(message, cause);
+            this.leaseRemainingMillis = leaseRemainingMillis;
+        }
+
+        /**
+         * If available, get the lease time that was left when the lock attempt failed. The lock holder may renew the
+         * lease before it expires.
+         * @return the time left in milliseconds, or {@code null} if unknown
+         */
+        @Nullable
+        public Long getLeaseRemainingMillis() {
+            return leaseRemainingMillis;
         }
     }
 

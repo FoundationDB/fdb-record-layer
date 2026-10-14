@@ -284,23 +284,29 @@ public class OnlineIndexer implements AutoCloseable {
             }
             return AsyncUtil.composeHandle(mergeIndexAsync(), (ignore, mergeEx) -> {
                 if (mergeEx == null) {
-                    return AsyncUtil.DONE;
+                    return AsyncUtil.DONE; // Successful drain/merge
                 }
-                if (IndexingBase.findException(mergeEx, FDBExceptions.FDBStoreLockTakenException.class) == null) {
+                final FDBExceptions.FDBStoreLockTakenException lockTakenException =
+                        IndexingBase.findException(mergeEx, FDBExceptions.FDBStoreLockTakenException.class);
+                if (lockTakenException == null) {
                     throw FDBExceptions.wrapException(mergeEx);
                 }
-                // Another process holds the merge lock and is expected to drain the queue. Give it time before retrying.
+                // Another process holds a valid lock. If it is active, it will eventually drain the queue and release the
+                // lock. Maybe this indexer will exhaust all its retries by then.
+                // Just in case the other process is not activated anymore, this indexer will wait to the end of the lock's
+                // lease.
+                // This wait will also serve a throttling mechanism to prevent immediate retries.
+                final Long leaseRemainingMillis = lockTakenException.getLeaseRemainingMillis();
+                final long delayMillis = (leaseRemainingMillis != null ? leaseRemainingMillis : TimeUnit.SECONDS.toMillis(1));
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.build("Merge lock is held by another process, delaying before retry",
                                     LogMessageKeys.CURR_ATTEMPT, attemptCount,
                                     LogMessageKeys.INDEX_NAME, enqueueException.getIndex().getName(),
-                                    LogMessageKeys.DELAY, common.config.getLeaseLengthMillis())
+                                    LogMessageKeys.DELAY, delayMillis)
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .toString());
                 }
-                // The lock's lease length value is probably LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS, but
-                // that value is too hard to get here. Using the heartbeat's lease length as a "good enough" lease length value approximation
-                return MoreAsyncUtil.delayedFuture(common.config.getLeaseLengthMillis() + 100, TimeUnit.MILLISECONDS,
+                return MoreAsyncUtil.delayedFuture(delayMillis, TimeUnit.MILLISECONDS,
                         common.getRunner().getScheduledExecutor());
             }).thenCompose(ignore -> {
                 // mergeIndexAsync may have set a new indexer, retry with a fresh one
