@@ -1222,8 +1222,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     private Expression handleMathExpression(@Nonnull ParserRuleContext leftCtx,
                                             @Nonnull ParserRuleContext rightCtx,
                                             @Nonnull String operator) {
-        final var left = Assert.castUnchecked(leftCtx.accept(this), Expression.class);
-        final var right = Assert.castUnchecked(rightCtx.accept(this), Expression.class);
+        final var left = Assert.castUnchecked(visit(leftCtx), Expression.class);
+        final var right = Assert.castUnchecked(visit(rightCtx), Expression.class);
         return getDelegate().resolveFunction(operator, left, right);
     }
 
