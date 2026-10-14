@@ -88,30 +88,30 @@ public class MoreHalfTest {
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void conversionRoundingTestMaxValue() {
+        // The overflow threshold is MAX_VALUE + 1/2 ulp (65520), not MAX_VALUE (65504), so every float strictly
+        // between the two rounds back down to MAX_VALUE.
         final float smallestFloatGreaterThanHalfMax = Math.nextUp(Half.MAX_VALUE.floatValue());
-        Assertions.assertThat(Half.valueOf(smallestFloatGreaterThanHalfMax)).matches(h -> h.isInfinite());
+        Assertions.assertThat(Half.valueOf(smallestFloatGreaterThanHalfMax)).isEqualTo(Half.MAX_VALUE);
+        Assertions.assertThat(Half.valueOf(Math.nextDown(65520.0f))).isEqualTo(Half.MAX_VALUE);
+        Assertions.assertThat(Half.valueOf(65520.0f)).matches(h -> h.isInfinite());
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void conversionRoundingTestMinValue() {
         //
-        // This conversion in Half implements round-to-nearest, ties-to-even for the half subnormal case by adding
-        // 0x007FF000 (which is 0x00800000 - 0x00001000), then shifting and final rounding. A consequence of this
-        // particular rounding scheme is:
-        // At the boundary we’re probing (mid = 2^-25, float exponent = 102), the expression
-        // ((0x007FF000 + significand) >> 23) stays 0 until significand >= 0x00001000 (4096 float-ULPs at that
-        // exponent), which means Math.nextUp(2^-25f) (only 1 ULP above the midpoint) still rounds to 0 in this
-        // implementation.
+        // The conversion rounds to nearest, ties to even. The boundary we're probing is mid = 2^-25, exactly
+        // half-way between 0 and MIN_VALUE (2^-24): the tie rounds to even, i.e. to zero, and anything strictly
+        // above it -- even by a single float ULP -- rounds up to MIN_VALUE.
         //
         final float midF = Math.scalb(1.0f, -25);                      // 2^-25 exact in float
-        final int bits   = Float.floatToRawIntBits(midF) + 0x00001000; // +4096 ULPs at this exponent
-        final float aboveF = Float.intBitsToFloat(bits);
 
-        final Half h0 = Half.valueOf(Math.nextDown(midF));             // -> 0.0
-        final Half h1 = Half.valueOf(aboveF);                          // -> 2^-24
-
-        Assertions.assertThat(h0.doubleValue()).isEqualTo(0.0);
-        Assertions.assertThat(h1.doubleValue()).isEqualTo(Math.scalb(1.0, -24));
+        Assertions.assertThat(Half.valueOf(Math.nextDown(midF)).doubleValue()).isEqualTo(0.0);
+        Assertions.assertThat(Half.valueOf(midF).doubleValue()).isEqualTo(0.0);
+        Assertions.assertThat(Half.valueOf(Math.nextUp(midF)).doubleValue()).isEqualTo(Math.scalb(1.0, -24));
+        Assertions.assertThat(Half.valueOf(Math.scalb(1.0f, -24)).doubleValue()).isEqualTo(Math.scalb(1.0, -24));
+        // 1.5 * 2^-24 is a tie between MIN_VALUE and 2 * MIN_VALUE; ties to even picks the latter.
+        Assertions.assertThat(Half.valueOf(1.5f * Math.scalb(1.0f, -24)).doubleValue())
+                .isEqualTo(Math.scalb(2.0, -24));
     }
 }
