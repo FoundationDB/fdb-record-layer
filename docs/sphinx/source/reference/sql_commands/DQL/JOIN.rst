@@ -29,6 +29,8 @@ Syntax
 
 The ``INNER`` keyword is optional: ``JOIN`` can be used as a shorthand for ``INNER JOIN``.
 
+Either an ``ON`` condition or a ``USING`` column list is required; omitting both is a syntax error. To produce a cartesian product, use ``CROSS JOIN``.
+
 Parameters
 ----------
 
