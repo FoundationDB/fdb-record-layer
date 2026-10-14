@@ -272,8 +272,10 @@ test_block:
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - supported_version: 4.9.6.0
-      - result: [{'d1', 'The Great Gatsby', 9.9945068359375E-4}]
+      # The expected distance is the encoding of the 0.001 literal itself. Gated to the current version and
+      # updated accordingly: older versions truncate it to 9.9945068359375E-4 rather than rounding to nearest.
+      - supported_version: !current_version
+      - result: [{'d1', 'The Great Gatsby', 0.0010004043579101562}]
     -
       - query:
           select r.reviewId, d2.docId, d2.title
