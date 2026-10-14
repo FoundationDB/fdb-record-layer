@@ -69,7 +69,7 @@ import java.util.List;
  * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
  * @param kMeansBalancingLadder the size-balancing strengths k-means tries for a split, in order, each relative to the
  *        per-vector objective of the population being repartitioned (see
- *        {@link com.apple.foundationdb.kmeans.KMeans#singleClusterObjectivePerVector}) so that one value means the same
+ *        {@link com.apple.foundationdb.kmeans.KMeans#fitWithRelativeLambda}) so that one value means the same
  *        thing for every metric and number of dimensions. A split first partitions with the first strength and only
  *        moves on to the next one when every candidate it produced was rejected outright (see
  *        {@link #minChildFraction()}), so k-means is pushed toward more even children only where it would otherwise

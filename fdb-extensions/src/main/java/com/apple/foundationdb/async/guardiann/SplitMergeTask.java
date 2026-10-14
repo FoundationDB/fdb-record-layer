@@ -389,7 +389,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                                 for (final RepartitioningCandidate candidate : candidates) {
                                     refittedCandidates.add(candidate == null
                                                            ? null
-                                                           : kMeansOfPrimaries(candidate.classification(),
+                                                           : fitPrimaryVectors(candidate.classification(),
                                                                    candidate.primaryVectorReferences(), random.split(),
                                                                    estimator,
                                                                    candidate.classification().coreClusters().size() + 1,
@@ -1152,27 +1152,6 @@ class SplitMergeTask extends AbstractDeferredTask {
     }
 
     /**
-     * The absolute size-balancing strength for {@link KMeans#fit}: {@code balancingStrength} times the per-vector
-     * objective of the single-cluster fit of the primary vectors, which makes the strength mean the same for every
-     * metric and number of dimensions.
-     *
-     * @param estimator the distance estimator
-     * @param primaryVectorReferences the primary vectors being partitioned
-     * @param balancingStrength the relative strength; {@code 0} disables balancing
-     *
-     * @return the lambda to pass to {@link KMeans#fit}
-     */
-    private static double balancingLambda(@Nonnull final DistanceEstimator estimator,
-                                          @Nonnull final List<VectorReference> primaryVectorReferences,
-                                          final double balancingStrength) {
-        if (balancingStrength == 0.0d || primaryVectorReferences.isEmpty()) {
-            return 0.0d;
-        }
-        return balancingStrength *
-                KMeans.singleClusterObjectivePerVector(estimator, VectorReference.vectorLens(), primaryVectorReferences);
-    }
-
-    /**
      * Runs bounded k-means on the primary vectors from the given vector references, partitioning them
      * into {@code targetNumPartitions} clusters. Used by both split and merge paths as the per-candidate
      * clustering step.
@@ -1205,7 +1184,7 @@ class SplitMergeTask extends AbstractDeferredTask {
             }
         }
         // re-fit only the primary vectors
-        return kMeansOfPrimaries(classification, primaryVectorReferencesBuilder.build(), random, estimator,
+        return fitPrimaryVectors(classification, primaryVectorReferencesBuilder.build(), random, estimator,
                 targetNumPartitions, maxIterations, maxRestarts, balancingStrength);
     }
 
@@ -1226,7 +1205,7 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @return an assignment candidate wrapping the k-means result and primary vectors
      */
     @Nonnull
-    private static RepartitioningCandidate kMeansOfPrimaries(@Nonnull final ClusterClassification classification,
+    private static RepartitioningCandidate fitPrimaryVectors(@Nonnull final ClusterClassification classification,
                                                              @Nonnull final List<VectorReference> primaryVectorReferences,
                                                              @Nonnull final SplittableRandom random,
                                                              @Nonnull final DistanceEstimator estimator,
@@ -1235,11 +1214,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                              final int maxRestarts,
                                                              final double balancingStrength) {
         final KMeans.Result<Transformed<RealVector>> kMeansResult =
-                KMeans.fit(random, estimator, VectorReference.vectorLens(),
+                KMeans.fitWithRelativeLambda(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
                         targetNumPartitions, maxIterations,
-                        maxRestarts, balancingLambda(estimator, primaryVectorReferences, balancingStrength),
-                        KMeans.overflowQuadraticPenalty());
+                        maxRestarts, balancingStrength, KMeans.overflowQuadraticPenalty());
         if (logger.isDebugEnabled()) {
             // The closest pair of resulting centroids says whether k-means found real structure or merely cut a
             // homogeneous region: separation on the order of the data's own spread means the partition is following a

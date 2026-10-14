@@ -82,22 +82,54 @@ public final class KMeans {
     }
 
     /**
-     * Returns the per-vector geometric objective of the closed-form single-cluster fit of {@code vectors}: their mean
-     * squared L2 distance to their mean in Euclidean mode, and their mean cosine distance to their (normalized) mean in
-     * cosine mode. This is the natural scale of the base objective that the size-balancing penalty competes with in
-     * {@link #fit}, so a balancing strength given relative to it, {@code lambda = lambdaRel * scale}, exerts the same
-     * pressure whatever the metric and the number of dimensions. Consumes no randomness.
+     * Like {@link #fit}, but with the size-balancing strength given relative to the natural scale of the base objective
+     * of {@code vectors}: {@code lambda = relativeLambda * s}, where {@code s} is the per-vector objective of the
+     * closed-form single-cluster fit (their mean squared L2 distance to their mean in Euclidean mode, their mean cosine
+     * distance to their normalized mean in cosine mode). Unlike an absolute {@code lambda}, a relative strength exerts
+     * the same balancing pressure whatever the metric and the number of dimensions. Computing {@code s} consumes no
+     * randomness, and {@code relativeLambda == 0} is exactly {@link #fit} with {@code lambda == 0}.
      *
-     * @param distanceEstimator the distance estimator; its metric must be {@code EUCLIDEAN_METRIC} or
-     *                          {@code COSINE_METRIC}, as for {@link #fit}
+     * @param random the random source, as for {@link #fit}
+     * @param distanceEstimator the distance estimator, as for {@link #fit}
      * @param vectorLens lens that extracts a {@link RealVector} from each input element
-     * @param vectors the input points; must not be empty
+     * @param centroidLens lens that wraps a {@link RealVector} as the caller's centroid type
+     * @param vectors the input points to cluster; must contain at least {@code k} elements
+     * @param k number of clusters; must be at least 1
+     * @param maxIterations maximum Lloyd iterations per restart; must be at least 1
+     * @param maxRestarts number of additional restarts beyond the first run; must be non-negative
+     * @param relativeLambda strength of the size-balancing bias relative to {@code s}; must be non-negative. {@code 0}
+     *                       disables balancing
+     * @param sizePenalty penalty function applied to projected cluster sizes during assignment; {@code null}
+     *                    disables balancing
      * @param <V> caller's input vector representation
-     * @return the mean per-vector objective of the single-cluster fit
+     * @param <C> caller's centroid representation
+     * @return the best partitioning found across all restarts, ranked by geometric SSE
      */
-    public static <V> double singleClusterObjectivePerVector(@Nonnull final DistanceEstimator distanceEstimator,
-                                                             @Nonnull final Lens<V, RealVector> vectorLens,
-                                                             @Nonnull final List<V> vectors) {
+    public static <V, C> Result<C> fitWithRelativeLambda(@Nonnull final SplittableRandom random,
+                                                         @Nonnull final DistanceEstimator distanceEstimator,
+                                                         @Nonnull final Lens<V, RealVector> vectorLens,
+                                                         @Nonnull final Lens<C, RealVector> centroidLens,
+                                                         @Nonnull final List<V> vectors,
+                                                         final int k,
+                                                         final int maxIterations,
+                                                         final int maxRestarts,
+                                                         final double relativeLambda,
+                                                         @Nullable final SizePenalty sizePenalty) {
+        Preconditions.checkArgument(relativeLambda >= 0, "relativeLambda must be >= 0");
+        final double lambda = relativeLambda == 0.0d
+                              ? 0.0d
+                              : relativeLambda * singleClusterObjectivePerVector(distanceEstimator, vectorLens, vectors);
+        return fit(random, distanceEstimator, vectorLens, centroidLens, vectors, k, maxIterations, maxRestarts, lambda,
+                sizePenalty);
+    }
+
+    /**
+     * The per-vector objective of the closed-form single-cluster fit of {@code vectors}: the scale that
+     * {@link #fitWithRelativeLambda} measures its balancing strength against.
+     */
+    private static <V> double singleClusterObjectivePerVector(@Nonnull final DistanceEstimator distanceEstimator,
+                                                              @Nonnull final Lens<V, RealVector> vectorLens,
+                                                              @Nonnull final List<V> vectors) {
         Preconditions.checkArgument(!vectors.isEmpty(), "vectors must not be empty");
         final MetricAdapter metricAdapter = fromEstimator(distanceEstimator);
         final int numDimensions = getVector(vectorLens, vectors, 0).getNumDimensions();
