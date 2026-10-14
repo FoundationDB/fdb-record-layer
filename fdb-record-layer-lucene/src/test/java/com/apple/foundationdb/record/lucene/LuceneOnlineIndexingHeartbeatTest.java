@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository;
 import com.apple.foundationdb.record.lucene.directory.MockedLuceneIndexMaintainerFactory;
 import com.apple.foundationdb.record.lucene.directory.TestingIndexMaintainerRegistry;
@@ -27,6 +28,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
@@ -36,7 +38,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -44,14 +48,13 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_T
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
  * Tests of the indexing heartbeat of an {@link OnlineIndexer} that merges a Lucene index while building it.
  */
 @Tag(Tags.RequiresFDB)
 class LuceneOnlineIndexingHeartbeatTest extends FDBLuceneTestBase {
-    private static final long SECOND_INDEXER_LEASE_MILLIS = 1_000;
-
     private TestingIndexMaintainerRegistry registry;
     private InjectedFailureRepository injectedFailures;
 
@@ -67,22 +70,23 @@ class LuceneOnlineIndexingHeartbeatTest extends FDBLuceneTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         saveRecordsWhileDisabled(index, 30);
 
-        final AtomicBoolean mergeDelayed = new AtomicBoolean(false);
+        final AtomicBoolean heartbeatAged = new AtomicBoolean(false);
         final AtomicBoolean secondIndexerChecked = new AtomicBoolean(false);
         final AtomicReference<Throwable> secondIndexerRefusal = new AtomicReference<>();
-        // Make the first merge outlast the second indexer's lease. Then, while that merge still holds its
-        // directory, check whether a second indexer would be allowed to start.
+        // Emulate a merge that outlasts the lease: at the start of the first merge, age the first indexer's heartbeat
+        // beyond the lease length. Then, while that merge still holds its directory, attempt to start a second indexer.
         injectedFailures.setHook(InjectedFailureRepository.Hooks.LUCENE_BEFORE_MERGE_INDEX, () -> {
-            if (mergeDelayed.compareAndSet(false, true)) {
-                sleepPastSecondIndexerLease();
+            if (heartbeatAged.compareAndSet(false, true)) {
+                ageHeartbeats(index, TimeUnit.HOURS.toMillis(1));
             }
         });
         injectedFailures.setHook(InjectedFailureRepository.Hooks.LUCENE_AFTER_MERGE_INDEX, () -> {
-            if (mergeDelayed.get() && secondIndexerChecked.compareAndSet(false, true)) {
-                secondIndexerRefusal.set(checkSecondIndexerStart(index));
+            if (heartbeatAged.get() && secondIndexerChecked.compareAndSet(false, true)) {
+                secondIndexerRefusal.set(startSecondIndexer(index));
             }
         });
 
+        final Throwable firstIndexerFailure;
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, index);
             try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
@@ -90,13 +94,15 @@ class LuceneOnlineIndexingHeartbeatTest extends FDBLuceneTestBase {
                     .setIndex(index)
                     .setLimit(1)
                     .build()) {
-                indexer.buildIndex(true);
+                // Captured, as a second indexer that was not refused would complete the build and fail this one
+                firstIndexerFailure = catchThrowable(() -> indexer.buildIndex(true));
             }
             context.commit();
         }
 
         assertThat(secondIndexerChecked).isTrue();
         assertThat(secondIndexerRefusal.get()).isInstanceOf(SynchronizedSessionLockedException.class);
+        assertThat(firstIndexerFailure).isNull();
     }
 
     private void saveRecordsWhileDisabled(final Index index, final int numRecords) {
@@ -115,28 +121,33 @@ class LuceneOnlineIndexingHeartbeatTest extends FDBLuceneTestBase {
     }
 
     @Nullable
-    private Throwable checkSecondIndexerStart(final Index index) {
-        // The same check that a new, non-mutual, indexing session performs before it starts
-        final IndexingHeartbeat secondIndexer = new IndexingHeartbeat(UUID.randomUUID(), "SecondIndexer",
-                SECOND_INDEXER_LEASE_MILLIS, false);
-        // Opened directly: the test base's openContext copies this (merge) thread's MDC, which already has a transaction id
-        try (FDBRecordContext context = fdb.openContext()) {
-            final FDBRecordStore store = recordStore.asBuilder().setContext(context).open();
-            context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD,
-                    secondIndexer.checkHeartbeats(store, index));
+    private Throwable startSecondIndexer(final Index index) {
+        // A second, non-mutual, indexer of the same index. It should be refused while the first one is active.
+        try (OnlineIndexer secondIndexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setRecordStoreBuilder(recordStore.asBuilder())
+                .setIndex(index)
+                .build()) {
+            secondIndexer.buildIndex(true);
             return null;
         } catch (SynchronizedSessionLockedException ex) {
             return ex;
         }
     }
 
-    private static void sleepPastSecondIndexerLease() {
-        // Emulates a long merge. The merge is synchronous Lucene code, hence there is no future to compose with.
-        try {
-            Thread.sleep(SECOND_INDEXER_LEASE_MILLIS + 100);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(ex);
+    private void ageHeartbeats(final Index index, final long ageMillis) {
+        // Opened directly: the test base's openContext copies this (merge) thread's MDC, which already has a transaction id
+        try (FDBRecordContext context = fdb.openContext()) {
+            final FDBRecordStore store = recordStore.asBuilder().setContext(context).open();
+            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = context.asyncToSync(
+                    FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD,
+                    IndexingHeartbeat.getIndexingHeartbeats(store, index, 0));
+            assertThat(heartbeats).isNotEmpty();
+            final long heartbeatTimeMillis = System.currentTimeMillis() - ageMillis;
+            heartbeats.forEach((indexerId, heartbeat) -> context.ensureActive().set(
+                    IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, indexerId),
+                    heartbeat.toBuilder().setHeartbeatTimeMilliseconds(heartbeatTimeMillis).build().toByteArray()));
+            context.commit();
         }
     }
 

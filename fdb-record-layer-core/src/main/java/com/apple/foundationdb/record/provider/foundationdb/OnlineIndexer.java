@@ -158,7 +158,7 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         if (attemptCount > INDEXING_ATTEMPTS_RECURSION_LIMIT) {
-            // Safety net, this should never happen
+            // Safety net - limit the attempts
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.error(KeyValueLogMessage.build("Too many indexing attempts",
                         LogMessageKeys.CURR_ATTEMPT, attemptCount)

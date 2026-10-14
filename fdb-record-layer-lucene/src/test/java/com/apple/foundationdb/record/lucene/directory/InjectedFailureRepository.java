@@ -56,7 +56,9 @@ public class InjectedFailureRepository {
      * The points at which an injected action runs.
      */
     public enum Hooks {
+        /** At the start of the index maintainer's merge, before any merge transaction is created. */
         LUCENE_BEFORE_MERGE_INDEX,
+        /** After a single directory's merge, while the merge still holds the directory's lock. */
         LUCENE_AFTER_MERGE_INDEX,
     }
 

@@ -55,7 +55,6 @@ public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
 
     @Override
     public void mergeIndex() throws IOException {
-        injectedFailures.runHook(InjectedFailureRepository.Hooks.LUCENE_BEFORE_MERGE_INDEX);
         super.mergeIndex();
         injectedFailures.runHook(InjectedFailureRepository.Hooks.LUCENE_AFTER_MERGE_INDEX);
     }

@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreTimeoutException;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.Key;
@@ -58,6 +60,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -431,14 +434,16 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertNoHeartbeatsLeft(storeBuilder);
     }
 
-    @Test
-    void testStandaloneMergeBlockedByActiveIndexingSession() {
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE"})
+    void testStandaloneMergeBlockedByActiveIndexingSession(IndexState indexState) {
         final String indexType = "mergeBlockedByActiveSessionIndex";
         final AtomicBoolean mergeRan = new AtomicBoolean(false);
         TestFactory.register(indexType, recordMergeRan(mergeRan));
 
         final FDBRecordStore.Builder storeBuilder = createStore(indexType);
-        markWriteOnlyAndAddForeignHeartbeat(storeBuilder, true);
+        setIndexState(storeBuilder, indexState);
+        addForeignHeartbeat(storeBuilder, 0);
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setTargetIndexesByName(List.of(INDEX_NAME))
@@ -448,33 +453,41 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertThat(mergeRan).isFalse();
     }
 
-    @Test
-    void testStandaloneMergeIgnoresExpiredIndexingSession() throws InterruptedException {
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE"})
+    void testStandaloneMergeIgnoresExpiredIndexingSession(IndexState indexState) {
         final String indexType = "mergeIgnoresExpiredSessionIndex";
         final AtomicBoolean mergeRan = new AtomicBoolean(false);
         TestFactory.register(indexType, recordMergeRan(mergeRan));
 
         final FDBRecordStore.Builder storeBuilder = createStore(indexType);
-        markWriteOnlyAndAddForeignHeartbeat(storeBuilder, true);
-        Thread.sleep(10);
+        setIndexState(storeBuilder, indexState);
+        // A heartbeat that is far older than the lease length
+        addForeignHeartbeat(storeBuilder, TimeUnit.HOURS.toMillis(1));
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setTargetIndexesByName(List.of(INDEX_NAME))
-                .setLeaseLengthMillis(1)
                 .build()) {
             indexer.mergeIndex();
         }
         assertThat(mergeRan).isTrue();
     }
 
-    @Test
-    void testStandaloneMergeOfReadableIndexIgnoresHeartbeats() {
+    /**
+     * Indexing sessions only run (and keep heartbeats) while the index is write-only. In any other state, a heartbeat
+     * does not prevent a stand-alone merge.
+     */
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"READABLE", "READABLE_UNIQUE_PENDING", "DISABLED"})
+    void testStandaloneMergeOfNonWriteOnlyIndexIgnoresHeartbeats(IndexState indexState) {
         final String indexType = "mergeReadableIgnoresHeartbeatsIndex";
         final AtomicBoolean mergeRan = new AtomicBoolean(false);
         TestFactory.register(indexType, recordMergeRan(mergeRan));
 
-        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
-        markWriteOnlyAndAddForeignHeartbeat(storeBuilder, false);
+        // Unique, so that the index can be made readable-unique-pending
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType, Map.of(IndexOptions.UNIQUE_OPTION, "true"));
+        setIndexState(storeBuilder, indexState);
+        addForeignHeartbeat(storeBuilder, 0);
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setTargetIndexesByName(List.of(INDEX_NAME))
@@ -537,14 +550,49 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         };
     }
 
-    private void markWriteOnlyAndAddForeignHeartbeat(@Nonnull final FDBRecordStore.Builder storeBuilder, boolean markWriteOnly) {
+    private void setIndexState(@Nonnull final FDBRecordStore.Builder storeBuilder, @Nonnull IndexState indexState) {
         try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
             final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
             final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
-            if (markWriteOnly) {
-                store.markIndexWriteOnly(index).join();
+            switch (indexState) {
+                case READABLE:
+                    // A new store's index is readable
+                    break;
+                case WRITE_ONLY:
+                    store.markIndexWriteOnly(index).join();
+                    break;
+                case WRITE_ONLY_WITH_QUEUE:
+                    store.markIndexWriteOnlyWithQueue(index).join();
+                    break;
+                case READABLE_UNIQUE_PENDING:
+                    // The test maintainer reports a uniqueness violation for a unique index
+                    store.markIndexWriteOnly(index).join();
+                    store.markIndexReadableOrUniquePending(index).join();
+                    break;
+                case DISABLED:
+                    store.markIndexDisabled(index).join();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected index state " + indexState);
             }
-            new IndexingHeartbeat(UUID.randomUUID(), "Test", 0, false).updateHeartbeat(store, index);
+            assertThat(store.getIndexState(index)).isEqualTo(indexState);
+            context.commit();
+        }
+    }
+
+    private void addForeignHeartbeat(@Nonnull final FDBRecordStore.Builder storeBuilder, long heartbeatAgeMillis) {
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
+            // Written directly, as IndexingHeartbeat always stamps the current time
+            final long heartbeatTimeMillis = System.currentTimeMillis() - heartbeatAgeMillis;
+            final byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, UUID.randomUUID());
+            final byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                    .setInfo("Test")
+                    .setCreateTimeMilliseconds(heartbeatTimeMillis)
+                    .setHeartbeatTimeMilliseconds(heartbeatTimeMillis)
+                    .build().toByteArray();
+            store.ensureContextActive().set(key, value);
             context.commit();
         }
     }
@@ -569,8 +617,13 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
     @Nonnull
     private FDBRecordStore.Builder createStore(@Nonnull final String indexType) {
+        return createStore(indexType, Map.of());
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder createStore(@Nonnull final String indexType, @Nonnull final Map<String, String> indexOptions) {
         Index index = new Index(INDEX_NAME, Key.Expressions.field("num_value_2"),
-                indexType, Map.of());
+                indexType, indexOptions);
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -670,7 +723,12 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 @Nonnull
                 @Override
                 public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-                    throw new UnsupportedOperationException();
+                    if (!state.index.isUnique()) {
+                        throw new UnsupportedOperationException();
+                    }
+                    // A single violation: the value 1 is shared by the records 1 and 2
+                    return RecordCursor.fromList(state.store.getExecutor(),
+                            List.of(new IndexEntry(state.index, Tuple.from(1, 1L), Tuple.from(2L))), continuation);
                 }
 
                 @Override

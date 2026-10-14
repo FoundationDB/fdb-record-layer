@@ -222,7 +222,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private CompletableFuture<Void> mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true, true);
-        addPreCommitCallback(agilityContext);
+        addCommitCheck(agilityContext);
         RuntimeException mergeException = null;
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
@@ -256,7 +256,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                 });
     }
 
-    private void addPreCommitCallback(@Nonnull final AgilityContext agilityContext) {
+    private void addCommitCheck(@Nonnull final AgilityContext agilityContext) {
         // A single merge may outlast the indexing heartbeat lease. Running the caller's pre-commit callback (typically,
         // a heartbeat update) with each agile commit keeps the indexing session that triggered this merge alive.
         final Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback =
