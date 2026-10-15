@@ -303,6 +303,12 @@ class Delete {
         // addReplacementOutEdges does not have to compute them again.
         //
         final Map<Tuple /* primaryKey */, NodeReferenceWithDistance> replacementTargets = Maps.newConcurrentMap();
+        //
+        // References that the candidate search read storage for and found no node under. They name nodes an earlier
+        // delete removed without removing the references to them, because the node holding the reference was outside
+        // that delete's candidate set. Gathering them costs nothing: the reads happen either way.
+        //
+        final Set<Tuple /* primaryKey */> provenAbsentPrimaryKeys = Sets.newConcurrentHashSet();
 
         return storageAdapter.fetchNode(transaction, storageTransform, layer, toBeDeletedPrimaryKey)
                 .thenCompose(toBeDeletedNode -> {
@@ -310,13 +316,15 @@ class Delete {
                             new NodeReferenceAndNode<>(new NodeReference(toBeDeletedPrimaryKey), toBeDeletedNode);
 
                     return findDeletionRepairCandidates(storageAdapter, transaction, storageTransform, random, layer,
-                            toBeDeletedNodeReferenceAndNode, nodeCache)
+                            toBeDeletedNodeReferenceAndNode, nodeCache, provenAbsentPrimaryKeys)
                             .thenCompose(candidates -> {
                                 final RepairContext<N> repairContext =
-                                        buildRepairContext(toBeDeletedPrimaryKey, toBeDeletedNode,
-                                                candidates);
+                                        buildRepairContext(toBeDeletedPrimaryKey, toBeDeletedNode, candidates,
+                                                provenAbsentPrimaryKeys, layer);
                                 final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap =
                                         repairContext.candidateChangeSets();
+                                getOnWriteListener().onNeighborReferencesReaped(layer,
+                                        repairContext.numReapedReferences());
                                 // resolve the actually existing direct neighbors
                                 final ImmutableList<N> primaryNeighbors =
                                         primitives.primaryNeighbors(toBeDeletedNode, candidateChangeSetMap);
@@ -439,60 +447,88 @@ class Delete {
 
     /**
      * Establishes what one layer's repair needs to know about its candidates: a pending neighbor list for each of
-     * them, already carrying the removal of the reference to the node being deleted, which of them that removal
-     * applied to, and how many neighbors each of those is left with.
+     * them, already carrying the removal of the reference to the node being deleted and of any reference naming a node
+     * an earlier delete removed; which of them held a reference to the node being deleted, each with the number of
+     * neighbors it is left with after both removals; and how many references naming an already deleted node were
+     * removed.
      *
      * @param <N> type parameter extending {@link NodeReference}
      * @param toBeDeletedPrimaryKey the primary key of the node being deleted
      * @param toBeDeletedNode the node being deleted
      * @param candidates the repair candidates of this layer
-     * @return the change sets and the candidates that lost their reference to the node being deleted, each with the
-     *         number of neighbors it is left with
+     * @param provenAbsentPrimaryKeys the references the candidate search read storage for and found to name no node
+     * @param layer the layer, for logging only
+     * @return the change sets, the candidates that lost their reference to the node being deleted, each with the
+     *         number of neighbors it is left with, and the number of references naming an already deleted node that
+     *         were removed
      */
     @Nonnull
     private <N extends NodeReference> RepairContext<N>
             buildRepairContext(@Nonnull final Tuple toBeDeletedPrimaryKey,
-                                            @Nonnull final AbstractNode<N> toBeDeletedNode,
-                                            @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates) {
+                               @Nonnull final AbstractNode<N> toBeDeletedNode,
+                               @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
+                               @Nonnull final Set<Tuple> provenAbsentPrimaryKeys,
+                               final int layer) {
         final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> candidateChangeSetMap = Maps.newConcurrentMap();
         final Map<Tuple /* primaryKey */, Integer /* numNeighbors */> candidatesThatLostTheirEdge = Maps.newHashMap();
+        int numReapedReferences = 0;
         for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
             final AbstractNode<N> candidateNode = candidate.getNode();
-            boolean foundToBeDeleted = false;
+            //
+            // Collect the references this candidate must lose: the one to the node being deleted, plus any that name a
+            // node an earlier delete removed without removing the references to it. The latter are only reaped here
+            // because the candidate search already read storage for them and found nothing, so they are known to be
+            // dead rather than merely unaccounted for. A candidate whose own out-neighbors were never read contributes
+            // nothing, which is correct -- not knowing whether a node exists is not the same as knowing it does not.
+            //
+            final ImmutableList.Builder<Tuple> toBeDeletedBuilder = ImmutableList.builder();
+            boolean heldReferenceToDeleted = false;
+            int numReapedForCandidate = 0;
             for (final N neighborOfCandidate : candidateNode.getNeighbors()) {
-                if (neighborOfCandidate.getPrimaryKey().equals(toBeDeletedPrimaryKey)) {
-                    //
-                    // Make sure a neighbor pointing to the node being deleted is deleted as well.
-                    //
-                    candidateChangeSetMap.put(candidateNode.getPrimaryKey(),
-                            new DeleteNeighborsChangeSet<>(
-                                    new BaseNeighborsChangeSet<>(candidateNode.getNeighbors()),
-                                    ImmutableList.of(toBeDeletedPrimaryKey)));
-                    // a neighbor list holds at most one reference per primary key, so exactly one was removed
-                    candidatesThatLostTheirEdge.put(candidateNode.getPrimaryKey(),
-                            candidateNode.getNeighbors().size() - 1);
-                    foundToBeDeleted = true;
-                    break;
+                final Tuple neighborPrimaryKey = neighborOfCandidate.getPrimaryKey();
+                if (neighborPrimaryKey.equals(toBeDeletedPrimaryKey)) {
+                    heldReferenceToDeleted = true;
+                    toBeDeletedBuilder.add(neighborPrimaryKey);
+                } else if (provenAbsentPrimaryKeys.contains(neighborPrimaryKey)) {
+                    toBeDeletedBuilder.add(neighborPrimaryKey);
+                    numReapedForCandidate ++;
                 }
             }
-            if (!foundToBeDeleted) {
-                // if there is no reference back to the node being deleted, just create the base set
-                candidateChangeSetMap.put(candidateNode.getPrimaryKey(),
-                        new BaseNeighborsChangeSet<>(candidateNode.getNeighbors()));
+
+            final ImmutableList<Tuple> toBeDeleted = toBeDeletedBuilder.build();
+            final NeighborsChangeSet<N> baseChangeSet = new BaseNeighborsChangeSet<>(candidateNode.getNeighbors());
+            if (toBeDeleted.isEmpty()) {
+                // nothing to remove from this candidate, so leave it a base change set, which is never written
+                candidateChangeSetMap.put(candidateNode.getPrimaryKey(), baseChangeSet);
+            } else {
+                final NeighborsChangeSet<N> changeSet = new DeleteNeighborsChangeSet<>(baseChangeSet, toBeDeleted);
+                candidateChangeSetMap.put(candidateNode.getPrimaryKey(), changeSet);
+                if (heldReferenceToDeleted) {
+                    //
+                    // Counted after the reaped references are removed as well, so that only an edge a repair grants
+                    // afterwards can raise the count.
+                    //
+                    candidatesThatLostTheirEdge.put(candidateNode.getPrimaryKey(), changeSet.size());
+                }
+                numReapedReferences += numReapedForCandidate;
+                if (numReapedForCandidate > 0 && logger.isTraceEnabled()) {
+                    logger.trace("reaped numReferences={} naming deleted nodes from key={} on layer={}",
+                            numReapedForCandidate, candidateNode.getPrimaryKey(), layer);
+                }
             }
         }
         if (logger.isTraceEnabled()) {
             logger.trace("number of neighbors to repair={}", toBeDeletedNode.getNeighbors().size());
         }
-        return new RepairContext<>(candidateChangeSetMap, candidatesThatLostTheirEdge);
+        return new RepairContext<>(candidateChangeSetMap, candidatesThatLostTheirEdge, numReapedReferences);
     }
 
     /**
      * What {@link #buildRepairContext} establishes about the candidates of one layer's repair, held in one record so
      * that it is passed as one argument rather than as separate ones.
      * <p>
-     * Both components are mutable and change as the repair proceeds: the change sets accumulate the edges each step
-     * grants, and once every repair has completed, the candidates a repair granted an edge are removed from
+     * The two collections are mutable and change as the repair proceeds: the change sets accumulate the edges each
+     * step grants, and once every repair has completed, the candidates a repair granted an edge are removed from
      * {@code candidatesThatLostTheirEdge}. This record is therefore a grouping of state belonging to a single
      * {@code deleteFromLayer} call, not a value.
      *
@@ -500,14 +536,18 @@ class Delete {
      * @param candidateChangeSets the pending neighbor list of every candidate, keyed by primary key, holding the
      *        removal of the reference to the node being deleted and every change made after that
      * @param candidatesThatLostTheirEdge the candidates that held a reference to the node being deleted, each with the
-     *        number of neighbors it has right after losing that reference. A candidate whose number of neighbors has
-     *        grown once every repair has completed received an edge from a repair, which replaces the lost one, and is
-     *        removed at that point. Every candidate left ends this delete with one outgoing edge fewer than it started
-     *        with, unless {@link #addReplacementOutEdges} replaces it
+     *        number of neighbors it has right after this delete removed that reference and any reference naming an
+     *        already deleted node. A candidate whose number of neighbors has grown once every repair has completed
+     *        received an edge from a repair, which replaces the lost one, and is removed at that point. Every
+     *        candidate left has lost one usable outgoing edge in this delete, unless {@link #addReplacementOutEdges}
+     *        replaces it; the reaped references named nodes that no longer exist
+     * @param numReapedReferences how many references naming a node an earlier delete removed were removed here, which
+     *        may be zero
      */
     private record RepairContext<N extends NodeReference>(
             @Nonnull Map<Tuple, NeighborsChangeSet<N>> candidateChangeSets,
-            @Nonnull Map<Tuple, Integer> candidatesThatLostTheirEdge) {
+            @Nonnull Map<Tuple, Integer> candidatesThatLostTheirEdge,
+            int numReapedReferences) {
     }
 
     /**
@@ -523,6 +563,8 @@ class Delete {
      * @param layer the layer
      * @param toBeDeletedNodeReferenceAndNode the node that is about to be deleted
      * @param nodeCache the node cache to avoid repeated fetches
+     * @param provenAbsentPrimaryKeys collects the primary keys of references that were read from storage and found to
+     *        name no node, i.e. references left behind by an earlier delete
      * @return a future that if successful completes with {@code null}
      */
     @Nonnull
@@ -533,20 +575,22 @@ class Delete {
                                           final @Nonnull SplittableRandom random,
                                           final int layer,
                                           final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode,
-                                          final Map<Tuple, AbstractNode<N>> nodeCache) {
+                                          final Map<Tuple, AbstractNode<N>> nodeCache,
+                                          final Set<Tuple> provenAbsentPrimaryKeys) {
         final Primitives primitives = primitives();
         return primitives.neighbors(storageAdapter, transaction, storageTransform, random,
                 ImmutableList.of(toBeDeletedNodeReferenceAndNode),
                 ((r, initialNodeKeys, size, nodeReference) ->
                          shouldUsePrimaryCandidateForRepair(nodeReference,
-                                 toBeDeletedNodeReferenceAndNode.getNodeReference().getPrimaryKey())), layer, nodeCache)
+                                 toBeDeletedNodeReferenceAndNode.getNodeReference().getPrimaryKey())), layer, nodeCache,
+                provenAbsentPrimaryKeys::add)
                 .thenCompose(candidates ->
                         primitives.neighbors(storageAdapter, transaction, storageTransform, random,
                                 candidates,
                                 ((r, initialNodeKeys, size, nodeReference) ->
                                          shouldUseSecondaryCandidateForRepair(r, initialNodeKeys, size, nodeReference,
                                                  toBeDeletedNodeReferenceAndNode.getNodeReference().getPrimaryKey())),
-                                layer, nodeCache))
+                                layer, nodeCache, provenAbsentPrimaryKeys::add))
                 .thenApply(candidates -> {
                     if (logger.isTraceEnabled()) {
                         final ImmutableList.Builder<String> candidateStringsBuilder = ImmutableList.builder();
@@ -701,20 +745,21 @@ class Delete {
      * Grants one replacement outgoing edge to each node that lost its reference to the node being deleted, received no
      * edge from a repair in its place, and is left short of outgoing edges.
      * <p>
-     * {@link #buildRepairContext} removes exactly one reference from such a node, the one to the node being deleted,
-     * because a neighbor list holds at most one reference per primary key. {@link #repairInsForNeighborNode} adds edges
-     * only towards the nodes the deleted node pointed at, from the candidates it selects for each of them, so the node
-     * regains an outgoing edge only if one of those repairs selects it for a node it did not point at yet. Otherwise
-     * nothing replaces the lost edge, and a node that participates in many deletes can run out of outgoing edges.
-     * Whether that node is a direct neighbor of the deleted node or only a second degree candidate, the loss is the
-     * same.
+     * {@link #buildRepairContext} removes exactly one reference to an existing node from such a node, the one to the
+     * node being deleted, because a neighbor list holds at most one reference per primary key; any other reference it
+     * removes names a node that no longer exists. {@link #repairInsForNeighborNode} adds edges only towards the nodes
+     * the deleted node pointed at, from the candidates it selects for each of them, so the node regains an outgoing
+     * edge only if one of those repairs selects it for a node it did not point at yet. Otherwise nothing replaces the
+     * lost edge, and a node that participates in many deletes can run out of outgoing edges. Whether that node is a
+     * direct neighbor of the deleted node or only a second degree candidate, the loss is the same.
      * <p>
      * The candidates a repair granted such an edge were removed from the repair context before the pruning, so every
      * node considered here received none. This runs after every repair and the pruning have completed, which has two
      * consequences. The decision does not depend on the order in which the repairs completed. And a node that is granted
-     * an edge ends the delete with as many neighbors as its stored neighbor list held before the delete. Every write
-     * path keeps that list within the degree cap of the layer, so a granted edge can never take a node past the cap and
-     * no further pruning is required, whatever the value of {@link Config#replacementEdgeMaxOutDegree()}.
+     * an edge ends the delete with at most as many neighbors as its stored neighbor list held before the delete, fewer
+     * if references were reaped. Every write path keeps that list within the degree cap of the layer, so a granted
+     * edge can never take a node past the cap and no further pruning is required, whatever the value of
+     * {@link Config#replacementEdgeMaxOutDegree()}.
      *
      * @param <N> type parameter extending {@link NodeReference}
      * @param layer the layer
