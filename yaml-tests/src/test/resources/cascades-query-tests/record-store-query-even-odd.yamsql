@@ -1,0 +1,216 @@
+#
+# record-store-query-even-odd.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRecordStoreQueryTest.query` — the plainest case in the class: one equality on an
+# indexed column has to reach the index for that column.
+#
+# Its own file for the *data*, not the index set: the index set is bare `test_records_1.proto`
+# (`openSimpleRecordStore` with no hook), same as the three other `-even-odd` / `-continuation` /
+# `-exclude-null` / `-null` siblings, but each of those four source methods writes a different 100-row
+# body and yamsql has one data set per file.
+#
+# Here `num_value_unique` counts *up* (i + 1000), unlike the shared fixture's 1000 - i, so
+# primary-key order and NUM_VALUE_UNIQUE order agree. NUM_VALUE_2 and NUM_VALUE_3_INDEXED are never
+# set, hence NULL; the source's `repeater` is likewise never set, which the record layer reads back as
+# an empty list, so it is written as `[]`.
+#
+# The source asserts a count of 50 and that every returned NUM_VALUE_UNIQUE is even — which follows
+# from STR_VALUE_INDEXED = 'even' meaning an even REC_NO. Row order is not asserted there and there is
+# no `setSort`, so the expectation here is unordered.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: |
+        INSERT INTO MY_SIMPLE_RECORD
+          (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED, REPEATER)
+        VALUES
+          (0, 'even', 1000, null, null, []),
+          (1, 'odd', 1001, null, null, []),
+          (2, 'even', 1002, null, null, []),
+          (3, 'odd', 1003, null, null, []),
+          (4, 'even', 1004, null, null, []),
+          (5, 'odd', 1005, null, null, []),
+          (6, 'even', 1006, null, null, []),
+          (7, 'odd', 1007, null, null, []),
+          (8, 'even', 1008, null, null, []),
+          (9, 'odd', 1009, null, null, []),
+          (10, 'even', 1010, null, null, []),
+          (11, 'odd', 1011, null, null, []),
+          (12, 'even', 1012, null, null, []),
+          (13, 'odd', 1013, null, null, []),
+          (14, 'even', 1014, null, null, []),
+          (15, 'odd', 1015, null, null, []),
+          (16, 'even', 1016, null, null, []),
+          (17, 'odd', 1017, null, null, []),
+          (18, 'even', 1018, null, null, []),
+          (19, 'odd', 1019, null, null, []),
+          (20, 'even', 1020, null, null, []),
+          (21, 'odd', 1021, null, null, []),
+          (22, 'even', 1022, null, null, []),
+          (23, 'odd', 1023, null, null, []),
+          (24, 'even', 1024, null, null, []),
+          (25, 'odd', 1025, null, null, []),
+          (26, 'even', 1026, null, null, []),
+          (27, 'odd', 1027, null, null, []),
+          (28, 'even', 1028, null, null, []),
+          (29, 'odd', 1029, null, null, []),
+          (30, 'even', 1030, null, null, []),
+          (31, 'odd', 1031, null, null, []),
+          (32, 'even', 1032, null, null, []),
+          (33, 'odd', 1033, null, null, []),
+          (34, 'even', 1034, null, null, []),
+          (35, 'odd', 1035, null, null, []),
+          (36, 'even', 1036, null, null, []),
+          (37, 'odd', 1037, null, null, []),
+          (38, 'even', 1038, null, null, []),
+          (39, 'odd', 1039, null, null, []),
+          (40, 'even', 1040, null, null, []),
+          (41, 'odd', 1041, null, null, []),
+          (42, 'even', 1042, null, null, []),
+          (43, 'odd', 1043, null, null, []),
+          (44, 'even', 1044, null, null, []),
+          (45, 'odd', 1045, null, null, []),
+          (46, 'even', 1046, null, null, []),
+          (47, 'odd', 1047, null, null, []),
+          (48, 'even', 1048, null, null, []),
+          (49, 'odd', 1049, null, null, []),
+          (50, 'even', 1050, null, null, []),
+          (51, 'odd', 1051, null, null, []),
+          (52, 'even', 1052, null, null, []),
+          (53, 'odd', 1053, null, null, []),
+          (54, 'even', 1054, null, null, []),
+          (55, 'odd', 1055, null, null, []),
+          (56, 'even', 1056, null, null, []),
+          (57, 'odd', 1057, null, null, []),
+          (58, 'even', 1058, null, null, []),
+          (59, 'odd', 1059, null, null, []),
+          (60, 'even', 1060, null, null, []),
+          (61, 'odd', 1061, null, null, []),
+          (62, 'even', 1062, null, null, []),
+          (63, 'odd', 1063, null, null, []),
+          (64, 'even', 1064, null, null, []),
+          (65, 'odd', 1065, null, null, []),
+          (66, 'even', 1066, null, null, []),
+          (67, 'odd', 1067, null, null, []),
+          (68, 'even', 1068, null, null, []),
+          (69, 'odd', 1069, null, null, []),
+          (70, 'even', 1070, null, null, []),
+          (71, 'odd', 1071, null, null, []),
+          (72, 'even', 1072, null, null, []),
+          (73, 'odd', 1073, null, null, []),
+          (74, 'even', 1074, null, null, []),
+          (75, 'odd', 1075, null, null, []),
+          (76, 'even', 1076, null, null, []),
+          (77, 'odd', 1077, null, null, []),
+          (78, 'even', 1078, null, null, []),
+          (79, 'odd', 1079, null, null, []),
+          (80, 'even', 1080, null, null, []),
+          (81, 'odd', 1081, null, null, []),
+          (82, 'even', 1082, null, null, []),
+          (83, 'odd', 1083, null, null, []),
+          (84, 'even', 1084, null, null, []),
+          (85, 'odd', 1085, null, null, []),
+          (86, 'even', 1086, null, null, []),
+          (87, 'odd', 1087, null, null, []),
+          (88, 'even', 1088, null, null, []),
+          (89, 'odd', 1089, null, null, []),
+          (90, 'even', 1090, null, null, []),
+          (91, 'odd', 1091, null, null, []),
+          (92, 'even', 1092, null, null, []),
+          (93, 'odd', 1093, null, null, []),
+          (94, 'even', 1094, null, null, []),
+          (95, 'odd', 1095, null, null, []),
+          (96, 'even', 1096, null, null, []),
+          (97, 'odd', 1097, null, null, []),
+          (98, 'even', 1098, null, null, []),
+          (99, 'odd', 1099, null, null, [])
+---
+test_block:
+  name: record-store-query-even-odd
+  preset: single_repetition_ordered
+  tests:
+    -
+      # query
+      - query: select * from my_simple_record where str_value_indexed = 'even'
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)])"
+      - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1002, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 4, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1004, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1006, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 8, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1008, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 10, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1010, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 12, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1012, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 14, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1014, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 16, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1016, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 18, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1018, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 20, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1020, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 22, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1022, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 24, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1024, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 26, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1026, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 28, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1028, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 30, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1030, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 32, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1032, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 34, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1034, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 36, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1036, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 38, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1038, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 40, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1040, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 42, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1042, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 44, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1044, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 46, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1046, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 48, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1048, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 50, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1050, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 52, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1052, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 54, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1054, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 56, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1056, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 58, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1058, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 60, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1060, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 62, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1062, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 64, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1064, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 66, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1066, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 68, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1068, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 70, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1070, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 72, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1072, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 74, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1074, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 76, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1076, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 78, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1078, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 80, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1080, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 82, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1082, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 84, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1084, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 86, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1086, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 88, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1088, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 90, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1090, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 92, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1092, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 94, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1094, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1096, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 98, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1098, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []}]
+...

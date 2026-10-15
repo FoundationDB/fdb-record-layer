@@ -1,0 +1,29 @@
+nested-field-query-reviewer:
+-   query: EXPLAIN select * from restaurant_reviewer where stats.start_date > 0 and
+        stats.school_name = 'Human University'
+    ref: nested-field-query-reviewer.yamsql:69
+    explain: ISCAN(STATS_SCHOOL [[GREATER_THAN promote(@c9 AS LONG)]]) | FILTER _.STATS.SCHOOL_NAME
+        EQUALS promote(@c15 AS STRING)
+    task_count: 483
+    task_total_time_ms: 6
+    transform_count: 114
+    transform_time_ms: 3
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 57
+    insert_reused_count: 4
+-   query: EXPLAIN select * from restaurant_reviewer where stats.start_date <= 1000
+        and stats.school_name < 'University of Procrastination' and stats.hometown
+        like 'H%'
+    ref: nested-field-query-reviewer.yamsql:80
+    explain: ISCAN(STATS_SCHOOL [[LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]]) | FILTER
+        _.STATS.SCHOOL_NAME LESS_THAN promote(@c16 AS STRING) AND _.STATS.HOMETOWN
+        LIKE @c22 ESCAPE 'null'
+    task_count: 483
+    task_total_time_ms: 7
+    transform_count: 114
+    transform_time_ms: 3
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 57
+    insert_reused_count: 4

@@ -1,0 +1,13 @@
+ø
+a
+covering-index-header-valueBEXPLAIN select header.path from my_record where str_value = 'lion'’
+ÛŸÈˆr ‰¹¨($0•€584@ŸCOVERING(MY_RECORD_STR_VALUE [EQUALS promote(@c9 AS STRING)] -> [STR_VALUE: KEY:[0], HEADER: [PATH: VALUE:[0], REC_NO: KEY:[1]]]) | MAP (_.HEADER.PATH AS PATH)Òdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.HEADER.PATH AS PATH)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_STR_VALUE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

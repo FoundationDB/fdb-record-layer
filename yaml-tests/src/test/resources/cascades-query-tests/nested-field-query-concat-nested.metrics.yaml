@@ -1,0 +1,36 @@
+nested-field-query-concat-nested:
+-   query: EXPLAIN select * from calendar_event where alarm_index.version = 3
+    ref: nested-field-query-concat-nested.yamsql:72
+    explain: ISCAN(VERSIONS [EQUALS promote(@c9 AS INT)])
+    task_count: 347
+    task_total_time_ms: 8
+    transform_count: 83
+    transform_time_ms: 6
+    transform_yield_count: 32
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 4
+-   query: EXPLAIN select * from calendar_event where alarm_index.version = 2 and
+        event_index.version = 6
+    ref: nested-field-query-concat-nested.yamsql:83
+    explain: ISCAN(VERSIONS [EQUALS promote(@c9 AS INT), EQUALS promote(@c15 AS INT)])
+    task_count: 347
+    task_total_time_ms: 3
+    transform_count: 82
+    transform_time_ms: 1
+    transform_yield_count: 32
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 4
+-   query: EXPLAIN select * from calendar_event where alarm_index.version > 1 order
+        by alarm_index.version
+    ref: nested-field-query-concat-nested.yamsql:93
+    explain: ISCAN(VERSIONS [[GREATER_THAN promote(@c9 AS INT)]])
+    task_count: 275
+    task_total_time_ms: 3
+    transform_count: 70
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 2

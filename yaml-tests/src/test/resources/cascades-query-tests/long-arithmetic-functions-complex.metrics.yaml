@@ -1,0 +1,52 @@
+long-arithmetic-functions-complex:
+-   query: EXPLAIN select num_value_2 + num_value_3_indexed as sum, num_value_unique
+        & 4 as mask, rec_no as id from my_simple_record where str_value_indexed =
+        'even' and num_value_2 + num_value_3_indexed >= 1 and num_value_2 + num_value_3_indexed
+        <= 4 order by num_value_2 + num_value_3_indexed
+    ref: long-arithmetic-functions-complex.yamsql:355
+    explain: ISCAN(COMPLEX_INDEX [EQUALS promote(@c21 AS STRING), [GREATER_THAN_OR_EQUALS
+        promote(@c28 AS INT) && LESS_THAN_OR_EQUALS promote(@c35 AS INT)]]) | MAP
+        (_.NUM_VALUE_2 + _.NUM_VALUE_3_INDEXED AS SUM, _.NUM_VALUE_UNIQUE & @c35 AS
+        MASK, _.REC_NO AS ID)
+    task_count: 242
+    task_total_time_ms: 5
+    transform_count: 77
+    transform_time_ms: 2
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 19
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_2 + num_value_3_indexed as sum, num_value_unique
+        & 4 as mask, rec_no as id from my_simple_record where str_value_indexed =
+        'odd' and num_value_2 + num_value_3_indexed >= 1 and num_value_2 + num_value_3_indexed
+        <= 4 order by num_value_2 + num_value_3_indexed
+    ref: long-arithmetic-functions-complex.yamsql:401
+    explain: ISCAN(COMPLEX_INDEX [EQUALS promote(@c21 AS STRING), [GREATER_THAN_OR_EQUALS
+        promote(@c28 AS INT) && LESS_THAN_OR_EQUALS promote(@c35 AS INT)]]) | MAP
+        (_.NUM_VALUE_2 + _.NUM_VALUE_3_INDEXED AS SUM, _.NUM_VALUE_UNIQUE & @c35 AS
+        MASK, _.REC_NO AS ID)
+    task_count: 242
+    task_total_time_ms: 5
+    transform_count: 77
+    transform_time_ms: 2
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 19
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_2 + num_value_3_indexed as sum, num_value_unique
+        & 4 as mask, rec_no as id from my_simple_record where str_value_indexed =
+        'even' and num_value_2 + num_value_3_indexed >= -1 and num_value_2 + num_value_3_indexed
+        <= 9 order by num_value_2 + num_value_3_indexed
+    ref: long-arithmetic-functions-complex.yamsql:450
+    explain: ISCAN(COMPLEX_INDEX [EQUALS promote(@c21 AS STRING), [GREATER_THAN_OR_EQUALS
+        promote(@c28 AS INT) && LESS_THAN_OR_EQUALS promote(@c36 AS INT)]]) | MAP
+        (_.NUM_VALUE_2 + _.NUM_VALUE_3_INDEXED AS SUM, _.NUM_VALUE_UNIQUE & @c9 AS
+        MASK, _.REC_NO AS ID)
+    task_count: 242
+    task_total_time_ms: 5
+    transform_count: 77
+    transform_time_ms: 3
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 19
+    insert_reused_count: 0

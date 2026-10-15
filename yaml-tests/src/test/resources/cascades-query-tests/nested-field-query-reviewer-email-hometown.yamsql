@@ -1,0 +1,81 @@
+#
+# nested-field-query-reviewer-email-hometown.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedThenWithAnd` — an index that leads with a non-nested
+# column and continues into a nested message. All three components are bound, the last one by an
+# inequality, so the whole predicate collapses into a single scan range.
+#
+# Its own file: the hook adds `emailHometown` on top of the base RestaurantReviewer index set.
+#
+# The source plans the same conditions written two ways — once as a nested `Query.and` under
+# `field("stats").matches(...)`, once as three flat conjuncts — and asserts the plans are equal. Both
+# spell the same SQL, so the second query here is a verbatim repeat with the predicates reordered; the
+# assertion is that the two `explain` strings come out identical.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    create index email_hometown as
+        select email, stats.hometown, stats.start_date from restaurant_reviewer
+        order by email, stats.hometown, stats.start_date
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer-email-hometown
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedThenWithAnd
+      - query: select * from restaurant_reviewer
+               where stats.start_date <= 0 and stats.hometown = 'Home Town'
+                 and email = 'pmp@example.com'
+      - explain: "ISCAN(EMAIL_HOMETOWN [EQUALS promote(@c20 AS STRING), EQUALS promote(@c16 AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]])"
+      - result: [{ID: 1, NAME: 'Person McPersonface', EMAIL: 'pmp@example.com',
+                  STATS: {START_DATE: 0, SCHOOL_NAME: 'University of Learning', HOMETOWN: 'Home Town'},
+                  CATEGORY: 1}]
+    -
+      # nestedThenWithAnd
+      # The same conditions in the order the source's second `RecordQuery` lists them. The source
+      # asserts `plan1.equals(plan2)`; here the two `explain` strings have to match.
+      - query: select * from restaurant_reviewer
+               where stats.start_date <= 0 and email = 'pmp@example.com'
+                 and stats.hometown = 'Home Town'
+      - explain: "ISCAN(EMAIL_HOMETOWN [EQUALS promote(@c14 AS STRING), EQUALS promote(@c20 AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]])"
+      - result: [{ID: 1, NAME: 'Person McPersonface', EMAIL: 'pmp@example.com',
+                  STATS: {START_DATE: 0, SCHOOL_NAME: 'University of Learning', HOMETOWN: 'Home Town'},
+                  CATEGORY: 1}]
+...

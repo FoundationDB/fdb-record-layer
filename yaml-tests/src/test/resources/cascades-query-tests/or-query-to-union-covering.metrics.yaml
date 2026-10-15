@@ -1,0 +1,21 @@
+or-query-to-union-covering:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed like 'foo%'
+        or (num_value_2 >= 2 and num_value_2 <= 4) or (num_value_3_indexed <= 18 and
+        num_value_2 >= 26)
+    ref: or-query-to-union-covering.yamsql:58
+    explain: 'COVERING(COVERING_INDEX [[GREATER_THAN_OR_EQUALS promote(@c13 AS INT)
+        && LESS_THAN_OR_EQUALS promote(@c18 AS INT)]] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED:
+        VALUE:[0], REC_NO: KEY:[1]]) ∪ COVERING(COVERING_INDEX [[GREATER_THAN_OR_EQUALS
+        promote(@c30 AS INT)]] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: VALUE:[0],
+        REC_NO: KEY:[1]]) | FILTER _.NUM_VALUE_3_INDEXED LESS_THAN_OR_EQUALS promote(@c25
+        AS INT) COMPARE BY (_.NUM_VALUE_2, _.REC_NO) | FETCH ∪ ISCAN(COVERING_INDEX
+        <,>) | FILTER _.STR_VALUE_INDEXED LIKE @c7 ESCAPE ''null'' COMPARE BY (_.NUM_VALUE_2,
+        _.REC_NO)'
+    task_count: 32949
+    task_total_time_ms: 983
+    transform_count: 5927
+    transform_time_ms: 558
+    transform_yield_count: 2078
+    insert_time_ms: 77
+    insert_new_count: 5132
+    insert_reused_count: 649
