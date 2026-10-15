@@ -118,6 +118,10 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+      # Gated to the current version: d3 and d5 sit 1.7e-4 apart here, which is inside the
+      # one-ulp gap between the old truncating HALF encoding and the new rounded one, so a
+      # mixed-version run can order them d4,d5,d3,d2,d1 instead.
+      - supported_version: !current_version
       - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
     # All 8 fiction docs — should NOT include overflow (d90, d92)
     -

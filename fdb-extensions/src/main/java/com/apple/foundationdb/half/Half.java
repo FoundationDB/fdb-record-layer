@@ -135,6 +135,18 @@ public final class Half extends Number implements Comparable<Half> {
     private static final long serialVersionUID = 1682650405628820816L;
 
     /**
+     * The number of logical bits in the significand of a {@code float}, including the implicit bit. Inlined from
+     * {@code jdk.internal.math.FloatConsts.SIGNIFICAND_WIDTH}, which is not accessible outside {@code java.base}.
+     */
+    private static final int FLOAT_SIGNIFICAND_WIDTH = 24;
+
+    /**
+     * Bias used in representing a {@code float} exponent. Inlined from
+     * {@code jdk.internal.math.FloatConsts.EXP_BIAS}, which is not accessible outside {@code java.base}.
+     */
+    private static final int FLOAT_EXP_BIAS = 127;
+
+    /**
      * The value of the half precision floating-point as a float.
      *
      * @serial
@@ -204,22 +216,44 @@ public final class Half extends Number implements Comparable<Half> {
     }
 
     public static float halfShortToFloat(short shortBits) {
-        int intBits = (int) shortBits;
-        int exponent = (intBits & HalfConstants.EXP_BIT_MASK) >> 10;
-        int significand = (intBits & HalfConstants.SIGNIF_BIT_MASK) << 13;
+        /*
+         * Copied from java.lang.Float.float16ToFloat (JDK 20+), which is not available when compiling against the
+         * Java 17 API. References to jdk.internal.math.FloatConsts are inlined.
+         *
+         * The binary16 format has 1 sign bit, 5 exponent bits, and 10 significand bits. The exponent bias is 15.
+         */
+        final int bin16arg = (int) shortBits;
+        final int bin16SignBit = 0x8000 & bin16arg;
+        final int bin16ExpBits = 0x7c00 & bin16arg;
+        final int bin16SignifBits = 0x03FF & bin16arg;
 
-        // Check infinities and NaN
-        if (exponent == 31) {
-            // sign | positive infinity integer value | significand
-            return Float.intBitsToFloat((intBits & HalfConstants.SIGN_BIT_MASK) << 16 | 0x7f800000 | significand);
+        // Shift left difference in the number of significand bits in the float and binary16 formats
+        final int significandShift = FLOAT_SIGNIFICAND_WIDTH - HalfConstants.SIGNIFICAND_WIDTH;
+
+        final float sign = (bin16SignBit != 0) ? -1.0f : 1.0f;
+
+        // Extract binary16 exponent, remove its bias, add in the bias of a float exponent and shift to correct bit
+        // location (significand width includes the implicit bit so shift one less).
+        final int bin16Exp = (bin16ExpBits >> 10) - HalfConstants.EXP_BIAS;
+        if (bin16Exp == -15) {
+            // For subnormal binary16 values and 0, the numerical value is 2^24 * the significand as an integer
+            // (no implicit bit).
+            return sign * (0x1p-24f * bin16SignifBits);
+        } else if (bin16Exp == 16) {
+            return (bin16SignifBits == 0)
+                   ? sign * Float.POSITIVE_INFINITY
+                   : Float.intBitsToFloat((bin16SignBit << 16)
+                                          | 0x7f800000
+                                          // Preserve NaN signif bits
+                                          | (bin16SignifBits << significandShift));
         }
 
-        int v = Float.floatToIntBits((float) significand) >> 23;
-        // sign | normal | subnormal
-        return Float.intBitsToFloat(
-                (intBits & 0x8000) << 16 | (exponent != 0 ? 1 : 0) * ((exponent + 112) << 23 | significand)
-                        | ((exponent == 0 ? 1 : 0) & (significand != 0 ? 1 : 0))
-                        * ((v - 37) << 23 | ((significand << (150 - v)) & 0x007FE000)));
+        final int floatExpBits = (bin16Exp + FLOAT_EXP_BIAS) << (FLOAT_SIGNIFICAND_WIDTH - 1);
+
+        // Compute and combine result sign, exponent, and significand bits.
+        return Float.intBitsToFloat((bin16SignBit << 16)
+                                    | floatExpBits
+                                    | (bin16SignifBits << significandShift));
     }
 
     /**
@@ -329,21 +363,76 @@ public final class Half extends Number implements Comparable<Half> {
     }
 
     public static short floatToHalfShortBits(float floatValue) {
-        int intBits = Float.floatToRawIntBits(floatValue);
-        int exponent = (intBits & 0x7F800000) >> 23;
-        int significand = intBits & 0x007FFFFF;
+        /*
+         * Copied from java.lang.Float.floatToFloat16 (JDK 20+), which is not available when compiling against the
+         * Java 17 API.
+         */
+        final int doppel = Float.floatToRawIntBits(floatValue);
+        final short signBit = (short) ((doppel & 0x80000000) >> 16);
 
-        // Check infinities and NaNs
-        if (exponent > 142) {
-            // sign | positive infinity short value
-            return (short) ((intBits & 0x80000000) >> 16 | 0x7c00 | significand >> 13);
+        if (Float.isNaN(floatValue)) {
+            // Preserve sign and attempt to preserve significand bits
+            return (short) (signBit
+                            | 0x7c00 // max exponent + 1
+                            // Preserve high order bit of float NaN in the binary16 result NaN (tenth bit); OR in
+                            // remaining bits into lower 9 bits of binary16 significand.
+                            | (doppel & 0x007fe000) >> 13 // 10 bits
+                            | (doppel & 0x00001ff0) >> 4  //  9 bits
+                            | (doppel & 0x0000000f));     //  4 bits
         }
 
-        // sign | normal | subnormal
-        return (short) ((intBits & 0x80000000) >> 16
-                                | (exponent > 112 ? 1 : 0) * ((((exponent - 112) << 10) & 0x7C00) | significand >> 13)
-                                | ((exponent < 113 ? 1 : 0) & (exponent > 101 ? 1 : 0))
-                * ((((0x007FF000 + significand) >> (125 - exponent)) + 1) >> 1));
+        final float absValue = Math.abs(floatValue);
+
+        // The overflow threshold is binary16 MAX_VALUE + 1/2 ulp
+        if (absValue >= (0x1.ffcp15f + 0x0.002p15f)) {
+            return (short) (signBit | 0x7c00); // Positive or negative infinity
+        }
+
+        // Smallest magnitude nonzero representable binary16 value is equal to 0x1.0p-24; half-way and smaller
+        // rounds to zero.
+        if (absValue <= 0x1.0p-24f * 0.5f) { // Covers float zeros and subnormals.
+            return signBit; // Positive or negative zero
+        }
+
+        // Dealing with finite values in exponent range of binary16 (when rounding is done, could still round up)
+        int exp = Math.getExponent(floatValue);
+
+        // For binary16 subnormals, beside forcing exp to -15, retain the difference expDelta = E_min - exp. This is
+        // the excess shift value, in addition to 13, to be used in the computations below. Further the (hidden) msb
+        // with value 1 in floatValue must be involved as well.
+        int expDelta = 0;
+        int msb = 0x00000000;
+        if (exp < -14) {
+            expDelta = -14 - exp;
+            exp = -15;
+            msb = 0x00800000;
+        }
+        final int floatSignifBits = doppel & 0x007fffff | msb;
+
+        // Significand bits as if using rounding to zero (truncation).
+        short signifBits = (short) (floatSignifBits >> (13 + expDelta));
+
+        // For round to nearest even, determining whether or not to round up (in magnitude) is a function of the
+        // least significant bit (LSB), the next bit position (the round position), and the sticky bit (whether
+        // there are any nonzero bits in the exact result to the right of the round digit). An increment occurs in
+        // three cases:
+        //
+        // LSB  Round Sticky
+        // 0    1     1
+        // 1    1     0
+        // 1    1     1
+        // See "Computer Arithmetic Algorithms," Koren, Table 4.9
+        final int lsb = floatSignifBits & (1 << 13 + expDelta);
+        final int round = floatSignifBits & (1 << 12 + expDelta);
+        final int sticky = floatSignifBits & ((1 << 12 + expDelta) - 1);
+
+        if (round != 0 && ((lsb | sticky) != 0)) {
+            signifBits++;
+        }
+
+        // No bits set in significand beyond the *first* exponent bit, not just the significand; quantity is added
+        // to the exponent to implement a carry out from rounding the significand.
+        return (short) (signBit | (((exp + HalfConstants.EXP_BIAS) << 10) + signifBits));
     }
 
     /**
@@ -511,10 +600,8 @@ public final class Half extends Number implements Comparable<Half> {
     }
 
     public static float quantizeFloat(final float floatValue) {
-        // check for infinities
-        if (floatValue > 65_504.0f || floatValue < -65_504.0f) {
-            return Half.halfShortToFloat((short) ((Float.floatToIntBits(floatValue) & 0x80000000) >> 16 | 0x7c00));
-        }
+        // Overflow to infinity is handled by floatToHalfShortBits, which rounds to nearest even and so only
+        // overflows at MAX_VALUE + 1/2 ulp (65520), not at MAX_VALUE (65504).
         return Half.halfShortToFloat(floatToShortBitsCollapseNaN(floatValue));
     }
 
