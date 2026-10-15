@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PPredicateWithValueAndRanges;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -346,10 +348,20 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             }
 
             final var candidateRanges = candidatePredicateWithValuesAndRanges.getRanges();
-            if (compensatedQueryPredicate.getRanges()
-                    .stream()
-                    .allMatch(range -> candidateRanges.stream()
-                            .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)))) {
+            final boolean candidateEnclosesQuery;
+            try {
+                candidateEnclosesQuery = compensatedQueryPredicate.getRanges()
+                        .stream()
+                        .allMatch(range -> candidateRanges.stream()
+                                .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)));
+            } catch (final Bindings.MissingBindingException e) {
+                // Matching a filtered candidate means proving its predicate covers the query range, which dereferences
+                // the comparand — and a value-free parameter has none. Failing is deliberate: a scan plan would satisfy
+                // the same IS_NOT_NULL constraint and then be reused in place of the index plan.
+                throw new RecordCoreException("cannot match a filtered index against a value-free parameter", e)
+                        .addLogInfo(LogMessageKeys.VALUE, compensatedQueryPredicate);
+            }
+            if (candidateEnclosesQuery) {
                 if (candidatePredicateWithValuesAndRanges instanceof Placeholder) {
                     return Optional.of(mapPredicateToPlaceholder(originalQueryPredicate, compensatedQueryPredicate, (Placeholder) candidatePredicateWithValuesAndRanges,
                             constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges))));

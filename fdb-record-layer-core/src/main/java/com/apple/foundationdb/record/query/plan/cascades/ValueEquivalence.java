@@ -374,6 +374,13 @@ public abstract class ValueEquivalence {
         @Nonnull
         public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                  @Nonnull final LiteralValue<?> literalValue) {
+            if (!evaluationContext.containsConstantBinding(constantObjectValue.getAlias(),
+                    constantObjectValue.getConstantId())) {
+                // The constant carries no value, so there is nothing to compare. Dereferencing it would yield null,
+                // which the null case below would call equal to a NULL literal and constrain with IS_NULL — a
+                // constraint no non-null binding could satisfy, leaving the plan unreachable.
+                return falseValue();
+            }
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {
