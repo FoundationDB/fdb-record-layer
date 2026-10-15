@@ -298,15 +298,16 @@ tasks.withType(Test).configureEach { Test theTask ->
         }
     }
 
+    def testLogger = theTask.logger
     addTestListener([
         beforeSuite: { TestDescriptor suite -> },
         beforeTest: { TestDescriptor descriptor ->
-            println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
+            testLogger.quiet("${Instant.now()} ${getFullDisplayName(descriptor)} STARTED")
         },
         afterTest: { TestDescriptor descriptor, TestResult result ->
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
-            println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
-            println()
+            testLogger.quiet("${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)")
+            testLogger.quiet("")
             if (result.resultType == TestResult.ResultType.FAILURE) {
                 failures.append(
                     "<details>\n" +

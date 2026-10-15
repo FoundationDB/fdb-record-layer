@@ -46,8 +46,9 @@ Parameters
     Place NULL values at the end of the result set
 
 By default, NULL values sort as follows:
-- With ``ASC``: NULLs come last (equivalent to ``ASC NULLS LAST``)
-- With ``DESC``: NULLs come first (equivalent to ``DESC NULLS FIRST``)
+
+- With ``ASC``: NULLs come first (equivalent to ``ASC NULLS FIRST``)
+- With ``DESC``: NULLs come last (equivalent to ``DESC NULLS LAST``)
 
 Returns
 =======
@@ -256,24 +257,24 @@ NULL Handling
 
 By default, NULL values have specific sort positions:
 
-- With ``ASC``: NULL values appear **last**
-- With ``DESC``: NULL values appear **first**
+- With ``ASC``: NULL values appear **first**
+- With ``DESC``: NULL values appear **last**
 
 You can override this behavior with ``NULLS FIRST`` or ``NULLS LAST``:
 
 .. code-block:: sql
 
-    -- NULLs at the beginning (overriding ASC default)
-    SELECT name, rating
+    -- NULLs at the end (overriding the ASC default)
+    SELECT name, price
     FROM products
-    ORDER BY rating ASC NULLS FIRST
+    ORDER BY price ASC NULLS LAST
 
-    -- NULLs at the end (overriding DESC default)
-    SELECT name, rating
+    -- NULLs at the beginning (overriding the DESC default)
+    SELECT name, price
     FROM products
-    ORDER BY rating DESC NULLS LAST
+    ORDER BY price DESC NULLS FIRST
 
-**Note**: Using ``NULLS FIRST`` or ``NULLS LAST`` requires an index with matching NULL ordering, similar to the constraint for mixed ASC/DESC ordering.
+**Note**: Overriding the default NULL placement requires an index with matching NULL ordering, similar to the constraint for mixed ASC/DESC ordering.
 
 Important Notes
 ===============
@@ -350,6 +351,7 @@ Execution Model
 FRL does not perform in-memory sorting. All ORDER BY operations must be backed by an index with compatible ordering. This is a fundamental architectural constraint that ensures queries can execute efficiently over large datasets.
 
 The query planner will:
+
 1. Look for an index with matching sort order
 2. Use that index to scan results in the correct order
 3. Fail with error 0AF00 if no suitable index exists
