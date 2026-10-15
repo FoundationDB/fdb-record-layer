@@ -1,0 +1,61 @@
+cached-plan-costing-tests:
+-   query: EXPLAIN SELECT "x" FROM T WHERE "x" > 250
+    ref: cached-plan-costing.yamsql:41
+    explain: 'COVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2],
+        x: KEY:[0]]) | MAP (_.x AS x)'
+    task_count: 321
+    task_total_time_ms: 125
+    transform_count: 92
+    transform_time_ms: 81
+    transform_yield_count: 27
+    insert_time_ms: 7
+    insert_new_count: 33
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "x" FROM T WHERE "x" > 100
+    ref: cached-plan-costing.yamsql:46
+    explain: SCAN([IS T]) | FILTER _.x GREATER_THAN promote(@c7 AS INT) | MAP (_.x
+        AS x)
+    task_count: 222
+    task_total_time_ms: 98
+    transform_count: 66
+    transform_time_ms: 66
+    transform_yield_count: 19
+    insert_time_ms: 6
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "x" FROM T WHERE "x" > 300
+    ref: cached-plan-costing.yamsql:51
+    explain: 'COVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2],
+        x: KEY:[0]]) | MAP (_.x AS x)'
+    task_count: 321
+    task_total_time_ms: 17
+    transform_count: 92
+    transform_time_ms: 7
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 33
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "x" FROM T WHERE "x" > 150
+    ref: cached-plan-costing.yamsql:56
+    explain: SCAN([IS T]) | FILTER _.x GREATER_THAN promote(@c7 AS INT) | MAP (_.x
+        AS x)
+    task_count: 222
+    task_total_time_ms: 12
+    transform_count: 66
+    transform_time_ms: 6
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "x" FROM T WHERE "x" > 260
+    ref: cached-plan-costing.yamsql:61
+    explain: 'COVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2],
+        x: KEY:[0]]) | MAP (_.x AS x)'
+    task_count: 321
+    task_total_time_ms: 17
+    transform_count: 92
+    transform_time_ms: 7
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 33
+    insert_reused_count: 2
