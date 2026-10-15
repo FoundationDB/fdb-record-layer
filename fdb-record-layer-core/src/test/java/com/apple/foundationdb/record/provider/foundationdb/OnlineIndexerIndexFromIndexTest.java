@@ -1168,6 +1168,52 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testIndexFromIndexPrevSrcIndexRemoved() {
+        // start indexing by src_index, remove src_index from the metadata, then attempt continue by records. Since
+        // the previous session's source index is gone, expect a rebuild by records
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 88;
+        final int chunkSize  = 15;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        // partly build by-index src_index
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build());
+
+        // remove src_index
+        openSimpleMetaData(metaDataBuilder -> {
+            hook.apply(metaDataBuilder);
+            metaDataBuilder.removeIndex("src_index");
+        });
+        timer.reset();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                .setLimit(chunkSize)
+                .build()) {
+            indexBuilder.buildIndex(true);
+            // Expecting::
+            // 1. by records - mismatches the partly built by src_index
+            // 2. by src_index, continuing the previous session - src_index doesn't exist
+            // 3. by records, rebuilding from scratch
+            assertEquals(3, indexBuilder.getLastAttemptCount());
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        scrubAndValidate(List.of(tgtIndex));
+    }
+
+    @Test
     void testIndexFromIndexRebuild() {
         // test the inline rebuildIndex function by-index
         final FDBStoreTimer timer = new FDBStoreTimer();

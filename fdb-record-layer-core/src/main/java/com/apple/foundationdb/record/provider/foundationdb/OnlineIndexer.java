@@ -301,7 +301,8 @@ public class OnlineIndexer implements AutoCloseable {
                     return AsyncUtil.DONE;
                 }
                 // Here: some targets are readable. A peer process is probably in the middle of marking them readable, or had
-                // failed to (possibly due to a uniqueness violation). Attempt marking them readable too.
+                // failed to (possibly due to a uniqueness violation). Attempt marking them readable too (note that in this
+                // path - mutual + unexpected readable - we assume that the caller asked to mark readable)
                 return newIndexer(state.policy).markIndexReadable(true).thenApply(ignore -> null);
             }
         }
@@ -342,11 +343,9 @@ public class OnlineIndexer implements AutoCloseable {
                 }
                 return MoreAsyncUtil.delayedFuture(delayMillis, TimeUnit.MILLISECONDS,
                         common.getRunner().getScheduledExecutor());
-            }).thenCompose(ignore -> {
-                // mergeIndexAsync may have cleared the ongoing merge marker, retry with a fresh indexer
-                indexer = null;
-                return indexingLauncher(indexingFunc, state, attemptCount);
-            });
+            }).thenCompose(ignore ->
+                    indexingLauncher(indexingFunc, state, attemptCount)
+            );
         }
 
         // No handling, throw the error.

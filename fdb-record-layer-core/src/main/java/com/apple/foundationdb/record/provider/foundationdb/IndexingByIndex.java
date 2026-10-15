@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.tuple.Tuple;
@@ -94,7 +95,15 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull
     private Index getSourceIndex(RecordMetaData metaData) {
         if (policy.getSourceIndexSubspaceKey() != null) {
-            return metaData.getIndexFromSubspaceKey(policy.getSourceIndexSubspaceKey());
+            try {
+                return metaData.getIndexFromSubspaceKey(policy.getSourceIndexSubspaceKey());
+            } catch (MetaDataException ex) {
+                // The subspace key may come from a previous session's stamp, and its index may have been removed since
+                throw new UnusableSourceIndexException("unknown source index subspace key",
+                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                        LogMessageKeys.SUBSPACE_KEY, policy.getSourceIndexSubspaceKey(),
+                        LogMessageKeys.INDEXER_ID, common.getIndexerId());
+            }
         }
         if (policy.getSourceIndex() != null) {
             return metaData.getIndex(policy.getSourceIndex());
