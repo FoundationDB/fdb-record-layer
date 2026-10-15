@@ -95,7 +95,7 @@ test_block:
       - query: SELECT dept.name, project.name
               FROM dept CROSS JOIN project
               WHERE dept.name = 'Sales'
-      - supported_version: !current_version
+      - supported_version: 4.16.4.0
       - unorderedResult: [{"Sales", "OLAP"},
                           {"Sales", "SEO"},
                           {"Sales", "Feedback"}]

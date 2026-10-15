@@ -67,7 +67,7 @@ test_block:
   name: where-boolean-operand
   preset: single_repetition_ordered
   options:
-    supported_version: !current_version
+    supported_version: 4.16.4.0
   tests:
     -
       # testSimplePlanWithConstantPredicateGraph — a `ConstantPredicate(true)` alongside the range predicate
@@ -89,7 +89,7 @@ test_block:
   name: where-boolean-operand-non-boolean-value
   preset: single_repetition_ordered
   options:
-    supported_version: !current_version
+    supported_version: 4.16.4.0
   tests:
     -
       - query: select rest_no from restaurant_record where (rest_no > 1001 and false) or rest_no = 1000
@@ -167,7 +167,7 @@ test_block:
   name: where-boolean-operand-parameter
   preset: single_repetition_ordered
   options:
-    supported_version: !current_version
+    supported_version: 4.16.4.0
     statement_type: prepared
   tests:
     -

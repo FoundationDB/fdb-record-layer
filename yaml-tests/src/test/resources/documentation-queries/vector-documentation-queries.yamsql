@@ -67,7 +67,7 @@ test_block:
     # component that is not exactly representable comes back one ulp low (1.2 as 0x3ccc instead of 0x3ccd).
     -
       - query: SELECT CAST([0.5, 1.2, -0.8] AS VECTOR(3, HALF)) AS half_vector FROM embeddings WHERE id = 1
-      - supported_version: !current_version
+      - supported_version: 4.16.4.0
       - result: [{half_vector: !v16 [0.5, 1.2, -0.8]}]
 
     -
