@@ -23,11 +23,15 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Supplier;
 import java.util.function.Predicate;
 
 /**
@@ -41,6 +45,12 @@ import java.util.function.Predicate;
 class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
     @Nonnull
     private final List<N> neighbors;
+    /**
+     * The primary keys of {@link #neighbors}, built on first use. Only a caller of
+     * {@link #containsNeighbor(Tuple)} needs it, and most change sets are never asked.
+     */
+    @Nonnull
+    private final Supplier<Set<Tuple>> neighborPrimaryKeysSupplier;
 
     /**
      * Creates a new change set with the specified neighbors.
@@ -51,6 +61,16 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      */
     public BaseNeighborsChangeSet(@Nonnull final List<N> neighbors) {
         this.neighbors = ImmutableList.copyOf(neighbors);
+        this.neighborPrimaryKeysSupplier = Suppliers.memoize(this::computeNeighborPrimaryKeys);
+    }
+
+    @Nonnull
+    private Set<Tuple> computeNeighborPrimaryKeys() {
+        final ImmutableSet.Builder<Tuple> primaryKeysBuilder = ImmutableSet.builderWithExpectedSize(neighbors.size());
+        for (final N neighbor : neighbors) {
+            primaryKeysBuilder.add(neighbor.getPrimaryKey());
+        }
+        return primaryKeysBuilder.build();
     }
 
     /**
@@ -88,6 +108,16 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
     @Override
     public List<N> merge() {
         return neighbors;
+    }
+
+    @Override
+    public int size() {
+        return neighbors.size();
+    }
+
+    @Override
+    public boolean containsNeighbor(@Nonnull final Tuple primaryKey) {
+        return neighborPrimaryKeysSupplier.get().contains(primaryKey);
     }
 
     /**
