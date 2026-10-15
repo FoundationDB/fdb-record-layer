@@ -114,10 +114,10 @@ tasks.register('extractSiftSmall', Copy) {
 
     doLast {
         File extractedDir = extractDir.get().asFile
-        println "Extracted files into: ${extractedDir}"
+        logger.lifecycle("Extracted files into: ${extractedDir}")
         extractedDir.eachFileRecurse { file ->
             if (file.isFile()) {
-                println " - ${file}"
+                logger.info(" - ${file}")
             }
         }
     }

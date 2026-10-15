@@ -54,6 +54,12 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     private final Set<Tuple /* primary key */> deletedNeighborsPrimaryKeys;
 
     /**
+     * Established here rather than counted on demand, see {@link NeighborsChangeSet#size()}. Only those deleted keys
+     * the parent actually holds reduce the count.
+     */
+    private final int size;
+
+    /**
      * Constructs a new {@code DeleteNeighborsChangeSet}.
      * <p>
      * This object represents a set of changes where specific neighbors are marked for deletion.
@@ -68,6 +74,13 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
                                     @Nonnull final Collection<Tuple> deletedNeighborsPrimaryKeys) {
         this.parent = parent;
         this.deletedNeighborsPrimaryKeys = ImmutableSet.copyOf(deletedNeighborsPrimaryKeys);
+        int numDeletedFromParent = 0;
+        for (final Tuple deletedPrimaryKey : this.deletedNeighborsPrimaryKeys) {
+            if (parent.containsNeighbor(deletedPrimaryKey)) {
+                numDeletedFromParent ++;
+            }
+        }
+        this.size = parent.size() - numDeletedFromParent;
     }
 
     /**
@@ -107,6 +120,16 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @return an {@link Iterable} of the merged neighbors, excluding those marked as deleted. This method never returns
      * {@code null}.
      */
+    @Override
+    public int size() {
+        return size;
+    }
+
+    @Override
+    public boolean containsNeighbor(@Nonnull final Tuple primaryKey) {
+        return !deletedNeighborsPrimaryKeys.contains(primaryKey) && parent.containsNeighbor(primaryKey);
+    }
+
     @Nonnull
     @Override
     public Iterable<N> merge() {
