@@ -154,6 +154,12 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
      *     <li>we have an index scan that is constraining the records to one type (good) but needs a fetch (bad)</li>
      * </ul>
      *
+     * A covering index scan that does not need a fetch has the advantage of the index scan without its drawback, so it
+     * always wins against the primary scan, regardless of the index scan preference. If this method left that decision
+     * to the later tiebreakers, they could prefer the primary scan over the covering index scan, even though they
+     * prefer the covering index scan over an index scan with a fetch, which in turn can win against the primary scan
+     * here. The resulting cycle would make the plan that wins depend on the order in which the plans are compared.
+     *
      * The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
      * scan plan and the second parameter is assumed to be the index scan. We verify the assumption and return
      * {@code OptionalInt.empty()} if it does not hold true. This method is meant to be called using
@@ -172,6 +178,12 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                                                              @Nonnull RelationalExpression indexScan,
                                                              @Nonnull PlanOpsMap planOpsMapPrimaryScan,
                                                              @Nonnull PlanOpsMap planOpsMapIndexScan) {
+        if (count(planOpsMapPrimaryScan, RecordQueryScanPlan.class) == 1 &&
+                count(planOpsMapPrimaryScan, RecordQueryPlanWithIndex.class) == 0 &&
+                count(planOpsMapIndexScan, RecordQueryScanPlan.class) == 0 &&
+                isSingularCoveringIndexScanWithoutFetch(planOpsMapIndexScan)) {
+            return OptionalInt.of(1);
+        }
         if (count(planOpsMapPrimaryScan, RecordQueryScanPlan.class) == 1 &&
                 count(planOpsMapPrimaryScan, RecordQueryPlanWithIndex.class) == 0 &&
                 count(planOpsMapIndexScan, RecordQueryScanPlan.class) == 0 &&
@@ -298,6 +310,12 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
         return count(planOpsMapIndexScan, RecordQueryPlanWithIndex.class) == 1 ||
                (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
                 count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
+    }
+
+    private static boolean isSingularCoveringIndexScanWithoutFetch(@Nonnull PlanOpsMap planOpsMapIndexScan) {
+        return count(planOpsMapIndexScan, RecordQueryPlanWithIndex.class) == 0 &&
+               count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
+               count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 0;
     }
 
     /**
