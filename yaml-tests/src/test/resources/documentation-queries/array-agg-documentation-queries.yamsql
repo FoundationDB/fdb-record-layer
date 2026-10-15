@@ -28,10 +28,12 @@ options:
 schema_template:
     CREATE TABLE sales (id BIGINT, product STRING, region STRING, amount BIGINT, PRIMARY KEY (id))
     CREATE INDEX product_idx ON sales(product)
+    CREATE INDEX product_amount_idx ON sales(product, amount)
 
     CREATE TABLE parent (pid BIGINT, name STRING, PRIMARY KEY (pid))
     CREATE TABLE child (cid BIGINT, pid BIGINT, val BIGINT, PRIMARY KEY (cid))
     CREATE INDEX child_by_pid ON child(pid)
+    CREATE INDEX child_by_pid_val ON child(pid, val)
 
     CREATE TABLE doc_rev (rid BIGINT, title STRING, tags STRING ARRAY, PRIMARY KEY (rid))
 ---
@@ -56,8 +58,10 @@ test_block:
       - result: [{amounts: [200, 100, 150, 120]}]
 
     -
-      - query: SELECT ARRAY_AGG(amount IGNORE NULLS LIMIT 2) AS amounts FROM sales
-      - result: [{amounts: [200, 100]}]
+      - query: SELECT ARRAY_AGG(x) AS numbers
+                 FROM (SELECT a FROM VALUES ([2, 1, -2, 3, -2, 1, 2]) AS T(a)) AS sq,
+                      sq.a AS x
+      - result: [{numbers: [2, 1, -2, 3, -2, 1, 2]}]
 
     -
       - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS) AS amounts
@@ -67,18 +71,76 @@ test_block:
                  {product: 'Widget', amounts: [100, 150, 120]}]
 
     -
-      - query: SELECT ARRAY_AGG(x) AS numbers
-                 FROM (SELECT a FROM VALUES ([2, 1, -2, 3, -2, 1, 2]) AS T(a)) AS sq,
-                      sq.a AS x
-      - result: [{numbers: [2, 1, -2, 3, -2, 1, 2]}]
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS ORDER BY amount DESC) AS amounts
+                 FROM sales
+                GROUP BY product
+      # The in-call ORDER BY clause is new, so a released server cannot plan this query.
+      - supported_version: !current_version
+      - result: [{product: 'Widget', amounts: [150, 120, 100]},
+                 {product: 'Gadget', amounts: [200]}]
+
+    -
+      - query: SELECT ARRAY_AGG(amount IGNORE NULLS LIMIT 2) AS amounts FROM sales
+      - result: [{amounts: [200, 100]}]
+
+    -
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS ORDER BY amount DESC LIMIT 2) AS amounts
+                 FROM sales
+                GROUP BY product
+      - supported_version: !current_version
+      - result: [{product: 'Widget', amounts: [150, 120]},
+                 {product: 'Gadget', amounts: [200]}]
 
     -
       - query: SELECT p.pid, sq.vals
                  FROM parent p,
-                      (SELECT ARRAY_AGG(c.val IGNORE NULLS) AS vals FROM child c WHERE c.pid = p.pid) sq
-      - result: [{pid: 1, vals: [100, 200]},
+                      (SELECT ARRAY_AGG(c.val IGNORE NULLS ORDER BY c.val DESC) AS vals FROM child c WHERE c.pid = p.pid) sq
+      - supported_version: !current_version
+      - result: [{pid: 1, vals: [200, 100]},
                  {pid: 2, vals: [300]},
                  {pid: 3, vals: !null _}]
+
+    -
+      # “ORDER BY”: without an index providing the order, the clause cannot be evaluated.
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS ORDER BY region) AS amounts
+                 FROM sales
+                GROUP BY product
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+
+    -
+      # … nor can the null placement opposite to the one the storage order provides.
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS ORDER BY amount ASC NULLS LAST) AS amounts
+                 FROM sales
+                GROUP BY product
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+
+    -
+      # … nor a mixture of directions across the sort keys.
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS ORDER BY amount ASC, region DESC) AS amounts
+                 FROM sales
+                GROUP BY product
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+
+    -
+      # … nor two aggregates demanding different orderings.
+      - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS ORDER BY amount) AS a,
+                               ARRAY_AGG(region IGNORE NULLS ORDER BY region) AS b
+                 FROM sales
+                GROUP BY product
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+
+    -
+      # … nor a sort key that refers to an enclosing query.
+      - query: SELECT p.pid, sq.vals
+                 FROM parent p,
+                      (SELECT ARRAY_AGG(c.val IGNORE NULLS ORDER BY p.name) AS vals
+                         FROM child c WHERE c.pid = p.pid) sq
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
 
     -
       - query: SELECT p.pid, (SELECT ARRAY_AGG(c.val IGNORE NULLS) FROM child c WHERE c.pid = p.pid) FROM parent p
