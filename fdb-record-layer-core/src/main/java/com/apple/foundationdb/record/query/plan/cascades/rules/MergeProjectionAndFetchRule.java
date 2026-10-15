@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryColumnValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.google.common.collect.Iterables;
@@ -68,9 +69,15 @@ public class MergeProjectionAndFetchRule extends AbstractCascadesRule<LogicalPro
         final CorrelationIdentifier oldInnerAlias = Iterables.getOnlyElement(projectionExpression.getQuantifiers()).getAlias();
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueId();
         final List<? extends Value> projectedValues = projectionExpression.getProjectedValues();
+        // Require each pushed value to read the partial record alone. This rule throws the pushed values away and hands
+        // the partial record to whatever consumes the projection, so an `IndexEntryColumnValue`, which reads an element
+        // of the index entry that no field of the record holds, would be left with nothing to evaluate it.
         final boolean allPushable = projectedValues
                 .stream()
-                .allMatch(value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias).isPresent());
+                .allMatch(value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias)
+                        .filter(pushedValue -> pushedValue.preOrderStream()
+                                .noneMatch(IndexEntryColumnValue.class::isInstance))
+                        .isPresent());
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch

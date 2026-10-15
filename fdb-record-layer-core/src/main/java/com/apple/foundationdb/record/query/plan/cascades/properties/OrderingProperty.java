@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryColumnValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
@@ -103,7 +104,9 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -287,10 +290,48 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Override
         public Ordering visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
             final var childOrdering = orderingFromSingleChild(mapPlan);
-            final var resultValue = mapPlan.getResultValue();
+            final var innerAlias = mapPlan.getInner().getAlias();
+            final var resultValue = restoreComputedIndexColumns(mapPlan.getResultValue(), mapPlan.getChild(),
+                    childOrdering, innerAlias);
 
             return childOrdering.pullUp(resultValue, EvaluationContext.empty(),
-                    AliasMap.ofAliases(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
+                    AliasMap.ofAliases(innerAlias, Quantifier.current()), mapPlan.getCorrelatedTo());
+        }
+
+        /**
+         * Replaces each {@link IndexEntryColumnValue} in the result value of a map over a covering index scan with the
+         * value that the index computes for that element of the index entry. The ordering of a covering index scan is
+         * stated in terms of the computed values, such as {@code cardinality(_.arr)}. However, a map that reads such an
+         * element out of the index entry refers to it as an {@link IndexEntryColumnValue}. Without this replacement,
+         * the ordering of the scan cannot be pulled up through the map.
+         *
+         * @param resultValue the result value of the map
+         * @param childPlan the plan underneath the map
+         * @param childOrdering the ordering of {@code childPlan}
+         * @param innerAlias the alias that the map reads {@code childPlan} through
+         *
+         * @return the result value with the computed values restored, used only to pull up the ordering
+         */
+        @Nonnull
+        private static Value restoreComputedIndexColumns(@Nonnull final Value resultValue,
+                                                         @Nonnull final RecordQueryPlan childPlan,
+                                                         @Nonnull final Ordering childOrdering,
+                                                         @Nonnull final CorrelationIdentifier innerAlias) {
+            if (!(childPlan instanceof RecordQueryCoveringIndexPlan coveringIndexPlan)) {
+                return resultValue;
+            }
+            final Map<Value, Value> computedValuesByColumn = new HashMap<>();
+            for (final Value orderingValue : childOrdering.getBindingMap().keySet()) {
+                coveringIndexPlan.pushValueThroughFetch(orderingValue, Quantifier.current(), innerAlias)
+                        .filter(IndexEntryColumnValue.class::isInstance)
+                        .ifPresent(columnValue -> computedValuesByColumn.put(columnValue,
+                                orderingValue.rebase(AliasMap.ofAliases(Quantifier.current(), innerAlias))));
+            }
+            if (computedValuesByColumn.isEmpty()) {
+                return resultValue;
+            }
+            return resultValue.replaceLeavesMaybe(leaf -> computedValuesByColumn.getOrDefault(leaf, leaf))
+                    .orElse(resultValue);
         }
 
         @Nonnull
