@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.values.SortKeysValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -130,6 +132,31 @@ public final class OrderByExpression {
             final var sortOrder = orderBy.toSortOrder();
             return new OrderingPart.RequestedOrderingPart(rebased, sortOrder);
         });
+    }
+
+    /**
+     * Bundles the given sort expressions into the single {@link SortKeysValue} that an order-sensitive aggregate
+     * function takes as a pseudo argument. Unlike {@link #toOrderingParts}, this keeps the underlying values as they
+     * are. An in-call sort key is expressed over the input of the aggregate and is only rebased once the enclosing
+     * {@code GroupByExpression} turns it into a requested ordering.
+     *
+     * @param orderBys the sort expressions of an in-call {@code ORDER BY} clause, in declared order, not empty
+     * @return the sort keys bundled into one value
+     */
+    @Nonnull
+    public static SortKeysValue toSortKeysValue(@Nonnull List<OrderByExpression> orderBys) {
+        final ImmutableList<SortKeysValue.SortKey> sortKeys = orderBys.stream()
+                .map(OrderByExpression::toSortKey)
+                .collect(ImmutableList.toImmutableList());
+        return new SortKeysValue(sortKeys);
+    }
+
+    /**
+     * Converts the given {@link OrderByExpression} to a {@link SortKeysValue.SortKey} object.
+     */
+    @Nonnull
+    private static SortKeysValue.SortKey toSortKey(@Nonnull final OrderByExpression orderBy) {
+        return new SortKeysValue.SortKey(orderBy.getExpression().getUnderlying(), orderBy.toSortOrder());
     }
 
     @Override
