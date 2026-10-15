@@ -50,8 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -423,13 +421,10 @@ class SplitMergeTask extends AbstractDeferredTask {
             final double balancingStrength = balancingLadder.get(rung);
             final List<RepartitioningCandidate> refittedCandidates = Lists.newArrayListWithCapacity(2);
             for (final RepartitioningCandidate candidate : candidates.asList()) {
-                refittedCandidates.add(candidate == null
-                                       ? null
-                                       : fitPrimaryVectors(candidate.classification(),
-                                               candidate.primaryVectorReferences(), random.split(), estimator,
-                                               candidate.classification().coreClusters().size() + 1,
-                                               config.kMeansMaxIterations(), config.kMeansMaxRestarts(),
-                                               balancingStrength));
+                refittedCandidates.add(fitPrimaryVectors(candidate.classification(),
+                        candidate.primaryVectorReferences(), random.split(), estimator,
+                        candidate.classification().coreClusters().size() + 1,
+                        config.kMeansMaxIterations(), config.kMeansMaxRestarts(), balancingStrength));
             }
             candidates = new RepartitioningCandidates(refittedCandidates);
             candidateToEvaluationResultMap = scoreCandidates(estimator, innerClusters, candidates);
@@ -461,12 +456,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                                            @Nonnull final RepartitioningCandidates candidates) {
         final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
         for (final RepartitioningCandidate candidate : candidates.asList()) {
-            if (candidate != null) {
-                final int numCoreClusters = candidate.classification().coreClusters().size();
-                Verify.verify(innerClusters.size() >= numCoreClusters);
-                candidateToEvaluationResultMap.put(candidate,
-                        scoreCandidate(getConfig(), estimator, innerClusters.subList(0, numCoreClusters), candidate));
-            }
+            final int numCoreClusters = candidate.classification().coreClusters().size();
+            Verify.verify(innerClusters.size() >= numCoreClusters);
+            candidateToEvaluationResultMap.put(candidate,
+                    scoreCandidate(getConfig(), estimator, innerClusters.subList(0, numCoreClusters), candidate));
         }
         return candidateToEvaluationResultMap;
     }
@@ -1404,18 +1397,19 @@ class SplitMergeTask extends AbstractDeferredTask {
     }
 
     /**
-     * The two candidates a split or a merge weighs, in a fixed order: the narrower transition, which is always present
-     * (1-to-2 for a split, 2-to-1 for a merge), and the wider one, which is {@code null} when it was not viable
-     * (2-to-3 for a split, 3-to-2 for a merge). {@link #asList()} serves the code that treats both alike; the named
-     * accessors serve the code that needs the narrower one.
+     * The candidates a split or a merge weighs, in a fixed order: the narrower transition, which is always present
+     * (1-to-2 for a split, 2-to-1 for a merge), followed by the wider one if it was viable (2-to-3 for a split, 3-to-2
+     * for a merge). {@link #asList()} serves the code that treats all candidates alike; the named accessors serve the
+     * code that needs the narrower one.
      *
-     * @param asList the narrower and the wider candidate, in that order
+     * @param asList the narrower candidate and the wider one, which may be passed as {@code null} if it was not viable
+     *        and is then dropped
      */
     private record RepartitioningCandidates(@Nonnull List<RepartitioningCandidate> asList) {
         RepartitioningCandidates {
-            Verify.verify(asList.size() == 2 && asList.get(0) != null,
+            Verify.verify(!asList.isEmpty() && asList.size() <= 2 && asList.get(0) != null,
                     "expected the narrower candidate and the (possibly absent) wider one");
-            asList = Collections.unmodifiableList(new ArrayList<>(asList));
+            asList = ImmutableList.copyOf(Iterables.filter(asList, Objects::nonNull));
         }
 
         @Nonnull
