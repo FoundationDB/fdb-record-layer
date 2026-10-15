@@ -50,6 +50,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -369,13 +371,14 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                             config.kMeansBalancingLadder().get(0)));
                                 }, config.splitMergeConcurrency(), executor)
                         .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
+                            final RepartitioningCandidates candidates = new RepartitioningCandidates(assignmentCandidates);
                             final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap =
-                                    evaluateAlongBalancingLadder(random, estimator, innerClusters, assignmentCandidates);
+                                    evaluateAlongBalancingLadder(random, estimator, innerClusters, candidates);
                             final Optional<RepartitioningCandidate> bestValidCandidateOptional =
                                     selectBestCandidateMaybe(candidateToEvaluationResultMap);
                             if (bestValidCandidateOptional.isEmpty()) {
                                 if (enqueueCollapseIfNecessary(transaction, random,
-                                        Objects.requireNonNull(assignmentCandidates.get(0)).primaryVectorReferences(),
+                                        candidates.oneToTwo().primaryVectorReferences(),
                                         getTargetClusterId(), centroid)) {
                                     primitives.writeClusterMetadata(transaction,
                                             targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
@@ -398,8 +401,7 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param random the task's random source
      * @param estimator the distance estimator
      * @param innerClusters the core clusters, the target first
-     * @param initialCandidates the 1-to-2 candidate and the 2-to-3 candidate (or {@code null}), in that order, fitted
-     *        with the first strength of the ladder
+     * @param initialCandidates the split's candidates, fitted with the first strength of the ladder
      *
      * @return the candidates of the first strength that produced an admissible one (or, failing that, of the last
      *         strength), with their verdicts
@@ -409,18 +411,18 @@ class SplitMergeTask extends AbstractDeferredTask {
             @Nonnull final SplittableRandom random,
             @Nonnull final DistanceEstimator estimator,
             @Nonnull final List<Cluster> innerClusters,
-            @Nonnull final List<RepartitioningCandidate> initialCandidates) {
+            @Nonnull final RepartitioningCandidates initialCandidates) {
         final Config config = getConfig();
         final List<Double> balancingLadder = config.kMeansBalancingLadder();
-        List<RepartitioningCandidate> candidates = initialCandidates;
+        RepartitioningCandidates candidates = initialCandidates;
         Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap =
-                scoreSplitCandidates(estimator, innerClusters, candidates);
+                scoreCandidates(estimator, innerClusters, candidates);
         int rung = 0;
         while (selectBestCandidateMaybe(candidateToEvaluationResultMap).isEmpty() && rung + 1 < balancingLadder.size()) {
             rung++;
             final double balancingStrength = balancingLadder.get(rung);
-            final List<RepartitioningCandidate> refittedCandidates = Lists.newArrayListWithCapacity(candidates.size());
-            for (final RepartitioningCandidate candidate : candidates) {
+            final List<RepartitioningCandidate> refittedCandidates = Lists.newArrayListWithCapacity(2);
+            for (final RepartitioningCandidate candidate : candidates.asList()) {
                 refittedCandidates.add(candidate == null
                                        ? null
                                        : fitPrimaryVectors(candidate.classification(),
@@ -429,8 +431,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                config.kMeansMaxIterations(), config.kMeansMaxRestarts(),
                                                balancingStrength));
             }
-            candidates = refittedCandidates;
-            candidateToEvaluationResultMap = scoreSplitCandidates(estimator, innerClusters, candidates);
+            candidates = new RepartitioningCandidates(refittedCandidates);
+            candidateToEvaluationResultMap = scoreCandidates(estimator, innerClusters, candidates);
         }
         if (rung > 0 && logger.isDebugEnabled()) {
             logger.debug("split of cluster {} {} with balancing strength {} (rung {} of {})",
@@ -443,28 +445,28 @@ class SplitMergeTask extends AbstractDeferredTask {
     }
 
     /**
-     * Scores the candidates of a split: the 1-to-2 candidate (always present) against the target cluster, and the
-     * 2-to-3 candidate (if it was viable) against the target and its nearest neighbor.
+     * Scores the candidates of a split or a merge, each against the clusters it would repartition: the first as many
+     * inner clusters as its classification has core clusters (the target alone for a 1-to-2 split, the target and its
+     * nearest neighbor for a 2-to-3 split or a 2-to-1 merge, and so on).
      *
      * @param estimator the distance estimator
-     * @param innerClusters the core clusters, the target first
-     * @param candidates the 1-to-2 candidate and the 2-to-3 candidate (or {@code null}), in that order
+     * @param innerClusters the core clusters of the larger classification, the target first
+     * @param candidates the candidates to score
      *
      * @return the candidates with their verdicts
      */
     @Nonnull
-    private Map<RepartitioningCandidate, EvaluationResult> scoreSplitCandidates(@Nonnull final DistanceEstimator estimator,
-                                                                                @Nonnull final List<Cluster> innerClusters,
-                                                                                @Nonnull final List<RepartitioningCandidate> candidates) {
+    private Map<RepartitioningCandidate, EvaluationResult> scoreCandidates(@Nonnull final DistanceEstimator estimator,
+                                                                           @Nonnull final List<Cluster> innerClusters,
+                                                                           @Nonnull final RepartitioningCandidates candidates) {
         final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
-        final RepartitioningCandidate split1to2Candidate = Objects.requireNonNull(candidates.get(0));
-        candidateToEvaluationResultMap.put(split1to2Candidate,
-                scoreCandidate(getConfig(), estimator, ImmutableList.of(innerClusters.get(0)), split1to2Candidate));
-        final RepartitioningCandidate split2to3Candidate = candidates.get(1);
-        if (split2to3Candidate != null) {
-            Verify.verify(innerClusters.size() > 1);
-            candidateToEvaluationResultMap.put(split2to3Candidate,
-                    scoreCandidate(getConfig(), estimator, innerClusters, split2to3Candidate));
+        for (final RepartitioningCandidate candidate : candidates.asList()) {
+            if (candidate != null) {
+                final int numCoreClusters = candidate.classification().coreClusters().size();
+                Verify.verify(innerClusters.size() >= numCoreClusters);
+                candidateToEvaluationResultMap.put(candidate,
+                        scoreCandidate(getConfig(), estimator, innerClusters.subList(0, numCoreClusters), candidate));
+            }
         }
         return candidateToEvaluationResultMap;
     }
@@ -629,25 +631,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                             config.kMeansBalancingLadder().get(0)));
                                 }, config.splitMergeConcurrency(), executor)
                         .<RepartitioningCandidate>thenApply(mergeCandidates -> {
-                            final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap = Maps.newIdentityHashMap();
-                            final RepartitioningCandidate merge2to1Candidate =
-                                    Objects.requireNonNull(mergeCandidates.get(0));
-                            final EvaluationResult evaluationResult2to1 =
-                                    scoreCandidate(getConfig(), estimator,
-                                            innerClusters.subList(0, classification2To1.coreClusters().size()),
-                                            merge2to1Candidate);
-                            candidateToEvaluationResultMap.put(merge2to1Candidate, evaluationResult2to1);
-                            final RepartitioningCandidate merge3to2Candidate = mergeCandidates.get(1);
-                            if (merge3to2Candidate != null) {
-                                Verify.verify(innerClusters.size() > 2);
-                                final EvaluationResult evaluationResult3to2 =
-                                        scoreCandidate(getConfig(), estimator, innerClusters,
-                                                merge3to2Candidate);
-                                candidateToEvaluationResultMap.put(merge3to2Candidate, evaluationResult3to2);
-                            }
+                            final RepartitioningCandidates candidates = new RepartitioningCandidates(mergeCandidates);
                             final Optional<RepartitioningCandidate> bestValidCandidateOptional =
-                                    selectBestCandidateMaybe(candidateToEvaluationResultMap);
-                            return bestValidCandidateOptional.orElse(merge2to1Candidate);
+                                    selectBestCandidateMaybe(scoreCandidates(estimator, innerClusters, candidates));
+                            return bestValidCandidateOptional.orElse(candidates.twoToOne());
                         }));
     }
 
@@ -1414,6 +1401,32 @@ class SplitMergeTask extends AbstractDeferredTask {
     private record RepartitioningCandidate(@Nonnull ClusterClassification classification,
                                            @Nonnull List<VectorReference> primaryVectorReferences,
                                            @Nonnull @SuppressWarnings("checkstyle:MemberName") KMeans.Result<Transformed<RealVector>> kMeansResult) {
+    }
+
+    /**
+     * The two candidates a split or a merge weighs, in a fixed order: the narrower transition, which is always present
+     * (1-to-2 for a split, 2-to-1 for a merge), and the wider one, which is {@code null} when it was not viable
+     * (2-to-3 for a split, 3-to-2 for a merge). {@link #asList()} serves the code that treats both alike; the named
+     * accessors serve the code that needs the narrower one.
+     *
+     * @param asList the narrower and the wider candidate, in that order
+     */
+    private record RepartitioningCandidates(@Nonnull List<RepartitioningCandidate> asList) {
+        RepartitioningCandidates {
+            Verify.verify(asList.size() == 2 && asList.get(0) != null,
+                    "expected the narrower candidate and the (possibly absent) wider one");
+            asList = Collections.unmodifiableList(new ArrayList<>(asList));
+        }
+
+        @Nonnull
+        RepartitioningCandidate oneToTwo() {
+            return asList.get(0);
+        }
+
+        @Nonnull
+        RepartitioningCandidate twoToOne() {
+            return asList.get(0);
+        }
     }
 
     /**
