@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreTimeoutException;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.Key;
@@ -49,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
@@ -57,6 +60,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -67,9 +71,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -428,6 +434,169 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertNoHeartbeatsLeft(storeBuilder);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE"})
+    void testStandaloneMergeBlockedByActiveIndexingSession(IndexState indexState) {
+        final String indexType = "mergeBlockedByActiveSessionIndex";
+        final AtomicBoolean mergeRan = new AtomicBoolean(false);
+        TestFactory.register(indexType, recordMergeRan(mergeRan));
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        setIndexState(storeBuilder, indexState);
+        addForeignHeartbeat(storeBuilder, 0);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            Assertions.assertThrows(SynchronizedSessionLockedException.class, indexer::mergeIndex);
+        }
+        assertThat(mergeRan).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE"})
+    void testStandaloneMergeIgnoresExpiredIndexingSession(IndexState indexState) {
+        final String indexType = "mergeIgnoresExpiredSessionIndex";
+        final AtomicBoolean mergeRan = new AtomicBoolean(false);
+        TestFactory.register(indexType, recordMergeRan(mergeRan));
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        setIndexState(storeBuilder, indexState);
+        // A heartbeat that is far older than the lease length
+        addForeignHeartbeat(storeBuilder, TimeUnit.HOURS.toMillis(1));
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            indexer.mergeIndex();
+        }
+        assertThat(mergeRan).isTrue();
+    }
+
+    /**
+     * Indexing sessions only run (and keep heartbeats) while the index is write-only. In any other state, a heartbeat
+     * does not prevent a stand-alone merge.
+     */
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"READABLE", "READABLE_UNIQUE_PENDING", "DISABLED"})
+    void testStandaloneMergeOfNonWriteOnlyIndexIgnoresHeartbeats(IndexState indexState) {
+        final String indexType = "mergeReadableIgnoresHeartbeatsIndex";
+        final AtomicBoolean mergeRan = new AtomicBoolean(false);
+        TestFactory.register(indexType, recordMergeRan(mergeRan));
+
+        // Unique, so that the index can be made readable-unique-pending
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType, Map.of(IndexOptions.UNIQUE_OPTION, "true"));
+        setIndexState(storeBuilder, indexState);
+        addForeignHeartbeat(storeBuilder, 0);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            indexer.mergeIndex();
+        }
+        assertThat(mergeRan).isTrue();
+    }
+
+    @Test
+    void testEnqueueFromIndexerWaitsForMergeLockLeaseBeforeRetry() {
+        final String indexType = "enqueueWhileMergeLockTakenIndex";
+        final long leaseRemainingMillis = 300;
+        // Long enough to tell apart a delay that falls back to the heartbeat's lease length
+        final long heartbeatLeaseMillis = 60_000;
+        final AtomicLong lastLockTakenNanos = new AtomicLong(0);
+        final AtomicLong retryNanos = new AtomicLong(0);
+        final AtomicBoolean enqueueAttempted = new AtomicBoolean(false);
+        // Another process holds the merge lock, hence every merge attempt fails
+        final Function<IndexMaintainerState, CompletableFuture<Void>> mergeLockTaken = state -> {
+            adjustMergeControl(state);
+            lastLockTakenNanos.set(System.nanoTime());
+            throw new FDBExceptions.FDBStoreLockTakenException("Lock taken", null, leaseRemainingMillis);
+        };
+        // The first record update attempts to enqueue, the following ones (after the retry) succeed
+        final Function<IndexMaintainerState, CompletableFuture<Void>> enqueueOnce = state -> {
+            if (enqueueAttempted.compareAndSet(false, true)) {
+                throw new IndexingBase.EnqueueFromIndexerException("Indexer attempted to enqueue a record", state.index);
+            }
+            retryNanos.compareAndSet(0, System.nanoTime());
+            return AsyncUtil.DONE;
+        };
+        TestFactory.register(indexType, mergeLockTaken, true, enqueueOnce);
+
+        final FDBRecordStore.Builder storeBuilder = createStoreWithUnbuiltIndex(indexType, 20);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setMaxAttempts(1)
+                .setLeaseLengthMillis(heartbeatLeaseMillis)
+                .build()) {
+            indexer.buildIndex();
+        }
+
+        assertThat(enqueueAttempted).isTrue();
+        assertThat(lastLockTakenNanos.get()).isPositive();
+        assertThat(retryNanos.get()).isPositive();
+        // The retry waited for the time left for the lock's lease, not for the heartbeat's lease length
+        assertThat(TimeUnit.NANOSECONDS.toMillis(retryNanos.get() - lastLockTakenNanos.get()))
+                .isGreaterThanOrEqualTo(leaseRemainingMillis)
+                .isLessThan(heartbeatLeaseMillis / 2);
+    }
+
+    @Nonnull
+    private static Function<IndexMaintainerState, CompletableFuture<Void>> recordMergeRan(final AtomicBoolean mergeRan) {
+        return state -> {
+            adjustMergeControl(state);
+            mergeRan.set(true);
+            return AsyncUtil.DONE;
+        };
+    }
+
+    private void setIndexState(@Nonnull final FDBRecordStore.Builder storeBuilder, @Nonnull IndexState indexState) {
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
+            switch (indexState) {
+                case READABLE:
+                    // A new store's index is readable
+                    break;
+                case WRITE_ONLY:
+                    store.markIndexWriteOnly(index).join();
+                    break;
+                case WRITE_ONLY_WITH_QUEUE:
+                    store.markIndexWriteOnlyWithQueue(index).join();
+                    break;
+                case READABLE_UNIQUE_PENDING:
+                    // The test maintainer reports a uniqueness violation for a unique index
+                    store.markIndexWriteOnly(index).join();
+                    store.markIndexReadableOrUniquePending(index).join();
+                    break;
+                case DISABLED:
+                    store.markIndexDisabled(index).join();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected index state " + indexState);
+            }
+            assertThat(store.getIndexState(index)).isEqualTo(indexState);
+            context.commit();
+        }
+    }
+
+    private void addForeignHeartbeat(@Nonnull final FDBRecordStore.Builder storeBuilder, long heartbeatAgeMillis) {
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
+            // Written directly, as IndexingHeartbeat always stamps the current time
+            final long heartbeatTimeMillis = System.currentTimeMillis() - heartbeatAgeMillis;
+            final byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, UUID.randomUUID());
+            final byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                    .setInfo("Test")
+                    .setCreateTimeMilliseconds(heartbeatTimeMillis)
+                    .setHeartbeatTimeMilliseconds(heartbeatTimeMillis)
+                    .build().toByteArray();
+            store.ensureContextActive().set(key, value);
+            context.commit();
+        }
+    }
+
     @Nonnull
     private static Function<IndexMaintainerState, CompletableFuture<Void>> observeHeartbeatDuringMerge(
             final AtomicBoolean callbackPresent,
@@ -448,8 +617,13 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
     @Nonnull
     private FDBRecordStore.Builder createStore(@Nonnull final String indexType) {
+        return createStore(indexType, Map.of());
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder createStore(@Nonnull final String indexType, @Nonnull final Map<String, String> indexOptions) {
         Index index = new Index(INDEX_NAME, Key.Expressions.field("num_value_2"),
-                indexType, Map.of());
+                indexType, indexOptions);
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -511,6 +685,12 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
         private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation,
                              boolean buildable) {
+            register(name, mergeImplementation, buildable, null);
+        }
+
+        private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation,
+                                     boolean buildable,
+                                     @Nullable Function<IndexMaintainerState, CompletableFuture<Void>> updateImplementation) {
             maintainers.put(name, state -> new IndexMaintainer(state) {
                 @Nonnull
                 @Override
@@ -523,6 +703,9 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
                     if (!buildable) {
                         throw new UnsupportedOperationException();
+                    }
+                    if (updateImplementation != null) {
+                        return updateImplementation.apply(state);
                     }
                     state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(state.index);
                     return AsyncUtil.DONE;
@@ -540,7 +723,12 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 @Nonnull
                 @Override
                 public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-                    throw new UnsupportedOperationException();
+                    if (!state.index.isUnique()) {
+                        throw new UnsupportedOperationException();
+                    }
+                    // A single violation: the value 1 is shared by the records 1 and 2
+                    return RecordCursor.fromList(state.store.getExecutor(),
+                            List.of(new IndexEntry(state.index, Tuple.from(1, 1L), Tuple.from(2L))), continuation);
                 }
 
                 @Override
@@ -636,7 +824,11 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     "timeoutExceptionIndex",
                     "nonRetriableRepartitionIndex",
                     "heartbeatDuringBuildIndex",
-                    "heartbeatRegularMergeIndex"
+                    "heartbeatRegularMergeIndex",
+                    "mergeBlockedByActiveSessionIndex",
+                    "mergeIgnoresExpiredSessionIndex",
+                    "mergeReadableIgnoresHeartbeatsIndex",
+                    "enqueueWhileMergeLockTakenIndex"
             );
         }
 

@@ -269,19 +269,22 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         buildIndexWithTimer(index);
-        // queued writes are invisible to the segment index: every record is queued as delete-then-insert
-        assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
-        // the queue is drained by the merge that follows the indexer's commit
-        assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR));
-        assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
-        assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
         if (primaryKeySegmentIndexVersion == PrimaryKeySegmentIndexVersion.NONE) {
+            // without a segment index, the indexer cannot tell whether a record is indexed: every record is queued as
+            // delete-then-insert
+            assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
+            // the queue is drained by the merge that follows the indexer's commit
+            assertEquals(6, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR));
+            assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_ADD_DOCUMENT));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
             assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
             assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
         } else {
-            // only the record that was saved while write-only can be deleted by its primary key
-            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
-            assertEquals(2, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE));
+            // the indexer may not enqueue: it merges (clearing the ongoing merge indicator), then retries and indexes
+            // directly the records that are not indexed yet
+            assertEquals(0, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
+            assertEquals(0, timer.getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR));
+            assertIndexerUpdates(primaryKeySegmentIndexVersion, 2, 3);
         }
         assertIndexedOnce(index, Set.of(1001L, 1002L, 2001L));
     }
