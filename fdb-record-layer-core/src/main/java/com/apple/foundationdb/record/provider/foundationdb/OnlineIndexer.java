@@ -343,9 +343,9 @@ public class OnlineIndexer implements AutoCloseable {
                 return MoreAsyncUtil.delayedFuture(delayMillis, TimeUnit.MILLISECONDS,
                         common.getRunner().getScheduledExecutor());
             }).thenCompose(ignore -> {
-                // mergeIndexAsync may have set a new indexer, retry with a fresh one
+                // mergeIndexAsync may have cleared the ongoing merge marker, retry with a fresh indexer
                 indexer = null;
-                return indexingLauncher(indexingFunc, attemptCount, requestedPolicy);
+                return indexingLauncher(indexingFunc, state, attemptCount);
             });
         }
 
