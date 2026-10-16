@@ -24,6 +24,8 @@ import com.apple.foundationdb.linear.Metric;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 class ConfigTest {
     private static final int NUM_DIMENSIONS = 128;
 
@@ -59,6 +61,7 @@ class ConfigTest {
         final int mergeNumNearestClusters = Config.DEFAULT_MERGE_NUM_NEAREST_CLUSTERS + 1;
         final int kMeansMaxIterations = Config.DEFAULT_KMEANS_MAX_ITERATIONS + 1;
         final int kMeansMaxRestarts = Config.DEFAULT_KMEANS_MAX_RESTARTS + 1;
+        final List<Double> kMeansBalancingLadder = List.of(0.0d, 0.05d, 0.2d);
         final int reassignNumNeighboringClusters = Config.DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS + 1;
         final int collapseMinDuplicates = Config.DEFAULT_COLLAPSE_MIN_DUPLICATES + 1;
         final int splitMergeConcurrency = Config.DEFAULT_SPLIT_MERGE_CONCURRENCY + 1;
@@ -98,6 +101,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.mergeNumNearestClusters()).isNotEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(defaultConfig.kMeansMaxIterations()).isNotEqualTo(kMeansMaxIterations);
         Assertions.assertThat(defaultConfig.kMeansMaxRestarts()).isNotEqualTo(kMeansMaxRestarts);
+        Assertions.assertThat(defaultConfig.kMeansBalancingLadder()).isNotEqualTo(kMeansBalancingLadder);
         Assertions.assertThat(defaultConfig.reassignNumNeighboringClusters()).isNotEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(defaultConfig.collapseMinDuplicates()).isNotEqualTo(collapseMinDuplicates);
         Assertions.assertThat(defaultConfig.splitMergeConcurrency()).isNotEqualTo(splitMergeConcurrency);
@@ -137,6 +141,7 @@ class ConfigTest {
                         .setMergeNumNearestClusters(mergeNumNearestClusters)
                         .setKMeansMaxIterations(kMeansMaxIterations)
                         .setKMeansMaxRestarts(kMeansMaxRestarts)
+                        .setKMeansBalancingLadder(kMeansBalancingLadder)
                         .setReassignNumNeighboringClusters(reassignNumNeighboringClusters)
                         .setCollapseMinDuplicates(collapseMinDuplicates)
                         .setSplitMergeConcurrency(splitMergeConcurrency)
@@ -175,6 +180,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.mergeNumNearestClusters()).isEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(newConfig.kMeansMaxIterations()).isEqualTo(kMeansMaxIterations);
         Assertions.assertThat(newConfig.kMeansMaxRestarts()).isEqualTo(kMeansMaxRestarts);
+        Assertions.assertThat(newConfig.kMeansBalancingLadder()).isEqualTo(kMeansBalancingLadder);
         Assertions.assertThat(newConfig.reassignNumNeighboringClusters()).isEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(newConfig.collapseMinDuplicates()).isEqualTo(collapseMinDuplicates);
         Assertions.assertThat(newConfig.splitMergeConcurrency()).isEqualTo(splitMergeConcurrency);
@@ -272,6 +278,29 @@ class ConfigTest {
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setMaxRelativeImbalance(1.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
                 .isEqualTo(1.0d);
+    }
+
+    @Test
+    void testKMeansBalancingLadderMustBeNonEmptyNonNegativeAndStrictlyIncreasing() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of()).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(-0.1d, 0.1d)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.1d, 0.1d)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.1d, 0.05d)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.0d, Double.POSITIVE_INFINITY)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // A single rung of zero is legal and means no balancing at all.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.0d)).build(NUM_DIMENSIONS).kMeansBalancingLadder())
+                .containsExactly(0.0d);
     }
 
     @Test

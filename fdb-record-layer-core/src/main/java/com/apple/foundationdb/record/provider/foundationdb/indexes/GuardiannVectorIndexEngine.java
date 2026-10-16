@@ -61,6 +61,7 @@ import java.util.function.IntConsumer;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.allowChange;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyBoolean;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyDouble;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyDoubleList;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyInteger;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.disallowChange;
 
@@ -344,6 +345,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 builder::setMergeNumNearestClusters);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_ITERATIONS, index, builder::setKMeansMaxIterations);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_RESTARTS, index, builder::setKMeansMaxRestarts);
+        applyDoubleList(VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER, index,
+                builder::setKMeansBalancingLadder);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS, index,
                 builder::setReassignNumNeighboringClusters);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES, index, builder::setCollapseMinDuplicates);
@@ -436,6 +439,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 oldConfig.kMeansMaxIterations(), newConfig.kMeansMaxIterations(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_RESTARTS,
                 oldConfig.kMeansMaxRestarts(), newConfig.kMeansMaxRestarts(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER,
+                oldConfig.kMeansBalancingLadder(), newConfig.kMeansBalancingLadder(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
                 oldConfig.reassignNumNeighboringClusters(), newConfig.reassignNumNeighboringClusters(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
