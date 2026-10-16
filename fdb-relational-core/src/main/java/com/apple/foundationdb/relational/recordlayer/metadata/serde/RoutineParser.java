@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -58,8 +57,8 @@ public interface RoutineParser {
 
         @Nonnull
         @Override
-        public CompiledSqlFunction parseFunction(@Nonnull final String routineString, boolean isCaseSensitive) {
-            return (CompiledSqlFunction)parse(routineString, null, PreparedParams.empty(), QueryParser::parseFunction,
+        public UserDefinedFunction parseFunction(@Nonnull final String routineString, boolean isCaseSensitive) {
+            return parse(routineString, null, PreparedParams.empty(), QueryParser::parseFunction,
                     BaseVisitor::visitSqlInvokedFunction, isCaseSensitive);
         }
 
