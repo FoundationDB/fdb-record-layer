@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PPhysicalQuantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Regu
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMax1RecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -223,7 +225,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                           @Nonnull final Supplier<Reference> referenceSupplier) {
             return isNullOnEmpty
                    ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, referenceSupplier.get()))
                    : Optional.empty();
@@ -376,10 +379,19 @@ public abstract class Quantifier implements Correlated<Quantifier> {
          */
         public enum Kind {
             /**
-             * An existential quantifier. Used in combination with {@link com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue ExistsValue}
-             * when the owning expression just needs to know whether the sub-graph produced anything at all.
+             * An existential quantifier. Used in combination with
+             * {@link com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue ExistsValue} when the owning
+             * expression just needs to know whether the sub-graph produced anything at all. An execution strategy
+             * realizing these semantics can stop as soon as the sub-graph produces its first item.
              */
-            EXISTENTIAL("∃");
+            EXISTENTIAL("∃"),
+            /**
+             * A value quantifier. Used when the owning expression uses the item <em>as a value</em>, by projecting a
+             * column out of the flowed record, as for a SQL scalar subquery. The sub-graph is required to produce at
+             * most one item (see {@link Scalar#requiresMax1Record()}), so an execution strategy enforcing that
+             * requirement has to look for a second item in order to reject it.
+             */
+            VALUE("ι");
 
             @Nonnull
             private final String shorthand;
@@ -438,6 +450,22 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return kind;
         }
 
+        /**
+         * Returns whether the sub-graph this quantifier ranges over is <em>required</em> to produce at most one item.
+         * A {@link Kind#EXISTENTIAL} quantifier takes the first item the sub-graph produces and discards the rest,
+         * which is what {@code EXISTS} wants; a {@link Kind#VALUE} quantifier, as for a SQL scalar subquery, instead
+         * requires that there be no second item at all.
+         *
+         * <p>Note that this states the requirement, not the decision to check it. Whether an implementation has to
+         * enforce the requirement at run time is decided when the quantifier is implemented, and is skipped where the
+         * sub-graph is provably single-row anyway, since then the check could never fire.
+         *
+         * @return {@code true} if more than one item from the sub-graph is an error
+         */
+        public boolean requiresMax1Record() {
+            return kind == Kind.VALUE;
+        }
+
         @Override
         @Nonnull
         public Reference getRangesOver() {
@@ -477,8 +505,28 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
-            return Optional.of(RecordQueryFirstOrDefaultPlan.forScalar(this, referenceSupplier.get()));
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                           @Nonnull final Supplier<Reference> referenceSupplier) {
+            final Reference reference = referenceSupplier.get();
+            // Give the `RecordQueryMax1RecordPlan` a physical quantifier with a fresh alias. The surrounding query
+            // graph refers to the `RecordQueryFirstOrDefaultPlan` above it, which keeps the alias of this quantifier.
+            final Reference innerReference = requiresMax1Record() && !isProvablyMax1Record(reference)
+                                             ? memoizer.memoizePlan(new RecordQueryMax1RecordPlan(physical(reference)))
+                                             : reference;
+            return Optional.of(RecordQueryFirstOrDefaultPlan.forScalar(this, innerReference));
+        }
+
+        /**
+         * Returns whether the plans in the given reference provably produce at most 1 record.
+         *
+         * @param reference the reference whose plans are to be examined
+         * @return {@code true} if at least one plan in the reference is provably single-row, which makes all of them so
+         */
+        private static boolean isProvablyMax1Record(@Nonnull final Reference reference) {
+            final CardinalitiesProperty.Cardinalities cardinalities
+                    = CardinalitiesProperty.cardinalities().evaluate(reference.getFinalExpressions());
+            final CardinalitiesProperty.Cardinality maxCardinality = cardinalities.getMaxCardinality();
+            return !maxCardinality.isUnknown() && maxCardinality.getCardinality() <= 1L;
         }
 
         @Nonnull
@@ -525,6 +573,17 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public static Scalar existential(@Nonnull final Reference reference,
                                      @Nonnull final CorrelationIdentifier alias) {
         return new Scalar(alias, reference, Scalar.Kind.EXISTENTIAL);
+    }
+
+    /**
+     * Create a scalar quantifier of the given kind ranging over a reference.
+     * @param reference the reference
+     * @param kind the {@link Scalar.Kind} of the quantifier
+     * @return a new scalar quantifier ranging over {@code reference}
+     */
+    @Nonnull
+    public static Scalar scalar(@Nonnull final Reference reference, @Nonnull final Scalar.Kind kind) {
+        return new Scalar(Quantifier.uniqueId(), reference, kind);
     }
 
     /**
@@ -901,7 +960,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      */
     @Nonnull
     public final Reference applyGlue(@Nonnull final FinalMemoizer memoizer, @Nonnull final Reference reference) {
-        return createGluePlan(() -> reference).map(memoizer::memoizePlan).orElse(reference);
+        return createGluePlan(memoizer, () -> reference).map(memoizer::memoizePlan).orElse(reference);
     }
 
     /**
@@ -912,16 +971,18 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public final Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
                                                             @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
         // Only obtain the reference if glue is needed, as doing so memoizes the plans of the builder.
-        return createGluePlan(builder::reference).map(memoizer::memoizePlanBuilder).orElse(builder);
+        return createGluePlan(memoizer, builder::reference).map(memoizer::memoizePlanBuilder).orElse(builder);
     }
 
     /**
      * Creates the glue plan for {@link #applyGlue(FinalMemoizer, Reference)} over the reference that
      * {@code referenceSupplier} provides, or returns {@code Optional.empty()} if this quantifier needs no glue, which
-     * is the default. Implementations must not call {@code referenceSupplier} unless glue is needed.
+     * is the default. Implementations must not call {@code referenceSupplier} unless glue is needed. They may use
+     * {@code memoizer} to memoize any intermediate plans between the reference and the returned glue plan.
      */
     @Nonnull
-    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                       @Nonnull final Supplier<Reference> referenceSupplier) {
         return Optional.empty();
     }
 

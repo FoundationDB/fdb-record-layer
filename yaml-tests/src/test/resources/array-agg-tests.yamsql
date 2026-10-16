@@ -429,16 +429,21 @@ test_block:
   tests:
     -
       # Variant 1: This places the ARRAY_AGG() subquery directly in the projection, which is (arguably) the most natural
-      # way to express the query. This is not yet supported in the grammar.
+      # way to express the query.
       - query: SELECT m.mid, r.rid,
                       (SELECT ARRAY_AGG(a.url) FROM doc_asset a WHERE a.rid = r.rid) AS assets
                  FROM doc_meta m, doc_rev r
                 WHERE m.owner IS NOT NULL
                   AND 'featured' IN r.tags
                   AND r.rid = 20
-      - error: SYNTAX_ERROR
+      - supported_version: !current_version
+      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: STRING}}]
+      - explain: "SCAN([IS doc_rev, EQUALS promote(@c55 AS LONG)]) | FILTER @c45 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0 AS assets) }"
+      - result: [{1, 20, ['b1.png', 'b2.png']}]
     -
-      # Variant 2: Moves the correlated ARRAY_AGG() subquery into the FROM clause.
+      # Variant 2: Moves the correlated ARRAY_AGG() subquery into the FROM clause. The plan is the same as for variant 1
+      # minus the `MAP (_._0._0 AS _0) | DEFAULT NULL` that implements the scalar subquery. The derived table here is
+      # joined as a regular for-each quantifier, and the column is read out of it in the final RETURN instead.
       - query: SELECT m.mid, r.rid, sq.assets
                  FROM doc_meta m,
                       doc_rev r,
