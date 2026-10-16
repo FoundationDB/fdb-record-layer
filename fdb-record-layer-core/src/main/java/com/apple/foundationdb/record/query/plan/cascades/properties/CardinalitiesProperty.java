@@ -84,6 +84,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMax1RecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
@@ -376,6 +377,16 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Override
         public Cardinalities visitRecordQueryFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
             return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecordQueryMax1RecordPlan(@Nonnull final RecordQueryMax1RecordPlan max1RecordPlan) {
+            // Cap both bounds of the inner plan at 1 (but don’t “raise” the lower bound to 1 if it is unknown).
+            final Cardinalities childCardinalities = fromChild(max1RecordPlan);
+            return new Cardinalities(
+                    childCardinalities.getMinCardinality().ceiling(1L),
+                    childCardinalities.getMaxCardinality().orElse(Cardinality.one).ceiling(1L));
         }
 
         @Nonnull
@@ -1034,12 +1045,15 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Cardinality.ofCardinality(getCardinality() * otherCardinality.getCardinality());
         }
 
+        /**
+         * Returns a {@code Cardinality} that is at least as large as {@code minimum}. An unknown cardinality is
+         * returned unchanged.
+         */
         @Nonnull
         public Cardinality floor(long minimum) {
-            if (isUnknown() || cardinalityOptional.getAsLong() >= minimum) {
-                return this;
-            }
-            return new Cardinality(OptionalLong.of(minimum));
+            return isUnknown() || cardinalityOptional.getAsLong() >= minimum
+                   ? this
+                   : new Cardinality(OptionalLong.of(minimum));
         }
 
         /**
@@ -1049,6 +1063,25 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Nonnull
         public Cardinality floor(@Nonnull final Cardinality minimum) {
             return minimum.isUnknown() ? this : floor(minimum.getCardinality());
+        }
+
+        /**
+         * Returns a {@code Cardinality} that is at most as large as {@code maximum}. An unknown cardinality is returned
+         * unchanged.
+         */
+        @Nonnull
+        public Cardinality ceiling(long maximum) {
+            return isUnknown() || cardinalityOptional.getAsLong() <= maximum
+                   ? this
+                   : new Cardinality(OptionalLong.of(maximum));
+        }
+
+        /**
+         * Returns this cardinality if it is known, or {@code other} otherwise.
+         */
+        @Nonnull
+        public Cardinality orElse(@Nonnull final Cardinality other) {
+            return isUnknown() ? other : this;
         }
 
         /**
