@@ -538,6 +538,149 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     }
 
     @ParameterizedTest
+    @BooleanSource({"byIndex", "allowTakeover"})
+    void testMutualPartlyBuiltContinueSingle(boolean byIndex, boolean allowTakeover) {
+        // After a mutual indexing started, continue a single target - either by a source index or by a records scan
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        int numRecords = 132;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, 11);
+
+        // 1. partly build mutually, crash after a few ranges were built
+        oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 4);
+
+        // 2. finish "indexB", to be used as a source index. The others keep the mutual stamp
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0), timer)
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true, false))
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // 3. continue "indexA", either by "indexB" as a source index or by a records scan
+        // A by-index attempt always falls back to a by-records scan, hence the extra attempt
+        final int expectedAttempts = byIndex ? 2 : allowTakeover ? 1 : 2;
+        final OnlineIndexer.IndexingPolicy.Builder policy = allowTakeover ?
+                                                            mutualTakeOverIndexingPolicy(true, false) :
+                                                            OnlineIndexer.IndexingPolicy.newBuilder();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(1), timer)
+                .setIndexingPolicy(policy
+                        .setSourceIndex(byIndex ? indexes.get(0).getName() : null))
+                .build()) {
+            if (allowTakeover) {
+                indexBuilder.buildIndex();
+            } else {
+                // Without a takeover, no attempt may continue the mutual build. The reported mismatch is the
+                // requested one, not the internal by-records fallback.
+                final RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                final IndexingBase.PartlyBuiltException partlyBuilt = IndexingBase.getAPartlyBuiltExceptionIfApplicable(e);
+                assertNotNull(partlyBuilt, () -> "expected a PartlyBuiltException, got " + e);
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, partlyBuilt.getSavedStamp().getMethod());
+                assertEquals(byIndex ?
+                             IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX :
+                             IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS,
+                        partlyBuilt.getExpectedStamp().getMethod());
+            }
+            assertEquals(expectedAttempts, indexBuilder.getLastAttemptCount());
+        }
+
+        if (allowTakeover) {
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
+                context.commit();
+            }
+            scrubAndValidate(List.of(indexes.get(0), indexes.get(1)));
+        }
+    }
+
+    private void buildMutuallyWhilePeerMarksReadable(List<Index> indexes, Index peerIndex, List<Tuple> boundaries) {
+        // Build all the ranges, but do not mark the indexes readable
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundaries))
+                .build()) {
+            indexBuilder.buildIndex(false);
+        }
+        // Continue, while a peer process marks its index readable before this indexer's first transaction
+        final AtomicBoolean peerMarked = new AtomicBoolean(false);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundaries))
+                .setConfigLoader(old -> {
+                    if (peerMarked.compareAndSet(false, true)) {
+                        fdb.runAsync(context -> createStoreBuilder().setContext(context).openAsync()
+                                .thenCompose(store -> store.markIndexReadable(peerIndex)))
+                                .join();
+                    }
+                    return old;
+                })
+                .build()) {
+            indexBuilder.buildIndex();
+            assertTrue(peerMarked.get());
+            assertEquals(1, indexBuilder.getLastAttemptCount()); // no additional indexing attempt
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMutualIndexingPeerMarksSomeReadable(boolean peerMarksPrimary) {
+        // A peer process, while marking the built indexes readable, had only marked one of them. Expect the others
+        // to be marked readable.
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+
+        int numRecords = 60;
+        populateData(numRecords);
+
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        buildMutuallyWhilePeerMarksReadable(indexes, indexes.get(peerMarksPrimary ? 0 : 1), getBoundariesList(numRecords, 10));
+
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
+    }
+
+    @Test
+    void testMutualIndexingPeerMarksSomeReadableUniquenessViolation() {
+        // A peer process, while marking the built indexes readable, could only mark one of them - the other has
+        // a uniqueness violation. Expect the uniqueness violation to be reported.
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+
+        int numRecords = 60;
+        populateData(numRecords);
+        try (FDBRecordContext context = openContext()) {
+            // a duplicate num_value_2
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1000).setNumValue2(19).build());
+            context.commit();
+        }
+
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        assertThrows(RecordIndexUniquenessViolation.class, () ->
+                buildMutuallyWhilePeerMarksReadable(indexes, indexes.get(1), getBoundariesList(numRecords, 10)));
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexState(indexes.get(0)).isWriteOnly());
+            assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
+            context.commit();
+        }
+    }
+
+    @ParameterizedTest
     @BooleanSource
     void testMultiTargetContinueAsMutual(boolean explicit) {
         // Start building as multi targets, stop, continue as mutual
