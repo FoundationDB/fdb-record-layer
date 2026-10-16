@@ -93,6 +93,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.matrix != '[]'
     strategy:
+      fail-fast: false
       matrix:
         subproject: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ubuntu-latest
@@ -121,7 +122,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ steps.extra_tasks.outputs.task }}
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false  -DallTest.timeoutMinutes=3
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -164,6 +165,7 @@ jobs:
             -x :fdb-record-layer-core:destructiveTest
             -x :fdb-record-layer-lucene:destructiveTest
             -x :yaml-tests:destructiveTest
+            -DallTest.timeoutMinutes=3
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
           report_name: other-test-reports
       - name: Publish Coverage Data
