@@ -196,6 +196,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         AtomicLong recordScanned = new AtomicLong();
         return AsyncUtil.whileTrue(() ->
                 rebuildRangeOnly(store, nextResultCont.get(), recordScanned, rangeEndInclusive).thenApply(cont -> {
+                    checkRebuildRecordScanLimit(recordScanned.get());
                     if (cont == null) {
                         return false;
                     }

@@ -1514,6 +1514,91 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void rebuildIndexDisablesIndexWhenScanLimitExceeded() throws Exception {
+        final String indexName = "MySimpleRecord$str_value_indexed";
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            saveSimpleRecordsForRebuildScanLimit(FDBRecordStore.MAX_RECORDS_FOR_REBUILD + 10);
+            recordStore.markIndexWriteOnly(indexName).get();
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.getIndexState(indexName).isWriteOnly());
+
+            // Does not throw: the scan limit is exceeded internally, but the index is disabled rather than
+            // failing the rebuild call or the enclosing transaction.
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName),
+                    FDBRecordStore.RebuildIndexReason.FEW_RECORDS, FDBRecordStore.MAX_RECORDS_FOR_REBUILD).get();
+
+            assertTrue(recordStore.getIndexState(indexName).isDisabled());
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("limitScan")
+    void checkVersionAppliesUserVersionCheckerRebuildScanLimit(boolean limitScan) throws Exception {
+        final String indexName = "MySimpleRecord$num_value_2";
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+            metaDataBuilder.addIndex("MySimpleRecord", indexName, field("num_value_2"));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            saveSimpleRecordsForRebuildScanLimit(FDBRecordStore.MAX_RECORDS_FOR_REBUILD + 10);
+            commit(context);
+        }
+
+        // Always asks for an in-line build, regardless of the number of records in the store.
+        final FDBRecordStoreBase.UserVersionChecker alwaysReadable = new FDBRecordStoreBase.UserVersionChecker() {
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+            }
+
+            @Deprecated
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                throw new RecordCoreException("deprecated checkUserVersion called");
+            }
+
+            @Override
+            public IndexState needRebuildIndex(Index index, long recordCount, boolean indexOnNewRecordTypes) {
+                return IndexState.READABLE;
+            }
+
+            @Override
+            public int getInlineRebuildRecordScanLimit() {
+                return limitScan ? FDBRecordStore.MAX_RECORDS_FOR_REBUILD : FDBRecordStoreBase.UserVersionChecker.super.getInlineRebuildRecordScanLimit();
+            }
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, simpleMetaData(hook))
+                    .setUserVersionChecker(alwaysReadable)
+                    .createOrOpen();
+            // By default, no scan limit is applied, so the in-line build requested by the checker succeeds.
+            assertEquals(limitScan ? IndexState.DISABLED : IndexState.READABLE, recordStore.getIndexState(indexName));
+            commit(context);
+        }
+    }
+
+    private void saveSimpleRecordsForRebuildScanLimit(int count) {
+        // More records than the scan limit, simulating a record count estimate that turned out to be wrong.
+        for (int i = 0; i < count; i++) {
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(i)
+                    .setStrValueIndexed("value")
+                    .setNumValue2(i)
+                    .build());
+        }
+    }
+
     @ParameterizedTest
     @BooleanSource("useNumericSubspaceKeys")
     void removingFormerIndexClearsIndexState(boolean useNumericSubspaceKeys) {
