@@ -511,7 +511,7 @@ joinPart
       (
         ON expression
         | USING '(' uidList ')'
-      )?                                                            #innerJoin
+      )                                                             #innerJoin
     | CROSS JOIN tableSourceItem                                    #crossJoin
     | STRAIGHT_JOIN tableSourceItem (ON expression)?                #straightJoin
     | (LEFT | RIGHT) OUTER? JOIN tableSourceItem
