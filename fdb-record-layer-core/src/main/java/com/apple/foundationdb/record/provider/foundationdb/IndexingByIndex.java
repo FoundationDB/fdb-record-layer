@@ -99,7 +99,7 @@ public class IndexingByIndex extends IndexingBase {
                 return metaData.getIndexFromSubspaceKey(policy.getSourceIndexSubspaceKey());
             } catch (MetaDataException ex) {
                 // The subspace key may come from a previous session's stamp, and its index may have been removed since
-                throw new UnusableSourceIndexException("unknown source index subspace key",
+                throw new UnusableSourceIndexException("unknown source index subspace key", ex,
                         LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
                         LogMessageKeys.SUBSPACE_KEY, policy.getSourceIndexSubspaceKey(),
                         LogMessageKeys.INDEXER_ID, common.getIndexerId());

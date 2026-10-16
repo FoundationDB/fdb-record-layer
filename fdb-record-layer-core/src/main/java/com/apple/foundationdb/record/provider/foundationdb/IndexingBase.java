@@ -1264,6 +1264,11 @@ public abstract class IndexingBase {
         ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
         }
+
+        ValidationException(@Nonnull String msg, @Nullable Throwable cause, @Nullable Object ... keyValues) {
+            super(msg, cause);
+            addLogInfo(keyValues);
+        }
     }
 
     /**
@@ -1297,6 +1302,10 @@ public abstract class IndexingBase {
     public static class UnusableSourceIndexException extends ValidationException {
         UnusableSourceIndexException(@Nonnull String msg, @Nullable Object... keyValues) {
             super(msg, keyValues);
+        }
+
+        UnusableSourceIndexException(@Nonnull String msg, @Nullable Throwable cause, @Nullable Object... keyValues) {
+            super(msg, cause, keyValues);
         }
     }
 
