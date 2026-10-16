@@ -252,7 +252,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
     static Value mergeValues(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
         // TODO let's just pick the first result type for now
         final var resultType = Streams.stream(quantifiers)
-                .filter(quantifier -> !(quantifier instanceof Quantifier.Existential))
+                .filter(quantifier -> !(quantifier instanceof Quantifier.Scalar))
                 .findFirst()
                 .map(Quantifier::getFlowedObjectType)
                 .orElseThrow(() -> new RecordCoreException("cannot resolve result type"));
