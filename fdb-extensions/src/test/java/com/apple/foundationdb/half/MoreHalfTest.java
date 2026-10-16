@@ -20,29 +20,23 @@
 
 package com.apple.foundationdb.half;
 
-import com.apple.test.RandomizedTestUtils;
+import com.apple.test.RandomSeedSource;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.within;
 
 public class MoreHalfTest {
     private static final double HALF_MIN_NORMAL = Math.scalb(1.0, -14);
     private static final double REL_BOUND = Math.scalb(1.0, -10);      // 2^-10
-
-    @Nonnull
-    private static Stream<Long> randomSeeds() {
-        return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195);
-    }
+    /** MAX_VALUE + 1/2 ulp; anything below this rounds to MAX_VALUE rather than overflowing to infinity */
+    private static final float HALF_OVERFLOW_THRESHOLD = 65520.0f;
 
     @ParameterizedTest
-    @MethodSource("randomSeeds")
+    @RandomSeedSource({12345, 987654, 423, 18378195, -373519288781890703L})
     void roundTripTest(final long seed) {
         final Random rnd = new Random(seed);
         for (int i = 0; i < 10_000; i ++) {
@@ -54,7 +48,8 @@ public class MoreHalfTest {
 
             Assertions.assertThat(sameSign(x, y)).isTrue();
 
-            if (Math.abs(x) > Half.MAX_VALUE.doubleValue()) {
+            // compare as float, since Half.valueOf(double) narrows to float before converting
+            if (Math.abs((float) x) >= HALF_OVERFLOW_THRESHOLD) {
                 if (x > 0) {
                     Assertions.assertThat(y).isEqualTo(Double.POSITIVE_INFINITY);
                 } else {
@@ -92,8 +87,8 @@ public class MoreHalfTest {
         // between the two rounds back down to MAX_VALUE.
         final float smallestFloatGreaterThanHalfMax = Math.nextUp(Half.MAX_VALUE.floatValue());
         Assertions.assertThat(Half.valueOf(smallestFloatGreaterThanHalfMax)).isEqualTo(Half.MAX_VALUE);
-        Assertions.assertThat(Half.valueOf(Math.nextDown(65520.0f))).isEqualTo(Half.MAX_VALUE);
-        Assertions.assertThat(Half.valueOf(65520.0f)).matches(h -> h.isInfinite());
+        Assertions.assertThat(Half.valueOf(Math.nextDown(HALF_OVERFLOW_THRESHOLD))).isEqualTo(Half.MAX_VALUE);
+        Assertions.assertThat(Half.valueOf(HALF_OVERFLOW_THRESHOLD)).matches(h -> h.isInfinite());
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
