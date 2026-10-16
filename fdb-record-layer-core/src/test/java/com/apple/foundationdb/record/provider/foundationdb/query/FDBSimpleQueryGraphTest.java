@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -31,6 +32,12 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.test.RootLogLevelExtension;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -43,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
@@ -68,7 +76,6 @@ import org.apache.logging.log4j.Level;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -125,6 +132,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnValuesPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
@@ -233,7 +242,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @Disabled(value = "Null-on-empty quantifiers must be below selects until we address: https://github.com/FoundationDB/fdb-record-layer/issues/3431")
     void testPlanQueryOnRestNoWithNullOnEmpty() {
         CascadesPlanner cascadesPlanner = setUp();
         final var plan = planGraph(
@@ -247,27 +255,257 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
-        // Note: this is a bug as the "null on empty" part of the quantifier is dropped
         assertMatchesExactly(plan,
-                mapPlan(
-                        typeFilterPlan(
-                                scanPlan()
-                                        .where(scanComparisons(range("([1000000],>")))))
-                        .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name"))))));
+                defaultOnEmptyPlan(
+                        mapPlan(
+                                typeFilterPlan(
+                                        scanPlan()
+                                                .where(scanComparisons(range("([1000000],>")))))
+                                .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))));
 
+        // The expected result is a single null value.
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-
-            // Note: this should return a single null value rather than an empty list
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 List<QueryResult> results = cursor.asList().join();
-                assertThat(results, Matchers.empty());
+                assertThat(results, Matchers.hasSize(1));
+                assertThat(results.get(0).getDatum(), Matchers.nullValue());
+            }
+        }
+    }
+
+    /**
+     * Tests that {@code ImplementDistinctRule} honors a null-on-empty quantifier owned by a
+     * {@link LogicalDistinctExpression}.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanDistinctWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final Quantifier base = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+                    // No projection, so the inner keeps flowing stored records, which is what `ImplementDistinctRule`
+                    // matches on.
+                    final Quantifier noneMatching = forEachWithNullOnEmpty(selectWithPredicates(base,
+                            fieldPredicate(base, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000_000L))));
+                    final Quantifier distinct = forEach(new LogicalDistinctExpression(noneMatching));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(distinct));
+                });
+
+        // The expected result is a single null value.
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                final List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.hasSize(1));
+                assertThat(results.get(0).getDatum(), Matchers.nullValue());
+            }
+        }
+    }
+
+    /**
+     * Tests that {@code ImplementUnorderedUnionRule} honors a null-on-empty leg over an empty input.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanUnionAllWithNullOnEmpty1() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final RecordMetaData metaData = cascadesPlanner.getRecordMetaData();
+                    final Quantifier union = forEach(new LogicalUnionExpression(List.of(
+                            restaurantsAbove(metaData, 1_000_000L, true),
+                            restaurantsAbove(metaData, 999L, false))));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(union));
+                });
+
+        assertMatchesExactly(plan,
+                unorderedUnionPlan(
+                        defaultOnEmptyPlan(typeFilterPlan(scanPlan().where(scanComparisons(range("([1000000],>"))))),
+                        typeFilterPlan(scanPlan().where(scanComparisons(range("([999],>"))))));
+
+        // The empty leg contributes a single null row, the other leg both restaurants.
+        final List<QueryResult> results = executeGraphPlan(plan);
+        assertThat(results, Matchers.hasSize(3));
+        assertEquals(1, countNullRows(results));
+    }
+
+    /**
+     * Tests that {@code ImplementUnorderedUnionRule} keeps the null rows of two null-on-empty legs over empty inputs.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanUnionAllWithNullOnEmpty2() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final RecordMetaData metaData = cascadesPlanner.getRecordMetaData();
+                    final Quantifier union = forEach(new LogicalUnionExpression(List.of(
+                            restaurantsAbove(metaData, 1_000_000L, true),
+                            restaurantsAbove(metaData, 2_000_000L, true))));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(union));
+                });
+
+        assertMatchesExactly(plan,
+                unorderedUnionPlan(
+                        defaultOnEmptyPlan(typeFilterPlan(scanPlan().where(scanComparisons(range("([1000000],>"))))),
+                        defaultOnEmptyPlan(typeFilterPlan(scanPlan().where(scanComparisons(range("([2000000],>")))))));
+
+        // A UNION ALL does not deduplicate, so each leg contributes its own null row.
+        final List<QueryResult> results = executeGraphPlan(plan);
+        assertThat(results, Matchers.hasSize(2));
+        assertEquals(2, countNullRows(results));
+    }
+
+    /**
+     * Tests that {@code ImplementDistinctUnionRule} honors a null-on-empty leg over an empty input.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanDistinctUnionWithNullOnEmpty1() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final RecordMetaData metaData = cascadesPlanner.getRecordMetaData();
+                    final Quantifier union = forEach(new LogicalUnionExpression(List.of(
+                            restaurantsAbove(metaData, 1_000_000L, true),
+                            restaurantsAbove(metaData, 999L, false))));
+                    final Quantifier distinct = forEach(new LogicalDistinctExpression(union));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(distinct));
+                });
+
+        assertMatchesExactly(plan,
+                unionOnValuesPlan(
+                        defaultOnEmptyPlan(typeFilterPlan(scanPlan().where(scanComparisons(range("([1000000],>"))))),
+                        typeFilterPlan(scanPlan().where(scanComparisons(range("([999],>"))))));
+
+        final List<QueryResult> results = executeGraphPlan(plan);
+        assertThat(results, Matchers.hasSize(3));
+        assertEquals(1, countNullRows(results));
+    }
+
+    /**
+     * Tests that the merge of {@code ImplementDistinctUnionRule} collapses the null rows of two null-on-empty legs over
+     * empty inputs into one.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanDistinctUnionWithNullOnEmpty2() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final RecordMetaData metaData = cascadesPlanner.getRecordMetaData();
+                    final Quantifier union = forEach(new LogicalUnionExpression(List.of(
+                            restaurantsAbove(metaData, 1_000_000L, true),
+                            restaurantsAbove(metaData, 2_000_000L, true))));
+                    final Quantifier distinct = forEach(new LogicalDistinctExpression(union));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(distinct));
+                });
+
+        assertMatchesExactly(plan,
+                unionOnValuesPlan(
+                        defaultOnEmptyPlan(typeFilterPlan(scanPlan().where(scanComparisons(range("([1000000],>"))))),
+                        defaultOnEmptyPlan(typeFilterPlan(scanPlan().where(scanComparisons(range("([2000000],>")))))));
+
+        // On the null rows, the comparison key evaluates to null on both legs, so the merge treats them as equal.
+        final List<QueryResult> results = executeGraphPlan(plan);
+        assertThat(results, Matchers.hasSize(1));
+        assertEquals(1, countNullRows(results));
+    }
+
+    /**
+     * Tests that {@code ImplementUniqueRule} honors a null-on-empty quantifier over an empty input.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanUniqueWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final Quantifier unique = forEach(new LogicalUniqueExpression(
+                            restaurantsAbove(cascadesPlanner.getRecordMetaData(), 1_000_000L, true)));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(unique));
+                });
+
+        assertMatchesExactly(plan, defaultOnEmptyPlan(typeFilterPlan(scanPlan())));
+
+        final List<QueryResult> results = executeGraphPlan(plan);
+        assertThat(results, Matchers.hasSize(1));
+        assertEquals(1, countNullRows(results));
+    }
+
+    /**
+     * Tests that {@code RemoveSortRule} honors a null-on-empty quantifier over an empty input when the inner already
+     * provides the requested ordering.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanSortWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final Quantifier qun = restaurantsAbove(cascadesPlanner.getRecordMetaData(), 1_000_000L, true);
+                    final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                    final List<Value> orderByValues = List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no").rebase(aliasMap));
+                    return Reference.initialOf(sortExpression(orderByValues, false, qun));
+                });
+
+        assertMatchesExactly(plan, defaultOnEmptyPlan(typeFilterPlan(scanPlan())));
+
+        final List<QueryResult> results = executeGraphPlan(plan);
+        assertThat(results, Matchers.hasSize(1));
+        assertEquals(1, countNullRows(results));
+    }
+
+    /**
+     * Tests that planning fails rather than dropping the semantics when a null-on-empty quantifier sits under an
+     * expression whose implementation rule only matches plain for-each quantifiers.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanTypeFilterWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        Assertions.assertThrows(UnableToPlanException.class, () -> planGraph(
+                () -> {
+                    final RecordMetaData metaData = cascadesPlanner.getRecordMetaData();
+                    final Quantifier typeFilter = forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"),
+                            restaurantsAbove(metaData, 1_000_000L, true), metaData.getPlannerType("RestaurantRecord")));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(typeFilter));
+                }));
+    }
+
+    /**
+     * Tests that the {@code DefaultOnEmpty} wrapper is transparent when the inner does produce records, that is,
+     * that it flows them through without adding a null row of its own.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanQueryOnRestNoWithNullOnEmpty2() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    Quantifier qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+                    qun = forEachWithNullOnEmpty(selectWithPredicates(qun,
+                            ImmutableList.of("rest_no", "name"),
+                            fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 999L))
+                    ));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+                });
+
+        assertMatchesExactly(plan,
+                defaultOnEmptyPlan(
+                        mapPlan(
+                                typeFilterPlan(
+                                        scanPlan()
+                                                .where(scanComparisons(range("([999],>")))))
+                                .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))));
+
+        // Both restaurants match, so the wrapper must not contribute a null row on top of them.
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                final List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.hasSize(2));
+                for (final QueryResult result : results) {
+                    assertThat(result.getDatum(), Matchers.notNullValue());
+                }
             }
         }
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @Disabled(value = "Null-on-empty quantifiers must be below selects until we address: https://github.com/FoundationDB/fdb-record-layer/issues/3431")
     void testPlanQueryOnNameWithNullOnEmpty() {
         CascadesPlanner cascadesPlanner = setUp();
         final var plan = planGraph(
@@ -281,21 +519,20 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
-        // Note: this is a bug as the "null on empty" part of the quantifier is dropped
         assertMatchesExactly(plan,
-                mapPlan(
-                        coveringIndexPlan()
-                                .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
-                ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))
-        );
+                defaultOnEmptyPlan(
+                        mapPlan(
+                                coveringIndexPlan()
+                                        .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
+                        ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))));
 
+        // The expected result is a single null value.
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-
-            // Note: this should return a single null value rather than an empty list
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 List<QueryResult> results = cursor.asList().join();
-                assertThat(results, Matchers.empty());
+                assertThat(results, Matchers.hasSize(1));
+                assertThat(results.get(0).getDatum(), Matchers.nullValue());
             }
         }
     }
@@ -1372,6 +1609,33 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         scanPlan()
                                 .where(scanComparisons(range("([1],>")))))
                         .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
+    }
+
+    /**
+     * Creates a quantifier over a SELECT of the restaurants whose {@code rest_no} is greater than {@code bound}. The
+     * SELECT has no projection, so it keeps flowing stored records, which is what the set-operation rules match on.
+     */
+    @Nonnull
+    private static Quantifier restaurantsAbove(@Nonnull final RecordMetaData metaData, final long bound,
+                                               final boolean nullOnEmpty) {
+        final Quantifier base = fullTypeScan(metaData, "RestaurantRecord");
+        final SelectExpression select = selectWithPredicates(base,
+                fieldPredicate(base, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, bound)));
+        return nullOnEmpty ? forEachWithNullOnEmpty(select) : forEach(select);
+    }
+
+    @Nonnull
+    private List<QueryResult> executeGraphPlan(@Nonnull final RecordQueryPlan plan) {
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                return cursor.asList().join();
+            }
+        }
+    }
+
+    private static long countNullRows(@Nonnull final List<QueryResult> results) {
+        return results.stream().filter(result -> result.getDatum() == null).count();
     }
 
     @Nonnull

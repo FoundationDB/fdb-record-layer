@@ -66,8 +66,8 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.anyPartialMatch;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Transform a {@link SelectExpression} with a set of {@link QueryPredicate}s into a union operation.
@@ -124,8 +124,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchPartition> {
     public static final int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
 
+    // Do not apply this rewrite to a SELECT that owns a non-plain for-each quantifier. As written, the rule would
+    // drop any non-plain semantics as it rebuilds the legs of the UNION with plain for-each quantifiers.
+    // To handle null-on-empty quantifiers, we’d have to ensure that the null rows produced by the corresponding
+    // ON EMPTY NULL glue nodes get collapsed correctly by the DISTINCT union. However, the fact that the NULL row
+    // is not a stored record and does not have a known primary key makes it incompatible with the existing mechanism
+    // that deduplicates by primary key.
     @Nonnull
-    private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
+    private static final BindingMatcher<Quantifier> qunMatcher =
+            typedMatcherWithPredicate(Quantifier.class, qun -> !(qun instanceof Quantifier.ForEach forEach) || forEach.isPlain());
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull

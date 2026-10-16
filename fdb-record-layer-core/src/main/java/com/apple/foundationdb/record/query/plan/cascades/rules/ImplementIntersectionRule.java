@@ -89,13 +89,23 @@ public class ImplementIntersectionRule extends AbstractCascadesRule<LogicalInter
         //
         // create new references
         //
-        final ImmutableList<Quantifier.Physical> newQuantifiers =
+        final ImmutableList<Reference> legReferences =
                 Streams.zip(planPartitionsByQuantifier.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) ->
+                                        call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                        .collect(ImmutableList.toImmutableList());
+
+        // Determine the direction before applying glue, as a glue plan can only report its direction once its child
+        // reference has been reduced to a single plan. The direction is not affected by the glue.
+        final boolean isReversed =
+                Quantifiers.isReversed(legReferences.stream().map(Quantifier::physical).collect(ImmutableList.toImmutableList()));
+
+        final ImmutableList<Quantifier.Physical> newQuantifiers =
+                Streams.zip(allQuantifiers.stream(), legReferences.stream(), (quantifier, legReference) -> quantifier.applyGlue(call, legReference))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
         call.yieldPlan(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
-                logicalIntersectionExpression.getComparisonKeyProvidedOrderingParts(), Quantifiers.isReversed(newQuantifiers)));
+                logicalIntersectionExpression.getComparisonKeyProvidedOrderingParts(), isReversed));
     }
 }
