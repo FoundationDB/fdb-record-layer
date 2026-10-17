@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
@@ -28,17 +29,24 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Instant;
 
 public interface QueryExecutionContext {
 
     @Nonnull
     default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        final var literals = getLiterals();
-        if (literals.isEmpty()) {
-            return EvaluationContext.forTypeRepository(typeRepository);
-        }
         final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), literals.asMap());
+
+        final var evaluationTimestamp = getEvaluationTimestamp();
+        if (evaluationTimestamp != null) {
+            builder.setBinding(Bindings.Internal.EVALUATION_TIMESTAMP.bindingName(""), evaluationTimestamp);
+        }
+
+        final var literals = getLiterals();
+        if (!literals.isEmpty()) {
+            builder.setConstant(Quantifier.constant(), literals.asMap());
+        }
+
         return builder.build(typeRepository);
     }
 
@@ -59,6 +67,9 @@ public interface QueryExecutionContext {
     Literals getLiterals();
 
     boolean isForExplain(); // todo (yhatem) remove.
+
+    @Nullable
+    Instant getEvaluationTimestamp();
 
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();

@@ -483,6 +483,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     i++;
                 }
 
+                if (queryExecutionContext.getEvaluationTimestamp() != null) {
+                    compiledStatementBuilder.setEvaluationTimestampInEpochMillis(queryExecutionContext.getEvaluationTimestamp().toEpochMilli());
+                }
+
                 compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext))
                         .setQueryMetadata(DataTypeUtils.toRecordLayerType(semanticStructType).toTypeProto(serializationContext));
                 continuationBuilder.withCompiledStatement(compiledStatementBuilder.build());
