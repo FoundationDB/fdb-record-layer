@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.within;
 public class MoreHalfTest {
     private static final double HALF_MIN_NORMAL = Math.scalb(1.0, -14);
     private static final double REL_BOUND = Math.scalb(1.0, -10);      // 2^-10
-    /** MAX_VALUE + 1/2 ulp; anything below this rounds to MAX_VALUE rather than overflowing to infinity */
+    /** MAX_VALUE + 1/2 ulp; anything below this value rounds to MAX_VALUE rather than overflowing to infinity. */
     private static final float HALF_OVERFLOW_THRESHOLD = 65520.0f;
 
     @ParameterizedTest
