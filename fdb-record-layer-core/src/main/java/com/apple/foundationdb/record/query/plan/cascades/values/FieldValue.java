@@ -93,7 +93,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
         fieldNamesSupplier = Suppliers.memoize(() ->
-                fieldPath.getOptionalFieldNames()
+                fieldPath.getOptionalFieldStorageNames()
                         .stream()
                         .map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set")))
                         .collect(Collectors.toList()));
@@ -122,12 +122,17 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     public List<Optional<String>> getFieldPathNamesMaybe() {
-        return fieldPath.getOptionalFieldNames();
+        return fieldPath.getOptionalFieldStorageNames();
     }
 
     @Nonnull
     public FieldPath getFieldPrefix() {
         return fieldPath.getFieldPrefix();
+    }
+
+    @Nonnull
+    public Optional<String> getLastFieldStorageName() {
+        return fieldPath.getLastFieldStorageName();
     }
 
     @Nonnull
@@ -380,6 +385,9 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         private final List<ResolvedAccessor> fieldAccessors;
 
         @Nonnull
+        private final Supplier<List<Optional<String>>> fieldStorageNamesSupplier;
+
+        @Nonnull
         private final Supplier<List<Optional<String>>> fieldNamesSupplier;
 
         /**
@@ -397,6 +405,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         public FieldPath(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
             this.fieldAccessors = ImmutableList.copyOf(fieldAccessors);
+            this.fieldStorageNamesSupplier = Suppliers.memoize(() -> computeFieldStorageNames(fieldAccessors));
             this.fieldNamesSupplier = Suppliers.memoize(() -> computeFieldNames(fieldAccessors));
             this.fieldOrdinalsSupplier = Suppliers.memoize(() -> computeOrdinals(fieldAccessors));
             this.fieldTypesSupplier = Suppliers.memoize(() -> computeFieldTypes(fieldAccessors));
@@ -432,6 +441,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
                     .collect(Collectors.joining());
         }
 
+        /**
+         * The field names as spelled in the record descriptor, see {@link #getOptionalFieldNames()} for the SQL ones.
+         */
+        @Nonnull
+        public List<Optional<String>> getOptionalFieldStorageNames() {
+            return fieldStorageNamesSupplier.get();
+        }
+
         @Nonnull
         public List<Optional<String>> getOptionalFieldNames() {
             return fieldNamesSupplier.get();
@@ -457,6 +474,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         public ResolvedAccessor getLastFieldAccessor() {
             Preconditions.checkArgument(!isEmpty());
             return getFieldAccessors().get(size() - 1);
+        }
+
+        @Nonnull
+        public Optional<String> getLastFieldStorageName() {
+            Preconditions.checkArgument(!isEmpty());
+            return getOptionalFieldStorageNames().get(size() - 1);
         }
 
         @Nonnull
@@ -539,9 +562,16 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         @Nonnull
-        private static List<Optional<String>> computeFieldNames(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
+        private static List<Optional<String>> computeFieldStorageNames(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
             return fieldAccessors.stream()
                     .map(accessor -> accessor.getField().getFieldStorageNameOptional())
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        @Nonnull
+        private static List<Optional<String>> computeFieldNames(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
+            return fieldAccessors.stream()
+                    .map(accessor -> accessor.getField().getFieldNameOptional())
                     .collect(ImmutableList.toImmutableList());
         }
 
