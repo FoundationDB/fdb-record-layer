@@ -48,7 +48,9 @@ public class MoreHalfTest {
 
             Assertions.assertThat(sameSign(x, y)).isTrue();
 
-            // compare as float, since Half.valueOf(double) narrows to float before converting
+            // Narrow to float before comparing; valueOf(double) narrows first, and the narrowing can round a double
+            // just below the threshold (e.g. 65519.999) up onto it, overflowing to infinity, this mirrors the
+            // conversion path in Half.valueOf(double) giving the same rounding/overflow behavior.
             if (Math.abs((float) x) >= HALF_OVERFLOW_THRESHOLD) {
                 if (x > 0) {
                     Assertions.assertThat(y).isEqualTo(Double.POSITIVE_INFINITY);
