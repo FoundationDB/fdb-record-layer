@@ -30,9 +30,10 @@ import java.util.Set;
 
 /**
  * Base class for synthetic tables in the relational layer: a virtual table backed by a record-layer synthetic record
- * type ({@code UnnestedRecordType} and, eventually, joined types) with one or more indexes maintained on it.
+ * type ({@code UnnestedRecordType} or {@code JoinedRecordType}) with one or more indexes maintained on it.
  *
  * @see RecordLayerUnnestedSyntheticTable
+ * @see RecordLayerJoinedSyntheticTable
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable

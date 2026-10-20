@@ -106,7 +106,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         }
     }
 
-    public void visit(@Nonnull final RecordLayerJoinedSyntheticTable joinedSyntheticTable) {
+    private void visit(@Nonnull final RecordLayerJoinedSyntheticTable joinedSyntheticTable) {
         final JoinedRecordTypeBuilder typeBuilder =
                 getBuilder().addJoinedRecordType(joinedSyntheticTable.getType().getStorageName());
         for (final RecordLayerJoinedSyntheticTable.JoinedConstituent constituent : joinedSyntheticTable.getConstituents()) {

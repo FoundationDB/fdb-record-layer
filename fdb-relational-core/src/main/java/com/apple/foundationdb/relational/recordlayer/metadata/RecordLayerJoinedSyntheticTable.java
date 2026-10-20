@@ -94,11 +94,9 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
 
     @Override
     public boolean equals(final Object o) {
-        if (!super.equals(o)) {
-            return false;
-        }
-        final RecordLayerJoinedSyntheticTable that = (RecordLayerJoinedSyntheticTable) o;
-        return Objects.equals(constituents, that.constituents)
+        return o instanceof RecordLayerJoinedSyntheticTable that
+                && super.equals(o)
+                && Objects.equals(constituents, that.constituents)
                 && Objects.equals(joinConditions, that.joinConditions);
     }
 

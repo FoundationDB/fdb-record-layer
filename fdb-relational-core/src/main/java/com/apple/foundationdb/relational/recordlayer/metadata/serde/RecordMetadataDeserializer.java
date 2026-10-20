@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -135,7 +136,7 @@ public class RecordMetadataDeserializer {
                         generateUnnestedSyntheticTableBuilder(recordMetaData, unnestedRecordType).build());
             } else if (syntheticType instanceof JoinedRecordType joinedRecordType) {
                 schemaTemplateBuilder.addSyntheticTable(
-                        generateJoinedSyntheticTableBuilder(recordMetaData, joinedRecordType).build());
+                        generateJoinedSyntheticTableBuilder(joinedRecordType).build());
             }
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
@@ -240,13 +241,15 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     private static RecordLayerJoinedSyntheticTable.Builder generateJoinedSyntheticTableBuilder(
-            @Nonnull final RecordMetaData recordMetaData,
             @Nonnull final JoinedRecordType joinedRecordType) {
         final var type = Type.Record.fromDescriptorPreservingName(joinedRecordType.getDescriptor());
         final RecordLayerJoinedSyntheticTable.Builder builder = RecordLayerJoinedSyntheticTable.newBuilder(type);
         for (final JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
+            Assert.thatUnchecked(!constituent.isOuterJoined(), ErrorCode.UNSUPPORTED_OPERATION,
+                    "outer-joined constituent '%s' of joined table '%s' is not supported",
+                    constituent.getName(), joinedRecordType.getName());
             final Type.Record constituentType = Type.Record.fromDescriptorPreservingName(
-                    recordMetaData.getRecordType(constituent.getRecordType().getName()).getDescriptor());
+                    constituent.getRecordType().getDescriptor());
             builder.addConstituent(constituent.getName(), constituentType);
         }
         for (final JoinedRecordType.Join join : joinedRecordType.getJoins()) {

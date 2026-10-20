@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -2040,6 +2041,30 @@ public class SchemaTemplateSerDeTests {
                 List.of(constituent("a", left)));
         assertJoinedTableRejected("duplicate constituent alias 'a' in joined table",
                 List.of(constituent("a", left), constituent("a", right)));
+    }
+
+    /**
+     * Joined tables are inner joins only, so record metadata carrying an outer-joined constituent, which the record layer
+     * can express, is rejected when read rather than silently read back as an inner join.
+     */
+    @Test
+    void testJoinedSyntheticTypeRejectsOuterJoinedConstituent() {
+        final var syntheticName = "__joined_outer_idx";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        final var template = joinedTemplate(syntheticName, orders, customers, "outer_idx", constituentField("b", "name"),
+                joinOn("a", "customer_id", "b", "id"));
+
+        final var proto = serializeWithSyntheticType(template, syntheticName).toProto().toBuilder();
+        proto.getJoinedRecordTypesBuilder(0).getJoinConstituentsBuilder(1).setOuterJoined(true);
+        final var outerJoinedMetaData = RecordMetaData.build(proto.build());
+
+        final var exception = Assertions.assertThrows(UncheckedRelationalException.class,
+                () -> deserialize(outerJoinedMetaData));
+        final var cause = exception.unwrap();
+        Assertions.assertEquals(ErrorCode.UNSUPPORTED_OPERATION, cause.getErrorCode());
+        Assertions.assertEquals("outer-joined constituent 'b' of joined table '" + syntheticName + "' is not supported",
+                cause.getMessage());
     }
 
 }
