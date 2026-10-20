@@ -136,19 +136,26 @@ public class OnlineIndexer implements AutoCloseable {
      */
     private static final class IndexingOperationState {
         @Nonnull private IndexingPolicy policy; // the policy of the current attempt, possibly adjusted
+        private final boolean markReadable; // the caller's request to mark the indexes readable once built
         private boolean fallbackToRecordsScan = false;
         private boolean sourceIndexAdjusted = false;
         @Nullable private IndexingBase.PartlyBuiltException firstPartlyBuiltException = null;
 
-        private IndexingOperationState(@Nonnull IndexingPolicy policy) {
+        private IndexingOperationState(@Nonnull IndexingPolicy policy, boolean markReadable) {
             this.policy = policy;
+            this.markReadable = markReadable;
         }
     }
 
     @Nonnull
     private CompletableFuture<Void> indexingLauncher(Function<IndexingBase, CompletableFuture<Void>> indexingFunc) {
+        return indexingLauncher(indexingFunc, true);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingLauncher(Function<IndexingBase, CompletableFuture<Void>> indexingFunc, boolean markReadable) {
         // A new operation - starts with the requested policy and no adjustments.
-        return indexingLauncher(indexingFunc, new IndexingOperationState(callerIndexingPolicy), 0);
+        return indexingLauncher(indexingFunc, new IndexingOperationState(callerIndexingPolicy, markReadable), 0);
     }
 
     @Nonnull
@@ -301,9 +308,8 @@ public class OnlineIndexer implements AutoCloseable {
                     return AsyncUtil.DONE;
                 }
                 // Here: some targets are readable. A peer process is probably in the middle of marking them readable, or had
-                // failed to (possibly due to a uniqueness violation). Attempt marking them readable too (note that in this
-                // path - mutual + unexpected readable - we assume that the caller asked to mark readable)
-                return newIndexer(state.policy).markIndexReadable(true).thenApply(ignore -> null);
+                // failed to (possibly due to a uniqueness violation). Attempt marking them readable too, if requested.
+                return newIndexer(state.policy).markIndexReadable(state.markReadable).thenApply(ignore -> null);
             }
         }
 
@@ -569,7 +575,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        return indexingLauncher(attemptIndexer -> attemptIndexer.buildIndexAsync(markReadable));
+        return indexingLauncher(attemptIndexer -> attemptIndexer.buildIndexAsync(markReadable), markReadable);
     }
 
     /**

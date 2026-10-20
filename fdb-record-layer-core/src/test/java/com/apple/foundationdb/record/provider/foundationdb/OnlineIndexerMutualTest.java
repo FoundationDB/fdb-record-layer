@@ -24,6 +24,7 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.ScanProperties;
@@ -602,11 +603,13 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
     }
 
-    private void buildMutuallyWhilePeerMarksReadable(List<Index> indexes, Index peerIndex, List<Tuple> boundaries) {
+    private void buildMutuallyWhilePeerMarksReadable(List<Index> indexes, Index peerIndex, List<Tuple> boundaries,
+                                                     boolean allowUniquePending, boolean markReadable) {
         // Build all the ranges, but do not mark the indexes readable
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setMutualIndexingBoundaries(boundaries))
+                        .setMutualIndexingBoundaries(boundaries)
+                        .allowUniquePendingState(allowUniquePending))
                 .build()) {
             indexBuilder.buildIndex(false);
         }
@@ -614,7 +617,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final AtomicBoolean peerMarked = new AtomicBoolean(false);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setMutualIndexingBoundaries(boundaries))
+                        .setMutualIndexingBoundaries(boundaries)
+                        .allowUniquePendingState(allowUniquePending))
                 .setConfigLoader(old -> {
                     if (peerMarked.compareAndSet(false, true)) {
                         fdb.runAsync(context -> createStoreBuilder().setContext(context).openAsync()
@@ -624,17 +628,17 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                     return old;
                 })
                 .build()) {
-            indexBuilder.buildIndex();
+            indexBuilder.buildIndex(markReadable);
             assertTrue(peerMarked.get());
             assertEquals(1, indexBuilder.getLastAttemptCount()); // no additional indexing attempt
         }
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void testMutualIndexingPeerMarksSomeReadable(boolean peerMarksPrimary) {
+    @BooleanSource({"peerMarksPrimary", "markReadable"})
+    void testMutualIndexingPeerMarksSomeReadable(boolean peerMarksPrimary, boolean markReadable) {
         // A peer process, while marking the built indexes readable, had only marked one of them. Expect the others
-        // to be marked readable.
+        // to be marked readable - unless this indexer was asked not to mark readable.
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
@@ -645,16 +649,29 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexes));
         disableAll(indexes);
 
-        buildMutuallyWhilePeerMarksReadable(indexes, indexes.get(peerMarksPrimary ? 0 : 1), getBoundariesList(numRecords, 10));
+        final Index peerIndex = indexes.get(peerMarksPrimary ? 0 : 1);
+        buildMutuallyWhilePeerMarksReadable(indexes, peerIndex, getBoundariesList(numRecords, 10), false, markReadable);
 
-        assertReadable(indexes);
-        scrubAndValidate(indexes);
+        if (markReadable) {
+            assertReadable(indexes);
+            scrubAndValidate(indexes);
+        } else {
+            try (FDBRecordContext context = openContext()) {
+                for (Index index : indexes) {
+                    assertEquals(index == peerIndex ? IndexState.READABLE : IndexState.WRITE_ONLY,
+                            recordStore.getIndexState(index), index.getName());
+                }
+                context.commit();
+            }
+        }
     }
 
-    @Test
-    void testMutualIndexingPeerMarksSomeReadableUniquenessViolation() {
+    @ParameterizedTest
+    @BooleanSource
+    void testMutualIndexingPeerMarksSomeReadableUniquenessViolation(boolean allowUniquePending) {
         // A peer process, while marking the built indexes readable, could only mark one of them - the other has
-        // a uniqueness violation. Expect the uniqueness violation to be reported.
+        // a uniqueness violation. Expect the uniqueness violation to be reported, or - if allowed - the other index
+        // to be marked readable-unique-pending.
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
@@ -670,11 +687,17 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexes));
         disableAll(indexes);
 
-        assertThrows(RecordIndexUniquenessViolation.class, () ->
-                buildMutuallyWhilePeerMarksReadable(indexes, indexes.get(1), getBoundariesList(numRecords, 10)));
+        final List<Tuple> boundaries = getBoundariesList(numRecords, 10);
+        if (allowUniquePending) {
+            buildMutuallyWhilePeerMarksReadable(indexes, indexes.get(1), boundaries, true, true);
+        } else {
+            assertThrows(RecordIndexUniquenessViolation.class, () ->
+                    buildMutuallyWhilePeerMarksReadable(indexes, indexes.get(1), boundaries, false, true));
+        }
 
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.getIndexState(indexes.get(0)).isWriteOnly());
+            assertEquals(allowUniquePending ? IndexState.READABLE_UNIQUE_PENDING : IndexState.WRITE_ONLY,
+                    recordStore.getIndexState(indexes.get(0)));
             assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
             context.commit();
         }
