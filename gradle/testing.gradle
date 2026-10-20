@@ -23,12 +23,21 @@ import java.time.Instant
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
+import javax.inject.Inject
+
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
+import org.gradle.build.event.BuildEventsListenerRegistry
+import org.gradle.tooling.Failure
+import org.gradle.tooling.events.FinishEvent
+import org.gradle.tooling.events.OperationCompletionListener
+import org.gradle.tooling.events.task.TaskFailureResult
+import org.gradle.tooling.events.task.TaskFinishEvent
 
 import static TestReporting.betterException
 import static TestReporting.getFullDisplayName
 import static TestReporting.getMixedModeVersion
+import static TestReporting.startTestSummary
 
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
@@ -114,6 +123,17 @@ class TestReporting {
         return SKIPPED_STACK_TRACE_ENTRIES.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
     }
 
+    // Creates the test summary file, starting with its table header, if it does not exist yet. Every row appended
+    // to it afterwards must be a row of this table.
+    static void startTestSummary(File summary) {
+        // This may have issues with running tasks concurrently
+        summary.parentFile.mkdirs()
+        if (!summary.exists()) {
+            summary.append("|Test run|❌|⚠️|✅|time|\n")
+            summary.append("|-|-|-|-|-|\n")
+        }
+    }
+
     static def getMixedModeVersion(descriptor) {
         while (descriptor != null) {
             // don't display this or any of the parents. Let's assume that nobody ever
@@ -160,6 +180,13 @@ class TestReporting {
     }
 }
 
+// Markdown reports written by the test tasks, which are picked up by CI (see actions/gradle-test/action.yml).
+//  - test-summary.md: a table of all the test tasks we ran, with their failure/skipped/success counts & duration
+//  - test-failures.md: any test failures that happened, with the stack trace
+def markdownReports = new File(rootDir, '.out/reports')
+def testSummary = new File(markdownReports, 'test-summary.md')
+def testFailures = new File(markdownReports, 'test-failures.md')
+
 // Note: If you add to or modify these testing configurations, make sure to update `Building.md` accordingly.
 tasks.register('mixedModeTest', Test) {
     useJUnitPlatform {
@@ -171,7 +198,6 @@ tasks.register('mixedModeTest', Test) {
     // Skip non-MultiServer yaml tests
     systemProperties['tests.mixedModeOnly'] = 'true'
 
-    def markdownReports = new File("$rootDir/.out/reports/")
     def mixedModeResults = new File(markdownReports, "mixed-mode-results.log")
     doFirst {
         // This may have issues with running tasks concurrently
@@ -236,7 +262,7 @@ abstract class TestDeadlineService implements BuildService<Params> {
         return timeout
     }
 
-    private static String formatDuration(Duration duration) {
+    static String formatDuration(Duration duration) {
         // e.g. PT1M55.123S -> 1m 55s
         return duration.withNanos(0).toString().substring(2).replaceAll(/(\d[HMS])(?!$)/, '$1 ').toLowerCase()
     }
@@ -259,6 +285,68 @@ def configureTestTimeout = { Test task ->
     } else if (taskTimeout != null) {
         task.timeout = taskTimeout
     }
+}
+
+// Adds a row to `test-summary.md` (see the test listeners below) for each task that fails because it hit its
+// timeout, so a timeout is visible in the CI step summary rather than looking like a short, clean run. Gradle only
+// reports a timeout as the task's failure, so this listens for task completion events and looks for Gradle's
+// "Timeout has been exceeded" failure. (In this build only Test tasks have timeouts.)
+abstract class TestTimeoutReporter implements BuildService<Params>, OperationCompletionListener {
+    interface Params extends BuildServiceParameters {
+        RegularFileProperty getSummaryFile()
+    }
+
+    private static final Logger LOGGER = Logging.getLogger(TestTimeoutReporter)
+
+    @Override
+    void onFinish(FinishEvent event) {
+        try {
+            reportTimeout(event)
+        } catch (Exception e) {
+            // This is only reporting; don't add a second build failure if something goes wrong here.
+            LOGGER.warn("Could not record test task timeout in the test summary", e)
+        }
+    }
+
+    // Not private, for the same reason as `isTimeout` below.
+    void reportTimeout(FinishEvent event) {
+        if (!(event instanceof TaskFinishEvent) || !(event.result instanceof TaskFailureResult)) {
+            return
+        }
+        if (!event.result.failures.any { TestTimeoutReporter.isTimeout(it) }) {
+            return
+        }
+        def taskPath = event.descriptor.taskPath
+        def duration = Duration.ofMillis(event.result.endTime - event.result.startTime)
+        def summary = getParameters().getSummaryFile().get().asFile
+        // The Test task creates the file (with its header) when it starts, but be safe if it did not.
+        TestReporting.startTestSummary(summary)
+        // This must be a table row: the file is a single table that other test tasks keep appending to.
+        summary.append("|⏱️ ${taskPath} **timed out** (results above may be incomplete)| | | |" +
+                "${TestDeadlineService.formatDuration(duration)}|\n")
+    }
+
+    // Not private: Gradle instantiates a generated subclass of this service, and closures in it cannot call private
+    // methods of this class.
+    static boolean isTimeout(Failure failure) {
+        return failure.message?.contains('Timeout has been exceeded') ||
+                failure.causes.any { TestTimeoutReporter.isTimeout(it) }
+    }
+}
+
+// Gives the script access to the registry used to subscribe to task completion events.
+abstract class BuildEventsListenerRegistryHolder {
+    @Inject
+    abstract BuildEventsListenerRegistry getRegistry()
+}
+
+// This script is applied to every subproject, but the listener must only be subscribed once per build, otherwise
+// each timeout would be reported once per subproject.
+if (gradle.sharedServices.registrations.findByName('testTimeoutReporter') == null) {
+    def testTimeoutReporter = gradle.sharedServices.registerIfAbsent('testTimeoutReporter', TestTimeoutReporter) {
+        parameters.summaryFile = testSummary
+    }
+    objects.newInstance(BuildEventsListenerRegistryHolder).registry.onTaskCompletion(testTimeoutReporter)
 }
 
 def configureTestTask = { String propertyPrefix, Task task ->
@@ -345,22 +433,9 @@ tasks.withType(Test).configureEach { Test theTask ->
         events 'failed'
         exceptionFormat = 'full'
     }
-    // This creates two reports to be picked up by the gradle actions (see actions/gradle-test/action.yml)
-    // We initialize the files here, to be filled out by test listeners below
-    // summary has a summary of all the test tasks we ran, and the success/skipped/failure counts & duration
-    // failures includes any failures that happened, with the stack trace
-    def markdownReports = new File("$rootDir/.out/reports/")
-    def summary = new File(markdownReports, "test-summary.md")
-    def failures = new File(markdownReports, "test-failures.md")
+    // Start the markdown summary (see `testSummary` above); the test listeners below fill out the reports.
     doFirst {
-        // This may have issues with running tasks concurrently
-        if (!markdownReports.exists()) {
-            markdownReports.mkdirs()
-        }
-        if (!summary.exists()) {
-            summary.append("|Test run|❌|⚠️|✅|time|\n")
-            summary.append("|-|-|-|-|-|\n")
-        }
+        startTestSummary(testSummary)
     }
 
     addTestListener([
@@ -373,7 +448,7 @@ tasks.withType(Test).configureEach { Test theTask ->
             println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
             println()
             if (result.resultType == TestResult.ResultType.FAILURE) {
-                failures.append(
+                testFailures.append(
                     "<details>\n" +
                         "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
                         "(${duration}ms)\n\n" + // blank line is required for ``` to work
@@ -390,7 +465,7 @@ tasks.withType(Test).configureEach { Test theTask ->
                 && !(descriptor.toString().endsWith(":mixedModeTest") && result.getTestCount() == 0)) {
                 def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
                 def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
-                summary.append(
+                testSummary.append(
                     "|${description}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
             }
         }
