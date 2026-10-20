@@ -241,16 +241,15 @@ class Insert {
                                 0.0d, null, config.constructionSearchConfig().centroidEfRingSearch(),
                                 config.constructionSearchConfig().centroidEfOutwardSearch()), getExecutor());
 
-        final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
+        final AsyncIterable<ClusterCandidateForUpdate> clusterMetadataIterable =
                 mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
                         resultEntry ->
-                                StorageAdapter.requireNonNull(primitives.fetchClusterMetadata(transaction,
+                                StorageAdapter.requireNonNull(primitives.fetchClusterMetadataForUpdate(transaction,
                                                 StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey())))
-                                        .thenApply(clusterMetadata -> {
+                                        .thenApply(forUpdate -> {
                                             final Transformed<RealVector> transformedCentroid =
                                                     storageTransform.transform(Objects.requireNonNull(resultEntry.vector()));
-                                            return new ClusterMetadataWithDistance(clusterMetadata,
-                                                            transformedCentroid,
+                                            return new ClusterCandidateForUpdate(forUpdate, transformedCentroid,
                                                             resultEntry.distance());
                                         }),
                         1);
@@ -259,18 +258,17 @@ class Insert {
         final AtomicReference<UUID> primaryClusterIdAtomic = new AtomicReference<>();
         final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
-        final AsyncIterable<ClusterMetadataWithDistance> affectedNearestClustersIterable =
+        final AsyncIterable<ClusterCandidateForUpdate> affectedNearestClustersIterable =
                 takeWhileIterable(limitIterable(clusterMetadataIterable, config.insertMaxCandidateClusters(),
                                 getExecutor()),
-                        clusterMetadataWithDistance -> {
+                        clusterCandidate -> {
                             final int index = indexAtomic.getAndIncrement();
-                            final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
-                            final double distance = clusterMetadataWithDistance.distance();
+                            final ClusterMetadata clusterMetadata = clusterCandidate.clusterMetadata();
+                            final double distance = clusterCandidate.distance();
 
                             if (index == 0) {
                                 // first and nearest cluster -- always accept
-                                primaryClusterIdAtomic.set(
-                                        clusterMetadataWithDistance.clusterMetadata().id());
+                                primaryClusterIdAtomic.set(clusterMetadata.id());
                                 primaryDistanceAtomic.set(distance);
                                 return true;
                             }
@@ -311,21 +309,19 @@ class Insert {
                                                    final double distanceToPrimaryCentroid,
                                                    @Nonnull final VectorMetadata newVectorMetadata,
                                                    @Nonnull final Transformed<RealVector> transformedNewVector,
-                                                   @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                   @Nonnull final List<ClusterCandidateForUpdate> replicationCandidates,
                                                    final boolean maintainInTransaction) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
-        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+        final List<Transformed<RealVector>> selectedReplicationCentroids =
                 Lists.newArrayListWithExpectedSize(replicationCandidates.size());
 
-        for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
+        for (final ClusterCandidateForUpdate replicationCandidate : replicationCandidates) {
             final ClusterMetadata clusterMetadata = replicationCandidate.clusterMetadata();
-            final RunningStats runningStandardDeviation = clusterMetadata.runningStandardDeviation();
             final UUID clusterId = clusterMetadata.id();
             final boolean isPrimaryCluster = clusterId.equals(primaryClusterId);
 
             final double distance = replicationCandidate.distance();
-            final RunningStats updatedStandardDeviation;
             if (isPrimaryCluster) {
                 // Back-pressure: if this insert would push the primary cluster above its hard cap and we are not
                 // draining deferred tasks in-transaction, the split backlog has fallen too far behind — refuse the
@@ -339,13 +335,11 @@ class Insert {
                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                         VectorReference.primaryCopy(newVectorMetadata.vectorId(), transformedNewVector,
                                 false, false));
-                updatedStandardDeviation =
-                        runningStandardDeviation.add(distance);
             } else {
                 Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
-                if (StorageAdapter.isOccluded(estimator, replicationCandidate,
-                        selectedReplicationClusters)) {
+                if (StorageAdapter.isOccluded(estimator, replicationCandidate.centroid(),
+                        distance, selectedReplicationCentroids)) {
                     continue;
                 }
 
@@ -358,18 +352,21 @@ class Insert {
                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                         VectorReference.replicatedCopy(newVectorMetadata.vectorId(), transformedNewVector,
                                 replicationPriority, false));
-                selectedReplicationClusters.add(replicationCandidate);
-
-                updatedStandardDeviation = runningStandardDeviation;
+                selectedReplicationCentroids.add(replicationCandidate.centroid());
             }
 
+            // Record the change as a delta so it can be appended rather than rewriting the whole metadata value:
+            // a primary adds a distance sample, a replica only bumps the replicated count.
+            final ClusterMetadataDelta delta =
+                    isPrimaryCluster
+                    ? new ClusterMetadataDelta(ClusterMetadataDelta.StatsOp.ADD, distance, 0, 0,
+                            EnumSet.noneOf(ClusterMetadata.State.class),
+                            EnumSet.noneOf(ClusterMetadata.State.class))
+                    : new ClusterMetadataDelta(ClusterMetadataDelta.StatsOp.NONE, 0.0d, 0, 1,
+                            EnumSet.noneOf(ClusterMetadata.State.class),
+                            EnumSet.noneOf(ClusterMetadata.State.class));
             primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random,
-                    clusterMetadata,
-                    replicationCandidate.centroid(), accessInfo,
-                    isPrimaryCluster ? 1 : 0,
-                    0,
-                    isPrimaryCluster ? 0 : 1,
-                    updatedStandardDeviation,
+                    replicationCandidate.forUpdate(), replicationCandidate.centroid(), accessInfo, delta,
                     ImmutableSet.of());
         }
     }
