@@ -110,7 +110,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index; // First target index is used for locks
-    @Nonnull private final IndexingPolicy indexingPolicy; // the policy as requested by the caller, never adjusted
+    @Nonnull private final IndexingPolicy callerIndexingPolicy; // the policy as requested by the caller, never adjusted
     private int lastAttemptCount = 0;
 
     @SuppressWarnings("squid:S00107")
@@ -124,7 +124,7 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nonnull IndexingPolicy indexingPolicy) {
         this.runner = runner;
         this.index = targetIndexes.get(0);
-        this.indexingPolicy = indexingPolicy;
+        this.callerIndexingPolicy = indexingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 targetIndexes, recordTypes, configLoader, config,
@@ -148,7 +148,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private CompletableFuture<Void> indexingLauncher(Function<IndexingBase, CompletableFuture<Void>> indexingFunc) {
         // A new operation - starts with the requested policy and no adjustments.
-        return indexingLauncher(indexingFunc, new IndexingOperationState(indexingPolicy), 0);
+        return indexingLauncher(indexingFunc, new IndexingOperationState(callerIndexingPolicy), 0);
     }
 
     @Nonnull
@@ -272,7 +272,7 @@ public class OnlineIndexer implements AutoCloseable {
                 }
                 // rebuild by the requested policy
                 state.sourceIndexAdjusted = false; // the adjustment is undone, do not attempt this recovery again
-                state.policy = indexingPolicy.toBuilder()
+                state.policy = callerIndexingPolicy.toBuilder()
                         .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
                         .build();
                 return indexingLauncher(indexingFunc, state, attemptCount);
@@ -291,7 +291,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
         }
 
-        if (indexingPolicy.isMutual()) {
+        if (callerIndexingPolicy.isMutual()) {
             // Note: check the requested policy - a fallback to a by-records scan clears the mutual indexing flag, yet
             // the other mutual indexers keep running and may complete the target indexes at any moment.
             IndexingBase.UnexpectedReadableException unexpectedReadableException = IndexingBase.getUnexpectedReadableIfApplicable(ex);
@@ -384,7 +384,7 @@ public class OnlineIndexer implements AutoCloseable {
     private IndexingBase getIndexer() {
         // The last indexing operation's indexer, else a new one according to the requested policy
         if (indexer == null) {
-            indexer = newIndexer(indexingPolicy);
+            indexer = newIndexer(callerIndexingPolicy);
         }
         return indexer;
     }

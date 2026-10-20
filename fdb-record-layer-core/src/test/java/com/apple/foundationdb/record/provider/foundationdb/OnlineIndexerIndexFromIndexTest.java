@@ -1167,10 +1167,12 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         scrubAndValidate(List.of(tgtIndex));
     }
 
-    @Test
-    void testIndexFromIndexPrevSrcIndexRemoved() {
-        // start indexing by src_index, remove src_index from the metadata, then attempt continue by records. Since
-        // the previous session's source index is gone, expect a rebuild by records
+    @ParameterizedTest
+    @BooleanSource
+    void testIndexFromIndexPrevSrcIndexRemoved(boolean bySubspaceKey) {
+        // start indexing by src_index (requested by its name, or by its subspace key), remove src_index from the
+        // metadata, then attempt continue by records. Since the previous session's source index is gone, expect a
+        // rebuild by records
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 88;
         final int chunkSize  = 15;
@@ -1186,11 +1188,14 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // partly build by-index src_index
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setSourceIndex("src_index")
-                        .forbidRecordScan()
-                        .build());
+        final OnlineIndexer.IndexingPolicy.Builder policyBuilder = OnlineIndexer.IndexingPolicy.newBuilder()
+                .forbidRecordScan();
+        if (bySubspaceKey) {
+            policyBuilder.setSourceIndexSubspaceKey(srcIndex.getSubspaceKey());
+        } else {
+            policyBuilder.setSourceIndex("src_index");
+        }
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer, policyBuilder.build());
 
         // remove src_index
         openSimpleMetaData(metaDataBuilder -> {
