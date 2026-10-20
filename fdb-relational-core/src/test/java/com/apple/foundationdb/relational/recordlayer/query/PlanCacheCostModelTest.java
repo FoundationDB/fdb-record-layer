@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -56,7 +57,7 @@ class PlanCacheCostModelTest {
             new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 200);
 
     @Nonnull
-    private final PlanCacheCostModel costModel = new PlanCacheCostModel();
+    private final PlanCacheCostModel costModel = new PlanCacheCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
 
     @Nonnull
     private static RecordQueryPlan indexPlan(@Nonnull final String indexName) {

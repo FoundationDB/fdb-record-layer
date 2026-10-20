@@ -41,8 +41,9 @@ import java.util.Set;
  * Picks between the plans held in one plan cache entry. It is {@link PlanningCostModel} minus the tiebreakers that
  * consult a plan operator's match candidate, which a plan no longer carries once it has left the planner.
  * <br>
- * An entry is shared by every query of its shape, so the choice must be a fixed rule: no per-query
- * {@link RecordQueryPlannerConfiguration} may influence it, hence the default configuration below.
+ * The tiebreakers read the {@link RecordQueryPlannerConfiguration} (e.g. whether to prefer an index scan over a
+ * scan), so it must be the one the planner would have used for the query being looked up — the configuration held by
+ * the secondary cache key the entry was found under — or a cached plan could win over one the planner would pick.
  */
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
@@ -66,9 +67,16 @@ public class PlanCacheCostModel implements CascadesCostModel<RecordQueryPlan>, C
                     PickRightTiebreaker.pickRightTiebreaker()));
 
     @Nonnull
+    private final RecordQueryPlannerConfiguration configuration;
+
+    public PlanCacheCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
-        return RecordQueryPlannerConfiguration.defaultPlannerConfiguration();
+        return configuration;
     }
 
     @Nonnull
