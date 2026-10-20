@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -43,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -714,6 +716,91 @@ public class DelegatingVisitorTest {
                     public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
                         called.set(true);
                         return null;
+                    }
+                });
+    }
+
+    /**
+     * Verifies that, during logical plan generation, a {@code CROSS JOIN} is handled by the {@code QueryVisitor} and
+     * never reaches {@link BaseVisitor#visitCrossJoin}. The {@code joinPart} nodes are visited from within the
+     * {@code QueryVisitor} (via {@code accept(this)}), so the {@code QueryVisitor}'s {@code visitCrossJoin} is called
+     * directly. If that ever changes, this test fails, prompting a review of {@link BaseVisitor#visitCrossJoin}.
+     */
+    @Test
+    void crossJoinIsVisitedByQueryVisitorTest() {
+        final var query = "SELECT * FROM T1 CROSS JOIN T2";
+        final var schemaTemplate = RecordLayerSchemaTemplate
+                .newBuilder()
+                .addTable(
+                        RecordLayerTable
+                                .newBuilder(false)
+                                .addColumn(
+                                        RecordLayerColumn
+                                                .newBuilder()
+                                                .setName("A")
+                                                .setDataType(DataType.Primitives.INTEGER.type())
+                                                .build())
+                                .setName("T1")
+                                .build())
+                .addTable(
+                        RecordLayerTable
+                                .newBuilder(false)
+                                .addColumn(
+                                        RecordLayerColumn
+                                                .newBuilder()
+                                                .setName("B")
+                                                .setDataType(DataType.Primitives.INTEGER.type())
+                                                .build())
+                                .setName("T2")
+                                .build())
+                .build();
+        final AtomicBoolean called = new AtomicBoolean(false);
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                schemaTemplate, NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+            @Nullable
+            @Override
+            public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+                called.set(true);
+                return super.visitCrossJoin(ctx);
+            }
+        };
+
+        final var plan = visitor.generateLogicalPlan(parseQuery(query, RelationalParser::root));
+
+        Assertions.assertThat(called.get()).as("Expecting BaseVisitor#visitCrossJoin not to be called").isFalse();
+
+        // The QueryVisitor added the right-side table to the plan: the result has the columns of both tables.
+        Assertions.assertThat(plan).isInstanceOf(QueryPlan.LogicalQueryPlan.class);
+        final var resultType = ((QueryPlan.LogicalQueryPlan)plan).getRelationalExpression().getResultType().getInnerType();
+
+        Assertions.assertThat(resultType).isInstanceOf(Type.Record.class).isNotNull();
+        Assertions.assertThat(((Type.Record)resultType).getFields()).hasSize(2);
+    }
+
+    /**
+     * Covers {@link DelegatingVisitor#visitCrossJoin} and {@link BaseVisitor#visitCrossJoin}: the delegating visitor
+     * must forward the call to its delegate, i.e. {@code BaseVisitor}.
+     */
+    @Test
+    void visitCrossJoinTest() {
+        testSimple("CROSS JOIN table1",
+                RelationalParser::joinPart,
+                (visitor, ctx) -> visitor.visitCrossJoin((RelationalParser.CrossJoinContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nullable
+                    @Override
+                    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+                        called.set(true); // verifies correct delegation
+                        return super.visitCrossJoin(ctx);
+                    }
+
+                    // Stub the table lookup: only a joinPart is parsed here, so there is no plan fragment and the real
+                    // visitAtomTableItem would fail when BaseVisitor#visitCrossJoin visits the right-side table source.
+                    @Nonnull
+                    @Override
+                    public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext ctx) {
+                        return Mockito.mock(LogicalOperator.class);
                     }
                 });
     }

@@ -776,6 +776,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
+    @Nullable
+    @Override
+    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+        return visitChildren(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx) {

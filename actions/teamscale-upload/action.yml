@@ -23,7 +23,7 @@ runs:
     shell: bash
     run: python3 ${{ github.action_path }}/../../build/check_coverage_report.py --report "${{ inputs.files }}"
   - name: Upload coverage to teamscale
-    uses: 'cqse/teamscale-upload-action@93b7b16c0c2a9ad962f82ce7f192e46084786353' # v2.10.0
+    uses: 'cqse/teamscale-upload-action@ccfc601c292105e07a457a7313f23f960133b3b7' # v2.11.0
     with:
       server: 'https://fdb.teamscale.io'
       project: 'foundationdb-fdb-record-layer'

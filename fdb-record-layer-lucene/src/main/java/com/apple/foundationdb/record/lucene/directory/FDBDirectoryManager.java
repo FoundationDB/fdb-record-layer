@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -76,6 +77,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -220,6 +222,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private CompletableFuture<Void> mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true, true);
+        addCommitCheck(agilityContext);
         RuntimeException mergeException = null;
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
@@ -251,6 +254,17 @@ public class FDBDirectoryManager implements AutoCloseable {
                         throw capturedMergeException;
                     }
                 });
+    }
+
+    private void addCommitCheck(@Nonnull final AgilityContext agilityContext) {
+        // A single merge may outlast the indexing heartbeat lease. Running the caller's pre-commit callback (typically,
+        // a heartbeat update) with each agile commit keeps the indexing session that triggered this merge alive.
+        final Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback =
+                state.store.getIndexDeferredMaintenanceControl().getPreCommitCallback();
+        if (preCommitCallback != null) {
+            agilityContext.addCommitCheck(context -> state.store.asBuilder().setContext(context).openAsync()
+                    .thenCompose(preCommitCallback));
+        }
     }
 
     public void mergeIndexWithContext(@Nonnull final Tuple groupingKey,

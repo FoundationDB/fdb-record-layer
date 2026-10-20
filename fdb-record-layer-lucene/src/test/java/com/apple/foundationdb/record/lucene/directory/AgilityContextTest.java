@@ -833,7 +833,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         // assert that failing commit check fails commit
         try (FDBRecordContext context = openContext()) {
             final AgilityContext agilityContext = getAgilityContext(context, contextType);
-            agilityContext.setCommitCheck(ctx -> {
+            agilityContext.addCommitCheck(ctx -> {
                 value.set(1);
                 return CompletableFuture.completedFuture(null);
             });

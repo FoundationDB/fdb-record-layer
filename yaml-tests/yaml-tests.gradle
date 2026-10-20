@@ -125,13 +125,13 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
         File resolution = configuration.resolve()[0]
         Matcher versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
         if (versionMatch.size() != 0) {
-            println("Rejecting old external server: " + resolution.getName())
+            logger.info("Rejecting old external server: " + resolution.getName())
             def version = versionMatch[0][1]
             // check that the version is new, to more obviously catch potential infinite loops
             assert rejectedVersions.add(version)
             return resolveOtherServer(rejectedVersions)
         }
-        println("Downloaded old external server: " + resolution.getName())
+        logger.lifecycle("Downloaded old external server: " + resolution.getName())
         return resolution
     }
 }
@@ -161,7 +161,7 @@ ext.resolveManyServers = { ->
         rejectedVersions.add(attributes.version)
         selectedServers.add(serverFile)
     }
-    println("Found ${selectedServers.size()} to test against")
+    logger.lifecycle("Found ${selectedServers.size()} to test against")
     return selectedServers
 }
 
@@ -184,7 +184,7 @@ ext.resolveSpecificServer = { String version ->
                 })
         def configuration = configurations.named(configurationName).get()
         File resolution = configuration.resolve()[0]
-        println("Downloaded specific external server: " + resolution.getName())
+        logger.lifecycle("Downloaded specific external server: " + resolution.getName())
         return resolution
     }
 }
@@ -239,7 +239,7 @@ tasks.register('listRecentVersions') {
         outputFile.parentFile.mkdirs()
         String jsonArray = '["' + versions.join('", "') + '"]'
         outputFile.text = "versions=" + jsonArray
-        println("Recent versions: " + jsonArray)
+        logger.info("Recent versions: " + jsonArray)
     }
 }
 
@@ -260,7 +260,7 @@ tasks.register('downloadSpecificExternalServer', Copy) {
     from({
         def exactVersion = mixedModeVersionProvider.orNull
         if (exactVersion != null) {
-            println("Using explicitly specified external server version: ${exactVersion}")
+            logger.lifecycle("Using explicitly specified external server version: ${exactVersion}")
             return resolveSpecificServer(exactVersion)
         } else {
             throw new GradleException(
@@ -292,7 +292,7 @@ tasks.named('test') {
     } else {
         seed = ThreadLocalRandom.current().nextLong()
     }
-    println("Using seed for yaml-tests: ${seed}")
+    logger.lifecycle("Using seed for yaml-tests: ${seed}")
     systemProperty('tests.yaml.seed', seed)
     if (project.hasProperty('tests.yaml.iterations')) {
         systemProperties['tests.yaml.iterations'] = project.getProperty('tests.yaml.iterations')

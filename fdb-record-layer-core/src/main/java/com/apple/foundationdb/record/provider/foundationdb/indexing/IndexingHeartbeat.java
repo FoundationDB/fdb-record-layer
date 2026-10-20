@@ -92,10 +92,15 @@ public class IndexingHeartbeat {
             return AsyncUtil.DONE;
         }
 
+        return checkHeartbeats(store, index)
+                .thenRun(() -> updateHeartbeat(store, index));
+    }
+
+    public CompletableFuture<Void> checkHeartbeats(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+        // complete exceptionally if another indexer's heartbeat is active
         final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
         final long now = nowMilliseconds();
-        return AsyncUtil.forEachRemaining(iterator, kv -> checkSingleHeartbeat(store, index, kv, now), store.getExecutor())
-                .thenRun(() -> updateHeartbeat(store, index));
+        return AsyncUtil.forEachRemaining(iterator, kv -> checkSingleHeartbeat(store, index, kv, now), store.getExecutor());
     }
 
     private void checkSingleHeartbeat(final @Nonnull FDBRecordStore store, final @Nonnull Index index, final KeyValue kv, final long now) {

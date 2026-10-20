@@ -27,7 +27,7 @@ antlr = "4.13.2"
 autoService = "1.0-rc6"
 # AutoService for development which enables incremental builds, cannot be enabled for production builds due to downstream dependencies
 autoService-development = "1.0.1"
-caffeine = "3.2.4"
+caffeine = "3.3.0"
 commonscli = "1.11.0"
 dropwizard = "4.2.39"
 fdb = "7.1.26"
@@ -146,4 +146,4 @@ gitversion = { id = "com.palantir.git-version", version = "5.1.0" }
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 protobuf = { id = "com.google.protobuf", version = "0.10.0" }
 shadow = { id = "com.gradleup.shadow", version = "9.6.1" }
-spotbugs = { id = "com.github.spotbugs", version = "6.5.11" }
+spotbugs = { id = "com.github.spotbugs", version = "6.5.12" }

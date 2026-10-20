@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
@@ -52,6 +53,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -156,7 +158,7 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         if (attemptCount > INDEXING_ATTEMPTS_RECURSION_LIMIT) {
-            // Safety net, this should never happen
+            // Safety net - limit the attempts
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.error(KeyValueLogMessage.build("Too many indexing attempts",
                         LogMessageKeys.CURR_ATTEMPT, attemptCount)
@@ -225,7 +227,7 @@ public class OnlineIndexer implements AutoCloseable {
             throw partlyBuiltException;
         }
 
-        if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
+        if (indexingPolicy.isByIndex() && IndexingBase.isValidationException(ex)) {
             // Validation failed - the source index cannot be used for records scanning
             if (requestedPolicy != null) {
                 // We tried to continue a previous indexing session, but failed. The best recovery, as it seems,
@@ -268,6 +270,49 @@ public class OnlineIndexer implements AutoCloseable {
                 fallbackToRecordsScan = true;
                 return indexingLauncher(indexingFunc, attemptCount);
             }
+        }
+
+        final IndexingBase.EnqueueFromIndexerException enqueueException = IndexingBase.getEnqueueFromIndexerExceptionIfApplicable(ex);
+        if (enqueueException != null) {
+            // The indexer must not push items to the pending write queue. Merge (and drains the queue), then retry.
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Indexer attempted to enqueue, merging before retry",
+                                LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                                LogMessageKeys.INDEX_NAME, enqueueException.getIndex().getName())
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            return AsyncUtil.composeHandle(mergeIndexAsync(), (ignore, mergeEx) -> {
+                if (mergeEx == null) {
+                    return AsyncUtil.DONE; // Successful drain/merge
+                }
+                final FDBExceptions.FDBStoreLockTakenException lockTakenException =
+                        IndexingBase.findException(mergeEx, FDBExceptions.FDBStoreLockTakenException.class);
+                if (lockTakenException == null) {
+                    throw FDBExceptions.wrapException(mergeEx);
+                }
+                // Another process holds a valid lock. If it is active, it will eventually drain the queue and release the
+                // lock. Maybe this indexer will exhaust all its retries by then.
+                // Just in case the other process is not activated anymore, this indexer will wait to the end of the lock's
+                // lease.
+                // This wait will also serve a throttling mechanism to prevent immediate retries.
+                final Long leaseRemainingMillis = lockTakenException.getLeaseRemainingMillis();
+                final long delayMillis = (leaseRemainingMillis != null ? leaseRemainingMillis : TimeUnit.SECONDS.toMillis(1));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.build("Merge lock is held by another process, delaying before retry",
+                                    LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                                    LogMessageKeys.INDEX_NAME, enqueueException.getIndex().getName(),
+                                    LogMessageKeys.DELAY, delayMillis)
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                return MoreAsyncUtil.delayedFuture(delayMillis, TimeUnit.MILLISECONDS,
+                        common.getRunner().getScheduledExecutor());
+            }).thenCompose(ignore -> {
+                // mergeIndexAsync may have set a new indexer, retry with a fresh one
+                indexer = null;
+                return indexingLauncher(indexingFunc, attemptCount, requestedPolicy);
+            });
         }
 
         // No handling, throw the error.

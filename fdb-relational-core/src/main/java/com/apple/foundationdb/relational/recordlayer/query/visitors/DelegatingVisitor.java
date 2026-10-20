@@ -671,6 +671,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitInnerJoin(ctx);
     }
 
+    @Nullable
+    @Override
+    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+        return getDelegate().visitCrossJoin(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx) {

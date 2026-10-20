@@ -7,27 +7,33 @@ Diagram(
                 Terminal('FROM'),
                 NonTerminal('source'),
                 Optional(
-                    Sequence(
-                        Choice(0,
-                            Terminal('INNER JOIN'),
-                            Sequence(
-                                Choice(0, Terminal('LEFT'), Terminal('RIGHT')),
-                                Optional(Terminal('OUTER'), 'skip'),
-                                Terminal('JOIN')
+                    Choice(0,
+                        Sequence(
+                            Choice(0,
+                                Terminal('INNER JOIN'),
+                                Sequence(
+                                    Choice(0, Terminal('LEFT'), Terminal('RIGHT')),
+                                    Optional(Terminal('OUTER'), 'skip'),
+                                    Terminal('JOIN')
+                                )
+                            ),
+                            NonTerminal('source'),
+                            Choice(0,
+                                Sequence(
+                                    Terminal('ON'),
+                                    NonTerminal('joinCondition')
+                                ),
+                                Sequence(
+                                    Terminal('USING'),
+                                    Terminal('('),
+                                    NonTerminal('column(s)'),
+                                    Terminal(')')
+                                )
                             )
                         ),
-                        NonTerminal('source'),
-                        Choice(0,
-                            Sequence(
-                                Terminal('ON'),
-                                NonTerminal('joinCondition')
-                            ),
-                            Sequence(
-                                Terminal('USING'),
-                                Terminal('('),
-                                NonTerminal('column(s)'),
-                                Terminal(')')
-                            )
+                        Sequence(
+                            Terminal('CROSS JOIN'),
+                            NonTerminal('source')
                         )
                     )
                 )

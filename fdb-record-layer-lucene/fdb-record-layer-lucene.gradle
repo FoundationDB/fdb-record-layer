@@ -57,12 +57,16 @@ tasks.withType(Test) { theTask ->
     // see: https://github.com/FoundationDB/fdb-record-layer/issues/2480
     // When that issue is resolved these can be changed align with the global properties
     if (!project.hasProperty('tests.luceneIncludeRandom')) {
-        println("Fixing seed for lucene tests")
         theTask.systemProperties['tests.seed'] = "C185081D42F0F43C" // a fixed seed, should pass reliably in prb/release
     }
     if (project.hasProperty('tests.luceneIterations')) {
         theTask.systemProperties['tests.iters'] = project.getProperty('tests.luceneIterations') // TODO this is broken on main...
     }
+}
+
+def isCi = project.hasProperty('tests.ci') || providers.environmentVariable('CI').isPresent()
+if (!project.hasProperty('tests.luceneIncludeRandom') && isCi) {
+    logger.lifecycle("Fixing seed for lucene tests")
 }
 
 publishing {
