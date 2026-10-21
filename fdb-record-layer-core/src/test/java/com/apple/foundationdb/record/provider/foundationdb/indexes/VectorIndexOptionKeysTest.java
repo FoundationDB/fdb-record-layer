@@ -40,6 +40,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -249,6 +250,7 @@ class VectorIndexOptionKeysTest {
         VectorIndexOptionKeys.HNSW_M.put(written::put, 24);
         VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.put(written::put, 0.25);
         VectorIndexOptionKeys.USE_RABITQ.put(written::put, true);
+        VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER.put(written::put, List.of(0.0d, 0.016d, 0.064d));
 
         final Index index =
                 new Index("v", field("vector_data"), IndexTypes.VECTOR, ImmutableMap.copyOf(written));
@@ -256,6 +258,8 @@ class VectorIndexOptionKeysTest {
         assertThat(VectorIndexOptionKeys.HNSW_M.read(index)).isEqualTo(24);
         assertThat(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.read(index)).isEqualTo(0.25);
         assertThat(VectorIndexOptionKeys.USE_RABITQ.read(index)).isEqualTo(true);
+        assertThat(VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER.read(index))
+                .containsExactly(0.0d, 0.016d, 0.064d);
     }
 
     @Test

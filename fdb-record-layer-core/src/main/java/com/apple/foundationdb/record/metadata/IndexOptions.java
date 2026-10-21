@@ -557,11 +557,17 @@ public class IndexOptions {
     /** Guardiann-only: number of nearest clusters fetched for merge candidate evaluation. */
     public static final String GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS = "guardiannMergeNumNearestClusters";
 
-    /** Guardiann-only: maximum Lloyd's iterations per k-means restart during split/merge. */
+    /** Guardiann-only: maximum Lloyd's iterations per k-means run during split/merge. */
     public static final String GUARDIANN_K_MEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
 
-    /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
-    public static final String GUARDIANN_K_MEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
+    /** Guardiann-only: number of runs per k-means fit during split/merge; at least 1. */
+    public static final String GUARDIANN_K_MEANS_NUM_RUNS = "guardiannKMeansNumRuns";
+
+    /**
+     * Guardiann-only: the relative size-balancing strengths a split tries in order, as comma-separated doubles (e.g.
+     * {@code "0.0,0.016,0.16"}); fixed when the index is created.
+     */
+    public static final String GUARDIANN_K_MEANS_BALANCING_LADDER = "guardiannKMeansBalancingLadder";
 
     /** Guardiann-only: outer clusters considered as replication/migration targets during reassign. */
     public static final String GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS = "guardiannReassignNumNeighboringClusters";

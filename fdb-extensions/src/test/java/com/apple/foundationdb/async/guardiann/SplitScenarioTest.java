@@ -31,7 +31,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,7 +42,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +92,37 @@ public class SplitScenarioTest implements BaseTest {
      * {@code anUnsatisfiableSplitReportsWhyNoCandidateWasAdmissible}. Config requires it to stay below 0.5.
      */
     private static final double UNSATISFIABLE_CHILD_FRACTION = 0.499d;
+
+    /**
+     * Cluster size cap for the balancing-ladder tests. Below their population, so the one cluster it builds up must
+     * split; above either child of a balanced split, so neither splits again — a second split would find a neighbor
+     * and bring a 2-to-3 candidate into play. Its hard maximum, twice the cap, stays above the population, so the
+     * undrained inserts are not back-pressured.
+     */
+    private static final int LOPSIDED_CLUSTER_MAX = 1500;
+
+    /** Vectors the balancing-ladder tests insert per transaction, to keep inserting their population quick. */
+    private static final int LOPSIDED_INSERTS_PER_TRANSACTION = 100;
+
+    /** Vectors in the larger of the two clouds the balancing-ladder tests insert. */
+    private static final int NUM_MAJOR_CLOUD = 1530;
+
+    /** Vectors in the smaller cloud: 270 of the 1800, 15%. */
+    private static final int NUM_MINOR_CLOUD = 270;
+
+    /**
+     * How far the smaller cloud is shifted from the larger one along a single coordinate: 6 times
+     * {@link #PERTURBATION_SIGMA}. Far enough that cutting between the clouds is the cheapest 2-way partitioning and
+     * the one every unbalanced k-means run settles on, near enough that the first balancing strength of the default
+     * ladder moves the cut; see {@code insertLopsidedClouds}.
+     */
+    private static final double MINOR_CLOUD_OFFSET = 3.0d;
+
+    /**
+     * The child-size floor of the balancing-ladder tests, midway between the smallest child an unbalanced fit of their
+     * population produces (about 0.15) and the smaller stored child of a balanced fit (about 0.29).
+     */
+    private static final double LADDER_CHILD_FRACTION = 0.22d;
 
     /** Per-component Gaussian sigma for the perturbation. Small relative to SIFT's ~[0, 200] range. */
     private static final double PERTURBATION_SIGMA = 0.5d;
@@ -307,6 +339,102 @@ public class SplitScenarioTest implements BaseTest {
                 .hasMessageContaining("INVALID_CANDIDATE");
     }
 
+    /**
+     * A split whose population has a lopsided natural partitioning has no admissible candidate when its balancing
+     * ladder holds no strength above zero.
+     * <p>
+     * This is the failure the ladder exists to prevent, and the baseline that
+     * {@code theBalancingLadderGivesALopsidedSplitAnAdmissibleCandidate} measures it against: the same vectors, the
+     * same seeds and the same floor, with only the ladder differing. With no strength to escalate to, the fit at zero
+     * is final. Every one of its k-means runs cuts between the two clouds (smallest child about 0.15, see
+     * {@code insertLopsidedClouds}), so the fit has no run clearing the floor of {@link #LADDER_CHILD_FRACTION} to
+     * prefer, the floor rejects the cut, the perturbed vectors hold no duplicates to collapse, and the split throws.
+     * The message must name a single candidate, the 1-to-2 one: the cluster has no neighbor to pool with, so no 2-to-3
+     * candidate takes part.
+     */
+    @Test
+    void lopsidedSplitHasNoAdmissibleCandidateWithoutBalancing() throws Exception {
+        final Guardiann unbalanced = guardiannFor(lopsidedSplitConfig(ImmutableList.of(0.0d)));
+        insertLopsidedClouds(unbalanced);
+        final UUID targetId = oversizedClusterId(unbalanced);
+        assertThat(primaryCountOf(unbalanced, targetId))
+                .as("all vectors must land in the one cluster, so the split partitions exactly the clouds")
+                .isEqualTo(NUM_MAJOR_CLOUD + NUM_MINOR_CLOUD);
+
+        assertThatThrownBy(() -> GuardiannStructureAsserts.runToQuiescence(db, unbalanced))
+                .rootCause()
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no admissible repartitioning candidate")
+                .hasMessageContaining(targetId.toString())
+                .hasMessageContaining("minChildFraction=" + LADDER_CHILD_FRACTION)
+                .hasMessageContaining("kMeansBalancingLadder=[0.0]")
+                .hasMessageContaining("candidate k=2")
+                .hasMessageNotContaining("candidate k=3")
+                .hasMessageContaining("INVALID_CANDIDATE");
+    }
+
+    /**
+     * A split whose fit at the first strength of the ladder is rejected is re-fitted with the next one, and the
+     * balanced partitioning that produces is persisted: two children, each holding at least
+     * {@link #LADDER_CHILD_FRACTION} of the population, with no vector lost.
+     * <p>
+     * The ladder is the default one. {@code lopsidedSplitHasNoAdmissibleCandidateWithoutBalancing} shows that the fit
+     * at zero is rejected on exactly these vectors, so the split can only succeed here on a re-fit with a stronger
+     * strength, and the first one, 0.016, already suffices. That strength is relative: the absolute one is
+     * {@code 0.016 * s}, where {@code s}, the population's per-vector single-cluster objective, is about 33 — almost
+     * all of it the perturbation spread over 128 components ({@code 128 * 0.5^2 = 32}), only about 1.1 the offset
+     * between the clouds. The penalty only steers where the centroids settle: the children are populated by assigning
+     * each vector to its nearest fitted centroid, which is also what the floor is checked on, and the smaller one holds
+     * about 0.29 of the vectors, well above the floor.
+     * <p>
+     * The population is larger than the other tests' for two reasons. A fit makes several k-means runs and keeps the
+     * best one that clears the floor, so the baseline needs every unbalanced run to cut between the clouds; with fewer
+     * vectors per dimension, cuts through the perturbation alone compete with the gap, and a run settling on one would
+     * rescue the split without any balancing. And the penalty, normalized by the even size, grows with the population
+     * at a given fractional imbalance, so a smaller population needs a stronger strength for the same effect. At 1800
+     * vectors both outcomes hold with wide margins across noise seeds, not just this one.
+     */
+    @Test
+    void theBalancingLadderGivesALopsidedSplitAnAdmissibleCandidate() throws Exception {
+        final Guardiann balancing = guardiannFor(lopsidedSplitConfig(Config.DEFAULT_KMEANS_BALANCING_LADDER));
+        insertLopsidedClouds(balancing);
+        final int population = NUM_MAJOR_CLOUD + NUM_MINOR_CLOUD;
+
+        GuardiannStructureAsserts.runToQuiescence(db, balancing);
+        GuardiannStructureAsserts.assertGuardiannInvariants(db, balancing);
+
+        final StructureSnapshot snapshot =
+                Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, balancing));
+        assertThat(snapshot.numClusters())
+                .as("the one cluster must have split in two, and neither child again")
+                .isEqualTo(2);
+        assertThat(snapshot.totalPrimaries())
+                .as("every inserted vector must remain accounted for as a primary")
+                .isEqualTo(population);
+        final int minChildSize = (int)Math.ceil(LADDER_CHILD_FRACTION * population);
+        final List<Integer> childSizes = snapshot.clusters().values().stream()
+                .map(child -> child.primaries().size())
+                .collect(ImmutableList.toImmutableList());
+        assertThat(childSizes)
+                .as("each child must hold at least minChildFraction=%s of the %d vectors", LADDER_CHILD_FRACTION,
+                        population)
+                .allSatisfy(childSize -> assertThat(childSize).isGreaterThanOrEqualTo(minChildSize));
+    }
+
+    /**
+     * The configuration of the balancing-ladder tests: the class's, with the cluster cap lifted to
+     * {@link #LOPSIDED_CLUSTER_MAX}, the child-size floor at {@link #LADDER_CHILD_FRACTION}, and the given ladder.
+     */
+    @Nonnull
+    private Config lopsidedSplitConfig(@Nonnull final List<Double> kMeansBalancingLadder) {
+        return configBuilder()
+                .setPrimaryClusterMax(LOPSIDED_CLUSTER_MAX)
+                .setPrimaryClusterHardMax(2 * LOPSIDED_CLUSTER_MAX)
+                .setMinChildFraction(LADDER_CHILD_FRACTION)
+                .setKMeansBalancingLadder(kMeansBalancingLadder)
+                .build(128);
+    }
+
     /** The id of the one cluster the near-duplicate cloud built up, which is the one a pending split targets. */
     @Nonnull
     private UUID oversizedClusterId(@Nonnull final Guardiann target) {
@@ -330,24 +458,70 @@ public class SplitScenarioTest implements BaseTest {
      */
     private void insertNearDuplicateCloud(@Nonnull final Guardiann target, final int count,
                                           final boolean maintainInTransaction) throws Exception {
-        // Read just the first SIFT-small vector as the "center" of the near-duplicate cloud.
+        insertPerturbedCopies(target, Collections.nCopies(count, firstSiftSmallVector()), maintainInTransaction, 1);
+    }
+
+    /**
+     * Inserts the population of the balancing-ladder tests, without draining so that its split stays pending:
+     * {@link #NUM_MAJOR_CLOUD} perturbed copies of a SIFT vector and {@link #NUM_MINOR_CLOUD} of the same vector
+     * shifted by {@link #MINOR_CLOUD_OFFSET} along one component.
+     * <p>
+     * Unbalanced, a 2-way fit of these vectors cuts between the clouds: separating them removes
+     * {@code (270/1800) * (1530/1800) * 3^2 ≈ 1.15} per vector of the objective, which at this population outweighs
+     * what a cut through the perturbation alone can gain. The cut is not exactly at the smaller cloud — the noise blurs
+     * its edge — but the smallest child stays near 0.15. A balanced fit is not tied to the gap: see
+     * {@code theBalancingLadderGivesALopsidedSplitAnAdmissibleCandidate}.
+     */
+    private void insertLopsidedClouds(@Nonnull final Guardiann target) throws Exception {
+        final DoubleRealVector majorBase = firstSiftSmallVector();
+        final double[] minorData = majorBase.getData().clone();
+        minorData[0] += MINOR_CLOUD_OFFSET;
+        final DoubleRealVector minorBase = new DoubleRealVector(minorData);
+
+        insertPerturbedCopies(target,
+                ImmutableList.<DoubleRealVector>builder()
+                        .addAll(Collections.nCopies(NUM_MAJOR_CLOUD, majorBase))
+                        .addAll(Collections.nCopies(NUM_MINOR_CLOUD, minorBase))
+                        .build(),
+                false, LOPSIDED_INSERTS_PER_TRANSACTION);
+    }
+
+    /**
+     * Inserts one perturbed copy of each of {@code bases}, the {@code i}-th under primary key {@code i}, and
+     * {@code insertsPerTransaction} of them per transaction. The noise is drawn from {@link #PERTURBATION_SEED} afresh
+     * on every call, so the same bases always yield the same vectors.
+     */
+    private void insertPerturbedCopies(@Nonnull final Guardiann target, @Nonnull final List<DoubleRealVector> bases,
+                                       final boolean maintainInTransaction,
+                                       final int insertsPerTransaction) throws Exception {
+        final SplittableRandom rnd = new SplittableRandom(PERTURBATION_SEED);
+        final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(rnd);
+
+        for (int start = 0; start < bases.size(); start += insertsPerTransaction) {
+            // Drawn before the transaction, so that a retry inserts the same vectors.
+            final List<DoubleRealVector> perturbed = bases.subList(start, Math.min(start + insertsPerTransaction,
+                            bases.size())).stream()
+                    .map(base -> CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA))
+                    .collect(ImmutableList.toImmutableList());
+            final int firstPrimaryKey = start;
+            db.run(tr -> {
+                for (int i = 0; i < perturbed.size(); i++) {
+                    target.insert(tr, CommonTestHelpers.createPrimaryKey(firstPrimaryKey + i), perturbed.get(i), null,
+                            maintainInTransaction).join();
+                }
+                return null;
+            });
+        }
+    }
+
+    /** The first SIFT-small vector, the base of every cloud this class inserts. */
+    @Nonnull
+    private static DoubleRealVector firstSiftSmallVector() throws IOException {
         // Stream a single entry via loadVectors rather than slurping all 10k via loadSiftSmall().
         final List<PrimaryKeyAndVector> baseLoaded =
                 VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
-        final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
-
-        final SplittableRandom rnd = new SplittableRandom(PERTURBATION_SEED);
-        final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(rnd);
-
-        for (int i = 0; i < count; i++) {
-            final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
-            final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
-            db.run(tr -> {
-                target.insert(tr, pk, perturbed, null, maintainInTransaction).join();
-                return null;
-            });
-        }
+        return (DoubleRealVector) baseLoaded.get(0).vector();
     }
 
 }
