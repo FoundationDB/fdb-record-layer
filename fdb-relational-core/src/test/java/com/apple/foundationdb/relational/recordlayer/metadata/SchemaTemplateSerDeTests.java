@@ -79,6 +79,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -1874,7 +1875,7 @@ public class SchemaTemplateSerDeTests {
         final var constituents = List.of(constituent("a", orders), constituent("b", customers));
         final var joins = List.of(joinOn("a", "customer_id", "b", "id"));
         final var indexes = List.of(joinedIndex(syntheticName, "orders_customer_idx", constituentField("b", "name")));
-        final java.util.function.Supplier<RecordLayerJoinedSyntheticTable> build = () ->
+        final Supplier<RecordLayerJoinedSyntheticTable> build = () ->
                 joinedTable(syntheticName, constituents, joins, indexes);
 
         Assertions.assertEquals(build.get(), build.get());
@@ -2011,12 +2012,13 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(List.of("badges_idx"), List.copyOf(rebuilt.getTableIndexMapping().get("badges")));
     }
 
-    /** Builds a joined table, asserting it is rejected with a message naming the problem. */
-    private static void assertJoinedTableRejected(final String expectedMessage,
+    /** Builds a joined table, asserting it is rejected with the given error code and a message naming the problem. */
+    private static void assertJoinedTableRejected(final ErrorCode expectedErrorCode, final String expectedMessage,
                                                   final List<NonnullPair<String, RecordLayerTable>> constituents,
                                                   final RecordLayerJoinedSyntheticTable.JoinCondition... joins) {
         final var exception = Assertions.assertThrows(UncheckedRelationalException.class, () ->
                 joinedTable("__joined_bad_idx", constituents, List.of(joins), List.of()));
+        Assertions.assertEquals(expectedErrorCode, exception.unwrap().getErrorCode());
         MatcherAssert.assertThat(exception.getMessage(), Matchers.containsString(expectedMessage));
     }
 
@@ -2026,10 +2028,29 @@ public class SchemaTemplateSerDeTests {
         final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
         final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
         final var constituents = List.of(constituent("a", left), constituent("b", right));
-        assertJoinedTableRejected("join condition references unknown constituent 'nope'", constituents,
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "join condition references unknown constituent 'nope'", constituents,
                 joinOn("a", "tenant", "nope", "tenant"));
-        assertJoinedTableRejected("join condition references unknown constituent 'nope'", constituents,
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "join condition references unknown constituent 'nope'", constituents,
                 joinOn("nope", "tenant", "b", "tenant"));
+    }
+
+    /**
+     * A join condition has to relate two different constituents, comparing sides of the same size; anything else
+     * cannot join two records.
+     */
+    @Test
+    void testJoinedSyntheticTypeRejectsMalformedJoinConditions() {
+        final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
+        final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
+        final var constituents = List.of(constituent("a", left), constituent("b", right));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE, "join condition relates constituent 'a' to itself",
+                constituents, joinOn("a", "tenant", "a", "id"));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "join condition sides of constituents 'a' and 'b' are not the same size", constituents,
+                new RecordLayerJoinedSyntheticTable.JoinCondition(
+                        "a", Key.Expressions.concatenateFields("tenant", "id"), "b", Key.Expressions.field("tenant")));
     }
 
     /** A joined table needs at least two constituents, each under its own alias. */
@@ -2037,9 +2058,9 @@ public class SchemaTemplateSerDeTests {
     void testJoinedSyntheticTypeRejectsMalformedConstituents() {
         final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
         final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
-        assertJoinedTableRejected("joined table must have at least two constituents, found 1",
-                List.of(constituent("a", left)));
-        assertJoinedTableRejected("duplicate constituent alias 'a' in joined table",
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "joined table must have at least two constituents, found 1", List.of(constituent("a", left)));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE, "duplicate constituent alias 'a' in joined table",
                 List.of(constituent("a", left), constituent("a", right)));
     }
 

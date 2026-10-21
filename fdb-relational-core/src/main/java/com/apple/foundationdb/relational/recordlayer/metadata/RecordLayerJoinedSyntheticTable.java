@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableSet;
 
@@ -173,9 +173,7 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
         @Nonnull
         public Builder addConstituent(@Nonnull final String alias, @Nonnull final Type.Record tableType) {
             return addConstituent(new JoinedConstituent(alias, tableType.getName(),
-                    tableType.getStorageName() == null
-                    ? ProtoUtils.toProtoBufCompliantName(tableType.getName())
-                    : tableType.getStorageName()));
+                    Objects.requireNonNull(tableType.getStorageName())));
         }
 
         @Nonnull
@@ -194,20 +192,26 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
         @Nonnull
         @Override
         public RecordLayerJoinedSyntheticTable build() {
-            Assert.thatUnchecked(constituents.size() >= 2,
-                    "joined table must have at least two constituents, found " + constituents.size());
+            Assert.thatUnchecked(constituents.size() >= 2, ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    () -> "joined table must have at least two constituents, found " + constituents.size());
             final Set<String> aliases = new LinkedHashSet<>();
             for (final JoinedConstituent constituent : constituents) {
-                Assert.thatUnchecked(aliases.add(constituent.alias()),
-                        "duplicate constituent alias '" + constituent.alias() + "' in joined table");
+                Assert.thatUnchecked(aliases.add(constituent.alias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        "duplicate constituent alias '%s' in joined table", constituent.alias());
             }
-            // A condition naming an unregistered alias cannot be registered on a JoinedRecordType, so it is caught here
-            // rather than deeper in the record layer.
             for (final JoinCondition joinCondition : joinConditions) {
-                Assert.thatUnchecked(aliases.contains(joinCondition.leftAlias()),
-                        "join condition references unknown constituent '" + joinCondition.leftAlias() + "'");
-                Assert.thatUnchecked(aliases.contains(joinCondition.rightAlias()),
-                        "join condition references unknown constituent '" + joinCondition.rightAlias() + "'");
+                Assert.thatUnchecked(aliases.contains(joinCondition.leftAlias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        () -> "join condition references unknown constituent " + joinCondition.leftAlias());
+                Assert.thatUnchecked(aliases.contains(joinCondition.rightAlias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        () -> "join condition references unknown constituent " + joinCondition.rightAlias());
+                Assert.thatUnchecked(!joinCondition.leftAlias().equals(joinCondition.rightAlias()),
+                        ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        "join condition relates constituent '%s' to itself", joinCondition.leftAlias());
+                Assert.thatUnchecked(joinCondition.leftExpression().getColumnSize()
+                                == joinCondition.rightExpression().getColumnSize(),
+                        ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        "join condition sides of constituents '%s' and '%s' are not the same size",
+                        joinCondition.leftAlias(), joinCondition.rightAlias());
             }
             return new RecordLayerJoinedSyntheticTable(constituents, joinConditions, indexes.build(), type);
         }
