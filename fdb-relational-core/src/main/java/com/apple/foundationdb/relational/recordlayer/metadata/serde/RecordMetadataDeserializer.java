@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
@@ -30,10 +31,12 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerJoinedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
@@ -131,6 +134,9 @@ public class RecordMetadataDeserializer {
             if (syntheticType instanceof UnnestedRecordType unnestedRecordType) {
                 schemaTemplateBuilder.addSyntheticTable(
                         generateUnnestedSyntheticTableBuilder(recordMetaData, unnestedRecordType).build());
+            } else if (syntheticType instanceof JoinedRecordType joinedRecordType) {
+                schemaTemplateBuilder.addSyntheticTable(
+                        generateJoinedSyntheticTableBuilder(joinedRecordType).build());
             }
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
@@ -227,8 +233,31 @@ public class RecordMetadataDeserializer {
                     constituent.getName(), Objects.requireNonNull(constituent.getParentName()),
                     constituent.getNestingExpression()));
         }
-        // add indexes
         for (final Index index : unnestedRecordType.getIndexes()) {
+            builder.addIndex(RecordLayerIndex.from(type.getName(), type.getStorageName(), index));
+        }
+        return builder;
+    }
+
+    @Nonnull
+    private static RecordLayerJoinedSyntheticTable.Builder generateJoinedSyntheticTableBuilder(
+            @Nonnull final JoinedRecordType joinedRecordType) {
+        final var type = Type.Record.fromDescriptorPreservingName(joinedRecordType.getDescriptor());
+        final RecordLayerJoinedSyntheticTable.Builder builder = RecordLayerJoinedSyntheticTable.newBuilder(type);
+        for (final JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
+            Assert.thatUnchecked(!constituent.isOuterJoined(), ErrorCode.UNSUPPORTED_OPERATION,
+                    "outer-joined constituent '%s' of joined table '%s' is not supported",
+                    constituent.getName(), joinedRecordType.getName());
+            final Type.Record constituentType = Type.Record.fromDescriptorPreservingName(
+                    constituent.getRecordType().getDescriptor());
+            builder.addConstituent(constituent.getName(), constituentType);
+        }
+        for (final JoinedRecordType.Join join : joinedRecordType.getJoins()) {
+            builder.addJoinCondition(new RecordLayerJoinedSyntheticTable.JoinCondition(
+                    join.getLeft().getName(), join.getLeftExpression(),
+                    join.getRight().getName(), join.getRightExpression()));
+        }
+        for (final Index index : joinedRecordType.getIndexes()) {
             builder.addIndex(RecordLayerIndex.from(type.getName(), type.getStorageName(), index));
         }
         return builder;
