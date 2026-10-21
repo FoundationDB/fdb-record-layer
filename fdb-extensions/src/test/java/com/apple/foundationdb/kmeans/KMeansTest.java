@@ -731,33 +731,35 @@ class KMeansTest {
      * clusters more than shaving the largest). Asserting on standard deviation tracks the
      * property the penalty is optimizing.
      * <p>
-     * Aggregating across multiple seeds smooths out single-seed variance in the local-minimum
-     * landscape both runs are converging into.
+     * Aggregating across 8 inputs derived from the seed smooths out the variance of the local
+     * minimum each run converges into.
      * <p>
      * The strength is relative to the sample's per-vector single-cluster SSE {@code s}, which is
      * about {@code 1.5e5} for SIFT-small: {@code relativeLambda = 0.007} amounts to an absolute
      * weight of about {@code 1000}. The cluster sizes compared are those of the returned,
      * nearest-centroid partitioning, so the test shows that the penalty moves the centroids.
      */
-    @Test
-    void siftSmallLambdaImprovesBalance() {
-        final long[] seeds = {0x0fdbL, 0x5ca1eL, 0xC0FFEEL, 123456L, 78910L,
-                0xDEADBEEFL, 0xBADCAFEL, 1123581321345589L};
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void siftSmallLambdaImprovesBalance(final long seed) {
+        final SplittableRandom inputSeeds = new SplittableRandom(seed);
+        final int numInputs = 8;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
         double ratioSum = 0.0d;
         int balancedWins = 0;
-        for (final long seed : seeds) {
+        for (int input = 0; input < numInputs; input++) {
+            final long inputSeed = inputSeeds.nextLong();
             final List<RealVector> sample = ImmutableList.copyOf(
-                    KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+                    KMeansTestHelpers.pickRandomSubset(new Random(inputSeed), siftSmallBase, SIFT_SAMPLE_SIZE));
 
             final KMeans.Result<RealVector> unbalanced = KMeans.fit(
-                    new SplittableRandom(seed), distanceEstimator,
+                    new SplittableRandom(inputSeed), distanceEstimator,
                     Lens.identity(), Lens.identity(),
                     sample, k, 30, 3, 0.0d, null, null);
             final KMeans.Result<RealVector> balanced = KMeans.fit(
-                    new SplittableRandom(seed), distanceEstimator,
+                    new SplittableRandom(inputSeed), distanceEstimator,
                     Lens.identity(), Lens.identity(),
                     sample, k, 30, 3, 0.007d,
                     KMeans.overflowQuadraticPenalty(), null);
@@ -771,19 +773,19 @@ class KMeansTest {
             }
 
             logger.info("balance@seed={}: unbalanced stddev={}, balanced stddev={}, ratio={}",
-                    Long.toHexString(seed), unbalancedStddev, balancedStddev, ratio);
+                    Long.toHexString(inputSeed), unbalancedStddev, balancedStddev, ratio);
         }
 
-        final double meanRatio = ratioSum / seeds.length;
-        logger.info("siftSmallLambdaImprovesBalance: meanRatio={} over {} seeds, balanced won {}/{}",
-                meanRatio, seeds.length, balancedWins, seeds.length);
+        final double meanRatio = ratioSum / numInputs;
+        logger.info("siftSmallLambdaImprovesBalance: meanRatio={} over {} inputs, balanced won {}/{}",
+                meanRatio, numInputs, balancedWins, numInputs);
 
         // Averaged across seeds, balancing should reduce the standard deviation of cluster sizes
         // — that's the quantity the overflow-quadratic penalty literally targets. Measured: a mean
         // ratio of about 0.73.
         assertThat(meanRatio)
-                .as("mean balancedStddev / unbalancedStddev across %d seeds (per-seed ratios in the log)",
-                        seeds.length)
+                .as("mean balancedStddev / unbalancedStddev across %d inputs (per-input ratios in the log)",
+                        numInputs)
                 .isLessThanOrEqualTo(1.0d);
     }
 
@@ -844,32 +846,34 @@ class KMeansTest {
     /**
      * What the relative balancing strength does to a lopsided two-way split, at the strengths of
      * Guardiann's default balancing ladder ({@code 0}, {@code 0.016}, {@code 0.16}) and at
-     * {@code 0.064} between its last two rungs. The input, see {@link #unequalBlobs}, is a dense blob of 1600 vectors
-     * and a satellite blob of 400, far enough apart that unbalanced 2-means cuts close to the gap,
+     * {@code 0.064} between its last two rungs. The input, see {@link #unequalBlobs}, is a dense blob
+     * of 1600 vectors and a satellite blob of 400, far enough apart that unbalanced 2-means cuts close
+     * to the gap,
      * leaving the smaller cluster with only about 29% of the vectors, and close enough that balancing
      * can move the cut into the dense blob at a small cost in SSE. The sizes are those of the returned
      * partitioning, which assigns every vector to its nearest centroid, so they show how far the
-     * penalty moves the centroids. Averaged across fixed seeds:
+     * penalty moves the centroids. Averaged across 8 inputs derived from the seed:
      * <ul>
      *   <li>the smallest cluster's fraction never shrinks as the strength grows, and at {@code 0.16}
      *       it is clearly larger than without balancing, and</li>
      *   <li>the first balancing rung, {@code 0.016}, already gets most of the way there (the measured
      *       fractions are about 0.29, 0.38, 0.40 and 0.41) for about 0.2% of SSE.</li>
      * </ul>
-     * Aggregating across seeds smooths out the variance of the local optimum each run converges
-     * into, as in {@link #siftSmallLambdaImprovesBalance()}.
+     * Aggregating across inputs smooths out the variance of the local optimum each run converges
+     * into, as in {@link #siftSmallLambdaImprovesBalance(long)}.
      */
-    @Test
-    void unequalBlobsRelativeLambdaEvensOutSplit() {
-        final long[] seeds = {0x0fdbL, 0x5ca1eL, 0xC0FFEEL, 123456L, 78910L,
-                0xDEADBEEFL, 0xBADCAFEL, 1123581321345589L};
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void unequalBlobsRelativeLambdaEvensOutSplit(final long seed) {
+        final SplittableRandom inputSeeds = new SplittableRandom(seed);
+        final int numInputs = 8;
         final double[] relativeLambdas = {0.0d, 0.016d, 0.064d, 0.16d};
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
 
         final double[] meanSmallestFraction = new double[relativeLambdas.length];
         final double[] meanSse = new double[relativeLambdas.length];
-        for (final long seed : seeds) {
-            final SplittableRandom rnd = new SplittableRandom(seed);
+        for (int input = 0; input < numInputs; input++) {
+            final SplittableRandom rnd = new SplittableRandom(inputSeeds.nextLong());
             final List<RealVector> vectors = unequalBlobs(rnd);
 
             // Every strength fits from the same seed, so the strength is the only difference between the runs.
@@ -880,8 +884,8 @@ class KMeansTest {
                         Lens.identity(), Lens.identity(),
                         vectors, 2, 30, 3, relativeLambdas[i],
                         relativeLambdas[i] > 0.0d ? KMeans.overflowQuadraticPenalty() : null, null);
-                meanSmallestFraction[i] += smallestClusterFraction(res.clusterSizes()) / seeds.length;
-                meanSse[i] += res.objective() / seeds.length;
+                meanSmallestFraction[i] += smallestClusterFraction(res.clusterSizes()) / numInputs;
+                meanSse[i] += res.objective() / numInputs;
             }
         }
         logger.info("unequalBlobsRelativeLambdaEvensOutSplit: relativeLambdas={} meanSmallestFraction={} meanSse={}",
