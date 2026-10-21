@@ -295,7 +295,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 sourceAlias,
                 targetAlias,
                 Iterables.concat(indexEntryToLogicalRecord.logicalKeyValues(),
-                        indexEntryToLogicalRecord.logicalValueValues()));
+                        indexEntryToLogicalRecord.logicalValueValues()),
+                indexEntryToLogicalRecord.computedColumns());
     }
 
     @Override
