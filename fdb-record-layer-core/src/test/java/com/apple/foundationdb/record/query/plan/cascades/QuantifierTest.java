@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
@@ -33,6 +34,7 @@ import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,5 +148,27 @@ class QuantifierTest {
 
         final Memoizer.ReferenceOfPlansBuilder builder = memoizer.memoizePlansBuilder(ImmutableList.of(scanPlan));
         assertThat(quantifier.applyGlue(memoizer, builder)).isSameAs(builder);
+    }
+
+    /**
+     * Tests that the glue plans of a null-on-empty for-each quantifier and of an existential quantifier report the
+     * direction of their input, even if the glued reference holds more than one plan.
+     */
+    @Test
+    void testGluePlanIsReverse1() {
+        final Reference reverseReference = memoizer.memoizePlansBuilder(ImmutableList.of(
+                new RecordQueryScanPlan(ImmutableSet.of("A"), new Type.Any(), null, ScanComparisons.EMPTY, true, false, Optional.empty()),
+                new RecordQueryScanPlan(ImmutableSet.of("B"), new Type.Any(), null, ScanComparisons.EMPTY, true, false, Optional.empty()))).reference();
+        assertThat(reverseReference.getFinalExpressions()).hasSize(2);
+
+        final RecordQueryPlan defaultOnEmptyPlan = (RecordQueryPlan)Iterables.getOnlyElement(
+                Quantifier.forEachWithNullOnEmpty(reverseReference).applyGlue(memoizer, reverseReference).getFinalExpressions());
+        assertThat(defaultOnEmptyPlan).isInstanceOf(RecordQueryDefaultOnEmptyPlan.class);
+        assertThat(defaultOnEmptyPlan.isReverse()).isTrue();
+
+        final RecordQueryPlan firstOrDefaultPlan = (RecordQueryPlan)Iterables.getOnlyElement(
+                Quantifier.existential(reverseReference).applyGlue(memoizer, reverseReference).getFinalExpressions());
+        assertThat(firstOrDefaultPlan).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
+        assertThat(firstOrDefaultPlan.isReverse()).isTrue();
     }
 }
