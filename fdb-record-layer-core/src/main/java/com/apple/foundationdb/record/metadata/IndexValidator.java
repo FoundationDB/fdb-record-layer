@@ -47,10 +47,6 @@ public class IndexValidator {
 
     public void validate(@Nonnull MetaDataValidator metaDataValidator) {
         metaDataValidator.validateIndexForRecordTypes(index, this);
-        if (index.getAddedVersion() > index.getLastModifiedVersion()) {
-            throw new MetaDataException("Index " + index.getName() + " has added version " + index.getAddedVersion() +
-                                        " which is greater than the last modified version " + index.getLastModifiedVersion());
-        }
     }
 
     public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {

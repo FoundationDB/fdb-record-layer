@@ -131,6 +131,11 @@ public class MetaDataValidator implements RecordMetaDataProvider {
                                         index.getLastModifiedVersion() + " which is greater than the meta-data version " +
                                         metaData.getVersion());
         }
+        if (index.getAddedVersion() > index.getLastModifiedVersion()) {
+            throw new MetaDataException("Index " + index.getName() + " has added version " +
+                                        index.getAddedVersion() + " which is greater than the last modified version " +
+                                        index.getLastModifiedVersion());
+        }
         final List<String> replacementIndexNames = index.getReplacedByIndexNames();
         if (!replacementIndexNames.isEmpty()) {
             // Make sure all of the indexes are in the meta-data
