@@ -418,10 +418,10 @@ D
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15 AS _$$, @c17 AS _$))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _$$$, INT AS _$$, INT AS _$)" ];
-}š
+}Ý
 n
-	all-testsaEXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"§
-ñÔÞ³ˆ àÌö(20Çš083@'SCAN([IS foo__2tableA]) | MAP (_ AS _0)ßdigraph G {
+	all-testsaEXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3") from "foo.tableA"ê
+ñÔÞ³ˆ àÌö(20Çš083@éCOVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1, _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
