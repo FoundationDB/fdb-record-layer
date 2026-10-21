@@ -393,8 +393,12 @@ class SplitMergeTask extends AbstractDeferredTask {
 
     /**
      * Evaluates a split's candidates along the balancing ladder ({@link Config#kMeansBalancingLadder()}): first the
-     * candidates as fitted with its first strength, then, as long as none of them is admissible, the same primary
-     * vectors re-fitted with each next, stronger one. The re-fits draw from fresh splits of the task's random source.
+     * candidates as fitted with its first strength, then, as long as none of them clears
+     * {@link Config#minChildFraction()}, the same primary vectors re-fitted with each next, stronger one. Every fit
+     * already prefers a run that clears the floor (see {@link KMeans#fit}). Escalating only on failure keeps the
+     * lowest-objective fit wherever it clears the floor, and an admissible candidate, even a lopsided one, already
+     * relieves the oversized cluster. Merges do not use the ladder: they fit with its first strength only and fall back
+     * to the always-admissible 2-to-1 merge. The re-fits draw from fresh splits of the task's random source.
      *
      * @param random the task's random source
      * @param estimator the distance estimator
