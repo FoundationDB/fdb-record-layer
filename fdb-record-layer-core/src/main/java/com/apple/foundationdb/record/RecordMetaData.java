@@ -36,13 +36,17 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -83,6 +88,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
+    private final Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameSupplier;
+    @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, View> viewMap;
@@ -104,10 +111,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesLocalRecordsDescriptor;
     private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
-    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = {
-            RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
-    };
-
     protected RecordMetaData(@Nonnull RecordMetaData orig) {
         this(orig.getRecordsDescriptor(),
                 orig.getUnionDescriptor(),
@@ -118,6 +121,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
+                orig.nonRecordTypeDescriptorsByFullNameSupplier,
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
                 Collections.unmodifiableMap(orig.storedQueries),
@@ -140,6 +144,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
+                             @Nullable Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameSupplier,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
                              @Nonnull Map<String, StoredQuery> storedQueries,
@@ -159,6 +164,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
+        this.nonRecordTypeDescriptorsByFullNameSupplier =
+                nonRecordTypeDescriptorsByFullNameSupplier == null
+                ? Suppliers.memoize(() -> computeNonRecordTypeDescriptorsMap(unionDescriptor, unionFields))
+                : nonRecordTypeDescriptorsByFullNameSupplier;
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -170,6 +179,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.recordCountKey = recordCountKey;
         this.usesLocalRecordsDescriptor = usesLocalRecordsDescriptor;
         this.recordTypesForIndex = new ConcurrentHashMap<>();
+    }
+
+    @Nonnull
+    private static Map<String, Descriptors.GenericDescriptor> computeNonRecordTypeDescriptorsMap(@Nonnull Descriptors.Descriptor unionDescriptor,
+                                                                                                 @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields) {
+        return ProtoUtils.getTypeDescriptorByFullNameMapForFile(unionDescriptor.getFile(), Arrays.asList(RecordMetaDataBuilder.defaultExcludedProtoDependencies))
+                .entrySet().stream()
+                .filter(typeEntry -> !typeEntry.getValue().equals(unionDescriptor))
+                .filter(typeEntry -> !(typeEntry.getValue() instanceof Descriptors.Descriptor && unionFields.containsKey(typeEntry.getValue())))
+                .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /**
@@ -620,7 +639,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
-        return toProto(defaultExcludedDependencies);
+        return toProto(RecordMetaDataBuilder.defaultExcludedProtoDependencies);
     }
 
     /**
@@ -746,6 +765,21 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
+    }
+
+    /**
+     * Returns the descriptors of all non-record types in this RecordMetaData instance keyed by their Protobuf full name.
+     * <p>
+     * All non-record message and enum types included within the descriptor returned by {@link #getRecordsDescriptor()}
+     * and its dependencies are included, except the special {@code RecordUnionType} descriptor. If there are multiple
+     * types with the same full name in the records descriptor or its dependencies, the type closest to the records
+     * descriptor wins.
+     *
+     * @return An immutable map from fully-qualified Protobuf full name to the corresponding non-record type descriptor.
+     */
+    @Nonnull
+    public Map<String, Descriptors.GenericDescriptor> getNonRecordTypeDescriptorsByFullName() {
+        return nonRecordTypeDescriptorsByFullNameSupplier.get();
     }
 
     /**
