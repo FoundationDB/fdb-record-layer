@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -384,7 +383,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         builder.setCollectionValue(collectionValue.toValueProto(serializationContext));
         if (withOrdinality) {
             builder.setWithOrdinality(true);
-            // For compatibility with older versions that still read the `zero_based_ordinality` field:
+            // TODO Issue #4769: Stop setting `zero_based_ordinality` once versions ≤4.16 can no longer appear in rolling upgrades.
             builder.setZeroBasedOrdinality(true);
         }
         if (flowsRecordConstructorValue) {
@@ -403,12 +402,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PRecordQueryExplodePlan proto) {
         final boolean withOrdinality = proto.getWithOrdinality();
-        // We only support 0-based ordinals. Therefore:
-        // * Reject plans before version 4.15.1.0 that had no `zero_based_ordinality` field yet (and produced 1-based ordinals).
-        // * Reject plans from version ≥4.15.1.0 that do not set `zero_based_ordinality` explicitly to true.
-        if (withOrdinality && (!proto.hasZeroBasedOrdinality() || !proto.getZeroBasedOrdinality())) {
-            throw new RecordCoreException("explode plans flowing 1-based ordinals are no longer supported");
-        }
         return new RecordQueryExplodePlan(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
                 // The record constructor flag is optional and hence can be unset. This is intentional, to maintain
