@@ -402,8 +402,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Nonnull
     public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PRecordQueryExplodePlan proto) {
-        // The `zero_based_ordinality` field is not read: ordinals are always 0-based, and every version this one can
-        // exchange plans with (4.16 onwards) only ever sets it to true.
+        // The `zero_based_ordinality` field is not read: ordinals are always 0-based
         final boolean withOrdinality = proto.getWithOrdinality();
         return new RecordQueryExplodePlan(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
