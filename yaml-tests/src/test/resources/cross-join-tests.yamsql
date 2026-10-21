@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.16.4.0
 ---
 schema_template:
     create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
@@ -309,12 +309,12 @@ test_block:
     -
       # CROSS JOIN does not accept an ON join predicate
       - query: SELECT fname, lname, name FROM emp CROSS JOIN dept ON emp.dept_id = dept.id
-      - supported_version: !current_version
+      - supported_version: 4.16.4.0
       - error: SYNTAX_ERROR
     -
       # CROSS JOIN does not accept a USING join predicate
       - query: SELECT fname, lname, name FROM emp CROSS JOIN dept USING (id)
-      - supported_version: !current_version
+      - supported_version: 4.16.4.0
       - error: SYNTAX_ERROR
     -
       # CROSS JOIN with a truncated USING clause

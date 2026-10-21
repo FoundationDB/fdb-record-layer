@@ -118,7 +118,7 @@ test_block:
   name: boolean-predicate-conjunction-tests
   options:
     # Not yet supported by any released version -- older servers still fail here with an internal error.
-    supported_version: !current_version
+    supported_version: 4.16.4.0
   tests:
     -
       # `true` here is a query-context literal, so it becomes a ConstantObjectValue (not a LiteralValue), and is

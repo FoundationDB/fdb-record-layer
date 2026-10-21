@@ -462,9 +462,11 @@ public class HalfTest {
         Assertions.assertEquals(Half.NaN, Half.sum(Half.NaN, Half.MAX_VALUE));
         Assertions.assertEquals(Half.sum(Half.MIN_NORMAL, Half.MIN_VALUE), Half.valueOf(6.109476E-5f));
         Assertions.assertEquals(Half.MIN_VALUE, Half.sum(Half.MIN_VALUE, Half.POSITIVE_ZERO));
-        Assertions.assertEquals(Half.POSITIVE_INFINITY, Half.sum(Half.MAX_VALUE, LOWEST_ABOVE_ONE));
+        // 65504 + 1.0009766 == 65505.0f, which is below the overflow threshold of MAX_VALUE + 1/2 ulp (65520)
+        // and so rounds back to MAX_VALUE rather than overflowing to infinity.
+        Assertions.assertEquals(Half.MAX_VALUE, Half.sum(Half.MAX_VALUE, LOWEST_ABOVE_ONE));
         Assertions.assertEquals(
-                Half.NEGATIVE_INFINITY,
+                Half.NEGATIVE_MAX_VALUE,
                 Half.sum(Half.valueOf(-Half.MAX_VALUE.floatValue()), Half.valueOf(-LOWEST_ABOVE_ONE.floatValue())));
         Assertions.assertEquals(Half.POSITIVE_ZERO, Half.sum(Half.POSITIVE_ZERO, Half.NEGATIVE_ZERO));
 
