@@ -383,8 +383,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         builder.setCollectionValue(collectionValue.toValueProto(serializationContext));
         if (withOrdinality) {
             builder.setWithOrdinality(true);
-            // 4.16 still reads the `zero_based_ordinality` field and rejects a WITH ORDINALITY plan that does not set it.
-            // This version no longer reads it; the version after it can stop setting it.
+            // TODO Issue #4769: Stop setting `zero_based_ordinality` once versions ≤4.16 can no longer appear in rolling upgrades.
             builder.setZeroBasedOrdinality(true);
         }
         if (flowsRecordConstructorValue) {
@@ -402,7 +401,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Nonnull
     public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PRecordQueryExplodePlan proto) {
-        // The `zero_based_ordinality` field is not read: ordinals are always 0-based
         final boolean withOrdinality = proto.getWithOrdinality();
         return new RecordQueryExplodePlan(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
