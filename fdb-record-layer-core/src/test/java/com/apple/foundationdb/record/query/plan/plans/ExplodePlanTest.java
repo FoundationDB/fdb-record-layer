@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -370,8 +369,8 @@ public class ExplodePlanTest {
         final var qov = QuantifiedObjectValue.of(sourceAlias, recordType);
         final Value collectionValue = FieldValue.ofFieldName(qov, "arr");
 
-        // A version that predates 0-based ordinals being the default reads the ordinal base off the field, and would
-        // execute the plan 1-based without it, so a WITH ORDINALITY plan keeps setting it.
+        // 4.16 still reads the ordinal base off the field and rejects a WITH ORDINALITY plan without it, so a WITH
+        // ORDINALITY plan keeps setting it.
         final RecordQueryExplodePlan withOrdinality = new RecordQueryExplodePlan(collectionValue, true);
         final PRecordQueryExplodePlan withOrdinalityProto = withOrdinality.toProto(newSerializationContext());
         Assertions.assertTrue(withOrdinalityProto.getZeroBasedOrdinality());
@@ -383,23 +382,20 @@ public class ExplodePlanTest {
                 new RecordQueryExplodePlan(collectionValue, false).toProto(newSerializationContext());
         Assertions.assertFalse(plainProto.hasZeroBasedOrdinality());
 
-        // A plan that leaves the field unset predates the field, and so flowed the 1-based ordinals this version no
-        // longer produces. Rather than reinterpret its ordinals, deserializing it fails.
+        // The field is no longer read, so a plan that leaves it unset, or sets it to false, deserializes to the same
+        // plan: ordinals are 0-based regardless.
         final PRecordQueryExplodePlan unsetProto = PRecordQueryExplodePlan.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
                 .setWithOrdinality(true)
                 .build();
-        Assertions.assertThrows(RecordCoreException.class,
-                () -> RecordQueryExplodePlan.fromProto(newSerializationContext(), unsetProto));
+        Assertions.assertEquals(withOrdinality, RecordQueryExplodePlan.fromProto(newSerializationContext(), unsetProto));
 
-        // A plan that asks for 1-based ordinals outright is rejected for the same reason.
-        final PRecordQueryExplodePlan oneBasedProto = PRecordQueryExplodePlan.newBuilder()
+        final PRecordQueryExplodePlan falseProto = PRecordQueryExplodePlan.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
                 .setWithOrdinality(true)
                 .setZeroBasedOrdinality(false)
                 .build();
-        Assertions.assertThrows(RecordCoreException.class,
-                () -> RecordQueryExplodePlan.fromProto(newSerializationContext(), oneBasedProto));
+        Assertions.assertEquals(withOrdinality, RecordQueryExplodePlan.fromProto(newSerializationContext(), falseProto));
     }
 
     @Test
@@ -554,7 +550,6 @@ public class ExplodePlanTest {
         Assertions.assertFalse(opaqueProto.hasFlowsRecordConstructorValue());
 
         // ... and a plan serialized by such a version, which cannot have the field, deserializes to the opaque value.
-        // It still has to mark its ordinals 0-based, as a WITH ORDINALITY plan that does not is no longer accepted.
         final var legacyProto = PRecordQueryExplodePlan.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
                 .setWithOrdinality(true)

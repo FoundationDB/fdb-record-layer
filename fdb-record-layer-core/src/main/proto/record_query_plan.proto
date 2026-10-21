@@ -1883,6 +1883,7 @@ message PRecordQueryDeletePlan {
 message PRecordQueryExplodePlan {
   optional PValue collection_value = 1;
   optional bool with_ordinality = 2;
+  // No longer read: ordinals are always 0-based. Still set on WITH ORDINALITY plans for versions that read it.
   optional bool zero_based_ordinality = 3;
   optional bool flows_record_constructor_value = 4;
 }
