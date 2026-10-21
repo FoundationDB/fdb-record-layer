@@ -201,9 +201,9 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
             }
             for (final JoinCondition joinCondition : joinConditions) {
                 Assert.thatUnchecked(aliases.contains(joinCondition.leftAlias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
-                        () -> "join condition references unknown constituent " + joinCondition.leftAlias());
+                        () -> "join condition references unknown constituent '" + joinCondition.leftAlias() + "'");
                 Assert.thatUnchecked(aliases.contains(joinCondition.rightAlias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
-                        () -> "join condition references unknown constituent " + joinCondition.rightAlias());
+                        () -> "join condition references unknown constituent '" + joinCondition.rightAlias() + "'");
                 Assert.thatUnchecked(!joinCondition.leftAlias().equals(joinCondition.rightAlias()),
                         ErrorCode.INVALID_SCHEMA_TEMPLATE,
                         "join condition relates constituent '%s' to itself", joinCondition.leftAlias());
