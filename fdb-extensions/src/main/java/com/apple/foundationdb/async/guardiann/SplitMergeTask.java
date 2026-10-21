@@ -61,6 +61,7 @@ import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Predicate;
 
 /**
  * A deferred task that maintains cluster size invariants by splitting oversized clusters or merging
@@ -365,8 +366,9 @@ class SplitMergeTask extends AbstractDeferredTask {
                                             .thenApply(vectorReferences ->
                                                     kMeans(classification, vectorReferences, nestedRandom, estimator,
                                                             classification.coreClusters().size() + 1,
-                                                            config.kMeansMaxIterations(), config.kMeansMaxRestarts(),
-                                                            config.kMeansBalancingLadder().get(0)));
+                                                            config.kMeansMaxIterations(), config.kMeansNumRuns(),
+                                                            config.kMeansBalancingLadder().get(0),
+                                                            clearsMinChildFraction(config)));
                                 }, config.splitMergeConcurrency(), executor)
                         .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
                             final RepartitioningCandidates candidates = new RepartitioningCandidates(assignmentCandidates);
@@ -376,7 +378,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                                     selectBestCandidateMaybe(candidateToEvaluationResultMap);
                             if (bestValidCandidateOptional.isEmpty()) {
                                 if (enqueueCollapseIfNecessary(transaction, random,
-                                        candidates.oneToTwo().primaryVectorReferences(),
+                                        candidates.defaultCandidate().primaryVectorReferences(),
                                         getTargetClusterId(), centroid)) {
                                     primitives.writeClusterMetadata(transaction,
                                             targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
@@ -392,9 +394,7 @@ class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Evaluates a split's candidates along the balancing ladder ({@link Config#kMeansBalancingLadder()}): first the
      * candidates as fitted with its first strength, then, as long as none of them is admissible, the same primary
-     * vectors re-fitted with each next, stronger one. The re-fits draw from fresh splits of the task's random source:
-     * they only happen where the split used to fail outright, so a split with an admissible candidate sees exactly the
-     * same random draws as before.
+     * vectors re-fitted with each next, stronger one. The re-fits draw from fresh splits of the task's random source.
      *
      * @param random the task's random source
      * @param estimator the distance estimator
@@ -424,7 +424,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                 refittedCandidates.add(fitPrimaryVectors(candidate.classification(),
                         candidate.primaryVectorReferences(), random.split(), estimator,
                         candidate.classification().coreClusters().size() + 1,
-                        config.kMeansMaxIterations(), config.kMeansMaxRestarts(), balancingStrength));
+                        config.kMeansMaxIterations(), config.kMeansNumRuns(), balancingStrength,
+                        clearsMinChildFraction(config)));
             }
             candidates = new RepartitioningCandidates(refittedCandidates);
             candidateToEvaluationResultMap = scoreCandidates(estimator, innerClusters, candidates);
@@ -620,14 +621,15 @@ class SplitMergeTask extends AbstractDeferredTask {
                                             .thenApply(vectorReferences ->
                                                     kMeans(classification, vectorReferences, nestedRandom, estimator,
                                                             classification.coreClusters().size() - 1,
-                                                            config.kMeansMaxIterations(), config.kMeansMaxRestarts(),
-                                                            config.kMeansBalancingLadder().get(0)));
+                                                            config.kMeansMaxIterations(), config.kMeansNumRuns(),
+                                                            config.kMeansBalancingLadder().get(0),
+                                                            clearsMinChildFraction(config)));
                                 }, config.splitMergeConcurrency(), executor)
                         .<RepartitioningCandidate>thenApply(mergeCandidates -> {
                             final RepartitioningCandidates candidates = new RepartitioningCandidates(mergeCandidates);
                             final Optional<RepartitioningCandidate> bestValidCandidateOptional =
                                     selectBestCandidateMaybe(scoreCandidates(estimator, innerClusters, candidates));
-                            return bestValidCandidateOptional.orElse(candidates.twoToOne());
+                            return bestValidCandidateOptional.orElse(candidates.defaultCandidate());
                         }));
     }
 
@@ -1161,10 +1163,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param random source of randomness for k-means initialization
      * @param estimator distance estimator for the vector space
      * @param targetNumPartitions the desired number of output clusters
-     * @param maxIterations maximum Lloyd's iterations per k-means restart
-     * @param maxRestarts maximum number of random restarts
+     * @param maxIterations maximum Lloyd's iterations per k-means run
+     * @param numRuns number of k-means runs
      * @param balancingStrength size-balancing strength relative to the population's per-vector objective (a rung of
      *        {@link Config#kMeansBalancingLadder()}); {@code 0} disables balancing
+     * @param sizePredicate the cluster sizes k-means prefers a run to have (see {@link #clearsMinChildFraction})
      * @return an assignment candidate wrapping the k-means result and primary vectors
      */
     @Nonnull
@@ -1175,8 +1178,9 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                   @Nonnull final DistanceEstimator estimator,
                                                   final int targetNumPartitions,
                                                   final int maxIterations,
-                                                  final int maxRestarts,
-                                                  final double balancingStrength) {
+                                                  final int numRuns,
+                                                  final double balancingStrength,
+                                                  @Nonnull final Predicate<int[]> sizePredicate) {
         final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder = ImmutableList.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
@@ -1185,7 +1189,7 @@ class SplitMergeTask extends AbstractDeferredTask {
         }
         // re-fit only the primary vectors
         return fitPrimaryVectors(classification, primaryVectorReferencesBuilder.build(), random, estimator,
-                targetNumPartitions, maxIterations, maxRestarts, balancingStrength);
+                targetNumPartitions, maxIterations, numRuns, balancingStrength, sizePredicate);
     }
 
     /**
@@ -1195,13 +1199,15 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @param classification the cluster classification context
      * @param primaryVectorReferences the primary vectors to partition
-     * @param random source of randomness for k-means initialization, restarts and (when balancing) assignment order
+     * @param random source of randomness for the initialization of each k-means run and (when balancing) the
+     *        assignment order
      * @param estimator distance estimator for the vector space
      * @param targetNumPartitions the desired number of output clusters
-     * @param maxIterations maximum Lloyd's iterations per k-means restart
-     * @param maxRestarts maximum number of random restarts
+     * @param maxIterations maximum Lloyd's iterations per k-means run
+     * @param numRuns number of k-means runs
      * @param balancingStrength size-balancing strength relative to the population's per-vector objective (a rung of
      *        {@link Config#kMeansBalancingLadder()}); {@code 0} disables balancing
+     * @param sizePredicate the cluster sizes k-means prefers a run to have (see {@link #clearsMinChildFraction})
      * @return an assignment candidate wrapping the k-means result and primary vectors
      */
     @Nonnull
@@ -1211,13 +1217,14 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                              @Nonnull final DistanceEstimator estimator,
                                                              final int targetNumPartitions,
                                                              final int maxIterations,
-                                                             final int maxRestarts,
-                                                             final double balancingStrength) {
+                                                             final int numRuns,
+                                                             final double balancingStrength,
+                                                             @Nonnull final Predicate<int[]> sizePredicate) {
         final KMeans.Result<Transformed<RealVector>> kMeansResult =
-                KMeans.fitWithRelativeLambda(random, estimator, VectorReference.vectorLens(),
+                KMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
                         targetNumPartitions, maxIterations,
-                        maxRestarts, balancingStrength, KMeans.overflowQuadraticPenalty());
+                        numRuns, balancingStrength, KMeans.overflowQuadraticPenalty(), sizePredicate);
         if (logger.isDebugEnabled()) {
             // The closest pair of resulting centroids says whether k-means found real structure or merely cut a
             // homogeneous region: separation on the order of the data's own spread means the partition is following a
@@ -1237,6 +1244,31 @@ class SplitMergeTask extends AbstractDeferredTask {
                     minCentroidDistance);
         }
         return new RepartitioningCandidate(classification, primaryVectorReferences, kMeansResult);
+    }
+
+    /**
+     * The preference of every k-means fit of a split or a merge: cluster sizes whose smallest share of the population
+     * is at least {@link Config#minChildFraction()}. The share is computed as {@link PartitionEvaluator} computes the
+     * smallest-child fraction it rejects candidates by, the smallest size over the total, so a run k-means prefers is
+     * one the evaluator does not reject outright. k-means keeps the lowest-objective run that passes and falls back to
+     * the lowest-objective run overall only when none does, which the evaluator then rejects.
+     *
+     * @param config the configuration supplying the floor
+     *
+     * @return a predicate over a k-means run's cluster sizes
+     */
+    @Nonnull
+    private static Predicate<int[]> clearsMinChildFraction(@Nonnull final Config config) {
+        final double minChildFraction = config.minChildFraction();
+        return clusterSizes -> {
+            int smallest = Integer.MAX_VALUE;
+            int total = 0;
+            for (final int clusterSize : clusterSizes) {
+                smallest = Math.min(smallest, clusterSize);
+                total += clusterSize;
+            }
+            return (double) smallest / total >= minChildFraction;
+        };
     }
 
     /**
@@ -1399,7 +1431,7 @@ class SplitMergeTask extends AbstractDeferredTask {
     /**
      * The candidates a split or a merge weighs, in a fixed order: the narrower transition, which is always present
      * (1-to-2 for a split, 2-to-1 for a merge), followed by the wider one if it was viable (2-to-3 for a split, 3-to-2
-     * for a merge). {@link #asList()} serves the code that treats all candidates alike; the named accessors serve the
+     * for a merge). {@link #asList()} serves the code that treats all candidates alike, {@link #defaultCandidate()} the
      * code that needs the narrower one.
      *
      * @param asList the narrower candidate and the wider one, which may be passed as {@code null} if it was not viable
@@ -1412,13 +1444,12 @@ class SplitMergeTask extends AbstractDeferredTask {
             asList = ImmutableList.copyOf(Iterables.filter(asList, Objects::nonNull));
         }
 
+        /**
+         * The candidate of the narrower transition, which is always present: the 1-to-2 split, whose vectors are
+         * the target's own, or the 2-to-1 merge, which a merge falls back to.
+         */
         @Nonnull
-        RepartitioningCandidate oneToTwo() {
-            return asList.get(0);
-        }
-
-        @Nonnull
-        RepartitioningCandidate twoToOne() {
+        RepartitioningCandidate defaultCandidate() {
             return asList.get(0);
         }
     }

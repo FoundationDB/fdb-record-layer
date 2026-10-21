@@ -557,17 +557,24 @@ public class IndexOptions {
     /** Guardiann-only: number of nearest clusters fetched for merge candidate evaluation. */
     public static final String GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS = "guardiannMergeNumNearestClusters";
 
-    /** Guardiann-only: maximum Lloyd's iterations per k-means restart during split/merge. */
+    /** Guardiann-only: maximum Lloyd's iterations per k-means run during split/merge. */
     public static final String GUARDIANN_K_MEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
 
-    /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
-    public static final String GUARDIANN_K_MEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
+    /**
+     * Guardiann-only: number of k-means runs, each from its own random initialization, that every k-means fit of a
+     * split or merge makes; at least 1. A fit keeps the lowest-objective run among those that clear
+     * {@link #GUARDIANN_MIN_CHILD_FRACTION}, or the lowest-objective run overall if none does.
+     */
+    public static final String GUARDIANN_K_MEANS_NUM_RUNS = "guardiannKMeansNumRuns";
 
     /**
      * Guardiann-only: the size-balancing strengths k-means tries for a split, in order, as comma-separated doubles
-     * (e.g. {@code "0.0,0.016,0.064"}). Each is relative to the per-vector objective of the population being
+     * (e.g. {@code "0.0,0.016,0.16"}). Each is relative to the per-vector k-means objective of the population being
      * repartitioned; a split moves on to the next strength only when every candidate of the previous one was rejected
-     * outright. Non-empty, non-negative and strictly increasing.
+     * outright by {@link #GUARDIANN_MIN_CHILD_FRACTION}. Non-empty, finite, non-negative and strictly increasing. The
+     * default needs no tuning; see {@link com.apple.foundationdb.async.guardiann.Config}
+     * ({@code kMeansBalancingLadder}) for what the values do. Like the other balance gates, the ladder is fixed when
+     * the index is created.
      */
     public static final String GUARDIANN_K_MEANS_BALANCING_LADDER = "guardiannKMeansBalancingLadder";
 

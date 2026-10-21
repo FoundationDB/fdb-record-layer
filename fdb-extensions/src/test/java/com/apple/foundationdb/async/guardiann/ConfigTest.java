@@ -60,7 +60,7 @@ class ConfigTest {
         final int splitNumNearestClusters = Config.DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS + 1;
         final int mergeNumNearestClusters = Config.DEFAULT_MERGE_NUM_NEAREST_CLUSTERS + 1;
         final int kMeansMaxIterations = Config.DEFAULT_KMEANS_MAX_ITERATIONS + 1;
-        final int kMeansMaxRestarts = Config.DEFAULT_KMEANS_MAX_RESTARTS + 1;
+        final int kMeansNumRuns = Config.DEFAULT_KMEANS_NUM_RUNS + 1;
         final List<Double> kMeansBalancingLadder = List.of(0.0d, 0.05d, 0.2d);
         final int reassignNumNeighboringClusters = Config.DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS + 1;
         final int collapseMinDuplicates = Config.DEFAULT_COLLAPSE_MIN_DUPLICATES + 1;
@@ -100,7 +100,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.splitNumNearestClusters()).isNotEqualTo(splitNumNearestClusters);
         Assertions.assertThat(defaultConfig.mergeNumNearestClusters()).isNotEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(defaultConfig.kMeansMaxIterations()).isNotEqualTo(kMeansMaxIterations);
-        Assertions.assertThat(defaultConfig.kMeansMaxRestarts()).isNotEqualTo(kMeansMaxRestarts);
+        Assertions.assertThat(defaultConfig.kMeansNumRuns()).isNotEqualTo(kMeansNumRuns);
         Assertions.assertThat(defaultConfig.kMeansBalancingLadder()).isNotEqualTo(kMeansBalancingLadder);
         Assertions.assertThat(defaultConfig.reassignNumNeighboringClusters()).isNotEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(defaultConfig.collapseMinDuplicates()).isNotEqualTo(collapseMinDuplicates);
@@ -140,7 +140,7 @@ class ConfigTest {
                         .setSplitNumNearestClusters(splitNumNearestClusters)
                         .setMergeNumNearestClusters(mergeNumNearestClusters)
                         .setKMeansMaxIterations(kMeansMaxIterations)
-                        .setKMeansMaxRestarts(kMeansMaxRestarts)
+                        .setKMeansNumRuns(kMeansNumRuns)
                         .setKMeansBalancingLadder(kMeansBalancingLadder)
                         .setReassignNumNeighboringClusters(reassignNumNeighboringClusters)
                         .setCollapseMinDuplicates(collapseMinDuplicates)
@@ -179,7 +179,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.splitNumNearestClusters()).isEqualTo(splitNumNearestClusters);
         Assertions.assertThat(newConfig.mergeNumNearestClusters()).isEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(newConfig.kMeansMaxIterations()).isEqualTo(kMeansMaxIterations);
-        Assertions.assertThat(newConfig.kMeansMaxRestarts()).isEqualTo(kMeansMaxRestarts);
+        Assertions.assertThat(newConfig.kMeansNumRuns()).isEqualTo(kMeansNumRuns);
         Assertions.assertThat(newConfig.kMeansBalancingLadder()).isEqualTo(kMeansBalancingLadder);
         Assertions.assertThat(newConfig.reassignNumNeighboringClusters()).isEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(newConfig.collapseMinDuplicates()).isEqualTo(collapseMinDuplicates);
@@ -278,6 +278,17 @@ class ConfigTest {
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setMaxRelativeImbalance(1.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
                 .isEqualTo(1.0d);
+    }
+
+    @Test
+    void testKMeansNumRunsMustBePositive() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansNumRuns(0).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // A single run is legal: every fit then keeps the one run it makes.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setKMeansNumRuns(1).build(NUM_DIMENSIONS).kMeansNumRuns())
+                .isEqualTo(1);
     }
 
     @Test

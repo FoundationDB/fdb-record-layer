@@ -65,16 +65,26 @@ import java.util.List;
  * @param deleteConcurrency concurrency for parallel operations during delete
  * @param splitNumNearestClusters number of nearest clusters fetched from HNSW for split candidate evaluation
  * @param mergeNumNearestClusters number of nearest clusters fetched from HNSW for merge candidate evaluation
- * @param kMeansMaxIterations maximum Lloyd's iterations per k-means restart
- * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
+ * @param kMeansMaxIterations maximum Lloyd's iterations per k-means run
+ * @param kMeansNumRuns number of k-means runs, each from its own random initialization, that every k-means fit of a
+ *        split or merge makes; at least 1. A fit keeps the run with the lowest k-means objective among those whose
+ *        smallest cluster clears {@link #minChildFraction()}, and the lowest-objective run overall only if none does
+ *        (see {@link com.apple.foundationdb.kmeans.KMeans#fit})
  * @param kMeansBalancingLadder the size-balancing strengths k-means tries for a split, in order, each relative to the
- *        per-vector objective of the population being repartitioned (see
- *        {@link com.apple.foundationdb.kmeans.KMeans#fitWithRelativeLambda}) so that one value means the same
- *        thing for every metric and number of dimensions. A split first partitions with the first strength and only
- *        moves on to the next one when every candidate it produced was rejected outright (see
- *        {@link #minChildFraction()}), so k-means is pushed toward more even children only where it would otherwise
- *        fail; merges use the first strength. Non-empty, non-negative and strictly increasing; {@code 0} disables
- *        balancing for that attempt
+ *        per-vector k-means objective of the population being repartitioned (see
+ *        {@link com.apple.foundationdb.kmeans.KMeans#fit}), that is, in units of the data's own spread. A strength only
+ *        steers where k-means puts the centroids: every vector is still assigned to its nearest centroid, which is how
+ *        the split stores it (a neighboring cluster may still take some vectors), and {@link #minChildFraction()} is
+ *        checked on the sizes of that assignment. At each strength, a split fits its candidates (1-to-2 and, where
+ *        possible, 2-to-3) with {@link #kMeansNumRuns()} runs each, keeping the lowest-objective run that clears the
+ *        floor, and it escalates to the next strength only when every candidate fails the floor. Escalating only on
+ *        failure keeps the lowest-objective fit wherever it clears the floor, and an admissible candidate, even a
+ *        lopsided one, already relieves the oversized cluster. Merges use the first strength only; a 3-to-2 merge, too,
+ *        prefers a run that clears the floor, and if its candidate fails all the same, the merge falls back to the
+ *        2-to-1 merge, which is always admissible. A strength acts more strongly on a larger population. The default,
+ *        {@code [0, 0.016, 0.16]}, needs no tuning; add a stronger strength if splits still fail with "no admissible
+ *        repartitioning candidate", and use {@code [0]} to turn balancing off. Non-empty, finite, non-negative and
+ *        strictly increasing; {@code 0} disables balancing for that attempt
  * @param reassignNumNeighboringClusters outer clusters considered as replication/migration targets during reassign
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
@@ -132,7 +142,7 @@ public record Config(@Nonnull Metric metric,
                      int splitNumNearestClusters,
                      int mergeNumNearestClusters,
                      int kMeansMaxIterations,
-                     int kMeansMaxRestarts,
+                     int kMeansNumRuns,
                      @Nonnull List<Double> kMeansBalancingLadder,
                      // reassign
                      int reassignNumNeighboringClusters,
@@ -191,9 +201,9 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS = 32;
     public static final int DEFAULT_MERGE_NUM_NEAREST_CLUSTERS = 11;
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
-    public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
+    public static final int DEFAULT_KMEANS_NUM_RUNS = 4;
     @Nonnull
-    public static final List<Double> DEFAULT_KMEANS_BALANCING_LADDER = ImmutableList.of(0.0d, 0.016d, 0.064d);
+    public static final List<Double> DEFAULT_KMEANS_BALANCING_LADDER = ImmutableList.of(0.0d, 0.016d, 0.16d);
     // reassign
     public static final int DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS = 31;
     // collapse
@@ -223,6 +233,7 @@ public record Config(@Nonnull Metric metric,
                 "maxRelativeImbalance must be in [0, 1]");
         Preconditions.checkArgument(splitImbalancePenalty >= 0.0d,
                 "splitImbalancePenalty must be >= 0");
+        Preconditions.checkArgument(kMeansNumRuns >= 1, "kMeansNumRuns must be >= 1");
         Preconditions.checkArgument(!kMeansBalancingLadder.isEmpty(), "kMeansBalancingLadder must not be empty");
         double previousStrength = -1.0d;
         for (final double strength : kMeansBalancingLadder) {
@@ -245,7 +256,7 @@ public record Config(@Nonnull Metric metric,
                 sampleBatchSize(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNumNearestClusters(), mergeNumNearestClusters(),
-                kMeansMaxIterations(), kMeansMaxRestarts(), kMeansBalancingLadder(),
+                kMeansMaxIterations(), kMeansNumRuns(), kMeansBalancingLadder(),
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
@@ -277,7 +288,7 @@ public record Config(@Nonnull Metric metric,
                 ", splitNumNearestClusters=" + splitNumNearestClusters() +
                 ", mergeNumNearestClusters=" + mergeNumNearestClusters() +
                 ", kMeansMaxIterations=" + kMeansMaxIterations() +
-                ", kMeansMaxRestarts=" + kMeansMaxRestarts() +
+                ", kMeansNumRuns=" + kMeansNumRuns() +
                 ", kMeansBalancingLadder=" + kMeansBalancingLadder() +
                 ", reassignNumNeighboringClusters=" + reassignNumNeighboringClusters() +
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
@@ -333,7 +344,7 @@ public record Config(@Nonnull Metric metric,
         private int splitNumNearestClusters = DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS;
         private int mergeNumNearestClusters = DEFAULT_MERGE_NUM_NEAREST_CLUSTERS;
         private int kMeansMaxIterations = DEFAULT_KMEANS_MAX_ITERATIONS;
-        private int kMeansMaxRestarts = DEFAULT_KMEANS_MAX_RESTARTS;
+        private int kMeansNumRuns = DEFAULT_KMEANS_NUM_RUNS;
         @Nonnull
         private List<Double> kMeansBalancingLadder = DEFAULT_KMEANS_BALANCING_LADDER;
         // reassign
@@ -372,7 +383,7 @@ public record Config(@Nonnull Metric metric,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
                              final int splitNumNearestClusters, final int mergeNumNearestClusters,
                              final int kMeansMaxIterations,
-                             final int kMeansMaxRestarts,
+                             final int kMeansNumRuns,
                              @Nonnull final List<Double> kMeansBalancingLadder,
                              final int reassignNumNeighboringClusters,
                              final int collapseMinDuplicates,
@@ -408,7 +419,7 @@ public record Config(@Nonnull Metric metric,
             this.splitNumNearestClusters = splitNumNearestClusters;
             this.mergeNumNearestClusters = mergeNumNearestClusters;
             this.kMeansMaxIterations = kMeansMaxIterations;
-            this.kMeansMaxRestarts = kMeansMaxRestarts;
+            this.kMeansNumRuns = kMeansNumRuns;
             this.kMeansBalancingLadder = kMeansBalancingLadder;
             this.reassignNumNeighboringClusters = reassignNumNeighboringClusters;
             this.collapseMinDuplicates = collapseMinDuplicates;
@@ -732,14 +743,14 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getKMeansMaxRestarts() {
-            return kMeansMaxRestarts;
+        public int getKMeansNumRuns() {
+            return kMeansNumRuns;
         }
 
         @CanIgnoreReturnValue
         @Nonnull
-        public ConfigBuilder setKMeansMaxRestarts(final int kMeansMaxRestarts) {
-            this.kMeansMaxRestarts = kMeansMaxRestarts;
+        public ConfigBuilder setKMeansNumRuns(final int kMeansNumRuns) {
+            this.kMeansNumRuns = kMeansNumRuns;
             return this;
         }
 
@@ -845,7 +856,7 @@ public record Config(@Nonnull Metric metric,
                     getSampleBatchSize(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNumNearestClusters(), getMergeNumNearestClusters(),
-                    getKMeansMaxIterations(), getKMeansMaxRestarts(), getKMeansBalancingLadder(),
+                    getKMeansMaxIterations(), getKMeansNumRuns(), getKMeansBalancingLadder(),
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
