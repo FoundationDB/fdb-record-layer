@@ -275,12 +275,12 @@ public class ExplodePlanTest {
                 withoutOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
                 withOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        // VC1 no longer hashes the 0-based ordinality flag removed in PR #4704, which only a WITH ORDINALITY explode hashed.
+        // VC1 no longer hashes the 0-based ordinality flag, which only a WITH ORDINALITY explode hashed.
         Assertions.assertEquals(WITHOUT_ORDINALITY_VC1_HASH, withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
         Assertions.assertEquals(WITH_ORDINALITY_VC1_HASH, withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
         Assertions.assertNotEquals(withOrdinality.planHash(PlanHashable.PlanHashMode.VC0),
                 withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
-        // ... while the two variants still hash differently.
+        // Sanity check: The two variants must still hash differently under VC1.
         Assertions.assertNotEquals(withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1),
                 withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
     }
