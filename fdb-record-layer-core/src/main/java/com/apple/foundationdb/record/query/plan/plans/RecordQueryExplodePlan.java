@@ -352,13 +352,14 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         final Value result = getResultValue();
-        if (!withOrdinality) {
-            return PlanHashable.objectsPlanHash(mode, BASE_HASH, result);
-        }
         return switch (mode) {
-            case VL0, VC0 -> PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true, true);
-            case VC1 -> PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true);
-            default -> throw new UnsupportedOperationException("Plan hash mode " + mode + " is not supported");
+            case VL0, VC0 -> {
+                if (!withOrdinality) {
+                    yield PlanHashable.objectsPlanHash(mode, BASE_HASH, result);
+                }
+                yield PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true, true);
+            }
+            case VC1 -> PlanHashable.objectsPlanHash(mode, BASE_HASH, result, withOrdinality);
         };
     }
 
