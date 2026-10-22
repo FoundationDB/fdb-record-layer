@@ -56,6 +56,7 @@ import java.util.function.Predicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.Assertions.within;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -731,7 +732,7 @@ class KMeansTest {
      * clusters more than shaving the largest). Asserting on standard deviation tracks the
      * property the penalty is optimizing.
      * <p>
-     * Aggregating across 8 inputs derived from the seed smooths out the variance of the local
+     * Aggregating across 32 inputs derived from the seed smooths out the variance of the local
      * minimum each run converges into.
      * <p>
      * The strength is relative to the sample's per-vector single-cluster SSE {@code s}, which is
@@ -743,7 +744,7 @@ class KMeansTest {
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
     void siftSmallLambdaImprovesBalance(final long seed) {
         final SplittableRandom inputSeeds = new SplittableRandom(seed);
-        final int numInputs = 8;
+        final int numInputs = 32;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
@@ -782,7 +783,7 @@ class KMeansTest {
 
         // Averaged across seeds, balancing should reduce the standard deviation of cluster sizes
         // — that's the quantity the overflow-quadratic penalty literally targets. Measured: a mean
-        // ratio of about 0.73.
+        // ratio of about 0.81, with a per-input standard deviation of about 0.26.
         assertThat(meanRatio)
                 .as("mean balancedStddev / unbalancedStddev across %d inputs (per-input ratios in the log)",
                         numInputs)
@@ -790,6 +791,34 @@ class KMeansTest {
     }
 
     /**
+     * Check the scale invariance of the relative lambda parameter. This validates that we get the same
+     * balancing effect on cluster sizes at different scaling factors. This requires a sample from the data
+     * set where the tested lambda results in a noticeable change in cluster sizes. This is not guaranteed
+     * from every random sample, so we re-roll whenever the tested sample fails to test anything.
+     *
+     * @see #runScaleInvarianceWhereBalancingFires(long) for more details
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    @Tag(Tags.DualScalarSIMD)
+    void siftSmallRelativeLambdaIsScaleInvariant(final long seed) {
+        final Random random = new Random(seed);
+        final int trials = 100;
+        for (int i = 0; i < trials; i++) {
+            final long trialSeed = random.nextLong();
+            try {
+                if (runScaleInvarianceWhereBalancingFires(trialSeed)) {
+                    return;
+                }
+            } catch (AssertionError e) {
+                fail("trial " + i + " (seed=" + trialSeed + ") failed: " + e.getMessage(), e);
+            }
+        }
+        fail("Could not find a sample on which balancing evens out the cluster sizes after " + trials + " trials");
+    }
+
+    /**
+     * Checks the scale invariance of the lambda parameter for a single sample.
      * The balancing strength is relative, which makes it invariant under scaling the input: fitting
      * {@code Y = 1024 * X} with the same seed and the same {@code relativeLambda} yields exactly the
      * partitioning of {@code X}. Both terms of the assignment score scale alike: the squared-L2 base
@@ -797,19 +826,25 @@ class KMeansTest {
      * {@code s}, the per-vector SSE of the single-cluster fit, is a squared distance itself. That is
      * what makes one {@code relativeLambda} mean the same thing at every scale; an absolute weight
      * would press {@code 1024^2} times less on {@code Y} than on {@code X}.
+     *
      * <p>
      * The factor is a power of two, so every sum, product and comparison {@code fit} computes on
      * {@code Y}, k-means++ sampling included, is exactly {@code 2^10} or {@code 2^20} times its
      * counterpart on {@code X}: the two runs take identical decisions, and their objectives differ by
-     * exactly {@code 1024^2} (asserted up to a relative {@code 1e-12} all the same). With {@code k = 10}
-     * the strength {@code 0.16}, the strongest rung of Guardiann's default balancing ladder, visibly
-     * evens out the cluster sizes; the test checks that first, so that the comparison cannot pass
-     * because the penalty never fires.
+     * exactly {@code 1024^2} (asserted up to a relative {@code 1e-12} all the same).
+     * </p>
+     *
+     * <p>
+     * With {@code k = 10}, the strength {@code 0.16} (the strongest rung of Guardiann's default balancing
+     * ladder) visibly evens out the cluster sizes on most but not all samples. As this is a requirement
+     * for the test to meaningfully assert on anything, if the chosen sample does not, then this
+     * returns {@code false} and a new sample is re-rolled by the caller.
+     * </p>
+     *
+     * @return whether balancing evened out the cluster sizes on this sample, so that the invariance
+     *         was meaningfully checked
      */
-    @ParameterizedTest
-    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
-    @Tag(Tags.DualScalarSIMD)
-    void siftSmallRelativeLambdaIsScaleInvariant(final long seed) {
+    private boolean runScaleInvarianceWhereBalancingFires(final long seed) {
         final List<RealVector> x = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
         final double scale = 1024.0d;
@@ -828,19 +863,20 @@ class KMeansTest {
                 new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 x, k, 30, 3, relativeLambda, KMeans.overflowQuadraticPenalty(), null);
+        if (clusterSizeStddev(balancedX.clusterSizes()) >= clusterSizeStddev(unbalancedX.clusterSizes())) {
+            return false;
+        }
+
         final KMeans.Result<RealVector> balancedY = KMeans.fit(
                 new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 y, k, 30, 3, relativeLambda, KMeans.overflowQuadraticPenalty(), null);
 
-        assertThat(clusterSizeStddev(balancedX.clusterSizes()))
-                .as("balancing evens out the cluster sizes of X")
-                .isLessThan(clusterSizeStddev(unbalancedX.clusterSizes()));
-
         assertThat(balancedY.assignment()).containsExactly(balancedX.assignment());
         assertThat(balancedY.clusterSizes()).containsExactly(balancedX.clusterSizes());
         final double expectedObjectiveY = scale * scale * balancedX.objective();
         assertThat(balancedY.objective()).isCloseTo(expectedObjectiveY, within(1.0e-12d * expectedObjectiveY));
+        return true;
     }
 
     /**
@@ -979,15 +1015,47 @@ class KMeansTest {
 
     /**
      * A run that passes the size predicate is preferred over every run that fails it, even one with a
-     * lower objective. The predicate is a floor on the smallest cluster, set just above the smallest
-     * cluster of the run with the lowest objective, which thus fails it by construction. 3-means on a
-     * small SIFT-small sample has several local optima, and the test checks that at least one run is
-     * more balanced than the lowest-objective one and passes. {@code fit} must return the passing run
-     * with the lowest objective, which costs more than the lowest-objective run.
+     * lower objective. As we will sometimes fail to find a test case that exercises the scenario,
+     * this runs {@link #runFitWhereSizePredicateRulesOutLowerObjectiveRun(long)} in a loop. Empirically,
+     * we are able to find a passing run within about 5 trials (and often on the first trial).
+     *
+     * @see #runFitWhereSizePredicateRulesOutLowerObjectiveRun(long) for more details
+     * @see #fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate for when the size predicate rules
+     *      out all runs
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
     void fitPrefersRunPassingSizePredicateOverLowerObjectiveRun(final long seed) {
+        final Random random = new Random(seed);
+        final int trials = 100;
+        for (int i = 0; i < trials; i++) {
+            final long trialSeed = random.nextLong();
+            try {
+                if (runFitWhereSizePredicateRulesOutLowerObjectiveRun(trialSeed)) {
+                    return;
+                }
+            } catch (AssertionError e) {
+                fail("trial " + i + " (seed=" + trialSeed + ") failed: " + e.getMessage(), e);
+            }
+        }
+        fail("Could not find a passing run after " + trials + " runs");
+    }
+
+    /**
+     * A run that passes the size predicate is preferred over every run that fails it, even one with a
+     * lower objective. The predicate is a floor on the smallest cluster, set just above the smallest
+     * cluster of the run with the lowest objective, which thus fails it by construction. 3-means on a
+     * small SIFT-small sample has several local optima, and the test checks that at least one run is
+     * more balanced than the lowest-objective one. If none of the runs on this sample are more balanced,
+     * this returns {@code false} and is re-run by the caller. If there is a run passing the predicate,
+     * then this asserts that {@code fit} returns the passing run with the lowest objective, even though
+     * it costs more than the lowest-objective run.
+     *
+     * @return whether a run with this particular seed was able to provide a meaningful test
+     * @see #fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate for when the size predicate rules
+     *      out all runs
+     */
+    private boolean runFitWhereSizePredicateRulesOutLowerObjectiveRun(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, RUN_SELECTION_SAMPLE_SIZE));
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
@@ -999,7 +1067,12 @@ class KMeansTest {
         final List<KMeans.Result<RealVector>> passingRuns = runs.stream()
                 .filter(run -> sizePredicate.test(run.clusterSizes()))
                 .collect(ImmutableList.toImmutableList());
-        assertThat(passingRuns).as("runs more balanced than the lowest-objective run").isNotEmpty();
+        // For this test to be meaningful, at least one of the runs must have a better split than the one
+        // with the lowest objective. The contrary case is handled in the test below:
+        //  fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate
+        if (passingRuns.isEmpty()) {
+            return false;
+        }
         final KMeans.Result<RealVector> lowestObjectivePassingRun =
                 passingRuns.stream().min(Comparator.comparingDouble(KMeans.Result::objective)).orElseThrow();
 
@@ -1009,10 +1082,12 @@ class KMeansTest {
                 sample, RUN_SELECTION_K, 30, RUN_SELECTION_NUM_RUNS, 0.0d, null, sizePredicate);
 
         assertThat(sizePredicate.test(res.clusterSizes())).as("the returned run passes").isTrue();
-        assertThat(res.objective()).isGreaterThan(lowestObjectiveRun.objective());
-        assertThat(res.objective()).isEqualTo(lowestObjectivePassingRun.objective());
+        assertThat(res.objective())
+                .isGreaterThan(lowestObjectiveRun.objective())
+                .isEqualTo(lowestObjectivePassingRun.objective());
         assertThat(res.assignment()).containsExactly(lowestObjectivePassingRun.assignment());
         KMeansTestHelpers.assertKMeansInvariants(res, sample, RUN_SELECTION_K, distanceEstimator);
+        return true;
     }
 
     /**
