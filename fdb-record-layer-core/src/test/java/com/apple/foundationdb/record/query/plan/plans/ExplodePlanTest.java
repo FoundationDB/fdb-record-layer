@@ -251,7 +251,7 @@ public class ExplodePlanTest {
     private static final int WITHOUT_ORDINALITY_FOR_CONTINUATION_HASH = -1251896027;
     private static final int WITH_ORDINALITY_LEGACY_HASH = -481199675;
     private static final int WITH_ORDINALITY_FOR_CONTINUATION_HASH = -481199675;
-    private static final int WITHOUT_ORDINALITY_VC1_HASH = -1251896027;
+    private static final int WITHOUT_ORDINALITY_VC1_HASH = -154069936;
     private static final int WITH_ORDINALITY_VC1_HASH = -154069942;
 
     @Test
@@ -275,9 +275,12 @@ public class ExplodePlanTest {
                 withoutOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
                 withOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        // VC1 no longer hashes the 0-based ordinality flag, which only a WITH ORDINALITY explode hashed.
+        // VC1 hashes whether the explode is WITH ORDINALITY for both variants, and no longer hashes the 0-based
+        // ordinality flag, so both variants hash differently than under VC0.
         Assertions.assertEquals(WITHOUT_ORDINALITY_VC1_HASH, withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
         Assertions.assertEquals(WITH_ORDINALITY_VC1_HASH, withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
+        Assertions.assertNotEquals(withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC0),
+                withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
         Assertions.assertNotEquals(withOrdinality.planHash(PlanHashable.PlanHashMode.VC0),
                 withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
         // Sanity check: The two variants must still hash differently under VC1.
