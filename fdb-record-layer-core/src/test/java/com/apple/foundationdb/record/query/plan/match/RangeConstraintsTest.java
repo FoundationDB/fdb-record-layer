@@ -20,14 +20,20 @@
 
 package com.apple.foundationdb.record.query.plan.match;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.util.pair.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.EQUALS;
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.GREATER_THAN;
@@ -121,6 +127,45 @@ public class RangeConstraintsTest {
 
         invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10));
         Assertions.assertTrue(invalidRange.build().get().isEmpty(EvaluationContext.empty()));
+    }
+
+    /**
+     * A comparand that references a constant cannot be turned into a boundary without the constant's value, so the
+     * comparison fails instead of reporting that the range does not enclose. Filtered index matching relies on this to
+     * refuse a parameter that has no value.
+     */
+    @Test
+    public void enclosesFailsWhenConstantComparandHasNoBinding() {
+        final var candidate = range(of(GREATER_THAN, 10L));
+        final var query = constantRange(EQUALS, "c0");
+
+        Assertions.assertThrows(Bindings.MissingBindingException.class,
+                () -> candidate.encloses(query, EvaluationContext.empty()));
+    }
+
+    @Test
+    public void enclosesEvaluatesConstantComparandWhenItIsBound() {
+        final var candidate = range(of(GREATER_THAN, 10L));
+        final var query = constantRange(EQUALS, "c0");
+
+        Assertions.assertTrue(candidate.encloses(query, boundConstant("c0", 42L)));
+        Assertions.assertFalse(candidate.encloses(query, boundConstant("c0", 5L)));
+    }
+
+    @Nonnull
+    private static RangeConstraints constantRange(@Nonnull Comparisons.Type type, @Nonnull String constantId) {
+        final var comparand = ConstantObjectValue.of(Quantifier.constant(), constantId,
+                Type.primitiveType(Type.TypeCode.LONG));
+        final var builder = RangeConstraints.newBuilder();
+        Assertions.assertTrue(builder.addComparisonMaybe(new Comparisons.ValueComparison(type, comparand)));
+        return builder.build().orElseThrow();
+    }
+
+    @Nonnull
+    private static EvaluationContext boundConstant(@Nonnull String constantId, @Nonnull Object value) {
+        return EvaluationContext.newBuilder()
+                .setConstant(Quantifier.constant(), Map.of(constantId, value))
+                .build(TypeRepository.empty());
     }
 
     @Nonnull
