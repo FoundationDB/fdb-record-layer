@@ -53,10 +53,6 @@ dependencies {
     annotationProcessor(libs.autoService)
 
     testImplementation project(':fdb-test-utils')
-    // Guardiann structural-invariant assertions + SIFT dataset loaders/paths live in fdb-extensions' testFixtures
-    // (GuardiannStructureAsserts, VecsDatasetLoaders, SiftTestHelpers, PrimaryKeyAndVector), reused by the vector-index
-    // tests here (e.g. GuardiannVectorIndexConcurrentMergeTest).
-    testImplementation(testFixtures(project(':fdb-extensions')))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
@@ -74,6 +70,10 @@ dependencies {
     // (icu, lucene, spatial). Anything that appears in moved class signatures must use the
     // `Api` configuration so it transitively reaches those consumers.
     testFixturesApi project(':fdb-test-utils')
+    // Guardiann structural-invariant assertions + SIFT dataset loaders/paths live in fdb-extensions' testFixtures
+    // (GuardiannStructureAsserts, VecsDatasetLoaders, SiftTestHelpers, PrimaryKeyAndVector), reused by
+    // VectorIndexTestSupport and by the vector-index tests here (e.g. GuardiannVectorIndexConcurrentMergeTest).
+    testFixturesApi(testFixtures(project(':fdb-extensions')))
     testFixturesApi(libs.bundles.test.impl)
     testFixturesImplementation(libs.bundles.test.compileOnly)
     testFixturesImplementation(libs.snakeyaml)
