@@ -27,6 +27,18 @@ plugins {
     alias(libs.plugins.shadow)
 }
 apply from: rootProject.file('gradle/proto.gradle')
+// Publish a jar of the test fixtures (see gradle/published-test-fixtures.gradle), leaving out the fixtures that link
+// against the test fixtures' own protos and the fixtures that depend on those.
+ext.publishTestFixturesJar = true
+ext.testFixturesPublishExcludes = [
+        'com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpressionTestBase',
+        'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase',
+        'com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils',
+        'com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerExtension',
+        'com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest',
+        'com.apple.foundationdb.record.provider.foundationdb.query.FDBCollateQueryTestBase',
+        'com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase',
+]
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
