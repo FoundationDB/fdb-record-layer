@@ -29,11 +29,13 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A single logical vector option, identified by a stable set of wire names: one <em>canonical</em> name plus zero or
@@ -219,6 +221,17 @@ public final class VectorOptionKey<T> implements PlanHashable {
                                                    @Nonnull final String... aliases) {
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Double.class, Double::parseDouble,
                 String::valueOf);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static VectorOptionKey<List<Double>> ofDoubleList(@Nonnull final String canonicalName) {
+        // Comma-separated on the wire; the serializer joins with "," so the stored form round-trips through the parser.
+        // No legacy aliases: list-valued options postdate the renaming that the other factories' aliases cover.
+        return new VectorOptionKey<>(canonicalName, ImmutableList.of(), (Class<List<Double>>)(Class<?>)List.class,
+                value -> Arrays.stream(value.split(",")).map(String::trim).map(Double::parseDouble)
+                        .collect(ImmutableList.toImmutableList()),
+                values -> values.stream().map(String::valueOf).collect(Collectors.joining(",")));
     }
 
     @Nonnull

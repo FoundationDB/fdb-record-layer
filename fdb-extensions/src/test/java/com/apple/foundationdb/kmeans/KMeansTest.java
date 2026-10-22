@@ -47,11 +47,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.SplittableRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -60,6 +64,18 @@ class KMeansTest {
 
     /** Number of vectors sampled from the SIFT-small base dataset for property tests. */
     private static final int SIFT_SAMPLE_SIZE = 2000;
+
+    /**
+     * Number of vectors sampled from SIFT-small for the run-selection tests: small enough that 3-means
+     * on them has several distinct local optima for its runs to land in.
+     */
+    private static final int RUN_SELECTION_SAMPLE_SIZE = 300;
+
+    /** Number of clusters the run-selection tests fit. */
+    private static final int RUN_SELECTION_K = 3;
+
+    /** Number of runs the run-selection tests make. */
+    private static final int RUN_SELECTION_NUM_RUNS = 8;
 
     /** Cached SIFT-small base dataset. Loaded once per test class to amortize file I/O. */
     private static List<DoubleRealVector> siftSmallBase;
@@ -107,10 +123,10 @@ class KMeansTest {
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                2, 15, 3, 0.0,
-                null);
+                2, 15, 4, 0.0,
+                null, null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator);
 
         final RealVector c0 = res.clusterCentroids().get(0);
         final RealVector c1 = res.clusterCentroids().get(1);
@@ -153,10 +169,10 @@ class KMeansTest {
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                2, 15, 3, 0.0,
-                null);
+                2, 15, 4, 0.0,
+                null, null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator);
 
         assertThat(res.clusterSizes()[0]).isGreaterThan(0);
         assertThat(res.clusterSizes()[1]).isGreaterThan(0);
@@ -181,14 +197,14 @@ class KMeansTest {
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 1;
         final int maxIterations = 15;
-        final int maxRestarts = 3;
-        final double lambda = 0.0d; // size-balancing weight; 0 disables the size penalty
+        final int numRuns = 4;
+        final double relativeLambda = 0.0d; // size-balancing strength; 0 disables the size penalty
         final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                k, maxIterations, maxRestarts, lambda,
-                null /* sizePenalty */);
+                k, maxIterations, numRuns, relativeLambda,
+                null /* sizePenalty */, null /* sizePredicate */);
 
         assertThat(res.clusterCentroids()).hasSize(1);
         assertThat(res.clusterSizes()).containsExactly(n);
@@ -249,8 +265,8 @@ class KMeansTest {
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                1, 15, 3, 0.0d,
-                null);
+                1, 15, 4, 0.0d,
+                null, null);
 
         assertThat(res.clusterCentroids()).hasSize(1);
         assertThat(res.clusterSizes()).containsExactly(n);
@@ -299,16 +315,17 @@ class KMeansTest {
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final int k = 3;
-        final double lambda = 0.08d;
+        // Against the input's per-vector single-cluster SSE s of about 66, this is an absolute weight of about 0.08.
+        final double relativeLambda = 0.0012d;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty());
+                k, 20, 4, relativeLambda,
+                KMeans.overflowQuadraticPenalty(), null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -319,6 +336,12 @@ class KMeansTest {
         assertThat(max).isLessThanOrEqualTo(min * 2);
     }
 
+    /**
+     * High-dimensional twin of {@link #threeBlobsWithSoftBalancingProducesReasonableSizes}: the same checks on 3
+     * blobs in 512 dimensions, with the same relative balancing strength, which carries over unchanged because it is
+     * measured against the input's own per-vector single-cluster SSE {@code s}. (An absolute weight does not carry
+     * over: {@code s} is about 4700 here, so the same absolute weight would be 70 times weaker than in 3D.)
+     */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void threeBlobsWithSoftBalancingProducesReasonableSizesHighNumDimensions(final long seed) {
@@ -345,16 +368,16 @@ class KMeansTest {
         Collections.shuffle(vectors, random);
 
         final int k = 3;
-        final double lambda = 0.08d;
+        final double relativeLambda = 0.0012d;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
                 splittableRandom, distanceEstimator,
                 Lens.identity(), Lens.identity(),
                 vectors,
-                k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty());
+                k, 20, 4, relativeLambda,
+                KMeans.overflowQuadraticPenalty(), null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -392,10 +415,10 @@ class KMeansTest {
         final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                vectors, 2, 15, 3, 0.0,
-                null);
+                vectors, 2, 15, 4, 0.0,
+                null, null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator);
 
         final RealVector c0 = res.clusterCentroids().get(0).normalize();
         final RealVector c1 = res.clusterCentroids().get(1).normalize();
@@ -436,10 +459,10 @@ class KMeansTest {
         final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                vectors, 2, 15, 3, 0.0,
-                null);
+                vectors, 2, 15, 4, 0.0,
+                null, null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator, 0.0d);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, 2, distanceEstimator);
 
         assertThat(res.clusterSizes()[0]).isGreaterThan(0);
         assertThat(res.clusterSizes()[1]).isGreaterThan(0);
@@ -468,15 +491,17 @@ class KMeansTest {
         Collections.shuffle(vectors, new Random(rnd.nextLong()));
 
         final int k = 3;
-        final double lambda = 0.08d;
+        // Against the input's per-vector single-cluster cosine distance s of about 0.31, this is an absolute weight
+        // of about 0.08.
+        final double relativeLambda = 0.25d;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
                 rnd, distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                vectors, k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty());
+                vectors, k, 20, 4, relativeLambda,
+                KMeans.overflowQuadraticPenalty(), null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -512,15 +537,17 @@ class KMeansTest {
         Collections.shuffle(vectors, random);
 
         final int k = 3;
-        final double lambda = 0.08d;
+        // Against the input's per-vector single-cluster cosine distance s of about 0.77, this is an absolute weight
+        // of about 0.08.
+        final double relativeLambda = 0.1d;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
         final KMeans.Result<RealVector> res = KMeans.fit(
                 splittableRandom, distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                vectors, k, 20, 3, lambda,
-                KMeans.overflowQuadraticPenalty());
+                vectors, k, 20, 4, relativeLambda,
+                KMeans.overflowQuadraticPenalty(), null);
 
-        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator, lambda);
+        KMeansTestHelpers.assertKMeansInvariants(res, vectors, k, distanceEstimator);
 
         for (int c = 0; c < k; c++) {
             assertThat(res.clusterSizes()[c]).isGreaterThan(0);
@@ -535,9 +562,13 @@ class KMeansTest {
 
     /**
      * Property-based: sample {@value #SIFT_SAMPLE_SIZE} vectors from SIFT-small, run {@code fit}
-     * across a grid of {@code k} and {@code lambda} values under the Euclidean metric, and
-     * verify the structural and (where {@code lambda == 0}) algorithmic invariants of every
-     * result.
+     * across a grid of {@code k} and relative balancing strengths under the Euclidean metric, and
+     * verify the structural and algorithmic invariants of every result.
+     * <p>
+     * The non-zero strength is the one of the cosine twin {@link #siftSmallCosineInvariants}, where it
+     * amounts to an absolute weight of about 0.08. Being relative, it acts here just as well; the same
+     * absolute weight would not: against squared distances of about {@code 1.5e5} per vector it is a
+     * relative strength of {@code 5e-7}, which would leave the invariants under balancing untested.
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL})
@@ -547,26 +578,28 @@ class KMeansTest {
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
 
         for (final int k : new int[] {2, 5, 25, 100}) {
-            for (final double lambda : new double[] {0.0d, 0.08d}) {
+            for (final double relativeLambda : new double[] {0.0d, 0.25d}) {
                 final KMeans.Result<RealVector> res = KMeans.fit(
                         new SplittableRandom(seed),
                         distanceEstimator,
                         Lens.identity(), Lens.identity(),
                         sample,
-                        k, /*maxIterations=*/30, /*maxRestarts=*/2, lambda,
-                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null);
+                        k, /*maxIterations=*/30, /*numRuns=*/3, relativeLambda,
+                        relativeLambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null, null);
 
-                logger.info("siftSmallEuclidean seed={} k={} lambda={} sse={} sizes={}",
-                        seed, k, lambda, res.objective(), res.clusterSizes());
+                logger.info("siftSmallEuclidean seed={} k={} relativeLambda={} sse={} sizes={}",
+                        seed, k, relativeLambda, res.objective(), res.clusterSizes());
 
-                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, distanceEstimator, lambda);
+                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, distanceEstimator);
             }
         }
     }
 
     /**
      * Cosine variant of {@link #siftSmallEuclideanInvariants}: vectors are L2-normalized first so
-     * the cosine metric and the unit-norm centroid invariant make sense.
+     * the cosine metric and the unit-norm centroid invariant make sense. The sample's per-vector
+     * single-cluster cosine distance is about 0.35, so the non-zero relative strength amounts to an
+     * absolute weight of about 0.08.
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL})
@@ -578,19 +611,19 @@ class KMeansTest {
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.COSINE_METRIC);
 
         for (final int k : new int[] {2, 5, 25, 100}) {
-            for (final double lambda : new double[] {0.0d, 0.08d}) {
+            for (final double relativeLambda : new double[] {0.0d, 0.25d}) {
                 final KMeans.Result<RealVector> res = KMeans.fit(
                         new SplittableRandom(seed),
                         distanceEstimator,
                         Lens.identity(), Lens.identity(),
                         sample,
-                        k, /*maxIterations=*/30, /*maxRestarts=*/2, lambda,
-                        lambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null);
+                        k, /*maxIterations=*/30, /*numRuns=*/3, relativeLambda,
+                        relativeLambda > 0.0d ? KMeans.overflowQuadraticPenalty() : null, null);
 
-                logger.info("siftSmallCosine seed={} k={} lambda={} obj={} sizes={}",
-                        seed, k, lambda, res.objective(), res.clusterSizes());
+                logger.info("siftSmallCosine seed={} k={} relativeLambda={} obj={} sizes={}",
+                        seed, k, relativeLambda, res.objective(), res.clusterSizes());
 
-                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, distanceEstimator, lambda);
+                KMeansTestHelpers.assertKMeansInvariants(res, sample, k, distanceEstimator);
             }
         }
     }
@@ -616,11 +649,11 @@ class KMeansTest {
         final KMeans.Result<RealVector> a = KMeans.fit(
                 new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                sample, k, 20, 2, 0.0d, null);
+                sample, k, 20, 3, 0.0d, null, null);
         final KMeans.Result<RealVector> b = KMeans.fit(
                 new SplittableRandom(seed), distanceEstimator,
                 Lens.identity(), Lens.identity(),
-                sample, k, 20, 2, 0.0d, null);
+                sample, k, 20, 3, 0.0d, null, null);
 
         assertThat(a.assignment()).containsExactly(b.assignment());
         assertThat(a.clusterSizes()).containsExactly(b.clusterSizes());
@@ -637,32 +670,32 @@ class KMeansTest {
     }
 
     /**
-     * Extra restarts can only help: the best-of-R objective must be monotonically non-increasing
-     * in {@code R}.
+     * Extra runs can only help: the best-of-R objective must be monotonically non-increasing
+     * in the number of runs {@code R}.
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL})
-    void siftSmallRestartsImproveObjective(final long seed) {
+    void siftSmallMoreRunsImproveObjective(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
-        final double obj0 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 0, 0.0d, null).objective();
         final double obj1 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null).objective();
-        final double obj3 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(), sample, k, 30, 3, 0.0d, null).objective();
+                Lens.identity(), Lens.identity(), sample, k, 30, 1, 0.0d, null, null).objective();
+        final double obj2 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 2, 0.0d, null, null).objective();
+        final double obj4 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, k, 30, 4, 0.0d, null, null).objective();
 
-        logger.info("restarts: 0->{}, 1->{}, 3->{}", obj0, obj1, obj3);
-        assertThat(obj1).isLessThanOrEqualTo(obj0);
-        assertThat(obj3).isLessThanOrEqualTo(obj1);
+        logger.info("runs: 1->{}, 2->{}, 4->{}", obj1, obj2, obj4);
+        assertThat(obj2).isLessThanOrEqualTo(obj1);
+        assertThat(obj4).isLessThanOrEqualTo(obj2);
     }
 
     /**
      * More clusters cannot increase the squared-L2 objective: with sufficient iterations and
-     * restarts, SSE should be non-increasing as {@code k} grows.
+     * runs, SSE should be non-increasing as {@code k} grows.
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL})
@@ -672,11 +705,11 @@ class KMeansTest {
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
 
         final double sse2 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(), sample, 2, 50, 3, 0.0d, null).objective();
+                Lens.identity(), Lens.identity(), sample, 2, 50, 4, 0.0d, null, null).objective();
         final double sse10 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(), sample, 10, 50, 3, 0.0d, null).objective();
+                Lens.identity(), Lens.identity(), sample, 10, 50, 4, 0.0d, null, null).objective();
         final double sse25 = KMeans.fit(new SplittableRandom(seed), distanceEstimator,
-                Lens.identity(), Lens.identity(), sample, 25, 50, 3, 0.0d, null).objective();
+                Lens.identity(), Lens.identity(), sample, 25, 50, 4, 0.0d, null, null).objective();
 
         logger.info("k-monotonic SSE: 2->{}, 10->{}, 25->{}", sse2, sse10, sse25);
         // Generous slack accounts for the local-optimum nature of Lloyd; in pathological cases a
@@ -687,7 +720,7 @@ class KMeansTest {
     }
 
     /**
-     * Soft size balancing should reduce cluster-size variance: with {@code lambda > 0} and the
+     * Soft size balancing should reduce cluster-size variance: with {@code relativeLambda > 0} and the
      * default overflow penalty, the standard deviation of cluster sizes should — <i>averaged
      * across seeds</i> — be smaller than without balancing.
      * <p>
@@ -698,39 +731,38 @@ class KMeansTest {
      * clusters more than shaving the largest). Asserting on standard deviation tracks the
      * property the penalty is optimizing.
      * <p>
-     * Aggregating across multiple seeds smooths out single-seed variance in the local-minimum
-     * landscape both runs are converging into.
+     * Aggregating across 8 inputs derived from the seed smooths out the variance of the local
+     * minimum each run converges into.
      * <p>
-     * The {@code lambda} value used here ({@code 1000}) is large compared to the synthetic-blob
-     * tests above ({@code lambda = 0.08}). That's because {@code lambda} is dimensional: the
-     * penalty term is added to the per-vector base objective (squared L2 distance to the
-     * centroid), and SIFT-small components run 0–127 so per-vector squared distances are in the
-     * thousands. To make the penalty visible against that, {@code lambda} has to be in the
-     * thousands too. The 3D-blob tests get away with tiny {@code lambda} because their
-     * geometric scores are in the single digits.
+     * The strength is relative to the sample's per-vector single-cluster SSE {@code s}, which is
+     * about {@code 1.5e5} for SIFT-small: {@code relativeLambda = 0.007} amounts to an absolute
+     * weight of about {@code 1000}. The cluster sizes compared are those of the returned,
+     * nearest-centroid partitioning, so the test shows that the penalty moves the centroids.
      */
-    @Test
-    void siftSmallLambdaImprovesBalance() {
-        final long[] seeds = {0x0fdbL, 0x5ca1eL, 0xC0FFEEL, 123456L, 78910L,
-                0xDEADBEEFL, 0xBADCAFEL, 1123581321345589L};
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void siftSmallLambdaImprovesBalance(final long seed) {
+        final SplittableRandom inputSeeds = new SplittableRandom(seed);
+        final int numInputs = 8;
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
         final int k = 10;
 
         double ratioSum = 0.0d;
         int balancedWins = 0;
-        for (final long seed : seeds) {
+        for (int input = 0; input < numInputs; input++) {
+            final long inputSeed = inputSeeds.nextLong();
             final List<RealVector> sample = ImmutableList.copyOf(
-                    KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+                    KMeansTestHelpers.pickRandomSubset(new Random(inputSeed), siftSmallBase, SIFT_SAMPLE_SIZE));
 
             final KMeans.Result<RealVector> unbalanced = KMeans.fit(
-                    new SplittableRandom(seed), distanceEstimator,
+                    new SplittableRandom(inputSeed), distanceEstimator,
                     Lens.identity(), Lens.identity(),
-                    sample, k, 30, 2, 0.0d, null);
+                    sample, k, 30, 3, 0.0d, null, null);
             final KMeans.Result<RealVector> balanced = KMeans.fit(
-                    new SplittableRandom(seed), distanceEstimator,
+                    new SplittableRandom(inputSeed), distanceEstimator,
                     Lens.identity(), Lens.identity(),
-                    sample, k, 30, 2, 1000d,
-                    KMeans.overflowQuadraticPenalty());
+                    sample, k, 30, 3, 0.007d,
+                    KMeans.overflowQuadraticPenalty(), null);
 
             final double unbalancedStddev = clusterSizeStddev(unbalanced.clusterSizes());
             final double balancedStddev = clusterSizeStddev(balanced.clusterSizes());
@@ -741,25 +773,395 @@ class KMeansTest {
             }
 
             logger.info("balance@seed={}: unbalanced stddev={}, balanced stddev={}, ratio={}",
-                    Long.toHexString(seed), unbalancedStddev, balancedStddev, ratio);
+                    Long.toHexString(inputSeed), unbalancedStddev, balancedStddev, ratio);
         }
 
-        final double meanRatio = ratioSum / seeds.length;
-        logger.info("siftSmallLambdaImprovesBalance: meanRatio={} over {} seeds, balanced won {}/{}",
-                meanRatio, seeds.length, balancedWins, seeds.length);
+        final double meanRatio = ratioSum / numInputs;
+        logger.info("siftSmallLambdaImprovesBalance: meanRatio={} over {} inputs, balanced won {}/{}",
+                meanRatio, numInputs, balancedWins, numInputs);
 
         // Averaged across seeds, balancing should reduce the standard deviation of cluster sizes
-        // — that's the quantity the overflow-quadratic penalty literally targets.
+        // — that's the quantity the overflow-quadratic penalty literally targets. Measured: a mean
+        // ratio of about 0.73.
         assertThat(meanRatio)
-                .as("mean balancedStddev / unbalancedStddev across %d seeds (per-seed ratios in the log)",
-                        seeds.length)
+                .as("mean balancedStddev / unbalancedStddev across %d inputs (per-input ratios in the log)",
+                        numInputs)
                 .isLessThanOrEqualTo(1.0d);
     }
 
     /**
+     * The balancing strength is relative, which makes it invariant under scaling the input: fitting
+     * {@code Y = 1024 * X} with the same seed and the same {@code relativeLambda} yields exactly the
+     * partitioning of {@code X}. Both terms of the assignment score scale alike: the squared-L2 base
+     * objective by {@code 1024^2}, and so does the absolute weight {@code relativeLambda * s}, as
+     * {@code s}, the per-vector SSE of the single-cluster fit, is a squared distance itself. That is
+     * what makes one {@code relativeLambda} mean the same thing at every scale; an absolute weight
+     * would press {@code 1024^2} times less on {@code Y} than on {@code X}.
+     * <p>
+     * The factor is a power of two, so every sum, product and comparison {@code fit} computes on
+     * {@code Y}, k-means++ sampling included, is exactly {@code 2^10} or {@code 2^20} times its
+     * counterpart on {@code X}: the two runs take identical decisions, and their objectives differ by
+     * exactly {@code 1024^2} (asserted up to a relative {@code 1e-12} all the same). With {@code k = 10}
+     * the strength {@code 0.16}, the strongest rung of Guardiann's default balancing ladder, visibly
+     * evens out the cluster sizes; the test checks that first, so that the comparison cannot pass
+     * because the penalty never fires.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL})
+    @Tag(Tags.DualScalarSIMD)
+    void siftSmallRelativeLambdaIsScaleInvariant(final long seed) {
+        final List<RealVector> x = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, SIFT_SAMPLE_SIZE));
+        final double scale = 1024.0d;
+        final List<RealVector> y = x.stream()
+                .map(v -> v.multiply(scale))
+                .collect(ImmutableList.toImmutableList());
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final int k = 10;
+        final double relativeLambda = 0.16d;
+
+        final KMeans.Result<RealVector> unbalancedX = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                x, k, 30, 3, 0.0d, null, null);
+        final KMeans.Result<RealVector> balancedX = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                x, k, 30, 3, relativeLambda, KMeans.overflowQuadraticPenalty(), null);
+        final KMeans.Result<RealVector> balancedY = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                y, k, 30, 3, relativeLambda, KMeans.overflowQuadraticPenalty(), null);
+
+        assertThat(clusterSizeStddev(balancedX.clusterSizes()))
+                .as("balancing evens out the cluster sizes of X")
+                .isLessThan(clusterSizeStddev(unbalancedX.clusterSizes()));
+
+        assertThat(balancedY.assignment()).containsExactly(balancedX.assignment());
+        assertThat(balancedY.clusterSizes()).containsExactly(balancedX.clusterSizes());
+        final double expectedObjectiveY = scale * scale * balancedX.objective();
+        assertThat(balancedY.objective()).isCloseTo(expectedObjectiveY, within(1.0e-12d * expectedObjectiveY));
+    }
+
+    /**
+     * What the relative balancing strength does to a lopsided two-way split, at the strengths of
+     * Guardiann's default balancing ladder ({@code 0}, {@code 0.016}, {@code 0.16}) and at
+     * {@code 0.064} between its last two rungs. The input, see {@link #unequalBlobs}, is a dense blob
+     * of 1600 vectors and a satellite blob of 400, far enough apart that unbalanced 2-means cuts close
+     * to the gap,
+     * leaving the smaller cluster with only about 29% of the vectors, and close enough that balancing
+     * can move the cut into the dense blob at a small cost in SSE. The sizes are those of the returned
+     * partitioning, which assigns every vector to its nearest centroid, so they show how far the
+     * penalty moves the centroids. Averaged across 8 inputs derived from the seed:
+     * <ul>
+     *   <li>the smallest cluster's fraction never shrinks as the strength grows, and at {@code 0.16}
+     *       it is clearly larger than without balancing, and</li>
+     *   <li>the first balancing rung, {@code 0.016}, already gets most of the way there (the measured
+     *       fractions are about 0.29, 0.38, 0.40 and 0.41) for about 0.2% of SSE.</li>
+     * </ul>
+     * Aggregating across inputs smooths out the variance of the local optimum each run converges
+     * into, as in {@link #siftSmallLambdaImprovesBalance(long)}.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void unequalBlobsRelativeLambdaEvensOutSplit(final long seed) {
+        final SplittableRandom inputSeeds = new SplittableRandom(seed);
+        final int numInputs = 8;
+        final double[] relativeLambdas = {0.0d, 0.016d, 0.064d, 0.16d};
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+
+        final double[] meanSmallestFraction = new double[relativeLambdas.length];
+        final double[] meanSse = new double[relativeLambdas.length];
+        for (int input = 0; input < numInputs; input++) {
+            final SplittableRandom rnd = new SplittableRandom(inputSeeds.nextLong());
+            final List<RealVector> vectors = unequalBlobs(rnd);
+
+            // Every strength fits from the same seed, so the strength is the only difference between the runs.
+            final long fitSeed = rnd.nextLong();
+            for (int i = 0; i < relativeLambdas.length; i++) {
+                final KMeans.Result<RealVector> res = KMeans.fit(
+                        new SplittableRandom(fitSeed), distanceEstimator,
+                        Lens.identity(), Lens.identity(),
+                        vectors, 2, 30, 3, relativeLambdas[i],
+                        relativeLambdas[i] > 0.0d ? KMeans.overflowQuadraticPenalty() : null, null);
+                meanSmallestFraction[i] += smallestClusterFraction(res.clusterSizes()) / numInputs;
+                meanSse[i] += res.objective() / numInputs;
+            }
+        }
+        logger.info("unequalBlobsRelativeLambdaEvensOutSplit: relativeLambdas={} meanSmallestFraction={} meanSse={}",
+                relativeLambdas, meanSmallestFraction, meanSse);
+
+        for (int i = 1; i < relativeLambdas.length; i++) {
+            assertThat(meanSmallestFraction[i])
+                    .as("mean smallest-cluster fraction at relativeLambda %s vs %s",
+                            relativeLambdas[i], relativeLambdas[i - 1])
+                    .isGreaterThanOrEqualTo(meanSmallestFraction[i - 1]);
+        }
+        // Measured: about 0.29 without balancing, 0.41 at 0.16.
+        assertThat(meanSmallestFraction[3])
+                .as("mean smallest-cluster fraction at relativeLambda 0.16 vs 0")
+                .isGreaterThanOrEqualTo(meanSmallestFraction[0] + 0.05d);
+        // Measured: about +0.2%.
+        assertThat(meanSse[1])
+                .as("mean SSE at relativeLambda 0.016 vs 0")
+                .isLessThanOrEqualTo(1.01d * meanSse[0]);
+    }
+
+    /**
+     * With balancing active, the returned partitioning is still the nearest-centroid partitioning of
+     * the returned centroids: the penalty steers the centroids during the iterations, but every run
+     * ends with an assignment pass by distance alone, and the sizes are counted from that pass. On the
+     * lopsided input of {@link #unequalBlobs}, the strength {@code 0.16} visibly moves the centroids,
+     * which the test checks first, so that the nearest-centroid check cannot pass because the penalty
+     * never fired.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void fitWithBalancingReturnsNearestCentroidAssignment(final long seed) {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+        final List<RealVector> vectors = unequalBlobs(rnd);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final long fitSeed = rnd.nextLong();
+
+        final KMeans.Result<RealVector> unbalanced = KMeans.fit(
+                new SplittableRandom(fitSeed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                vectors, 2, 30, 3, 0.0d, null, null);
+        final KMeans.Result<RealVector> balanced = KMeans.fit(
+                new SplittableRandom(fitSeed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                vectors, 2, 30, 3, 0.16d, KMeans.overflowQuadraticPenalty(), null);
+
+        assertThat(smallestClusterFraction(balanced.clusterSizes()))
+                .as("balancing moves the centroids toward more even clusters")
+                .isGreaterThan(smallestClusterFraction(unbalanced.clusterSizes()) + 0.05d);
+
+        final int[] expectedSizes = new int[2];
+        for (int i = 0; i < vectors.size(); i++) {
+            final RealVector vector = vectors.get(i);
+            final double ownDistance =
+                    vector.l2SquaredDistance(balanced.clusterCentroids().get(balanced.assignment()[i]));
+            final double otherDistance =
+                    vector.l2SquaredDistance(balanced.clusterCentroids().get(1 - balanced.assignment()[i]));
+            assertThat(ownDistance)
+                    .as("vector %d is assigned to its nearest centroid", i)
+                    .isLessThanOrEqualTo(otherDistance);
+            expectedSizes[balanced.assignment()[i]]++;
+        }
+        assertThat(balanced.clusterSizes()).containsExactly(expectedSizes);
+        KMeansTestHelpers.assertKMeansInvariants(balanced, vectors, 2, distanceEstimator);
+    }
+
+    /**
+     * Without a size predicate, {@code fit} returns the run with the lowest objective. The runs of a
+     * {@code numRuns}-run fit are reconstructed one by one with {@link #individualRuns}, and the
+     * result must be the one among them with the lowest objective, its partitioning included.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void fitWithoutSizePredicateReturnsLowestObjectiveRun(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, RUN_SELECTION_SAMPLE_SIZE));
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final List<KMeans.Result<RealVector>> runs = individualRuns(seed, sample);
+
+        final KMeans.Result<RealVector> res = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                sample, RUN_SELECTION_K, 30, RUN_SELECTION_NUM_RUNS, 0.0d, null, null);
+
+        final KMeans.Result<RealVector> lowestObjectiveRun =
+                runs.stream().min(Comparator.comparingDouble(KMeans.Result::objective)).orElseThrow();
+        assertThat(res.objective()).isEqualTo(lowestObjectiveRun.objective());
+        assertThat(res.assignment()).containsExactly(lowestObjectiveRun.assignment());
+        assertThat(res.clusterSizes()).containsExactly(lowestObjectiveRun.clusterSizes());
+    }
+
+    /**
+     * A run that passes the size predicate is preferred over every run that fails it, even one with a
+     * lower objective. The predicate is a floor on the smallest cluster, set just above the smallest
+     * cluster of the run with the lowest objective, which thus fails it by construction. 3-means on a
+     * small SIFT-small sample has several local optima, and the test checks that at least one run is
+     * more balanced than the lowest-objective one and passes. {@code fit} must return the passing run
+     * with the lowest objective, which costs more than the lowest-objective run.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void fitPrefersRunPassingSizePredicateOverLowerObjectiveRun(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, RUN_SELECTION_SAMPLE_SIZE));
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final List<KMeans.Result<RealVector>> runs = individualRuns(seed, sample);
+        final KMeans.Result<RealVector> lowestObjectiveRun =
+                runs.stream().min(Comparator.comparingDouble(KMeans.Result::objective)).orElseThrow();
+        final int floor = Arrays.stream(lowestObjectiveRun.clusterSizes()).min().orElseThrow() + 1;
+        final Predicate<int[]> sizePredicate = sizes -> Arrays.stream(sizes).min().orElseThrow() >= floor;
+        final List<KMeans.Result<RealVector>> passingRuns = runs.stream()
+                .filter(run -> sizePredicate.test(run.clusterSizes()))
+                .collect(ImmutableList.toImmutableList());
+        assertThat(passingRuns).as("runs more balanced than the lowest-objective run").isNotEmpty();
+        final KMeans.Result<RealVector> lowestObjectivePassingRun =
+                passingRuns.stream().min(Comparator.comparingDouble(KMeans.Result::objective)).orElseThrow();
+
+        final KMeans.Result<RealVector> res = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                sample, RUN_SELECTION_K, 30, RUN_SELECTION_NUM_RUNS, 0.0d, null, sizePredicate);
+
+        assertThat(sizePredicate.test(res.clusterSizes())).as("the returned run passes").isTrue();
+        assertThat(res.objective()).isGreaterThan(lowestObjectiveRun.objective());
+        assertThat(res.objective()).isEqualTo(lowestObjectivePassingRun.objective());
+        assertThat(res.assignment()).containsExactly(lowestObjectivePassingRun.assignment());
+        KMeansTestHelpers.assertKMeansInvariants(res, sample, RUN_SELECTION_K, distanceEstimator);
+    }
+
+    /**
+     * When no run passes the size predicate, {@code fit} falls back to the run with the lowest objective,
+     * exactly the one it returns without a predicate, so the caller still gets a partitioning to judge.
+     * Here no run can pass: the predicate demands a smallest cluster holding half the vectors, while
+     * the smallest of 3 clusters holds at most a third.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate(final long seed) {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, RUN_SELECTION_SAMPLE_SIZE));
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final Predicate<int[]> unsatisfiable =
+                sizes -> Arrays.stream(sizes).min().orElseThrow() >= Arrays.stream(sizes).sum() / 2;
+
+        final KMeans.Result<RealVector> unfiltered = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                sample, RUN_SELECTION_K, 30, RUN_SELECTION_NUM_RUNS, 0.0d, null, null);
+        final KMeans.Result<RealVector> res = KMeans.fit(
+                new SplittableRandom(seed), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                sample, RUN_SELECTION_K, 30, RUN_SELECTION_NUM_RUNS, 0.0d, null, unsatisfiable);
+
+        assertThat(unsatisfiable.test(res.clusterSizes())).as("the fallback fails the predicate").isFalse();
+        assertThat(res.objective()).isEqualTo(unfiltered.objective());
+        assertThat(res.assignment()).containsExactly(unfiltered.assignment());
+        assertThat(res.clusterSizes()).containsExactly(unfiltered.clusterSizes());
+    }
+
+    /**
+     * {@code numRuns} is the total number of runs: {@code fit} tests the size predicate once on the
+     * final sizes of every run, so counting the tests counts the runs. One run is the minimum, and
+     * {@code k == 1}, solved in closed form, makes no run at all.
+     */
+    @Test
+    void fitMakesExactlyNumRunsRuns() {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(0x0fdbL), siftSmallBase, 500));
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+
+        for (final int numRuns : new int[] {1, 2, 4}) {
+            final AtomicInteger numTests = new AtomicInteger();
+            KMeans.fit(new SplittableRandom(0x0fdbL), distanceEstimator,
+                    Lens.identity(), Lens.identity(),
+                    sample, 5, 10, numRuns, 0.0d, null,
+                    sizes -> numTests.incrementAndGet() > 0);
+            assertThat(numTests).as("size predicate tests with numRuns=%d", numRuns).hasValue(numRuns);
+        }
+
+        final AtomicInteger numTestsForOneCluster = new AtomicInteger();
+        KMeans.fit(new SplittableRandom(0x0fdbL), distanceEstimator,
+                Lens.identity(), Lens.identity(),
+                sample, 1, 10, 4, 0.0d, null,
+                sizes -> numTestsForOneCluster.incrementAndGet() > 0);
+        assertThat(numTestsForOneCluster).as("size predicate tests with k=1").hasValue(0);
+    }
+
+    /**
+     * {@code fit} rejects fewer than one run and a balancing strength that is negative or not finite.
+     */
+    @Test
+    void fitRejectsInvalidNumRunsAndRelativeLambda() {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(0x0fdbL), siftSmallBase, 100));
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+
+        assertThatThrownBy(() -> KMeans.fit(new SplittableRandom(0x0fdbL), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, 2, 10, 0, 0.0d, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("numRuns");
+        for (final double relativeLambda : new double[] {-0.1d, Double.POSITIVE_INFINITY, Double.NaN}) {
+            assertThatThrownBy(() -> KMeans.fit(new SplittableRandom(0x0fdbL), distanceEstimator,
+                    Lens.identity(), Lens.identity(), sample, 2, 10, 1, relativeLambda,
+                    KMeans.overflowQuadraticPenalty(), null))
+                    .as("relativeLambda=%s", relativeLambda)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("relativeLambda");
+        }
+    }
+
+    /**
+     * Without a size penalty, a non-zero balancing strength has nothing to weigh: {@code fit} does
+     * exactly what it does with a strength of zero, down to the random draws, since it neither
+     * computes the scale of the strength nor shuffles the assignment order.
+     */
+    @Test
+    void fitWithoutSizePenaltyIgnoresRelativeLambda() {
+        final List<RealVector> sample = ImmutableList.copyOf(
+                KMeansTestHelpers.pickRandomSubset(new Random(0x5ca1eL), siftSmallBase, 500));
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+
+        final KMeans.Result<RealVector> unbalanced = KMeans.fit(new SplittableRandom(0x5ca1eL), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, 5, 10, 3, 0.0d, null, null);
+        final KMeans.Result<RealVector> withoutPenalty = KMeans.fit(new SplittableRandom(0x5ca1eL), distanceEstimator,
+                Lens.identity(), Lens.identity(), sample, 5, 10, 3, 0.5d, null, null);
+
+        assertThat(withoutPenalty.assignment()).containsExactly(unbalanced.assignment());
+        assertThat(withoutPenalty.objective()).isEqualTo(unbalanced.objective());
+    }
+
+    /**
+     * The runs that a fit of {@code vectors} into {@value #RUN_SELECTION_K} clusters with
+     * {@value #RUN_SELECTION_NUM_RUNS} runs and without balancing makes from a random source seeded
+     * with {@code seed}, each reconstructed as a single-run fit. {@code fit} draws all of its
+     * randomness inside its runs, one run after another, so single-run fits drawing from one shared
+     * random source in turn make exactly the same runs.
+     */
+    @Nonnull
+    private static List<KMeans.Result<RealVector>> individualRuns(final long seed,
+                                                                  @Nonnull final List<RealVector> vectors) {
+        final SplittableRandom random = new SplittableRandom(seed);
+        final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final ImmutableList.Builder<KMeans.Result<RealVector>> runs = ImmutableList.builder();
+        for (int r = 0; r < RUN_SELECTION_NUM_RUNS; r++) {
+            runs.add(KMeans.fit(random, distanceEstimator, Lens.identity(), Lens.identity(),
+                    vectors, RUN_SELECTION_K, 30, 1, 0.0d, null, null));
+        }
+        return runs.build();
+    }
+
+    /**
+     * A lopsided input for 2-means: a dense blob of 1600 vectors and a satellite blob of 400, both of
+     * unit variance in 32 dimensions, 3 standard deviations apart along one axis, in shuffled order.
+     */
+    @Nonnull
+    private static List<RealVector> unequalBlobs(@Nonnull final SplittableRandom rnd) {
+        final int numDimensions = 32;
+        final RealVector denseMean = DoubleRealVector.zeroVector(numDimensions);
+        final double[] satelliteMeanData = new double[numDimensions];
+        satelliteMeanData[0] = 3.0d;
+        final RealVector satelliteMean = new DoubleRealVector(satelliteMeanData);
+
+        final List<RealVector> vectors = Lists.newArrayListWithCapacity(2000);
+        for (int i = 0; i < 1600; i++) {
+            vectors.add(KMeansTestHelpers.gaussianND(rnd, denseMean, 1.0d));
+        }
+        for (int i = 0; i < 400; i++) {
+            vectors.add(KMeansTestHelpers.gaussianND(rnd, satelliteMean, 1.0d));
+        }
+        Collections.shuffle(vectors, new Random(rnd.nextLong()));
+        return vectors;
+    }
+
+    /**
      * Standard deviation of an {@code int[]} treated as a sample, using the population formula
-     * (divide by {@code n}, not {@code n-1}). Used by
-     * {@link #siftSmallLambdaImprovesBalance()} to measure cluster-size dispersion.
+     * (divide by {@code n}, not {@code n-1}). Used to measure cluster-size dispersion.
      */
     private static double clusterSizeStddev(@Nonnull final int[] sizes) {
         final double mean = Arrays.stream(sizes).average().orElseThrow();
@@ -769,6 +1171,13 @@ class KMeansTest {
             sumSquared += delta * delta;
         }
         return Math.sqrt(sumSquared / sizes.length);
+    }
+
+    /**
+     * The fraction of all vectors that the smallest cluster holds.
+     */
+    private static double smallestClusterFraction(@Nonnull final int[] sizes) {
+        return (double) Arrays.stream(sizes).min().orElseThrow() / Arrays.stream(sizes).sum();
     }
 
     // ============================================================================================
