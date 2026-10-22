@@ -50,15 +50,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SplittableRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -89,7 +84,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * via {@link RandomSeedSource} so the reservoir sample and the random batch schedule are reproducible.
  *
  * <h2>Why dynamic ground truth</h2>
- * Recall is evaluated everywhere via {@link TestHelpers#assertRecallAtKAtLeastDynamic}, which computes
+ * Recall is evaluated everywhere via {@link GuardiannTestHelpers#assertRecallAtKAtLeastDynamic}, which computes
  * brute-force squared-L2 top-k from the live active set on the fly. The static SIFT ground-truth files are
  * computed against a full base set, but our active set at any moment is a subsample (or a shrinking subset), so
  * the static {@code .ivecs} truth does not apply.
@@ -116,7 +111,7 @@ public class SiftTest implements BaseTest {
     private static final double MIN_RECALL = 0.80d;
 
     /**
-     * Quality floor for {@link TestHelpers#assertOrderedByDistanceQualityAtLeast} (1.0 = a flawless result:
+     * Quality floor for {@link GuardiannTestHelpers#assertOrderedByDistanceQualityAtLeast} (1.0 = a flawless result:
      * every live vector returned in {@code (distance, primaryKey)} order). The helper logs the observed mean so
      * this bar can be calibrated from a real run.
      */
@@ -131,9 +126,6 @@ public class SiftTest implements BaseTest {
 
     /** Number of churn batches between recall checkpoints. */
     private static final int RECALL_CHECK_INTERVAL_BATCHES = 50;
-
-    /** Salt mixed into the seed to drive the random insert/delete schedule independently of sampling. */
-    private static final long INTERLEAVE_SEED_SALT = 0x5EED_4DA7_D17_C0DEL;
 
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
@@ -189,9 +181,9 @@ public class SiftTest implements BaseTest {
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_SMALL_QUERY_PATH);
         final List<Set<Integer>> groundTruth =
                 VecsDatasetLoaders.loadGroundTruth(SiftTestHelpers.SIFT_SMALL_GROUNDTRUTH_PATH, -1);
-        TestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                TestHelpers.deterministicSample(queries, 0L, NUM_ORDERED_BY_DISTANCE_QUERIES), dataset.size(),
+        GuardiannTestHelpers.assertRecallAtKAtLeast(getDb(), guardiann, queries, groundTruth, RECALL_K, MIN_RECALL);
+        GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                GuardiannTestHelpers.deterministicSample(queries, 0L, NUM_ORDERED_BY_DISTANCE_QUERIES), dataset.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
 
         // SIFT-small is dense/overlapping, so the split sub-clusters have borders and must carry replicas; a
@@ -210,16 +202,17 @@ public class SiftTest implements BaseTest {
     @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void insertSiftSubsampledSlow(final long seed) throws Exception {
-        final List<PrimaryKeyAndVector> dataset = TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
+        final List<PrimaryKeyAndVector> dataset =
+                GuardiannTestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
         final Guardiann guardiann = newGuardiann();
         insertAndQuiesce(guardiann, dataset);
 
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
-        TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, activeMapOf(dataset),
-                RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), dataset.size(),
-                MIN_ORDERED_BY_DISTANCE_QUALITY);
+        GuardiannTestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, Metric.EUCLIDEAN_SQUARE_METRIC,
+                queries, GuardiannTestHelpers.activeMapOf(dataset), RECALL_K, MIN_RECALL);
+        GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                GuardiannTestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES),
+                dataset.size(), MIN_ORDERED_BY_DISTANCE_QUALITY);
         // No replica floor yet for the sparse 1M subsample: assertReplicasNotTooFew logs the observed fraction so
         // it can be calibrated from a real run before being enforced.
         GuardiannStructureAsserts.assertGuardiannInvariants(getDb(), guardiann, GuardiannStructureAsserts.ReplicationInvariants.standard());
@@ -263,7 +256,8 @@ public class SiftTest implements BaseTest {
     @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void insertDeleteAllSiftSubsampledSlow(final long seed) throws Exception {
-        final List<PrimaryKeyAndVector> startup = TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
+        final List<PrimaryKeyAndVector> startup =
+                GuardiannTestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
         runInsertThenDeleteAll(seed, startup, queries);
     }
@@ -274,16 +268,18 @@ public class SiftTest implements BaseTest {
 
     /**
      * Seeds the structure with sample A, then randomly interleaves inserting a disjoint sample B with deleting
-     * sample A (in {@link #BATCH_SIZE} batches) until both are exhausted, checking recall periodically. The
-     * structure must then contain only B.
+     * sample A (in {@link #BATCH_SIZE} batches, following
+     * {@link GuardiannTestHelpers#interleavedChurnSchedule}) until both are exhausted, checking recall periodically.
+     * The structure must then contain only B.
      */
     private void runInterleavedInsertDelete(final long seed, final int sampleSize) throws Exception {
         logger.info("seed=0x{} sampling sizeA={}, sizeB={} from SIFT-1M",
                 Long.toHexString(seed), sampleSize, sampleSize);
-        final TestHelpers.Samples samples = TestHelpers.loadDisjointSamples(SIFT_1M_BASE_PATH, seed, sampleSize, sampleSize);
+        final GuardiannTestHelpers.Samples samples =
+                GuardiannTestHelpers.loadDisjointSamples(SIFT_1M_BASE_PATH, seed, sampleSize, sampleSize);
         final List<PrimaryKeyAndVector> setA = samples.a();
         final List<PrimaryKeyAndVector> setB = samples.b();
-        verifyDisjoint(setA, setB);
+        GuardiannTestHelpers.verifyDisjoint(setA, setB);
         final List<DoubleRealVector> queries = loadQueries(SiftTestHelpers.SIFT_1M_QUERY_PATH);
 
         final Guardiann guardiann = newGuardiann();
@@ -292,47 +288,38 @@ public class SiftTest implements BaseTest {
 
         // Active map mirrors the index's primary contents; mutated alongside every churn op so the recall checks
         // always know what's in there.
-        final Map<Tuple, RealVector> active = activeMapOf(setA);
+        final Map<Tuple, RealVector> active = GuardiannTestHelpers.activeMapOf(setA);
 
         // ---- initial recall checkpoint ----
-        TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active, RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
+        GuardiannTestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, Metric.EUCLIDEAN_SQUARE_METRIC,
+                queries, active, RECALL_K, MIN_RECALL);
+        GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                GuardiannTestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
 
         // ---- interleaved churn: per-batch random choice between delete-from-A and insert-from-B ----
-        final SplittableRandom interleaveRng = new SplittableRandom(seed ^ INTERLEAVE_SEED_SALT);
-        final Deque<PrimaryKeyAndVector> deleteQueueA = new ArrayDeque<>(setA);
-        final Deque<PrimaryKeyAndVector> insertQueueB = new ArrayDeque<>(setB);
+        int queueLeftA = setA.size();
+        int queueLeftB = setB.size();
         int batchesSinceCheck = 0;
         int totalBatches = 0;
         int totalDeleteBatches = 0;
         int totalInsertBatches = 0;
-        while (!deleteQueueA.isEmpty() || !insertQueueB.isEmpty()) {
-            final boolean canDelete = !deleteQueueA.isEmpty();
-            final boolean canInsert = !insertQueueB.isEmpty();
-            final boolean doDelete;
-            if (!canDelete) {
-                doDelete = false;
-            } else if (!canInsert) {
-                doDelete = true;
-            } else {
-                doDelete = interleaveRng.nextBoolean();
-            }
-
-            final Deque<PrimaryKeyAndVector> source = doDelete ? deleteQueueA : insertQueueB;
-            final List<PrimaryKeyAndVector> batch = takeUpTo(source, BATCH_SIZE);
-            if (doDelete) {
+        for (final GuardiannTestHelpers.ChurnStep step :
+                GuardiannTestHelpers.interleavedChurnSchedule(seed, setA, setB, BATCH_SIZE)) {
+            final List<PrimaryKeyAndVector> batch = step.batch();
+            if (step.delete()) {
                 deleteOneBatch(guardiann, batch);
                 for (final PrimaryKeyAndVector r : batch) {
                     active.remove(r.primaryKey());
                 }
+                queueLeftA -= batch.size();
                 totalDeleteBatches++;
             } else {
-                TestHelpers.insertRecords(getDb(), guardiann, batch, BATCH_SIZE);
+                GuardiannTestHelpers.insertRecords(getDb(), guardiann, batch, BATCH_SIZE);
                 for (final PrimaryKeyAndVector r : batch) {
                     active.put(r.primaryKey(), r.vector());
                 }
+                queueLeftB -= batch.size();
                 totalInsertBatches++;
             }
             totalBatches++;
@@ -343,16 +330,16 @@ public class SiftTest implements BaseTest {
                 logger.info("checkpoint after totalBatches={} (deletes={}, inserts={}): active.size={}, "
                                 + "queues left a={}, b={}, {}",
                         totalBatches, totalDeleteBatches, totalInsertBatches,
-                        active.size(), deleteQueueA.size(), insertQueueB.size(),
-                        describeStructure(guardiann));
+                        active.size(), queueLeftA, queueLeftB,
+                        GuardiannStructureAsserts.describeStructure(getDb(), guardiann));
                 // Skip the recall check if the active set has dipped below k — happens only pathologically at the
                 // tail when the random schedule has done many more deletes than inserts.
                 if (active.size() >= RECALL_K) {
-                    TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active,
-                            RECALL_K, MIN_RECALL);
-                    TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                            TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
-                            MIN_ORDERED_BY_DISTANCE_QUALITY);
+                    GuardiannTestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann,
+                            Metric.EUCLIDEAN_SQUARE_METRIC, queries, active, RECALL_K, MIN_RECALL);
+                    GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                            GuardiannTestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES),
+                            active.size(), MIN_ORDERED_BY_DISTANCE_QUALITY);
                 } else {
                     logger.info("skipping mid-flight recall check: active.size={} < k={}", active.size(), RECALL_K);
                 }
@@ -365,36 +352,28 @@ public class SiftTest implements BaseTest {
         GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- only setB remains ----
-        final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
-        assertThat(snap)
-                .as("structure snapshot must be non-null after the run")
-                .isNotNull();
-        final Set<Tuple> presentPks = snap.primaryOwners().keySet().stream()
-                .map(VectorId::primaryKey)
-                .collect(ImmutableSet.toImmutableSet());
         final Set<Tuple> expectedPks = setB.stream()
                 .map(PrimaryKeyAndVector::primaryKey)
                 .collect(ImmutableSet.toImmutableSet());
-        assertThat(presentPks)
-                .as("only setB primary keys must remain after the interleaved run")
-                .isEqualTo(expectedPks);
+        GuardiannStructureAsserts.assertOnlyPrimaryKeysRemain(getDb(), guardiann, expectedPks);
         assertThat(active.keySet())
                 .as("local active map must mirror the structure's primary keys")
                 .isEqualTo(expectedPks);
 
         // ---- final recall checkpoint over setB ----
-        TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, activeMapOf(setB),
-                RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), setB.size(),
+        GuardiannTestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, Metric.EUCLIDEAN_SQUARE_METRIC,
+                queries, GuardiannTestHelpers.activeMapOf(setB), RECALL_K, MIN_RECALL);
+        GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                GuardiannTestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), setB.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
     }
 
     /**
-     * Seeds the structure with {@code startup}, then deletes every record in random batches with no further
-     * inserts. Recall must hold while the active set is still at least {@link #RECALL_K}; once fully drained the
-     * structure must be empty. With no replenishing inserts the per-cluster primary counts only shrink, reliably
-     * driving clusters below {@code primaryClusterMin} and exercising the merge (2&rarr;1) path.
+     * Seeds the structure with {@code startup}, then deletes every record in random batches (following
+     * {@link GuardiannTestHelpers#shuffledDeleteBatches}) with no further inserts. Recall must hold while the active
+     * set is still at least {@link #RECALL_K}; once fully drained the structure must be empty. With no replenishing
+     * inserts the per-cluster primary counts only shrink, reliably driving clusters below {@code primaryClusterMin}
+     * and exercising the merge (2&rarr;1) path.
      */
     private void runInsertThenDeleteAll(final long seed,
                                         @Nonnull final List<PrimaryKeyAndVector> startup,
@@ -403,41 +382,42 @@ public class SiftTest implements BaseTest {
         logger.info("phase1: inserting startup sample ({} records) ...", startup.size());
         insertAndQuiesce(guardiann, startup);
 
-        final Map<Tuple, RealVector> active = activeMapOf(startup);
+        final Map<Tuple, RealVector> active = GuardiannTestHelpers.activeMapOf(startup);
 
         // ---- initial recall checkpoint ----
-        TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active, RECALL_K, MIN_RECALL);
-        TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
+        GuardiannTestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, Metric.EUCLIDEAN_SQUARE_METRIC,
+                queries, active, RECALL_K, MIN_RECALL);
+        GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                GuardiannTestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
                 MIN_ORDERED_BY_DISTANCE_QUALITY);
 
         // ---- delete everything in random batches (no inserts) ----
-        final SplittableRandom deleteRng = new SplittableRandom(seed ^ INTERLEAVE_SEED_SALT);
-        final Deque<PrimaryKeyAndVector> deleteQueue = new ArrayDeque<>(shuffledCopy(startup, deleteRng));
+        int queueLeft = startup.size();
         int batchesSinceCheck = 0;
         int totalDeleteBatches = 0;
-        while (!deleteQueue.isEmpty()) {
-            final List<PrimaryKeyAndVector> batch = takeUpTo(deleteQueue, BATCH_SIZE);
+        for (final List<PrimaryKeyAndVector> batch :
+                GuardiannTestHelpers.shuffledDeleteBatches(seed, startup, BATCH_SIZE)) {
             deleteOneBatch(guardiann, batch);
             for (final PrimaryKeyAndVector r : batch) {
                 active.remove(r.primaryKey());
             }
+            queueLeft -= batch.size();
             totalDeleteBatches++;
             batchesSinceCheck++;
 
             if (batchesSinceCheck >= RECALL_CHECK_INTERVAL_BATCHES) {
                 batchesSinceCheck = 0;
                 logger.info("checkpoint after deleteBatches={}: active.size={}, queue left={}, {}",
-                        totalDeleteBatches, active.size(), deleteQueue.size(),
-                        describeStructure(guardiann));
+                        totalDeleteBatches, active.size(), queueLeft,
+                        GuardiannStructureAsserts.describeStructure(getDb(), guardiann));
                 // Recall@k is only measurable while at least k records remain; stop checking once the active set
                 // dips below k (the tail of the drain) and just keep deleting.
                 if (active.size() >= RECALL_K) {
-                    TestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann, queries, active,
-                            RECALL_K, MIN_RECALL);
-                    TestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
-                            TestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES), active.size(),
-                            MIN_ORDERED_BY_DISTANCE_QUALITY);
+                    GuardiannTestHelpers.assertRecallAtKAtLeastDynamic(getDb(), guardiann,
+                            Metric.EUCLIDEAN_SQUARE_METRIC, queries, active, RECALL_K, MIN_RECALL);
+                    GuardiannTestHelpers.assertOrderedByDistanceQualityAtLeast(getDb(), guardiann,
+                            GuardiannTestHelpers.deterministicSample(queries, seed, NUM_ORDERED_BY_DISTANCE_QUERIES),
+                            active.size(), MIN_ORDERED_BY_DISTANCE_QUALITY);
                 } else {
                     logger.info("skipping recall check: active.size={} < k={}", active.size(), RECALL_K);
                 }
@@ -452,28 +432,7 @@ public class SiftTest implements BaseTest {
         assertThat(active)
                 .as("local active map must be empty after deleting every record")
                 .isEmpty();
-        final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
-        // Confirm the deletes actually happened: any reference still in the structure must be an orphan (its vector's
-        // metadata is gone), not a live vector that escaped deletion. This isolates a genuine delete miss from a mere
-        // failure to reap the (already-deleted) reference, and reports it with a sharper message than the bare
-        // counts below.
-        GuardiannStructureAsserts.assertAllReferencesAreOrphaned(getDb(), guardiann, snap);
-
-        final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
-        final int remainingClusters = snap == null ? 0 : snap.numClusters();
-        logger.info("fully drained: totalPrimaries={}, numClusters={}", remainingPrimaries, remainingClusters);
-        // No test-side reconciliation sweep here on purpose: reaching the empty state must be the *production*
-        // maintenance path's job (the hysteresis merge trigger plus the merge enqueued after a reassign), since
-        // nothing sweeps idle clusters in a real deployment. A merge dissolves the target into a neighbor, and the
-        // reassign it drives drops references whose per-vector metadata is gone, so the orphans a delete left behind
-        // in clusters it never revisited are reaped as the structure consolidates.
-        assertThat(remainingPrimaries)
-                .as("deleting every record must leave no primaries once deferred maintenance has quiesced")
-                .isZero();
-        assertThat(remainingClusters)
-                .as("a fully drained structure bottoms out at exactly one (empty) cluster: a merge needs a mergeable "
-                        + "neighbor (centroid cardinality MULTIPLE), so the final cluster is never merged away")
-                .isEqualTo(1);
+        GuardiannStructureAsserts.assertDrainedToSingleEmptyCluster(getDb(), guardiann);
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -485,25 +444,15 @@ public class SiftTest implements BaseTest {
         return new Guardiann(getSubspace(),
                 TestExecutors.defaultThreadPool(),
                 buildConfig(),
-                new TestHelpers.TestOnWriteListener(),
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnWriteListener(),
+                new GuardiannTestHelpers.TestOnReadListener());
     }
 
     /** Insert all of {@code dataset} in batches, then drain deferred tasks to quiescence. */
     private void insertAndQuiesce(@Nonnull final Guardiann guardiann,
                                   @Nonnull final List<PrimaryKeyAndVector> dataset) throws Exception {
-        TestHelpers.insertRecords(getDb(), guardiann, dataset, BATCH_SIZE);
+        GuardiannTestHelpers.insertRecords(getDb(), guardiann, dataset, BATCH_SIZE);
         GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
-    }
-
-    /** A mutable {@code primaryKey -> vector} map over {@code records}, mirroring what is live in the index. */
-    @Nonnull
-    private static Map<Tuple, RealVector> activeMapOf(@Nonnull final List<PrimaryKeyAndVector> records) {
-        final Map<Tuple, RealVector> active = new HashMap<>(records.size());
-        for (final PrimaryKeyAndVector r : records) {
-            active.put(r.primaryKey(), r.vector());
-        }
-        return active;
     }
 
     @Nonnull
@@ -531,82 +480,10 @@ public class SiftTest implements BaseTest {
         return List.copyOf(all.subList(0, Math.min(RECALL_NUM_QUERIES, all.size())));
     }
 
-    private static void verifyDisjoint(@Nonnull final List<PrimaryKeyAndVector> a,
-                                       @Nonnull final List<PrimaryKeyAndVector> b) {
-        final Set<Tuple> pksA = a.stream()
-                .map(PrimaryKeyAndVector::primaryKey)
-                .collect(ImmutableSet.toImmutableSet());
-        for (final PrimaryKeyAndVector r : b) {
-            assertThat(pksA)
-                    .as("setA and setB must be disjoint by primary key")
-                    .doesNotContain(r.primaryKey());
-        }
-    }
-
-    /**
-     * Returns a freshly shuffled copy of {@code records}, using {@code rng} to drive an in-place Fisher–Yates
-     * shuffle of the copy. The input list is left untouched.
-     */
-    @Nonnull
-    private static List<PrimaryKeyAndVector> shuffledCopy(@Nonnull final List<PrimaryKeyAndVector> records,
-                                                          @Nonnull final SplittableRandom rng) {
-        final List<PrimaryKeyAndVector> copy = new ArrayList<>(records);
-        for (int i = copy.size() - 1; i > 0; i--) {
-            final int j = rng.nextInt(i + 1);
-            final PrimaryKeyAndVector tmp = copy.get(i);
-            copy.set(i, copy.get(j));
-            copy.set(j, tmp);
-        }
-        return copy;
-    }
-
-    /**
-     * Summarizes the structure for a checkpoint log line: cluster sizes and how they sit relative to their merge
-     * thresholds (from the snapshot itself), plus the orphaned-reference share (which needs a database read).
-     * <p>
-     * The two halves answer different questions. {@code wantMerge} staying high while {@code clusters} does not fall
-     * would mean merges are being triggered but not landing; {@code wantMerge} at zero means no merge is due, and the
-     * threshold statistics say why. The orphan share is what the search's candidate pool pays for, so it explains any
-     * {@code Insufficient data to form result set} warnings.
-     */
-    @Nonnull
-    private String describeStructure(@Nonnull final Guardiann guardiann) {
-        final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
-        if (snapshot == null) {
-            return "structure empty";
-        }
-        final Config config = guardiann.getConfig();
-        final var primaries = snapshot.primaryCountStatistics();
-        final var thresholds = snapshot.mergeThresholdStatistics(config);
-        return String.format("clusters=%d, primaries/cluster=[%d..%d] mean=%.0f, mergeThreshold=[%d..%d] mean=%.0f"
-                        + ", wantMerge=%d, pendingSplitMerge=%d, %s",
-                snapshot.numClusters(),
-                primaries.getMin(), primaries.getMax(), primaries.getAverage(),
-                thresholds.getMin(), thresholds.getMax(), thresholds.getAverage(),
-                snapshot.numClustersWantingMerge(config),
-                snapshot.numClustersInState(ClusterMetadata.State.SPLIT_MERGE),
-                GuardiannStructureAsserts.censusOrphans(getDb(), guardiann, snapshot));
-    }
-
-    /**
-     * Removes up to {@code batchSize} records from the front of {@code queue} and returns them. The final batch
-     * from each queue may be smaller than {@code batchSize}; all earlier batches are exactly {@code batchSize}.
-     */
-    @Nonnull
-    private static List<PrimaryKeyAndVector> takeUpTo(@Nonnull final Deque<PrimaryKeyAndVector> queue,
-                                                      final int batchSize) {
-        final int n = Math.min(batchSize, queue.size());
-        final List<PrimaryKeyAndVector> batch = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) {
-            batch.add(queue.removeFirst());
-        }
-        return batch;
-    }
-
     /** Delete a single batch (one transaction modulo the bail-out retry) of pre-selected records. */
     private void deleteOneBatch(@Nonnull final Guardiann guardiann,
                                 @Nonnull final List<PrimaryKeyAndVector> batch) throws Exception {
-        TestHelpers.deleteToCompletion(getDb(), guardiann, batch);
+        GuardiannTestHelpers.deleteToCompletion(getDb(), guardiann, batch);
     }
 
     static void scanCentroids(@Nonnull final Database db,
