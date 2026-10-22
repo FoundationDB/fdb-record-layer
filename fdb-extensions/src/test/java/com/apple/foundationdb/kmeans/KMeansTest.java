@@ -56,6 +56,7 @@ import java.util.function.Predicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.Assertions.within;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -979,15 +980,42 @@ class KMeansTest {
 
     /**
      * A run that passes the size predicate is preferred over every run that fails it, even one with a
-     * lower objective. The predicate is a floor on the smallest cluster, set just above the smallest
-     * cluster of the run with the lowest objective, which thus fails it by construction. 3-means on a
-     * small SIFT-small sample has several local optima, and the test checks that at least one run is
-     * more balanced than the lowest-objective one and passes. {@code fit} must return the passing run
-     * with the lowest objective, which costs more than the lowest-objective run.
+     * lower objective. As we will sometimes fail to find a test case that exercises the scenario,
+     * this runs {@link #runFitWhereSizePredicateRulesOutLowerObjectiveRun(long)} in a loop. Empirically,
+     * we are able to find a passing run within about 5 trials (and often on the first trial).
+     *
+     * @see #runFitWhereSizePredicateRulesOutLowerObjectiveRun(long) for more details
+     * @see #fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate for when the size predicate rules
+     *      out all runs
      */
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
     void fitPrefersRunPassingSizePredicateOverLowerObjectiveRun(final long seed) {
+        final Random random = new Random(seed);
+        final int trials = 100;
+        for (int i = 0; i < trials; i++) {
+            if (runFitWhereSizePredicateRulesOutLowerObjectiveRun(random.nextLong())) {
+                return;
+            }
+        }
+        fail("Could not find a passing run after " + trials + " runs");
+    }
+
+    /**
+     * A run that passes the size predicate is preferred over every run that fails it, even one with a
+     * lower objective. The predicate is a floor on the smallest cluster, set just above the smallest
+     * cluster of the run with the lowest objective, which thus fails it by construction. 3-means on a
+     * small SIFT-small sample has several local optima, and the test checks that at least one run is
+     * more balanced than the lowest-objective one. If none of the runs on this sample are more balanced,
+     * this returns {@code false} and is re-run by the caller. If there is a run passing the predicate,
+     * then this asserts that {@code fit} returns the passing run with the lowest objective, even though
+     * it costs more than the lowest-objective run.
+     *
+     * @return whether a run with this particular seed was able to provide a meaningful test
+     * @see #fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate for when the size predicate rules
+     *      out all runs
+     */
+    private boolean runFitWhereSizePredicateRulesOutLowerObjectiveRun(final long seed) {
         final List<RealVector> sample = ImmutableList.copyOf(
                 KMeansTestHelpers.pickRandomSubset(new Random(seed), siftSmallBase, RUN_SELECTION_SAMPLE_SIZE));
         final DistanceEstimator distanceEstimator = DistanceEstimator.ofMetric(Metric.EUCLIDEAN_METRIC);
@@ -999,7 +1027,12 @@ class KMeansTest {
         final List<KMeans.Result<RealVector>> passingRuns = runs.stream()
                 .filter(run -> sizePredicate.test(run.clusterSizes()))
                 .collect(ImmutableList.toImmutableList());
-        assertThat(passingRuns).as("runs more balanced than the lowest-objective run").isNotEmpty();
+        // For this test to be meaningful, at least one of the runs must have a better split than the one
+        // with the lowest objective. The contrary case is handled in the test below:
+        //  fitFallsBackToLowestObjectiveRunWhenNoRunPassesSizePredicate
+        if (passingRuns.isEmpty()) {
+            return false;
+        }
         final KMeans.Result<RealVector> lowestObjectivePassingRun =
                 passingRuns.stream().min(Comparator.comparingDouble(KMeans.Result::objective)).orElseThrow();
 
@@ -1009,10 +1042,12 @@ class KMeansTest {
                 sample, RUN_SELECTION_K, 30, RUN_SELECTION_NUM_RUNS, 0.0d, null, sizePredicate);
 
         assertThat(sizePredicate.test(res.clusterSizes())).as("the returned run passes").isTrue();
-        assertThat(res.objective()).isGreaterThan(lowestObjectiveRun.objective());
-        assertThat(res.objective()).isEqualTo(lowestObjectivePassingRun.objective());
+        assertThat(res.objective())
+                .isGreaterThan(lowestObjectiveRun.objective())
+                .isEqualTo(lowestObjectivePassingRun.objective());
         assertThat(res.assignment()).containsExactly(lowestObjectivePassingRun.assignment());
         KMeansTestHelpers.assertKMeansInvariants(res, sample, RUN_SELECTION_K, distanceEstimator);
+        return true;
     }
 
     /**
