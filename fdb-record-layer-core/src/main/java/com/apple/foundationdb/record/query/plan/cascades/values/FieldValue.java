@@ -85,14 +85,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     private final FieldPath fieldPath;
 
     @Nonnull
-    private final Supplier<List<String>> fieldNamesSupplier;
+    private final Supplier<List<String>> fieldStorageNamesSupplier;
     @Nonnull
     private final Supplier<Type> resultTypeSupplier;
 
     private FieldValue(@Nonnull final Value childValue, @Nonnull final FieldPath fieldPath) {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
-        fieldNamesSupplier = Suppliers.memoize(() ->
+        fieldStorageNamesSupplier = Suppliers.memoize(() ->
                 fieldPath.getOptionalFieldStorageNames()
                         .stream()
                         .map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set")))
@@ -105,9 +105,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         return fieldPath;
     }
 
+    /**
+     * The field names as spelled in the record descriptor.
+     */
     @Nonnull
-    public List<String> getFieldPathNames() {
-        return fieldNamesSupplier.get();
+    public List<String> getFieldPathStorageNames() {
+        return fieldStorageNamesSupplier.get();
     }
 
     @Nonnull
@@ -120,24 +123,17 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         return fieldPath.getFieldOrdinals();
     }
 
+    /**
+     * The field names as spelled in the record descriptor.
+     */
     @Nonnull
-    public List<Optional<String>> getFieldPathNamesMaybe() {
+    public List<Optional<String>> getFieldPathStorageNamesMaybe() {
         return fieldPath.getOptionalFieldStorageNames();
     }
 
     @Nonnull
     public FieldPath getFieldPrefix() {
         return fieldPath.getFieldPrefix();
-    }
-
-    @Nonnull
-    public Optional<String> getLastFieldStorageName() {
-        return fieldPath.getLastFieldStorageName();
-    }
-
-    @Nonnull
-    public Optional<String> getLastFieldName() {
-        return fieldPath.getLastFieldName();
     }
 
     @Nonnull
@@ -442,13 +438,16 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         /**
-         * The field names as spelled in the record descriptor, see {@link #getOptionalFieldNames()} for the SQL ones.
+         * The field names as spelled in the record descriptor.
          */
         @Nonnull
         public List<Optional<String>> getOptionalFieldStorageNames() {
             return fieldStorageNamesSupplier.get();
         }
 
+        /**
+         * The field names as spelled in SQL.
+         */
         @Nonnull
         public List<Optional<String>> getOptionalFieldNames() {
             return fieldNamesSupplier.get();
@@ -476,12 +475,18 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             return getFieldAccessors().get(size() - 1);
         }
 
+        /**
+         * The last field's name as spelled in the record descriptor.
+         */
         @Nonnull
         public Optional<String> getLastFieldStorageName() {
             Preconditions.checkArgument(!isEmpty());
             return getOptionalFieldStorageNames().get(size() - 1);
         }
 
+        /**
+         * The last field's name as spelled in SQL.
+         */
         @Nonnull
         public Optional<String> getLastFieldName() {
             Preconditions.checkArgument(!isEmpty());
