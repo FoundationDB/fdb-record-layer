@@ -84,6 +84,7 @@ test_block:
     - # Array nested inside a (nullable) struct. This exercises the `CardinalityFunctionKeyExpression` “deeper nesting”
       # fallback path. The rows include a NULL struct and a struct with a NULL inner array; both yield NULL.
       - query: SELECT CARDINALITY("struct"."int_arr") FROM "tab2"
+      - supported_version: !current_version
       - resultMetadata: [{_0: INTEGER}]
       - unorderedResult: [{!null _}, {!null _}, {0}, {1}, {2}]
     - # WHERE CARDINALITY() IS NULL on a nullable array column matches only the row with NULL array.
@@ -118,16 +119,41 @@ test_block:
     - - query: SELECT "id" FROM "tab1_indexed"
       - explain: "COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{id: 0}, {id: 1}, {id: 2}, {id: 3}]
-    - # Just `SELECT "id", CARDINALITY()`.
-      # Note: Not a COVERING index scan. It is currently not possible to extract computed fields
-      # such as CARDINALITY() from an index scan.
+    - # Just `SELECT "id", CARDINALITY()`. The index stores the cardinality, so the covering scan reads it straight out
+      # of the index entry (`_.KEY:[0]`) rather than recomputing it from the array (which the entry does not carry).
       - query: SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"
-      - explain: "ISCAN(tab1_indexed_nn_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id, _.KEY:[0] AS card)"
       - resultMetadata: [{id: INTEGER}, {card: INTEGER}]
       - unorderedResult: [{id: 1, card: 0}, {id: 2, card: 1}, {id: 3, card: 2}]
     - - query: SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed"
-      - explain: "ISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id, _.KEY:[0] AS card)"
       - unorderedResult: [{id: 0, card: !null _}, {id: 1, card: 0}, {id: 2, card: 1}, {id: 3, card: 2}]
+    - - query: SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS card, _.id AS id)"
+      - unorderedResult: [{card: 0, id: 1}, {card: 1, id: 2}, {card: 2, id: 3}]
+    - # Just `SELECT CARDINALITY()`, without the primary key. The covering scan reads the cardinality out of the index
+      # entry here, too.
+      - query: SELECT CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS card)"
+      - unorderedResult: [{card: 0}, {card: 1}, {card: 2}]
+    - # Only whole index columns are read back out of the entry; an expression built on top of one is recomputed, which
+      # requires the array and therefore the record.
+      - query: SELECT CARDINALITY("int_arr") + 1 AS "card", "id" FROM "tab1_indexed_nn"
+      - explain: "ISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) + @c6 AS card, _.id AS id)"
+      - unorderedResult: [{card: 1, id: 1}, {card: 2, id: 2}, {card: 3, id: 3}]
+    - # The array itself is not reconstructible from its cardinality, so selecting it forces the record fetch.
+      - query: SELECT "int_arr", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"
+      - explain: "ISCAN(tab1_indexed_nn_index <,>) | MAP (_.int_arr AS int_arr, cardinality(_.int_arr) AS card)"
+      - unorderedResult: [{int_arr: [], card: 0}, {int_arr: [1], card: 1}, {int_arr: [1, 2], card: 2}]
+    - # The same on an array nested in a struct, where the query value is `cardinality(_.struct.int_arr)`.
+      - query: SELECT "id", CARDINALITY("struct"."int_arr") AS "card" FROM "tab2"
+      - supported_version: !current_version
+      - explain: "COVERING(tab2_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id, _.KEY:[0] AS card)"
+      - unorderedResult: [{id: 1, card: 0}, {id: 2, card: 1}, {id: 3, card: 2}, {id: 4, card: !null _}, {id: 5, card: !null _}]
     - # SELECT + ORDER BY "id", which is not compatible with the index order.
       - query: SELECT "id" FROM "tab1_indexed_nn" ORDER BY "id" DESC
       - explain: "SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)"
@@ -137,19 +163,24 @@ test_block:
       - result: [{id: 3}, {id: 2}, {id: 1}, {id: 0}]
     - # SELECT + ORDER BY CARDINALITY(), which is compatible with the index order.
       - query: SELECT "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr") DESC
-      - explain: "ISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_nn_index <,> REVERSE -> [id: KEY:[2]]) | MAP (_.id AS id, _.KEY:[0] AS _1) | MAP (_.id AS id)"
       - result: [{id: 3}, {id: 2}, {id: 1}]
     - - query: SELECT "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr") DESC
-      - explain: "ISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_index <,> REVERSE -> [id: KEY:[2]]) | MAP (_.id AS id, _.KEY:[0] AS _1) | MAP (_.id AS id)"
       - result: [{id: 3}, {id: 2}, {id: 1}, {id: 0}]
-    - # SELECT + ORDER BY CARDINALITY(), but also include the CARDINALITY() in the target list.
+    - # SELECT + ORDER BY CARDINALITY(), but also include the CARDINALITY() in the target list. The covering scan reads
+      # the cardinality out of the index entry and still provides the ordering of the index.
       - query: SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr")
-      - explain: "ISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS card, _.id AS id)"
       - resultMetadata: [{card: INTEGER}, {id: INTEGER}]
       - result: [{card: 0, id: 1}, {card: 1, id: 2}, {card: 2, id: 3}]
     - - query: SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr")
+      - supported_version: !current_version
       - resultMetadata: [{card: INTEGER}, {id: INTEGER}]
-      - explain: "ISCAN(tab1_indexed_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)"
+      - explain: "COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS card, _.id AS id)"
       - result: [{card: !null _, id: 0}, {card: 0, id: 1}, {card: 1, id: 2}, {card: 2, id: 3}]
     - # SELECT + WHERE CARDINALITY(). The index is leveraged to evaluate the predicate.
       - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1
@@ -192,12 +223,14 @@ test_block:
       - unorderedResult: []
     - # SELECT + WHERE + ORDER BY.
       - query: SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")
-      - explain: "ISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr) AS card, _.id AS id)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)] -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS card, _.id AS id)"
       - resultMetadata: [{card: INTEGER}, {id: INTEGER}]
       - result: [{card: 1, id: 2}]
     - # SELECT + WHERE + ORDER BY like above, but on an array nested in a struct (as opposed to a top-level array).
       - query: SELECT CARDINALITY("struct"."int_arr") AS "card", "id" FROM "tab2" WHERE CARDINALITY("struct"."int_arr") = 1 ORDER BY CARDINALITY("struct"."int_arr")
-      - explain: "ISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr) AS card, _.id AS id)"
+      - supported_version: !current_version
+      - explain: "COVERING(tab2_index [EQUALS promote(@c21 AS INT)] -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS card, _.id AS id)"
       - resultMetadata: [{card: INTEGER}, {id: INTEGER}]
       - result: [{card: 1, id: 2}]
 ...

@@ -80,30 +80,90 @@ arrays-cardinality-index-tests:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"
     ref: arrays-cardinality.yamsql:125
-    explain: ISCAN(tab1_indexed_nn_index <,>) | MAP (_.id AS id, cardinality(_.int_arr)
-        AS card)
-    task_count: 211
-    task_total_time_ms: 2
-    transform_count: 55
-    transform_time_ms: 1
-    transform_yield_count: 23
+    explain: 'COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS
+        id, _.KEY:[0] AS card)'
+    task_count: 239
+    task_total_time_ms: 10
+    transform_count: 59
+    transform_time_ms: 4
+    transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 22
+    insert_new_count: 25
     insert_reused_count: 4
 -   query: EXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed"
-    ref: arrays-cardinality.yamsql:129
-    explain: ISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr)
-        AS card)
+    ref: arrays-cardinality.yamsql:130
+    explain: 'COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id,
+        _.KEY:[0] AS card)'
+    task_count: 239
+    task_total_time_ms: 7
+    transform_count: 59
+    transform_time_ms: 3
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn"
+    ref: arrays-cardinality.yamsql:134
+    explain: 'COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0]
+        AS card, _.id AS id)'
+    task_count: 239
+    task_total_time_ms: 9
+    transform_count: 59
+    transform_time_ms: 4
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"
+    ref: arrays-cardinality.yamsql:139
+    explain: 'COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0]
+        AS card)'
+    task_count: 239
+    task_total_time_ms: 10
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT CARDINALITY("int_arr") + 1 AS "card", "id" FROM "tab1_indexed_nn"
+    ref: arrays-cardinality.yamsql:144
+    explain: ISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) + @c6
+        AS card, _.id AS id)
     task_count: 211
-    task_total_time_ms: 2
+    task_total_time_ms: 10
     transform_count: 55
-    transform_time_ms: 1
+    transform_time_ms: 5
     transform_yield_count: 23
     insert_time_ms: 0
     insert_new_count: 22
     insert_reused_count: 4
+-   query: EXPLAIN SELECT "int_arr", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"
+    ref: arrays-cardinality.yamsql:148
+    explain: ISCAN(tab1_indexed_nn_index <,>) | MAP (_.int_arr AS int_arr, cardinality(_.int_arr)
+        AS card)
+    task_count: 211
+    task_total_time_ms: 11
+    transform_count: 55
+    transform_time_ms: 6
+    transform_yield_count: 23
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "id", CARDINALITY("struct"."int_arr") AS "card" FROM "tab2"
+    ref: arrays-cardinality.yamsql:153
+    explain: 'COVERING(tab2_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id, _.KEY:[0]
+        AS card)'
+    task_count: 239
+    task_total_time_ms: 9
+    transform_count: 59
+    transform_time_ms: 4
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY "id" DESC
-    ref: arrays-cardinality.yamsql:133
+    ref: arrays-cardinality.yamsql:157
     explain: SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)
     task_count: 156
     task_total_time_ms: 1
@@ -114,7 +174,7 @@ arrays-cardinality-index-tests:
     insert_new_count: 12
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" ORDER BY "id" DESC
-    ref: arrays-cardinality.yamsql:136
+    ref: arrays-cardinality.yamsql:160
     explain: SCAN([IS tab1_indexed]) | MAP (_.id AS id)
     task_count: 156
     task_total_time_ms: 1
@@ -126,136 +186,136 @@ arrays-cardinality-index-tests:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr")
         DESC
-    ref: arrays-cardinality.yamsql:140
-    explain: ISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr)
-        AS _1) | MAP (_.id AS id)
-    task_count: 240
-    task_total_time_ms: 2
-    transform_count: 65
-    transform_time_ms: 1
-    transform_yield_count: 22
+    ref: arrays-cardinality.yamsql:165
+    explain: 'COVERING(tab1_indexed_nn_index <,> REVERSE -> [id: KEY:[2]]) | MAP (_.id
+        AS id, _.KEY:[0] AS _1) | MAP (_.id AS id)'
+    task_count: 274
+    task_total_time_ms: 7
+    transform_count: 69
+    transform_time_ms: 3
+    transform_yield_count: 24
     insert_time_ms: 0
-    insert_new_count: 21
+    insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr")
         DESC
-    ref: arrays-cardinality.yamsql:143
-    explain: ISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr)
-        AS _1) | MAP (_.id AS id)
-    task_count: 240
-    task_total_time_ms: 2
-    transform_count: 65
-    transform_time_ms: 1
-    transform_yield_count: 22
+    ref: arrays-cardinality.yamsql:169
+    explain: 'COVERING(tab1_indexed_index <,> REVERSE -> [id: KEY:[2]]) | MAP (_.id
+        AS id, _.KEY:[0] AS _1) | MAP (_.id AS id)'
+    task_count: 274
+    task_total_time_ms: 9
+    transform_count: 69
+    transform_time_ms: 4
+    transform_yield_count: 24
     insert_time_ms: 0
-    insert_new_count: 21
+    insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn"
         ORDER BY CARDINALITY("int_arr")
-    ref: arrays-cardinality.yamsql:147
-    explain: ISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) AS card,
-        _.id AS id)
-    task_count: 180
-    task_total_time_ms: 2
-    transform_count: 49
-    transform_time_ms: 1
-    transform_yield_count: 20
+    ref: arrays-cardinality.yamsql:175
+    explain: 'COVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0]
+        AS card, _.id AS id)'
+    task_count: 208
+    task_total_time_ms: 5
+    transform_count: 53
+    transform_time_ms: 2
+    transform_yield_count: 22
     insert_time_ms: 0
-    insert_new_count: 17
+    insert_new_count: 20
     insert_reused_count: 2
 -   query: EXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed"
         ORDER BY CARDINALITY("int_arr")
-    ref: arrays-cardinality.yamsql:152
-    explain: ISCAN(tab1_indexed_index <,>) | MAP (cardinality(_.int_arr) AS card,
-        _.id AS id)
-    task_count: 180
-    task_total_time_ms: 2
-    transform_count: 49
-    transform_time_ms: 1
-    transform_yield_count: 20
+    ref: arrays-cardinality.yamsql:181
+    explain: 'COVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.KEY:[0] AS
+        card, _.id AS id)'
+    task_count: 208
+    task_total_time_ms: 5
+    transform_count: 53
+    transform_time_ms: 2
+    transform_yield_count: 22
     insert_time_ms: 0
-    insert_new_count: 17
+    insert_new_count: 20
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr")
         = 1
-    ref: arrays-cardinality.yamsql:156
+    ref: arrays-cardinality.yamsql:185
     explain: 'COVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id:
         KEY:[2]]) | MAP (_.id AS id)'
-    task_count: 391
-    task_total_time_ms: 4
-    transform_count: 104
-    transform_time_ms: 1
-    transform_yield_count: 33
+    task_count: 451
+    task_total_time_ms: 14
+    transform_count: 113
+    transform_time_ms: 6
+    transform_yield_count: 36
     insert_time_ms: 0
-    insert_new_count: 42
-    insert_reused_count: 3
+    insert_new_count: 49
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") =
         1
-    ref: arrays-cardinality.yamsql:159
+    ref: arrays-cardinality.yamsql:188
     explain: 'COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]])
         | MAP (_.id AS id)'
-    task_count: 391
-    task_total_time_ms: 4
-    transform_count: 104
-    transform_time_ms: 1
-    transform_yield_count: 33
+    task_count: 451
+    task_total_time_ms: 13
+    transform_count: 113
+    transform_time_ms: 5
+    transform_yield_count: 36
     insert_time_ms: 0
-    insert_new_count: 42
-    insert_reused_count: 3
+    insert_new_count: 49
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS
         NULL
-    ref: arrays-cardinality.yamsql:163
+    ref: arrays-cardinality.yamsql:192
     explain: 'COVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP
         (_.id AS id)'
-    task_count: 377
-    task_total_time_ms: 5
-    transform_count: 99
-    transform_time_ms: 2
-    transform_yield_count: 31
+    task_count: 437
+    task_total_time_ms: 12
+    transform_count: 108
+    transform_time_ms: 5
+    transform_yield_count: 34
     insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 3
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS
         NOT NULL
-    ref: arrays-cardinality.yamsql:166
+    ref: arrays-cardinality.yamsql:195
     explain: 'COVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id
         AS id)'
-    task_count: 377
-    task_total_time_ms: 4
-    transform_count: 99
-    transform_time_ms: 2
-    transform_yield_count: 31
+    task_count: 437
+    task_total_time_ms: 11
+    transform_count: 108
+    transform_time_ms: 5
+    transform_yield_count: 34
     insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 3
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr")
         IS NULL
-    ref: arrays-cardinality.yamsql:171
+    ref: arrays-cardinality.yamsql:200
     explain: 'COVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP
         (_.id AS id)'
-    task_count: 377
-    task_total_time_ms: 5
-    transform_count: 99
-    transform_time_ms: 2
-    transform_yield_count: 31
+    task_count: 437
+    task_total_time_ms: 10
+    transform_count: 108
+    transform_time_ms: 4
+    transform_yield_count: 34
     insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 3
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr")
         IS NOT NULL
-    ref: arrays-cardinality.yamsql:174
+    ref: arrays-cardinality.yamsql:203
     explain: 'COVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id
         AS id)'
-    task_count: 377
-    task_total_time_ms: 9
-    transform_count: 99
-    transform_time_ms: 2
-    transform_yield_count: 31
+    task_count: 437
+    task_total_time_ms: 11
+    transform_count: 108
+    transform_time_ms: 4
+    transform_yield_count: 34
     insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 3
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL
-    ref: arrays-cardinality.yamsql:181
+    ref: arrays-cardinality.yamsql:210
     explain: SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)
     task_count: 218
     task_total_time_ms: 2
@@ -266,7 +326,7 @@ arrays-cardinality-index-tests:
     insert_new_count: 22
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") = NULL
-    ref: arrays-cardinality.yamsql:184
+    ref: arrays-cardinality.yamsql:213
     explain: SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)
     task_count: 218
     task_total_time_ms: 2
@@ -278,53 +338,53 @@ arrays-cardinality-index-tests:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") =
         NULL
-    ref: arrays-cardinality.yamsql:188
+    ref: arrays-cardinality.yamsql:217
     explain: 'COVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id
         AS id)'
-    task_count: 391
-    task_total_time_ms: 4
-    transform_count: 104
-    transform_time_ms: 1
-    transform_yield_count: 33
+    task_count: 451
+    task_total_time_ms: 11
+    transform_count: 113
+    transform_time_ms: 4
+    transform_yield_count: 36
     insert_time_ms: 0
-    insert_new_count: 42
-    insert_reused_count: 3
+    insert_new_count: 49
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr")
         = NULL
-    ref: arrays-cardinality.yamsql:191
+    ref: arrays-cardinality.yamsql:220
     explain: 'COVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP
         (_.id AS id)'
-    task_count: 391
-    task_total_time_ms: 3
-    transform_count: 104
-    transform_time_ms: 1
-    transform_yield_count: 33
+    task_count: 451
+    task_total_time_ms: 10
+    transform_count: 113
+    transform_time_ms: 4
+    transform_yield_count: 36
     insert_time_ms: 0
-    insert_new_count: 42
-    insert_reused_count: 3
+    insert_new_count: 49
+    insert_reused_count: 4
 -   query: EXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn"
         WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")
-    ref: arrays-cardinality.yamsql:195
-    explain: ISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr)
-        AS card, _.id AS id)
-    task_count: 272
-    task_total_time_ms: 3
-    transform_count: 77
-    transform_time_ms: 1
-    transform_yield_count: 26
+    ref: arrays-cardinality.yamsql:225
+    explain: 'COVERING(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)] -> [id:
+        KEY:[2]]) | MAP (_.KEY:[0] AS card, _.id AS id)'
+    task_count: 371
+    task_total_time_ms: 8
+    transform_count: 92
+    transform_time_ms: 3
+    transform_yield_count: 31
     insert_time_ms: 0
-    insert_new_count: 28
+    insert_new_count: 38
     insert_reused_count: 1
 -   query: EXPLAIN SELECT CARDINALITY("struct"."int_arr") AS "card", "id" FROM "tab2"
         WHERE CARDINALITY("struct"."int_arr") = 1 ORDER BY CARDINALITY("struct"."int_arr")
-    ref: arrays-cardinality.yamsql:200
-    explain: ISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr)
-        AS card, _.id AS id)
-    task_count: 272
-    task_total_time_ms: 3
-    transform_count: 77
-    transform_time_ms: 1
-    transform_yield_count: 26
+    ref: arrays-cardinality.yamsql:231
+    explain: 'COVERING(tab2_index [EQUALS promote(@c21 AS INT)] -> [id: KEY:[2]])
+        | MAP (_.KEY:[0] AS card, _.id AS id)'
+    task_count: 371
+    task_total_time_ms: 8
+    transform_count: 92
+    transform_time_ms: 3
+    transform_yield_count: 31
     insert_time_ms: 0
-    insert_new_count: 28
+    insert_new_count: 38
     insert_reused_count: 1
