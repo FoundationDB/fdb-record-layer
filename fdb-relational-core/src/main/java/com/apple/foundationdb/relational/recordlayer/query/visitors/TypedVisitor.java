@@ -965,6 +965,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Expression visitScalarSubqueryExpressionAtom(@Nonnull RelationalParser.ScalarSubqueryExpressionAtomContext ctx);
+
+    @Nonnull
+    @Override
     Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx);
 
     @Nonnull

@@ -1259,16 +1259,17 @@ predicate
     ;
 
 expressionAtom
-    : constant                                                                            #constantExpressionAtom // done
-    | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
-    | functionCall                                                                        #functionCallExpressionAtom // done
-    | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
-    | recordConstructor                                                                   #recordConstructorExpressionAtom // done
-    | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
-    | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
-    | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom // done
-    | left=expressionAtom mathOperator right=expressionAtom                               #mathExpressionAtom // done
-    | left=expressionAtom comparisonOperator right=expressionAtom                         #binaryComparisonPredicate // done
+    : constant                                                                            #constantExpressionAtom
+    | fullColumnName                                                                      #fullColumnNameExpressionAtom
+    | functionCall                                                                        #functionCallExpressionAtom
+    | preparedStatementParameter                                                          #preparedStatementParameterAtom
+    | '(' query ')'                                                                       #scalarSubqueryExpressionAtom
+    | recordConstructor                                                                   #recordConstructorExpressionAtom
+    | arrayConstructor                                                                    #arrayConstructorExpressionAtom
+    | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression
+    | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom
+    | left=expressionAtom mathOperator right=expressionAtom                               #mathExpressionAtom
+    | left=expressionAtom comparisonOperator right=expressionAtom                         #binaryComparisonPredicate
     ;
 
 inList
