@@ -61,7 +61,7 @@ import java.util.stream.Collector;
  *
  * @param <T> the type of expressions being compared
  */
-interface Tiebreaker<T extends RelationalExpression> {
+public interface Tiebreaker<T extends RelationalExpression> {
 
     /**
      * Compare two expressions. Like a {@link java.util.Comparator}, this should return a
