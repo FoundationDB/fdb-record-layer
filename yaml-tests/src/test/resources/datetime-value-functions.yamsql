@@ -88,3 +88,7 @@ test_block:
       - setup: create temporary function yesterday_temp () on commit drop function as CURRENT_TIMESTAMP() - INTERVAL '1' DAY
       - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp) - 86400000l | MAP (_.COL1 AS COL1)"
       - result: [{col1: !l 1}, {col1: !l 2}]
+    -
+      - query: select col1 from t1 where timestamp < INTERVAL '1' DAY + NOW
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP LESS_THAN @c8 + current_timestamp(@__evaluation_timestamp) | MAP (_.COL1 AS COL1)"
+      - result: [{col1: !l 1}, {col1: !l 2}]

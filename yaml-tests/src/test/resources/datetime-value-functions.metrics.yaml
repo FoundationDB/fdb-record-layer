@@ -78,3 +78,15 @@ basic-sql-function-tests:
     insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
+-   query: EXPLAIN select col1 from t1 where timestamp < INTERVAL '1' DAY + NOW
+    ref: datetime-value-functions.yamsql:93
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP LESS_THAN @c8 + current_timestamp(@__evaluation_timestamp)
+        | MAP (_.COL1 AS COL1)
+    task_count: 208
+    task_total_time_ms: 13
+    transform_count: 61
+    transform_time_ms: 7
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
