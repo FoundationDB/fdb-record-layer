@@ -1384,7 +1384,7 @@ message PIncarnationValue {
 }
 
 message PCurrentTimestampValue {
-  // No fields needed - this function takes no arguments
+  optional PValue child_value = 1;
 }
 
 message PCardinalityValue {
