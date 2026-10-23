@@ -208,12 +208,12 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         @Override
         public String toString() {
             return "OrQueryParams{" +
-                   "deferFetch=" + deferFetch +
-                   ", omitPrimaryKeyInOrderingKey=" + omitPrimaryKeyInOrderingKey +
-                   ", sortReverse=" + sortReverse +
-                   ", removeDuplicates=" + removeDuplicates +
+                    "deferFetch=" + deferFetch +
+                    ", omitPrimaryKeyInOrderingKey=" + omitPrimaryKeyInOrderingKey +
+                    ", sortReverse=" + sortReverse +
+                    ", removeDuplicates=" + removeDuplicates +
                     ", normalizeNestedFields=" + normalizeNestedFields +
-                   '}';
+                    '}';
         }
 
         @Nonnull

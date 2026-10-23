@@ -177,8 +177,8 @@ public class Primitives {
 
         final Config config = getConfig();
         return config.useRaBitQ()
-               ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
-               : Quantizer.noOpQuantizer(config.metric());
+                ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
+                : Quantizer.noOpQuantizer(config.metric());
     }
 
     /**
@@ -1268,8 +1268,8 @@ public class Primitives {
                                    @Nonnull final OnReadListener onReadListener,
                                    final int layer) {
         return config.useInlining() && layer > 0
-               ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
-               : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
+                ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
+                : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
     }
 
     @Nonnull

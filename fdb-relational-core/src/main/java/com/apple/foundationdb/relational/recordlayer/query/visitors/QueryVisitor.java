@@ -819,8 +819,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
         return typeMaybe == null
-               ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
-               : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
+                ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
+                : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
     }
 
     @Override

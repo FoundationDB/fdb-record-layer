@@ -80,7 +80,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
                             throw new UnsupportedOperationException();
                         });
                 return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.ofAliases(planBaseQuantifier.getAlias(), singlePredicateAlias))
-                       && super.matchesSafely(plan);
+                        && super.matchesSafely(plan);
             } else {
                 return false;
             }

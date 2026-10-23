@@ -64,6 +64,7 @@ snakeyaml = "2.7"
 
 # Static analysis dependency versions
 
+checkstyle = "14.3.0"
 jacoco = "0.8.14"
 spotbugs = "4.10.4"
 

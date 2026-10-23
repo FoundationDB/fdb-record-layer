@@ -248,9 +248,9 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
                     return getInnerPlan().planHash(mode) +
-                           inSource.getBindingName().hashCode() +
-                           (inSource.isSorted() ? 1 : 0) +
-                           (inSource.isReverse() ? 1 : 0);
+                            inSource.getBindingName().hashCode() +
+                            (inSource.isSorted() ? 1 : 0) +
+                            (inSource.isReverse() ? 1 : 0);
                 }
                 // fall through
             case FOR_CONTINUATION:

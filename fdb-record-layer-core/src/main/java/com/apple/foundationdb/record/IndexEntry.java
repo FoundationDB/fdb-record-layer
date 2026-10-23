@@ -266,8 +266,8 @@ public class IndexEntry {
         // It is important to use TupleHelpers.equals() here. Tuple.equals() packs the value which explodes if
         // the tuple contains an incomplete version stamp (in addition to being inefficient).
         return Objects.equals(this.index, that.index)
-               && TupleHelpers.equals(this.key, that.key)
-               && TupleHelpers.equals(this.value, that.value);
+                && TupleHelpers.equals(this.key, that.key)
+                && TupleHelpers.equals(this.value, that.value);
     }
 
     @Override

@@ -90,9 +90,9 @@ import java.util.TreeMap;
  * {@link #addDependency(Descriptors.FileDescriptor)} or {@link #addDependencies(Descriptors.FileDescriptor[])}.
  * The {@code addDependency} or {@code addDependencies}
  * methods can also be used to override the embedded dependencies.
- * @see RecordMetaData#toProto
  * </p>
  *
+ * @see RecordMetaData#toProto
  */
 @API(API.Status.UNSTABLE)
 public class RecordMetaDataBuilder implements RecordMetaDataProvider {

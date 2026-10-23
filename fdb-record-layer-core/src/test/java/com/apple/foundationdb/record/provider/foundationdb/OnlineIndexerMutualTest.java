@@ -1304,7 +1304,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     })
     void testUniquenessMultiTarget(boolean allowUniquePending, int numThreads, int numRecords, int boundarySize) {
         assertEquals(0, (numRecords & 1)); // must be an even number
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj( val ->
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val)
                         .setNumValue2(((int)val) % (numRecords / 2))
                         .setNumValue3Indexed((int) val * 7)

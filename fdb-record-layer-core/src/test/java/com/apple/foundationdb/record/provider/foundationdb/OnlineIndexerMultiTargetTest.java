@@ -305,7 +305,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // test all 8 reverse combinations
         boolean reverse1 = 0 != (reverseSeed & 1);
         boolean reverse2 = 0 != (reverseSeed & 2);
-        boolean reverse3 = 0 != (reverseSeed & 4);
+        final boolean reverse3 = 0 != (reverseSeed & 4);
         // 1. partly build multi
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()

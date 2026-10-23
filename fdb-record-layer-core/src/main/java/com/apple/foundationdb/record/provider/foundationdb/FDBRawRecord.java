@@ -86,7 +86,7 @@ public class FDBRawRecord implements FDBStoredSizes {
         }
 
         return this.keyCount == that.keyCount && this.keySize == that.keySize && this.valueSize == that.valueSize
-               && this.split == that.split && this.versionedInline == that.versionedInline;
+                && this.split == that.split && this.versionedInline == that.versionedInline;
     }
 
     @Override

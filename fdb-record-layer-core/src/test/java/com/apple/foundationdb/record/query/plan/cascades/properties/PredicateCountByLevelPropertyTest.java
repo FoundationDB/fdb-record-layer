@@ -43,7 +43,6 @@ class PredicateCountByLevelPropertyTest {
     /**
      * Test that a simple expression with one predicate is evaluated correctly.
      * Query:
-     *  </p>
      *  <pre>{@code
      *      SELECT a FROM T WHERE a = 42
      *  }</pre>
@@ -69,7 +68,6 @@ class PredicateCountByLevelPropertyTest {
     /**
      * Test that expressions with predicates at different levels are evaluated correctly.
      * Query:
-     *  </p>
      *  <pre>{@code
      *      SELECT a
      *      FROM
@@ -115,7 +113,6 @@ class PredicateCountByLevelPropertyTest {
     /**
      * Test that predicate counts for different expressions at the same level are added.
      * Query:
-     * </p>
      * <pre>{@code
      *      SELECT
      *          sq1.a
