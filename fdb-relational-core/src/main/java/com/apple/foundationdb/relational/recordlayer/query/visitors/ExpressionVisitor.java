@@ -413,22 +413,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         // ARRAY_AGG() carries the null treatment and the limit as two extra literal arguments, to be consumed
         // by its encapsulation.
-        if (functionName.getType() == RelationalParser.ARRAY_AGG) {
+        final boolean isArrayAgg = functionName.getType() == RelationalParser.ARRAY_AGG;
+        if (isArrayAgg) {
             args.add(Expression.ofUnnamed(LiteralValue.ofScalar(ignoreNulls)));
             args.add(Expression.ofUnnamed(LiteralValue.ofScalar(limit)));
         }
-        final Expressions arguments = Expressions.of(args.build());
-
-        // Handle the in-call ORDER BY clause. The grammar admits it for ARRAY_AGG() and GROUP_CONCAT(), but they do
-        // not honor it yet. We still visit the sort expressions, so that they undergo the usual semantic analysis.
-        // This happens only once the arguments have been visited, so an error in an argument takes precedence.
+        // Handle the in-call ORDER BY clause. The grammar admits it for ARRAY_AGG() and GROUP_CONCAT(), but only
+        // ARRAY_AGG() honors it. This happens only once the arguments have been visited, so an error in an argument
+        // takes precedence.
         final RelationalParser.OrderByClauseContext orderByClause = functionContext.orderByClause();
         if (orderByClause != null) {
-            visitOrderByExpressions(orderByClause.orderByExpression());
-            throw Assert.failUnchecked(
+            final List<OrderByExpression> sortKeys = visitOrderByExpressions(orderByClause.orderByExpression());
+            Assert.thatUnchecked(
+                    isArrayAgg,
                     ErrorCode.UNSUPPORTED_QUERY,
-                    String.format(Locale.ROOT, "an ORDER BY clause is not supported for %s()", name));
+                    () -> String.format(Locale.ROOT, "an ORDER BY clause is not supported for %s()", name));
+            // ARRAY_AGG() carries the ORDER BY clause as one further argument, bundling its sort keys.
+            args.add(Expression.ofUnnamed(OrderByExpression.toSortKeysValue(sortKeys)));
         }
+        final Expressions arguments = Expressions.of(args.build());
 
         // Resolve the function.
         return getDelegate().resolveFunction(name, arguments);
