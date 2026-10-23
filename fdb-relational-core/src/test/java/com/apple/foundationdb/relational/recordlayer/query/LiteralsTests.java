@@ -102,6 +102,7 @@ public class LiteralsTests {
         // The value-free literal occupies the table, it just does not bind.
         assertThat(literals.getOrderedLiterals()).hasSize(2);
         assertThat(literals.asBindings()).containsOnlyKeys(bound.getConstantId());
+        assertThat(literals.valueFreeConstantIds()).containsExactly(valueFree.getConstantId());
         assertThat(literals.isValueFree(valueFree.getConstantId())).isTrue();
         assertThat(literals.isValueFree(bound.getConstantId())).isFalse();
     }
@@ -135,19 +136,22 @@ public class LiteralsTests {
     }
 
     @Test
-    void evaluationContextLeavesValueFreeConstantUnbound() {
+    void evaluationContextMarksValueFreeConstant() {
         final var builder = Literals.newBuilder();
         final var valueFree = builder.addValueFreeLiteral(LONG_TYPE, "param_a", 1);
         final var bound = builder.addLiteral(STRING_TYPE, "hello", null, "param_b", 2);
         final var literals = builder.build();
 
-        // Mirrors what QueryExecutionContext.getEvaluationContext does with these bindings.
+        // Mirrors what QueryExecutionContext.getEvaluationContext does with these literals.
         final var evaluationContext = EvaluationContext.newBuilder()
                 .setConstant(Quantifier.constant(), literals.asBindings())
+                .setValueFreeConstants(Quantifier.constant(), literals.valueFreeConstantIds())
                 .build(ParseHelpers.EMPTY_TYPE_REPOSITORY);
 
         assertThat(evaluationContext.containsConstantBinding(Quantifier.constant(), bound.getConstantId())).isTrue();
         assertThat(evaluationContext.containsConstantBinding(Quantifier.constant(), valueFree.getConstantId())).isFalse();
+        assertThat(evaluationContext.isValueFreeConstant(Quantifier.constant(), valueFree.getConstantId())).isTrue();
+        assertThat(evaluationContext.isValueFreeConstant(Quantifier.constant(), bound.getConstantId())).isFalse();
     }
 
     @Test

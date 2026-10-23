@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A context for query evaluation.
@@ -174,16 +176,37 @@ public class EvaluationContext {
 
 
     /**
+     * Whether the given constant is value-free, that is, planned without a value.
+     *
+     * @param alias the alias of the constant map
+     * @param constantId the identity of the constant within the map
+     * @return whether the constant is value-free
+     */
+    public boolean isValueFreeConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
+        if (!containsBinding(Bindings.Internal.VALUE_FREE, alias)) {
+            return false;
+        }
+        return ((Set<?>)getBinding(Bindings.Internal.VALUE_FREE, alias)).contains(constantId);
+    }
+
+    /**
      * Dereferences the constant.
      *
      * @param alias the correlation identifier
      * @param constantId the constant id
      * @return de-referenced constant
+     * @throws Bindings.MissingBindingException if the constant is value-free
      */
     @Nullable
     public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
         final var constantsMap = getConstantsMap(alias);
-        return constantsMap.get(constantId);
+        final var value = constantsMap.get(constantId);
+        // Checked only for a null value, so a bound constant pays nothing.
+        if (value == null && isValueFreeConstant(alias, constantId)) {
+            throw new Bindings.MissingBindingException("value-free constant has no value")
+                    .addLogInfo(LogMessageKeys.NAME, constantId);
+        }
+        return value;
     }
 
     @SuppressWarnings("unchecked")

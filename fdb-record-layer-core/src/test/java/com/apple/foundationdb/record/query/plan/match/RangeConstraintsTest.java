@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.EQUALS;
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.GREATER_THAN;
@@ -141,6 +142,22 @@ public class RangeConstraintsTest {
 
         Assertions.assertThrows(Bindings.MissingBindingException.class,
                 () -> candidate.encloses(query, EvaluationContext.empty()));
+    }
+
+    /**
+     * The same when other constants are bound, so the constant map exists and only this constant is absent from it.
+     * Without the value-free mark this would read as a {@code NULL} comparand.
+     */
+    @Test
+    public void enclosesFailsForValueFreeConstantWhenOtherConstantsAreBound() {
+        final var candidate = range(of(GREATER_THAN, 10L));
+        final var query = constantRange(EQUALS, "c0");
+        final var context = EvaluationContext.newBuilder()
+                .setConstant(Quantifier.constant(), Map.of("c1", 42L))
+                .setValueFreeConstants(Quantifier.constant(), Set.of("c0"))
+                .build(TypeRepository.empty());
+
+        Assertions.assertThrows(Bindings.MissingBindingException.class, () -> candidate.encloses(query, context));
     }
 
     @Test
