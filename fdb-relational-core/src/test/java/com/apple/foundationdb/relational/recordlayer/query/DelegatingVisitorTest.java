@@ -758,7 +758,7 @@ public class DelegatingVisitorTest {
                                 .build())
                 .build();
         final AtomicBoolean called = new AtomicBoolean(false);
-        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                 schemaTemplate, NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
             @Nullable
             @Override
@@ -789,7 +789,7 @@ public class DelegatingVisitorTest {
         testSimple("CROSS JOIN table1",
                 RelationalParser::joinPart,
                 (visitor, ctx) -> visitor.visitCrossJoin((RelationalParser.CrossJoinContext)ctx),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nullable
                     @Override
