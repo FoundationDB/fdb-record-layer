@@ -73,6 +73,8 @@ public interface PlanHashable {
          * <ul>
          *   <li> {@link com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue} hashes
          *        without index </li>
+         *   <li> {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan} hashes whether it is with
+         *        ordinality, and no longer hashes the 0-based ordinality flag </li>
          * </ul>.
          */
         VC1(PlanHashKind.FOR_CONTINUATION, 1);

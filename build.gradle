@@ -39,7 +39,6 @@ buildscript {
     }
 
     dependencies {
-        classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
         classpath libs.snakeyaml
     }
 }
@@ -225,6 +224,16 @@ subprojects {
             if (details.requested.group == 'com.google.auto.service'
                     && details.requested.name == 'auto-service') {
                 details.useVersion autoServiceVersion
+            }
+        }
+    }
+
+    // Constrain guava to the version declared in `libs.versions.toml` across every configuration. Some dependencies
+    // (notably `auto-service` › `auto-common`) would otherwise pull in older, potentially vulnerable versions.
+    configurations.configureEach { configuration ->
+        if (configuration.canBeDeclared) {
+            project.dependencies.constraints.add(configuration.name, "com.google.guava:guava:${libs.versions.guava.get()}") {
+                because 'Raise Guava to the version in `libs.versions.toml`'
             }
         }
     }

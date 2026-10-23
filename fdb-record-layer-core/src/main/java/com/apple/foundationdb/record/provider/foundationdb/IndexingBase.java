@@ -1264,10 +1264,11 @@ public abstract class IndexingBase {
         ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
         }
-    }
 
-    public static boolean isValidationException(@Nullable Throwable ex) {
-        return findException(ex, ValidationException.class) != null;
+        ValidationException(@Nonnull String msg, @Nullable Throwable cause, @Nullable Object ... keyValues) {
+            super(msg, cause);
+            addLogInfo(keyValues);
+        }
     }
 
     /**
@@ -1292,6 +1293,24 @@ public abstract class IndexingBase {
     @Nullable
     public static EnqueueFromIndexerException getEnqueueFromIndexerExceptionIfApplicable(@Nullable Throwable ex) {
         return findException(ex, EnqueueFromIndexerException.class);
+    }
+
+    /**
+     * Thrown when the requested source index cannot be used to build the target index.
+     */
+    @SuppressWarnings("serial")
+    public static class UnusableSourceIndexException extends ValidationException {
+        UnusableSourceIndexException(@Nonnull String msg, @Nullable Object... keyValues) {
+            super(msg, keyValues);
+        }
+
+        UnusableSourceIndexException(@Nonnull String msg, @Nullable Throwable cause, @Nullable Object... keyValues) {
+            super(msg, cause, keyValues);
+        }
+    }
+
+    public static boolean isUnusableSourceIndexException(@Nullable Throwable ex) {
+        return findException(ex, UnusableSourceIndexException.class) != null;
     }
 
     /**

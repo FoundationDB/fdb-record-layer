@@ -129,6 +129,10 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
             assertInvalidOptionsEvolution(metaData, index,
                     optionsWith(IndexOptions.GUARDIANN_SPLIT_IMBALANCE_PENALTY, "1.0"));
 
+            // so is the k-means balancing ladder, which decides how evenly an oversized cluster gets split
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_K_MEANS_BALANCING_LADDER, "0.0,0.05"));
+
             // changing an immutable construction-time centroid-walk knob is not allowed: an index must be built with a
             // single, fixed set of construction tuning
             assertInvalidOptionsEvolution(metaData, index,
