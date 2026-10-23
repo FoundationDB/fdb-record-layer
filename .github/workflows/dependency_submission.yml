@@ -1,0 +1,43 @@
+name: Dependency Submission
+
+# This workflow submits the resolved Gradle dependency graph to GitHub, for purposes of Dependabot alerting.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Supersede any run still in flight for the same ref.
+concurrency:
+  group: dependency-submission-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-submission:
+    # Run this workflow only in the upstream repository, not in any forks.
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    runs-on: ubuntu-latest
+    # Grant only `contents: write`, which is required for the Dependency Submission API; nothing broader is needed.
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Install JDK 21, matching the toolchain declared in `build.gradle`. We deliberately don’t use the setup-base-env
+      # action, since the `dependency-submission` action performs the `setup-gradle` action (for provisioning Gradle and
+      # its caches) itself and runs Gradle itself, so this job needs neither Python nor a separate Gradle build step.
+      - name: Setup JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      # Resolve the Gradle build and submit the resulting dependency graph. Pin the action to the same gradle/actions
+      # commit as the `setup-gradle` step in `actions/setup-base-env`, and use the same cache provider.
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-provider: basic
