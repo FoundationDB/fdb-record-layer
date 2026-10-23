@@ -1274,7 +1274,7 @@ datetimeIntervalMathExpression
   ;
 
 intervalLiteral
-    : INTERVAL direction=(PLUS | MINUS)? (value=stringLiteral | param=preparedStatementParameter) intervalQualifier
+    : INTERVAL direction=(PLUS | MINUS)? value=stringLiteral intervalQualifier
     ;
 
 intervalQualifier
