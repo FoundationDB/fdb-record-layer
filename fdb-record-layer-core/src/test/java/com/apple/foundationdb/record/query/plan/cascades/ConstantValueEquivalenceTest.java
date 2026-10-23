@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -31,8 +32,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for {@link ValueEquivalence.ConstantValueEquivalence}, which relates a {@link ConstantObjectValue} to a
@@ -105,21 +108,38 @@ class ConstantValueEquivalenceTest {
      * plan unreachable.
      */
     @Test
-    void valueFreeConstantIsNotEqualToANullLiteral() {
+    void valueFreeConstantIsNotEqualToAnyLiteral() {
         // Another constant is bound, so the map exists and only this one is missing from it.
-        final var equivalence = equivalenceUnder(contextBinding(Map.of("c2", 7L)));
+        final var equivalence = equivalenceUnder(EvaluationContext.newBuilder()
+                .setConstant(Quantifier.constant(), Map.of("c2", 7L))
+                .setValueFreeConstants(Quantifier.constant(), Set.of(CONSTANT_ID))
+                .build(TypeRepository.empty()));
 
         assertThat(equivalence.isDefinedEqual(constant(), literal(null)).isTrue()).isFalse();
         assertThat(equivalence.isDefinedEqual(constant(), literal(42L)).isTrue()).isFalse();
     }
 
     /**
-     * The same with no constants bound at all, which is how a plan is generated when no value is known for any of them.
+     * The same with no constant bound at all, which is how a plan is generated when every parameter is value-free.
      */
     @Test
-    void valueFreeConstantIsNotEqualToANullLiteralWithoutAnyBindings() {
-        final var equivalence = equivalenceUnder(EvaluationContext.forTypeRepository(TypeRepository.empty()));
+    void valueFreeConstantIsNotEqualToAnyLiteralWithoutConstantBindings() {
+        final var equivalence = equivalenceUnder(EvaluationContext.newBuilder()
+                .setValueFreeConstants(Quantifier.constant(), Set.of(CONSTANT_ID))
+                .build(TypeRepository.empty()));
 
         assertThat(equivalence.isDefinedEqual(constant(), literal(null)).isTrue()).isFalse();
+    }
+
+    /**
+     * A constant that is neither bound nor marked value-free is a defect, so it must fail rather than read as a
+     * non-match.
+     */
+    @Test
+    void constantMissingFromContextFails() {
+        final var equivalence = equivalenceUnder(EvaluationContext.forTypeRepository(TypeRepository.empty()));
+
+        assertThatThrownBy(() -> equivalence.isDefinedEqual(constant(), literal(42L)))
+                .isInstanceOf(Bindings.MissingBindingException.class);
     }
 }

@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.TreeMultiset;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Stack;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -61,6 +63,9 @@ public class Literals {
     @Nonnull
     private final Supplier<Map<String, OrderedLiteral>> byConstantIdSupplier;
 
+    @Nonnull
+    private final Supplier<Set<String>> valueFreeConstantIdsSupplier;
+
     private Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
         // Using unmodifiableMap because it allows null values, which are valid here
@@ -78,6 +83,12 @@ public class Literals {
                         this.orderedLiterals
                                 .stream()
                                 .collect(LinkedHashMap::new, (m, v) -> m.put(v.getConstantId(), v), LinkedHashMap::putAll)));
+        this.valueFreeConstantIdsSupplier = Suppliers.memoize(() ->
+                this.orderedLiterals
+                        .stream()
+                        .filter(OrderedLiteral::isValueFree)
+                        .map(OrderedLiteral::getConstantId)
+                        .collect(ImmutableSet.toImmutableSet()));
     }
 
     @Nonnull
@@ -116,6 +127,16 @@ public class Literals {
      */
     public boolean isValueFree(@Nonnull final String constantId) {
         return literalOf(constantId).map(OrderedLiteral::isValueFree).orElse(false);
+    }
+
+    /**
+     * Returns the constant ids of the value-free literals.
+     *
+     * @return the ids of the constants that have no value
+     */
+    @Nonnull
+    public Set<String> valueFreeConstantIds() {
+        return valueFreeConstantIdsSupplier.get();
     }
 
     @Nonnull

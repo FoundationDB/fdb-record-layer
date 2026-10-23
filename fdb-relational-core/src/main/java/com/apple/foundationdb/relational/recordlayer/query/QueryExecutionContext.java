@@ -49,6 +49,10 @@ public interface QueryExecutionContext {
         constantsMap.putAll(evaluationConstantsMap);
 
         builder.setConstant(Quantifier.constant(), Collections.unmodifiableMap(constantsMap));
+        final var valueFreeConstantIds = getLiterals().valueFreeConstantIds();
+        if (!valueFreeConstantIds.isEmpty()) {
+            builder.setValueFreeConstants(Quantifier.constant(), valueFreeConstantIds);
+        }
         return builder.build(typeRepository);
     }
 
