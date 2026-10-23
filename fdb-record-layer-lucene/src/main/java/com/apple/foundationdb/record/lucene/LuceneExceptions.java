@@ -42,7 +42,9 @@ public class LuceneExceptions {
     public static RuntimeException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
         if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
-            return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex)
+            final Long leaseRemainingMillis = ex.getCause() instanceof FDBDirectoryLockFactory.FDBDirectoryLockException lockException ?
+                                              lockException.getLeaseRemainingMillis() : null;
+            return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex, leaseRemainingMillis)
                     .addLogInfo(additionalLogInfo);
         } else if (ex instanceof LuceneTransactionTooOldException) {
             // Use the standard retryable exception

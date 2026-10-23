@@ -1,14 +1,14 @@
 alabaster==1.0.0
 babel==2.18.0
 beautifulsoup4==4.15.0
-certifi==2026.7.22
-charset-normalizer==3.5.1
+certifi==2026.10.19
+charset-normalizer==3.5.2
 docutils==0.22.4
 furo==2025.12.19
 idna==3.20
 imagesize==2.0.1
 Jinja2==3.1.6
-MarkupSafe==3.0.3
+MarkupSafe==3.0.4
 myst-parser==5.1.0
 packaging==26.3
 Pygments==2.21.0
@@ -24,5 +24,5 @@ sphinxcontrib-htmlhelp==2.1.0
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
-tomli==2.4.1
+tomli==2.5.0
 urllib3==2.8.0

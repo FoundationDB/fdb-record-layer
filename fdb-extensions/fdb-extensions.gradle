@@ -27,6 +27,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 dependencies {
     api(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
+        exclude(group: "com.google.code.findbugs", module: "jsr305")
     }
     api(libs.fdbJava)
     implementation(libs.guava)
@@ -114,10 +115,10 @@ tasks.register('extractSiftSmall', Copy) {
 
     doLast {
         File extractedDir = extractDir.get().asFile
-        println "Extracted files into: ${extractedDir}"
+        logger.lifecycle("Extracted files into: ${extractedDir}")
         extractedDir.eachFileRecurse { file ->
             if (file.isFile()) {
-                println " - ${file}"
+                logger.info(" - ${file}")
             }
         }
     }

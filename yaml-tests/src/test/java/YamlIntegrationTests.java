@@ -162,6 +162,12 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void crossJoinTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cross-join-tests.yamsql");
+    }
+
+
+    @TestTemplate
     public void cte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("cte.yamsql");
     }

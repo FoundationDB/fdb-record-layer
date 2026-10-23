@@ -1888,6 +1888,7 @@ message PRecordQueryDeletePlan {
 message PRecordQueryExplodePlan {
   optional PValue collection_value = 1;
   optional bool with_ordinality = 2;
+  // Note: Versions >4.16 no longer read `zero_based_ordinality`, but still write it on WITH ORDINALITY plans.
   optional bool zero_based_ordinality = 3;
   optional bool flows_record_constructor_value = 4;
 }

@@ -8,6 +8,60 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.16
 
+{#release-4-16-4-0}
+
+### 4.16.4.0
+
+<h4> New Features </h4>
+
+* Route index generation through a synthetic-table generator interface - [PR #4706](https://github.com/FoundationDB/fdb-record-layer/pull/4706)
+* Add Support for CROSS JOIN - [PR #4721](https://github.com/FoundationDB/fdb-record-layer/pull/4721)
+* Lucene update from indexer - [PR #4695](https://github.com/FoundationDB/fdb-record-layer/pull/4695)
+* Expand an unnested record type into a Cascades graph - [PR #4626](https://github.com/FoundationDB/fdb-record-layer/pull/4626)
+<h4> Bug Fixes </h4>
+
+* Prevent the indexer from flooding the pending write queue during a merge - [PR #4743](https://github.com/FoundationDB/fdb-record-layer/pull/4743)
+* Fix `Half` float/binary16 conversions to round per IEEE 754 - [PR #4744](https://github.com/FoundationDB/fdb-record-layer/pull/4744)
+* Synchronize RelationalKeyspaceProvider.registerDomainIfExists - [PR #4416](https://github.com/FoundationDB/fdb-record-layer/pull/4416)
+* Replace the outgoing edge that a delete repair takes from a node - [PR #4683](https://github.com/FoundationDB/fdb-record-layer/pull/4683)
+* Allow boolean literals/columns as AND/OR/NOT operands in WHERE - [PR #4644](https://github.com/FoundationDB/fdb-record-layer/pull/4644)
+<h4> Performance Improvements </h4>
+
+* Add size() and containsNeighbor() to NeighborsChangeSet - [PR #4684](https://github.com/FoundationDB/fdb-record-layer/pull/4684)
+<h4> Dependency Updates </h4>
+
+* Bump gradle-wrapper from 9.7.1 to 9.8.0 - [PR #4727](https://github.com/FoundationDB/fdb-record-layer/pull/4727)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Documentation fixes in `ORDER_BY.rst` - [PR #4711](https://github.com/FoundationDB/fdb-record-layer/pull/4711)
+* Replace `println()` in build scripts with Gradle logger calls - [PR #4740](https://github.com/FoundationDB/fdb-record-layer/pull/4740)
+* Bump org.mockito:mockito-core from 5.23.0 to 5.24.0 - [PR #4723](https://github.com/FoundationDB/fdb-record-layer/pull/4723)
+* Add an `applyGlue()` utility to handle existential and null-on-empty quantifiers - [PR #4693](https://github.com/FoundationDB/fdb-record-layer/pull/4693)
+* Reorganize the for-each quantifier matchers in `QuantifierMatchers` - [PR #4690](https://github.com/FoundationDB/fdb-record-layer/pull/4690)
+* Bump org.jline:jline from 4.4.5 to 4.4.6 - [PR #4725](https://github.com/FoundationDB/fdb-record-layer/pull/4725)
+* Bump soupsieve from 2.9.2 to 2.10 in /docs/sphinx - [PR #4724](https://github.com/FoundationDB/fdb-record-layer/pull/4724)
+
+</details>
+
+
+**[Full Changelog (4.16.3.0...4.16.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.16.3.0...4.16.4.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/38788147276)
+
+
+
 {#release-4-16-3-0}
 
 ### 4.16.3.0

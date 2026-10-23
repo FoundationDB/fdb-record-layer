@@ -117,7 +117,7 @@ class ReadOnlyNonAgileContext implements AgilityContext {
     }
 
     @Override
-    public void setCommitCheck(final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
+    public void addCommitCheck(final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
         readOnlyContext.addCommitCheck(() -> commitCheck.apply(readOnlyContext));
     }
 }

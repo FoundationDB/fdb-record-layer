@@ -59,6 +59,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -208,6 +209,16 @@ class FDBExceptionsTest {
         } finally {
             CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(Integer.MAX_VALUE); //cleanup, just in case
         }
+    }
+
+    @Test
+    void lockTakenExceptionWithoutLeaseRemaining() {
+        final Exception cause = createRuntimeException();
+        final FDBExceptions.FDBStoreLockTakenException ex = new FDBExceptions.FDBStoreLockTakenException(PARENT_EXCEPTION_MESSAGE, cause);
+        assertThat(ex.getCause(), sameInstance(cause));
+        // the time left for the lock's lease is unknown
+        assertNull(ex.getLeaseRemainingMillis());
+        assertTrue(FDBExceptions.isRetriable(ex));
     }
 
     private Exception createCompletionException(Exception cause) {

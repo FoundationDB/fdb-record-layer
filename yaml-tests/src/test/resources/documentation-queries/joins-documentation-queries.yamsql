@@ -90,6 +90,16 @@ test_block:
                           {w: 1, z: 10, a: 2, b: 10},
                           {w: 2, z: 10, a: 2, b: 10}]
 
+    # Cross Join with a Filter
+    -
+      - query: SELECT dept.name, project.name
+              FROM dept CROSS JOIN project
+              WHERE dept.name = 'Sales'
+      - supported_version: 4.16.4.0
+      - unorderedResult: [{"Sales", "OLAP"},
+                          {"Sales", "SEO"},
+                          {"Sales", "Feedback"}]
+
     # Semi-Join with EXISTS
     -
       - query: SELECT fname, lname

@@ -20,9 +20,16 @@ jobs:
   # so that we can find potential uncovered code that could expose bugs when multiple versions are running at the same
   # time.
   # It's possible that we could change the nightly tests to just be the nightly tests, and not the regular tests in the future.
+  #
+  # Timeouts: the test jobs below pass -DallTest.timeoutMinutes, a budget shared by all the Gradle test tasks in the
+  # job (counted from when the first test task starts), so that Gradle fails a hung build *before* GitHub's job
+  # timeout. If GitHub hits timeout-minutes, the job is cancelled and all the `!cancelled()` report steps in
+  # actions/gradle-test are skipped, so we lose the test reports. Keep the budget comfortably below the job's
+  # timeout-minutes, leaving room for setup, compilation before the first test task, and uploading reports.
   test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     permissions:
       contents: read
     steps:
@@ -37,7 +44,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -DallTest.timeoutMinutes=330
       - name: Upload coverage to teamscale
         uses: ./actions/teamscale-upload
         with:
@@ -99,7 +106,7 @@ jobs:
           gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mixed-mode-${{ matrix.version }}-coverage-data
           path: |
@@ -129,7 +136,7 @@ jobs:
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: 'mixed-mode-*-test-reports'
       - name: Generate mixed mode results
@@ -153,6 +160,8 @@ jobs:
           - subproject: fdb-extensions
             extra_tasks: ':fdb-extensions:scalarFallbackTest'
     runs-on: ubuntu-latest
+    # See the timeout comment on the `test` job
+    timeout-minutes: 360
     permissions:
       contents: read
     steps:
@@ -166,10 +175,10 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ matrix.extra_tasks }}
-          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=330"
           report_name: nightly-${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nightly-${{ matrix.subproject }}-coverage-data
           path: |
@@ -181,6 +190,8 @@ jobs:
   nightly_other_tests:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
+    # See the timeout comment on the `test` job
+    timeout-minutes: 360
     permissions:
       contents: read
     steps:
@@ -205,10 +216,10 @@ jobs:
             -x :fdb-record-layer-core:destructiveTest
             -x :fdb-record-layer-lucene:destructiveTest
             -x :yaml-tests:destructiveTest
-          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=330"
           report_name: nightly-other-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nightly-other-coverage-data
           path: |
@@ -231,23 +242,23 @@ jobs:
       # It looks like, if you try to download them all as a pattern, the nested directories get stripped
       # so the coverage data (for e.g. lucene) does not end up in the appropirate subproject directory
       - name: 'Download lucene'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nightly-fdb-record-layer-lucene-coverage-data
       - name: 'Download extensions'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nightly-fdb-extensions-coverage-data
       - name: 'Download core'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nightly-fdb-record-layer-core-coverage-data
       - name: 'Download yaml'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nightly-yaml-tests-coverage-data
       - name: 'Download other'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nightly-other-coverage-data
       - name: Run JaCoCo Report

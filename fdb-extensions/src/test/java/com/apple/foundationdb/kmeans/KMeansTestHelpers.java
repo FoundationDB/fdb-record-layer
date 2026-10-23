@@ -147,7 +147,7 @@ final class KMeansTestHelpers {
     }
 
     /**
-     * Asserts the structural and (when {@code lambda == 0}) algorithmic invariants of a kmeans
+     * Asserts the structural and algorithmic invariants of a kmeans
      * result. The result must come from a {@code KMeans.fit(...)} call where both
      * {@code vectorLens} and {@code centroidLens} are
      * {@link com.apple.foundationdb.util.Lens#identity()}, so that centroids are themselves
@@ -161,16 +161,16 @@ final class KMeansTestHelpers {
      *   <li>{@code distances.length == n} and {@code distances[i] ≈ baseObjective(vectors[i], centroids[assignment[i]])}</li>
      *   <li>{@code objective ≈ Σ distances}</li>
      *   <li>For cosine metric: every centroid is unit-norm or near-zero (reseed edge case)</li>
-     *   <li>When {@code lambda == 0}: each {@code distances[i]} equals the minimum baseObjective across
-     *       all centroids (local assignment optimality). {@link KMeans#fit} runs a final geometric
-     *       reassignment pass, so this holds regardless of how the main loop exited.</li>
+     *   <li>Each {@code distances[i]} equals the minimum baseObjective across all centroids, i.e. every vector
+     *       is assigned to a nearest centroid. {@link KMeans#fit} ends every run with a distance-only
+     *       reassignment pass, so this holds regardless of how the main loop exited and of whether size
+     *       balancing steered the iterations.</li>
      * </ul>
      */
     static void assertKMeansInvariants(@Nonnull final KMeans.Result<RealVector> result,
                                        @Nonnull final List<? extends RealVector> vectors,
                                        final int k,
-                                       @Nonnull final DistanceEstimator distanceEstimator,
-                                       final double lambda) {
+                                       @Nonnull final DistanceEstimator distanceEstimator) {
         final int n = vectors.size();
         final int[] assignment = result.assignment();
         final List<RealVector> centroids = result.clusterCentroids();
@@ -232,17 +232,15 @@ final class KMeansTestHelpers {
             }
         }
 
-        // --- algorithmic invariants (only for unbiased assignment, lambda == 0) ---
-        if (lambda == 0.0d) {
-            for (int i = 0; i < n; i++) {
-                double best = Double.POSITIVE_INFINITY;
-                for (int c = 0; c < k; c++) {
-                    best = Math.min(best, baseObjective(distanceEstimator, vectors.get(i), centroids.get(c)));
-                }
-                assertThat(distances[i])
-                        .as("local assignment optimality at index %d", i)
-                        .isCloseTo(best, withinRelative(best, 1.0e-9d));
+        // --- algorithmic invariant: nearest-centroid assignment, with or without size balancing ---
+        for (int i = 0; i < n; i++) {
+            double best = Double.POSITIVE_INFINITY;
+            for (int c = 0; c < k; c++) {
+                best = Math.min(best, baseObjective(distanceEstimator, vectors.get(i), centroids.get(c)));
             }
+            assertThat(distances[i])
+                    .as("nearest-centroid assignment at index %d", i)
+                    .isCloseTo(best, withinRelative(best, 1.0e-9d));
         }
     }
 

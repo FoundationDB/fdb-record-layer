@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -104,6 +105,14 @@ final class VectorIndexOptionsHelper {
     static void applyDouble(@Nonnull final VectorOptionKey<Double> key, @Nonnull final Index index,
                             @Nonnull final DoubleConsumer setter) {
         final Double value = key.read(index);
+        if (value != null) {
+            setter.accept(value);
+        }
+    }
+
+    static void applyDoubleList(@Nonnull final VectorOptionKey<List<Double>> key, @Nonnull final Index index,
+                                @Nonnull final Consumer<List<Double>> setter) {
+        final List<Double> value = key.read(index);
         if (value != null) {
             setter.accept(value);
         }

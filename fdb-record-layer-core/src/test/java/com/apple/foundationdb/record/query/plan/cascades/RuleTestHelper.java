@@ -164,7 +164,7 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
+    public TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
         // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
         // rewriting and planning
         final var copiedOriginal =

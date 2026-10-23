@@ -188,7 +188,12 @@ public class RelationalKeyspaceProvider {
                 .addSubdirectory(new KeySpaceDirectory(INTERNING_LAYER, KeySpaceDirectory.KeyType.STRING, INTERNING_LAYER_VALUE));
     }
 
-    public void registerDomainIfNotExists(@Nonnull String domainName) {
+    public synchronized void registerDomainIfNotExists(@Nonnull String domainName) {
+        // Synchronized because this mutates the singleton KeySpace's tree via
+        // addSubdirectory. Without the lock, this will most likely fail with "Subdirectory already exists",
+        // although, KeySpaceDirectory itself is not designed to be mutated concurrently, so this could succeed, and
+        // end up with  two subdirectories matching the same name — every subsequent path resolution then throws
+        // "<...> is ambigous" from KeySpaceUtils#matchPathToSubdirectories.
         final var keySpaceRoot = getKeySpace().getRoot();
         final var exists = keySpaceRoot.getSubdirectories().stream()
                 .map(KeySpaceDirectory::getName)
