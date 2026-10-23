@@ -67,7 +67,8 @@ class QueryPlanTest {
                 PlanHashMode.VC0,
                 "SELECT 1",
                 "SELECT 1",
-                0);
+                0,
+                QueryEvaluationConstants.empty());
 
         final ImmutableList<DataType> semanticFieldTypes = ImmutableList.of(
                 DataType.Primitives.STRING.type());
@@ -96,7 +97,8 @@ class QueryPlanTest {
                 PlanHashMode.VC0,
                 "SELECT 2",
                 "SELECT 2",
-                1);
+                1,
+                QueryEvaluationConstants.empty());
 
         // Call withExecutionContext and verify it returns the same instance
         final QueryPlan.PhysicalQueryPlan result = continuedPlan.withExecutionContext(differentContext);

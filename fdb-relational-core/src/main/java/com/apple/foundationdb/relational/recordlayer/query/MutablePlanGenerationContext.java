@@ -54,7 +54,6 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -74,6 +73,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private final Literals.Builder literalsBuilder;
+
+    @Nonnull
+    private final QueryEvaluationConstants evaluationConstants;
 
     private final int parameterHash;
 
@@ -98,9 +100,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private final ImmutableList.Builder<QueryPredicate> equalityConstraints;
-
-    @Nullable
-    private Instant evaluationTimestamp;
 
     private void startStructLiteral() {
         literalsBuilder.startStructLiteral();
@@ -274,15 +273,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
                                         @Nonnull String query,
                                         @Nonnull String canonicalQueryString,
-                                        int parameterHash) {
+                                        int parameterHash,
+                                        @Nonnull QueryEvaluationConstants evaluationConstants) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
         this.query = query;
         this.canonicalQueryString = canonicalQueryString;
         this.parameterHash = parameterHash;
-        this.evaluationTimestamp = null;
         literalsBuilder = Literals.newBuilder();
-        constantObjectValues = new LinkedList<>();
+        this.evaluationConstants = evaluationConstants;
+        constantObjectValues = new LinkedList<>(evaluationConstants.stream()
+                .map(constant -> constant.getKind().getConstantObjectValue()).toList());
         shouldProcessLiteral = true;
         forExplain = false;
         continuation = null;
@@ -314,6 +315,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public Literals.Builder getLiteralsBuilder() {
         return literalsBuilder;
+    }
+
+    @Nonnull
+    public QueryEvaluationConstants getEvaluationConstants() {
+        return evaluationConstants;
     }
 
     @Nonnull
@@ -360,12 +366,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return forExplain;
     }
 
-    @Nullable
-    @Override
-    public Instant getEvaluationTimestamp() {
-        return evaluationTimestamp;
-    }
-
     @Nonnull
     public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
         final ImmutableList.Builder<QueryPredicate> predicateBuilder = ImmutableList.builder();
@@ -391,10 +391,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentional")
     public void setContinuation(@Nullable byte[] continuation) {
         this.continuation = continuation;
-    }
-
-    public void setEvaluationTimestamp(@Nullable final Instant evaluationTimestamp) {
-        this.evaluationTimestamp = evaluationTimestamp;
     }
 
     public boolean shouldProcessLiteral() {

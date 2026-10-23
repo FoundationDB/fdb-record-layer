@@ -71,6 +71,12 @@ message TypedQueryArgument {
   optional string scope = 7;
 }
 
+message TypedEvaluationConstant {
+  optional com.apple.foundationdb.record.planprotos.PType type = 1;
+  optional string constant_id = 2;
+  optional LiteralObject object = 3;
+}
+
 message LiteralObject {
   message Array {
     repeated LiteralObject element_objects = 2;
@@ -95,8 +101,8 @@ message CompiledStatement {
   optional com.apple.foundationdb.record.planprotos.PQueryPlanConstraint plan_constraint = 5;
   // query metadata
   optional com.apple.foundationdb.record.planprotos.PType queryMetadata = 6;
-  // current time in milliseconds since Unix epoch for use in executing the query
-  optional int64 evaluation_timestamp_in_epoch_millis = 7;
+  // evaluation constants which can be used while executing the query
+  repeated TypedEvaluationConstant evaluation_constants = 7;
 }
 
 // Continuation state required for COPY.

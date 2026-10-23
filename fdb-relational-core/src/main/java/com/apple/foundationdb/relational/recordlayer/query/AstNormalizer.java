@@ -58,7 +58,6 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
-import java.time.Instant;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Locale;
@@ -159,18 +158,23 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
-                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain,
+                          @Nonnull final QueryEvaluationConstants queryEvaluationConstants) {
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
-        // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
-        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode).setForExplain(forExplain);
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
         queryCachingFlags = EnumSet.noneOf(NormalizationResult.QueryCachingFlags.class);
         queryOptions = Options.builder();
         this.caseSensitive = caseSensitive;
+
+        // needed to collect information that guide query execution
+        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder()
+                .setPlanHashMode(currentPlanHashMode)
+                .setForExplain(forExplain)
+                .setQueryEvaluationConstants(queryEvaluationConstants);
     }
 
     @Override
@@ -503,15 +507,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 () -> "only day time intervals are supported");
         sqlCanonicalizer.append("INTERVAL ");
 
-        // Must decode exactly as ExpressionVisitor.visitIntervalLiteral does: this is the value the
-        // literal is extracted as for the plan cache, and a literal that caches differently from the
-        // way it evaluates is a cache that answers with the wrong constant.
+        // Must decode exactly as ExpressionVisitor.visitIntervalLiteral does to ensure cached plans can be reused
+        // correctly.
         processScalarLiteral(
                 SemanticAnalyzer.parseIntervalLiteral(ctx,
                         SemanticAnalyzer.normalizeStringLiteral(ctx.value)),
                 ctx.value.getStart().getTokenIndex());
 
-        sqlCanonicalizer.append("DAY TO SECOND");
+        sqlCanonicalizer.append("DAY TO SECOND").append(" ");
         return null;
     }
 
@@ -659,7 +662,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                      @Nonnull final String query,
                                                      boolean isCaseSensitive,
                                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
-                                                     @Nonnull final Instant evaluationTimestamp) throws RelationalException {
+                                                     @Nonnull final QueryEvaluationConstants queryEvaluationConstants) throws RelationalException {
         // lexing, parsing, and normalization are profiled through the metric collector.
         final var metricCollector = context.getMetricsCollector();
         final var parseTreeInfo = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
@@ -673,7 +676,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         isCaseSensitive,
                         currentPlanHashMode,
                         query,
-                        evaluationTimestamp
+                        queryEvaluationConstants
                 ));
     }
 
@@ -686,9 +689,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
                                                    @Nonnull final String query,
-                                                   @Nonnull final Instant evaluationTimestamp) throws RelationalException {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
-        astNormalizer.queryHasherContextBuilder.setEvaluationTimestamp(evaluationTimestamp);
+                                                   @Nonnull final QueryEvaluationConstants queryEvaluationConstants) throws RelationalException {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, queryEvaluationConstants);
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
@@ -717,7 +719,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         caseSensitive,
                         currentPlanHashMode,
                         recordLayerRoutine.getDescription(),
-                        evaluationTimestamp);
+                        queryEvaluationConstants);
                 astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
         }

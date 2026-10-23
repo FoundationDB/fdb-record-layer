@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -40,6 +39,9 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
     @Nonnull
     private final Literals literals;
 
+    @Nonnull
+    private final QueryEvaluationConstants evaluationConstants;
+
     @Nullable
     private final byte[] continuation;
 
@@ -50,21 +52,18 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
     @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
 
-    @Nonnull
-    private final Instant evaluationTimestamp;
-
-    private NormalizedQueryExecutionContext(@Nonnull Literals literals,
+    private NormalizedQueryExecutionContext(@Nonnull final Literals literals,
+                                            @Nonnull final QueryEvaluationConstants evaluationConstants,
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
-                                            @Nonnull final PlanHashable.PlanHashMode planHashMode,
-                                            @Nonnull final Instant evaluationTimestamp) {
+                                            @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
+        this.evaluationConstants = evaluationConstants;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
-        this.evaluationTimestamp = evaluationTimestamp;
     }
 
     @Nonnull
@@ -98,8 +97,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     @Nonnull
     @Override
-    public Instant getEvaluationTimestamp() {
-        return evaluationTimestamp;
+    public QueryEvaluationConstants getEvaluationConstants() {
+        return evaluationConstants;
     }
 
     @Nonnull
@@ -117,12 +116,13 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         private final Literals.Builder literalsBuilder;
 
+        @Nonnull
+        private QueryEvaluationConstants evaluationConstants;
+
         private boolean isForExplain;
 
         @Nullable
         private byte[] continuation;
-
-        private Instant evaluationTimestamp;
 
         private int parameterHash;
 
@@ -131,10 +131,10 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private Builder() {
             this.literalsBuilder = Literals.newBuilder();
+            this.evaluationConstants = QueryEvaluationConstants.empty();
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
-            this.evaluationTimestamp = null;
         }
 
         @Nonnull
@@ -156,6 +156,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
+        public Builder setQueryEvaluationConstants(@Nonnull final QueryEvaluationConstants queryEvaluationConstants) {
+            this.evaluationConstants = queryEvaluationConstants;
+            return this;
+        }
+
+        @Nonnull
         public Builder setForExplain(boolean isForExplain) {
             this.isForExplain = isForExplain;
             return this;
@@ -168,17 +174,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
-        public Builder setEvaluationTimestamp(@Nonnull Instant evaluationTimestamp) {
-            this.evaluationTimestamp = evaluationTimestamp;
-            return this;
-        }
-
-        @Nonnull
         public NormalizedQueryExecutionContext build() {
-            return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
+            return new NormalizedQueryExecutionContext(literalsBuilder.build(),
+                    evaluationConstants,
+                    continuation,
                     parameterHash, isForExplain,
-                    Objects.requireNonNull(planHashMode),
-                    evaluationTimestamp);
+                    Objects.requireNonNull(planHashMode));
         }
     }
 }
