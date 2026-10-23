@@ -28,6 +28,12 @@ schema_template:
       "arr"     INTEGER ARRAY NULL,
       "arr_nn"  INTEGER ARRAY NOT NULL,
       PRIMARY KEY ("pk"))
+  CREATE TYPE AS STRUCT S (f INTEGER)
+  CREATE TABLE T2 (
+      "pk"      INTEGER,
+      "arr"     S ARRAY NULL,
+      "arr_nn"  S ARRAY NOT NULL,
+      PRIMARY KEY ("pk"))
 ---
 setup:
   steps:
@@ -36,6 +42,9 @@ setup:
              VALUES (-1, NULL, []),
                     (0, [],  []),
                     (1, [1], [1])
+    - query: INSERT INTO T2 ("pk", "arr", "arr_nn")
+             VALUES (-1, NULL, [(1)]),
+                    (1, [(1)], [(1)])
 ---
 test_block:
   # These tests exercise the two unary `IS [NOT] NULL` predicates on constant ARRAYs, i.e., different combinations of:
@@ -272,4 +281,51 @@ test_block:
     - # Some more constant comparisons of different but promotable ARRAY types. This is not yet supported.
       - query: SELECT 1I = 1L, [1I] = [1L] FROM "dummy"
       - error: DATATYPE_MISMATCH
+---
+test_block:
+  # Struct-element counterpart of arrays-operators-unary-nonconst / arrays-operators-other, using a STRUCT ARRAY
+  # column instead of a primitive-element one. Non-empty struct-array literals aren't covered here: `(1)` inside an
+  # array literal gets flattened to a bare scalar by an unrelated SqlFunctionCatalog.flattenRecordWithOneField bug.
+  name: arrays-operators-struct
+  options:
+    # Not yet supported by any released version -- older servers still fail here with a VerifyException.
+    supported_version: !current_version
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Inserting [] into a STRUCT ARRAY column previously threw a VerifyException from PromoteValue.eval(), so this
+      # row is added here (rather than in the unconditional setup) to keep it version-gated.
+      - query: INSERT INTO T2 ("pk", "arr", "arr_nn") VALUES (0, [], [])
+      - count: 1
+    -
+      - query: SELECT "arr",
+                      "arr" IS NULL AS "is_null",
+                      "arr" IS NOT NULL AS "is_not_null",
+                      "arr" = [] AS "is_empty"
+                 FROM T2
+      - unorderedResult: [
+          {arr: !null _,  is_null: TRUE,  is_not_null: FALSE, is_empty: !null _},
+          {arr: [],       is_null: FALSE, is_not_null: TRUE,  is_empty: TRUE},
+          {arr: [{F: 1}], is_null: FALSE, is_not_null: TRUE,  is_empty: FALSE}
+        ]
+    -
+      # Same test as above, but with a non-nullable struct array.
+      - query: SELECT "arr_nn",
+                      "arr_nn" IS NULL AS "is_null",
+                      "arr_nn" IS NOT NULL AS "is_not_null",
+                      "arr_nn" = [] AS "is_empty"
+                 FROM T2
+                WHERE "pk" != -1
+      - unorderedResult: [
+          {arr_nn: [],       is_null: FALSE, is_not_null: TRUE, is_empty: TRUE},
+          {arr_nn: [{F: 1}], is_null: FALSE, is_not_null: TRUE, is_empty: FALSE}
+        ]
+    -
+      # Comparison of a nullable STRUCT ARRAY field to []. Previously threw a VerifyException from PromoteValue.eval().
+      - query: SELECT "pk" FROM T2 WHERE "arr" = []
+      - unorderedResult: [{pk: 0}]
+    -
+      # Same as above, but with a non-nullable struct array.
+      - query: SELECT "pk" FROM T2 WHERE "arr_nn" = [] AND "pk" != -1
+      - unorderedResult: [{pk: 0}]
 ...
