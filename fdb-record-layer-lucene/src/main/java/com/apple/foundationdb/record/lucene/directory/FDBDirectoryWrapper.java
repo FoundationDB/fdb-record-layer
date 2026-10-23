@@ -163,9 +163,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
-        replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
-        replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
-        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
+        replayedQueueContext = LazyCloseable.supply(this::createReadOnlyContext);
+        replayedQueueIndexWriter = LazyCloseable.supply(this::createIndexWriterWithReplayedQueue);
+        pendingWriteQueue = LazyOpener.supply(directory::createPendingWritesQueue);
     }
 
     @VisibleForTesting
@@ -188,9 +188,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
-        replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
-        replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
-        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
+        replayedQueueContext = LazyCloseable.supply(this::createReadOnlyContext);
+        replayedQueueIndexWriter = LazyCloseable.supply(this::createIndexWriterWithReplayedQueue);
+        pendingWriteQueue = LazyOpener.supply(directory::createPendingWritesQueue);
     }
 
     @Nonnull

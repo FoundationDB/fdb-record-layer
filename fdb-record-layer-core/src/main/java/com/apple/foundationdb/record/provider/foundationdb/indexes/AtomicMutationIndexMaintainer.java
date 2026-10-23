@@ -156,7 +156,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
             }
 
             final byte[] key = state.indexSubspace.pack(groupKey);
-            if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
+            if (AtomicMutation.Standard.MAX_EVER_VERSION == mutation) {
                 if (groupedValue.getKey().hasIncompleteVersionstamp()) {
                     // With an incomplete versionstamp, we need to call SET_VERSIONSTAMPED_VALUE.
                     // If multiple records (with possibly different local versions) are written with the same

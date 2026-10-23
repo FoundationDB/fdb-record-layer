@@ -232,8 +232,8 @@ public class PatternForLikeValue extends AbstractValue {
         Verify.verify(arguments.size() == 2);
         Type patternType = arguments.get(0).getResultType();
         Type escapeType = arguments.get(1).getResultType();
-        SemanticException.check(patternType.isNull() || patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        SemanticException.check(escapeType.isNull() || escapeType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(patternType.isNull() || patternType.getTypeCode() == TypeCode.STRING, SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(escapeType.isNull() || escapeType.getTypeCode() == TypeCode.STRING, SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new PatternForLikeValue((Value) arguments.get(0), (Value) arguments.get(1));
     }

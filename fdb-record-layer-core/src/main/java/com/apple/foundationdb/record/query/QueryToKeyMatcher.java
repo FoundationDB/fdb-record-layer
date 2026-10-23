@@ -303,8 +303,8 @@ public class QueryToKeyMatcher {
             }
         }
 
-        if (matchingMode.equals(MatchingMode.SATISFY_QUERY) && !localMask.allSatisfied()
-                || matchingMode.equals(MatchingMode.COVER_KEY) && comparisons.size() < keyChildSize) {
+        if (matchingMode == MatchingMode.SATISFY_QUERY && !localMask.allSatisfied()
+                || matchingMode == MatchingMode.COVER_KEY && comparisons.size() < keyChildSize) {
             // Either we do not have enough comparisons to have covered the full key, or there are some
             // filters that have not yet been satisfied.
             return Match.none();
@@ -324,7 +324,7 @@ public class QueryToKeyMatcher {
         } else if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
+            if (children.isEmpty() || matchingMode == MatchingMode.COVER_KEY) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
@@ -341,7 +341,7 @@ public class QueryToKeyMatcher {
         if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
+            if (children.isEmpty() || matchingMode == MatchingMode.COVER_KEY) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
@@ -359,7 +359,7 @@ public class QueryToKeyMatcher {
         if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
+            if (children.isEmpty() || matchingMode == MatchingMode.COVER_KEY) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
@@ -456,7 +456,7 @@ public class QueryToKeyMatcher {
     private Match matches(@Nonnull RecordTypeKeyComparison query, @Nonnull KeyExpression key,
                           @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
         if (!(key instanceof RecordTypeKeyExpression ||
-                (matchingMode.equals(MatchingMode.SATISFY_QUERY) && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
+                (matchingMode == MatchingMode.SATISFY_QUERY && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
             return noMatchOrUnexpected(key);
         }
         if (filterMask != null) {

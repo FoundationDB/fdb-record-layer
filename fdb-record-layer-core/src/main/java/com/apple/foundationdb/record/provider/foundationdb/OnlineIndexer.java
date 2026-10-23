@@ -497,7 +497,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<Void> mergeIndexAsync() {
-        return indexingLauncher(attemptIndexer -> attemptIndexer.mergeIndexes());
+        return indexingLauncher(IndexingBase::mergeIndexes);
     }
 
     /**

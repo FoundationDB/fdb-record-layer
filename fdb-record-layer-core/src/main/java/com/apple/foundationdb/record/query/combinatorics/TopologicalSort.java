@@ -451,8 +451,7 @@ public class TopologicalSort {
 
                 if (bound.size() < partiallyOrderedSet.size()) {
                     newlyEligibleElementsBuilder
-                            .addAll(eligibleElementSets.get(bound.size() - 1))
-                            .build();
+                            .addAll(eligibleElementSets.get(bound.size() - 1));
                     eligibleElementSets.set(bound.size(), newlyEligibleElementsBuilder.build());
                 } else {
                     // the last round cannot possibly have added new elements into the eligibility sets

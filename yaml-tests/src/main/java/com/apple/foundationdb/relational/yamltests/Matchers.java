@@ -619,6 +619,7 @@ public class Matchers {
         return ResultSetMatchResult.success();
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static ResultSetMatchResult matchField(@Nullable final Object expected,
                                                    @Nullable final Object actual,
                                                    int rowNumber,

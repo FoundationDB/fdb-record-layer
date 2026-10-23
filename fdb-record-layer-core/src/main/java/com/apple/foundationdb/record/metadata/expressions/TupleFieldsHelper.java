@@ -293,7 +293,7 @@ public class TupleFieldsHelper {
             case BYTES:
                 return ZeroCopyByteString.wrap((byte[])valueFromTuple);
             case ENUM:
-                return (Internal.EnumLite)() -> ((Long)valueFromTuple).intValue();
+                return (Internal.EnumLite)((Long) valueFromTuple)::intValue;
             default:
                 return valueFromTuple;
         }

@@ -821,7 +821,7 @@ public class PlannerRepl implements Debugger {
                 return false;
             }
             final OnEventTypeBreakPoint that = (OnEventTypeBreakPoint)o;
-            return getShorthand().equals(that.getShorthand()) &&
+            return getShorthand() == that.getShorthand() &&
                    Objects.equals(getReferenceName(), that.getReferenceName()) &&
                    getLocation() == that.getLocation();
         }
@@ -886,7 +886,7 @@ public class PlannerRepl implements Debugger {
                 return false;
             }
             final var that = (OnPhaseBreakPoint)o;
-            return getShorthand().equals(that.getShorthand()) &&
+            return getShorthand() == that.getShorthand() &&
                     getLocation() == that.getLocation() &&
                     getPlannerPhase() == that.getPlannerPhase();
         }

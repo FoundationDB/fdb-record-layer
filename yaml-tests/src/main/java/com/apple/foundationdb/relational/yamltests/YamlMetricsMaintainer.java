@@ -230,6 +230,7 @@ public class YamlMetricsMaintainer {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     @Nonnull
     private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();

@@ -187,7 +187,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"})
+    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyControlStatement"})
     protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
                                        @Nonnull final String queryDescription,
                                        @Nonnull final List<String> setups) throws SQLException {

@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.function.Function;
 
-public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
+public abstract class RecordTypeScannable<T> implements DirectScannable {
 
     @SuppressWarnings("PMD.CloseResource") // cursor lifetime lasts into returned object's lifetime
     @Override
@@ -41,19 +41,19 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
             @Nonnull Options options) throws RelationalException {
         TupleRange range = TupleRange.allOf(TupleUtils.toFDBTuple(keyPrefix));
         BackingStore store = getSchema().loadStore();
-        final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), options);
+        final RecordCursor<T> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), options);
         return RecordLayerIterator.create(cursor, keyValueTransform());
     }
 
     /* ****************************************************************************************************************/
     /* abstract methods */
 
-    protected abstract RecordCursor<CursorT> openScan(BackingStore store, TupleRange range,
+    protected abstract RecordCursor<T> openScan(BackingStore store, TupleRange range,
                                                       @Nullable Continuation continuation, Options options) throws RelationalException;
 
     protected abstract RecordLayerSchema getSchema();
 
-    protected abstract Function<CursorT, Row> keyValueTransform();
+    protected abstract Function<T, Row> keyValueTransform();
 
     protected abstract boolean supportsMessageParsing();
 

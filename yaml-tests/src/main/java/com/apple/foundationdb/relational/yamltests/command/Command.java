@@ -112,6 +112,7 @@ public abstract class Command {
 
     abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
+    @SuppressWarnings("PMD.CloseResource")
     private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection,
                                                        @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState)
             throws SQLException, RelationalException {

@@ -292,6 +292,7 @@ public class TypeConversion {
         return ResultSetMetadata.newBuilder().setColumnMetadata(toStructMetadataProtobuf(resultSet.getMetaData())).build();
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static Array toArray(RelationalArray relationalArray) throws SQLException {
         var arrayBuilder = Array.newBuilder();
         if (relationalArray != null) {

@@ -86,7 +86,6 @@ public class EvaluateConstantPromotionRule extends ValueSimplificationRule<Promo
 
             if (value.canResultInType(promoteType)) {
                 call.yieldResult(value.with(promoteType));
-                return;
             }
         }
     }

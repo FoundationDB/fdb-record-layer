@@ -500,7 +500,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
         for (final var caseAlternative : ctx.caseFuncAlternative()) {
             final var condition = visitFunctionArg(caseAlternative.condition);
-            Assert.thatUnchecked(condition.getDataType().getCode().equals(DataType.Code.BOOLEAN), ErrorCode.DATATYPE_MISMATCH,
+            Assert.thatUnchecked(condition.getDataType().getCode() == DataType.Code.BOOLEAN, ErrorCode.DATATYPE_MISMATCH,
                     "argument of case when must be of boolean type");
             final var consequent = visitFunctionArg(caseAlternative.consequent);
             implications.add(condition.getUnderlying());

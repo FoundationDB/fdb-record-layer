@@ -176,8 +176,7 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
 
         // form union of all possible match candidates that this rule application should look at
         final Set<MatchCandidate> childMatchCandidates = new LinkedIdentitySet<>();
-        for (int i = 0; i < rangesOverRefs.size(); i++) {
-            final Reference rangesOverGroup = rangesOverRefs.get(i);
+        for (final Reference rangesOverGroup : rangesOverRefs) {
             childMatchCandidates.addAll(rangesOverGroup.getMatchCandidates());
         }
 

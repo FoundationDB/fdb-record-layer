@@ -492,6 +492,7 @@ public final class TestBlock extends ConnectedBlock {
      * @throws InterruptedException thrown if the execution does not finish within a time-bound.
      * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
      */
+    @SuppressWarnings("PMD.CloseResource")
     private void executeInParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
         final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());

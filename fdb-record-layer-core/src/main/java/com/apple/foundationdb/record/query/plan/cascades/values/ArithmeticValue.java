@@ -157,7 +157,7 @@ public class ArithmeticValue extends AbstractValue {
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             ArithmeticValue otherArithmetic = (ArithmeticValue)other;
-            return operator.equals(otherArithmetic.operator);
+            return operator == otherArithmetic.operator;
         });
     }
 

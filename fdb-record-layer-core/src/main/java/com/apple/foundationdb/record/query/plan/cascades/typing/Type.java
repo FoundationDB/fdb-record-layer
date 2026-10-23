@@ -148,7 +148,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is any type, otherwise <code>false</code>.
      */
     default boolean isAny() {
-        return getTypeCode().equals(TypeCode.ANY);
+        return getTypeCode() == TypeCode.ANY;
     }
 
     /**
@@ -157,7 +157,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Array}, otherwise <code>false</code>.
      */
     default boolean isArray() {
-        return getTypeCode().equals(TypeCode.ARRAY);
+        return getTypeCode() == TypeCode.ARRAY;
     }
 
     /**
@@ -166,11 +166,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Record}, otherwise <code>false</code>.
      */
     default boolean isRecord() {
-        return getTypeCode().equals(TypeCode.RECORD);
+        return getTypeCode() == TypeCode.RECORD;
     }
 
     default boolean isVector() {
-        return getTypeCode().equals(TypeCode.VECTOR);
+        return getTypeCode() == TypeCode.VECTOR;
     }
 
     /**
@@ -179,7 +179,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Relation}, otherwise <code>false</code>.
      */
     default boolean isRelation() {
-        return getTypeCode().equals(TypeCode.RELATION);
+        return getTypeCode() == TypeCode.RELATION;
     }
 
     /**
@@ -188,7 +188,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Enum}, otherwise <code>false</code>.
      */
     default boolean isEnum() {
-        return getTypeCode().equals(TypeCode.ENUM);
+        return getTypeCode() == TypeCode.ENUM;
     }
 
     /**

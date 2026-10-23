@@ -49,7 +49,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         Verify.verify(callSiteArguments.isSimplePositional());
         final List<Value> arguments = callSiteArguments.getArgumentsList();
         Verify.verify(!arguments.isEmpty());
-        Verify.verify(arguments.get(0).getResultType().getTypeCode().equals(Type.TypeCode.STRING));
+        Verify.verify((arguments.get(0).getResultType().getTypeCode()) == Type.TypeCode.STRING);
         // dispatching happens at query-building time, therefore, the argument must be literal
         Verify.verify(arguments.get(0) instanceof LiteralValue<?>);
         final var literalValue = (LiteralValue<?>)arguments.get(0);

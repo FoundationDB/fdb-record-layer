@@ -68,7 +68,7 @@ public class LazyOpener<T> {
      * @return a new lazily opened object
      */
     public static <U> LazyOpener<U> supply(LazyOpener.Opener<U> opener) {
-        return new LazyOpener<U>(opener);
+        return new LazyOpener<>(opener);
     }
 
     /**

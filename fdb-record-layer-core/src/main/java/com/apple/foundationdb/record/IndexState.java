@@ -104,7 +104,7 @@ public enum IndexState {
      * @return <code>true</code> if this state is {@link #READABLE} and <code>false</code> otherwise
      */
     public boolean isReadable() {
-        return this.equals(READABLE);
+        return this == READABLE;
     }
 
     /**
@@ -116,7 +116,7 @@ public enum IndexState {
      * @return <code>true</code> if this state is {@link #READABLE_UNIQUE_PENDING} and <code>false</code> otherwise
      */
     public boolean isReadableUniquePending() {
-        return this.equals(READABLE_UNIQUE_PENDING);
+        return this == READABLE_UNIQUE_PENDING;
     }
 
     /**
@@ -135,7 +135,7 @@ public enum IndexState {
      * @return <code>true</code> if this state is {@link #WRITE_ONLY} and <code>false</code> otherwise
      */
     public boolean isWriteOnlyNoQueue() {
-        return this.equals(WRITE_ONLY);
+        return this == WRITE_ONLY;
     }
 
     /**
@@ -144,7 +144,7 @@ public enum IndexState {
      * @return <code>true</code> if this state is {@link #WRITE_ONLY_WITH_QUEUE} and <code>false</code> otherwise
      */
     public boolean isWriteOnlyWithQueue() {
-        return this.equals(WRITE_ONLY_WITH_QUEUE);
+        return this == WRITE_ONLY_WITH_QUEUE;
     }
 
     /**
@@ -163,7 +163,7 @@ public enum IndexState {
      * @return <code>true</code> if this state is {@link #DISABLED} and <code>false</code> otherwise
      */
     public boolean isDisabled() {
-        return this.equals(DISABLED);
+        return this == DISABLED;
     }
 
     public static IndexState fromCode(@Nonnull Object code) {
