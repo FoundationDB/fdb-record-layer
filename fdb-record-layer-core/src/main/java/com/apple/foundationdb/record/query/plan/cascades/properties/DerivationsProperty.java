@@ -71,6 +71,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMax1RecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
@@ -464,6 +465,13 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                 localValuesBuilder.add(onEmptyResultValue.translateCorrelations(resultsTranslationMap, true));
             }
             return new Derivations(childDerivations.getResultValues(), localValuesBuilder.build());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitMax1RecordPlan(@Nonnull final RecordQueryMax1RecordPlan max1RecordPlan) {
+            // The property passes straight through, as MAX 1 RECORD just flows the record of its inner unchanged.
+            return derivationsFromSingleChild(max1RecordPlan);
         }
 
         @Nonnull

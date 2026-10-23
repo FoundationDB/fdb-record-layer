@@ -1749,6 +1749,7 @@ message PRecordQueryPlan {
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
     PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
     PRecordQueryCoveringIndexValuePlan covering_index_value_plan = 41;
+    PRecordQueryMax1RecordPlan max_1_record_plan = 42;
   }
   // 25: PRecordQueryStreamingAggregationPlan -- superseded by field 38 (same message type, incompatible wire format); retired.
   reserved 25;
@@ -1910,6 +1911,13 @@ message PRecordQueryFilterPlanBase {
 message PRecordQueryFirstOrDefaultPlan {
   optional PPhysicalQuantifier inner = 1;
   optional PValue on_empty_result_value = 2;
+}
+
+//
+// PRecordQueryMax1RecordPlan
+//
+message PRecordQueryMax1RecordPlan {
+  optional PPhysicalQuantifier inner = 1;
 }
 
 //
