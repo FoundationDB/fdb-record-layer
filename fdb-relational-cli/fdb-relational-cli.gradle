@@ -69,6 +69,18 @@ dependencies {
     antlr(libs.antlr)
 }
 
+// Raise the jline3 submodules pulled in via sqlline from 3.21.0 to a fixed release, all at once so that they stay
+// mutually compatible. Version 3.21.0 is affected by the ReDoS vulnerabilities in `jline-reader` and `jline-builtins`
+// that Dependabot flags (CVE-2026-77420, CVE-2026-77421, and CVE-2026-77422), and sqlline cannot be bumped further.
+dependencies {
+    constraints {
+        ['jline-terminal', 'jline-terminal-jansi', 'jline-terminal-jna', 'jline-reader',
+                'jline-builtins', 'jline-style', 'jline-console'].each { jlineModule ->
+            implementation("org.jline:${jlineModule}:${libs.versions.jline3.get()}")
+        }
+    }
+}
+
 // We only set FDB_CLUSTER_FILE here, to help ensure that none of the other tests use it, but sqlline doesn't support
 // using a custom cluster file, so it has to come from the environment variable
 def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment.yaml")
