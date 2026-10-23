@@ -190,7 +190,7 @@ public final class ParseHelpers {
     /**
      * Converts the literal string value of a day-time interval literal into a signed number of milliseconds.
      * <p>
-     * The passed qualifiers {@code startField} and {@code endField} decides how the string is read,
+     * The passed qualifiers {@code startField} and {@code endField} decide how the string is read,
      * according to the SQL standard rules for interval literals. For example, {@code '90' MINUTE} and
      * {@code '1:30' HOUR TO MINUTE} mean the same interval, but {@code '1:30'} on its own could also
      * mean minutes and seconds. Without the qualifier there would be no single correct reading. If
