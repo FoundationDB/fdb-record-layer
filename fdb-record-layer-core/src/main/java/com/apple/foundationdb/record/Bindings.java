@@ -49,7 +49,8 @@ public class Bindings {
         IN("__in_"),
         RANK("__rank_"),
         CORRELATION("__corr_"),
-        CONSTANT("__const_");
+        CONSTANT("__const_"),
+        VALUE_FREE("__value_free_");
 
         public static final String PREFIX = "__";
         private final String value;

@@ -23,9 +23,11 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * A builder for {@link EvaluationContext}.
@@ -101,6 +103,18 @@ public class EvaluationContextBuilder {
 
     public EvaluationContextBuilder setConstant(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
         return setBinding(Bindings.Internal.CONSTANT.bindingName(alias.getId()), value);
+    }
+
+    /**
+     * Marks constants as value-free: they are planned without a value.
+     *
+     * @param alias the alias of the constant map
+     * @param constantIds the ids of the value-free constants
+     * @return this <code>EvaluationContextBuilder</code>
+     */
+    public EvaluationContextBuilder setValueFreeConstants(@Nonnull CorrelationIdentifier alias,
+                                                          @Nonnull Set<String> constantIds) {
+        return setBinding(Bindings.Internal.VALUE_FREE.bindingName(alias.getId()), ImmutableSet.copyOf(constantIds));
     }
 
     /**
