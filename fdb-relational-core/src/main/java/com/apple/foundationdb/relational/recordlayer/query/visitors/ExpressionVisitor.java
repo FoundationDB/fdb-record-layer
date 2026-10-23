@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayCon
 import com.apple.foundationdb.record.query.plan.cascades.values.ArrayAggValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CurrentTimestampValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -53,11 +54,12 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
-import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
+import com.apple.foundationdb.relational.recordlayer.query.QueryEvaluationConstants.QueryEvaluationConstant;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1203,7 +1205,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitDatetimeValueFunction(final RelationalParser.DatetimeValueFunctionContext ctx) {
-        return getDelegate().resolveFunction(ctx.functionName.getText());
+        return Expression.ofUnnamed(CurrentTimestampValue.of(
+                QueryEvaluationConstant.ConstantKind.EVALUATION_TIMESTAMP.getConstantObjectValue()));
     }
 
     @Nonnull
