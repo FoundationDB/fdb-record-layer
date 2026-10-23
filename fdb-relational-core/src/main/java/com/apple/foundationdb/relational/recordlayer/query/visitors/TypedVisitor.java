@@ -54,7 +54,6 @@ import java.util.Set;
  * {@link ExpressionVisitor} for more information.
  */
 public interface TypedVisitor extends RelationalParserVisitor<Object> {
-
     @Nonnull
     @Override
     Object visitRoot(@Nonnull RelationalParser.RootContext ctx);
@@ -751,10 +750,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx);
-
-    @Nonnull
-    @Override
     Object visitExpressionOrDefault(@Nonnull RelationalParser.ExpressionOrDefaultContext ctx);
 
     @Nonnull
@@ -787,11 +782,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx);
+    Object visitDatetimeValueFunctionCall(RelationalParser.DatetimeValueFunctionCallContext ctx);
 
     @Nonnull
     @Override
-    Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx);
+    Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx);
 
     @Nonnull
     @Override
@@ -836,6 +831,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitGetFormatFunctionCall(@Nonnull RelationalParser.GetFormatFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitDatetimeValueFunction(RelationalParser.DatetimeValueFunctionContext ctx);
 
     @Nonnull
     @Override
@@ -945,6 +944,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Object visitDatetimeIntervalArithmeticExpression(RelationalParser.DatetimeIntervalArithmeticExpressionContext ctx);
+
+    @Nonnull
+    @Override
     Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx);
 
     @Nonnull
@@ -958,6 +961,26 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitDatetimePlusMinusIntervalExpression(RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitIntervalPlusDatetimeExpression(RelationalParser.IntervalPlusDatetimeExpressionContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitIntervalLiteral(RelationalParser.IntervalLiteralContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitDayTimeIntervalQualifier(RelationalParser.DayTimeIntervalQualifierContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitDayTimeIntervalField(RelationalParser.DayTimeIntervalFieldContext ctx);
 
     @Nonnull
     @Override

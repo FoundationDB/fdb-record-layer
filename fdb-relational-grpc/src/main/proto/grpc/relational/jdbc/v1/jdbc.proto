@@ -180,6 +180,7 @@ message Options {
   }
   optional IsolationLevel isolation_level = 35;
   optional bool plan_cache_write_only = 36;
+  optional string fixed_epoch_timestamp_millis_for_current_datetime_functions = 37;
 }
 
 // Request that is part of a transactional (stateful) exchange

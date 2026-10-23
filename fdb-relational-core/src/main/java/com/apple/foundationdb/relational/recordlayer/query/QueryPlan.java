@@ -483,6 +483,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     i++;
                 }
 
+                queryExecutionContext.getEvaluationConstants()
+                        .stream()
+                        .map(evaluationConstant -> evaluationConstant.toProto(serializationContext))
+                        .forEach(compiledStatementBuilder::addEvaluationConstants);
+
                 compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext))
                         .setQueryMetadata(DataTypeUtils.toRecordLayerType(semanticStructType).toTypeProto(serializationContext));
                 continuationBuilder.withCompiledStatement(compiledStatementBuilder.build());

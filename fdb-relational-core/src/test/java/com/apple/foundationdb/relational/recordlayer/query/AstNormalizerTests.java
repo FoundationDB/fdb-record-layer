@@ -49,11 +49,14 @@ import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
@@ -61,6 +64,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
@@ -101,6 +105,9 @@ public class AstNormalizerTests {
 
     @Nonnull
     private static final PlannerConfiguration plannerConfiguration = PlannerConfiguration.ofAllAvailableIndexes();
+
+    @Nonnull
+    private static final QueryEvaluationConstants evaluationConstants = QueryEvaluationConstants.empty();
 
     private static void validate(@Nonnull final String query,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
@@ -262,7 +269,8 @@ public class AstNormalizerTests {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
             final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query),
-                    PreparedParams.copyOf(preparedParameters), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
+                    PreparedParams.copyOf(preparedParameters), plannerConfiguration, false,
+                    PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
             final var execParams = hashResults.getQueryExecutionContext();
@@ -312,7 +320,8 @@ public class AstNormalizerTests {
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
-                    PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
+                    PreparedParams.empty(), plannerConfiguration, false,
+                    PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
             Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -336,9 +345,11 @@ public class AstNormalizerTests {
                                             @Nonnull PreparedParams preparedParams2) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
-                PreparedParams.copyOf(preparedParams1), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams1), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, query1, evaluationConstants);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
-                PreparedParams.copyOf(preparedParams2), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams2), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, query2, evaluationConstants);
         Assertions.assertThat(result1.getQueryCacheKey().hashCode()).isNotEqualTo(result2.getQueryCacheKey().hashCode());
     }
 
@@ -351,9 +362,11 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
-                PreparedParams.copyOf(preparedParams), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, query1, evaluationConstants);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
-                PreparedParams.copyOf(preparedParams), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, query2, evaluationConstants);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -363,9 +376,11 @@ public class AstNormalizerTests {
                                          @Nonnull final RecordLayerSchemaTemplate schemaTemplate2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1),
-                PreparedParams.copyOf(preparedParams), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, query1, evaluationConstants);
         final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2),
-                PreparedParams.copyOf(preparedParams), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, query2, evaluationConstants);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -397,7 +412,8 @@ public class AstNormalizerTests {
         final String canonicalFunctionDdl;
         if (isTemporary) {
             final var normalizer = AstNormalizer.normalizeAst(schemaTemplate, QueryParser.parse(functionDdl), PreparedParams.empty(),
-                    plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+                    plannerConfiguration, false,
+                    PlanHashable.PlanHashMode.VC0, functionDdl, evaluationConstants);
             canonicalFunctionDdl = normalizer.getQueryCacheKey().getCanonicalQueryString();
         } else {
             canonicalFunctionDdl = functionDdl;
@@ -460,7 +476,8 @@ public class AstNormalizerTests {
         // are always case-insensitive, are still upper-cased.
         final var query = "select Col1, cOL2 from MyTable";
         final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+                PreparedParams.empty(), plannerConfiguration, true,
+                PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
         Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
                 .isEqualTo("SELECT \"Col1\" , \"cOL2\" FROM \"MyTable\" ");
     }
@@ -471,7 +488,8 @@ public class AstNormalizerTests {
         // when the option is off (quoting already forces case-sensitivity).
         final var query = "select \"Col1\", \"cOL2\" from \"MyTable\"";
         final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+                PreparedParams.empty(), plannerConfiguration, true,
+                PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
         Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
                 .isEqualTo("SELECT \"Col1\" , \"cOL2\" FROM \"MyTable\" ");
     }
@@ -482,7 +500,8 @@ public class AstNormalizerTests {
         // still normalize to upper case, while the quoted and unquoted identifiers keep their original casing.
         final var query = "sELeCt Col1 fROm MyTable whERe Col1 = \"cOl2\"";
         final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+                PreparedParams.empty(), plannerConfiguration, true,
+                PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
         Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
                 .isEqualTo("SELECT \"Col1\" FROM \"MyTable\" WHERE \"Col1\" = \"cOl2\" ");
     }
@@ -494,9 +513,11 @@ public class AstNormalizerTests {
         final var lowerQuery = "select col1 from mytable";
         final var upperQuery = "select COL1 from MYTABLE";
         final var lower = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(lowerQuery),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, lowerQuery);
+                PreparedParams.empty(), plannerConfiguration, true,
+                PlanHashable.PlanHashMode.VC0, lowerQuery, evaluationConstants);
         final var upper = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(upperQuery),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, upperQuery);
+                PreparedParams.empty(), plannerConfiguration, true,
+                PlanHashable.PlanHashMode.VC0, upperQuery, evaluationConstants);
         Assertions.assertThat(lower.getQueryCacheKey()).isNotEqualTo(upper.getQueryCacheKey());
         Assertions.assertThat(lower.getQueryCacheKey().hashCode()).isNotEqualTo(upper.getQueryCacheKey().hashCode());
     }
@@ -510,7 +531,7 @@ public class AstNormalizerTests {
         // identifier "select" keeps its exact case.
         final var query = "select \"col\" from \"select\"";
         final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
         Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
                 .isEqualTo("SELECT \"col\" FROM \"select\" ");
         // Quoted identifiers are always case-sensitive, so this holds with the option off too.
@@ -531,7 +552,8 @@ public class AstNormalizerTests {
         // characters, so it never confuses the quoted span for the SELECT keyword.
         final var query = "select * from \"sElECT\"";
         final var result = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
-                PreparedParams.empty(), plannerConfiguration, true, PlanHashable.PlanHashMode.VC0, query);
+                PreparedParams.empty(), plannerConfiguration, true,
+                PlanHashable.PlanHashMode.VC0, query, evaluationConstants);
         Assertions.assertThat(result.getQueryCacheKey().getCanonicalQueryString())
                 .isEqualTo("SELECT * FROM \"sElECT\" ");
         // Quoted identifiers are always case-sensitive, so the same holds with the option off.
@@ -571,9 +593,9 @@ public class AstNormalizerTests {
         final var commentedQuery = "select /* cols */ * from t1 /* SELECT ... DROP */ where col1 = 42 -- trailing\n";
 
         final var bareResult = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(bareQuery),
-                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, bareQuery);
+                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, bareQuery, evaluationConstants);
         final var commentedResult = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(commentedQuery),
-                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, commentedQuery);
+                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, commentedQuery, evaluationConstants);
 
         Assertions.assertThat(commentedResult.getQueryCacheKey().getCanonicalQueryString())
                 .as("canonical query string must be comment-free")
@@ -1797,7 +1819,7 @@ public class AstNormalizerTests {
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
                 QueryParser.parse(functionDdl), PreparedParams.empty(),
-                plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+                plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl, evaluationConstants);
         return normalizer.getQueryCacheKey().getCanonicalQueryString();
     }
 
@@ -1815,8 +1837,12 @@ public class AstNormalizerTests {
         final var selPT = QueryParser.parse(selQ);
         final var expPT = QueryParser.parse(expQ);
 
-        final var selRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, selPT, PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, selQ);
-        final var expRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, expPT, PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, expQ);
+        final var selRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, selPT,
+                PreparedParams.empty(), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, selQ, evaluationConstants);
+        final var expRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, expPT,
+                PreparedParams.empty(), plannerConfiguration, false,
+                PlanHashable.PlanHashMode.VC0, expQ, evaluationConstants);
 
         // compare NormalizationResult
         Assertions.assertThat(expRes.getQueryCacheKey().getCanonicalQueryString())
@@ -1833,9 +1859,9 @@ public class AstNormalizerTests {
     @Test
     void visitFullDescribeStatementThrows() throws ReflectiveOperationException {
         final var constructor = AstNormalizer.class.getDeclaredConstructor(
-                PreparedParams.class, boolean.class, PlanHashable.PlanHashMode.class, boolean.class);
+                PreparedParams.class, boolean.class, PlanHashable.PlanHashMode.class, boolean.class, QueryEvaluationConstants.class);
         constructor.setAccessible(true);
-        final AstNormalizer normalizer = constructor.newInstance(PreparedParams.empty(), false, PlanHashable.PlanHashMode.VC0, false);
+        final AstNormalizer normalizer = constructor.newInstance(PreparedParams.empty(), false, PlanHashable.PlanHashMode.VC0, false, QueryEvaluationConstants.empty());
 
         Assertions.assertThatThrownBy(() -> normalizer.visitFullDescribeStatement(new RelationalParser.FullDescribeStatementContext(null, -1)))
                 .isInstanceOf(UncheckedRelationalException.class)
@@ -1847,5 +1873,33 @@ public class AstNormalizerTests {
         final var key = QueryCacheKey.of("select ? from testTable", plannerConfiguration, "someAuxiliaryMetadata", 3);
         final var expected = "(3 || someAuxiliaryMetadata)||select ? from testTable||" + key.hashCode();
         Assertions.assertThat(key).hasToString(expected);
+    }
+
+    @Nonnull
+    private static Stream<Arguments> intervalLiteralsSource() {
+        return Stream.of(
+                Arguments.of("interval '2' day",
+                        Duration.ofDays(2)),
+                Arguments.of("interval '1 18:00:00' day to second",
+                        Duration.ofHours(24 + 18)),
+                Arguments.of("interval '05:01' minute to second",
+                        Duration.ofSeconds(5 * 60 + 1)),
+                Arguments.of("interval '7' minute",
+                        Duration.ofMinutes(7)),
+                Arguments.of("interval '28:59:50.512' hour to second",
+                        Duration.ofHours(28)
+                                .plus(Duration.ofMinutes(59))
+                                .plus(Duration.ofSeconds(50))
+                                .plus(Duration.ofMillis(512))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("intervalLiteralsSource")
+    void visitQueryWithDayTimeIntervalLiterals(@Nonnull String intervalLiteralString, @Nonnull Duration expectedDuration) throws Exception {
+        // Verify that different day-time INTERVAL literals with different qualifiers all share
+        // the same canonical representation.
+        validate("select * from T where timestamp > current_timestamp() - " + intervalLiteralString,
+                "SELECT * FROM \"T\" WHERE \"TIMESTAMP\" > CURRENT_TIMESTAMP ( ) - INTERVAL ? DAY TO SECOND ",
+                Map.of(constantId(12), expectedDuration.toMillis()));
     }
 }

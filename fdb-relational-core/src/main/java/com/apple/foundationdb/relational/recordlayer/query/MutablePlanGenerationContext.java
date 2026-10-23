@@ -74,6 +74,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     private final Literals.Builder literalsBuilder;
 
+    @Nonnull
+    private final QueryEvaluationConstants evaluationConstants;
+
     private final int parameterHash;
 
     @Nonnull
@@ -270,14 +273,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
                                         @Nonnull String query,
                                         @Nonnull String canonicalQueryString,
-                                        int parameterHash) {
+                                        int parameterHash,
+                                        @Nonnull QueryEvaluationConstants evaluationConstants) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
         this.query = query;
         this.canonicalQueryString = canonicalQueryString;
         this.parameterHash = parameterHash;
         literalsBuilder = Literals.newBuilder();
-        constantObjectValues = new LinkedList<>();
+        this.evaluationConstants = evaluationConstants;
+        constantObjectValues = new LinkedList<>(evaluationConstants.stream()
+                .map(constant -> constant.getKind().getConstantObjectValue()).toList());
         shouldProcessLiteral = true;
         forExplain = false;
         continuation = null;
@@ -309,6 +315,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public Literals.Builder getLiteralsBuilder() {
         return literalsBuilder;
+    }
+
+    @Nonnull
+    @Override
+    public QueryEvaluationConstants getEvaluationConstants() {
+        return evaluationConstants;
     }
 
     @Nonnull
@@ -354,7 +366,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public boolean isForExplain() {
         return forExplain;
     }
-
 
     @Nonnull
     public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
