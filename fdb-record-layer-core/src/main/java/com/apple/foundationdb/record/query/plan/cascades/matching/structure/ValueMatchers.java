@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregati
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.SortKeysValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -233,7 +234,10 @@ public class ValueMatchers {
 
     @Nonnull
     public static BindingMatcher<StreamableAggregateValue> streamableAggregateValue() {
-        return streamableAggregateValue(exactly(ImmutableList.of(anyValue())));
+        // Note: An aggregate has the aggregated expression as its only child, unless it carries an in-call ORDER BY
+        // clause, whose sort keys it then holds as a second child.
+        return streamableAggregateValue(exactly(anyValue()))
+                .or(streamableAggregateValue(exactly(anyValue(), sortKeysValue())));
     }
 
     @Nonnull
@@ -241,6 +245,11 @@ public class ValueMatchers {
         return typedWithDownstream(StreamableAggregateValue.class,
                 Extractor.of(StreamableAggregateValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);
+    }
+
+    @Nonnull
+    public static BindingMatcher<SortKeysValue> sortKeysValue() {
+        return typed(SortKeysValue.class);
     }
 
     @Nonnull
