@@ -23,14 +23,16 @@ options:
 schema_template:
   create table t1(col1 bigint, col2 string, timestamp bigint, primary key(col1))
   create index i1 AS select timestamp from t1 where timestamp > 10
+  create function f1 () as select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL '10' DAY
+  create function yesterday() as CURRENT_TIMESTAMP() - INTERVAL '1' DAY
 ---
 setup:
   options:
     connection_options:
       FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS: !l 1789747756400
   steps:
-    - query: INSERT INTO T1 
-             VALUES (1, 'a', CURRENT_TIMESTAMP), 
+    - query: INSERT INTO T1
+             VALUES (1, 'a', CURRENT_TIMESTAMP),
                     (2, 'b', CURRENT_TIMESTAMP)
 ---
 test_block:
@@ -48,14 +50,13 @@ test_block:
       - result: [{s: !l 1789747756400, id: !l 1}]
       - result: [{s: !l 1789747756400, id: !l 2}]
       - result: []
-
     -
       - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP()
-      - explain: "COVERING(I1 [[GREATER_THAN current_timestamp()]] -> [COL1: KEY:[2], TIMESTAMP: KEY:[0]]) | MAP (_.COL1 AS COL1)"
+      - explain: "COVERING(I1 [[GREATER_THAN current_timestamp(@__evaluation_timestamp)]] -> [COL1: KEY:[2], TIMESTAMP: KEY:[0]]) | MAP (_.COL1 AS COL1)"
       - result: []
     -
       - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL '10' DAY
-      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp() - @c12 | MAP (_.COL1 AS COL1)"
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp) - @c12 | MAP (_.COL1 AS COL1)"
       - result: [{col1: !l 1}, {col1: !l 2}]
     -
       - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL -'-10' DAY
@@ -69,3 +70,21 @@ test_block:
     -
       - query: select col1 from t1 where timestamp < INTERVAL '1' DAY - CURRENT_TIMESTAMP
       - error: SYNTAX_ERROR
+    -
+      - query: select * from f1
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp) - 864000000l | MAP (_.COL1 AS COL1)"
+      - result: [{col1: !l 1}, {col1: !l 2}]
+    -
+      - query: select * from f2
+      - setup: create temporary function f2 () on commit drop function as select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL '10' DAY
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp) - @cF223 | MAP (_.COL1 AS COL1)"
+      - result: [{col1: !l 1}, {col1: !l 2}]
+    -
+      - query: select col1 from t1 where timestamp > yesterday()
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp) - 86400000l | MAP (_.COL1 AS COL1)"
+      - result: [{col1: !l 1}, {col1: !l 2}]
+    -
+      - query: select col1 from t1 where timestamp > yesterday_temp()
+      - setup: create temporary function yesterday_temp () on commit drop function as CURRENT_TIMESTAMP() - INTERVAL '1' DAY
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp) - 86400000l | MAP (_.COL1 AS COL1)"
+      - result: [{col1: !l 1}, {col1: !l 2}]
