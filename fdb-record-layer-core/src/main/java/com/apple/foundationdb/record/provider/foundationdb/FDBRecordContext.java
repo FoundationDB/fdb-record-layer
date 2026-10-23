@@ -617,7 +617,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 });
         // Instrument batch priority transactions and non-batch priority transactions separately as additional latency
         // is expected from back pressure on batch priority transactions.
-        StoreTimer.Event grvEvent = FDBTransactionPriority.BATCH.equals(config.getPriority()) ? FDBStoreTimer.Events.BATCH_GET_READ_VERSION : FDBStoreTimer.Events.GET_READ_VERSION;
+        StoreTimer.Event grvEvent = FDBTransactionPriority.BATCH == config.getPriority() ? FDBStoreTimer.Events.BATCH_GET_READ_VERSION : FDBStoreTimer.Events.GET_READ_VERSION;
         localReadVersionFuture = instrument(grvEvent, localReadVersionFuture, startTimeNanos);
         readVersionFuture = localReadVersionFuture;
         return localReadVersionFuture;
@@ -1473,7 +1473,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                                         @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {
         NonnullPair<MutationType, byte[]> valuePair = NonnullPair.of(mutationType, value);
         return versionMutationCache.merge(key, valuePair, (origPair, newPair) -> {
-            if (origPair.getLeft().equals(newPair.getLeft())) {
+            if (origPair.getLeft() == newPair.getLeft()) {
                 byte[] newValue = remappingFunction.apply(origPair.getRight(), newPair.getRight());
                 return newValue == null ? null : NonnullPair.of(origPair.getLeft(), newValue);
             } else {

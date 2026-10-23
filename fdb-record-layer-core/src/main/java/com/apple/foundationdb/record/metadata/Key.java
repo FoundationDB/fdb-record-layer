@@ -49,6 +49,7 @@ import java.util.List;
 /**
  * Namespace for classes related to {@link KeyExpression} construction and evaluation.
  */
+@SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass")
 @API(API.Status.UNSTABLE)
 public class Key {
 
@@ -294,7 +295,7 @@ public class Key {
          */
         @Nonnull
         public static <T> LiteralKeyExpression<T> value(@Nullable T value) {
-            return new LiteralKeyExpression<T>(value);
+            return new LiteralKeyExpression<>(value);
         }
 
         /**

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.tags;
 
-import com.apple.foundationdb.linear.HalfRealVector;
 import com.google.auto.service.AutoService;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.Construct;
@@ -40,7 +39,7 @@ public final class Vector16Tag extends AbstractVectorTag {
         @Override
         @Nonnull
         public Matchable construct(Node node) {
-            return new VectorMatcher<HalfRealVector>(node, 16);
+            return new VectorMatcher<>(node, 16);
         }
     };
 

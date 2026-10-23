@@ -122,7 +122,7 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> evaluation.equals(((EvaluatesToValue)other).getEvaluation()));
+                .filter(ignored -> evaluation == ((EvaluatesToValue)other).getEvaluation());
     }
 
     @Override

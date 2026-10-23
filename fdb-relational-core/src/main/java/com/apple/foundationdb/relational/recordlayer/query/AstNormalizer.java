@@ -445,6 +445,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return param;
     }
 
+    @SuppressWarnings("PMD.UnusedAssignment") // false positive: allowTokenAddition is a field read by visit() between the assignments
     @Override
     public Object visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
         if (ctx.NOT() != null) {

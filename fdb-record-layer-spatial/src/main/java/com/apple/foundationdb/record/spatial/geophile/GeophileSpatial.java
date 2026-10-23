@@ -162,7 +162,7 @@ class GeophileSpatial {
 
     // Wrap thread-unsafe I/O classes in a thread-local.
 
-    private static final ThreadLocal<IO> io = new ThreadLocal<IO>() {
+    private static final ThreadLocal<IO> io = new ThreadLocal<>() {
             @Override
             protected IO initialValue() {
                 return new IO();

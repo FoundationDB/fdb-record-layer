@@ -200,7 +200,7 @@ public class MetaDataProtoEditor {
         }
         for (DescriptorProtos.FieldDescriptorProto.Builder unionField : unionBuilder.getFieldBuilderList()) {
             final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionDescriptor, unionField, recordTypeName);
-            if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
+            if (FieldTypeMatch.MATCHES == unionFieldMatch
                     && (foundField == null
                                 || isCanonicalUnionFieldName(unionField.getName(), recordTypeName)
                                 || unionField.getNumber() > foundField.getNumber())) {
@@ -442,7 +442,7 @@ public class MetaDataProtoEditor {
         boolean found = false;
         for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : unionBuilder.getFieldBuilderList()) {
             final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, unionDescriptor, fieldBuilder, recordType);
-            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch) || FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
+            if (FieldTypeMatch.MATCHES == fieldTypeMatch || FieldTypeMatch.MATCHES_AS_NESTED == fieldTypeMatch) {
                 setDeprecated(fieldBuilder);
                 found = true;
             }
@@ -744,7 +744,7 @@ public class MetaDataProtoEditor {
         }
 
         // Do not allow renaming to the default union name unless the record type is already the union.
-        if (DEFAULT_UNION_NAME.equals(newRecordTypeName) && !RecordTypeOptions.Usage.UNION.equals(usage)) {
+        if (DEFAULT_UNION_NAME.equals(newRecordTypeName) && RecordTypeOptions.Usage.UNION != usage) {
             throw new MetaDataException("Cannot rename record type to the default union name", LogMessageKeys.RECORD_TYPE, recordTypeName);
         }
 
@@ -752,7 +752,7 @@ public class MetaDataProtoEditor {
         renameRecordTypeUsages(recordsBuilder, recordTypeName, newRecordTypeName, fileDescriptor);
 
         // If the record type is a top-level record type, change its usage elsewhere in the metadata.
-        if (RecordTypeOptions.Usage.RECORD.equals(usage)) {
+        if (RecordTypeOptions.Usage.RECORD == usage) {
             renameTopLevelRecordType(metaDataBuilder, recordTypeName, newRecordTypeName);
         }
 
@@ -801,9 +801,9 @@ public class MetaDataProtoEditor {
         // Rename any fields within the record type to the new type name.
         for (DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
             final FieldTypeMatch fieldTypeMatch = fieldIsType(descriptorForMessage, field, fullRecordTypeName);
-            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
+            if (FieldTypeMatch.MATCHES == fieldTypeMatch) {
                 field.setTypeName(fullNewRecordTypeName);
-            } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
+            } else if (FieldTypeMatch.MATCHES_AS_NESTED == fieldTypeMatch) {
                 final String fullOldFieldTypeName = Objects.requireNonNull(
                         resolveFieldTypeFullName(descriptorForMessage, field),
                         "A field matching as nested must reference a named type");
@@ -1130,7 +1130,7 @@ public class MetaDataProtoEditor {
                     rename.unionField != null && rename.canonicalFieldName.equals(rename.unionField.getName());
 
             // Prevent renaming a non-UNION type to the default union name.
-            if (!rename.usage.equals(RecordTypeOptions.Usage.UNION) && rename.newName.equals(DEFAULT_UNION_NAME)) {
+            if (rename.usage != RecordTypeOptions.Usage.UNION && DEFAULT_UNION_NAME.equals(rename.newName)) {
                 throw new MetaDataException(
                         "Cannot rename record type to the default union name",
                         LogMessageKeys.RECORD_TYPE, rename.name);
@@ -1140,7 +1140,7 @@ public class MetaDataProtoEditor {
             // is indistinguishable from the union by name alone, so renaming it would flip its `record.usage` option to
             // UNION and leave the records descriptor with two types claiming to be the union. (This case can only be
             // reached with a raw proto, since `RecordMetaDataBuilder` rejects such a descriptor outright.)
-            if (!rename.usage.equals(RecordTypeOptions.Usage.UNION) && rename.name.equals(DEFAULT_UNION_NAME)) {
+            if (rename.usage != RecordTypeOptions.Usage.UNION && DEFAULT_UNION_NAME.equals(rename.name)) {
                 throw new MetaDataException(
                         "Cannot rename a non-union record type that has the default union name",
                         LogMessageKeys.RECORD_TYPE, rename.name);
@@ -1227,7 +1227,7 @@ public class MetaDataProtoEditor {
             // this from the `usage` rather than via `name.equals(DEFAULT_UNION_NAME)`. This is to prevent a type that is
             // named DEFAULT_UNION_NAME for some reason from being mislabelled. (Though such a type is normally
             // rejected upfront by `determineRecordTypeUnionFieldsAndUsages()`.)
-            if (rename.usage.equals(RecordTypeOptions.Usage.UNION)
+            if (rename.usage == RecordTypeOptions.Usage.UNION
                     && getMessageTypeUsage(mtb) != RecordTypeOptions.Usage.UNION) {
                 setMessageTypeUsage(mtb, RecordTypeOptions.Usage.UNION);
             }

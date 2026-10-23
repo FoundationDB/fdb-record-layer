@@ -45,10 +45,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.DOT_PRODUCT_DISTANCE;
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_DISTANCE;
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_SQUARE_DISTANCE;
 
 /**
  * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential

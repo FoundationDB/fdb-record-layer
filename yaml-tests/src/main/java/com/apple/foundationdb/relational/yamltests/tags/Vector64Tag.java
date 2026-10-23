@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.tags;
 
-import com.apple.foundationdb.linear.DoubleRealVector;
 import com.google.auto.service.AutoService;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.Construct;
@@ -40,7 +39,7 @@ public final class Vector64Tag extends AbstractVectorTag {
         @Override
         @Nonnull
         public Matchable construct(Node node) {
-            return new VectorMatcher<DoubleRealVector>(node, 64);
+            return new VectorMatcher<>(node, 64);
         }
     };
 

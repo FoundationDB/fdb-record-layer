@@ -608,10 +608,7 @@ public class MaxMatchMap {
                 final var childrenResultsBuilder =
                         ImmutableList.<Collection<Map.Entry<Value, MatchResult>>>builder();
                 int i = 0;
-                for (final var childrenIterator = children.iterator();
-                         childrenIterator.hasNext(); i++) {
-                    final var child = childrenIterator.next();
-
+                for (final var child : children) {
                     if (logger.isTraceEnabled()) {
                         logger.trace("recursing into child max_depth_bound={}, value={}", childrenMaxDepthBound, child);
                     }
@@ -621,6 +618,7 @@ public class MaxMatchMap {
                                     expandedValues);
 
                     childrenResultsBuilder.add(childrenResultsMap.entrySet());
+                    i++;
                 }
 
                 final var childrenResults = childrenResultsBuilder.build();
@@ -628,15 +626,14 @@ public class MaxMatchMap {
                     boolean areAllChildrenSame = true;
                     final var childrenValuesBuilder = ImmutableList.<Value>builder();
                     i = 0;
-                    for (final var currentChildrenIterator = children.iterator();
-                             currentChildrenIterator.hasNext(); i++) {
-                        final Value child = currentChildrenIterator.next();
+                    for (final Value child : children) {
                         final var childrenResultsEntry = childrenResultEntries.get(i);
                         final var key = childrenResultsEntry.getKey();
                         if (child != key) {
                             areAllChildrenSame = false;
                         }
                         childrenValuesBuilder.add(key);
+                        i++;
                     }
                     Verify.verify(i == childrenResultEntries.size());
 

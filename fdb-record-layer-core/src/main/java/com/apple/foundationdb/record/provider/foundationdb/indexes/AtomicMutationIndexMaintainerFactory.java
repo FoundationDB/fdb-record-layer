@@ -113,7 +113,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
                 }
-                if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
+                if (AtomicMutation.Standard.MAX_EVER_VERSION == mutation) {
                     validateVersionInGroupedKeys();
                 } else {
                     validateNotVersion();

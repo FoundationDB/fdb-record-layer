@@ -67,6 +67,7 @@ snakeyaml = "2.7"
 
 checkstyle = "14.3.0"
 jacoco = "0.8.14"
+pmd = "7.28.0"
 spotbugs = "4.10.4"
 
 [libraries]

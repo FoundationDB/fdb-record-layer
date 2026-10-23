@@ -261,7 +261,7 @@ public class IndexScrubbing extends IndexingBase {
     protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
         // HERE: The index must be readable, checked by the caller.
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
-        validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
+        validateOrThrowEx(indexingTypeStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR,
                 "Not a scrubber type-stamp");
 
         final Index index = common.getIndex(); // Note: multi targets mode is not supported (yet)

@@ -1219,7 +1219,7 @@ public abstract class IndexingBase {
                                           @Nullable String id,
                                           @Nullable  Long ttlSeconds) {
 
-        if (op == null || stamp == null || op.equals(IndexingStampOperation.QUERY)) {
+        if (op == null || stamp == null || op == IndexingStampOperation.QUERY) {
             newStamps.put(index.getName(), stamp != null ? stamp :
                                            IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                                                    .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)

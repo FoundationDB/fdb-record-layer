@@ -90,6 +90,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         this.keySpace = keySpace;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     @Override
     public RelationalConnection connect(@Nullable Transaction transaction) throws RelationalException {
         if (!(transaction instanceof RecordStoreAndRecordContextTransaction)) {

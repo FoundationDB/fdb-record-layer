@@ -137,7 +137,7 @@ public final class PlannerConfiguration {
         }
         final var that = (PlannerConfiguration) other;
         return Objects.equals(readableIndexes, that.readableIndexes)
-                && this.indexFetchMethod.equals(that.indexFetchMethod)
+                && this.indexFetchMethod == that.indexFetchMethod
                 && this.disabledAllPlannerRules == that.disabledAllPlannerRules
                 && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules)
                 && this.planRightDeep == that.planRightDeep
