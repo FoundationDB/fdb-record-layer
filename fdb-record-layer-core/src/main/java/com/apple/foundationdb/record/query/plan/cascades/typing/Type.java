@@ -2407,7 +2407,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             final var otherType = (Record)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) ||
+                    ((isErased() && otherType.isErased()) ||
                     (Objects.requireNonNull(fields).equals(otherType.fields)));
         }
 
@@ -3064,7 +3064,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             final var otherType = (Relation)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
+                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
         }
 
         @Nonnull
@@ -3311,7 +3311,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             final var otherType = (Array)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
+                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
         }
 
         @Nonnull

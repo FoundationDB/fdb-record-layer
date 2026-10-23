@@ -1058,7 +1058,7 @@ public class PlannerRepl implements Debugger {
             }
             final OnRuleBreakPoint that = (OnRuleBreakPoint)o;
             return ruleNamePrefix.equals(that.ruleNamePrefix) &&
-                   location == that.location;
+                    location == that.location;
         }
 
         @Override
@@ -1119,7 +1119,7 @@ public class PlannerRepl implements Debugger {
             }
             final OnRuleCallBreakPoint that = (OnRuleCallBreakPoint)o;
             return ruleNamePrefix.equals(that.ruleNamePrefix) &&
-                   location == that.location;
+                    location == that.location;
         }
 
         @Override

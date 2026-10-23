@@ -96,9 +96,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         @Override
         public String toString() {
             return "SplitRecordsTestConfig{" +
-                   "unrollRecordDeletes=" + unrollRecordDeletes +
-                   ", loadViaGets=" + loadViaGets +
-                   '}';
+                    "unrollRecordDeletes=" + unrollRecordDeletes +
+                    ", loadViaGets=" + loadViaGets +
+                    '}';
         }
 
         static Stream<SplitRecordsTestConfig> allConfigs() {
@@ -371,7 +371,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                 .setRecNo(1L)
                 .setStrValueIndexed("abc")
                 .build();
-        FDBStoredRecord<Message> saved = recordStore.saveRecord(record);
+        final FDBStoredRecord<Message> saved = recordStore.saveRecord(record);
 
         // Update the meta-data and format version
         metaData.addIndex("MySimpleRecord", "num_value_2");
@@ -537,7 +537,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         byte[] bytes;
         bytes = new byte[10000];
         rand.nextBytes(bytes);
-        ByteString bytes1 = ByteString.copyFrom(bytes);
+        final ByteString bytes1 = ByteString.copyFrom(bytes);
         bytes = new byte[250000];
         rand.nextBytes(bytes);
         ByteString bytes2 = ByteString.copyFrom(bytes);

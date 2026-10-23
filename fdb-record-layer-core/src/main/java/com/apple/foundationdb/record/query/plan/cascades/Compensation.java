@@ -527,16 +527,16 @@ public interface Compensation {
         @Override
         default boolean isNeeded() {
             return getChildCompensation().isNeeded() ||
-                   !getUnmatchedForEachQuantifiers().isEmpty() ||
-                   !getPredicateCompensationMap().isEmpty() ||
-                   getResultCompensationFunction().isNeeded();
+                    !getUnmatchedForEachQuantifiers().isEmpty() ||
+                    !getPredicateCompensationMap().isEmpty() ||
+                    getResultCompensationFunction().isNeeded();
         }
 
         @Override
         default boolean isNeededForFiltering() {
             return getChildCompensation().isNeededForFiltering() ||
-                   !getUnmatchedForEachQuantifiers().isEmpty() ||
-                   !getPredicateCompensationMap().isEmpty();
+                    !getUnmatchedForEachQuantifiers().isEmpty() ||
+                    !getPredicateCompensationMap().isEmpty();
         }
 
         @Override

@@ -590,7 +590,7 @@ public class QueryPredicateSimplificationRuleTest {
             for (int i = 0; i < depth; i++) {
                 isAnd = random.nextBoolean();
                 currentLevel = isAnd ? generateRandomAndPredicate(currentLevel, trueConstantLiteralPredicates)
-                      : generateRandomOrPredicate(needleAtLeaf, falseConstantLiteralPredicates);
+                        : generateRandomOrPredicate(needleAtLeaf, falseConstantLiteralPredicates);
             }
             return currentLevel;
         }

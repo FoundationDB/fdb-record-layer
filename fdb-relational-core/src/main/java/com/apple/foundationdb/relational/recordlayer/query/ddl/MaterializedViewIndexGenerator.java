@@ -161,7 +161,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
             return keyExpression;
         }
         return splitPoint < spec.projection().fieldValues().size()
-               ? keyWithValue(keyExpression, splitPoint) : keyExpression;
+                ? keyWithValue(keyExpression, splitPoint) : keyExpression;
     }
 
     /**

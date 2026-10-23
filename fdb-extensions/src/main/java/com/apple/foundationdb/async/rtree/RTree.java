@@ -315,8 +315,8 @@ public class RTree {
         @Override
         public String toString() {
             return storage + ", M=" + minM + "-" + maxM + ", S=" + splitS +
-                   (useNodeSlotIndex ? ", slotIndex" : "") +
-                   (storeHilbertValues ? ", storeHV" : "");
+                    (useNodeSlotIndex ? ", slotIndex" : "") +
+                    (storeHilbertValues ? ", storeHV" : "");
         }
     }
 

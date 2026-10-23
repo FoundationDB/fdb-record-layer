@@ -425,8 +425,8 @@ public abstract class IndexingBase {
     @Nonnull
     private CompletableFuture<Void> drainPendingQueueIfNeeded(Index index) {
         return common.getQueuedIndexes().contains(index) ?
-               getIndexingDrainer(index).drainPendingQueue(store -> updateHeartbeat(store, index)) :
-               AsyncUtil.DONE;
+                getIndexingDrainer(index).drainPendingQueue(store -> updateHeartbeat(store, index)) :
+                AsyncUtil.DONE;
     }
 
     private CompletableFuture<Void> assertEmptyQueueIfNeeded(FDBRecordStore store, Index index) {
@@ -523,7 +523,7 @@ public abstract class IndexingBase {
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
         return newStamp.equals(savedStamp) // The common case, or so we hope
-               || blocklessStampOf(newStamp).equals(blocklessStampOf(savedStamp));
+                || blocklessStampOf(newStamp).equals(blocklessStampOf(savedStamp));
     }
 
     private static IndexBuildProto.IndexBuildIndexingStamp blocklessStampOf(IndexBuildProto.IndexBuildIndexingStamp stamp) {
@@ -968,8 +968,8 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> updateHeartbeat(FDBRecordStore store, Index index) {
         return heartbeat == null || !store.getIndexState(index).isWriteOnly() ?
-               AsyncUtil.DONE :
-               heartbeat.checkAndUpdateHeartbeat(store, index);
+                AsyncUtil.DONE :
+                heartbeat.checkAndUpdateHeartbeat(store, index);
     }
 
     private CompletableFuture<Void> clearHeartbeats() {
@@ -1015,7 +1015,7 @@ public abstract class IndexingBase {
 
     private static boolean isTypeStampBlocked(final IndexBuildProto.IndexBuildIndexingStamp typeStamp) {
         return typeStamp.getBlock() &&
-               (typeStamp.getBlockExpireEpochMilliSeconds() == 0 ||
+                (typeStamp.getBlockExpireEpochMilliSeconds() == 0 ||
                 typeStamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
     }
 
