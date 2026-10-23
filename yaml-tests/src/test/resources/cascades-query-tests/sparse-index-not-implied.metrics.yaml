@@ -1,0 +1,13 @@
+sparse-index-not-implied:
+-   query: EXPLAIN select num_value_2 from my_simple_record where num_value_2 > 50
+    ref: sparse-index-not-implied.yamsql:61
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
+        GREATER_THAN promote(@c7 AS INT) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2)
+    task_count: 685
+    task_total_time_ms: 8
+    transform_count: 181
+    transform_time_ms: 4
+    transform_yield_count: 60
+    insert_time_ms: 0
+    insert_new_count: 79
+    insert_reused_count: 8

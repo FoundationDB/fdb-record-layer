@@ -1,0 +1,123 @@
+#
+# nested-field-query.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nested`, `.nested2` and `.nested3` — comparisons on a field
+# inside a repeated nested message, matched by a fan-out index.
+#
+# Index set: the RestaurantRecord half of `FDBRecordStoreQueryTestBase.nestedMetaData`, unmodified.
+# `oneOfThem()` becomes a correlated `EXISTS` over the unnested array, and each fan-out index becomes
+# a lateral over it (the `create index ir_f as select sq.f from r, (select f from r.nr) sq` idiom from
+# subquery-tests.yamsql).
+#
+# The RestaurantReviewer half of that metadata is not here. `nestedMetaData` puts both record types in
+# one store, but every query in this file pins `setRecordType("RestaurantRecord")`, so the reviewer
+# rows and the `stats$school` index are unreachable from it. Keeping the table out lets the file use
+# INTERMINGLE_TABLES=true: with two tables in one template the record-type prefix is required to keep
+# their primary keys apart, and RestaurantRecord.rest_no and RestaurantReviewer.id would collide.
+# The reviewer tests live in the nested-field-query-reviewer* siblings.
+#
+# Also not reproduced: `addUniversalIndex(globalCountIndex())`. A universal index spans record types,
+# which `RecordLayerSchemaTemplate.computeIndexes` cannot express. It is a COUNT index over the whole
+# store and no query here can match it.
+#
+# Deviation in the data: the source restaurant names are "The Emperor's Three Tables" and "Small Fry's
+# Fried Victuals". The apostrophes are dropped. A SQL literal spells one as the doubled quote `''`,
+# and decoding that only landed in 4.13.5.0 (b9790b9af) — an older server in a mixed-mode
+# configuration would read the value back with the escape still in it. The names are never queried.
+#
+# KNOWN PLAN DIVERGENCE, do not read the generated explains as a match. The source asserts
+# `unorderedPrimaryKeyDistinctPlan(...)` around each of these scans; the SQL plans below have no
+# distinct operator at all. That operator is not derived from the fan-out — it comes from
+# `RecordQuery.removeDuplicates`, which defaults to true, so `RelationalExpression.fromRecordQuery:163`
+# wraps every record-layer graph in a `LogicalDistinctExpression`. The SQL front end adds no such blanket
+# distinct.
+#
+# For `nested3` that is harmless: its scan binds the fan-out component to an equality, so it yields at
+# most one entry per record. For `nested` and `nested2` it is not — both leave the fan-out component
+# *range*-bounded, so a record with two array elements in the range comes back twice. This data has no
+# such record (101's ratings are 10 and 3; each restaurant has one tag), which is the only reason they
+# pass. nested-field-query-doubly-nested.yamsql has one, and its query is skipped for it. See
+# .out/issue-exists-fanout-no-distinct.md.
+---
+schema_template:
+    create type as struct restaurant_review(reviewer bigint, rating integer)
+    create type as struct restaurant_tag(value string, weight integer)
+    create table restaurant_record(
+        rest_no bigint,
+        name string,
+        reviews restaurant_review array,
+        tags restaurant_tag array,
+        customer string array,
+        primary key(rest_no))
+    create index restaurant_record_name as select name from restaurant_record
+    create index review_rating as
+        select sq.rating from restaurant_record as r, (select rating from r.reviews) sq
+        order by sq.rating
+    create index tag as
+        select sq.value, sq.weight from restaurant_record as r, (select value, weight from r.tags) sq
+        order by sq.value, sq.weight
+    create index customers as
+        select sq.c from restaurant_record as r, (select c from r.customer as c) sq order by sq.c
+    create index customers_name as
+        select sq.c, r.name from restaurant_record as r, (select c from r.customer as c) sq
+        order by sq.c, r.name
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_RECORD (REST_NO, NAME, REVIEWS, TAGS, CUSTOMER)
+             VALUES
+               (101, 'The Emperors Three Tables', [(1, 10), (2, 3)], [('Lilliput', 5)], []),
+               (102, 'Small Frys Fried Victuals', [(1, 5), (2, 5)], [('Lilliput', 1)], [])
+---
+test_block:
+  name: nested-field-query
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nested
+      # Only restaurant 101 has a review rated above 5 (the 10 from reviewer 1).
+      - query: select * from restaurant_record as r
+               where exists (select 1 from r.reviews as rv where rv.rating > 5)
+      - explain: "ISCAN(REVIEW_RATING [[GREATER_THAN promote(@c22 AS INT)]])"
+      - result: [{REST_NO: 101, NAME: 'The Emperors Three Tables',
+                  REVIEWS: [{REVIEWER: 1, RATING: 10}, {REVIEWER: 2, RATING: 3}],
+                  TAGS: [{VALUE: 'Lilliput', WEIGHT: 5}], CUSTOMER: []}]
+    -
+      # nested2
+      # Both restaurants carry a 'Lilliput' tag; only 101 weights it at 5 or more.
+      - query: select * from restaurant_record as r
+               where exists (select 1 from r.tags as t where t.value = 'Lilliput' and t.weight >= 5)
+      - explain: "ISCAN(TAG [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c29 AS INT)]])"
+      - result: [{REST_NO: 101, NAME: 'The Emperors Three Tables',
+                  REVIEWS: [{REVIEWER: 1, RATING: 10}, {REVIEWER: 2, RATING: 3}],
+                  TAGS: [{VALUE: 'Lilliput', WEIGHT: 5}], CUSTOMER: []}]
+    -
+      # nested3 — two conditions on the *same* array element, only one of which the index bounds.
+      #
+      # The source notes that Cascades costs the index plan above the primary scan here, and that up to
+      # 5 records are discarded. Restaurant 102 is the only one with a rating of 5, and reviewer 1 is
+      # one of the two who gave it.
+      - query: select * from restaurant_record as r
+               where exists (select 1 from r.reviews as rv where rv.rating = 5 and rv.reviewer = 1)
+      - explain: "ISCAN(REVIEW_RATING [EQUALS promote(@c22 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.REVIEWS | FILTER _.RATING EQUALS promote(@c22 AS INT) AND _.REVIEWER EQUALS promote(@c28 AS LONG) | MAP (@c28 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }"
+      - result: [{REST_NO: 102, NAME: 'Small Frys Fried Victuals',
+                  REVIEWS: [{REVIEWER: 1, RATING: 5}, {REVIEWER: 2, RATING: 5}],
+                  TAGS: [{VALUE: 'Lilliput', WEIGHT: 1}], CUSTOMER: []}]
+...

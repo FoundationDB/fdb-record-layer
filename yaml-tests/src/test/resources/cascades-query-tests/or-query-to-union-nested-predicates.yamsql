@@ -1,0 +1,129 @@
+#
+# or-query-to-union-nested-predicates.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrQueryToUnionTest.testNestedPredicates` (:1337) and
+# `.testNestedPredicatesWithExtraUnorderedColumns` (:1388). Same index, same store; they differ only in
+# the sort — the first sorts by (stats.start_date, name), the second by stats.start_date alone.
+#
+# Both assert `unionOnValuesPlan` over two covering scans of the added index with
+# `range("[EQUALS 0, EQUALS $townN]")`, and a comparison key of
+# (stats.start_date, name, stats.hometown, id) for the first (:1368) and
+# (stats.start_date, stats.hometown, name, id) for the second (:1416).
+#
+# `REVIEWER_CATGORY_STATS` mirrors the source's index name `Reviewer$catgory_stats` (:1338), typo
+# included.
+#
+# Schema: the RestaurantReviewer half of `FDBRecordStoreQueryTestBase.nestedMetaData` — which the
+# source's hook adds to, hence STATS_SCHOOL and RESTAURANT_REVIEWER_NAME — plus the added index. The
+# RestaurantRecord half is omitted; see the header of nested-field-query.yamsql.
+#
+# Parameterization: `nestedFieldTestParams` (:271) is forward/reverse x normalizeNestedFields, and
+# `setNormalizeNestedFields` is read only on the `RecordQueryPlanner` path, so each method is two
+# Cascades cases — the two directions.
+#
+# Projection is the source's `setRequiredResults` list (:1355, :1406) rather than `select *`, because
+# both methods assert *covering* legs with no fetch above the union.
+#
+# The source saves no records; the rows below are invented. START_DATE is distinct across all matching
+# rows so both sorts are total. ID 5 is excluded by hometown, ID 6 by category.
+#
+# Lost: plan hashes, and `assertEquals(orQueryParams.isSortReverse(), plan.isReverse())`.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    create index reviewer_catgory_stats as
+        select category, stats.hometown, stats.start_date, name from restaurant_reviewer
+        order by category, stats.hometown, stats.start_date, name
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Alice', 'alice@example.com', (10, 'School A', 'Home Town'), 0),
+               (2, 'Bob', 'bob@example.com', (20, 'School B', 'Real Place'), 0),
+               (3, 'Carol', 'carol@example.com', (15, 'School C', 'Home Town'), 0),
+               (4, 'Dave', 'dave@example.com', (25, 'School D', 'Real Place'), 0),
+               (5, 'Eve', 'eve@example.com', (5, 'School E', 'Elsewhere'), 0),
+               (6, 'Frank', 'frank@example.com', (12, 'School F', 'Home Town'), 1),
+               (7, 'Grace', 'grace@example.com', (22, 'School G', 'Home Town'), 0)
+---
+test_block:
+  name: or-query-to-union-nested-predicates
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testNestedPredicates
+      - query: select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+               where category = 0
+                 and (stats.hometown = 'Home Town' or stats.hometown = 'Real Place')
+               order by stats.start_date, name
+      - explain: "COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c24 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.NAME, _.STATS.HOMETOWN, _.ID) | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID AS ID, _.NAME AS NAME)"
+      - result: [{START_DATE: 10, HOMETOWN: 'Home Town', ID: 1, NAME: 'Alice'},
+                 {START_DATE: 15, HOMETOWN: 'Home Town', ID: 3, NAME: 'Carol'},
+                 {START_DATE: 20, HOMETOWN: 'Real Place', ID: 2, NAME: 'Bob'},
+                 {START_DATE: 22, HOMETOWN: 'Home Town', ID: 7, NAME: 'Grace'},
+                 {START_DATE: 25, HOMETOWN: 'Real Place', ID: 4, NAME: 'Dave'}]
+    -
+      # testNestedPredicates, reverse
+      - query: select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+               where category = 0
+                 and (stats.hometown = 'Home Town' or stats.hometown = 'Real Place')
+               order by stats.start_date desc, name desc
+      - explain: "COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c24 AS STRING)] REVERSE -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] REVERSE -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.NAME, _.STATS.HOMETOWN, _.ID) | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID AS ID, _.NAME AS NAME)"
+      - result: [{START_DATE: 25, HOMETOWN: 'Real Place', ID: 4, NAME: 'Dave'},
+                 {START_DATE: 22, HOMETOWN: 'Home Town', ID: 7, NAME: 'Grace'},
+                 {START_DATE: 20, HOMETOWN: 'Real Place', ID: 2, NAME: 'Bob'},
+                 {START_DATE: 15, HOMETOWN: 'Home Town', ID: 3, NAME: 'Carol'},
+                 {START_DATE: 10, HOMETOWN: 'Home Town', ID: 1, NAME: 'Alice'}]
+    -
+      # testNestedPredicatesWithExtraUnorderedColumns — NAME left out of the sort.
+      - query: select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+               where category = 0
+                 and (stats.hometown = 'Home Town' or stats.hometown = 'Real Place')
+               order by stats.start_date
+      - explain: "COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c24 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.STATS.HOMETOWN, _.NAME, _.ID) | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID AS ID, _.NAME AS NAME)"
+      - result: [{START_DATE: 10, HOMETOWN: 'Home Town', ID: 1, NAME: 'Alice'},
+                 {START_DATE: 15, HOMETOWN: 'Home Town', ID: 3, NAME: 'Carol'},
+                 {START_DATE: 20, HOMETOWN: 'Real Place', ID: 2, NAME: 'Bob'},
+                 {START_DATE: 22, HOMETOWN: 'Home Town', ID: 7, NAME: 'Grace'},
+                 {START_DATE: 25, HOMETOWN: 'Real Place', ID: 4, NAME: 'Dave'}]
+    -
+      # testNestedPredicatesWithExtraUnorderedColumns, reverse
+      - query: select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+               where category = 0
+                 and (stats.hometown = 'Home Town' or stats.hometown = 'Real Place')
+               order by stats.start_date desc
+      - explain: "COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c24 AS STRING)] REVERSE -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] REVERSE -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.STATS.HOMETOWN, _.NAME, _.ID) | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID AS ID, _.NAME AS NAME)"
+      - result: [{START_DATE: 25, HOMETOWN: 'Real Place', ID: 4, NAME: 'Dave'},
+                 {START_DATE: 22, HOMETOWN: 'Home Town', ID: 7, NAME: 'Grace'},
+                 {START_DATE: 20, HOMETOWN: 'Real Place', ID: 2, NAME: 'Bob'},
+                 {START_DATE: 15, HOMETOWN: 'Home Town', ID: 3, NAME: 'Carol'},
+                 {START_DATE: 10, HOMETOWN: 'Home Town', ID: 1, NAME: 'Alice'}]
+...

@@ -1,0 +1,184 @@
+#
+# record-store-query-exclude-null.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRecordStoreQueryTest.queryExcludeNull` — `num_value_3_indexed < 2` must not pick up
+# the rows where the column is NULL. In the record layer that is visible in the scan range,
+# `([null],[2])`: the low end excludes null rather than starting at the beginning of the index.
+#
+# Its own file for the *data*: the index set is bare `test_records_1.proto`
+# (`openSimpleRecordStore` with no hook), as in the `-even-odd`, `-continuation` and `-null` siblings.
+# Here only every second row sets NUM_VALUE_3_INDEXED (to i % 5); the other fifty leave it NULL, which
+# is the whole point. STR_VALUE_INDEXED, NUM_VALUE_UNIQUE and NUM_VALUE_2 are never set either.
+#
+# Fifty NULLs under a unique index is fine and matches the source: a null in an index key is a
+# "non-unique null" by default, so `StandardIndexMaintainer` skips the uniqueness check for it.
+#
+# The source asserts a count of 20 and that every returned row has a non-null value below 2; it
+# asserts no order and sets no sort, so the expectation here is unordered.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: |
+        INSERT INTO MY_SIMPLE_RECORD
+          (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED, REPEATER)
+        VALUES
+          (0, null, null, null, 0, []),
+          (1, null, null, null, null, []),
+          (2, null, null, null, 2, []),
+          (3, null, null, null, null, []),
+          (4, null, null, null, 4, []),
+          (5, null, null, null, null, []),
+          (6, null, null, null, 1, []),
+          (7, null, null, null, null, []),
+          (8, null, null, null, 3, []),
+          (9, null, null, null, null, []),
+          (10, null, null, null, 0, []),
+          (11, null, null, null, null, []),
+          (12, null, null, null, 2, []),
+          (13, null, null, null, null, []),
+          (14, null, null, null, 4, []),
+          (15, null, null, null, null, []),
+          (16, null, null, null, 1, []),
+          (17, null, null, null, null, []),
+          (18, null, null, null, 3, []),
+          (19, null, null, null, null, []),
+          (20, null, null, null, 0, []),
+          (21, null, null, null, null, []),
+          (22, null, null, null, 2, []),
+          (23, null, null, null, null, []),
+          (24, null, null, null, 4, []),
+          (25, null, null, null, null, []),
+          (26, null, null, null, 1, []),
+          (27, null, null, null, null, []),
+          (28, null, null, null, 3, []),
+          (29, null, null, null, null, []),
+          (30, null, null, null, 0, []),
+          (31, null, null, null, null, []),
+          (32, null, null, null, 2, []),
+          (33, null, null, null, null, []),
+          (34, null, null, null, 4, []),
+          (35, null, null, null, null, []),
+          (36, null, null, null, 1, []),
+          (37, null, null, null, null, []),
+          (38, null, null, null, 3, []),
+          (39, null, null, null, null, []),
+          (40, null, null, null, 0, []),
+          (41, null, null, null, null, []),
+          (42, null, null, null, 2, []),
+          (43, null, null, null, null, []),
+          (44, null, null, null, 4, []),
+          (45, null, null, null, null, []),
+          (46, null, null, null, 1, []),
+          (47, null, null, null, null, []),
+          (48, null, null, null, 3, []),
+          (49, null, null, null, null, []),
+          (50, null, null, null, 0, []),
+          (51, null, null, null, null, []),
+          (52, null, null, null, 2, []),
+          (53, null, null, null, null, []),
+          (54, null, null, null, 4, []),
+          (55, null, null, null, null, []),
+          (56, null, null, null, 1, []),
+          (57, null, null, null, null, []),
+          (58, null, null, null, 3, []),
+          (59, null, null, null, null, []),
+          (60, null, null, null, 0, []),
+          (61, null, null, null, null, []),
+          (62, null, null, null, 2, []),
+          (63, null, null, null, null, []),
+          (64, null, null, null, 4, []),
+          (65, null, null, null, null, []),
+          (66, null, null, null, 1, []),
+          (67, null, null, null, null, []),
+          (68, null, null, null, 3, []),
+          (69, null, null, null, null, []),
+          (70, null, null, null, 0, []),
+          (71, null, null, null, null, []),
+          (72, null, null, null, 2, []),
+          (73, null, null, null, null, []),
+          (74, null, null, null, 4, []),
+          (75, null, null, null, null, []),
+          (76, null, null, null, 1, []),
+          (77, null, null, null, null, []),
+          (78, null, null, null, 3, []),
+          (79, null, null, null, null, []),
+          (80, null, null, null, 0, []),
+          (81, null, null, null, null, []),
+          (82, null, null, null, 2, []),
+          (83, null, null, null, null, []),
+          (84, null, null, null, 4, []),
+          (85, null, null, null, null, []),
+          (86, null, null, null, 1, []),
+          (87, null, null, null, null, []),
+          (88, null, null, null, 3, []),
+          (89, null, null, null, null, []),
+          (90, null, null, null, 0, []),
+          (91, null, null, null, null, []),
+          (92, null, null, null, 2, []),
+          (93, null, null, null, null, []),
+          (94, null, null, null, 4, []),
+          (95, null, null, null, null, []),
+          (96, null, null, null, 1, []),
+          (97, null, null, null, null, []),
+          (98, null, null, null, 3, []),
+          (99, null, null, null, null, [])
+---
+test_block:
+  name: record-store-query-exclude-null
+  preset: single_repetition_ordered
+  tests:
+    -
+      # queryExcludeNull
+      - query: select * from my_simple_record where num_value_3_indexed < 2
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[LESS_THAN promote(@c7 AS INT)]])"
+      - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 6, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 10, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 16, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 20, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 26, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 30, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 36, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 40, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 46, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 50, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 56, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 60, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 66, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 70, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 76, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 80, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 86, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 90, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 96, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: []}]
+...

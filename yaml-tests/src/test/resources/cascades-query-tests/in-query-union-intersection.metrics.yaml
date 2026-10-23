@@ -1,0 +1,55 @@
+in-query-union-intersection:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and
+        str_value_indexed in ('even') order by num_value_3_indexed
+    ref: in-query-union-intersection.yamsql:59
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION
+        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED:
+        KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3
+        [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
+        KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
+        (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO, _.NUM_VALUE_2)'
+    task_count: 2548
+    task_total_time_ms: 321
+    transform_count: 888
+    transform_time_ms: 166
+    transform_yield_count: 215
+    insert_time_ms: 25
+    insert_new_count: 336
+    insert_reused_count: 29
+-   query: EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and
+        str_value_indexed in ('odd') order by num_value_3_indexed
+    ref: in-query-union-intersection.yamsql:99
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION
+        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED:
+        KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3
+        [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
+        KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
+        (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO, _.NUM_VALUE_2)'
+    task_count: 2548
+    task_total_time_ms: 321
+    transform_count: 888
+    transform_time_ms: 166
+    transform_yield_count: 215
+    insert_time_ms: 25
+    insert_new_count: 336
+    insert_reused_count: 29
+-   query: EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and
+        str_value_indexed in ('even', 'odd', 'other') order by num_value_3_indexed
+    ref: in-query-union-intersection.yamsql:138
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION
+        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED:
+        KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3
+        [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
+        KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
+        (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO, _.NUM_VALUE_2)'
+    task_count: 2548
+    task_total_time_ms: 321
+    transform_count: 888
+    transform_time_ms: 166
+    transform_yield_count: 215
+    insert_time_ms: 25
+    insert_new_count: 336
+    insert_reused_count: 29

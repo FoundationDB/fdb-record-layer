@@ -1,0 +1,127 @@
+#
+# nested-field-query-doubly-nested.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.doublyNested` — the fan-out sits two levels down, inside a
+# repeated message that is itself inside a non-repeated one. Two structurally identical indexes exist,
+# one per branch, and the query must pick the branch it actually names.
+#
+# Its own file: `openDoublyNestedRecordStore` builds `test_records_5.proto` with `alarm_start` and
+# `event_start`. The `versions` index of `openConcatNestedRecordStore` lives in
+# nested-field-query-concat-nested.yamsql.
+#
+# `Recurrence.uuid` is omitted from the struct. UUID is a primitive type name in the SQL grammar, so
+# the column would have to be quoted, and no test in this class reads it.
+#
+# ALARM_INDEX is never set, exactly as in the source, where only `eventIndex` is populated. It is what
+# keeps `alarm_start` from being a candidate on data as well as on shape.
+#
+# ---------------------------------------------------------------------------------------------------
+# CURRENTLY FAILING — `@Disabled` on the suite method, because the single query below is the failing one
+# and a block with every query skipped will not parse.
+# so this file runs and reports as passing while that query does not execute. See the SKIPPED note there.
+#
+# The query returns ev1, ev3, ev3 — three rows for three matching index entries. `EXISTS` in a WHERE
+# clause is a predicate: it cannot multiply the outer row. The expectation below is the correct answer
+# and is left as it is.
+#
+# The plan the SQL layer produces is a bare `ISCAN(EVENT_START ([10],>))`. `EVENT_START` has one entry
+# per `recurrence` element and the range is open-ended, so the scan yields one row per matching element
+# and nothing above it deduplicates. ev3's two recurrences start at 15 and 25 — two entries in range.
+# That is what makes this the one case in the class that exposes it: elsewhere the fan-out component is
+# equality-bound, so the scan can match at most one element per record.
+#
+# This is not a SQL-layer-only defect. The `unorderedPrimaryKeyDistinctPlan` the source asserts
+#
+#     fetchFromPartialRecordPlan(unorderedPrimaryKeyDistinctPlan(coveringIndexPlan(event_start ([10],>))))
+#
+# is not derived from the fan-out: it is there because `RecordQuery.Builder.removeDuplicates` defaults to
+# true and `RelationalExpression.fromRecordQuery:163` therefore wraps every record-layer graph in a
+# `LogicalDistinctExpression`. So no test that builds a `RecordQuery` can observe this, and
+# `setRemoveDuplicates(false)` should reproduce it. The SQL front end builds its graph directly and adds
+# no blanket distinct — correctly, since SQL does not deduplicate rows — and nothing then discharges the
+# at-most-one obligation the existential quantifier creates.
+#
+# Analysis and reproduction: .out/issue-exists-fanout-no-distinct.md.
+# ---------------------------------------------------------------------------------------------------
+---
+schema_template:
+    create type as struct recurrence_record(start bigint, end bigint)
+    create type as struct alarm_index_record(version integer, recurrence recurrence_record array)
+    create type as struct calendar_event_index_record(version integer,
+        recurrence recurrence_record array)
+    create table calendar_event(
+        path string,
+        content bytes,
+        props bytes,
+        alarm_index alarm_index_record,
+        event_index calendar_event_index_record,
+        primary key(path))
+    create index alarm_start as
+        select sq.start from calendar_event as r, (select start from r.alarm_index.recurrence) sq
+        order by sq.start
+    create index event_start as
+        select sq.start from calendar_event as r, (select start from r.event_index.recurrence) sq
+        order by sq.start
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO CALENDAR_EVENT (PATH, EVENT_INDEX)
+             VALUES
+               ('ev1', (null, [(2, 2), (12, 12)])),
+               ('ev2', (null, [(5, 5)])),
+               ('ev3', (null, [(15, 15), (25, 25)]))
+---
+test_block:
+  name: nested-field-query-doubly-nested
+  preset: single_repetition_ordered
+  tests:
+    -
+      # doublyNested
+      # Three index entries are above 10 — ev1's 12 and ev3's 15 and 25 — and the distinct collapses
+      # ev3's two, which is the one discarded record the source allows for. Emission order is
+      # primary-key order after the fetch: 'ev1' then 'ev3'.
+      - query: select * from calendar_event as r
+               where exists (select 1 from r.event_index.recurrence as rc where rc.start > 10)
+      # ── SKIPPED, NOT PASSING ─────────────────────────────────────────────────────────────────────────
+      # Returns ev1, ev3, ev3 where the answer is ev1, ev3. EXISTS in a WHERE clause is a
+      # predicate and cannot multiply the outer row, but the plan is the bare fan-out scan
+      # ISCAN(EVENT_START ([10],>)) whose range is open-ended, so it yields one row per matching
+      # element with nothing above it to deduplicate. Not SQL-specific: the distinct
+      # FDBNestedFieldQueryTest.doublyNested asserts comes from RecordQuery's removeDuplicates
+      # flag, which defaults to true and makes fromRecordQuery wrap every record-layer graph in
+      # a LogicalDistinctExpression — so no record-layer test can see this, and
+      # setRemoveDuplicates(false) should reproduce it. Only ev3 exposes it (recurrences at 15
+      # and 25); elsewhere the fan-out component is equality-bound, so at most one element per
+      # record can match. See .out/issue-exists-fanout-no-distinct.md.
+      # This is the ONLY query in this file, so it cannot be parked with a per-query
+      # `supported_version` sentinel: a test block whose every query is skipped has no executables and
+      # `TestBlock.parse:409` rejects it with "have no tests to execute". The suite method is `@Disabled`
+      # instead. That costs nothing here — there are no other queries to switch off as collateral — but do
+      # NOT reach for `@Disabled` in a file that has working siblings; use the sentinel there. Re-enable
+      # the method when the defect is fixed; the expectation below is the correct answer and is
+      # deliberately left as it is.
+      - explain: ""
+      - result: [{PATH: 'ev1', CONTENT: !null _, PROPS: !null _, ALARM_INDEX: !null _,
+                  EVENT_INDEX: {VERSION: !null _,
+                                RECURRENCE: [{START: 2, END: 2}, {START: 12, END: 12}]}},
+                 {PATH: 'ev3', CONTENT: !null _, PROPS: !null _, ALARM_INDEX: !null _,
+                  EVENT_INDEX: {VERSION: !null _,
+                                RECURRENCE: [{START: 15, END: 15}, {START: 25, END: 25}]}}]
+...

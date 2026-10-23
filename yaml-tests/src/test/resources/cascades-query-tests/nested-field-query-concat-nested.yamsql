@@ -1,0 +1,106 @@
+#
+# nested-field-query-concat-nested.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.testConcatNested` — one index whose two components come from two
+# *different* non-repeated nested messages. A predicate on the first alone bounds a prefix; predicates
+# on both bound the whole key; an inequality on the first plus a sort on it needs no sort operator.
+#
+# Its own file: `openConcatNestedRecordStore` builds `test_records_5.proto` with only the `versions`
+# index. The `alarm_start` / `event_start` pair of `openDoublyNestedRecordStore` lives in
+# nested-field-query-doubly-nested.yamsql.
+#
+# `Recurrence.uuid` is omitted — see nested-field-query-doubly-nested.yamsql. The two version columns
+# have to be aliased apart in the index's projection because a projection cannot produce two columns
+# named VERSION; the ORDER BY still names the paths, which is what fixes the key order.
+#
+# The source notes that ev3/ev4 and ev5/ev6 could come back in either order, since it only cares that
+# the alarm versions are ordered. Through the index the order is fully determined — (2,4), (2,6),
+# (3,1), (3,2) — so the assertions here are ordered.
+---
+schema_template:
+    create type as struct recurrence_record(start bigint, end bigint)
+    create type as struct alarm_index_record(version integer, recurrence recurrence_record array)
+    create type as struct calendar_event_index_record(version integer,
+        recurrence recurrence_record array)
+    create table calendar_event(
+        path string,
+        content bytes,
+        props bytes,
+        alarm_index alarm_index_record,
+        event_index calendar_event_index_record,
+        primary key(path))
+    create index versions as
+        select alarm_index.version as alarm_version, event_index.version as event_version
+        from calendar_event
+        order by alarm_index.version, event_index.version
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO CALENDAR_EVENT (PATH, ALARM_INDEX, EVENT_INDEX)
+             VALUES
+               ('ev1', (1, []), (1, [])),
+               ('ev2', (1, []), (2, [])),
+               ('ev3', (2, []), (4, [])),
+               ('ev4', (2, []), (6, [])),
+               ('ev5', (3, []), (1, [])),
+               ('ev6', (3, []), (2, []))
+---
+test_block:
+  name: nested-field-query-concat-nested
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testConcatNested
+      - query: select * from calendar_event where alarm_index.version = 3
+      - explain: "ISCAN(VERSIONS [EQUALS promote(@c9 AS INT)])"
+      - result: [{PATH: 'ev5', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 3, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 1, RECURRENCE: []}},
+                 {PATH: 'ev6', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 3, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 2, RECURRENCE: []}}]
+    -
+      # testConcatNested
+      - query: select * from calendar_event
+               where alarm_index.version = 2 and event_index.version = 6
+      - explain: "ISCAN(VERSIONS [EQUALS promote(@c9 AS INT), EQUALS promote(@c15 AS INT)])"
+      - result: [{PATH: 'ev4', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 2, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 6, RECURRENCE: []}}]
+    -
+      # testConcatNested
+      # already delivers it.
+      - query: select * from calendar_event
+               where alarm_index.version > 1
+               order by alarm_index.version
+      - explain: "ISCAN(VERSIONS [[GREATER_THAN promote(@c9 AS INT)]])"
+      - result: [{PATH: 'ev3', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 2, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 4, RECURRENCE: []}},
+                 {PATH: 'ev4', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 2, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 6, RECURRENCE: []}},
+                 {PATH: 'ev5', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 3, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 1, RECURRENCE: []}},
+                 {PATH: 'ev6', CONTENT: !null _, PROPS: !null _,
+                  ALARM_INDEX: {VERSION: 3, RECURRENCE: []},
+                  EVENT_INDEX: {VERSION: 2, RECURRENCE: []}}]
+...

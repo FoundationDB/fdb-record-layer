@@ -1,0 +1,237 @@
+permuted-min-max:
+-   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
+        as m from my_simple_record group by num_value_2, num_value_3_indexed order
+        by num_value_2
+    ref: permuted-min-max.yamsql:77
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 <,> BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 448
+    task_total_time_ms: 9
+    transform_count: 129
+    transform_time_ms: 6
+    transform_yield_count: 58
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
+        as m from my_simple_record group by num_value_2, num_value_3_indexed order
+        by num_value_2 desc
+    ref: permuted-min-max.yamsql:99
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 <,> BY_GROUP REVERSE -> [_0:
+        KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 448
+    task_total_time_ms: 9
+    transform_count: 129
+    transform_time_ms: 5
+    transform_yield_count: 58
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = -1 group by num_value_3_indexed
+    ref: permuted-min-max.yamsql:122
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 612
+    task_total_time_ms: 12
+    transform_count: 178
+    transform_time_ms: 7
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 0 group by num_value_3_indexed
+    ref: permuted-min-max.yamsql:131
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 612
+    task_total_time_ms: 12
+    transform_count: 178
+    transform_time_ms: 7
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 1 group by num_value_3_indexed
+    ref: permuted-min-max.yamsql:144
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 612
+    task_total_time_ms: 12
+    transform_count: 178
+    transform_time_ms: 7
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 2 group by num_value_3_indexed
+    ref: permuted-min-max.yamsql:157
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 612
+    task_total_time_ms: 12
+    transform_count: 178
+    transform_time_ms: 7
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 3 group by num_value_3_indexed
+    ref: permuted-min-max.yamsql:170
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 612
+    task_total_time_ms: 12
+    transform_count: 178
+    transform_time_ms: 7
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 4 group by num_value_3_indexed
+    ref: permuted-min-max.yamsql:179
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 612
+    task_total_time_ms: 12
+    transform_count: 178
+    transform_time_ms: 7
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 60
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 1 group by num_value_3_indexed order by max(num_value_unique)
+    ref: permuted-min-max.yamsql:191
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED,
+        _._2 AS M)'
+    task_count: 381
+    task_total_time_ms: 9
+    transform_count: 120
+    transform_time_ms: 6
+    transform_yield_count: 54
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 1 group by num_value_3_indexed order by max(num_value_unique)
+        desc
+    ref: permuted-min-max.yamsql:204
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT)]
+        BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS
+        NUM_VALUE_3_INDEXED, _._2 AS M)'
+    task_count: 381
+    task_total_time_ms: 8
+    transform_count: 120
+    transform_time_ms: 5
+    transform_yield_count: 54
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 0 group by num_value_3_indexed having max(num_value_unique)
+        < 994
+    ref: permuted-min-max.yamsql:219
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT),
+        [LESS_THAN promote(@c24 AS INT)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2:
+        KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS M)'
+    task_count: 648
+    task_total_time_ms: 12
+    transform_count: 186
+    transform_time_ms: 7
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 66
+    insert_reused_count: 3
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 0 group by num_value_3_indexed having max(num_value_unique)
+        < 994 order by max(num_value_unique)
+    ref: permuted-min-max.yamsql:230
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT),
+        [LESS_THAN promote(@c24 AS INT)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2:
+        KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS M)'
+    task_count: 406
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        where num_value_2 = 0 group by num_value_3_indexed having max(num_value_unique)
+        < 994 order by max(num_value_unique) desc
+    ref: permuted-min-max.yamsql:241
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS promote(@c14 AS INT),
+        [LESS_THAN promote(@c24 AS INT)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2],
+        _2: KEY:[1]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS M)'
+    task_count: 406
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 6
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
+        as m from my_simple_record group by num_value_2, num_value_3_indexed having
+        num_value_2 in (0, 2) order by max(num_value_unique) desc
+    ref: permuted-min-max.yamsql:253
+    explain: '[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) |
+        MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
+        BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
+    task_count: 556
+    task_total_time_ms: 12
+    transform_count: 221
+    transform_time_ms: 8
+    transform_yield_count: 63
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
+        as m from my_simple_record group by num_value_2, num_value_3_indexed having
+        num_value_2 in (1, 1) order by max(num_value_unique) desc
+    ref: permuted-min-max.yamsql:272
+    explain: '[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) |
+        MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
+        BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
+    task_count: 556
+    task_total_time_ms: 12
+    transform_count: 221
+    transform_time_ms: 8
+    transform_yield_count: 63
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
+        as m from my_simple_record group by num_value_2, num_value_3_indexed having
+        num_value_2 in (-1, -1) order by max(num_value_unique) desc
+    ref: permuted-min-max.yamsql:285
+    explain: '[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) |
+        MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
+        BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
+    task_count: 556
+    task_total_time_ms: 12
+    transform_count: 221
+    transform_time_ms: 8
+    transform_yield_count: 63
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 0

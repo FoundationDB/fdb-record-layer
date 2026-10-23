@@ -1,0 +1,13 @@
+restricted-index-write-only:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed >= 5
+    ref: restricted-index-write-only.yamsql:92
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_3_INDEXED
+        GREATER_THAN_OR_EQUALS promote(@c8 AS INT)
+    task_count: 423
+    task_total_time_ms: 4
+    transform_count: 105
+    transform_time_ms: 2
+    transform_yield_count: 42
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 4

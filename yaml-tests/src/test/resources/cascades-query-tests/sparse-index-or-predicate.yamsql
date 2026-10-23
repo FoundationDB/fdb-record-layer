@@ -1,0 +1,63 @@
+#
+# sparse-index-or-predicate.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `SparseIndexTest.sparseIndexIsUsedWhenItsOrPredicateIsImplied` — the index predicate is a disjunction `num_value_2 > 42 OR num_value_2 < 10`. The query's
+# `num_value_2 > 50` implies the first disjunct, so the index is usable.
+#
+# The source builds the sparse index by hand, attaching an `IndexPredicate` to a VALUE index over
+# NUM_VALUE_2; in SQL that is a `WHERE` clause on `CREATE INDEX ... AS SELECT`. `complexQuerySetup`
+# supplies the data, but NUM_VALUE_2 is i % 3 so nothing satisfies `> 50` — the source asserts only
+# the plan and never executes the query. The real assertion is the `explain:` value: whether the
+# sparse index is matched at all.
+#
+# Overlaps the existing sparse-index-tests.yamsql; per the migration decision this directory owns the
+# port of the SparseIndexTest cases.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index sparse_index as select num_value_2 from my_simple_record
+        where num_value_2 > 42 or num_value_2 < 10
+    create index repeater_fanout as
+        select sq.v from my_simple_record as r, (select v from r.repeater as v) as sq order by sq.v
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: sparse-index-or-predicate
+  preset: single_repetition_ordered
+  tests:
+    -
+      # sparseIndexIsUsedWhenItsOrPredicateIsImplied
+      # MAP(Covering(Index(SparseIndex ([50],>))))
+      - query: select num_value_2 from my_simple_record where num_value_2 > 50
+      - explain: "COVERING(SPARSE_INDEX [[GREATER_THAN promote(@c7 AS INT)]] -> [NUM_VALUE_2: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2)"
+      - result: []
+...

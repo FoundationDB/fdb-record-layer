@@ -1,0 +1,89 @@
+#
+# in-query-or-overlap.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBInQueryTest.testInQueryOrOverlap` — an OR of two `IN` lists on the same indexed
+# column that share a value (905), so the union has to deduplicate.
+#
+# CURRENTLY FAILING, and not because of the expectation below. Executing this query raises
+#
+#   RecordCoreException: java.lang.ClassCastException:
+#     class com.google.protobuf.ByteString$LiteralByteString cannot be cast to
+#     class java.lang.Comparable
+#
+# The expectation is right: the source executes this plan and asserts exactly these five records —
+# `assertEquals(5, querySimpleRecordStore(...))` with NUM_VALUE_UNIQUE in (901, 903, 904, 905, 906)
+# and no duplicated REC_NO — and it passes under both planners in `fdb-record-layer-core`. So the same
+# logical plan works through the record-layer API and throws through the SQL layer.
+#
+# The plan the source asserts for Cascades is
+#   Fetch(Union(inValuesJoin(Covering(...num_value_unique)) over [901, 903, 905],
+#               inValuesJoin(Covering(...num_value_unique)) over [904, 905, 906])
+# A ByteString reaching a `Comparable` cast suggests something serialized — a per-leg continuation, or
+# an IN-list value that has been packed — is being fed to the union's comparison. Note the sibling
+# `testInQueryOr` (an IN list OR'd with a *range*, in in-query-or.yamsql) plans a union over the same
+# index and works; it is specifically OR-of-two-IN-lists that fails.
+#
+# Isolated into its own file so the other five cases in in-query-or.yamsql can run; the suite entry is
+# `@Disabled` on the suite method — this file holds only the one failing query, so there is nothing to
+# switch off as collateral. See the note on the query itself.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: in-query-or-overlap
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testInQueryOrOverlap
+      - query: select * from my_simple_record
+               where num_value_unique in (903, 905, 901) or num_value_unique in (906, 905, 904)
+      # ── SKIPPED, NOT PASSING ─────────────────────────────────────────────────────────────────────────
+      # Raises ClassCastException: ByteString$LiteralByteString cannot be cast to Comparable.
+      # The expectation is correct: FDBInQueryTest.testInQueryOrOverlap executes the same plan,
+      # asserts these five records, and passes under both planners. See
+      # .out/issue-in-or-bytestring-cce.md.
+      # This is the ONLY query in this file, so it cannot be parked with a per-query
+      # `supported_version` sentinel: a test block whose every query is skipped has no executables and
+      # `TestBlock.parse:409` rejects it with "have no tests to execute". The suite method is `@Disabled`
+      # instead. That costs nothing here — there are no other queries to switch off as collateral — but do
+      # NOT reach for `@Disabled` in a file that has working siblings; use the sentinel there. Re-enable
+      # the method when the defect is fixed; the expectation below is the correct answer and is
+      # deliberately left as it is.
+      - explain: ""
+      - unorderedResult: [{REC_NO: 94, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 906, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 95, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 905, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 97, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 903, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 99, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]}]
+...

@@ -1,0 +1,17 @@
+multi-field-index-selection-wider-covering:
+-   query: EXPLAIN select str_value_indexed, num_value_2, num_value_3_indexed from
+        my_simple_record where str_value_indexed = 'even' and num_value_2 >= 10
+    ref: multi-field-index-selection-wider-covering.yamsql:58
+    explain: 'COVERING(WIDER [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS
+        promote(@c16 AS INT)]] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2],
+        REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[0]]) | MAP (_.STR_VALUE_INDEXED AS
+        STR_VALUE_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS
+        NUM_VALUE_3_INDEXED)'
+    task_count: 1144
+    task_total_time_ms: 18
+    transform_count: 277
+    transform_time_ms: 5
+    transform_yield_count: 93
+    insert_time_ms: 1
+    insert_new_count: 132
+    insert_reused_count: 10

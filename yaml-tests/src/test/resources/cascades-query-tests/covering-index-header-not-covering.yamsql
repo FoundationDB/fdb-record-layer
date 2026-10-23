@@ -1,0 +1,57 @@
+#
+# covering-index-header-not-covering.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBCoveringIndexQueryTest.notCoveringWithRequiredFieldsNotAvailable` — HEADER.PATH is
+# not part of this primary key, so it is absent from the index, and the scan cannot be covering even
+# though the query only asks for HEADER.REC_NO.
+#
+# Source hook: `addIndex("MyRecord", "str_value")` — a plain single-column index with no value part.
+# Its own file, and deliberately no `USE INDEX`: the assertion depends on HEADER.PATH being absent
+# from the index, and a hinted query drops the primary-scan candidate outright.
+#
+# The source never populates the store for this test — it asserts on the plan only — so the result is
+# empty and the real assertion arrives with the `explain:` value.
+#
+# WHAT THIS NO LONGER TESTS. The source's point is in its own comment: "Even though path is required, it
+# isn't part of the primary key, so won't be in the index, so won't be covering." `path` is a proto2
+# `required` field, so a partial record that omits it is not a valid message and the record layer refuses
+# to treat the scan as covering — the source asserts a plain `indexPlan`.
+#
+# SQL has no `required` column, so nothing stops the covering scan and the plan here *is* covering. The
+# rows are the same and the index choice is the same, but the property the source exists to check cannot
+# be reproduced. Kept as coverage of the index choice; `MIGRATION.md` records the method as divergent.
+#
+---
+schema_template:
+    create type as struct header_record(rec_no bigint, path string, num integer)
+    create table my_record(header header_record, str_value string, repeated_int bigint array,
+        primary key(header.rec_no))
+    create index my_record_str_value as select str_value from my_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+test_block:
+  name: covering-index-header-not-covering
+  preset: single_repetition_ordered
+  tests:
+    -
+      # notCoveringWithRequiredFieldsNotAvailable
+      - query: select header.rec_no from my_record where str_value = 'lion'
+      - explain: "COVERING(MY_RECORD_STR_VALUE [EQUALS promote(@c9 AS STRING)] -> [STR_VALUE: KEY:[0], HEADER: [REC_NO: KEY:[1]]]) | MAP (_.HEADER.REC_NO AS REC_NO)"
+      - result: []
+...
