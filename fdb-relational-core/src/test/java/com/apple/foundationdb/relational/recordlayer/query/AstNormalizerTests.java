@@ -1859,9 +1859,9 @@ public class AstNormalizerTests {
     @Test
     void visitFullDescribeStatementThrows() throws ReflectiveOperationException {
         final var constructor = AstNormalizer.class.getDeclaredConstructor(
-                PreparedParams.class, boolean.class, PlanHashable.PlanHashMode.class, boolean.class);
+                PreparedParams.class, boolean.class, PlanHashable.PlanHashMode.class, boolean.class, QueryEvaluationConstants.class);
         constructor.setAccessible(true);
-        final AstNormalizer normalizer = constructor.newInstance(PreparedParams.empty(), false, PlanHashable.PlanHashMode.VC0, false);
+        final AstNormalizer normalizer = constructor.newInstance(PreparedParams.empty(), false, PlanHashable.PlanHashMode.VC0, false, QueryEvaluationConstants.empty());
 
         Assertions.assertThatThrownBy(() -> normalizer.visitFullDescribeStatement(new RelationalParser.FullDescribeStatementContext(null, -1)))
                 .isInstanceOf(UncheckedRelationalException.class)

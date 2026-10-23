@@ -45,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.QueryEvaluationConstants;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -205,6 +206,22 @@ public class ConstraintValidityTests {
     }
 
     @Nonnull
+    private static QueryPredicate evaluationTimestampOfType() {
+        final var evaluationTimestampKind = QueryEvaluationConstants.QueryEvaluationConstant.ConstantKind.EVALUATION_TIMESTAMP;
+        final var ofTypeValue = OfTypeValue.of(
+                evaluationTimestampKind.getConstantObjectValue(),
+                evaluationTimestampKind.getConstantObjectValue().getResultType());
+        return new ValuePredicate(ofTypeValue, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
+    }
+
+    @Nonnull
+    private static QueryPredicate evaluationTimestampIsNotNull() {
+        final var evaluationTimestampKind = QueryEvaluationConstants.QueryEvaluationConstant.ConstantKind.EVALUATION_TIMESTAMP;
+        return new ValuePredicate(EvaluatesToValue.isNotNull(evaluationTimestampKind.getConstantObjectValue()),
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
+    }
+
+    @Nonnull
     private static QueryPredicate covsEqualsConstraints(int leftTokenIndex, int rightTokenIndex) {
         final var leftCov = ConstantObjectValue.of(Quantifier.constant(), constantId(leftTokenIndex), Type.primitiveType(Type.TypeCode.INT));
         final var rightCov = ConstantObjectValue.of(Quantifier.constant(), constantId(rightTokenIndex), Type.primitiveType(Type.TypeCode.INT));
@@ -266,14 +283,14 @@ public class ConstraintValidityTests {
         final var c8Equalsc15 = covsEqualsConstraints(8, 15);
         planQuery(cache, "SELECT MAX(score), game + 10 FROM score GROUP BY game + 10", MaxScoreByGame10);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
-                Map.of(ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), MaxScoreByGame10)));
+                Map.of(ppe(cons(and(and(c15Equals10, c15Equals10), and(evaluationTimestampOfType(), c15Int, c8Int, c8Equalsc15, evaluationTimestampIsNotNull(), c15IntNotNull, c8IntNotNull)))), MaxScoreByGame10)));
 
         final var c15Equals20 = equalsConstraint(15, 20);
         planQuery(cache, "SELECT MAX(score), game + 20 FROM score GROUP BY game + 20", MaxScoreByGame20);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
                 Map.of(
-                        ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), MaxScoreByGame10,
-                        ppe(cons(and(and(c15Equals20, c15Equals20), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), MaxScoreByGame20)));
+                        ppe(cons(and(and(c15Equals10, c15Equals10), and(evaluationTimestampOfType(), c15Int, c8Int, c8Equalsc15, evaluationTimestampIsNotNull(), c15IntNotNull, c8IntNotNull)))), MaxScoreByGame10,
+                        ppe(cons(and(and(c15Equals20, c15Equals20), and(evaluationTimestampOfType(), c15Int, c8Int, c8Equalsc15, evaluationTimestampIsNotNull(), c15IntNotNull, c8IntNotNull)))), MaxScoreByGame20)));
     }
 
     @Test
@@ -288,14 +305,14 @@ public class ConstraintValidityTests {
         final var c8Equalsc15 = covsEqualsConstraints(8, 15);
         planQuery(cache, "SELECT MAX(score), game & 2 FROM score GROUP BY game & 2", BitAndScore2);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
-                Map.of(ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), BitAndScore2)));
+                Map.of(ppe(cons(and(and(c15Equals2, c15Equals2), and(evaluationTimestampOfType(), c15Int, c8Int, c8Equalsc15, evaluationTimestampIsNotNull(), c15IntNotNull, c8IntNotNull)))), BitAndScore2)));
 
         final var c15Equals4 = equalsConstraint(15, 4);
         planQuery(cache, "SELECT MAX(score), game & 4 FROM score GROUP BY game & 4", BitAndScore4);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
                 Map.of(
-                        ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), BitAndScore2,
-                        ppe(cons(and(and(c15Equals4, c15Equals4), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), BitAndScore4)));
+                        ppe(cons(and(and(c15Equals2, c15Equals2), and(evaluationTimestampOfType(), c15Int, c8Int, c8Equalsc15, evaluationTimestampIsNotNull(), c15IntNotNull, c8IntNotNull)))), BitAndScore2,
+                        ppe(cons(and(and(c15Equals4, c15Equals4), and(evaluationTimestampOfType(), c15Int, c8Int, c8Equalsc15, evaluationTimestampIsNotNull(), c15IntNotNull, c8IntNotNull)))), BitAndScore4)));
     }
 
     @Test
@@ -312,14 +329,14 @@ public class ConstraintValidityTests {
         final var c8Equalsc17 = covsEqualsConstraints(8, 17);
         planQuery(cache, "SELECT MAX(score), game + 10 + 42 FROM score GROUP BY game + 10", MaxScoreByGame10);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
-                Map.of(ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame10)));
+                Map.of(ppe(cons(and(and(c17Equals10, c17Equals10), and(evaluationTimestampOfType(), c17Int, c8Int, c10Int, c8Equalsc17, evaluationTimestampIsNotNull(), c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame10)));
 
         final var c17Equals20 = equalsConstraint(17, 20);
         planQuery(cache, "SELECT MAX(score), game + 20 + 42 FROM score GROUP BY game + 20", MaxScoreByGame20);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
                 Map.of(
-                        ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame10,
-                        ppe(cons(and(and(c17Equals20, c17Equals20), and(c17Int, c8Int, c10Int, c8Equalsc17, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame20)));
+                        ppe(cons(and(and(c17Equals10, c17Equals10), and(evaluationTimestampOfType(), c17Int, c8Int, c10Int, c8Equalsc17, evaluationTimestampIsNotNull(), c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame10,
+                        ppe(cons(and(and(c17Equals20, c17Equals20), and(evaluationTimestampOfType(), c17Int, c8Int, c10Int, c8Equalsc17, evaluationTimestampIsNotNull(), c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame20)));
     }
 
     @Test
@@ -336,14 +353,14 @@ public class ConstraintValidityTests {
         final var c8Equalsc15 = covsEqualsConstraints(8, 17);
         planQuery(cache, "SELECT MAX(score), game & 2 + 10 FROM score GROUP BY game & 2", BitAndScore2);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? + ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
-                Map.of(ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2)));
+                Map.of(ppe(cons(and(and(c17Equals2, c17Equals2), and(evaluationTimestampOfType(), c17Int, c8Int, c10Int, c8Equalsc15, evaluationTimestampIsNotNull(), c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2)));
 
         final var c17Equals4 = equalsConstraint(17, 4);
         planQuery(cache, "SELECT MAX(score), game & 4 + 10 FROM score GROUP BY game & 4", BitAndScore4);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? + ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
                 Map.of(
-                        ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2,
-                        ppe(cons(and(and(c17Equals4, c17Equals4), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore4)));
+                        ppe(cons(and(and(c17Equals2, c17Equals2), and(evaluationTimestampOfType(), c17Int, c8Int, c10Int, c8Equalsc15, evaluationTimestampIsNotNull(), c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2,
+                        ppe(cons(and(and(c17Equals4, c17Equals4), and(evaluationTimestampOfType(), c17Int, c8Int, c10Int, c8Equalsc15, evaluationTimestampIsNotNull(), c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore4)));
     }
 
     @Test
@@ -352,6 +369,6 @@ public class ConstraintValidityTests {
         final var cache = getCache(ticker);
         planQuery(cache, "SELECT game.name from score, game use index (gameIdx) where game.score_id is not null and game.score_id = score.id", GameIdx);
         cacheShouldBe(cache, Map.of("SELECT \"GAME\" . \"NAME\" FROM \"SCORE\" , \"GAME\" USE INDEX ( \"GAMEIDX\" ) " +
-                "WHERE \"GAME\" . \"SCORE_ID\" IS NOT NULL AND \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(QueryPlanConstraint.noConstraint()), GameIdx)));
+                "WHERE \"GAME\" . \"SCORE_ID\" IS NOT NULL AND \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(cons(evaluationTimestampOfType(), evaluationTimestampIsNotNull())), GameIdx)));
     }
 }

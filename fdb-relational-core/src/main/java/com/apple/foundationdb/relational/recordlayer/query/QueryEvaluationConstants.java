@@ -52,15 +52,15 @@ public class QueryEvaluationConstants {
     private static final QueryEvaluationConstants EMPTY = new QueryEvaluationConstants(ImmutableSet.of());
 
     @Nonnull
-    private final Set<QueryEvaluationConstant> queryEvaluationConstants;
+    private final Set<QueryEvaluationConstant> evaluationConstants;
 
     @Nonnull
-    private final Supplier<Map<String, Object>> asMapSupplier;
+    private final Supplier<Map<String, Object>> asMapByConstantIdSupplier;
 
-    private QueryEvaluationConstants(@Nonnull final Set<QueryEvaluationConstant> queryEvaluationConstants) {
-        this.queryEvaluationConstants = ImmutableSet.copyOf(queryEvaluationConstants);
-        this.asMapSupplier = Suppliers.memoize(() ->
-                this.queryEvaluationConstants
+    private QueryEvaluationConstants(@Nonnull final Set<QueryEvaluationConstant> evaluationConstants) {
+        this.evaluationConstants = ImmutableSet.copyOf(evaluationConstants);
+        this.asMapByConstantIdSupplier = Suppliers.memoize(() ->
+                this.evaluationConstants
                         .stream()
                         .collect(ImmutableMap.<QueryEvaluationConstant, String, Object>toImmutableMap(
                                 queryEvaluationConstant -> queryEvaluationConstant.constantKind.constantId,
@@ -73,11 +73,11 @@ public class QueryEvaluationConstants {
 
     @Nonnull
     public Stream<QueryEvaluationConstant> stream() {
-        return queryEvaluationConstants.stream();
+        return evaluationConstants.stream();
     }
 
     public boolean isEmpty() {
-        return queryEvaluationConstants.isEmpty();
+        return evaluationConstants.isEmpty();
     }
 
     /**
@@ -87,7 +87,7 @@ public class QueryEvaluationConstants {
      */
     @Nonnull
     public Map<String, Object> asMapByConstantId() {
-        return asMapSupplier.get();
+        return asMapByConstantIdSupplier.get();
     }
 
     @Nonnull
@@ -166,7 +166,7 @@ public class QueryEvaluationConstants {
             @Nonnull
             private final ConstantObjectValue constantObjectValue;
 
-            ConstantKind(@Nonnull String constantId, @Nonnull com.apple.foundationdb.record.query.plan.cascades.typing.Type dataType) {
+            ConstantKind(@Nonnull String constantId, @Nonnull Type dataType) {
                 this.constantId = constantId;
                 this.dataType = dataType;
                 this.constantObjectValue = ConstantObjectValue.of(Quantifier.constant(), constantId, dataType);

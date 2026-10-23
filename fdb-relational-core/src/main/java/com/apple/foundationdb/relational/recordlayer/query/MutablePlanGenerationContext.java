@@ -318,6 +318,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
+    @Override
     public QueryEvaluationConstants getEvaluationConstants() {
         return evaluationConstants;
     }
