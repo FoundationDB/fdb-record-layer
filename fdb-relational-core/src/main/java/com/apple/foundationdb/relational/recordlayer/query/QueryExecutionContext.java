@@ -33,12 +33,20 @@ public interface QueryExecutionContext {
 
     @Nonnull
     default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        final var literals = getLiterals();
-        if (literals.isEmpty()) {
+        // Keyed on the bindings, not on the literal table: a value-free literal declares a type but carries no value,
+        // so a non-empty table can still bind nothing, and then no constant may be bound at all.
+        final var constantBindings = getLiterals().asBindings();
+        final var valueFreeConstantIds = getLiterals().valueFreeConstantIds();
+        if (constantBindings.isEmpty() && valueFreeConstantIds.isEmpty()) {
             return EvaluationContext.forTypeRepository(typeRepository);
         }
         final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), literals.asMap());
+        if (!constantBindings.isEmpty()) {
+            builder.setConstant(Quantifier.constant(), constantBindings);
+        }
+        if (!valueFreeConstantIds.isEmpty()) {
+            builder.setValueFreeConstants(Quantifier.constant(), valueFreeConstantIds);
+        }
         return builder.build(typeRepository);
     }
 
