@@ -24,13 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -39,8 +37,6 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelationalEngine {
-    private final RelationalPlanCache planCache;
-    private final List<StorageCluster> clusters;
 
     public TransactionBoundEmbeddedRelationalEngine() {
         this(Options.NONE);
@@ -52,7 +48,16 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
 
     public TransactionBoundEmbeddedRelationalEngine(@Nonnull Options engineOptions,
                                                     @Nullable KeySpace keySpace) {
-        super(List.of(new TransactionBoundStorageCluster(null, keySpace)), NoOpMetricRegistry.INSTANCE);
+        this(buildPlanCache(engineOptions), keySpace);
+    }
+
+    private TransactionBoundEmbeddedRelationalEngine(@Nullable RelationalPlanCache planCache,
+                                                     @Nullable KeySpace keySpace) {
+        super(List.of(new TransactionBoundStorageCluster(planCache, keySpace)), NoOpMetricRegistry.INSTANCE, planCache);
+    }
+
+    @Nullable
+    private static RelationalPlanCache buildPlanCache(@Nonnull Options engineOptions) {
         final Integer primaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES);
         final Integer secondaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES);
         final Integer tertiaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES);
@@ -60,27 +65,15 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
         final Long secondaryCacheTtlMillis = engineOptions.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS);
         final Long tertiaryCacheTtlMillis = engineOptions.getOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS);
         if (primaryCacheSize == null || primaryCacheSize <= 0) {
-            this.planCache = null;
-        } else {
-            this.planCache = RelationalPlanCache.newRelationalCacheBuilder()
-                    .setSize(primaryCacheSize)
-                    .setSecondarySize(secondaryCacheSize)
-                    .setTertiarySize(tertiaryCacheSize)
-                    .setTtl(primaryCacheTtlMillis)
-                    .setSecondaryTtl(secondaryCacheTtlMillis)
-                    .setTertiaryTtl(tertiaryCacheTtlMillis)
-                    .build();
+            return null;
         }
-
-        this.clusters = List.of(new TransactionBoundStorageCluster(planCache, keySpace));
-    }
-
-    @Override
-    public Collection<StorageCluster> getStorageClusters() {
-        return clusters;
-    }
-
-    public RelationalPlanCache getPlanCache() {
-        return planCache;
+        return RelationalPlanCache.newRelationalCacheBuilder()
+                .setSize(primaryCacheSize)
+                .setSecondarySize(secondaryCacheSize)
+                .setTertiarySize(tertiaryCacheSize)
+                .setTtl(primaryCacheTtlMillis)
+                .setSecondaryTtl(secondaryCacheTtlMillis)
+                .setTertiaryTtl(tertiaryCacheTtlMillis)
+                .build();
     }
 }
