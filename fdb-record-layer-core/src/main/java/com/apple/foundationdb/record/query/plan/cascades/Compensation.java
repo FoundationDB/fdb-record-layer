@@ -823,7 +823,7 @@ public interface Compensation {
          * We keep track of compensated aliases which define a kind of responsibility for this compensation,
          * that is, when the compensation is applied, the caller can be ensured that the match replacement
          * together with the compensation can replace those quantifiers. Normally the set of compensated aliases
-         * comprises all matched quantifiers and existential non-matched quantifiers.
+         * comprises all matched quantifiers and scalar non-matched quantifiers.
          */
         @Nonnull
         private final Set<CorrelationIdentifier> compensatedAliases;
@@ -963,7 +963,7 @@ public interface Compensation {
             final var toBePulledUpQuantifiersBuilder = ImmutableSet.<Quantifier>builder();
 
             for (final var matchedQuantifier : matchedQuantifiers) {
-                if (matchedQuantifier instanceof Quantifier.Existential) {
+                if (matchedQuantifier instanceof Quantifier.Scalar) {
                     if (compensatedPredicatesCorrelatedTo.contains(matchedQuantifier.getAlias())) {
                         //
                         // This quantifier is matched but since there is a predicate referring to it which
@@ -983,9 +983,9 @@ public interface Compensation {
                     //
                     toBePulledUpQuantifiersBuilder.add(unmatchedQuantifier);
                 } else {
-                    Verify.verify(unmatchedQuantifier instanceof Quantifier.Existential);
+                    Verify.verify(unmatchedQuantifier instanceof Quantifier.Scalar);
                     //
-                    // If the unmatched quantifier is existential but there is nothing
+                    // Pull up an unmatched scalar quantifier only if a compensated predicate refers to it.
                     //
                     if (compensatedPredicatesCorrelatedTo.contains(unmatchedQuantifier.getAlias())) {
                         toBePulledUpQuantifiersBuilder.add(unmatchedQuantifier);

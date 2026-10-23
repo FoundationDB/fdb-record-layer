@@ -33,12 +33,19 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.existentialQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.existentialQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.scalarQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.scalarQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.withKind;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.withNullOnEmpty;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,6 +59,8 @@ class QuantifierMatchersTest {
     private final Quantifier.ForEach plainQuantifier = Quantifier.forEach(scanReference);
     @Nonnull
     private final Quantifier.ForEach nullOnEmptyQuantifier = Quantifier.forEachWithNullOnEmpty(scanReference);
+    @Nonnull
+    private final Quantifier.Scalar existentialScalar = Quantifier.existential(scanReference);
 
     @Nonnull
     private static Optional<PlannerBindings> bindMatches(@Nonnull final BindingMatcher<?> matcher,
@@ -139,5 +148,82 @@ class QuantifierMatchersTest {
         final BindingMatcher<?> withoutNullOnEmpty = withNullOnEmpty(false, forEachQuantifier());
         assertThat(bindMatches(withoutNullOnEmpty, plainQuantifier)).isPresent();
         assertThat(bindMatches(withoutNullOnEmpty, nullOnEmptyQuantifier)).isEmpty();
+    }
+
+    /**
+     * Tests that the {@code scalarQuantifier*()} matchers match a scalar quantifier, but not a for-each quantifier.
+     */
+    @Test
+    void testScalarQuantifier1() {
+        for (final BindingMatcher<?> matcher : List.of(scalarQuantifier(),
+                scalarQuantifier(RecordQueryPlanMatchers.scanPlan()),
+                scalarQuantifier(all(RecordQueryPlanMatchers.scanPlan())),
+                scalarQuantifierOverRef(ReferenceMatchers.anyRef()))) {
+            assertThat(bindMatches(matcher, existentialScalar)).isPresent();
+            assertThat(bindMatches(matcher, plainQuantifier)).isEmpty();
+        }
+    }
+
+    /**
+     * Tests that the {@code scalarQuantifier()} matchers over member expressions still require their downstream
+     * matcher to match.
+     */
+    @Test
+    void testScalarQuantifier2() {
+        assertThat(bindMatches(scalarQuantifier(RecordQueryPlanMatchers.indexPlan()), existentialScalar)).isEmpty();
+        assertThat(bindMatches(scalarQuantifier(all(RecordQueryPlanMatchers.indexPlan())), existentialScalar)).isEmpty();
+    }
+
+    /**
+     * Tests that the {@code existentialQuantifier*()} matchers match an existential quantifier, but not quantifiers
+     * other than scalar quantifiers.
+     */
+    @Test
+    void testExistentialQuantifier1() {
+        for (final BindingMatcher<?> matcher : List.of(existentialQuantifier(),
+                existentialQuantifier(RecordQueryPlanMatchers.scanPlan()),
+                existentialQuantifier(all(RecordQueryPlanMatchers.scanPlan())),
+                existentialQuantifierOverRef(ReferenceMatchers.anyRef()))) {
+            assertThat(bindMatches(matcher, existentialScalar)).isPresent();
+            assertThat(bindMatches(matcher, plainQuantifier)).isEmpty();
+            assertThat(bindMatches(matcher, Quantifier.physical(scanReference))).isEmpty();
+        }
+    }
+
+    /**
+     * Tests that {@code existentialQuantifierOverRef()} binds its downstream matcher to the reference of the
+     * quantifier.
+     */
+    @Test
+    void testExistentialQuantifier2() {
+        final BindingMatcher<Reference> referenceMatcher = ReferenceMatchers.anyRef();
+        final Optional<PlannerBindings> bindings =
+                bindMatches(existentialQuantifierOverRef(referenceMatcher), existentialScalar);
+        assertThat(bindings).isPresent();
+        assertThat(bindings.get().get(referenceMatcher)).isSameAs(scanReference);
+    }
+
+    /**
+     * Tests that the {@code existentialQuantifier()} matchers over member expressions still require their downstream
+     * matcher to match.
+     */
+    @Test
+    void testExistentialQuantifier3() {
+        assertThat(bindMatches(existentialQuantifier(RecordQueryPlanMatchers.indexPlan()),
+                existentialScalar)).isEmpty();
+        assertThat(bindMatches(existentialQuantifier(all(RecordQueryPlanMatchers.indexPlan())),
+                existentialScalar)).isEmpty();
+    }
+
+    /**
+     * Tests that {@code withKind()} matches a scalar quantifier of the given kind only if its downstream matcher matches
+     * as well.
+     */
+    @Test
+    void testWithKind() {
+        assertThat(bindMatches(withKind(Quantifier.Scalar.Kind.EXISTENTIAL, scalarQuantifier()), existentialScalar))
+                .isPresent();
+        assertThat(bindMatches(withKind(Quantifier.Scalar.Kind.EXISTENTIAL,
+                scalarQuantifier(RecordQueryPlanMatchers.indexPlan())), existentialScalar)).isEmpty();
     }
 }

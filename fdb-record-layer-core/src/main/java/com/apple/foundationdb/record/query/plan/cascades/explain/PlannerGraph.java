@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,8 +84,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     Debugger.mapDebugger(debugger -> quantifier.getAlias().getId()).orElse(null);
 
             final ReferenceEdge edge;
-            if (quantifier instanceof Quantifier.Existential) {
-                edge = new ExistentialQuantifierEdge(label, dependsOn);
+            if (quantifier instanceof Quantifier.Scalar) {
+                edge = new ScalarQuantifierEdge(label, dependsOn);
             } else if (quantifier instanceof Quantifier.ForEach) {
                 edge = new ForEachQuantifierEdge(label, ((Quantifier.ForEach)quantifier).isNullOnEmpty(), dependsOn);
             } else if (quantifier instanceof Quantifier.Physical) {
@@ -865,18 +865,18 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Edge class for existential quantifiers.
+     * Edge class for scalar quantifiers.
      */
-    public static class ExistentialQuantifierEdge extends ReferenceEdge {
-        public ExistentialQuantifierEdge() {
+    public static class ScalarQuantifierEdge extends ReferenceEdge {
+        public ScalarQuantifierEdge() {
             this(null, ImmutableSet.of());
         }
 
-        public ExistentialQuantifierEdge(final Set<? extends AbstractEdge> dependsOn) {
+        public ScalarQuantifierEdge(final Set<? extends AbstractEdge> dependsOn) {
             super(null, dependsOn);
         }
 
-        public ExistentialQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+        public ScalarQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
             super(label, dependsOn);
         }
 
