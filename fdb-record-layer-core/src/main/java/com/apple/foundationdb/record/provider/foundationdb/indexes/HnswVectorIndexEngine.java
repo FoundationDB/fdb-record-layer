@@ -337,6 +337,11 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             }
         }
 
+        @Override
+        public void onNeighborReferencesReaped(final int layer, final int numReferences) {
+            timer.increment(FDBStoreTimer.Counts.VECTOR_NEIGHBOR_REFERENCES_REAPED, numReferences);
+        }
+
         @Nonnull
         private static OnWriteListener fromTimer(@Nullable final FDBStoreTimer timer) {
             return timer == null ? OnWriteListener.NOOP : new OnWrite(timer);

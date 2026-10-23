@@ -351,16 +351,16 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        switch (mode.getKind()) {
-            case LEGACY, FOR_CONTINUATION -> {
-                final Value result = getResultValue();
+        final Value result = getResultValue();
+        return switch (mode) {
+            case VL0, VC0 -> {
                 if (!withOrdinality) {
-                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, result);
+                    yield PlanHashable.objectsPlanHash(mode, BASE_HASH, result);
                 }
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true, true);
+                yield PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true, true);
             }
-            default -> throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
-        }
+            case VC1 -> PlanHashable.objectsPlanHash(mode, BASE_HASH, result, withOrdinality);
+        };
     }
 
     @Nonnull
