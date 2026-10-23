@@ -1008,7 +1008,7 @@ functionCall
 
 datetimeValueFunction
     :
-      functionName=(CURRENT_TIMESTAMP | LOCALTIME | LOCALTIMESTAMP | NOW) ('(' ')')?
+      functionName=(CURRENT_TIMESTAMP | NOW) ('(' ')')?
     ;
 
 specificFunction
@@ -1213,7 +1213,7 @@ scalarFunctionName
     : functionNameBase
     | functionNameKeyword
     | ASCII | DATE_ADD | DATE_SUB
-    | IF | INSERT | LOCALTIME | LOCALTIMESTAMP | MID | NOW
+    | IF | INSERT | MID
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     | JAVA_CALL
