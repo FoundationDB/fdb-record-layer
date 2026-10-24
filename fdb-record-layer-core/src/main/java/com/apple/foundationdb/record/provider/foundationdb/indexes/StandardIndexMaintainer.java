@@ -66,6 +66,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -284,8 +285,27 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // Check if the record has been built by checking its primary key in the range set. Update the index
         // if it is a built range
         Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
-        return addedRangeWithKey(primaryKey).thenCompose(inRange ->
+        return shouldUpdateWhileWriteOnly(primaryKey, primaryKey).thenCompose(inRange ->
                 inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
+    }
+
+    /**
+     * Check if a record is already indexed by the ongoing index build.
+     * @param primaryKey the record's primary key
+     * @param rangeKey the record's key in the range set's key space (the primary key, or the source index entry key)
+     * @return a future that is true if the record is indexed
+     */
+    private CompletableFuture<Boolean> shouldUpdateWhileWriteOnly(@Nonnull Tuple primaryKey, @Nonnull Tuple rangeKey) {
+        if (!state.store.getIndexState(state.index).isWriteOnlyIdem()) {
+            return addedRangeWithKey(rangeKey);
+        }
+        // WRITE_ONLY_IDEM: the record is indexed if either the track table (user inserts) or the range set (indexer)
+        // say so. Both are snapshot reads - conflicts are resolved by the record itself.
+        final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey);
+        return state.context.ensureActive().snapshot().get(trackKey).thenCompose(tracked ->
+                tracked != null ?
+                AsyncUtil.READY_TRUE :
+                IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack()));
     }
 
     @SuppressWarnings("java:S3776") // Trying to simplify this method cognitive complexity seems to make it harder to follow
@@ -297,15 +317,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             if (oldEntryKey.equals(newEntryKey)) {
                 // The old and new record use the same key in the source index, so check if it has been
                 // built, and update the index if so
-                return addedRangeWithKey(oldEntryKey).thenCompose(inRange ->
+                return shouldUpdateWhileWriteOnly(oldRecord.getPrimaryKey(), oldEntryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             } else {
                 // The old and new record use different keys in the source index. Check each one individually,
                 // and then simulate deleting the old record (if needed) and adding the new record (if needed)
                 // Note: index maintainers on the same index are not thread safe, so the index updates need to
                 // be serialized here, but the range set checks can be executed concurrently
-                CompletableFuture<Boolean> oldInRangeFuture = addedRangeWithKey(oldEntryKey);
-                CompletableFuture<Boolean> newInRangeFuture = addedRangeWithKey(newEntryKey);
+                CompletableFuture<Boolean> oldInRangeFuture = shouldUpdateWhileWriteOnly(oldRecord.getPrimaryKey(), oldEntryKey);
+                CompletableFuture<Boolean> newInRangeFuture = shouldUpdateWhileWriteOnly(newRecord.getPrimaryKey(), newEntryKey);
                 return oldInRangeFuture
                         .thenCompose(oldInRange -> oldInRange ? update(oldRecord, null) : AsyncUtil.DONE)
                         .thenCompose(ignore -> newInRangeFuture)
@@ -322,7 +342,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             } else {
                 // One of the entry keys is not null. Check if that one has been built, and then update if it
                 // is in the built range
-                return addedRangeWithKey(entryKey).thenCompose(inRange ->
+                final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
+                return shouldUpdateWhileWriteOnly(primaryKey, entryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             }
         }

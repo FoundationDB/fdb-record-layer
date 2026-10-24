@@ -62,24 +62,27 @@ class IndexStateTest extends FDBRecordStoreTestBase {
      */
     static Stream<Arguments> predicateMatrix() {
         return Stream.of(
-                //            state                                 readable uniquePending scannable writeOnlyNoQueue writeOnlyWithQueue writeOnly disabled
-                Arguments.of(IndexState.READABLE,                   true,    false,        true,     false,           false,             false,    false),
-                Arguments.of(IndexState.READABLE_UNIQUE_PENDING,    false,   true,         true,     false,           false,             false,    false),
-                Arguments.of(IndexState.WRITE_ONLY,                 false,   false,        false,    true,            false,             true,     false),
-                Arguments.of(IndexState.WRITE_ONLY_WITH_QUEUE,      false,   false,        false,    false,           true,              true,     false),
-                Arguments.of(IndexState.DISABLED,                   false,   false,        false,    false,           false,             false,    true));
+                //            state                                 readable uniquePending scannable writeOnlyNoQueue writeOnlyWithQueue writeOnlyIdem writeOnly disabled
+                Arguments.of(IndexState.READABLE,                   true,    false,        true,     false,           false,             false,        false,    false),
+                Arguments.of(IndexState.READABLE_UNIQUE_PENDING,    false,   true,         true,     false,           false,             false,        false,    false),
+                Arguments.of(IndexState.WRITE_ONLY,                 false,   false,        false,    true,            false,             false,        true,     false),
+                Arguments.of(IndexState.WRITE_ONLY_WITH_QUEUE,      false,   false,        false,    false,           true,              false,        true,     false),
+                Arguments.of(IndexState.WRITE_ONLY_IDEM,            false,   false,        false,    false,           false,             true,         true,     false),
+                Arguments.of(IndexState.DISABLED,                   false,   false,        false,    false,           false,             false,        false,    true));
     }
 
     @ParameterizedTest
     @MethodSource("predicateMatrix")
     void predicatesMatchTheState(IndexState state, boolean readable, boolean uniquePending, boolean scannable,
-                                 boolean writeOnlyNoQueue, boolean writeOnlyWithQueue, boolean writeOnly,
+                                 boolean writeOnlyNoQueue, boolean writeOnlyWithQueue, boolean writeOnlyIdem,
+                                 boolean writeOnly,
                                  boolean disabled) {
         assertThat(state.isReadable()).as("isReadable").isEqualTo(readable);
         assertThat(state.isReadableUniquePending()).as("isReadableUniquePending").isEqualTo(uniquePending);
         assertThat(state.isScannable()).as("isScannable").isEqualTo(scannable);
         assertThat(state.isWriteOnlyNoQueue()).as("isWriteOnlyNoQueue").isEqualTo(writeOnlyNoQueue);
         assertThat(state.isWriteOnlyWithQueue()).as("isWriteOnlyWithQueue").isEqualTo(writeOnlyWithQueue);
+        assertThat(state.isWriteOnlyIdem()).as("isWriteOnlyIdem").isEqualTo(writeOnlyIdem);
         assertThat(state.isWriteOnly()).as("isWriteOnly").isEqualTo(writeOnly);
         assertThat(state.isDisabled()).as("isDisabled").isEqualTo(disabled);
     }
@@ -97,7 +100,8 @@ class IndexStateTest extends FDBRecordStoreTestBase {
     @EnumSource(IndexState.class)
     void exactlyOnePrimaryPredicateHolds(IndexState state) {
         final List<Boolean> primaries = List.of(state.isReadable(), state.isReadableUniquePending(),
-                state.isWriteOnlyNoQueue(), state.isWriteOnlyWithQueue(), state.isDisabled());
+                state.isWriteOnlyNoQueue(), state.isWriteOnlyWithQueue(), state.isWriteOnlyIdem(),
+                state.isDisabled());
         assertThat(primaries.stream().filter(Boolean::booleanValue)).hasSize(1);
     }
 

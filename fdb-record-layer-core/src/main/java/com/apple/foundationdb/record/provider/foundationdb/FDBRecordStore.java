@@ -119,6 +119,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
@@ -818,6 +819,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
                     break;
 
+                case WRITE_ONLY_IDEM:
+                    // Inserts are always indexed and tracked, so that the indexer will skip them. Updates and deletes
+                    // consult the track table and the range set, both without conflicts.
+                    future = updateWhileWriteOnlyIdem(index, maintainer, oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    break;
+
                 case WRITE_ONLY:
                     // The index is still being built. For some index
                     // types, the index update needs to check whether indexing
@@ -842,6 +850,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 futures.add(future);
             }
         }
+    }
+
+    private <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyIdem(@Nonnull final Index index,
+                                                                                 @Nonnull final IndexMaintainer maintainer,
+                                                                                 @Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                 @Nullable final FDBIndexableRecord<M> newRecord) {
+        if (oldRecord == null) {
+            // insert: track the record and index it unconditionally, the indexer will skip it
+            ensureContextActive().set(IndexingSubspaces.indexTrackTableKey(this, index, Verify.verifyNotNull(newRecord).getPrimaryKey()), new byte[0]);
+            return maintainer.update(null, newRecord);
+        }
+        if (newRecord == null) {
+            // delete: the entry is no longer needed (a stale one would be harmless). It must be cleared only after
+            // the maintainer has read it (the transaction would otherwise read its own clear).
+            return maintainer.updateWhileWriteOnly(oldRecord, null).thenRun(() ->
+                    ensureContextActive().clear(IndexingSubspaces.indexTrackTableKey(this, index, oldRecord.getPrimaryKey())));
+        }
+        // update: should the track table contain this key, it already does
+        return maintainer.updateWhileWriteOnly(oldRecord, newRecord);
     }
 
     @API(API.Status.EXPERIMENTAL)
@@ -3284,6 +3311,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Prepare an index for indexing with a tracking table by clearing any existing data and marking the
+     * index as {@link IndexState#WRITE_ONLY_IDEM}.
+     * @param index the index to build
+     * @return a future that completes when the index has been cleared and marked write-only-idem for building
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyIdem(@Nonnull Index index) {
+        return markIndexWriteOnlyIdem(index)
+                .thenRun(() -> clearIndexData(index));
+    }
+
+    /**
      * Enum controlling how the store state cacheability flag should be changed when the store is opened.
      * By default, the store state data is not cacheable and must be re-read every time to ensure transactional
      * consistency between the store's meta-data and the rest of the data. To enable the transactional cache,
@@ -3871,6 +3910,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
         return markIndexWriteOnlyWithQueue(index.getName());
+    }
+
+    /**
+     * Adds the given index to the list of write-only-idem indexes stored within the store.
+     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
+     * state is {@link IndexState#WRITE_ONLY_IDEM}.
+     *
+     * @param indexName the name of the index to mark as write-only-idem
+     * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     * @throws IllegalArgumentException if the index is not present in the meta-data
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyIdem(@Nonnull String indexName) {
+        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_IDEM);
+    }
+
+    /**
+     * Adds the given index to the list of write-only-idem indexes stored within the store.
+     * @param index the index to mark as write-only-idem
+     * @return a future that will contain <code>true</code> if the store was modified and
+     * <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnlyIdem(@Nonnull Index index) {
+        return markIndexWriteOnlyIdem(index.getName());
     }
 
     /**
@@ -4814,6 +4879,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case WRITE_ONLY_WITH_QUEUE:
                 errMessageBuilder.append("clear and mark index write only with queue");
                 return clearAndMarkIndexWriteOnlyWithQueue(index).thenApply(b -> null);
+            case WRITE_ONLY_IDEM:
+                errMessageBuilder.append("clear and mark index write only idem");
+                return clearAndMarkIndexWriteOnlyIdem(index).thenApply(b -> null);
             case DISABLED:
                 errMessageBuilder.append("mark index disabled");
                 return markIndexDisabled(index).thenApply(b -> null);

@@ -1010,6 +1010,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final boolean reverseScanOrder;
         private final Set<Index> pendingWriteQueueIndexes;
         private final long pendingWriteQueueIndexesMaxDrainAttempts;
+        private final Set<Index> writeOnlyIdemIndexes;
 
         /**
          * Possible actions when an index is already partially built.
@@ -1059,6 +1060,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param reverseScanOrder if true, scan records in reverse order
          * @param pendingWriteQueueIndexes the subset of target indexes that should be built with a pending write queue
          * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of times to re-drain the pending write queue while attempting to mark a queued index readable
+         * @param writeOnlyIdemIndexes the subset of target indexes that should be built in the write-only-idem state
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -1069,7 +1071,10 @@ public class OnlineIndexer implements AutoCloseable {
                                long initialMergesCountLimit,
                                boolean reverseScanOrder,
                                Set<Index> pendingWriteQueueIndexes,
-                               long pendingWriteQueueIndexesMaxDrainAttempts) {
+                               long pendingWriteQueueIndexesMaxDrainAttempts,
+                               Set<Index> writeOnlyIdemIndexes) {
+            // Could have been nicer to have a single set of special write_only modes (queue/idem), but that would have
+            // been a breaking change. Better left for later.
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -1087,6 +1092,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.reverseScanOrder = reverseScanOrder;
             this.pendingWriteQueueIndexes = pendingWriteQueueIndexes;
             this.pendingWriteQueueIndexesMaxDrainAttempts = pendingWriteQueueIndexesMaxDrainAttempts;
+            this.writeOnlyIdemIndexes = writeOnlyIdemIndexes;
         }
 
         /**
@@ -1159,6 +1165,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setReverseScanOrder(reverseScanOrder)
                     .setUsePendingWriteQueue(pendingWriteQueueIndexes.stream().toList())
                     .setPendingWriteQueueIndexesMaxDrainAttempts(pendingWriteQueueIndexesMaxDrainAttempts)
+                    .setUseWriteOnlyIdem(writeOnlyIdemIndexes.stream().toList())
                     ;
         }
 
@@ -1202,7 +1209,7 @@ public class OnlineIndexer implements AutoCloseable {
         public DesiredAction getStateDesiredAction(IndexState state) {
             switch (state) {
                 case DISABLED:      return getIfDisabled();
-                case WRITE_ONLY, WRITE_ONLY_WITH_QUEUE:    return getIfWriteOnly();
+                case WRITE_ONLY, WRITE_ONLY_WITH_QUEUE, WRITE_ONLY_IDEM:    return getIfWriteOnly();
                 case READABLE:      return getIfReadable();
                 case READABLE_UNIQUE_PENDING: return DesiredAction.MARK_READABLE;
                 default: throw new RecordCoreException("bad index state: " + state);
@@ -1308,6 +1315,18 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Whether the given target index should be built in the write-only-idem state. While such a (non-idempotent)
+         * index is being built, user inserts are always indexed and tracked in a dedicated table, which the indexer
+         * consults to avoid indexing them again; user updates and deletes need no range set conflicts.
+         * @param index the target index to check
+         * @return true if the given index should be built in the write-only-idem state
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public boolean shouldUseWriteOnlyIdem(@Nonnull Index index) {
+            return writeOnlyIdemIndexes.contains(index);
+        }
+
+        /**
          * Get the maximum number of times to re-drain the pending write queue while attempting to mark a write-only-with-queue index
          * as readable. Because the queue is drained and the index is marked readable in separate transactions while
          * concurrent writers may still be enqueuing, the queue can be observed non-empty at mark-readable time; each
@@ -1351,6 +1370,7 @@ public class OnlineIndexer implements AutoCloseable {
             private boolean reverseScanOrder = false;
             private Set<Index> pendingWriteQueueIndexes = new HashSet<>();
             private long pendingWriteQueueIndexesMaxDrainAttempts = 100;
+            private Set<Index> writeOnlyIdemIndexes = new HashSet<>();
 
             protected Builder() {
             }
@@ -1653,6 +1673,22 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Set the subset of target indexes that should be built in the write-only-idem state. While such an index is
+             * being built, user inserts are always indexed (like an idempotent index) and their primary keys are tracked
+             * in a dedicated table; the indexer skips tracked records. User updates and deletes check the track table and
+             * the indexer's range set without adding conflicts, so a fast indexer does not fail user transactions.
+             * By default, no index uses this state. It only applies to non-idempotent indexes; for others, or if this
+             * mode cannot be used, the index is built in the regular write-only state.
+             * @param indexes the target indexes that should be built in the write-only-idem state
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setUseWriteOnlyIdem(@Nonnull final List<Index> indexes) {
+                this.writeOnlyIdemIndexes = new HashSet<>(indexes);
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -1662,7 +1698,8 @@ public class OnlineIndexer implements AutoCloseable {
                         doAllowUniquePendingState, allowedTakeoverSet,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
                         initialMergesCountLimit, reverseScanOrder,
-                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts);
+                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts,
+                        writeOnlyIdemIndexes);
             }
         }
     }
