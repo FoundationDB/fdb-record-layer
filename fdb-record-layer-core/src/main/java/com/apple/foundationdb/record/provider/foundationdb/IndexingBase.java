@@ -286,6 +286,26 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final IndexingCommon.IndexContext indexContext) {
         final Index index = indexContext.index;
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        if (policy.shouldUseWriteOnlyIdem(index)) {
+            final String idemRefusalReason = writeOnlyIdemRefusalReason(store, indexContext, maintainer);
+            if (idemRefusalReason == null) {
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.build("marking index write-only-idem")
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
+                            .toString());
+                }
+                return store.markIndexWriteOnlyIdem(index);
+            }
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(KeyValueLogMessage.build("write-only-idem refused, mark write-only")
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
+                        .addKeyAndValue(LogMessageKeys.REASON, idemRefusalReason)
+                        .addKeyAndValue(LogMessageKeys.FORMAT_VERSION, store.getFormatVersionEnum())
+                        .toString());
+            }
+        }
         if (!policy.shouldUsePendingWriteQueue(index)) {
             return store.markIndexWriteOnly(index);
         }
@@ -308,6 +328,25 @@ public abstract class IndexingBase {
                     .toString());
         }
         return store.markIndexWriteOnly(index);
+    }
+
+    @Nullable
+    private String writeOnlyIdemRefusalReason(@Nonnull final FDBRecordStore store,
+                                              @Nonnull final IndexingCommon.IndexContext indexContext,
+                                              @Nonnull final IndexMaintainer maintainer) {
+        if (policy.shouldUsePendingWriteQueue(indexContext.index)) {
+            return "PENDING_WRITE_QUEUE_REQUESTED";
+        }
+        if (maintainer.isIdempotent()) {
+            return "IDEMPOTENT_INDEX";
+        }
+        if (indexContext.isSynthetic) {
+            return "SYNTHETIC_INDEX";
+        }
+        if (!store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_IDEM)) {
+            return "FORMAT_VERSION_TOO_LOW";
+        }
+        return null;
     }
 
     @Nullable
@@ -1042,8 +1081,19 @@ public abstract class IndexingBase {
                 final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
                 return syntheticPlan.execute(store, rec).forEachAsync(maintainer::updateFromIndexer, 1);
             }
-            // update simple index
-            return store.getIndexMaintainer(indexContext.index).updateFromIndexer(rec);
+            final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
+            if (!store.getIndexState(indexContext.index).isWriteOnlyIdem()) {
+                // update simple index
+                return maintainer.updateFromIndexer(rec);
+            }
+            // WRITE_ONLY_IDEM: user io only reads the range set without conflicts, so it must conflict with the record
+            // itself: write-conflict the record, whether or not it is indexed here. If user io has inserted this record,
+            // it has already indexed it and tracked its primary key - skip. The snapshot read of the track table needs no
+            // conflict of its own, it is paired with the (serializable) read of the record.
+            store.addRecordWriteConflict(rec.getPrimaryKey());
+            final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(store, indexContext.index, rec.getPrimaryKey());
+            return store.getContext().ensureActive().snapshot().get(trackKey).thenCompose(tracked ->
+                    tracked != null ? AsyncUtil.DONE : maintainer.updateFromIndexer(rec));
         });
     }
 
