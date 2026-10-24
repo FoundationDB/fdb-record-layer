@@ -102,7 +102,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                 // If this new format version is adding additional items to the store header, make sure to update the
                 // comments as to how it is being reset in the repair, even if it is not. Then update this
                 // to the new value
-                .isEqualTo(FormatVersion.WRITE_ONLY_WITH_QUEUE);
+                .isEqualTo(FormatVersion.WRITE_ONLY_IDEM);
     }
 
     static Stream<NonnullPair<FormatVersion, FormatVersion>> oldAndNewVersion() {

@@ -176,7 +176,14 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * In this state, user IO is added to write pending queue, and the indexing process is responsible to drain the queue and update
      * the index. This special indexing mode is designed to prevent conflicts between the indexer and user transactions.
      */
-    WRITE_ONLY_WITH_QUEUE(15)
+    WRITE_ONLY_WITH_QUEUE(15),
+    /**
+     * This FormatVersion allows the store to mark indexes as {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_IDEM}.
+     * In this state, user inserts of non-idempotent indexes are tracked in a dedicated table, which the indexing process
+     * consults to avoid indexing a record twice. This special indexing mode is designed to prevent conflicts between
+     * the indexer and user transactions.
+     */
+    WRITE_ONLY_IDEM(16),
     ;
 
     private final int value;
