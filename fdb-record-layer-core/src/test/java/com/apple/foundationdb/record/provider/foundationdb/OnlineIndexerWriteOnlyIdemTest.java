@@ -22,25 +22,38 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,9 +68,14 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
 
     // A SUM index is not idempotent: indexing (or un-indexing) a record twice would corrupt the sum
     private final Index sumIndex = new Index("simple$sum_idem", field("num_value_2").ungrouped(), IndexTypes.SUM);
+    private final Index countIndex = new Index("simple$count_idem", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
     private final Index valueIndex = new Index("simple$value_idem", field("num_value_2"), IndexTypes.VALUE);
 
+    private static final String UNIQUE_SOURCE_INDEX = "MySimpleRecord$num_value_unique";
+
     private final Map<Integer, Integer> expectedNumValue2 = new TreeMap<>();
+
+    // ---- helpers ----
 
     private void populateEvenRecords(final int numRecords) {
         openSimpleMetaData();
@@ -70,12 +88,27 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
     }
 
     private void save(final int recNo, final int numValue2) {
-        recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+        saveSimple(recordStore, recNo, numValue2);
+        expectedNumValue2.put(recNo, numValue2);
+    }
+
+    private static void saveSimple(@Nonnull final FDBRecordStore store, final int recNo, final int numValue2) {
+        saveSimple(store, recNo, numValue2, recNo * 1139);
+    }
+
+    private static void saveSimple(@Nonnull final FDBRecordStore store, final int recNo, final int numValue2, final int numValueUnique) {
+        store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue2(numValue2)
-                .setNumValueUnique(recNo * 1139)
+                .setNumValueUnique(numValueUnique)
                 .build());
-        expectedNumValue2.put(recNo, numValue2);
+    }
+
+    private static void saveOther(@Nonnull final FDBRecordStore store, final int recNo) {
+        store.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue2(recNo * 7)
+                .build());
     }
 
     private void userWrites() {
@@ -105,6 +138,14 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         }
     }
 
+    /** Run {@code action} in its own, retried, transaction (usable from any thread). */
+    private void io(@Nonnull final Consumer<FDBRecordStore> action) {
+        fdb.run(context -> {
+            action.accept(createStoreBuilder().setContext(context).createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE));
+            return null;
+        });
+    }
+
     private OnlineIndexer.Builder idemIndexerBuilder(@Nonnull final Index index, final boolean mutual) {
         final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder()
                 .setUseWriteOnlyIdem(List.of(index));
@@ -118,12 +159,47 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
 
     private void assertSum(@Nonnull final Index index) {
         final long expectedSum = expectedNumValue2.values().stream().mapToLong(Integer::longValue).sum();
-        final IndexAggregateFunction sumFunction =
-                new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
+        assertEquals(expectedSum, aggregate(FunctionNames.SUM, index));
+    }
+
+    private long aggregate(@Nonnull final String function, @Nonnull final Index index) {
+        final IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(function, index.getRootExpression(), index.getName());
         try (FDBRecordContext context = openContext()) {
-            assertEquals(expectedSum, recordStore.evaluateAggregateFunction(List.of("MySimpleRecord"), sumFunction,
-                    TupleRange.ALL, IsolationLevel.SNAPSHOT).join().getLong(0));
+            final long value = recordStore.evaluateAggregateFunction(List.of("MySimpleRecord"), aggregateFunction,
+                    TupleRange.ALL, IsolationLevel.SNAPSHOT).join().getLong(0);
             context.commit();
+            return value;
+        }
+    }
+
+    @Nonnull
+    private List<TestRecords1Proto.MySimpleRecord> simpleRecords() {
+        try (FDBRecordContext context = openContext()) {
+            final List<TestRecords1Proto.MySimpleRecord> records = recordStore.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .filter(rec -> rec.getRecordType().getName().equals("MySimpleRecord"))
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .asList().join();
+            context.commit();
+            return records;
+        }
+    }
+
+    /** Compare the built indexes with the actual records, regardless of how the test got to its final state. */
+    private void assertIndexesMatchRecords(@Nonnull final List<Index> indexes) {
+        final List<TestRecords1Proto.MySimpleRecord> records = simpleRecords();
+        for (Index index : indexes) {
+            if (index.getName().equals(sumIndex.getName())) {
+                assertEquals(records.stream().mapToLong(TestRecords1Proto.MySimpleRecord::getNumValue2).sum(),
+                        aggregate(FunctionNames.SUM, index), index.getName());
+            } else if (index.getName().equals(countIndex.getName())) {
+                assertEquals(records.size(), aggregate(FunctionNames.COUNT, index), index.getName());
+            } else {
+                try (FDBRecordContext context = openContext()) {
+                    assertEquals(records.size(), recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                            .getCount().join(), index.getName());
+                    context.commit();
+                }
+            }
         }
     }
 
@@ -136,12 +212,11 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
-    void testUserWritesWhileIndexerIsPaused() throws Exception {
-        populateEvenRecords(21);
-        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
-        disableAll(List.of(sumIndex));
-
+    /**
+     * Build with the given builder in a background thread, pausing after the first pass. While paused, run
+     * {@code whilePaused}.
+     */
+    private void buildPausingAfterFirstPass(@Nonnull final OnlineIndexer.Builder builder, @Nonnull final Runnable whilePaused) throws InterruptedException {
         final Semaphore pauseSemaphore = new Semaphore(1);
         final Semaphore startBuildingSemaphore = new Semaphore(1);
         pauseSemaphore.acquire();
@@ -149,7 +224,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         final AtomicBoolean passed = new AtomicBoolean(false);
         final AtomicReference<Throwable> buildFailure = new AtomicReference<>();
         final Thread indexerThread = new Thread(() -> {
-            try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false)
+            try (OnlineIndexer indexer = builder
                     .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseSemaphore))
                     .build()) {
                 indexer.buildIndex(true);
@@ -160,17 +235,31 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         indexerThread.start();
         startBuildingSemaphore.acquire();
         startBuildingSemaphore.release();
-
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyIdem());
-            context.commit();
+        try {
+            whilePaused.run();
+        } finally {
+            pauseSemaphore.release();
+            indexerThread.join();
         }
-        userWrites();
-        assertFalse(isTrackTableEmpty(sumIndex), "inserted records should be tracked");
-
-        pauseSemaphore.release();
-        indexerThread.join();
         assertNull(buildFailure.get(), () -> "the build failed: " + buildFailure.get());
+    }
+
+    // ---- basic flows ----
+
+    @Test
+    void testUserWritesWhileIndexerIsPaused() throws Exception {
+        populateEvenRecords(21);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        buildPausingAfterFirstPass(idemIndexerBuilder(sumIndex, false), () -> {
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyIdem());
+                context.commit();
+            }
+            userWrites();
+            assertFalse(isTrackTableEmpty(sumIndex), "inserted records should be tracked");
+        });
 
         assertReadable(sumIndex);
         assertSum(sumIndex);
@@ -211,16 +300,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
                 for (int recNo = 1; recNo < 240; recNo += 2) {
                     final int insertRecNo = recNo;
                     // Retry: the writer may conflict with the indexer's store state changes. The indexer is under test, not the writer.
-                    fdb.run(context -> {
-                        final FDBRecordStore store = createStoreBuilder().setContext(context)
-                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
-                                .setRecNo(insertRecNo)
-                                .setNumValue2(insertRecNo * 19)
-                                .setNumValueUnique(insertRecNo * 1139)
-                                .build());
-                        return null;
-                    });
+                    io(store -> saveSimple(store, insertRecNo, insertRecNo * 19));
                     inserted.put(recNo, recNo * 19);
                     Thread.sleep(10);
                 }
@@ -272,29 +352,357 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         disableAll(List.of(valueIndex));
 
         final AtomicBoolean checked = new AtomicBoolean(false);
-        final Semaphore pauseSemaphore = new Semaphore(1);
-        final Semaphore startBuildingSemaphore = new Semaphore(1);
-        pauseSemaphore.acquire();
-        startBuildingSemaphore.acquire();
-        final AtomicBoolean passed = new AtomicBoolean(false);
-        final Thread indexerThread = new Thread(() -> {
-            try (OnlineIndexer indexer = idemIndexerBuilder(valueIndex, false)
-                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseSemaphore))
-                    .build()) {
-                indexer.buildIndex(true);
+        buildPausingAfterFirstPass(idemIndexerBuilder(valueIndex, false), () -> {
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.getIndexState(valueIndex).isWriteOnlyNoQueue());
+                checked.set(true);
+                context.commit();
             }
         });
-        indexerThread.start();
-        startBuildingSemaphore.acquire();
-        startBuildingSemaphore.release();
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.getIndexState(valueIndex).isWriteOnlyNoQueue());
-            checked.set(true);
-            context.commit();
-        }
-        pauseSemaphore.release();
-        indexerThread.join();
         assertTrue(checked.get());
         assertReadable(valueIndex);
+    }
+
+    @Test
+    void testOtherTypesAreNotTracked() {
+        // A sub-index of a shared store: only inserts of the indexed type are tracked
+        populateEvenRecords(10);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> recordStore.markIndexWriteOnlyIdem(sumIndex).join());
+
+        inTransaction(() -> {
+            for (int recNo = 1; recNo < 20; recNo += 2) {
+                saveOther(recordStore, recNo);
+            }
+        });
+        assertTrue(isTrackTableEmpty(sumIndex), "records of other types should not be tracked");
+        inTransaction(() -> save(21, 21 * 19));
+        assertFalse(isTrackTableEmpty(sumIndex));
+    }
+
+    // ---- races between the indexer's read and its commit ----
+
+    private enum Race {
+        INSERT_IN_BATCH(false, store -> saveSimple(store, 7, 7 * 19)),
+        INSERT_AFTER_BATCH(false, store -> saveSimple(store, 101, 101 * 19)),
+        INSERT_OTHER_TYPE_IN_BATCH(false, store -> saveOther(store, 9)),
+        UPDATE_IN_BATCH(true, store -> saveSimple(store, 8, 1234)),
+        DELETE_IN_BATCH(true, store -> store.deleteRecord(Tuple.from(8))),
+        UPDATE_AFTER_BATCH(false, store -> saveSimple(store, 100, 4321)),
+        DELETE_AFTER_BATCH(false, store -> store.deleteRecord(Tuple.from(102)));
+
+        private final boolean conflictsWithIndexer;
+        private final Consumer<FDBRecordStore> action;
+
+        Race(final boolean conflictsWithIndexer, final Consumer<FDBRecordStore> action) {
+            this.conflictsWithIndexer = conflictsWithIndexer;
+            this.action = action;
+        }
+    }
+
+    /**
+     * Build the targets, committing {@code race} in the middle of the indexer's first transaction - after it has
+     * started scanning and before it commits. The first batch covers records 0-8, with 10 as its continuation.
+     * @return the number of indexer commits that failed
+     */
+    private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> idemTargets, @Nonnull final Race race) {
+        populateEvenRecords(100);
+        openSimpleMetaData(allIndexesHook(targets));
+        disableAll(targets);
+
+        // The index maintenance filter is called while the indexer updates the index, i.e. mid-transaction
+        final AtomicBoolean armed = new AtomicBoolean(true);
+        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
+        setIndexMaintenanceFilter((index, rec) -> {
+            if (index.getName().equals(sumIndex.getName()) && armed.compareAndSet(true, false)) {
+                final Thread ioThread = new Thread(() -> {
+                    try {
+                        io(race.action);
+                    } catch (Throwable t) {
+                        ioFailure.set(t);
+                    }
+                });
+                ioThread.start();
+                try {
+                    ioThread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.ALL;
+        });
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexer = newIndexerBuilder(targets, timer)
+                .setLimit(5)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(idemTargets).build())
+                .build()) {
+            indexer.buildIndex(true);
+        }
+        assertFalse(armed.get(), "the race was never triggered");
+        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
+
+        setIndexMaintenanceFilter(null);
+        assertReadable(targets);
+        assertIndexesMatchRecords(targets);
+        return timer.getCount(FDBStoreTimer.Events.COMMIT_FAILURE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Race.class)
+    void testRaceBetweenIndexerReadAndCommit(final Race race) {
+        final int failures = runRace(List.of(sumIndex), List.of(sumIndex), race);
+        if (race.conflictsWithIndexer) {
+            // An update or delete of a record the indexer processed: it must fail and retry, or the index would be wrong
+            assertTrue(failures > 0, "the indexer should have conflicted with " + race);
+        } else {
+            assertEquals(0, failures, "the indexer should not have conflicted with " + race);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testStaleIoTransactionCommitsAfterIndexer(final boolean delete) {
+        // A user transaction reads the range set (record 4 is not indexed yet, so it skips the index update), and only
+        // commits after the indexer has committed the batch that indexed record 4. Without the indexer's write conflict
+        // on the record, that user transaction would commit and leave the stale record in the index.
+        populateEvenRecords(100);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        final AtomicInteger indexUpdates = new AtomicInteger(0);
+        final AtomicBoolean firstAttempt = new AtomicBoolean(true);
+        final CountDownLatch ioHasRead = new CountDownLatch(1);
+        final CountDownLatch releaseIo = new CountDownLatch(1);
+        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
+        final Thread ioThread = new Thread(() -> {
+            try {
+                io(store -> {
+                    if (delete) {
+                        store.deleteRecord(Tuple.from(4));
+                    } else {
+                        saveSimple(store, 4, 9999);
+                    }
+                    if (firstAttempt.compareAndSet(true, false)) {
+                        ioHasRead.countDown();
+                        try {
+                            releaseIo.await();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                });
+            } catch (Throwable t) {
+                ioFailure.set(t);
+            }
+        });
+        // The first indexer transaction updates the index for 5 records (limit); the 6th update is in the second transaction
+        setIndexMaintenanceFilter((index, rec) -> {
+            if (index.getName().equals(sumIndex.getName())) {
+                try {
+                    final int count = indexUpdates.incrementAndGet();
+                    if (count == 1) {
+                        ioThread.start();
+                        ioHasRead.await();
+                    } else if (count == 6) {
+                        releaseIo.countDown();
+                        ioThread.join();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.ALL;
+        });
+        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).setLimit(5).build()) {
+            indexer.buildIndex(true);
+        }
+        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
+        assertFalse(firstAttempt.get());
+        assertTrue(indexUpdates.get() >= 6);
+
+        setIndexMaintenanceFilter(null);
+        assertReadable(sumIndex);
+        assertIndexesMatchRecords(List.of(sumIndex));
+    }
+
+    @Test
+    void testSnapshotResolutionRequiresAllTargets() {
+        // One non-idempotent target that is not write-only-idem: the scan remains serializable, an insert in the range conflicts
+        assertTrue(runRace(List.of(sumIndex, countIndex), List.of(sumIndex), Race.INSERT_IN_BATCH) > 0);
+    }
+
+    @Test
+    void testSnapshotResolutionWithMixedTargets() {
+        // an idempotent target (that falls back to plain write-only) does not prevent snapshot resolution
+        assertEquals(0, runRace(List.of(sumIndex, valueIndex), List.of(sumIndex, valueIndex), Race.INSERT_IN_BATCH));
+    }
+
+    @Test
+    void testSnapshotResolutionMultiTarget() {
+        assertEquals(0, runRace(List.of(sumIndex, countIndex), List.of(sumIndex, countIndex), Race.INSERT_IN_BATCH));
+    }
+
+    // ---- sequences in a single transaction ----
+
+    private void sequences(final int base) {
+        // insert, update, delete
+        inTransaction(() -> {
+            save(base + 1, 100);
+            save(base + 1, 200);
+            delete(base + 1);
+        });
+        // insert, update
+        inTransaction(() -> {
+            save(base + 3, 300);
+            save(base + 3, 400);
+        });
+        // delete, re-insert
+        inTransaction(() -> {
+            delete(base + 4);
+            save(base + 4, 500);
+        });
+        // update, delete, re-insert
+        inTransaction(() -> {
+            save(base + 6, 600);
+            delete(base + 6);
+            save(base + 6, 700);
+        });
+        // type change: simple -> other (permanent), and simple -> other -> simple
+        inTransaction(() -> {
+            saveOther(recordStore, base + 10);
+            expectedNumValue2.remove(base + 10);
+        });
+        inTransaction(() -> saveOther(recordStore, base + 8));
+        inTransaction(() -> save(base + 8, 800));
+        // other -> simple
+        inTransaction(() -> saveOther(recordStore, base + 12));
+        inTransaction(() -> save(base + 12, 900));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testSequencesInSingleTransaction(final boolean afterFirstPass) throws Exception {
+        populateEvenRecords(100);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex, countIndex)));
+        disableAll(List.of(sumIndex, countIndex));
+        final List<Index> targets = List.of(sumIndex, countIndex);
+        final OnlineIndexer.Builder builder = newIndexerBuilder(targets)
+                .setLimit(5)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets).build());
+        final Runnable allSequences = () -> {
+            sequences(2);     // within the first pass
+            sequences(150);   // not indexed yet
+        };
+        if (afterFirstPass) {
+            buildPausingAfterFirstPass(builder, allSequences);
+        } else {
+            inTransaction(() -> targets.forEach(index -> recordStore.markIndexWriteOnlyIdem(index).join()));
+            allSequences.run();
+            try (OnlineIndexer indexer = builder.build()) {
+                indexer.buildIndex(true);
+            }
+        }
+        assertReadable(targets);
+        assertIndexesMatchRecords(targets);
+    }
+
+    // ---- randomized concurrent workload ----
+
+    private static int uniqueValue(final int recNo, final boolean mirrored) {
+        // base and mirrored values never collide (mirrored are 7 modulo 1139) - the mirrored moves the record across the source index
+        return mirrored ? (400 - recNo) * 1139 + 7 : recNo * 1139;
+    }
+
+    private void randomWorkload(final int threadId, final long seed, final Set<Integer> live) {
+        final Random random = new Random(seed * 31 + threadId);
+        final Set<Integer> others = new HashSet<>();
+        for (int i = 0; i < 60; i++) {
+            final int recNo = (random.nextInt(60) * 4) + (threadId * 2) + (random.nextBoolean() ? 0 : 1); // thread-owned
+            final int value = random.nextInt(10_000);
+            final boolean mirrored = random.nextBoolean();
+            if (others.contains(recNo)) {
+                // other -> simple
+                io(store -> saveSimple(store, recNo, value, uniqueValue(recNo, mirrored)));
+                others.remove(recNo);
+                live.add(recNo);
+            } else if (live.contains(recNo)) {
+                switch (random.nextInt(4)) {
+                    case 0:
+                        io(store -> saveSimple(store, recNo, value, uniqueValue(recNo, mirrored)));
+                        break;
+                    case 1:
+                        io(store -> store.deleteRecord(Tuple.from(recNo)));
+                        live.remove(recNo);
+                        break;
+                    case 2:
+                        io(store -> {
+                            store.deleteRecord(Tuple.from(recNo));
+                            saveSimple(store, recNo, value, uniqueValue(recNo, mirrored));
+                        });
+                        break;
+                    default:
+                        io(store -> saveOther(store, recNo));
+                        live.remove(recNo);
+                        others.add(recNo);
+                        break;
+                }
+            } else {
+                io(store -> saveSimple(store, recNo, value, uniqueValue(recNo, mirrored)));
+                live.add(recNo);
+            }
+            try {
+                Thread.sleep(random.nextInt(15));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,false", "2,false", "3,false", "4,true", "5,true", "6,true"})
+    void testRandomConcurrentWorkload(final long seed, final boolean byIndex) throws Exception {
+        // Initial records are numbered by 2: thread 0 owns recNo%4 == 0 or 1, thread 1 owns 2 or 3
+        populateEvenRecords(120);
+        final List<Index> targets = byIndex ? List.of(sumIndex) : List.of(sumIndex, countIndex);
+        openSimpleMetaData(allIndexesHook(targets));
+        disableAll(targets);
+
+        final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets);
+        if (byIndex) {
+            policy.setSourceIndex(UNIQUE_SOURCE_INDEX);
+        }
+        final List<Thread> writers = new ArrayList<>();
+        final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
+        for (int threadId = 0; threadId < 2; threadId++) {
+            final int id = threadId;
+            final Set<Integer> live = new HashSet<>();
+            for (int recNo = 0; recNo < 240; recNo += 2) {
+                if (recNo % 4 == id * 2) {
+                    live.add(recNo);
+                }
+            }
+            final Thread writer = new Thread(() -> {
+                try {
+                    randomWorkload(id, seed, live);
+                } catch (Throwable t) {
+                    writerFailure.set(t);
+                }
+            });
+            writers.add(writer);
+            writer.start();
+        }
+        try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy.build()).build()) {
+            indexer.buildIndex(true);
+        }
+        for (Thread writer : writers) {
+            writer.join();
+        }
+        assertNull(writerFailure.get(), () -> "a writer failed: " + writerFailure.get());
+
+        assertReadable(targets);
+        assertIndexesMatchRecords(targets);
     }
 }
