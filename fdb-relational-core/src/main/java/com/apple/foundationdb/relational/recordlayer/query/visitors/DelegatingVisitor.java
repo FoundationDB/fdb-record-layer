@@ -289,7 +289,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext ctx) {
+    public IndexGenerationResult visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext ctx) {
         return getDelegate().visitGeospatialIndexDefinition(ctx);
     }
 

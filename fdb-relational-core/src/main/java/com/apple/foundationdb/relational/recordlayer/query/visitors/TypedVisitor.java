@@ -177,7 +177,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    RecordLayerIndex visitGeospatialIndexDefinition(RelationalParser.GeospatialIndexDefinitionContext ctx);
+    IndexGenerationResult visitGeospatialIndexDefinition(RelationalParser.GeospatialIndexDefinitionContext ctx);
 
     @Nonnull
     @Override

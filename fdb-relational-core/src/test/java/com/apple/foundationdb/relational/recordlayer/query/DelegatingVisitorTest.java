@@ -385,7 +385,7 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
-                    public RecordLayerIndex visitGeospatialIndexDefinition(@Nonnull RelationalParser.GeospatialIndexDefinitionContext ctx) {
+                    public IndexGenerationResult visitGeospatialIndexDefinition(@Nonnull RelationalParser.GeospatialIndexDefinitionContext ctx) {
                         called.set(true);
                         return null;
                     }
