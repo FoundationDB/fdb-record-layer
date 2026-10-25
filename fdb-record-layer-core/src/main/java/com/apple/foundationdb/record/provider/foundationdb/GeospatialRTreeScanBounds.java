@@ -283,7 +283,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
         private boolean overlaps(final long mbrLowLat, final long mbrHighLat,
                                  final long mbrLowLon, final long mbrHighLon) {
             return mbrHighLat >= lowLatitude && mbrLowLat <= highLatitude &&
-                   mbrHighLon >= lowLongitude && mbrLowLon <= highLongitude;
+                    mbrHighLon >= lowLongitude && mbrLowLon <= highLongitude;
         }
     }
 }
