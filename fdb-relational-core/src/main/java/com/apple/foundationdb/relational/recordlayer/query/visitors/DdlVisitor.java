@@ -413,7 +413,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -429,8 +429,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
                 .addAllIndexOptions(indexOptions)
                 .setMetadataBuilder(metadataBuilder)
-                .setGenerateKeyValueExpressionWithEmptyKey(true)
-                .setUseNullableArrays(containsNullableArray);
+                .setOptions(new IndexGenerationOptions(false, containsNullableArray, true,
+                        ExtremumEverStorage.TUPLE));
 
         final var coordinateSpecs = indexDefinitionContext.indexColumnList().indexColumnSpec();
         Assert.thatUnchecked(coordinateSpecs.size() == 2, ErrorCode.UNSUPPORTED_OPERATION,
@@ -442,7 +442,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var col = OnSourceIndexGenerator.IndexedColumn
                         .parseColSpec(colSpec, getDelegate().getIdentifierVisitor());
                 indexGeneratorBuilder.addKeyColumn(col);
-                groupingIdentifiers.add(col.getIdentifier());
+                groupingIdentifiers.add(col.identifier());
             });
         }
 
@@ -455,7 +455,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var col = OnSourceIndexGenerator.IndexedColumn
                     .parseColSpec(colSpec, getDelegate().getIdentifierVisitor());
             indexGeneratorBuilder.addKeyColumn(col);
-            coordinateIdentifiers.add(col.getIdentifier());
+            coordinateIdentifiers.add(col.identifier());
         });
 
         for (final var coordinateId : coordinateIdentifiers) {
@@ -468,7 +468,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         getDelegate().popPlanFragment();
 
-        final var indexBuilder = indexGeneratorBuilder.build().generate();
+        final var result = indexGeneratorBuilder.build().generate();
 
         // The R-tree maintainer requires exactly {grouping columns..., latitude, longitude} — a GroupingKeyExpression
         // when grouped, a bare ThenKeyExpression otherwise. OnSourceIndexGenerator's non-aggregate path never emits a
@@ -486,8 +486,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             keyExpression = coordinates.groupBy(groupingFields.get(0),
                     groupingFields.subList(1, groupingFields.size()).toArray(new KeyExpression[0]));
         }
-        indexBuilder.setKeyExpression(keyExpression);
-        return indexBuilder.setIndexType(IndexTypes.GEOSPATIAL_RTREE).build();
+        result.indexBuilder().setKeyExpression(keyExpression).setIndexType(IndexTypes.GEOSPATIAL_RTREE);
+        return result;
     }
 
     @Nonnull

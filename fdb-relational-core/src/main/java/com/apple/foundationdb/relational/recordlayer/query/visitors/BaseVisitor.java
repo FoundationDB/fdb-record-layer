@@ -482,7 +482,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext ctx) {
+    public IndexGenerationResult visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext ctx) {
         return ddlVisitor.visitGeospatialIndexDefinition(ctx);
     }
 
