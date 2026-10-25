@@ -258,7 +258,7 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
     @Override
     public String toString() {
         return "BY_DISTANCE:" + prefixScanComparisons + ":WITHIN " + radiusMeters + " OF (" + centerLatitude + ", " +
-               centerLongitude + "):" + suffixScanComparisons;
+                centerLongitude + "):" + suffixScanComparisons;
     }
 
     @Override
