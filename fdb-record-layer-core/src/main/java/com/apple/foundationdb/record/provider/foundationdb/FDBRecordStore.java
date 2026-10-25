@@ -861,13 +861,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             ensureContextActive().set(IndexingSubspaces.indexTrackTableKey(this, index, Verify.verifyNotNull(newRecord).getPrimaryKey()), new byte[0]);
             return maintainer.update(null, newRecord);
         }
-        if (newRecord == null) {
-            // delete: the entry is no longer needed (a stale one would be harmless). It must be cleared only after
-            // the maintainer has read it (the transaction would otherwise read its own clear).
-            return maintainer.updateWhileWriteOnly(oldRecord, null).thenRun(() ->
-                    ensureContextActive().clear(IndexingSubspaces.indexTrackTableKey(this, index, oldRecord.getPrimaryKey())));
-        }
-        // update: should the track table contain this key, it already does
+        // update/delete: a tracked key is not cleared on delete. A stale entry is harmless (a re-insert re-adds it and the
+        // indexer never sees a deleted record), while clearing it asynchronously could race with a re-insert in the same transaction.
         return maintainer.updateWhileWriteOnly(oldRecord, newRecord);
     }
 

@@ -60,6 +60,7 @@ import javax.annotation.Nullable;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -785,7 +786,7 @@ public abstract class IndexingBase {
      * continuation item.
      * @param hasMore when return, true if the cursor's source is not exhausted (not more items in range).
      * @param recordsScanned when return, number of scanned records.
-     * @param isIdempotent are all the built indexes idempotent
+     * @param snapshotIsolationLevel if true, records are scanned as snapshot, and each indexed record is protected by its own conflict ranges (see {@link #canUseSnapshotResolution})
      * @param <T> cursor result's type.
      *
      * @return hasMore, nextResultCont, and recordsScanned.
@@ -798,7 +799,7 @@ public abstract class IndexingBase {
                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                             @Nonnull AtomicBoolean hasMore,
                                                             @Nullable AtomicLong recordsScanned,
-                                                            final boolean isIdempotent) {
+                                                            final boolean snapshotIsolationLevel) {
 
         // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
         // Copying the state also guards against changes made by other online building from check version.
@@ -813,11 +814,11 @@ public abstract class IndexingBase {
                                         policy.isReverseScanOrder() ?
                                         handleCursorResultReverse(store, result,
                                                 getRecordToIndex, nextResultCont,
-                                                recordsScannedCounter, hasMore, isIdempotent)
+                                                recordsScannedCounter, hasMore, snapshotIsolationLevel)
                                         :
                                         handleCursorResult(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
-                                                recordsScannedCounter, hasMore, isIdempotent)
+                                                recordsScannedCounter, hasMore, snapshotIsolationLevel)
                                 ), cursor.getExecutor()))
                 .thenApply(vignore -> {
                     long recordsScannedInTransaction = recordsScannedCounter.get();
@@ -843,7 +844,7 @@ public abstract class IndexingBase {
                                                               @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                               @Nonnull AtomicLong recordsScannedCounter,
                                                               @Nonnull AtomicBoolean hasMore,
-                                                              final boolean isIdempotent) {
+                                                              final boolean snapshotIsolationLevel) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
         if (cursorResult.hasNext()) {
@@ -889,7 +890,7 @@ public abstract class IndexingBase {
                         return AsyncUtil.READY_TRUE;
                     }
                     // This record should be indexed. Add it to the transaction.
-                    if (isIdempotent) {
+                    if (snapshotIsolationLevel) {
                         store.addRecordReadConflict(rec.getPrimaryKey());
                     }
                     timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
@@ -922,7 +923,7 @@ public abstract class IndexingBase {
                                                                      @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                                      @Nonnull AtomicLong recordsScannedCounter,
                                                                      @Nonnull AtomicBoolean hasMore,
-                                                                     final boolean isIdempotent) {
+                                                                     final boolean snapshotIsolationLevel) {
         // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
         // the 'lastResultCont' item should also be processed
         if (!cursorResult.hasNext()) {
@@ -947,7 +948,7 @@ public abstract class IndexingBase {
                         return AsyncUtil.READY_TRUE; // next
                     }
                     // This record should be indexed. Add it to the transaction.
-                    if (isIdempotent) {
+                    if (snapshotIsolationLevel) {
                         store.addRecordReadConflict(rec.getPrimaryKey());
                     }
                     timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
@@ -1197,9 +1198,14 @@ public abstract class IndexingBase {
         return hasMore || rangeBoundary != null;
     }
 
-    protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {
+    protected static boolean canUseSnapshotResolution(@Nonnull FDBRecordStore store, @Nonnull Collection<Index> targetIndexes) {
+        return targetIndexes.stream().allMatch(targetIndex ->
+                store.getIndexMaintainer(targetIndex).isIdempotent() || store.getIndexState(targetIndex).isWriteOnlyIdem());
+    }
+
+    protected ScanProperties scanPropertiesWithLimits(boolean snapshotIsolationLevel) {
         final IsolationLevel isolationLevel =
-                isIdempotent ?
+                snapshotIsolationLevel ?
                 IsolationLevel.SNAPSHOT :
                 IsolationLevel.SERIALIZABLE;
         final boolean isReverse = policy.isReverseScanOrder();

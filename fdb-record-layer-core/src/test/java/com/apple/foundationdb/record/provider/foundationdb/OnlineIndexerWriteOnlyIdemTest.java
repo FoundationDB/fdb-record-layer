@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -194,6 +195,54 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         assertReadable(sumIndex);
         assertSum(sumIndex);
         assertTrue(isTrackTableEmpty(sumIndex));
+    }
+
+    @Test
+    void testConcurrentInsertsDoNotConflictWithIndexer() throws Exception {
+        // The indexer scans with snapshot resolution: inserts into (or after) the scanned range do not abort it
+        populateEvenRecords(100);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        final Map<Integer, Integer> inserted = new ConcurrentHashMap<>();
+        final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
+        final Thread writerThread = new Thread(() -> {
+            try {
+                for (int recNo = 1; recNo < 240; recNo += 2) {
+                    final int insertRecNo = recNo;
+                    // Retry: the writer may conflict with the indexer's store state changes. The indexer is under test, not the writer.
+                    fdb.run(context -> {
+                        final FDBRecordStore store = createStoreBuilder().setContext(context)
+                                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+                        store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                                .setRecNo(insertRecNo)
+                                .setNumValue2(insertRecNo * 19)
+                                .setNumValueUnique(insertRecNo * 1139)
+                                .build());
+                        return null;
+                    });
+                    inserted.put(recNo, recNo * 19);
+                    Thread.sleep(10);
+                }
+            } catch (Throwable t) {
+                writerFailure.set(t);
+            }
+        });
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        writerThread.start();
+        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false)
+                .setTimer(timer)
+                .setLimit(5)
+                .build()) {
+            indexer.buildIndex(true);
+        }
+        writerThread.join();
+        assertNull(writerFailure.get(), () -> "the writer failed: " + writerFailure.get());
+
+        assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT_FAILURE), "the indexer should not have conflicted");
+        expectedNumValue2.putAll(inserted);
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
     }
 
     @Test
