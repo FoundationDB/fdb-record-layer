@@ -40,6 +40,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -407,6 +408,11 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
      * @return the number of indexer commits that failed
      */
     private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> idemTargets, @Nonnull final Race race) {
+        return runRace(targets, idemTargets, race.action, null);
+    }
+
+    private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> idemTargets,
+                        @Nonnull final Consumer<FDBRecordStore> raceAction, @Nullable final String sourceIndex) {
         populateEvenRecords(100);
         openSimpleMetaData(allIndexesHook(targets));
         disableAll(targets);
@@ -418,7 +424,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
             if (index.getName().equals(sumIndex.getName()) && armed.compareAndSet(true, false)) {
                 final Thread ioThread = new Thread(() -> {
                     try {
-                        io(race.action);
+                        io(raceAction);
                     } catch (Throwable t) {
                         ioFailure.set(t);
                     }
@@ -436,7 +442,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (OnlineIndexer indexer = newIndexerBuilder(targets, timer)
                 .setLimit(5)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(idemTargets).build())
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(idemTargets).setSourceIndex(sourceIndex).build())
                 .build()) {
             indexer.buildIndex(true);
         }
@@ -459,6 +465,16 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         } else {
             assertEquals(0, failures, "the indexer should not have conflicted with " + race);
         }
+    }
+
+    @Test
+    void testSourceKeyMovesIntoRangeBeingCommitted() {
+        // Building by source index: while the indexer builds the first batch (the source keys of records 0-8), user io moves
+        // the source key of record 100 into that batch. It is not indexed yet, so user io leaves it to the indexer, which
+        // neither sees it (it was elsewhere when the indexer read) nor conflicts (no range conflict) - but the range is
+        // then marked as built.
+        runRace(List.of(sumIndex), List.of(sumIndex),
+                store -> saveSimple(store, 100, 1000, 3 * 1139 + 5), UNIQUE_SOURCE_INDEX);
     }
 
     @ParameterizedTest

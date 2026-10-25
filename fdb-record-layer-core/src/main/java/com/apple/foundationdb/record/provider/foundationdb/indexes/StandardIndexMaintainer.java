@@ -301,11 +301,47 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
         // WRITE_ONLY_IDEM: the record is indexed if either the track table (user inserts) or the range set (indexer)
         // say so. Both are snapshot reads - conflicts are resolved by the record itself.
-        final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey);
-        return state.context.ensureActive().snapshot().get(trackKey).thenCompose(tracked ->
-                tracked != null ?
+        return isTracked(primaryKey).thenCompose(tracked ->
+                tracked ?
                 AsyncUtil.READY_TRUE :
                 IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack()));
+    }
+
+    private CompletableFuture<Boolean> isTracked(@Nonnull Tuple primaryKey) {
+        final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey);
+        return state.context.ensureActive().snapshot().get(trackKey).thenApply(Objects::nonNull);
+    }
+
+    /**
+     * WRITE_ONLY_IDEM, building by source index: the record got a new source index key (or just entered the source index).
+     * <p>
+     * We cannot tell whether the new key is already covered by the indexer, because the indexer may be committing that
+     * range at this very moment and neither side would notice: the indexer never saw the record at its new key, and
+     * this transaction reads the range set without conflicts. The record could then be left out of the index.
+     * So the new key is handled like an insert: the record is indexed and tracked, and the indexer will skip it.
+     * The old key is removed from the index only if it was indexed.
+     * </p>
+     */
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyIdemMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                               @Nullable final Tuple oldEntryKey,
+                                                                                               @Nonnull final FDBIndexableRecord<M> newRecord) {
+        final Tuple primaryKey = newRecord.getPrimaryKey();
+        final CompletableFuture<Boolean> oldIndexed;
+        if (oldRecord == null) {
+            oldIndexed = AsyncUtil.READY_FALSE;
+        } else if (oldEntryKey == null) {
+            // not in the source index, can only be indexed by user io
+            oldIndexed = isTracked(primaryKey);
+        } else {
+            oldIndexed = shouldUpdateWhileWriteOnly(primaryKey, oldEntryKey);
+        }
+        return oldIndexed
+                .thenCompose(indexed -> indexed ? update(oldRecord, null) : AsyncUtil.DONE)
+                .thenCompose(ignore -> {
+                    // Only after reading the track table above (the transaction would read its own write)
+                    state.context.ensureActive().set(IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey), new byte[0]);
+                    return update(null, newRecord);
+                });
     }
 
     @SuppressWarnings("java:S3776") // Trying to simplify this method cognitive complexity seems to make it harder to follow
@@ -313,6 +349,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
+        if (newEntryKey != null && !newEntryKey.equals(oldEntryKey) && state.store.getIndexState(state.index).isWriteOnlyIdem()) {
+            return updateWriteOnlyIdemMovedToNewSourceKey(oldRecord, oldEntryKey, Verify.verifyNotNull(newRecord));
+        }
         if (oldEntryKey != null && newEntryKey != null) {
             if (oldEntryKey.equals(newEntryKey)) {
                 // The old and new record use the same key in the source index, so check if it has been
