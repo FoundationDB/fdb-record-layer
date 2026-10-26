@@ -184,9 +184,8 @@ public final class OfflineStoredQueriesProcessor {
                                                            @Nonnull final MetricCollector metricCollector,
                                                            @Nonnull final RecordLayerSchemaTemplate template,
                                                            @Nonnull final Counts counts) {
-        final String templateKey = template.getName() + ":" + template.getVersion();
         for (final var storedQuery : template.getStoredQueries()) {
-            planStoredQuery(cache, metricCollector, template, templateKey, storedQuery.getName(), storedQuery, counts);
+            planStoredQuery(cache, metricCollector, template, storedQuery, counts);
         }
     }
 
@@ -209,16 +208,13 @@ public final class OfflineStoredQueriesProcessor {
     private static void planStoredQuery(@Nonnull final RelationalPlanCache cache,
                                         @Nonnull final MetricCollector metricCollector,
                                         @Nonnull final RecordLayerSchemaTemplate template,
-                                        @Nonnull final String templateKey,
-                                        @Nonnull final String storedQueryName,
                                         @Nonnull final StoredQuery storedQuery,
                                         @Nonnull final Counts counts) {
         final var preparedCases = storedQuery.getPreparedCases();
         if (preparedCases.isEmpty()) {
             // No declared parameters, so one plan to build. Parameters without cases cannot occur: CREATE requires
             // them together.
-            if (planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
-                    PreparedParams.empty(), counts)) {
+            if (planOneCase(cache, metricCollector, template, storedQuery, PreparedParams.empty(), counts)) {
                 counts.plansWarmed++;
                 counts.queriesProcessed++;
             } else {
@@ -239,16 +235,15 @@ public final class OfflineStoredQueriesProcessor {
                 // attempted — the declaration itself could not be resolved.
                 if (logger.isErrorEnabled()) {
                     logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor cannot prepare a stored query case",
-                            "schemaTemplate", templateKey,
-                            "storedQueryName", storedQueryName,
+                            "schemaTemplate", templateKey(template),
+                            "storedQueryName", storedQuery.getName(),
                             "preparedCase", preparedCase), e);
                 }
                 counts.plansFailed++;
                 allCasesPlanned = false;
                 continue;
             }
-            if (planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
-                    preparedParams, counts)) {
+            if (planOneCase(cache, metricCollector, template, storedQuery, preparedParams, counts)) {
                 counts.plansWarmed++;
             } else {
                 counts.plansFailed++;
@@ -276,11 +271,10 @@ public final class OfflineStoredQueriesProcessor {
     private static boolean planOneCase(@Nonnull final RelationalPlanCache cache,
                                        @Nonnull final MetricCollector metricCollector,
                                        @Nonnull final RecordLayerSchemaTemplate template,
-                                       @Nonnull final String templateKey,
-                                       @Nonnull final String storedQueryName,
                                        @Nonnull final StoredQuery storedQuery,
                                        @Nonnull final PreparedParams preparedParams,
                                        @Nonnull final Counts counts) {
+        final var templateKey = templateKey(template);
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
 
@@ -289,7 +283,7 @@ public final class OfflineStoredQueriesProcessor {
                 PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE, preparedParams)
                         .getPlan(tempFunc, Map.of(
                                 "schemaTemplate", templateKey,
-                                "storedQueryName", storedQueryName,
+                                "storedQueryName", storedQuery.getName(),
                                 "tempFunction", tempFunc));
                 currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
                 counts.tempFunctionsProcessed++;
@@ -311,13 +305,18 @@ public final class OfflineStoredQueriesProcessor {
                             preparedParams)
                     .getPlan(sql, Map.of(
                             "schemaTemplate", templateKey,
-                            "storedQueryName", storedQueryName,
+                            "storedQueryName", storedQuery.getName(),
                             "storedQuerySql", sql));
             return true;
         } catch (java.sql.SQLException | RelationalException | RuntimeException e) {
             // error already logged inside getPlan's finally
             return false;
         }
+    }
+
+    @Nonnull
+    private static String templateKey(@Nonnull final RecordLayerSchemaTemplate template) {
+        return template.getName() + ":" + template.getVersion();
     }
 
     private static final class Counts {
