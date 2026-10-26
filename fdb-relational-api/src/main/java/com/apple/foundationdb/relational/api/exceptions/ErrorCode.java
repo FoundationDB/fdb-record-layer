@@ -77,6 +77,7 @@ public enum ErrorCode {
     UNSUPPORTED_OPERATION("0A000"),
     UNSUPPORTED_QUERY("0AF00"),
     UNSUPPORTED_SORT("0AF01"),
+    UNABLE_TO_PLAN("0AF02"),
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
@@ -109,6 +110,7 @@ public enum ErrorCode {
 
     // Class 40 - Transaction Rollback
     SERIALIZATION_FAILURE("40001"),
+    TRANSACTION_RESULT_UNKNOWN("40003"),
 
     // Class 42 - Syntax Error or Access Rule Violation
     SYNTAX_OR_ACCESS_VIOLATION("42000"),
@@ -160,12 +162,17 @@ public enum ErrorCode {
     // Class 54 Program Limit Exceeded
     TOO_MANY_COLUMNS("54011"),
     EXECUTION_LIMIT_REACHED("54F01"),
+    PLAN_TOO_COMPLEX("54F02"),
+    TRANSACTION_TOO_LARGE("54F03"),
+    KEY_TOO_LARGE("54F04"),
+    VALUE_TOO_LARGE("54F05"),
 
     // Class 55 - Object Not In Prerequisite State
     STATEMENT_CLOSED("55F00"),
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),
+    STORAGE_ERROR("58F02"),
 
     // Class XX - Internal Error
     /**
