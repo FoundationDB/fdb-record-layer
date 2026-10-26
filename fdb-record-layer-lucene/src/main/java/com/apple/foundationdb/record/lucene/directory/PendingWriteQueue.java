@@ -313,7 +313,7 @@ public class PendingWriteQueue {
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
             replayOperation(entry.get(), indexWriter, index);
         }).thenAccept(lastResult -> {
-            if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
+            if (lastResult.getNoNextReason() == RecordCursor.NoNextReason.RETURN_LIMIT_REACHED) {
                 // Reached the row limit
                 throw new TooManyPendingWritesException("Too many entries to replay into IndexWriter", maxEntriesToReplay);
             }

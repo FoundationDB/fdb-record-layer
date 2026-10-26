@@ -179,13 +179,13 @@ public class RecordQuery {
         }
         final RecordQuery that = (RecordQuery)o;
         return isSortReverse() == that.isSortReverse() &&
-               removeDuplicates == that.removeDuplicates &&
-               getRecordTypes().equals(that.getRecordTypes()) &&
-               Objects.equals(getAllowedIndexes(), that.getAllowedIndexes()) &&
-               queryabilityFilter.equals(that.queryabilityFilter) &&
-               Objects.equals(getFilter(), that.getFilter()) &&
-               Objects.equals(getSort(), that.getSort()) &&
-               Objects.equals(getRequiredResults(), that.getRequiredResults());
+                removeDuplicates == that.removeDuplicates &&
+                getRecordTypes().equals(that.getRecordTypes()) &&
+                Objects.equals(getAllowedIndexes(), that.getAllowedIndexes()) &&
+                queryabilityFilter.equals(that.queryabilityFilter) &&
+                Objects.equals(getFilter(), that.getFilter()) &&
+                Objects.equals(getSort(), that.getSort()) &&
+                Objects.equals(getRequiredResults(), that.getRequiredResults());
     }
 
     @Override

@@ -118,7 +118,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
                     throw new KeyExpression.InvalidExpressionException("text index does not have text field after grouped fields");
                 } else {
                     Descriptors.FieldDescriptor textFieldDescriptor = fields.get(textFieldPosition);
-                    if (!textFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.STRING)) {
+                    if (textFieldDescriptor.getType() != Descriptors.FieldDescriptor.Type.STRING) {
                         throw new KeyExpression.InvalidExpressionException("text index has non-string type as text field")
                                 .addLogInfo(LogMessageKeys.EXPECTED_TYPE, Descriptors.FieldDescriptor.Type.STRING)
                                 .addLogInfo(LogMessageKeys.ACTUAL_TYPE, textFieldDescriptor.getLiteJavaType());

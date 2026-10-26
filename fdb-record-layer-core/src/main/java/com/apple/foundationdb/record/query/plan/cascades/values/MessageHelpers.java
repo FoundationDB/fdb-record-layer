@@ -366,7 +366,7 @@ public class MessageHelpers {
                     final var currentFieldType = Verify.verifyNotNull(currentRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
                     // If the field type is a message, then it could be one of the special types, like UUID. We do not
                     // want to get the value of that field as a 'runtime' type, hence we get the raw message itself.
-                    var fieldResult = messageFieldDescriptor.isRepeated() || !messageFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE) ?
+                    var fieldResult = messageFieldDescriptor.isRepeated() || messageFieldDescriptor.getType() != Descriptors.FieldDescriptor.Type.MESSAGE ?
                                       getFieldOnMessage(currentMessage, messageFieldDescriptor) : getFieldMessageOnMessage(currentMessage, messageFieldDescriptor);
                     // If the last step in the field path is an array that is also nullable, then we need to unwrap the
                     // value wrapper.

@@ -282,7 +282,7 @@ public class StoreTimer {
          */
         @SuppressWarnings("unchecked")
         default <T extends Event> T[] validate(@Nonnull T... events) {
-            return validate((a, b) -> { return; }, events);
+            return validate((a, b) -> { }, events);
         }
 
         /**
@@ -892,7 +892,7 @@ public class StoreTimer {
      * @return a new cursor that returns the same elements and also records timing information
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
-        return new RecordCursor<T>() {
+        return new RecordCursor<>() {
             RecordCursorResult<T> nextResult;
 
             @Nonnull

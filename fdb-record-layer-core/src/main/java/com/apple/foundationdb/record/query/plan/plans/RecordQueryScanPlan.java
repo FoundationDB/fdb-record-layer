@@ -357,10 +357,10 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         }
         final RecordQueryScanPlan that = (RecordQueryScanPlan)otherExpression;
         return Objects.equals(recordTypes, that.recordTypes) &&
-               flowedType.equals(otherExpression.getResultValue().getResultType()) &&
-               Objects.equals(commonPrimaryKey, that.commonPrimaryKey) &&
-               reverse == that.reverse &&
-               Objects.equals(comparisons, that.comparisons);
+                flowedType.equals(otherExpression.getResultValue().getResultType()) &&
+                Objects.equals(commonPrimaryKey, that.commonPrimaryKey) &&
+                reverse == that.reverse &&
+                Objects.equals(comparisons, that.comparisons);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

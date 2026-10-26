@@ -188,18 +188,10 @@ public interface RecordSerializer<M extends Message> {
         private final boolean isSize;
         private final String logKey;
 
-        Counts(String title, boolean isSize, String logKey) {
+        Counts(String title) {
             this.title = title;
             this.isSize = false;
-            this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
-        }
-
-        Counts(String title, boolean isSize) {
-            this(title, isSize, null);
-        }
-
-        Counts(String title) {
-            this(title, false, null);
+            this.logKey = StoreTimer.Count.super.logKey();
         }
 
         @Override

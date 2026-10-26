@@ -133,12 +133,11 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
                 detailedMessage = " because there are no fields";
             }
             final String message = "Could not deserialize union message" + detailedMessage;
-            final RecordSerializationException ex = new RecordSerializationException(message)
+            throw new RecordSerializationException(message)
                     .addLogInfo("unknownFields", unknownFields.keySet())
                     .addLogInfo("fields", getFieldNames(allFields.keySet()))
                     .addLogInfo("primaryKey", primaryKey)
                     .addLogInfo("metaDataVersion", metaDataVersion);
-            throw ex;
         }
         return unionMessage;
     }

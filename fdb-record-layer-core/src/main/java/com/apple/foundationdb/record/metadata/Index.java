@@ -204,12 +204,12 @@ public class Index {
         }
         KeyExpression expr = KeyExpression.fromProto(proto.getRootExpression());
         if (!(expr instanceof GroupingKeyExpression) &&
-                (type.equals(IndexTypes.RANK) ||
-                 type.equals(IndexTypes.COUNT) ||
-                 type.equals(IndexTypes.MAX_EVER) ||
-                 type.equals(IndexTypes.MIN_EVER) ||
-                 type.equals(IndexTypes.SUM))) {
-            expr = new GroupingKeyExpression(expr, type.equals(IndexTypes.COUNT) ? expr.getColumnSize() : 1);
+                (IndexTypes.RANK.equals(type) ||
+                 IndexTypes.COUNT.equals(type) ||
+                 IndexTypes.MAX_EVER.equals(type) ||
+                 IndexTypes.MIN_EVER.equals(type) ||
+                 IndexTypes.SUM.equals(type))) {
+            expr = new GroupingKeyExpression(expr, IndexTypes.COUNT.equals(type) ? expr.getColumnSize() : 1);
         }
 
         if (proto.hasValueExpression()) {
@@ -678,7 +678,7 @@ public class Index {
     public String toString() {
         StringBuilder str = new StringBuilder();
         str.append("Index {'").append(name).append("'");
-        if (!type.equals(IndexTypes.VALUE)) {
+        if (!IndexTypes.VALUE.equals(type)) {
             str.append(", ").append(type);
         }
         str.append("}");

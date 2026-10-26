@@ -245,7 +245,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                 addEqualityComparison(comparisonRange.getEqualityComparison());
             } else if (comparisonRange.isInequality()) {
                 for (Comparisons.Comparison comparison : comparisonRange.getInequalityComparisons()) {
-                    if (!comparison.getType().equals(Comparisons.Type.SORT)) {
+                    if (comparison.getType() != Comparisons.Type.SORT) {
                         inequalityComparisons.add(comparison);
                     }
                 }

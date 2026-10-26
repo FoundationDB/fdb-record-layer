@@ -694,7 +694,7 @@ public interface RecordCursor<T> extends AutoCloseable {
             return filterAsync(pred, pipelineSize);
         }
 
-        Function<T, CompletableFuture<Optional<T>>> mapper = new Function<T, CompletableFuture<Optional<T>>>() {
+        Function<T, CompletableFuture<Optional<T>>> mapper = new Function<>() {
             @Override
             public CompletableFuture<Optional<T>> apply(T t) {
                 for (StoreTimer.Count in : inSet) {

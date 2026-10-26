@@ -225,8 +225,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
             return isNullOnEmpty
-                   ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, referenceSupplier.get()))
-                   : Optional.empty();
+                    ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, referenceSupplier.get()))
+                    : Optional.empty();
         }
 
         @Override
@@ -734,8 +734,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     public String toString() {
         return getShorthand() + "(" + getAlias() + ") -> {" +
-               getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
-               "}";
+                getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
+                "}";
     }
 
     @Nonnull

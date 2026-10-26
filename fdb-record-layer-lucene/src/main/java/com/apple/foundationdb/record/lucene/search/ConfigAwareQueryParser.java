@@ -126,7 +126,7 @@ public interface ConfigAwareQueryParser {
             throw new ParseException("Cannot parse a BITSET_CONTAINS on a non-long data type");
         }
 
-        long bitMask = -1;
+        final long bitMask;
         try {
             bitMask = Long.parseLong(bitMaskStr);
         } catch (NumberFormatException pe) {

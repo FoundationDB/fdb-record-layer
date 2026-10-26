@@ -448,16 +448,16 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private static Range notEmptyRange(Range range) {
         // check the (rare, maybe test only) case of empty ranges
         return ByteArrayUtil.compareUnsigned(range.begin, range.end) >= 0 ?
-               null : range;
+                null : range;
     }
 
     @VisibleForTesting
     static List<Range> sortAndSquash(List<Range> ranges) {
         ranges.sort((a, b) -> ByteArrayUtil.compareUnsigned(a.begin, b.begin));
-        boolean squasshed = false;
+        boolean squashed = false;
         for (int i = 0; i < ranges.size() - 1; i++) {
             if (ByteArrayUtil.compareUnsigned(ranges.get(i).end, ranges.get(i + 1).begin) >= 0) {
-                squasshed = true;
+                squashed = true;
                 ranges.set(i + 1, new Range(ranges.get(i).begin,
                         ByteArrayUtil.compareUnsigned(ranges.get(i).end, ranges.get(i + 1).end) >= 0 ?
                         ranges.get(i).end :
@@ -465,9 +465,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 ranges.set(i, null);
             }
         }
-        return squasshed ?
-               ranges.stream().filter(Objects::nonNull).collect(Collectors.toList()) :
-               ranges;
+        return squashed ?
+                ranges.stream().filter(Objects::nonNull).collect(Collectors.toList()) :
+                ranges;
     }
 
     private void infiniteLoopProtection(final Range range, final List<Range> missingRanges) {

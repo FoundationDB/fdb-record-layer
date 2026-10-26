@@ -117,9 +117,9 @@ class GeophileSpatial {
             geometry = swapLatLong(geometry);
         }
         return
-            geometry instanceof Point
-            ? JTS.spatialObject(space, (Point) geometry)
-            : JTS.spatialObject(space, geometry);
+                geometry instanceof Point
+                ? JTS.spatialObject(space, (Point) geometry)
+                : JTS.spatialObject(space, geometry);
     }
 
     public static byte[] serializeWKB(JTSSpatialObject spatialObject) {
@@ -136,9 +136,9 @@ class GeophileSpatial {
             geometry = swapLatLong(geometry);
         }
         return
-            geometry instanceof Point
-            ? JTS.spatialObject(space, (Point) geometry)
-            : JTS.spatialObject(space, geometry);
+                geometry instanceof Point
+                ? JTS.spatialObject(space, (Point) geometry)
+                : JTS.spatialObject(space, geometry);
     }
 
     public static String serializeWKT(JTSSpatialObject spatialObject) {
@@ -155,14 +155,14 @@ class GeophileSpatial {
             geometry = swapLatLong(geometry);
         }
         return
-            geometry instanceof Point
-            ? JTS.spatialObject(space, (Point) geometry)
-            : JTS.spatialObject(space, geometry);
+                geometry instanceof Point
+                ? JTS.spatialObject(space, (Point) geometry)
+                : JTS.spatialObject(space, geometry);
     }
 
     // Wrap thread-unsafe I/O classes in a thread-local.
 
-    private static final ThreadLocal<IO> io = new ThreadLocal<IO>() {
+    private static final ThreadLocal<IO> io = new ThreadLocal<>() {
             @Override
             protected IO initialValue() {
                 return new IO();

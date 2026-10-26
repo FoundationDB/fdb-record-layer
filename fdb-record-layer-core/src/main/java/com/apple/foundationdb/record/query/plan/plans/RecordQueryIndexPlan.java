@@ -541,11 +541,11 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
         RecordQueryIndexPlan that = (RecordQueryIndexPlan) otherExpression;
         return reverse == that.reverse &&
-               strictlySorted == that.strictlySorted &&
-               indexFetchMethod == that.indexFetchMethod &&
-               fetchIndexRecords == that.fetchIndexRecords &&
-               Objects.equals(indexName, that.indexName) &&
-               Objects.equals(scanParameters, that.scanParameters);
+                strictlySorted == that.strictlySorted &&
+                indexFetchMethod == that.indexFetchMethod &&
+                fetchIndexRecords == that.fetchIndexRecords &&
+                Objects.equals(indexName, that.indexName) &&
+                Objects.equals(scanParameters, that.scanParameters);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

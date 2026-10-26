@@ -50,7 +50,7 @@ tasks.withType(Checkstyle).configureEach { task ->
 checkstyle {
     ignoreFailures = false
     configFile = rootProject.file('gradle/codequality/checkstyle.xml')
-    toolVersion = "10.20.1"
+    toolVersion = libs.versions.checkstyle.get()
 }
 
 tasks.register('checkstyleMandatory', Checkstyle) { task ->
@@ -120,7 +120,7 @@ pmd {
     consoleOutput = true
     ignoreFailures = false
     sourceSets = [sourceSets.main]
-    toolVersion = '6.44.0'
+    toolVersion = libs.versions.pmd.get()
     // an annoying hack to get around Gradle defaults
     // See https://ncona.com/2015/01/unable-to-exclude-pmd-rule-after-upgrading-to-gradle-2/
     ruleSets = []
@@ -131,6 +131,14 @@ tasks.withType(Pmd) { task ->
     task.exclude '**/generated-src/**'
     // the PMD plugin doesn't respect above exclusion, so we manually set the source directory instead
     task.setSource 'src/main/java'
+    // PMD needs the JDK's own classes on its auxiliary classpath, which it finds through jrt-fs.jar. If it isn't given
+    // one explicitly, PMD falls back to the JVM it happens to run in and warns that it may be the wrong version. Pass
+    // the jrt-fs.jar of the JDK that the task runs with (the project's toolchain) instead.
+    // See https://docs.pmd-code.org/latest/pmd_languages_java.html#providing-the-auxiliary-classpath
+    // The plugin only sets the task's classpath after the tasks are created, so this has to wait until afterEvaluate.
+    project.afterEvaluate {
+        task.classpath = task.classpath + project.files(task.javaLauncher.map { it.metadata.installationPath.file('lib/jrt-fs.jar') })
+    }
 }
 
 tasks.register('banSnapshots') {

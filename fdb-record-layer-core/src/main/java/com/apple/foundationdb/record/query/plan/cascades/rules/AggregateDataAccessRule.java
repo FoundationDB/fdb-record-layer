@@ -333,8 +333,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
                         .collect(ImmutableList.toImmutableList());
 
         final var pickUpValuesBuilder = ImmutableList.<Value>builder();
-        for (int i = 0; i < commonValuesAndPickUpValueByAccess.size(); i++) {
-            final var commonAndPickUpValuePair = commonValuesAndPickUpValueByAccess.get(i);
+        for (final var commonAndPickUpValuePair : commonValuesAndPickUpValueByAccess) {
             final var pickUpValue = commonAndPickUpValuePair.getRight();
             pickUpValuesBuilder.add(pickUpValue);
         }

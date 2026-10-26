@@ -176,7 +176,7 @@ public class Comparisons {
             }
             UnsignedUUID that = (UnsignedUUID)o;
             return this.mostSignificantBits == that.mostSignificantBits &&
-                   this.leastSignificantBits == that.leastSignificantBits;
+                    this.leastSignificantBits == that.leastSignificantBits;
         }
 
         @Override
@@ -1347,7 +1347,7 @@ public class Comparisons {
             }
 
             return Objects.equals(relatedByEquality(), that.relatedByEquality())
-                   ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
+                    ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
         }
 
         @Nullable
@@ -2118,7 +2118,7 @@ public class Comparisons {
 
         @Override
         public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
-            if (type.equals(Type.IN)) {
+            if (type == Type.IN) {
                 if (!fannedOut && fieldDescriptor.isRepeated()) {
                     throw new RecordCoreException("In comparison with non-scalar field " + fieldDescriptor.getName());
                 }

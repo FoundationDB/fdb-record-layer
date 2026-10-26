@@ -15,17 +15,28 @@
         <!-- This rule is perfectly fine but SpotBugs handles it for us. -->
         <exclude name="MethodReturnsInternalArray" />
         <exclude name="UseVarargs" />
-        <exclude name="UnusedImports" />
+        <!-- False positives: RelationalException#toSqlException and friends carry the original exception as the cause. -->
+        <exclude name="PreserveStackTrace" />
+        <!-- Many Maps keyed by enums have ordering/null semantics that EnumMap would change. -->
+        <exclude name="UseEnumCollections" />
+        <!-- Interfaces with a single method are not always meant to be used as lambdas. -->
+        <exclude name="ImplicitFunctionalInterface" />
+        <!-- Flags Guava immutable collections, EnumMap, etc., which we use deliberately in signatures. -->
+        <exclude name="LooseCoupling" />
+        <!-- Cross-tool (e.g., Sonar) suppressions are harmless and may be needed by other tools. -->
+        <exclude name="UnnecessaryWarningSuppression" />
+        <!-- Having messages with assertions would be a good idea but too many to fix now. -->
+        <exclude name="UnitTestAssertionsShouldIncludeMessage" />
+        <!-- Switches with a defensive default are intentional so that adding enum values is safe. Could remove if we migrate to switch expressions. -->
+        <exclude name="ExhaustiveSwitchHasDefault" />
     </rule>
 
     <rule ref="category/java/codestyle.xml">
         <exclude name="AtLeastOneConstructor" />
-        <exclude name="AvoidFinalLocalVariable" />
         <exclude name="CallSuperInConstructor" />
         <exclude name="ClassNamingConventions" />
         <exclude name="CommentDefaultAccessModifier" />
         <exclude name="ConfusingTernary" />
-        <exclude name="DefaultPackage" />
         <exclude name="FieldNamingConventions" />
         <exclude name="LocalVariableCouldBeFinal" />
         <exclude name="LinguisticNaming" />
@@ -38,11 +49,33 @@
         <exclude name="ShortVariable" />
         <exclude name="UnnecessaryConstructor" />
         <exclude name="UselessParentheses" />
+        <!-- Deprecated in PMD 7; replaced by TypeParameterNamingConventions, which is configured below. -->
         <exclude name="GenericsNaming" />
+        <exclude name="TypeParameterNamingConventions" />
+        <!-- The codebase uses "var" extensively. -->
+        <exclude name="UseExplicitTypes" />
+        <!-- Explicit casts, boxing conversions, and lambdas are often written for clarity (e.g., numeric promotion tables). -->
+        <exclude name="UnnecessaryBoxing" />
+        <exclude name="UnnecessaryCast" />
+        <!-- We place type-use-less annotations after modifiers, e.g., "final @Nonnull". -->
+        <exclude name="ModifierOrder" />
+        <!-- Fully-qualified/inherited references are common and aid readability (e.g., JDBC constants). -->
+        <exclude name="UnnecessaryFullyQualifiedName" />
+        <!-- Redundant interface declarations are often kept intentionally for documentation. -->
+        <exclude name="UnnecessaryInterfaceDeclaration" />
     </rule>
     <rule ref="category/java/codestyle.xml/ClassNamingConventions">
         <properties>
             <property name="utilityClassPattern" value="[A-Z][a-zA-Z0-9]+" />
+        </properties>
+    </rule>
+    <rule ref="category/java/codestyle.xml/TypeParameterNamingConventions">
+        <properties>
+            <!--
+                Type parameters are upper case, but may be longer than one letter (e.g., "RESULT", "BASE") or carry
+                digits (e.g., "T1", "T2"). Camel case names are not allowed.
+            -->
+            <property name="typeParameterNamePattern" value="[A-Z][A-Z0-9]*" />
         </properties>
     </rule>
     <rule ref="category/java/codestyle.xml/FieldNamingConventions">
@@ -60,10 +93,20 @@
         <exclude name="AvoidDuplicateLiterals" />
         <exclude name="AvoidFieldNameMatchingMethodName" />
         <exclude name="AvoidLiteralsInIfCondition" />
-        <exclude name="BeanMembersShouldSerialize" />
+        <exclude name="AvoidCatchingGenericException" />
+        <!-- Post-increment/assignment inside an operand is idiomatic. -->
+        <exclude name="AssignmentInOperand" />
+        <!-- Helpers named Test* in main source sets are not tests. -->
+        <exclude name="TestClassWithoutTestCases" />
+        <!-- Flags enum fields that hold non-serializable collaborators (e.g., rule sets); we do not Java-serialize them. -->
+        <exclude name="NonSerializableClass" />
+        <!-- Identity comparison is intentional and pervasive in the planner (e.g., comparing expressions, quantifiers). -->
+        <exclude name="CompareObjectsWithEquals" />
+        <!-- The JDBC API requires java.util.Date and java.util.Calendar. -->
+        <exclude name="ReplaceJavaUtilDate" />
+        <exclude name="ReplaceJavaUtilCalendar" />
         <exclude name="ConstructorCallsOverridableMethod" />
         <exclude name="NullAssignment" />
-        <exclude name="ReturnEmptyArrayRatherThanNull" />
         <exclude name="ReturnEmptyCollectionRatherThanNull" />
     </rule>
 

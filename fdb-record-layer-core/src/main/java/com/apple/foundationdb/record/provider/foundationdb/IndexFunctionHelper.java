@@ -148,8 +148,8 @@ public class IndexFunctionHelper {
                                 .flatMap(indexAggregateFunction -> {
                                     final IndexMaintainer indexMaintainer = store.getIndexMaintainer(index);
                                     return indexMaintainer.canEvaluateAggregateFunction(indexAggregateFunction)
-                                           ? Stream.of(Pair.of(indexAggregateFunction, indexMaintainer))
-                                           : Stream.empty();
+                                            ? Stream.of(Pair.of(indexAggregateFunction, indexMaintainer))
+                                            : Stream.empty();
                                 }))
                 .min(Comparator.comparing(pair -> {
                     // use the minimum spanning index that matches

@@ -1019,6 +1019,7 @@ public class LucenePartitioner {
      * @param repartitioningContext context with data required for repartitioning, {@see RepartitionContext}
      * @return A future containing the amount of documents that were moved
      */
+    @SuppressWarnings("PMD.CloseResource") // the cursor is closed asynchronously in the whenComplete callback
     @Nonnull
     private CompletableFuture<Integer> moveDocsFromPartition(@Nonnull final LuceneRepartitionPlanner.RepartitioningContext repartitioningContext) {
         // sanity check
@@ -1061,7 +1062,7 @@ public class LucenePartitioner {
         fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
         return fetchedRecordsFuture.thenApply(records -> {
             timings.searchNanos = System.nanoTime();
-            if (records.size() == 0) {
+            if (records.isEmpty()) {
                 throw new RecordCoreException("Unexpected error: 0 records fetched. repartitionContext {}", repartitioningContext);
             }
             Tuple newBoundaryPartitionKey = null;
@@ -1072,7 +1073,7 @@ public class LucenePartitioner {
                 records.remove(records.size() - 1);
             }
 
-            if (records.size() == 0) {
+            if (records.isEmpty()) {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("no records to move, partition {}", partitionInfo);
                 }

@@ -305,8 +305,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                 // inner quantifier.
                 //
                 return concatenatedOrdering.satisfies(requestedOrdering)
-                       ? Stream.of(prefix)
-                       : Stream.empty();
+                        ? Stream.of(prefix)
+                        : Stream.empty();
             });
         } else {
             //
@@ -411,8 +411,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
             final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
             if (literalValue instanceof List<?>) {
                 return attemptedSortOrder == null
-                       ? new InValuesSource(bindingName, (List<Object>)literalValue)
-                       : new SortedInValuesSource(bindingName, (List<Object>)literalValue,
+                        ? new InValuesSource(bindingName, (List<Object>)literalValue)
+                        : new SortedInValuesSource(bindingName, (List<Object>)literalValue,
                         attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
             } else {
                 return null;
@@ -420,17 +420,17 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         } else if (explodeValue instanceof QuantifiedObjectValue) {
             final var alias = ((QuantifiedObjectValue)explodeValue).getAlias().getId();
             return attemptedSortOrder == null
-                   ? new InParameterSource(bindingName, alias)
-                   : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+                    ? new InParameterSource(bindingName, alias)
+                    : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         } else if (explodeValue instanceof ParameterObjectValue) {
             final var parameterName = ((ParameterObjectValue)explodeValue).getParameterName();
             return attemptedSortOrder == null
-                   ? new InParameterSource(bindingName, parameterName)
-                   : new SortedInParameterSource(bindingName, parameterName, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+                    ? new InParameterSource(bindingName, parameterName)
+                    : new SortedInParameterSource(bindingName, parameterName, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         } else if (explodeValue.isConstant()) {
             return attemptedSortOrder == null
-                   ? new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue))
-                   : new SortedInComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue),
+                    ? new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue))
+                    : new SortedInComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue),
                     attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         }
         return null;

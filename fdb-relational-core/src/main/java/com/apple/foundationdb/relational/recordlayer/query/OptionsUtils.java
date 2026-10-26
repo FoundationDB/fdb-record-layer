@@ -40,8 +40,8 @@ public final class OptionsUtils {
     public static PlanHashable.PlanHashMode getCurrentPlanHashMode(@Nonnull final Options options) {
         final String planHashModeAsString = options.getOption(Options.Name.CURRENT_PLAN_HASH_MODE);
         return planHashModeAsString == null ?
-               PlanHashable.CURRENT_FOR_CONTINUATION :
-               PlanHashable.PlanHashMode.valueOf(planHashModeAsString);
+                PlanHashable.CURRENT_FOR_CONTINUATION :
+                PlanHashable.PlanHashMode.valueOf(planHashModeAsString);
     }
 
     @Nonnull

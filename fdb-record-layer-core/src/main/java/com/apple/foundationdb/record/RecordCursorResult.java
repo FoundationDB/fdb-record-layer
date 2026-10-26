@@ -152,9 +152,9 @@ public class RecordCursorResult<T> {
         }
         RecordCursorResult<?> that = (RecordCursorResult<?>)o;
         return hasNext == that.hasNext &&
-               Objects.equals(nextValue, that.nextValue) &&
-               Objects.equals(continuation, that.continuation) &&
-               noNextReason == that.noNextReason;
+                Objects.equals(nextValue, that.nextValue) &&
+                Objects.equals(continuation, that.continuation) &&
+                noNextReason == that.noNextReason;
     }
 
     @Override

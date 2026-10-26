@@ -497,7 +497,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<Void> mergeIndexAsync() {
-        return indexingLauncher(attemptIndexer -> attemptIndexer.mergeIndexes());
+        return indexingLauncher(IndexingBase::mergeIndexes);
     }
 
     /**
@@ -1274,7 +1274,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public boolean shouldAllowUnblock(String stampBlockId) {
             return allowUnblock &&
-                   (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
+                    (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
         }
 
         /**
