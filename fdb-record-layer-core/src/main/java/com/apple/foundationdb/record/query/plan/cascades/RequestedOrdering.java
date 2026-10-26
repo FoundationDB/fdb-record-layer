@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -309,6 +310,36 @@ public class RequestedOrdering {
             }
         }
         return ofPrimitiveParts(primitiveRequestedOrderingParts.build(), distinctness, isExhaustive);
+    }
+
+    /**
+     * Appends the given primitive ordering parts to the given primitive prefix, skipping any part whose value the
+     * prefix already orders by. A value that is already ordered by is constant from that point on, so requesting an
+     * order for it again would be redundant, and worse, would request an ordering that no access path can provide.
+     *
+     * @param primitivePrefix the primitive ordering parts to append to
+     * @param primitiveSuffix the primitive ordering parts to append
+     * @return the concatenated primitive ordering parts
+     */
+    @Nonnull
+    public static List<RequestedOrderingPart> concatWithoutDuplicates(
+            @Nonnull final List<RequestedOrderingPart> primitivePrefix,
+            @Nonnull final List<RequestedOrderingPart> primitiveSuffix) {
+        if (primitiveSuffix.isEmpty()) {
+            return primitivePrefix;
+        }
+        final LinkedHashSet<Value> seenValues =
+                primitivePrefix.stream()
+                        .map(RequestedOrderingPart::getValue)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        final var builder = ImmutableList.<RequestedOrderingPart>builder();
+        builder.addAll(primitivePrefix);
+        for (final RequestedOrderingPart part : primitiveSuffix) {
+            if (seenValues.add(part.getValue())) {
+                builder.add(part);
+            }
+        }
+        return builder.build();
     }
 
     @Nonnull
