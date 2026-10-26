@@ -115,6 +115,10 @@ public final class OfflineStoredQueriesProcessor {
      * other planner-tunable &mdash; plus {@link Options.Name#PLAN_CACHE_WRITE_ONLY}, so each plan is
      * stored without a cache lookup.</p>
      *
+     * <p>There is no record store, so stored queries are planned as if every index were readable. A store with an index
+     * that is disabled or still being built plans with fewer indexes, gets a different cache key, and does not find the
+     * warmed plan.</p>
+     *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
      * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.
@@ -299,6 +303,7 @@ public final class OfflineStoredQueriesProcessor {
             PlanGenerator.create(
                             Optional.of(cache),
                             currentTemplate,
+                            // No store: every index counts as readable.
                             new RecordStoreState(null, null),
                             metricCollector,
                             warmUpOptions,
