@@ -260,8 +260,8 @@ class TestHelpers {
         @Nullable final AccessInfo accessInfo = runAsyncToSync(db, readTransaction ->
                 StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP));
         return accessInfo == null
-               ? -1
-               : accessInfo.getEntryNodeReference().getLayer();
+                ? -1
+                : accessInfo.getEntryNodeReference().getLayer();
     }
 
     static void dumpLayers(@Nonnull final Database db,

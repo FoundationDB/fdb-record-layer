@@ -50,7 +50,7 @@ tasks.withType(Checkstyle).configureEach { task ->
 checkstyle {
     ignoreFailures = false
     configFile = rootProject.file('gradle/codequality/checkstyle.xml')
-    toolVersion = "10.20.1"
+    toolVersion = libs.versions.checkstyle.get()
 }
 
 tasks.register('checkstyleMandatory', Checkstyle) { task ->

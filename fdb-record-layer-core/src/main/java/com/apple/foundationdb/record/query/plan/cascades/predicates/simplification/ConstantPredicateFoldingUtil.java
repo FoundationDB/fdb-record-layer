@@ -192,8 +192,8 @@ public final class ConstantPredicateFoldingUtil {
                 ImmutableSet.of(),
                 ConstantFoldingRuleSet.ofSimplificationRules()).get();
         return (simplifiedPredicate instanceof ConstantPredicate constantPredicate)
-               ? toEffectiveConstant(constantPredicate)
-               : EffectiveConstant.UNKNOWN;
+                ? toEffectiveConstant(constantPredicate)
+                : EffectiveConstant.UNKNOWN;
     }
 
     /**

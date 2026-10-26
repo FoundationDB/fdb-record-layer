@@ -241,11 +241,11 @@ public final class Half extends Number implements Comparable<Half> {
             return sign * (0x1p-24f * bin16SignifBits);
         } else if (bin16Exp == 16) {
             return (bin16SignifBits == 0)
-                   ? sign * Float.POSITIVE_INFINITY
-                   : Float.intBitsToFloat((bin16SignBit << 16)
-                                          | 0x7f800000
-                                          // Preserve NaN signif bits
-                                          | (bin16SignifBits << significandShift));
+                    ? sign * Float.POSITIVE_INFINITY
+                    : Float.intBitsToFloat((bin16SignBit << 16)
+                                           | 0x7f800000
+                                           // Preserve NaN signif bits
+                                           | (bin16SignifBits << significandShift));
         }
 
         final int floatExpBits = (bin16Exp + FLOAT_EXP_BIAS) << (FLOAT_SIGNIFICAND_WIDTH - 1);

@@ -222,8 +222,8 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         String functionName = function.getName();
         String indexType = state.index.getType();
         return functionName.equals(indexType) ||
-               (FunctionNames.MAX_EVER.equals(functionName) && (IndexTypes.MAX_EVER_LONG.equals(indexType) || IndexTypes.MAX_EVER_TUPLE.equals(indexType))) ||
-               (FunctionNames.MIN_EVER.equals(functionName) && (IndexTypes.MIN_EVER_LONG.equals(indexType) || IndexTypes.MIN_EVER_TUPLE.equals(indexType)));
+                (FunctionNames.MAX_EVER.equals(functionName) && (IndexTypes.MAX_EVER_LONG.equals(indexType) || IndexTypes.MAX_EVER_TUPLE.equals(indexType))) ||
+                (FunctionNames.MIN_EVER.equals(functionName) && (IndexTypes.MIN_EVER_LONG.equals(indexType) || IndexTypes.MIN_EVER_TUPLE.equals(indexType)));
     }
 
     @Override

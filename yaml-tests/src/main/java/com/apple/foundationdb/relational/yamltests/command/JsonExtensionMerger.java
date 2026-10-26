@@ -215,10 +215,10 @@ final class JsonExtensionMerger {
                     throw new IllegalArgumentException(notA("boolean", extension, value));
                 }
                 yield switch (value.getAsString()) {
-                        case "true" -> true;
-                        case "false" -> false;
-                        default -> throw new IllegalArgumentException(notA("boolean", extension, value));
-                    };
+                    case "true" -> true;
+                    case "false" -> false;
+                    default -> throw new IllegalArgumentException(notA("boolean", extension, value));
+                };
             }
             case BYTE_STRING -> {
                 // the printer emits the standard alphabet, but JsonFormat reads either

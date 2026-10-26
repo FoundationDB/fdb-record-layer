@@ -48,8 +48,8 @@ public class AffineOperator implements VectorOperator {
     @Override
     public int getNumDimensions() {
         return linearOperator != null
-               ? linearOperator.getNumDimensions()
-               : (translationVector != null
+                ? linearOperator.getNumDimensions()
+                : (translationVector != null
                   ? translationVector.getNumDimensions()
                   : -1);
     }

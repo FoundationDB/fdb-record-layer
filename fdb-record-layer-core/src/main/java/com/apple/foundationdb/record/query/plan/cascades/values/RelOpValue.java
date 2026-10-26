@@ -239,8 +239,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         if (typeRepository != null && !isArrayComparison && !isEnumComparison && !rightHasConstantObjectValues) {
             final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
-                   ? Optional.of(new ConstantPredicate(false))
-                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                    ? Optional.of(new ConstantPredicate(false))
+                    : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
         } else {
             return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
         }

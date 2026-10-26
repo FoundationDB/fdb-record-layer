@@ -561,8 +561,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             return tr.get(metaSubspace.pack(BOUNDARY_KEY)).thenCompose(boundaryBytes -> {
                 validateOrThrowEx(boundaryBytes != null, "sliding window boundary is missing but entry exists, possible corruption");
                 return extremumType.isInWindow(key.entriesKey(), Tuple.fromBytes(boundaryBytes))
-                       ? instrument(SlidingWindowEvent.SW_DELEGATE_INSERT, delegateInsert.get())
-                       : AsyncUtil.DONE;
+                        ? instrument(SlidingWindowEvent.SW_DELEGATE_INSERT, delegateInsert.get())
+                        : AsyncUtil.DONE;
             });
         });
     }
