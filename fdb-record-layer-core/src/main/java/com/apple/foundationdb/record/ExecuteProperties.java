@@ -373,7 +373,7 @@ public class ExecuteProperties {
     @Override
     public String toString() {
         final List<String> components = new ArrayList<>();
-        if (!isolationLevel.equals(IsolationLevel.SERIALIZABLE)) {
+        if (isolationLevel != IsolationLevel.SERIALIZABLE) {
             components.add(isolationLevel.toString());
         }
         if (skip != 0) {

@@ -1393,6 +1393,7 @@ public class SemanticAnalyzer {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedReturnValue")
     @Nonnull
     private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
                                                        @Nonnull final RelationalParser.QueryContext namedQueryBody,
@@ -1402,6 +1403,8 @@ public class SemanticAnalyzer {
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();
             queryVisitor.getDelegate().pushPlanFragment();
+            // Visit the CTE definitions only for their side effect of registering them in the current plan fragment.
+            // The result is memoized and not needed here.
             memoizer.apply(ctes);
             logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
             queryVisitor.getDelegate().popPlanFragment();

@@ -40,7 +40,7 @@ public final class Vector64Tag extends AbstractVectorTag {
         @Override
         @Nonnull
         public Matchable construct(Node node) {
-            return new VectorMatcher<DoubleRealVector>(node, 64);
+            return new VectorMatcher(node, 64, DoubleRealVector.class);
         }
     };
 

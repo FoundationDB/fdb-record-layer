@@ -76,7 +76,7 @@ public class JDBCRelationalDriver implements RelationalDriver {
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
-        if (!uri.getScheme().equals(JDBCURI.JDBC_URL_SCHEME)) {
+        if (!JDBCURI.JDBC_URL_SCHEME.equals(uri.getScheme())) {
             throw new IllegalArgumentException("Not a relational jdbc url: " + uri);
         }
         // Pass the URI in and let the JDBCRelationalConnection try to

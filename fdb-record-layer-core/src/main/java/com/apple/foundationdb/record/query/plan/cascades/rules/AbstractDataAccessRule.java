@@ -597,8 +597,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
         int index = 0;
         final var maximumCoverageMatchesBuilder = ImmutableList.<Vectored<SingleMatchedAccess>>builder();
-        for (var i = 0; i < singleMatchedAccesses.size(); i++) {
-            final var outerAccess = singleMatchedAccesses.get(i);
+        for (final var outerAccess : singleMatchedAccesses) {
             final var isContained =
                     findContainingAccess(singleMatchedAccesses, outerAccess);
 

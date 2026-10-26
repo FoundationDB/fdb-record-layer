@@ -197,12 +197,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     }
                     return Optional.of(Assert.castUnchecked(result, LogicalOperator.class));
                 });
-        {
-            getDelegate().pushPlanFragment();
-            recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
-                    queryName, getDelegate()::visitFullId, memoized, this);
-            getDelegate().popPlanFragment();
-        }
+        getDelegate().pushPlanFragment();
+        recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
+                queryName, getDelegate()::visitFullId, memoized, this);
+        getDelegate().popPlanFragment();
         Assert.thatUnchecked(recursiveQueryType.isPresent(), ErrorCode.INVALID_RECURSION, "recursive CTE does not contain non-recursive term");
         final var type = recursiveQueryType.get();
         final var currentPlanFragment = getDelegate().pushPlanFragment();

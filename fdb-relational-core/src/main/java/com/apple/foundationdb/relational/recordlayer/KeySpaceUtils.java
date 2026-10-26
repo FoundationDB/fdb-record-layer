@@ -81,7 +81,7 @@ public final class KeySpaceUtils {
         // If the user specifies just `__SYS` that should point to the database, not the domain
         // or at least it did historically, as we develop the concept of domains more thoroughly we
         // may want to change this
-        if (path.equals(RelationalKeyspaceProvider.SYS)) {
+        if (RelationalKeyspaceProvider.SYS.equals(path)) {
             return keySpace.path(RelationalKeyspaceProvider.SYS).add(RelationalKeyspaceProvider.SYS);
         }
         String[] pathElems = path.split("/");

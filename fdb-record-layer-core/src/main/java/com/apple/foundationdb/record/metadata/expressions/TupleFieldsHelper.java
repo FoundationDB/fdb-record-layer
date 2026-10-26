@@ -287,16 +287,26 @@ public class TupleFieldsHelper {
             return null;
         }
 
-        switch (expectedResultType.getTypeCode()) {
-            case INT:
-                return ((Long)valueFromTuple).intValue();
-            case BYTES:
-                return ZeroCopyByteString.wrap((byte[])valueFromTuple);
-            case ENUM:
-                return (Internal.EnumLite)() -> ((Long)valueFromTuple).intValue();
-            default:
-                return valueFromTuple;
-        }
+        return switch (expectedResultType.getTypeCode()) {
+            case INT -> {
+                Long longFromTuple = (Long) valueFromTuple;
+                yield longFromTuple.intValue();
+            }
+            case BYTES -> {
+                byte[] bytesFromTuple = (byte[]) valueFromTuple;
+                yield ZeroCopyByteString.wrap(bytesFromTuple);
+            }
+            case ENUM -> {
+                Long longFromTuple = (Long) valueFromTuple;
+                yield new Internal.EnumLite() {
+                    @Override
+                    public int getNumber() {
+                        return longFromTuple.intValue();
+                    }
+                };
+            }
+            default -> valueFromTuple;
+        };
     }
 
     private TupleFieldsHelper() {

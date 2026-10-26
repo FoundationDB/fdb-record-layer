@@ -321,7 +321,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();
         Type patternType = arguments.get(1).getResultType();
-        SemanticException.check(srcType.isNull() || srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(srcType.isNull() || srcType.getTypeCode() == TypeCode.STRING, SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
         SemanticException.check(PatternForLikeValue.TYPE.equals(patternType), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new LikeOperatorValue((Value) arguments.get(0), (Value) arguments.get(1));

@@ -320,6 +320,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         });
     }
 
+    @SuppressWarnings("PMD.UnusedAssignment") // false positive: partitionKey is a field, and the later overwrite is conditional and inside a callback
     private CompletableFuture<Void> handleCrossPartitionDiscontinuity() {
         if (!withContinuation ||
                 continuationPartitionSanitized ||

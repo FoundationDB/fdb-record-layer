@@ -644,14 +644,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nullable
     private FDBRecordVersion recordVersionForSave(@Nonnull RecordMetaData metaData, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
-        if (behavior.equals(VersionstampSaveBehavior.NO_VERSION)) {
+        if (behavior == VersionstampSaveBehavior.NO_VERSION) {
             if (version != null) {
                 throw recordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
             }
             return null;
-        } else if (behavior.equals(VersionstampSaveBehavior.IF_PRESENT)) {
+        } else if (behavior == VersionstampSaveBehavior.IF_PRESENT) {
             return version;
-        } else if (version == null && (behavior.equals(VersionstampSaveBehavior.WITH_VERSION) || metaData.isStoreRecordVersions())) {
+        } else if (version == null && (behavior == VersionstampSaveBehavior.WITH_VERSION || metaData.isStoreRecordVersions())) {
             return FDBRecordVersion.incomplete(context.claimLocalVersion());
         }
         return version;
@@ -2898,7 +2898,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return false;
         } else {
             final FDBRecordStoreKeyspace keyspace = determineRecordStoreKeyspace(firstKey, subspaceProvider, context);
-            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.equals(keyspace)) {
+            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE == keyspace || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE == keyspace || FDBRecordStoreKeyspace.INDEX_BUILD_SPACE == keyspace) {
                 // Allow list of acceptable key ranges for the first key. This may need to be updated as more keyspaces are added.
                 // Includes: INDEX_STATE_SPACE, INDEX_RANGE_SPACE, and INDEX_BUILD_SPACE as those contain only meta-data about the state of the
                 // index or index build but no "user data"
@@ -2995,7 +2995,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordMetaDataProto.DataStoreInfo.StoreLockState.State lockState = storeLockState.getLockState();
 
         // Check if store is fully locked (applies to all format versions)
-        if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE)) {
+        if (lockState == RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE) {
             // Allow bypass if the provided reason matches the stored reason
             if (bypassFullStoreLockReason != null && bypassFullStoreLockReason.equals(storeLockState.getReason())) {
                 // Bypass the lock - allow the store to open
@@ -3006,7 +3006,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         // All unknown states (including UNSPECIFIED) prevent opening
         if (FormatVersion.getFormatVersion(storeHeader.getFormatVersion()).isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
-            if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED)) {
+            if (lockState == RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED) {
                 throw new UnknownStoreLockStateException("Store has unknown lock state",
                         storeLockState.getUnknownFields(), subspaceProvider.logKey(), subspaceProvider);
             }

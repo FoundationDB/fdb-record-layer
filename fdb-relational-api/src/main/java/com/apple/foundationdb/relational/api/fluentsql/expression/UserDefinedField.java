@@ -146,7 +146,7 @@ public final class UserDefinedField<T extends DataType> implements Field<T> {
     }
 
     private void expectingType(@Nonnull final DataType.Code code) {
-        if (type.getCode() != DataType.Code.UNKNOWN && !type.getCode().equals(code)) {
+        if (type.getCode() != DataType.Code.UNKNOWN && type.getCode() != code) {
             throw new RelationalException("Type mismatch, expected type '" + code.name() + "', actual type '" + type.getCode().name() + "'", ErrorCode.DATATYPE_MISMATCH).toUncheckedWrappedException();
         }
     }

@@ -364,13 +364,13 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         }
 
         // Special handling for array to other types.
-        if (physicalOperator.equals(PhysicalOperator.ARRAY_TO_ARRAY)) {
+        if (physicalOperator == PhysicalOperator.ARRAY_TO_ARRAY) {
             final Type inType = child.getResultType();
             final var fromArray = (Type.Array) inType;
             final var toArray = (Type.Array) castToType;
             final var descriptor = new ArrayCastDescriptor(fromArray, toArray);
             return castArrayToArray(descriptor, childResult);
-        } else if (physicalOperator.equals(PhysicalOperator.ARRAY_TO_VECTOR)) {
+        } else if (physicalOperator == PhysicalOperator.ARRAY_TO_VECTOR) {
             final Type inType = child.getResultType();
             final var fromArray = (Type.Array) inType;
             final var descriptor = new ArrayCastDescriptor(fromArray, castToType);

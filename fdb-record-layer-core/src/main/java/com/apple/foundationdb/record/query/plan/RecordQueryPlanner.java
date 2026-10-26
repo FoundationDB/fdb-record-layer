@@ -981,7 +981,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         final Index index = candidateScan.getIndex();
-        if (index != null && index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+        if (index != null && IndexTypes.MULTIDIMENSIONAL.equals(index.getType())) {
             return matchToMultidimensionalIndexScan(candidateScan, scoredMatch, index);
         }
 
@@ -1399,7 +1399,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                         @Nonnull List<QueryComponent> filters,
                                         @Nullable KeyExpression sort) {
         final AbstractAndWithThenPlanner andWithThenPlanner;
-        if (candidateScan.index != null && candidateScan.index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+        if (candidateScan.index != null && IndexTypes.MULTIDIMENSIONAL.equals(candidateScan.index.getType())) {
             andWithThenPlanner = new MultidimensionalAndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
         } else {
             andWithThenPlanner = new AndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
@@ -2882,7 +2882,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         // A sort key corresponding to an equality comparison is (trivially) satisfied throughout.
-        @SuppressWarnings({"PMD.EmptyWhileStmt", "StatementWithEmptyBody"})
+        @SuppressWarnings({"PMD.EmptyControlStatement", "StatementWithEmptyBody"})
         private void satisfyEqualitySort(@Nonnull KeyExpression child) {
             while (unsatisfiedSorts.remove(child)) {
                 // Keep removing all occurrences.

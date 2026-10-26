@@ -136,7 +136,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
         int size = otherOrdered.size();
 
-        return new AbstractIterator<AliasMap>() {
+        return new AbstractIterator<>() {
             @Override
             protected AliasMap computeNext() {
                 while (iterator.hasNext()) {
