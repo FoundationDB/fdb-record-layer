@@ -16,6 +16,18 @@ Syntax
 .. raw:: html
     :file: STORED_QUERY.diagram.svg
 
+.. raw:: html
+    :file: STORED_QUERY_params.diagram.svg
+
+.. raw:: html
+    :file: STORED_QUERY_cases.diagram.svg
+
+.. raw:: html
+    :file: STORED_QUERY_declare.diagram.svg
+
+.. raw:: html
+    :file: FUNCTION_params.diagram.svg
+
 .. code-block:: sql
 
     CREATE STORED QUERY query_name

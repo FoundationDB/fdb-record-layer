@@ -4,56 +4,12 @@ Diagram(
             Terminal('CREATE'),
             Terminal('STORED'),
             Terminal('QUERY'),
-            NonTerminal('queryName'),
+            NonTerminal('queryName')
         ),
         Optional(
             Sequence(
-                Terminal('('),
-                OneOrMore(
-                    Sequence(
-                        NonTerminal('parameterName'),
-                        NonTerminal('dataType'),
-                        Optional(
-                            Sequence(
-                                Terminal('NOT'),
-                                Terminal('NULL')
-                            )
-                        )
-                    ),
-                    Terminal(',')
-                ),
-                Terminal(')'),
-                Terminal('PREPARE'),
-                Terminal('FOR'),
-                OneOrMore(
-                    Sequence(
-                        Terminal('('),
-                        OneOrMore(
-                            Sequence(
-                                NonTerminal('parameterName'),
-                                Choice(0,
-                                    Sequence(
-                                        Terminal('IS'),
-                                        Optional(
-                                            Terminal('NOT')
-                                        ),
-                                        Terminal('NULL')
-                                    ),
-                                    Sequence(
-                                        Terminal('='),
-                                        Choice(0,
-                                            Terminal('TRUE'),
-                                            Terminal('FALSE')
-                                        )
-                                    )
-                                )
-                            ),
-                            Terminal(',')
-                        ),
-                        Terminal(')')
-                    ),
-                    Terminal(',')
-                )
+                NonTerminal('parameterList'),
+                NonTerminal('preparedCases')
             )
         ),
         Sequence(
