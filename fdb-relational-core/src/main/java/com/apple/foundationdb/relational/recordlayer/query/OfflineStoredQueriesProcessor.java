@@ -232,7 +232,7 @@ public final class OfflineStoredQueriesProcessor {
         for (final var preparedCase : preparedCases) {
             final PreparedParams preparedParams;
             try {
-                preparedParams = PreparedCaseParams.of(storedQuery.getParameters(), preparedCase);
+                preparedParams = PreparedParams.ofPreparedCase(storedQuery.getParameters(), preparedCase);
             } catch (RuntimeException e) {
                 // Unchecked only: Assert.thatUnchecked and a QueryParser parse failure both raise
                 // UncheckedRelationalException. Logged here rather than in getPlan's finally, because no plan was
