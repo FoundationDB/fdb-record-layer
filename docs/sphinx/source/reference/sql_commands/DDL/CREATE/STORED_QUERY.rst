@@ -166,6 +166,8 @@ A parameter declared with a **schema template type** — a struct, an enum, or a
 
 This is not a runtime limitation. A client binds a struct with ``setObject`` and the type comes from the value itself, so such a query plans and runs normally — only cold. Pinning the same parameter ``IS NULL`` is warmed too, since that case binds a real value and needs no type.
 
+Warm-up has no record store, so it plans as if every index were readable. A store with an index that is disabled or still being built plans with fewer indexes, so its queries do not find the warmed plan and are planned when they run.
+
 Examples
 ========
 
