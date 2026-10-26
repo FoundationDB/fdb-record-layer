@@ -295,8 +295,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                     outerContinuation,
                     innerScanProperties);
             return timer == null
-                   ? chainedCursor
-                   : timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN, chainedCursor);
+                    ? chainedCursor
+                    : timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN, chainedCursor);
         };
     }
 

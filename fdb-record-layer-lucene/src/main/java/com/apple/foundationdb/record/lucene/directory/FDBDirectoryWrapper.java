@@ -501,8 +501,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                              @Nonnull final Tuple key) {
         final Boolean useConcurrent = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_CONCURRENT_MERGE_SCHEDULER);
         return Boolean.TRUE.equals(useConcurrent) ?
-               new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key) :
-               new FDBDirectorySerialMergeScheduler(state, mergeDirectoryCount, agilityContext, key);
+                new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key) :
+                new FDBDirectorySerialMergeScheduler(state, mergeDirectoryCount, agilityContext, key);
 
     }
 

@@ -1274,7 +1274,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public boolean shouldAllowUnblock(String stampBlockId) {
             return allowUnblock &&
-                   (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
+                    (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
         }
 
         /**

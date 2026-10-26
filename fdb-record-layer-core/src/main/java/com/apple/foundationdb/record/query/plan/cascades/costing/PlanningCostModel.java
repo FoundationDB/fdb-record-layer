@@ -296,7 +296,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
     private static boolean isSingularIndexScanWithFetch(@Nonnull PlanOpsMap planOpsMapIndexScan) {
         return count(planOpsMapIndexScan, RecordQueryPlanWithIndex.class) == 1 ||
-               (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
+                (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
                 count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
     }
 

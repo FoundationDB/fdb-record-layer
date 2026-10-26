@@ -600,8 +600,8 @@ public class PredicateMultiMap {
                 }
                 final MappingKey that = (MappingKey)o;
                 return Objects.equals(originalQueryPredicate, that.originalQueryPredicate) &&
-                       Objects.equals(candidatePredicate, that.candidatePredicate) &&
-                       mappingKind == that.mappingKind;
+                        Objects.equals(candidatePredicate, that.candidatePredicate) &&
+                        mappingKind == that.mappingKind;
             }
 
             @Override

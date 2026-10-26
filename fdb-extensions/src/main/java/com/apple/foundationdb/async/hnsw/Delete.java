@@ -431,10 +431,10 @@ class Delete {
                                             final Tuple firstPrimaryKey =
                                                     Iterables.getFirst(candidateReferencesMap.keySet(), null);
                                             return firstPrimaryKey == null
-                                                   ? null
-                                                   : new EntryNodeReference(firstPrimaryKey,
-                                                    Objects.requireNonNull(candidateReferencesMap.get(firstPrimaryKey)).getVector(),
-                                                    layer);
+                                                    ? null
+                                                    : new EntryNodeReference(firstPrimaryKey,
+                                                     Objects.requireNonNull(candidateReferencesMap.get(firstPrimaryKey)).getVector(),
+                                                     layer);
                                         });
                             });
                 }).thenApply(result -> {

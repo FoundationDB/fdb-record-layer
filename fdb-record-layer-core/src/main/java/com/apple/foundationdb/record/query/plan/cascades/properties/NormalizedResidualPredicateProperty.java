@@ -82,8 +82,8 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
     public static long countNormalizedConjuncts(@Nonnull RelationalExpression expression) {
         final var magicPredicate = normalizedResidualPredicate().evaluate(expression);
         return magicPredicate.isTautology()
-               ? 0
-               : BooleanPredicateNormalizer
+                ? 0
+                : BooleanPredicateNormalizer
                        .getDefaultInstanceForCnf()
                        .getMetrics(magicPredicate)
                        .getNormalFormFullSize();

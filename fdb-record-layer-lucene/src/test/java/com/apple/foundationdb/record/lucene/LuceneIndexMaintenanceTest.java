@@ -549,7 +549,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
 
-        long timestamp = System.currentTimeMillis();
+        final long timestamp = System.currentTimeMillis();
         Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
         // save a record
         createComplexRecords(1, insertedDocs, contextProps, schemaSetup);

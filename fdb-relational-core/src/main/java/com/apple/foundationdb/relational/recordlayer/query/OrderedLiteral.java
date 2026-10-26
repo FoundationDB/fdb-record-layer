@@ -167,8 +167,8 @@ public class OrderedLiteral {
     @Override
     public String toString() {
         return parameterName != null ?
-               "?" + parameterName :
-               (unnamedParameterIndex != null ?
+                "?" + parameterName :
+                (unnamedParameterIndex != null ?
                 "?" + unnamedParameterIndex : "∅") + ":" +
                        literalObject + "@" + scope.orElse("") + tokenIndex;
     }

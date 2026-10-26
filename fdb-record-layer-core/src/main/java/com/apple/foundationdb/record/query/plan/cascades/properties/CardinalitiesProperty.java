@@ -223,8 +223,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     matchCandidate.computeOrderingFromScanComparisons(indexScanPlan.getScanComparisons(),
                             indexScanPlan.isReverse(), false);
             return ordering.getEqualityBoundValues().contains(groupingValue)
-                   ? Cardinalities.atMostOne()
-                   : Cardinalities.unknownMaxCardinality();
+                    ? Cardinalities.atMostOne()
+                    : Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull

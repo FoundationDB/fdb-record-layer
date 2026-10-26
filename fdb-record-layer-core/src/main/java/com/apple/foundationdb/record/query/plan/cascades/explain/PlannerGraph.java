@@ -274,8 +274,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         public String getFontSize() {
             return getDetails() == null || getDetails().isEmpty()
-                   ? "12"
-                   : "8";
+                    ? "12"
+                    : "8";
         }
 
         @Nonnull String getToolTip() {
@@ -461,8 +461,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         String getToolTip() {
             return expression == null
-                   ? "no plan"
-                   : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
+                    ? "no plan"
+                    : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nullable
@@ -551,8 +551,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         String getToolTip() {
             return expression == null
-                   ? "no expression"
-                   : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
+                    ? "no expression"
+                    : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nullable
@@ -605,8 +605,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         String getToolTip() {
             return expression == null
-                   ? "no expression"
-                   : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
+                    ? "no expression"
+                    : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nullable
