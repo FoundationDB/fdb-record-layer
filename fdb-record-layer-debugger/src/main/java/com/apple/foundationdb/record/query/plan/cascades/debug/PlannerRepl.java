@@ -874,7 +874,7 @@ public class PlannerRepl implements Debugger {
             plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("plannerPhase",
-                    (getPlannerPhase() == null ? getPlannerPhase().name() : "any").toLowerCase(Locale.ROOT));
+                    (getPlannerPhase() == null ? "any" : getPlannerPhase().name()).toLowerCase(Locale.ROOT));
         }
 
         @Override
