@@ -130,7 +130,7 @@ public class SqlInsertTest {
 
             try (RelationalStatement stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> stmt.executeUpdate("insert into with_loc (rest_no,name,loc) values (1,'testRecord1',('1234','5678','9101112'))"))
-                        .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
+                        .hasErrorCode(ErrorCode.UNABLE_TO_PLAN);
 
                 try (RelationalResultSet rrs = stmt.executeQuery("select * from with_loc")) {
                     ResultSetAssert.assertThat(rrs)
