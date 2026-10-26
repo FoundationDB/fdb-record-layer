@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
@@ -67,6 +68,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -230,9 +232,9 @@ public abstract class IndexingBase {
 
             boolean continuedBuild = !shouldClear && indexState.isWriteOnly();
             for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
-                // Must follow the primary index status
+                // Must follow the primary index status. The write-only variants (plain, with queue, idem) are the same status.
                 IndexState state = store.getIndexState(targetIndex);
-                if (state != indexState) {
+                if (state != indexState && !(state.isWriteOnly() && indexState.isWriteOnly())) {
                     if (policy.getStateDesiredAction(state) != OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD ||
                             continuedBuild) {
                         throw new ValidationException("A target index state doesn't match the primary index state",
@@ -806,20 +808,22 @@ public abstract class IndexingBase {
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
         deferAutoMergeDuringCommit(store);
+        final TrackTableReader trackTableReader = new TrackTableReader();
+        final RecordCursor<T> scanCursor = trackTableReader.prefetchingCursor(store, cursor, getRecordToIndex);
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
-                        AsyncUtil.whileTrue(() -> cursor.onNext()
+                        AsyncUtil.whileTrue(() -> scanCursor.onNext()
                                 .thenCompose(result ->
                                         policy.isReverseScanOrder() ?
                                         handleCursorResultReverse(store, result,
                                                 getRecordToIndex, nextResultCont,
-                                                recordsScannedCounter, hasMore, snapshotIsolationLevel)
+                                                recordsScannedCounter, hasMore, snapshotIsolationLevel, trackTableReader)
                                         :
                                         handleCursorResult(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
-                                                recordsScannedCounter, hasMore, snapshotIsolationLevel)
-                                ), cursor.getExecutor()))
+                                                recordsScannedCounter, hasMore, snapshotIsolationLevel, trackTableReader)
+                                ), scanCursor.getExecutor()))
                 .thenApply(vignore -> {
                     long recordsScannedInTransaction = recordsScannedCounter.get();
                     if (recordsScanned != null) {
@@ -844,7 +848,8 @@ public abstract class IndexingBase {
                                                               @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                               @Nonnull AtomicLong recordsScannedCounter,
                                                               @Nonnull AtomicBoolean hasMore,
-                                                              final boolean snapshotIsolationLevel) {
+                                                              final boolean snapshotIsolationLevel,
+                                                              @Nonnull TrackTableReader trackTableReader) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
         if (cursorResult.hasNext()) {
@@ -895,7 +900,7 @@ public abstract class IndexingBase {
                     }
                     timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
-                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, trackTableReader);
                     if (isExhausted) {
                         // we've just processed the last item
                         timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
@@ -923,7 +928,8 @@ public abstract class IndexingBase {
                                                                      @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                                      @Nonnull AtomicLong recordsScannedCounter,
                                                                      @Nonnull AtomicBoolean hasMore,
-                                                                     final boolean snapshotIsolationLevel) {
+                                                                     final boolean snapshotIsolationLevel,
+                                                                     @Nonnull TrackTableReader trackTableReader) {
         // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
         // the 'lastResultCont' item should also be processed
         if (!cursorResult.hasNext()) {
@@ -953,7 +959,7 @@ public abstract class IndexingBase {
                     }
                     timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
-                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, trackTableReader);
                     return updateMaintainer.thenCompose(vignore ->
                             hadTransactionReachedLimits(store)
                                     .thenApply(shouldCommit -> {
@@ -1070,7 +1076,8 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
-                                                            FDBStoredRecord<Message> rec) {
+                                                            FDBStoredRecord<Message> rec,
+                                                            @Nonnull TrackTableReader trackTableReader) {
         return forEachTargetIndexContext(indexContext -> {
             if (!indexContext.recordTypes.contains(rec.getRecordType())) {
                 // This particular index is not affected by rec
@@ -1092,10 +1099,67 @@ public abstract class IndexingBase {
             // it has already indexed it and tracked its primary key - skip. The snapshot read of the track table needs no
             // conflict of its own, it is paired with the (serializable) read of the record.
             store.addRecordWriteConflict(rec.getPrimaryKey());
-            final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(store, indexContext.index, rec.getPrimaryKey());
-            return store.getContext().ensureActive().snapshot().get(trackKey).thenCompose(tracked ->
-                    tracked != null ? AsyncUtil.DONE : maintainer.updateFromIndexer(rec));
+            return trackTableReader.isTracked(store, indexContext.index, rec.getPrimaryKey()).thenCompose(tracked ->
+                    tracked ? AsyncUtil.DONE : maintainer.updateFromIndexer(rec));
         });
+    }
+
+    /**
+     * Use this class to read the track table (of WRITE_ONLY_IDEM indexes) instead of reading table items one at a time.
+     */
+    private class TrackTableReader {
+        // Pipeline depth of the reads ahead of the scan
+        private static final int PREFETCH_PIPELINE_SIZE = 64;
+        // (index name, primary key) -> is tracked
+        private final Map<Tuple, CompletableFuture<Boolean>> reads = new ConcurrentHashMap<>();
+
+        @Nonnull
+        private Tuple readKey(@Nonnull Index index, @Nonnull Tuple primaryKey) {
+            return Tuple.from(index.getName()).addAll(primaryKey);
+        }
+
+        @Nonnull
+        private CompletableFuture<Boolean> read(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull Tuple primaryKey) {
+            final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(store, index, primaryKey);
+            // A snapshot read: it needs no conflict of its own, it is paired with the serializable (or explicitly conflicted) read of the record.
+            return store.getContext().ensureActive().snapshot().get(trackKey).thenApply(Objects::nonNull);
+        }
+
+        /**
+         * Whether the user io has inserted this record, and indexed it. Uses the prefetched value, if there is one.
+         */
+        @Nonnull
+        CompletableFuture<Boolean> isTracked(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull Tuple primaryKey) {
+            final CompletableFuture<Boolean> prefetched = reads.remove(readKey(index, primaryKey));
+            return prefetched != null ? prefetched : read(store, index, primaryKey);
+        }
+
+        /**
+         * Wrap a scan cursor, such that as the items pass through, the track table reads for the records that will be
+         * indexed are already on their way.
+         */
+        @Nonnull
+        <T> RecordCursor<T> prefetchingCursor(@Nonnull FDBRecordStore store,
+                                              @Nonnull RecordCursor<T> cursor,
+                                              @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex) {
+            final List<Index> idemIndexes = common.getTargetIndexContexts().stream()
+                    .filter(indexContext -> !indexContext.isSynthetic && store.getIndexState(indexContext.index).isWriteOnlyIdem())
+                    .map(indexContext -> indexContext.index)
+                    .toList();
+            if (idemIndexes.isEmpty()) {
+                return cursor;
+            }
+            return cursor.mapPipelined(item ->
+                    getRecordToIndex.apply(store, RecordCursorResult.withNextValue(item, RecordCursorStartContinuation.START))
+                            .thenApply(rec -> {
+                                if (rec != null) {
+                                    for (Index index : idemIndexes) {
+                                        reads.computeIfAbsent(readKey(index, rec.getPrimaryKey()), key -> read(store, index, rec.getPrimaryKey()));
+                                    }
+                                }
+                                return item;
+                            }), PREFETCH_PIPELINE_SIZE);
+        }
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,

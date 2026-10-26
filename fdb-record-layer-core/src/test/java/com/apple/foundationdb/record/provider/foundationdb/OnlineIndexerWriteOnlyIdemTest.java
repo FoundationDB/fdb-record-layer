@@ -29,14 +29,19 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
@@ -55,11 +60,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -71,6 +78,9 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
     private final Index sumIndex = new Index("simple$sum_idem", field("num_value_2").ungrouped(), IndexTypes.SUM);
     private final Index countIndex = new Index("simple$count_idem", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
     private final Index valueIndex = new Index("simple$value_idem", field("num_value_2"), IndexTypes.VALUE);
+    // A rank index that counts duplicates is not idempotent
+    private final Index rankIndex = new Index("simple$rank_idem", field("num_value_2").ungrouped(), IndexTypes.RANK,
+            Map.of(IndexOptions.RANK_COUNT_DUPLICATES, "true"));
 
     private static final String UNIQUE_SOURCE_INDEX = "MySimpleRecord$num_value_unique";
 
@@ -192,6 +202,8 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
             if (index.getName().equals(sumIndex.getName())) {
                 assertEquals(records.stream().mapToLong(TestRecords1Proto.MySimpleRecord::getNumValue2).sum(),
                         aggregate(FunctionNames.SUM, index), index.getName());
+            } else if (index.getName().equals(rankIndex.getName())) {
+                assertRanksMatchRecords(index, records);
             } else if (index.getName().equals(countIndex.getName())) {
                 assertEquals(records.size(), aggregate(FunctionNames.COUNT, index), index.getName());
             } else {
@@ -201,6 +213,19 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
                     context.commit();
                 }
             }
+        }
+    }
+
+    /** The rank of each record is the number of records with a smaller value. */
+    private void assertRanksMatchRecords(@Nonnull final Index index, @Nonnull final List<TestRecords1Proto.MySimpleRecord> records) {
+        final IndexRecordFunction<Long> rank = new IndexRecordFunction<>(FunctionNames.RANK, (GroupingKeyExpression)index.getRootExpression(), index.getName());
+        try (FDBRecordContext context = openContext()) {
+            for (TestRecords1Proto.MySimpleRecord rec : records) {
+                final long expectedRank = records.stream().filter(other -> other.getNumValue2() < rec.getNumValue2()).count();
+                final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(rec.getRecNo()));
+                assertEquals(expectedRank, recordStore.evaluateRecordFunction(rank, stored).join(), "rank of " + rec.getRecNo());
+            }
+            context.commit();
         }
     }
 
@@ -560,6 +585,53 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         assertEquals(0, runRace(List.of(sumIndex, countIndex), List.of(sumIndex, countIndex), Race.INSERT_IN_BATCH));
     }
 
+    @ParameterizedTest
+    @CsvSource({"sum,value", "sum,count", "count,sum"})
+    void testMultiTargetWithMixedWriteOnlyStatesCanContinue(final String idemTarget, final String otherTarget) {
+        // The targets of a build end up in different write-only states: the idempotent one falls back to plain write-only,
+        // or only some of the targets requested idem. The write-only variants are the same state for continuing a build.
+        final Map<String, Index> indexes = Map.of("sum", sumIndex, "count", countIndex, "value", valueIndex);
+        populateEvenRecords(60);
+        final List<Index> targets = List.of(indexes.get(idemTarget), indexes.get(otherTarget));
+        openSimpleMetaData(allIndexesHook(targets));
+        disableAll(targets);
+        // the first target requests idem; the second doesn't, or it is idempotent and falls back
+        final OnlineIndexer.IndexingPolicy policy = OnlineIndexer.IndexingPolicy.newBuilder()
+                .setUseWriteOnlyIdem(otherTarget.equals("value") ? targets : List.of(targets.get(0))).build();
+
+        final AtomicBoolean interrupted = new AtomicBoolean(false);
+        try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy)
+                .setConfigLoader(old -> {
+                    if (interrupted.get()) {
+                        throw new IllegalStateException("interrupted indexer");
+                    }
+                    interrupted.set(true);
+                    return old;
+                }).build()) {
+            assertThrows(Exception.class, () -> indexer.buildIndex(true));
+        }
+        inTransaction(() -> {
+            assertTrue(recordStore.getIndexState(targets.get(0)).isWriteOnlyIdem());
+            assertFalse(recordStore.getIndexState(targets.get(1)).isWriteOnlyIdem());
+        });
+
+        try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy).build()) {
+            indexer.buildIndex(true);
+        }
+        assertReadable(targets);
+        assertIndexesMatchRecords(targets);
+    }
+
+    @Test
+    void testOnlyIdempotentTargetsAreNotBuiltWithIdem() throws Exception {
+        populateEvenRecords(21);
+        openSimpleMetaData(allIndexesHook(List.of(valueIndex)));
+        disableAll(List.of(valueIndex));
+        buildPausingAfterFirstPass(idemIndexerBuilder(valueIndex, false), () ->
+                inTransaction(() -> assertTrue(recordStore.getIndexState(valueIndex).isWriteOnlyNoQueue())));
+        assertReadable(valueIndex);
+    }
+
     // ---- sequences in a single transaction ----
 
     private void sequences(final int base) {
@@ -620,6 +692,126 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
                 indexer.buildIndex(true);
             }
         }
+        assertReadable(targets);
+        assertIndexesMatchRecords(targets);
+    }
+
+    // ---- interleaving fuzzer ----
+
+    private enum FuzzMode { BY_RECORDS, MUTUAL, BY_INDEX, RANK_BY_RECORDS, RANK_BY_INDEX }
+
+    static Stream<Arguments> fuzzParams() {
+        final Stream.Builder<Arguments> builder = java.util.stream.Stream.builder();
+        for (FuzzMode mode : FuzzMode.values()) {
+            // FUZZ_SEEDS: run more seeds, when hunting for bugs
+            for (long seed = 1; seed <= Long.parseLong(System.getenv().getOrDefault("FUZZ_SEEDS", "20")); seed++) {
+                builder.add(Arguments.of(mode, seed));
+            }
+        }
+        return builder.build();
+    }
+
+    /** The source index key of a record: its own (base) one, or one next to the base key of record {@code slot}. Unique per record. */
+    private static int fuzzUniqueValue(final int recNo, final int slot) {
+        return slot < 0 ? recNo * 1139 : slot * 1139 + recNo + 1;
+    }
+
+    /**
+     * One random user transaction, over a random record: insert, update, delete, re-insert, type change or source key move.
+     * @param progressHint roughly the number of the record that the indexer is working on. Source keys are moved to
+     * around this position half of the time, into the batch that the indexer is committing.
+     */
+    private void randomIo(@Nonnull final Random random, final int progressHint) {
+        final int recNo = random.nextInt(130);
+        final int value = random.nextInt(40); // few values: many duplicates
+        final int slot = random.nextBoolean() ? -1 : Math.max(0, progressHint + random.nextInt(6) - 1);
+        final int operation = random.nextInt(5);
+        final boolean insertOther = random.nextInt(4) == 0;
+        io(store -> {
+            final boolean exists = store.loadRecord(Tuple.from(recNo)) != null;
+            if (!exists) {
+                if (insertOther) {
+                    saveOther(store, recNo);
+                } else {
+                    saveSimple(store, recNo, value, fuzzUniqueValue(recNo, slot));
+                }
+                return;
+            }
+            switch (operation) {
+                case 0:
+                case 4:
+                    saveSimple(store, recNo, value, fuzzUniqueValue(recNo, slot));
+                    break;
+                case 1:
+                    store.deleteRecord(Tuple.from(recNo));
+                    break;
+                case 2:
+                    store.deleteRecord(Tuple.from(recNo));
+                    saveSimple(store, recNo, value, fuzzUniqueValue(recNo, slot));
+                    break;
+                default:
+                    saveOther(store, recNo);
+                    break;
+            }
+        });
+    }
+
+    /**
+     * A user transaction is committed in the middle of every third index update of the indexer: that is, inside the
+     * indexer's transactions, after they have read their records and before they commit.
+     */
+    @ParameterizedTest
+    @MethodSource("fuzzParams")
+    void testRandomIoInTheMiddleOfIndexerTransactions(final FuzzMode mode, final long seed) {
+        populateEvenRecords(60);
+        final boolean byIndex = mode == FuzzMode.BY_INDEX || mode == FuzzMode.RANK_BY_INDEX;
+        final boolean rank = mode == FuzzMode.RANK_BY_RECORDS || mode == FuzzMode.RANK_BY_INDEX;
+        final List<Index> targets = rank ? List.of(rankIndex) : byIndex ? List.of(sumIndex) : List.of(sumIndex, countIndex);
+        openSimpleMetaData(allIndexesHook(targets));
+        disableAll(targets);
+
+        final Random random = new Random(seed);
+        final AtomicInteger indexUpdates = new AtomicInteger();
+        final AtomicInteger ioTransactions = new AtomicInteger();
+        final AtomicBoolean inIo = new AtomicBoolean(false);
+        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
+        setIndexMaintenanceFilter((index, rec) -> {
+            final int updatesSoFar = indexUpdates.incrementAndGet();
+            if (index.getName().equals(targets.get(0).getName()) && !inIo.get() && updatesSoFar % 3 == 0) {
+                inIo.set(true);
+                final Thread ioThread = new Thread(() -> {
+                    try {
+                        randomIo(random, updatesSoFar);
+                        ioTransactions.incrementAndGet();
+                    } catch (Throwable t) {
+                        ioFailure.set(t);
+                    }
+                });
+                ioThread.start();
+                try {
+                    ioThread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    inIo.set(false);
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.ALL;
+        });
+
+        final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets);
+        if (byIndex) {
+            policy.setSourceIndex(UNIQUE_SOURCE_INDEX);
+        } else if (mode == FuzzMode.MUTUAL) {
+            policy.setMutualIndexing(true);
+        }
+        try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy.build()).build()) {
+            indexer.buildIndex(true);
+        }
+        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
+        assertTrue(ioTransactions.get() > 5, "the user transactions should have run in the middle of the build");
+
+        setIndexMaintenanceFilter(null);
         assertReadable(targets);
         assertIndexesMatchRecords(targets);
     }
