@@ -20,14 +20,18 @@
 
 package com.apple.foundationdb.relational.recordlayer.util;
 
+import com.apple.foundationdb.FDBError;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordContextNotActiveException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -66,6 +70,18 @@ public final class ExceptionUtil {
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
             code = ErrorCode.TRANSACTION_TIMEOUT;
+        } else if (re instanceof FDBExceptions.FDBStoreTransactionSizeException) {
+            code = ErrorCode.TRANSACTION_TOO_LARGE;
+        } else if (re instanceof FDBExceptions.FDBStoreKeySizeException) {
+            code = ErrorCode.KEY_TOO_LARGE;
+        } else if (re instanceof FDBExceptions.FDBStoreValueSizeException) {
+            code = ErrorCode.VALUE_TOO_LARGE;
+        } else if (re.getCause() instanceof FDBException && ((FDBException)re.getCause()).getCode() == FDBError.COMMIT_UNKNOWN_RESULT.code()) {
+            code = ErrorCode.TRANSACTION_RESULT_UNKNOWN;
+        } else if (re instanceof RecordCoreRetriableTransactionException) {
+            code = ErrorCode.SERIALIZATION_FAILURE;
+        } else if (re instanceof FDBExceptions.FDBStoreException) {
+            code = ErrorCode.STORAGE_ERROR;
         } else if (re instanceof RecordContextNotActiveException || re.getCause() instanceof RecordContextNotActiveException) {
             code = ErrorCode.TRANSACTION_INACTIVE;
         } else if (re instanceof RecordDeserializationException || re.getCause() instanceof RecordDeserializationException) {
@@ -79,8 +95,10 @@ public final class ExceptionUtil {
             code = translateErrorCode((SemanticException)re);
         } else if (re.getCause() instanceof SemanticException) {
             code = translateErrorCode((SemanticException)(re.getCause()));
+        } else if (re instanceof RecordQueryPlanComplexityException) {
+            code = ErrorCode.PLAN_TOO_COMPLEX;
         } else if (re instanceof UnableToPlanException) {
-            code = ErrorCode.UNSUPPORTED_QUERY;
+            code = ErrorCode.UNABLE_TO_PLAN;
         }
 
         Map<String, Object> extraContext = re.getLogInfo();
