@@ -219,7 +219,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             fileDescriptor = Descriptors.FileDescriptor.buildFrom(
                     fileDescriptorProtoSerializer.getFileBuilder().build(), dependencies.toArray(new Descriptors.FileDescriptor[0]));
         } catch (Descriptors.DescriptorValidationException e) {
-            throw new RelationalException(ErrorCode.SERIALIZATION_FAILURE, e).toUncheckedWrappedException();
+            throw new RelationalException(ErrorCode.INVALID_TABLE_DEFINITION, e).toUncheckedWrappedException();
         }
         final var recordMetadataSerializer = new RecordMetadataSerializer(fileDescriptor);
         accept(recordMetadataSerializer);
