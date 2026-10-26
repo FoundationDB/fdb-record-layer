@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -526,6 +527,34 @@ public class MetaDataProtoEditor {
             }
             return byFullName.get(type.getFullName());
         }
+
+        /**
+         * Returns the new fully qualified name of the message type {@code type} if a rename affects it, i.e., if it is,
+         * or is nested within, a renamed type; otherwise, returns {@code null}. The new name substitutes the new name
+         * of the renamed outermost containing type for its old one, leaving any nested-type suffix (e.g., ".Inner")
+         * untouched.
+         */
+        @Nullable
+        String getNewFullName(@Nonnull Descriptors.Descriptor type) {
+            return getNewFullName(type, type);
+        }
+
+        /**
+         * Returns the new fully qualified name of the enum type {@code type} if a rename affects it, i.e., if it is
+         * nested within a renamed type; otherwise, returns {@code null}. A top-level enum is never affected.
+         */
+        @Nullable
+        String getNewFullName(@Nonnull Descriptors.EnumDescriptor type) {
+            final Descriptors.Descriptor containingType = type.getContainingType();
+            return containingType == null ? null : getNewFullName(type, containingType);
+        }
+
+        @Nullable
+        private String getNewFullName(@Nonnull Descriptors.GenericDescriptor type,
+                                      @Nonnull Descriptors.Descriptor messageType) {
+            final RecordTypeRename rename = get(getOutermostType(messageType));
+            return rename == null ? null : replacePrefix(type.getFullName(), rename.fullName, rename.fullNewName);
+        }
     }
 
     /**
@@ -624,8 +653,10 @@ public class MetaDataProtoEditor {
         // Validate that `MetaData.user_defined_functions`, `MetaData.views` and `MetaData.stored_queries` are empty.
         validateNoUnrenamableDefinitions(metadata);
 
-        // Validate the `MetaData.unnested_record_types` constituents.
-        validateRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), fileDesc, renames);
+        // Resolve the type of every non-parent `MetaData.unnested_record_types` constituent.
+        final Map<RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder, Descriptors.Descriptor>
+                nonParentConstituentTypes =
+                resolveNonParentUnnestedConstituents(metadata.getUnnestedRecordTypesBuilderList(), fileDesc);
 
         // Determine the usage of each renamed type by looking at the union message type within `MetaData.records`.
         determineRecordTypeUnionFieldsAndUsages(renames, unionDescriptor, union);
@@ -649,7 +680,8 @@ public class MetaDataProtoEditor {
         renameRecordTypeUsagesInJoinedRecordTypes(metadata.getJoinedRecordTypesBuilderList(), renames);
 
         // Rename `MetaData.unnested_record_types` constituents for every renamed type.
-        renameRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), renames);
+        renameRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(),
+                nonParentConstituentTypes, renames);
     }
 
     /**
@@ -672,8 +704,7 @@ public class MetaDataProtoEditor {
      * <li>A type other than the union would be renamed to the default union name, or is itself named that way.
      * <li>The union already has a field under the new canonical union field name {@code _newRecordTypeName}.
      * <li>The records descriptor has no union message type, or the union message type declares nested types.
-     * <li>A non-parent unnested record type constituent uses the type or one of its nested types, or names a type
-     *     that cannot be resolved.
+     * <li>A non-parent unnested record type constituent names a type that cannot be resolved.
      * <li>The metadata declares {@code user_defined_functions}, {@code views} or {@code stored_queries}.
      * </ul>
      *
@@ -686,6 +717,8 @@ public class MetaDataProtoEditor {
      * <li>The canonical {@code _typeName} union field is renamed.
      * <li>If the record type has {@code RECORD} usage, the record type list, indexes, joined record types, and the
      *     parent constituents of unnested record types are updated.
+     * <li>The non-parent constituents of unnested record types whose type is, or is nested within, the renamed type
+     *     are updated. This applies to a record type of any usage.
      * </ul>
      *
      * @param metaDataBuilder the metadata builder
@@ -1080,23 +1113,18 @@ public class MetaDataProtoEditor {
             @Nonnull Descriptors.Descriptor descriptorForMessage) {
         for (final DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
             final Descriptors.GenericDescriptor referencedType = resolveFieldType(descriptorForMessage, field);
-            // Determine the message type that is, or directly contains, the referenced type.
-            final Descriptors.Descriptor messageType = referencedType instanceof Descriptors.EnumDescriptor enumType
-                                                       ? enumType.getContainingType()
-                                                       : (Descriptors.Descriptor) referencedType;
-            // Skip fields that reference no named type at all, or that reference a top-level enum. These field can’t be
-            // affected by any rename.
-            if (messageType == null) {
+            final String newFullName;
+            if (referencedType instanceof Descriptors.Descriptor messageType) {
+                newFullName = renames.getNewFullName(messageType);
+            } else if (referencedType instanceof Descriptors.EnumDescriptor enumType) {
+                newFullName = renames.getNewFullName(enumType);
+            } else {
+                // The field references no named type at all.
                 continue;
             }
-            // If the outermost type containing the referenced type is renamed, substitute its new name for the prefix,
-            // leaving any nested-type suffix (e.g., ".Inner") untouched.
-            final RecordTypeRename rename = renames.get(getOutermostType(messageType));
-            if (rename != null) {
+            if (newFullName != null) {
                 // Note: A leading '.' indicates a fully qualified name in a `type_name`.
-                final String newTypeName =
-                        "." + replacePrefix(referencedType.getFullName(), rename.fullName, rename.fullNewName);
-                field.setTypeName(newTypeName);
+                field.setTypeName("." + newFullName);
             }
         }
 
@@ -1176,15 +1204,19 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Validates the nested constituents of {@code MetaData.unnested_record_types} affected by any renamed type.
-     * Any constituent whose type is nested within a renamed type, other than as that type’s own (non-nested)
-     * constituent, causes a {@link MetaDataException}, since renaming a type used by a non-parent unnested constituent
-     * is not supported.
+     * Resolves the type of every non-parent constituent of {@code MetaData.unnested_record_types}, so that
+     * {@link #renameRecordTypeUsagesInUnnestedRecordTypes} can rewrite it if it is affected by a rename. Raises
+     * {@link MetaDataException} if a type cannot be resolved.
+     *
+     * @return the resolved type of each non-parent constituent, keyed by the constituent builder (by identity)
      */
-    private static void validateRecordTypeUsagesInUnnestedRecordTypes(
-            @Nonnull List<RecordMetaDataProto.UnnestedRecordType.Builder> unnestedRecordTypes,
-            @Nonnull Descriptors.FileDescriptor fileDescriptor,
-            @Nonnull RecordTypeRenames renames) {
+    @Nonnull
+    private static Map<RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder, Descriptors.Descriptor>
+            resolveNonParentUnnestedConstituents(
+                    @Nonnull List<RecordMetaDataProto.UnnestedRecordType.Builder> unnestedRecordTypes,
+                    @Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        final Map<RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder, Descriptors.Descriptor> result =
+                new IdentityHashMap<>();
         for (var unnested : unnestedRecordTypes) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
                 if (constituent.getParent().isEmpty()) {
@@ -1198,24 +1230,22 @@ public class MetaDataProtoEditor {
                             .addLogInfo(LogMessageKeys.EXPECTED, name)
                             .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
                 }
-                // If the constituent’s type, or the top-level type it is nested within, is being renamed, this
-                // non-parent reference to it can’t be safely updated.
-                // TODO Issue #4707: Support this case.
-                if (renames.get(getOutermostType(constituentTypeDescriptor)) != null) {
-                    throw new MetaDataException(
-                            "Renaming types used by non-parent unnested constituents is not supported");
-                }
+                result.put(constituent, constituentTypeDescriptor);
             }
         }
+        return result;
     }
 
     /**
-     * Renames the nested constituents of {@code MetaData.unnested_record_types} that directly name (as their own,
-     * non-nested type) any {@code RECORD}-usage rename in {@code renames}. Callers must have already validated the
-     * rename via {@link #validateRecordTypeUsagesInUnnestedRecordTypes}.
+     * Renames the constituents of {@code MetaData.unnested_record_types} affected by any rename in {@code renames}.
+     * The parent constituent names a {@code RECORD}-usage type by its simple name; a non-parent constituent names a
+     * message type by its fully qualified name, which also changes if the type is nested within a renamed type.
+     * The types of the non-parent constituents are as resolved by {@link #resolveNonParentUnnestedConstituents}.
      */
     private static void renameRecordTypeUsagesInUnnestedRecordTypes(
             @Nonnull List<RecordMetaDataProto.UnnestedRecordType.Builder> unnestedRecordTypes,
+            @Nonnull Map<RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder, Descriptors.Descriptor>
+                    nonParentConstituentTypes,
             @Nonnull RecordTypeRenames renames) {
         for (var unnested : unnestedRecordTypes) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
@@ -1225,6 +1255,12 @@ public class MetaDataProtoEditor {
                         constituent.setTypeName(newName);
                     }
                 }
+            }
+        }
+        for (final var entry : nonParentConstituentTypes.entrySet()) {
+            final String newFullName = renames.getNewFullName(entry.getValue());
+            if (newFullName != null) {
+                entry.getKey().setTypeName(newFullName);
             }
         }
     }
