@@ -50,7 +50,7 @@ final class SyntheticTableGeneratorFactory {
                                                                      @Nonnull final QuantifierValues quantifierValues) {
         final var scanCount = spec.scanCount();
         final var hasUnnesting = !quantifierValues.getExplodes().isEmpty();
-        if (scanCount != 1 && hasUnnesting) {
+        if (scanCount > 1 && hasUnnesting) {
             // The two kinds do not compose yet, and no one kind can serve a definition needing both.
             throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, an unnesting cannot be combined with a join");

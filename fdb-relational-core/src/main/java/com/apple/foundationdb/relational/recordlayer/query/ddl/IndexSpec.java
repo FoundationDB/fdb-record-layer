@@ -88,7 +88,7 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
         }
 
         boolean hasSingleSource() {
-            return syntheticTableBuilder() == null || tables.size() == 1;
+            return syntheticTableBuilder() != null || tables.size() == 1;
         }
 
         Type.Record getRecordType() {
@@ -244,7 +244,7 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, multiscan is not supported");
         // throws unless there is exactly one source
-        Assert.notNullUnchecked(source.hasSingleSource() , ErrorCode.UNSUPPORTED_OPERATION,
+        Assert.thatUnchecked(source.hasSingleSource() , ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, expected to find single source");
 
         final var projection = projection();

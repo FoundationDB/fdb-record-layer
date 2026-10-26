@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -230,7 +231,7 @@ public class JoinedSyntheticTableIndexTest {
     }
 
     @Nonnull
-    private AbstractMetadataOperationsFactory assertingFactory(@Nonnull final java.util.function.Consumer<SchemaTemplate> assertions) {
+    private AbstractMetadataOperationsFactory assertingFactory(@Nonnull final Consumer<SchemaTemplate> assertions) {
         return new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override

@@ -236,8 +236,8 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         }
         final var joinConditions = ImmutableList.<JoinCondition>builder();
         final var residuals = ImmutableList.<QueryPredicate>builder();
-        final var childPredicates = predicate instanceof AndPredicate
-                                    ? List.copyOf(((AndPredicate)predicate).getChildren())
+        final var childPredicates = predicate instanceof AndPredicate andPredicate
+                                    ? List.copyOf((andPredicate).getChildren())
                                     : List.of(predicate);
         for (final var conjunct : childPredicates) {
             final var joinCondition = asJoinCondition(conjunct, constituents);
@@ -347,7 +347,8 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     @Nonnull
     @Override
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
-        Assert.isNullUnchecked(spec.groupBy(), "group by on an index over a joined synthetic table");
+        Assert.isNullUnchecked(spec.groupBy(), ErrorCode.UNSUPPORTED_OPERATION,
+                "group by on an index over a joined synthetic table");
         final var residualPredicates = split.get().residuals();
         final var residual = residualPredicates.isEmpty()
                              ? null
