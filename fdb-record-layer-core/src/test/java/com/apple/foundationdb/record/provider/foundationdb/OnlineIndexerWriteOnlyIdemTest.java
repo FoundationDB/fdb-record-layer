@@ -632,6 +632,26 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         assertReadable(valueIndex);
     }
 
+    @Test
+    void testFallsBackToWriteOnlyBelowFormatVersion() throws Exception {
+        formatVersion = FormatVersionTestUtils.previous(FormatVersion.WRITE_ONLY_IDEM);
+        populateEvenRecords(21);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        buildPausingAfterFirstPass(idemIndexerBuilder(sumIndex, false), () -> {
+            inTransaction(() -> {
+                assertFalse(recordStore.getIndexState(sumIndex).isWriteOnlyIdem(), "below the required format version the index must not be write-only-idem");
+                assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyNoQueue(), "the index should fall back to plain write-only");
+            });
+            userWrites();
+            assertTrue(isTrackTableEmpty(sumIndex), "nothing is tracked in plain write-only");
+        });
+        assertTrue(formatVersion.compareTo(FormatVersion.WRITE_ONLY_IDEM) < 0);
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
+    }
+
     // ---- sequences in a single transaction ----
 
     private void sequences(final int base) {
@@ -698,13 +718,13 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
 
     // ---- interleaving fuzzer ----
 
-    private enum FuzzMode { BY_RECORDS, MUTUAL, BY_INDEX, RANK_BY_RECORDS, RANK_BY_INDEX }
+    private enum FuzzMode { BY_RECORDS, MUTUAL, BY_INDEX, RANK_BY_RECORDS, RANK_BY_INDEX, REVERSE_BY_RECORDS, REVERSE_BY_INDEX, WITH_IDEMPOTENT_TARGET }
 
     static Stream<Arguments> fuzzParams() {
         final Stream.Builder<Arguments> builder = java.util.stream.Stream.builder();
         for (FuzzMode mode : FuzzMode.values()) {
-            // FUZZ_SEEDS: run more seeds, when hunting for bugs
-            for (long seed = 1; seed <= Long.parseLong(System.getenv().getOrDefault("FUZZ_SEEDS", "20")); seed++) {
+            // A few seeds keep the test fast. Set the FUZZ_SEEDS environment variable to run more of them, when hunting for bugs.
+            for (long seed = 1; seed <= Long.parseLong(System.getenv().getOrDefault("FUZZ_SEEDS", "5")); seed++) {
                 builder.add(Arguments.of(mode, seed));
             }
         }
@@ -721,10 +741,12 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
      * @param progressHint roughly the number of the record that the indexer is working on. Source keys are moved to
      * around this position half of the time, into the batch that the indexer is committing.
      */
-    private void randomIo(@Nonnull final Random random, final int progressHint) {
+    private void randomIo(@Nonnull final Random random, final int progressHint, final boolean reverse) {
         final int recNo = random.nextInt(130);
         final int value = random.nextInt(40); // few values: many duplicates
-        final int slot = random.nextBoolean() ? -1 : Math.max(0, progressHint + random.nextInt(6) - 1);
+        // The records are numbered by 2, up to 118: the record number that the indexer is working on
+        final int position = reverse ? 118 - 2 * progressHint : 2 * progressHint;
+        final int slot = random.nextBoolean() ? -1 : Math.max(0, position + random.nextInt(13) - 6);
         final int operation = random.nextInt(5);
         final boolean insertOther = random.nextInt(4) == 0;
         io(store -> {
@@ -764,9 +786,13 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
     @MethodSource("fuzzParams")
     void testRandomIoInTheMiddleOfIndexerTransactions(final FuzzMode mode, final long seed) {
         populateEvenRecords(60);
-        final boolean byIndex = mode == FuzzMode.BY_INDEX || mode == FuzzMode.RANK_BY_INDEX;
+        final boolean byIndex = mode == FuzzMode.BY_INDEX || mode == FuzzMode.RANK_BY_INDEX || mode == FuzzMode.REVERSE_BY_INDEX;
         final boolean rank = mode == FuzzMode.RANK_BY_RECORDS || mode == FuzzMode.RANK_BY_INDEX;
-        final List<Index> targets = rank ? List.of(rankIndex) : byIndex ? List.of(sumIndex) : List.of(sumIndex, countIndex);
+        final boolean reverse = mode == FuzzMode.REVERSE_BY_RECORDS || mode == FuzzMode.REVERSE_BY_INDEX;
+        final List<Index> targets = rank ? List.of(rankIndex) :
+                                    byIndex ? List.of(sumIndex) :
+                                    mode == FuzzMode.WITH_IDEMPOTENT_TARGET ? List.of(sumIndex, valueIndex) :
+                                    List.of(sumIndex, countIndex);
         openSimpleMetaData(allIndexesHook(targets));
         disableAll(targets);
 
@@ -781,7 +807,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
                 inIo.set(true);
                 final Thread ioThread = new Thread(() -> {
                     try {
-                        randomIo(random, updatesSoFar);
+                        randomIo(random, updatesSoFar, reverse);
                         ioTransactions.incrementAndGet();
                     } catch (Throwable t) {
                         ioFailure.set(t);
@@ -800,6 +826,9 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         });
 
         final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets);
+        if (reverse) {
+            policy.setReverseScanOrder(true);
+        }
         if (byIndex) {
             policy.setSourceIndex(UNIQUE_SOURCE_INDEX);
         } else if (mode == FuzzMode.MUTUAL) {

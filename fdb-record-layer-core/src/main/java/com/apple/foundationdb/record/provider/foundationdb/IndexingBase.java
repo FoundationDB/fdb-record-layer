@@ -1099,7 +1099,7 @@ public abstract class IndexingBase {
             // WRITE_ONLY_IDEM: user io only reads the range set without conflicts, so it must conflict with the record
             // itself: write-conflict the record, whether it is indexed here. If user io has inserted this record,
             // it has already indexed it and tracked its primary key - skip. The snapshot read of the track table needs no
-            // conflict of its own, it is paired with the (serializable) read of the record.
+            // conflict of its own, it is paired with the (serializable or explicitly conflicted) read of the record.
             store.addRecordWriteConflict(rec.getPrimaryKey());
             final CompletableFuture<Boolean> prefetched = trackTableReads.remove(trackTableReadKey(indexContext.index, rec.getPrimaryKey()));
             return (prefetched != null ? prefetched : readTrackTable(store, indexContext.index, rec.getPrimaryKey())).thenCompose(tracked ->
@@ -1139,14 +1139,13 @@ public abstract class IndexingBase {
         if (idemIndexes.isEmpty()) {
             return cursor;
         }
-        // Here: Read the track table (of WRITE_ONLY_IDEM indexes) ahead of the scan for prefetch. The returned future will not be collected.
-        // (This less affective for indexing-by-index, but still has value)
+        // As the scanned items pass through, start reading their track table entries, so that the reads are on their way (or
+        // done) by the time the records are processed.
         return cursor.mapPipelined(item ->
                 getRecordToIndex.apply(store, RecordCursorResult.withNextValue(item, RecordCursorStartContinuation.START))
                         .thenApply(rec -> {
                             if (rec != null) {
                                 for (Index index : idemIndexes) {
-                                    // This future is intentionally not collected
                                     trackTableReads.computeIfAbsent(trackTableReadKey(index, rec.getPrimaryKey()),
                                             key -> readTrackTable(store, index, rec.getPrimaryKey()));
                                 }

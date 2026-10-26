@@ -79,8 +79,7 @@ public enum IndexState {
      * Queries cannot use the index in this state.
      * This index state is designed to prevent conflicts between the online indexer and user io.
      */
-    WRITE_ONLY_IDEM(5L, "indexesWriteOnlyIdem"),
-    ;
+    WRITE_ONLY_IDEM(5L, "indexesWriteOnlyIdem");
 
     private final long id;
     private final String logName;
