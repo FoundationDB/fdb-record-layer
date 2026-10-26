@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.continuation.TypedEvaluationConstant;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -197,7 +198,8 @@ public class QueryEvaluationConstants {
         @Nullable
         private final Object value;
 
-        private QueryEvaluationConstant(@Nonnull ConstantKind constantKind, @Nullable Object value) {
+        @VisibleForTesting
+        QueryEvaluationConstant(@Nonnull ConstantKind constantKind, @Nullable Object value) {
             this.constantKind = constantKind;
             this.value = value;
         }
