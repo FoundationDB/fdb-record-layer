@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithCo
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
@@ -265,7 +266,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @param parameterRelationshipGraph a set of bindings the planner can use that may constrain requirements of the plan
      *        but also lead to better plans
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
-     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     * @throws UnableToPlanException if the planner cannot plan the query
      */
     @Nonnull
     @Override
@@ -281,7 +282,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
-     * @throws com.apple.foundationdb.record.RecordCoreException if there is no index that matches the sort in the provided query
+     * @throws UnableToPlanException if there is no index that matches the sort in the provided query
      */
     @Nonnull
     @Override
@@ -301,7 +302,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         RecordQueryPlan plan = plan(planContext, filter, sort, sortReverse);
         if (plan == null) {
             if (sort == null) {
-                throw new RecordCoreException("Unexpected failure to plan without sort");
+                throw new UnableToPlanException("Unexpected failure to plan without sort");
             }
             final RecordQueryPlannerSortConfiguration sortConfiguration = configuration.getSortConfiguration();
             if (sortConfiguration != null && sortConfiguration.shouldAllowNonIndexSort()) {
@@ -309,11 +310,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                         planContext.indexes, planContext.commonPrimaryKey);
                 plan = plan(withoutSort, filter, null, false);
                 if (plan == null) {
-                    throw new RecordCoreException("Unexpected failure to plan without sort");
+                    throw new UnableToPlanException("Unexpected failure to plan without sort");
                 }
                 plan = new RecordQuerySortPlan(plan, sortConfiguration.getSortKey(sort, sortReverse));
             } else {
-                throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
+                throw new UnableToPlanException("Cannot sort without appropriate index: " + sort);
             }
         }
 
@@ -413,7 +414,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (bestPlan != null) {
             bestPlan = planRemoveDuplicates(planContext, bestPlan);
             if (bestPlan == null) {
-                throw new RecordCoreException("A common primary key is required to remove duplicates");
+                throw new UnableToPlanException("A common primary key is required to remove duplicates");
             }
             return bestPlan.getPlan();
         }
@@ -1750,7 +1751,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             
             if (avoidScanPlan(candidateScan.planContext)) {
-                throw new RecordCoreException("cannot create scan plan for a synthetic record type");
+                throw new UnableToPlanException("cannot create scan plan for a synthetic record type");
             }
 
             plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
@@ -1808,7 +1809,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 if (regularRecordTypes.containsAll(queriedRecordTypes)) {
                     return FetchIndexRecords.PRIMARY_KEY;
                 }
-                throw new RecordCoreException("cannot mix regular and synthetic record types in query");
+                throw new UnsupportedQueryException("cannot mix regular and synthetic record types in query");
             }
         }
         return FetchIndexRecords.PRIMARY_KEY;

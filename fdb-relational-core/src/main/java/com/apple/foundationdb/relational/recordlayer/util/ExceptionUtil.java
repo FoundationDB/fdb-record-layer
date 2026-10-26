@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsEx
 import com.apple.foundationdb.record.provider.foundationdb.RecordContextNotActiveException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
+import com.apple.foundationdb.record.query.plan.UnsupportedQueryException;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -99,6 +100,8 @@ public final class ExceptionUtil {
             code = ErrorCode.PLAN_TOO_COMPLEX;
         } else if (re instanceof UnableToPlanException) {
             code = ErrorCode.UNABLE_TO_PLAN;
+        } else if (re instanceof UnsupportedQueryException) {
+            code = ErrorCode.UNSUPPORTED_QUERY;
         }
 
         Map<String, Object> extraContext = re.getLogInfo();

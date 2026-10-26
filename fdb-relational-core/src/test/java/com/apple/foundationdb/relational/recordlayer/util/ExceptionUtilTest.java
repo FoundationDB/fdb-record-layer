@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.RecordContextNotActiveException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
+import com.apple.foundationdb.record.query.plan.UnsupportedQueryException;
 import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -78,7 +79,8 @@ class ExceptionUtilTest {
                 Arguments.of(new FDBExceptions.FDBStoreLockTakenException("lock taken", new RuntimeException()), ErrorCode.SERIALIZATION_FAILURE),
                 Arguments.of(new FDBExceptions.FDBStoreException(fdbException(FDBError.INTERNAL_ERROR)), ErrorCode.STORAGE_ERROR),
                 Arguments.of(new RecordQueryPlanComplexityException("too complex"), ErrorCode.PLAN_TOO_COMPLEX),
-                Arguments.of(new UnableToPlanException("no plan"), ErrorCode.UNABLE_TO_PLAN));
+                Arguments.of(new UnableToPlanException("no plan"), ErrorCode.UNABLE_TO_PLAN),
+                Arguments.of(new UnsupportedQueryException("unsupported"), ErrorCode.UNSUPPORTED_QUERY));
     }
 
     @ParameterizedTest
