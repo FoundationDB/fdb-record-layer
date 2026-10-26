@@ -1,5 +1,5 @@
 /*
- * PreparedCaseParamsTest.java
+ * PreparedParamsTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,14 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Turning one prepared case into the {@link PreparedParams} warm-up plans it with: which parameters get a value and
- * which are left without one. Resolving a declaration into a type happens later, on the planning path.
+ * Tests for {@link PreparedParams#ofPreparedCase}, which turns one prepared case into the parameters warm-up plans it
+ * with: which parameters get a value and which are left without one. Resolving a declared type happens later.
  */
-class PreparedCaseParamsTest {
+class PreparedParamsTest {
 
     @Test
     void isNullBindsARealNull() {
-        final var params = PreparedCaseParams.of(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NULL));
+        final var params = PreparedParams.ofPreparedCase(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NULL));
 
         // containsKey, not a non-null value: this is what makes the parameter value-bound rather than value-free,
         // which is observable as its declared type never being offered for planning.
@@ -46,16 +46,16 @@ class PreparedCaseParamsTest {
 
     @Test
     void booleanStatesBindRealBooleans() {
-        final var whenTrue = PreparedCaseParams.of(Map.of("B", "BOOLEAN"), Map.of("B", ParameterState.IS_TRUE));
+        final var whenTrue = PreparedParams.ofPreparedCase(Map.of("B", "BOOLEAN"), Map.of("B", ParameterState.IS_TRUE));
         assertThat(whenTrue.namedParamValue("B")).isEqualTo(Boolean.TRUE);
 
-        final var whenFalse = PreparedCaseParams.of(Map.of("B", "BOOLEAN"), Map.of("B", ParameterState.IS_FALSE));
+        final var whenFalse = PreparedParams.ofPreparedCase(Map.of("B", "BOOLEAN"), Map.of("B", ParameterState.IS_FALSE));
         assertThat(whenFalse.namedParamValue("B")).isEqualTo(Boolean.FALSE);
     }
 
     @Test
     void isNotNullLeavesTheParameterWithoutAValue() {
-        final var params = PreparedCaseParams.of(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NOT_NULL));
+        final var params = PreparedParams.ofPreparedCase(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NOT_NULL));
 
         // A declared type comes back only for a parameter without a value, so this covers both at once.
         assertThat(params.unboundDeclaredTypeMaybe("P")).contains("BIGINT");
@@ -68,7 +68,7 @@ class PreparedCaseParamsTest {
      */
     @Test
     void boundParameterNeverOffersItsDeclaredType() {
-        final var params = PreparedCaseParams.of(
+        final var params = PreparedParams.ofPreparedCase(
                 Map.of("BOUND", "BIGINT", "FREE", "STRING"),
                 Map.of("BOUND", ParameterState.IS_NULL, "FREE", ParameterState.IS_NOT_NULL));
 
@@ -78,7 +78,7 @@ class PreparedCaseParamsTest {
 
     @Test
     void caseMixingStatesBindsEachAccordingly() {
-        final var params = PreparedCaseParams.of(
+        final var params = PreparedParams.ofPreparedCase(
                 Map.of("REGION", "BIGINT", "ARCHIVED", "BOOLEAN", "OWNER", "INTEGER NOT NULL"),
                 Map.of("REGION", ParameterState.IS_NULL,
                         "ARCHIVED", ParameterState.IS_FALSE,
@@ -94,14 +94,14 @@ class PreparedCaseParamsTest {
      */
     @Test
     void valueFreeStateWithoutADeclarationIsRejected() {
-        assertThatThrownBy(() -> PreparedCaseParams.of(Map.of(), Map.of("P", ParameterState.IS_NOT_NULL)))
+        assertThatThrownBy(() -> PreparedParams.ofPreparedCase(Map.of(), Map.of("P", ParameterState.IS_NOT_NULL)))
                 .hasMessageContaining("prepared case names 'P'")
                 .hasMessageContaining("the parameter list does not declare");
     }
 
     @Test
     void caseWithNoParametersIsEmpty() {
-        final var params = PreparedCaseParams.of(Map.of(), Map.of());
+        final var params = PreparedParams.ofPreparedCase(Map.of(), Map.of());
 
         assertThat(params.isEmpty()).isTrue();
     }

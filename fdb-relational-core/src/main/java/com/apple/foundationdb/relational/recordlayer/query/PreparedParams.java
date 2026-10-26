@@ -23,12 +23,14 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -136,6 +138,44 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams ofNamed(@Nonnull Map<String, Object> parameters) {
         return new PreparedParams(ImmutableMap.of(), parameters);
+    }
+
+    /**
+     * Builds the parameters to plan one prepared case of a stored query with. {@code IS_NULL}, {@code IS_TRUE} and
+     * {@code IS_FALSE} bind a value; {@code IS_NOT_NULL} leaves the parameter value-free.
+     *
+     * @param declaredTypeParams the parameter list, from parameter name to the SQL text of its declared type
+     * @param preparedCase the case, from parameter name to the state it is pinned to
+     * @return the parameters to plan this case with
+     */
+    @Nonnull
+    static PreparedParams ofPreparedCase(@Nonnull final Map<String, String> declaredTypeParams,
+                                         @Nonnull final Map<String, StoredQuery.ParameterState> preparedCase) {
+        // A HashMap, since IS_NULL binds a real null and neither Map.of nor ImmutableMap accepts one.
+        final var values = new HashMap<String, Object>();
+        for (final var entry : preparedCase.entrySet()) {
+            final var parameterName = entry.getKey();
+            switch (entry.getValue()) {
+                case IS_NULL:
+                    values.put(parameterName, null);
+                    break;
+                case IS_TRUE:
+                    values.put(parameterName, Boolean.TRUE);
+                    break;
+                case IS_FALSE:
+                    values.put(parameterName, Boolean.FALSE);
+                    break;
+                case IS_NOT_NULL:
+                    // Checked here, so a state with no declaration fails about the declaration, not a missing value.
+                    Assert.thatUnchecked(declaredTypeParams.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
+                            () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
+                    break;
+                default:
+                    throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR,
+                            "unhandled prepared case state " + entry.getValue());
+            }
+        }
+        return ofNamed(values).withDeclaredTypeParams(declaredTypeParams);
     }
 
     @Nonnull
