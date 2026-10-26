@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 /**
@@ -81,5 +82,14 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
     public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
                                                                  @Nonnull final String temporaryFunctionName) {
         return NoOpMetadataOperationsFactory.INSTANCE.getDropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
+    }
+
+    // Unlike the other methods above, this is NOT delegated to NoOpMetadataOperationsFactory:
+    // SetLocalVariableConstantAction only touches the transaction's session layer (no catalog
+    // dependencies), so it should be available in every factory context, not silently dropped.
+    @Nonnull
+    @Override
+    public ConstantAction getSetLocalVariableConstantAction(@Nonnull String name, @Nullable Object value) {
+        return new SetLocalVariableConstantAction(name, value);
     }
 }
