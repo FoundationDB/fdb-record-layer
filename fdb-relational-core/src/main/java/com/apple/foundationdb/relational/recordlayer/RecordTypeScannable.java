@@ -49,7 +49,7 @@ public abstract class RecordTypeScannable<T> implements DirectScannable {
     /* abstract methods */
 
     protected abstract RecordCursor<T> openScan(BackingStore store, TupleRange range,
-                                                      @Nullable Continuation continuation, Options options) throws RelationalException;
+                                                @Nullable Continuation continuation, Options options) throws RelationalException;
 
     protected abstract RecordLayerSchema getSchema();
 
