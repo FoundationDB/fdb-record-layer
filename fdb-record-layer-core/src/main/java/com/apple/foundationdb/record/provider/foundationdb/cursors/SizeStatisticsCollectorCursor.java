@@ -368,7 +368,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
             this.valueSize = partialResults.getValueSize();
             this.maxValueSize = partialResults.getMaxValueSize();
             List<Long> bucketList = partialResults.getSizeBucketsList();
-            Arrays.setAll(sizeBuckets, i -> bucketList.get(i));
+            Arrays.setAll(sizeBuckets, bucketList::get);
         }
 
         /**

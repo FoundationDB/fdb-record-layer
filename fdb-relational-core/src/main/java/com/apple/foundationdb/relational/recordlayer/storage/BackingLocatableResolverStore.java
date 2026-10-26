@@ -208,7 +208,7 @@ public final class BackingLocatableResolverStore implements BackingStore {
 
         final byte[] continuationBytes = continuation == null ? null : continuation.getExecutionState();
         final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
-        if (type.getName().equals(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME)) {
+        if (LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME.equals(type.getName())) {
             // todo: this does not use the scanProperties to track runtime information like rows scanned
             // see: https://github.com/FoundationDB/fdb-record-layer/issues/3226
             final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
@@ -222,7 +222,7 @@ public final class BackingLocatableResolverStore implements BackingStore {
                     }),
                     continuationBytes
             ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
-        } else if (type.getName().equals(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME)) {
+        } else if (LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME.equals(type.getName())) {
             return locatableResolver.scan(context, continuationBytes, scanProperties)
                     .map(resolverKeyValue -> {
                         Message msg = metaDataProvider.wrapResolverResult(resolverKeyValue.getKey(), resolverKeyValue.getValue());

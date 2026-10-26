@@ -164,7 +164,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
             } else {
                 futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
                     if (rec == null) {
-                        if (orphanBehavior.equals(IndexOrphanBehavior.ERROR)) {
+                        if (orphanBehavior == IndexOrphanBehavior.ERROR) {
                             throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
                         } else {
                             // For SKIP and RETURN
@@ -185,7 +185,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
                 return FDBSyntheticRecord.of(this, constituentValues);
             } else {
                 // some constituents are missing
-                if (orphanBehavior.equals(IndexOrphanBehavior.SKIP)) {
+                if (orphanBehavior == IndexOrphanBehavior.SKIP) {
                     return null;
                 } else {
                     // This is for RETURN - return the shell of the record with no constituents

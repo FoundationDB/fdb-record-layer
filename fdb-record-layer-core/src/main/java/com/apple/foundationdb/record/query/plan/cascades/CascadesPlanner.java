@@ -519,7 +519,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         // Also validate memo structure integrity at the end of planning
-        Debugger.sanityCheck(() -> traversal.verifyIntegrity());
+        Debugger.sanityCheck(traversal::verifyIntegrity);
     }
 
     private void pushInitialTasks() {

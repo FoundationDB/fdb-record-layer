@@ -73,7 +73,7 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
     @Nonnull
     public static <T> CollectionMatcher<T> any(@Nonnull final BindingMatcher<T> downstream) {
         final AnyMatcher<T> anyMatcher = new AnyMatcher<>(downstream);
-        return new CollectionMatcher<T>() {
+        return new CollectionMatcher<>() {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {

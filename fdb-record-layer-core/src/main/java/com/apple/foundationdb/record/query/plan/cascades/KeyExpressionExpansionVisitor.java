@@ -253,6 +253,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      *     no sub-fields to nest into, so {@code field(…, Concatenate).nest(...)} is not a meaningful construct.</li>
      * </ul>
      */
+    @SuppressWarnings("PMD.ImplicitSwitchFallThrough")
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {

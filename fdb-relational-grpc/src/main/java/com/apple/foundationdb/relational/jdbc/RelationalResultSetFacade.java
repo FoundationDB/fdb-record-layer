@@ -206,7 +206,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
             index++;
         }
         throw new SQLException("Unknown " + columnLabel + " in " +
-                metadatas.stream().map(n -> n.getName()).collect(Collectors.toList()));
+                metadatas.stream().map(ColumnMetadata::getName).collect(Collectors.toList()));
     }
 
     @Override

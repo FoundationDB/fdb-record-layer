@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
@@ -218,5 +219,54 @@ class ProtobufDataBuilderTest {
         RelationalAssertions.assertThrowsSqlException(() -> dataBuilder.addRepeatedField("field1", "foo"))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessageContaining("is not repeated");
+    }
+
+    /**
+     * Tests that validate {@link ProtobufDataBuilder#isPrimitive(int)}. This is supposed to determine if
+     * a field in the build is of a single primitive type. That means no nested messages or repeated fields
+     * should be included. There are some edge cases that are captured here that may need to change, namely
+     * the {@code UUID}-valued fields (which are nested messages in Protobuf but primitive fields in the
+     * layers above) and enums.
+     *
+     * @throws Descriptors.DescriptorValidationException if the Protobuf file descriptor cannot be built
+     * @throws SQLException if the relational wrapper logic throws errors
+     */
+    @Test
+    void isPrimitiveIsTrueOnlyForSingularNonMessageFields() throws Descriptors.DescriptorValidationException, SQLException {
+        final DescriptorProtos.DescriptorProto nested = DescriptorProtos.DescriptorProto.newBuilder()
+                .setName("nested")
+                .addField(newDescriptor("inner", JavaType.STRING, null, false)).build();
+        final DescriptorProtos.EnumDescriptorProto suit = DescriptorProtos.EnumDescriptorProto.newBuilder()
+                .setName("suit")
+                .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("SPADES").setNumber(0))
+                .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("HEARTS").setNumber(1))
+                .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("CLUBS").setNumber(2))
+                .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("DIAMONDS").setNumber(3))
+                .build();
+        final DescriptorProtos.DescriptorProto outer = DescriptorProtos.DescriptorProto.newBuilder()
+                .setName("test")
+                .addField(newDescriptor("scalar", JavaType.STRING, null, false).toBuilder().setNumber(1))
+                .addField(newDescriptor("repeatedScalar", JavaType.STRING, null, true).toBuilder().setNumber(2))
+                .addField(newDescriptor("message", JavaType.MESSAGE, "nested", false).toBuilder().setNumber(3))
+                .addField(newDescriptor("repeatedMessage", JavaType.MESSAGE, "nested", true).toBuilder().setNumber(4))
+                .addField(newDescriptor("uuid", JavaType.MESSAGE, TupleFieldsProto.UUID.getDescriptor().getFullName(), false).toBuilder().setNumber(5))
+                .addField(newDescriptor("repeatedUuid", JavaType.MESSAGE, TupleFieldsProto.UUID.getDescriptor().getFullName(), true).toBuilder().setNumber(6))
+                .addField(newDescriptor("suit", JavaType.ENUM, suit.getName(), false).toBuilder().setNumber(7))
+                .addField(newDescriptor("repeatedSuit", JavaType.ENUM, suit.getName(), true).toBuilder().setNumber(8))
+                .build();
+        final Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(
+                DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(nested).addEnumType(suit).addMessageType(outer).build(),
+                new Descriptors.FileDescriptor[]{TupleFieldsProto.getDescriptor()});
+        final ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
+
+        // field numbers are one-based
+        Assertions.assertTrue(dataBuilder.isPrimitive(1), "singular scalar field is primitive");
+        Assertions.assertFalse(dataBuilder.isPrimitive(2), "repeated scalar field is not primitive");
+        Assertions.assertFalse(dataBuilder.isPrimitive(3), "singular message field is not primitive");
+        Assertions.assertFalse(dataBuilder.isPrimitive(4), "repeated message field is not primitive");
+        Assertions.assertFalse(dataBuilder.isPrimitive(5), "singular uuid field is not primitive");
+        Assertions.assertFalse(dataBuilder.isPrimitive(6), "repeated uuid field is not primitive");
+        Assertions.assertTrue(dataBuilder.isPrimitive(7), "singular enum field is primitive");
+        Assertions.assertFalse(dataBuilder.isPrimitive(8), "repeated enum field is not primitive");
     }
 }

@@ -2118,7 +2118,7 @@ public class Comparisons {
 
         @Override
         public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
-            if (type.equals(Type.IN)) {
+            if (type == Type.IN) {
                 if (!fannedOut && fieldDescriptor.isRepeated()) {
                     throw new RecordCoreException("In comparison with non-scalar field " + fieldDescriptor.getName());
                 }

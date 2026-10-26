@@ -146,7 +146,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
         final int size = otherPermutation.size();
 
-        return new AbstractIterator<BoundMatch<R>>() {
+        return new AbstractIterator<>() {
             @Override
             protected BoundMatch<R> computeNext() {
                 while (iterator.hasNext()) {
@@ -268,7 +268,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      */
     @Nonnull
     public static <M> MatchAccumulator<M, EnumeratingIterable<M>> productAccumulator() {
-        return new MatchAccumulator<M, EnumeratingIterable<M>>() {
+        return new MatchAccumulator<>() {
             private final ImmutableList.Builder<Iterable<M>> state = ImmutableList.builder();
 
             @Override

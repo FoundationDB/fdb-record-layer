@@ -120,7 +120,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      *          manager of collectors that receive hits
      */
     @Override
-    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.PreserveStackTrace"})
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.PreserveStackTrace", "PMD.ForLoopCanBeForeach"})
     public <C extends Collector, T> T search(Query query, CollectorManager<C, T> collectorManager) throws IOException {
         final var leafSlices = getSlices();
         final var executor = getExecutor();

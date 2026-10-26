@@ -465,7 +465,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                     // (The alternative is keeping a version per index entry, which sounds painful.)
                     // TODO: It is entirely possible that most of these entries are the same even after tokenizing, so we should not update them needlessly
                     // TODO: Be more selective about which values are re-written during re-tokenization (https://github.com/FoundationDB/fdb-record-layer/issues/8)
-                    return super.update(oldRecord, null).thenCompose(new Function<Void, CompletionStage<Void>>() {
+                    return super.update(oldRecord, null).thenCompose(new Function<>() {
                         @Override
                         public CompletionStage<Void> apply(Void vignore) {
                             TextIndexMaintainer.this.writeRecordTokenizerVersion(newRecord.getPrimaryKey());

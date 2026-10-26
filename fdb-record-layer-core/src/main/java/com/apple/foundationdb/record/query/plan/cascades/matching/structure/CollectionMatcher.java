@@ -48,7 +48,7 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
     }
 
     static <T> CollectionMatcher<T> empty() {
-        return new CollectionMatcher<T>() {
+        return new CollectionMatcher<>() {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
@@ -68,7 +68,7 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
 
     @Nonnull
     static <E> CollectionMatcher<E> fromBindingMatcher(@Nonnull final BindingMatcher<Collection<E>> matcher) {
-        return new CollectionMatcher<E>() {
+        return new CollectionMatcher<>() {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<E> in) {
