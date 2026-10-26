@@ -302,7 +302,7 @@ public abstract class IndexingBase {
                 return store.markIndexWriteOnlyIdem(index);
             }
             if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn(KeyValueLogMessage.build("write-only-idem refused, mark write-only")
+                LOGGER.warn(KeyValueLogMessage.build("write-only-idem refused, marking write-only")
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
                         .addKeyAndValue(LogMessageKeys.REASON, idemRefusalReason)
@@ -897,12 +897,9 @@ public abstract class IndexingBase {
                         return AsyncUtil.READY_TRUE;
                     }
                     // This record should be indexed. Add it to the transaction.
-                    if (snapshotIsolationLevel) {
-                        store.addRecordReadConflict(rec.getPrimaryKey());
-                    }
                     timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
-                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, trackTableReads);
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, snapshotIsolationLevel, trackTableReads);
                     if (isExhausted) {
                         // we've just processed the last item
                         timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
@@ -956,12 +953,9 @@ public abstract class IndexingBase {
                         return AsyncUtil.READY_TRUE; // next
                     }
                     // This record should be indexed. Add it to the transaction.
-                    if (snapshotIsolationLevel) {
-                        store.addRecordReadConflict(rec.getPrimaryKey());
-                    }
                     timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
-                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, trackTableReads);
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, snapshotIsolationLevel, trackTableReads);
                     return updateMaintainer.thenCompose(vignore ->
                             hadTransactionReachedLimits(store)
                                     .thenApply(shouldCommit -> {
@@ -1079,32 +1073,47 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
                                                             FDBStoredRecord<Message> rec,
+                                                            final boolean snapshotIsolationLevel,
                                                             @Nonnull Map<Tuple, CompletableFuture<Boolean>> trackTableReads) {
         return forEachTargetIndexContext(indexContext -> {
             if (!indexContext.recordTypes.contains(rec.getRecordType())) {
                 // This particular index is not affected by rec
                 return AsyncUtil.DONE;
             }
+            final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
             if (indexContext.isSynthetic) {
                 // This particular index is synthetic, handle with care
                 final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
-                final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
+                addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
                 return syntheticPlan.execute(store, rec).forEachAsync(maintainer::updateFromIndexer, 1);
             }
-            final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
             if (!store.getIndexState(indexContext.index).isWriteOnlyIdem()) {
                 // update simple index
+                addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
                 return maintainer.updateFromIndexer(rec);
             }
-            // WRITE_ONLY_IDEM: user io only reads the range set without conflicts, so it must conflict with the record
-            // itself: write-conflict the record, whether it is indexed here. If user io has inserted this record,
-            // it has already indexed it and tracked its primary key - skip. The snapshot read of the track table needs no
-            // conflict of its own, it is paired with the (serializable or explicitly conflicted) read of the record.
-            store.addRecordWriteConflict(rec.getPrimaryKey());
+            // WRITE_ONLY_IDEM: if user io has inserted or updated this record, it has already indexed it and tracked its
+            // primary key - skip.
+            // Otherwise, the record is indexed here. The user io only reads the range set without conflicts, so the indexer must
+            // conflict with the record itself (read and write).
+            // The snapshot read of the track table needs no conflict of its own as it is bound to the record itself.
             final CompletableFuture<Boolean> prefetched = trackTableReads.remove(trackTableReadKey(indexContext.index, rec.getPrimaryKey()));
-            return (prefetched != null ? prefetched : readTrackTable(store, indexContext.index, rec.getPrimaryKey())).thenCompose(tracked ->
-                    tracked ? AsyncUtil.DONE : maintainer.updateFromIndexer(rec));
+            return (prefetched != null ? prefetched : readTrackTable(store, indexContext.index, rec.getPrimaryKey())).thenCompose(tracked -> {
+                if (tracked) {
+                    return AsyncUtil.DONE;
+                }
+                addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
+                store.addRecordWriteConflict(rec.getPrimaryKey());
+                return maintainer.updateFromIndexer(rec);
+            });
         });
+    }
+
+    private static void addRecordReadConflictIfSnapshot(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec, final boolean snapshotIsolationLevel) {
+        // When scanning as snapshot, each record that is indexed is protected by its own conflict
+        if (snapshotIsolationLevel) {
+            store.addRecordReadConflict(rec.getPrimaryKey());
+        }
     }
 
     /**

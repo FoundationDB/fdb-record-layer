@@ -121,41 +121,27 @@ public class RangeSet {
      * though it has to do a range read that might be larger. This means that updates to keys
      * before this won't conflict unless they actually change whether this key is contained within
      * the range set.
-     * @param tc transaction or database in which to run operation
+     * @param rtc transaction or database in which to run operation
      * @param key the key to check presence in set
      * @return a future that contains whether some range in the set contains the key
      */
     @Nonnull
-    public CompletableFuture<Boolean> contains(@Nonnull TransactionContext tc, @Nonnull byte[] key) {
+    public CompletableFuture<Boolean> contains(@Nonnull ReadTransactionContext rtc, @Nonnull byte[] key) {
         checkKey(key);
-        return tc.runAsync(tr -> {
+        return rtc.readAsync(tr -> {
+            byte[] frobnicated = subspace.pack(key);
             // Add a read conflict to only the key being checked so that if this gets
             // overwritten somewhere else, this causes a conflict.
-            tr.addReadConflictKey(subspace.pack(key));
-            return containsSnapshot(tr, key);
-        });
-    }
-
-    /**
-     * Determines if a single key is contained within the range set, like
-     * {@link #contains(TransactionContext, byte[])}, but without adding any read conflict. The result is
-     * therefore only a snapshot of the range set and may be stale by the time the transaction commits.
-     * @param tr transaction in which to run operation
-     * @param key the key to check presence in set
-     * @return a future that contains whether some range in the set contains the key
-     */
-    @Nonnull
-    public CompletableFuture<Boolean> containsSnapshot(@Nonnull ReadTransaction tr, @Nonnull byte[] key) {
-        checkKey(key);
-        byte[] frobnicated = subspace.pack(key);
-        AsyncIterator<KeyValue> iterator = tr.snapshot().getRange(subspace.range().begin, keyAfter(frobnicated), 1, true).iterator();
-        return iterator.onHasNext().thenApply(hasNext -> {
-            if (!hasNext) {
-                return false;
-            } else {
-                byte[] endRange = iterator.next().getValue();
-                return ByteArrayUtil.compareUnsigned(key, endRange) < 0;
-            }
+            tr.addReadConflictKeyIfNotSnapshot(frobnicated);
+            AsyncIterator<KeyValue> iterator = tr.snapshot().getRange(subspace.range().begin, keyAfter(frobnicated), 1, true).iterator();
+            return iterator.onHasNext().thenApply(hasNext -> {
+                if (!hasNext) {
+                    return false;
+                } else {
+                    byte[] endRange = iterator.next().getValue();
+                    return ByteArrayUtil.compareUnsigned(key, endRange) < 0;
+                }
+            });
         });
     }
 

@@ -46,6 +46,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -405,6 +407,104 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         assertTrue(isTrackTableEmpty(sumIndex), "records of other types should not be tracked");
         inTransaction(() -> save(21, 21 * 19));
         assertFalse(isTrackTableEmpty(sumIndex));
+    }
+
+    private boolean isTracked(@Nonnull final Index index, final int recNo) {
+        try (FDBRecordContext context = openContext()) {
+            final boolean tracked = context.ensureActive().get(IndexingSubspaces.indexTrackTableKey(recordStore, index, Tuple.from(recNo))).join() != null;
+            context.commit();
+            return tracked;
+        }
+    }
+
+    /** The value of an ungrouped SUM index, which is not readable yet - read as stored. */
+    private long rawSum(@Nonnull final Index index) {
+        try (FDBRecordContext context = openContext()) {
+            final byte[] value = context.ensureActive().get(recordStore.indexSubspace(index).getKey()).join();
+            context.commit();
+            return value == null ? 0 : ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN).getLong();
+        }
+    }
+
+    @Test
+    void testUpdateOfRecordThatIsNotIndexedYetIndexesAndTracksIt() {
+        populateEvenRecords(21);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> recordStore.markIndexWriteOnlyIdem(sumIndex).join());
+        assertEquals(0, rawSum(sumIndex));
+
+        // not indexed yet: the update indexes the new value (only), and tracks the record
+        inTransaction(() -> save(4, 111));
+        assertTrue(isTracked(sumIndex, 4));
+        assertEquals(111, rawSum(sumIndex));
+        // tracked: the update replaces the value in the index
+        inTransaction(() -> save(4, 222));
+        assertEquals(222, rawSum(sumIndex));
+        // a delete of a record that is not indexed yet does not index nor track it
+        inTransaction(() -> delete(6));
+        assertFalse(isTracked(sumIndex, 6));
+        assertEquals(222, rawSum(sumIndex));
+        // a delete of a tracked record removes it from the index
+        inTransaction(() -> delete(4));
+        assertEquals(0, rawSum(sumIndex));
+
+        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).build()) {
+            indexer.buildIndex(true);
+        }
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
+    }
+
+    @Test
+    void testRecordThatIsUpdatedAgainAndAgainDoesNotStarveTheIndexer() {
+        // A record is updated in the middle of every attempt of the indexer. The first attempt conflicts: it has read the
+        // record and indexes it. After that, the record is tracked, and the indexer skips it without any conflict.
+        // (Only when building by records: the records that are loaded through index entries are always read with a conflict.)
+        populateEvenRecords(60);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        final AtomicInteger indexUpdates = new AtomicInteger();
+        final AtomicInteger updates = new AtomicInteger();
+        final AtomicBoolean inIo = new AtomicBoolean(false);
+        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
+        // the first update of record 0 in each attempt (limit is 5), the record 4 is processed later in the same attempt
+        setIndexMaintenanceFilter((index, rec) -> {
+            if (index.getName().equals(sumIndex.getName()) && !inIo.get() && indexUpdates.incrementAndGet() % 5 == 1 && updates.get() < 10) {
+                inIo.set(true);
+                final int value = 1000 + updates.incrementAndGet();
+                final Thread ioThread = new Thread(() -> {
+                    try {
+                        io(store -> saveSimple(store, 4, value));
+                        expectedNumValue2.put(4, value);
+                    } catch (Throwable t) {
+                        ioFailure.set(t);
+                    }
+                });
+                ioThread.start();
+                try {
+                    ioThread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    inIo.set(false);
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.ALL;
+        });
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).setTimer(timer).setLimit(5).build()) {
+            indexer.buildIndex(true);
+        }
+        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
+        setIndexMaintenanceFilter(null);
+
+        assertTrue(updates.get() >= 3, "the record should have been updated in several attempts: " + updates.get());
+        assertEquals(1, timer.getCount(FDBStoreTimer.Events.COMMIT_FAILURE), "only the first attempt should conflict");
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
     }
 
     // ---- races between the indexer's read and its commit ----

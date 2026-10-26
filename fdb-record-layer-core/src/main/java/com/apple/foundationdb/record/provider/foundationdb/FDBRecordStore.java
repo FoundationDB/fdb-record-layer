@@ -821,7 +821,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
                 case WRITE_ONLY_IDEM:
                     // Inserts are always indexed and tracked, so that the indexer will skip them. Updates and deletes
-                    // consult the track table and the range set, both without conflicts.
+                    // consult the track table and the range set, both without conflicts. An update of a record that is not
+                    // indexed yet indexes and tracks it.
                     future = updateWhileWriteOnlyIdem(index, maintainer, oldRecord, newRecord);
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
                     break;
@@ -861,8 +862,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             ensureContextActive().set(IndexingSubspaces.indexTrackTableKey(this, index, Verify.verifyNotNull(newRecord).getPrimaryKey()), new byte[0]);
             return maintainer.update(null, newRecord);
         }
-        // update/delete: a tracked key is not cleared on delete. A stale entry is harmless (a re-insert re-adds it and the
-        // indexer never sees a deleted record), while clearing it asynchronously could race with a re-insert in the same transaction.
+        // update/delete: a record that was neither tracked nor built by the indexer is tracked by an update (see
+        // StandardIndexMaintainer.updateWhileWriteOnly). A tracked key is not cleared on delete. A stale entry is harmless
+        // (a re-insert re-adds it and the indexer never sees a deleted record), while clearing it asynchronously could race
+        // with a re-insert in the same transaction.
         return maintainer.updateWhileWriteOnly(oldRecord, newRecord);
     }
 

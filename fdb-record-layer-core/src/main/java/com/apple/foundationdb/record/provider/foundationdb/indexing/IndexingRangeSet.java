@@ -102,13 +102,13 @@ public class IndexingRangeSet {
      * @return a future that will either be {@code true} or {@code false} depending on
      * whether a range containing the key has been inserted
      *
-     * @see RangeSet#containsSnapshot(ReadTransaction, byte[])
+     * @see RangeSet#contains(com.apple.foundationdb.ReadTransactionContext, byte[])
      */
     @Nonnull
     public CompletableFuture<Boolean> containsSnapshotAsync(@Nonnull byte[] key) {
         long startTime = System.nanoTime();
         return context.instrument(FDBStoreTimer.Events.RANGE_SET_CONTAINS,
-                rangeSet.containsSnapshot(context.ensureActive(), key), startTime);
+                rangeSet.contains(context.ensureActive().snapshot(), key), startTime);
     }
 
     /**

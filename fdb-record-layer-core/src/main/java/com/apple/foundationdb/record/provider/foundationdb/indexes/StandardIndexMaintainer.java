@@ -286,7 +286,20 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // if it is a built range
         Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return shouldUpdateWhileWriteOnly(primaryKey, primaryKey).thenCompose(inRange ->
-                inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
+                inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyIdem(newRecord));
+    }
+
+    private <M extends Message> CompletableFuture<Void> trackIfWriteOnlyIdem(@Nullable final FDBIndexableRecord<M> newRecord) {
+        if (newRecord == null || !state.store.getIndexState(state.index).isWriteOnlyIdem()) {
+            return AsyncUtil.DONE;
+        }
+        // Only after the track table was read (the transaction would read its own write)
+        track(newRecord.getPrimaryKey());
+        return update(null, newRecord);
+    }
+
+    private void track(@Nonnull Tuple primaryKey) {
+        state.context.ensureActive().set(IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey), new byte[0]);
     }
 
     /**
@@ -302,9 +315,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // WRITE_ONLY_IDEM: the record is indexed if either the track table (user inserts) or the range set (indexer)
         // say so. Both are snapshot reads - conflicts are resolved by the record itself.
         return isTracked(primaryKey).thenCompose(tracked ->
-                tracked ?
-                AsyncUtil.READY_TRUE :
-                IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack()));
+                tracked ? AsyncUtil.READY_TRUE : isBuiltByIndexer(rangeKey));
+    }
+
+    private CompletableFuture<Boolean> isBuiltByIndexer(@Nonnull Tuple rangeKey) {
+        return IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack());
     }
 
     private CompletableFuture<Boolean> isTracked(@Nonnull Tuple primaryKey) {
@@ -326,22 +341,26 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                                                                                                @Nullable final Tuple oldEntryKey,
                                                                                                @Nonnull final FDBIndexableRecord<M> newRecord) {
         final Tuple primaryKey = newRecord.getPrimaryKey();
-        final CompletableFuture<Boolean> oldIndexed;
-        if (oldRecord == null) {
-            oldIndexed = AsyncUtil.READY_FALSE;
-        } else if (oldEntryKey == null) {
-            // not in the source index, can only be indexed by user io
-            oldIndexed = isTracked(primaryKey);
-        } else {
-            oldIndexed = shouldUpdateWhileWriteOnly(primaryKey, oldEntryKey);
-        }
-        return oldIndexed
-                .thenCompose(indexed -> indexed ? update(oldRecord, null) : AsyncUtil.DONE)
-                .thenCompose(ignore -> {
+        return isTracked(primaryKey).thenCompose(tracked -> {
+            final CompletableFuture<Boolean> oldIndexed;
+            if (oldRecord == null) {
+                oldIndexed = AsyncUtil.READY_FALSE;
+            } else if (tracked) {
+                oldIndexed = AsyncUtil.READY_TRUE;
+            } else if (oldEntryKey == null) {
+                // not in the source index, so it wasn't indexed.
+                oldIndexed = AsyncUtil.READY_FALSE;
+            } else {
+                oldIndexed = isBuiltByIndexer(oldEntryKey);
+            }
+            return oldIndexed.thenCompose(indexed -> {
+                if (!tracked) {
                     // Only after reading the track table above (the transaction would read its own write)
-                    state.context.ensureActive().set(IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey), new byte[0]);
-                    return update(null, newRecord);
-                });
+                    track(primaryKey);
+                }
+                return update(indexed ? oldRecord : null, newRecord);
+            });
+        });
     }
 
     @SuppressWarnings("java:S3776") // Trying to simplify this method cognitive complexity seems to make it harder to follow
@@ -357,7 +376,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 // The old and new record use the same key in the source index, so check if it has been
                 // built, and update the index if so
                 return shouldUpdateWhileWriteOnly(oldRecord.getPrimaryKey(), oldEntryKey).thenCompose(inRange ->
-                        inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
+                        inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyIdem(newRecord));
             } else {
                 // The old and new record use different keys in the source index. Check each one individually,
                 // and then simulate deleting the old record (if needed) and adding the new record (if needed)
