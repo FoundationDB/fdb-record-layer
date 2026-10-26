@@ -166,7 +166,7 @@ public final class PreparedParams {
                     values.put(parameterName, Boolean.FALSE);
                     break;
                 case IS_NOT_NULL:
-                    // Checked here, so a state with no declaration fails about the declaration, not a missing value.
+                    // Without a declaration this would fail later as a missing value, which hides the real cause.
                     Assert.thatUnchecked(declaredTypeParams.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
                             () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
                     break;
