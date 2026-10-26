@@ -30,6 +30,7 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public abstract class AbstractVectorTag implements CustomTag {
@@ -60,12 +61,26 @@ public abstract class AbstractVectorTag implements CustomTag {
                 return maybeNull.get();
             }
             RealVector thisVector = Matchers.constructVectorFromString(precision, Assert.castUnchecked(yamlNode, SequenceNode.class));
-            Verify.verify(vectorClass.isInstance(other), "Expected vector of class '%s' but was '%s'", vectorClass.getName(), thisVector.getClass().getName());
-            Verify.verify(vectorClass.isInstance(thisVector), "Expected vector of class '%s' but was '%s'", vectorClass.getName(), thisVector.getClass().getName());
+            final var maybeThisVectorIsWrongType = validateVectorType(thisVector, rowNumber, cellRef);
+            if (maybeThisVectorIsWrongType.isPresent()) {
+                return maybeThisVectorIsWrongType.get();
+            }
+            final var maybeOtherVectorIsWrongType = validateVectorType(other, rowNumber, cellRef);
+            if (maybeOtherVectorIsWrongType.isPresent()) {
+                return maybeOtherVectorIsWrongType.get();
+            }
             if (Verify.verifyNotNull(other).equals(thisVector)) {
                 return Matchers.ResultSetMatchResult.success();
             }
             return Matchable.prettyPrintError("expected vector '" + prettyPrintYamlNode(yamlNode) + "' got '" + other + "' instead", rowNumber, cellRef);
+        }
+
+        @Nonnull
+        private Optional<Matchers.ResultSetMatchResult> validateVectorType(@Nonnull Object vector, int rowNumber, @Nonnull String cellRef) {
+            if (!vectorClass.isInstance(vector)) {
+                return Optional.of(Matchable.prettyPrintError("Expected vector " + vector + " to be of type '" + vectorClass.getName() + "' but was '" + vector.getClass().getName() + "' instead", rowNumber, cellRef));
+            }
+            return Optional.empty();
         }
 
         @Nonnull
