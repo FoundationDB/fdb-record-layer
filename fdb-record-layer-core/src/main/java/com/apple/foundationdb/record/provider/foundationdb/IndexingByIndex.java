@@ -243,6 +243,12 @@ public class IndexingByIndex extends IndexingBase {
                                null );
     }
 
+    @Override
+    protected int trackTablePrefetchPipelineSize() {
+        // The indexing is ordered by the scan of the source index, the track table is ordered by primary key
+        return 1;
+    }
+
     private void validateSourceOrThrowEx(boolean isValid, @Nonnull String msg) {
         // A failure here means that the target index cannot be built by this source index, but may be built otherwise
         if (!isValid) {

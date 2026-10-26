@@ -90,8 +90,7 @@ public abstract class IndexingBase {
 
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
-    // How many track table reads (WRITE_ONLY_IDEM) are issued ahead of the scan
-    private static final int TRACK_TABLE_PREFETCH_PIPELINE_SIZE = 64;
+    private static final int DEFAULT_TRACK_TABLE_PREFETCH_PIPELINE_SIZE = 64;
     @Nonnull
     protected final IndexingCommon common; // to be used by extenders
     @Nonnull
@@ -1108,6 +1107,14 @@ public abstract class IndexingBase {
         });
     }
 
+    /**
+     * How many track table reads (WRITE_ONLY_IDEM) are issued ahead of the scan.
+     * @return the pipeline size
+     */
+    protected int trackTablePrefetchPipelineSize() {
+        return DEFAULT_TRACK_TABLE_PREFETCH_PIPELINE_SIZE;
+    }
+
     @Nonnull
     private static Tuple trackTableReadKey(@Nonnull Index index, @Nonnull Tuple primaryKey) {
         return Tuple.from(index.getName()).addAll(primaryKey);
@@ -1139,12 +1146,13 @@ public abstract class IndexingBase {
                         .thenApply(rec -> {
                             if (rec != null) {
                                 for (Index index : idemIndexes) {
+                                    // This future is intentionally not collected
                                     trackTableReads.computeIfAbsent(trackTableReadKey(index, rec.getPrimaryKey()),
                                             key -> readTrackTable(store, index, rec.getPrimaryKey()));
                                 }
                             }
                             return item;
-                        }), TRACK_TABLE_PREFETCH_PIPELINE_SIZE);
+                        }), trackTablePrefetchPipelineSize());
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
