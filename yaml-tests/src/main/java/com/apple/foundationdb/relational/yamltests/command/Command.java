@@ -112,7 +112,7 @@ public abstract class Command {
 
     abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings("PMD.CloseResource") // the transaction is owned by the connection, which closes it
     private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection,
                                                        @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState)
             throws SQLException, RelationalException {

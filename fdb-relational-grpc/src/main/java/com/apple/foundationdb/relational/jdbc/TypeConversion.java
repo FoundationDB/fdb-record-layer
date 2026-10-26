@@ -292,14 +292,14 @@ public class TypeConversion {
         return ResultSetMetadata.newBuilder().setColumnMetadata(toStructMetadataProtobuf(resultSet.getMetaData())).build();
     }
 
-    @SuppressWarnings("PMD.CloseResource")
     private static Array toArray(RelationalArray relationalArray) throws SQLException {
         var arrayBuilder = Array.newBuilder();
         if (relationalArray != null) {
-            var relationalResultSet = relationalArray.getResultSet();
-            while (relationalResultSet.next()) {
-                final var value = relationalResultSet.getObject(2);
-                arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+            try (var relationalResultSet = relationalArray.getResultSet()) {
+                while (relationalResultSet.next()) {
+                    final var value = relationalResultSet.getObject(2);
+                    arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+                }
             }
         }
         return arrayBuilder.build();

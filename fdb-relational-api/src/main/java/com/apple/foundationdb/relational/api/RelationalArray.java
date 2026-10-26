@@ -39,13 +39,13 @@ public interface RelationalArray extends Array, Wrapper, WithMetadata {
         return getArray(1L, Integer.MAX_VALUE);
     }
 
-    @SuppressWarnings("PMD.CloseResource")
     @Override
     default Object getArray(long oneBasedIndex, int count) throws SQLException {
         final var array = new ArrayList<>();
-        final var rs = getResultSet(oneBasedIndex, count);
-        while (rs.next()) {
-            array.add(rs.getObject(2));
+        try (final var rs = getResultSet(oneBasedIndex, count)) {
+            while (rs.next()) {
+                array.add(rs.getObject(2));
+            }
         }
         return array.toArray();
     }

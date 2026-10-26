@@ -26,9 +26,9 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
@@ -492,7 +492,7 @@ public final class TestBlock extends ConnectedBlock {
      * @throws InterruptedException thrown if the execution does not finish within a time-bound.
      * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
      */
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings("PMD.CloseResource") // ExecutorService is only AutoCloseable starting in Java 19, while we target compatibility with Java 17
     private void executeInParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
         final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());

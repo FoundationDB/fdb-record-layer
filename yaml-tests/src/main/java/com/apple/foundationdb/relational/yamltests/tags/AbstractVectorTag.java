@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.tags;
 
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.google.common.base.Verify;
@@ -33,15 +34,17 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractVectorTag implements CustomTag {
 
-    public static final class VectorMatcher<V> implements Matchable {
+    public static final class VectorMatcher implements Matchable {
         @Nonnull
         private final SequenceNode yamlNode;
+        private final Class<? extends RealVector> vectorClass;
 
         private final int precision;
 
-        public VectorMatcher(@Nonnull final Node node, int precision) {
+        public VectorMatcher(@Nonnull final Node node, int precision, Class<? extends RealVector> vectorClass) {
             this.yamlNode = Assert.castUnchecked(node, SequenceNode.class);
             this.precision = precision;
+            this.vectorClass = vectorClass;
         }
 
         @Override
@@ -51,13 +54,14 @@ public abstract class AbstractVectorTag implements CustomTag {
 
         @Nonnull
         @Override
-        @SuppressWarnings("unchecked")
         public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, @Nonnull String cellRef) {
             final var maybeNull = Matchable.shouldNotBeNull(other, rowNumber, cellRef);
             if (maybeNull.isPresent()) {
                 return maybeNull.get();
             }
-            V thisVector = (V)Matchers.constructVectorFromString(precision, Assert.castUnchecked(yamlNode, SequenceNode.class));
+            RealVector thisVector = Matchers.constructVectorFromString(precision, Assert.castUnchecked(yamlNode, SequenceNode.class));
+            Verify.verify(vectorClass.isInstance(other), "Expected vector of class '%s' but was '%s'", vectorClass.getName(), thisVector.getClass().getName());
+            Verify.verify(vectorClass.isInstance(thisVector), "Expected vector of class '%s' but was '%s'", vectorClass.getName(), thisVector.getClass().getName());
             if (Verify.verifyNotNull(other).equals(thisVector)) {
                 return Matchers.ResultSetMatchResult.success();
             }
