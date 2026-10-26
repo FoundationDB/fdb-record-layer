@@ -48,7 +48,7 @@ import java.util.stream.Stream;
 /**
  * A container of multiple {@link QueryEvaluationConstant}s for a query.
  */
-public class QueryEvaluationConstants {
+public final class QueryEvaluationConstants {
     @Nonnull
     private static final QueryEvaluationConstants EMPTY = new QueryEvaluationConstants(ImmutableSet.of());
 
