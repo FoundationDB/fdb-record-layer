@@ -35,8 +35,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * The track table of an index that is being built in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state.
- * It holds the primary keys of the records that user io has already indexed, so that the online
- * indexer will skip them. This class should be used for all track table operations.
+ * It holds the primary keys of the records that user I/O has already indexed, so that the {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer}
+ * will skip them. This class should be used for all track table operations.
  */
 @API(API.Status.INTERNAL)
 public class IndexingTrackingTable {

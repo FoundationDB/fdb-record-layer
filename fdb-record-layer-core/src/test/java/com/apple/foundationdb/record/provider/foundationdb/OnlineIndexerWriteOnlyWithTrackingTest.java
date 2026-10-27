@@ -68,6 +68,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -124,11 +125,38 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                 .build());
     }
 
+    @Nonnull
+    private static CompletableFuture<Void> saveSimpleAsync(@Nonnull final FDBRecordStore store, final int recNo, final int numValue2) {
+        return saveSimpleAsync(store, recNo, numValue2, recNo * 1139);
+    }
+
+    @Nonnull
+    private static CompletableFuture<Void> saveSimpleAsync(@Nonnull final FDBRecordStore store, final int recNo, final int numValue2, final int numValueUnique) {
+        return store.saveRecordAsync(TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue2(numValue2)
+                .setNumValueUnique(numValueUnique)
+                .build()).thenApply(ignore -> null);
+    }
+
     private static void saveOther(@Nonnull final FDBRecordStore store, final int recNo) {
         store.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue2(recNo * 7)
                 .build());
+    }
+
+    @Nonnull
+    private static CompletableFuture<Void> saveOtherAsync(@Nonnull final FDBRecordStore store, final int recNo) {
+        return store.saveRecordAsync(TestRecords1Proto.MyOtherRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue2(recNo * 7)
+                .build()).thenApply(ignore -> null);
+    }
+
+    @Nonnull
+    private static CompletableFuture<Void> deleteAsync(@Nonnull final FDBRecordStore store, final int recNo) {
+        return store.deleteRecordAsync(Tuple.from(recNo)).thenApply(ignore -> null);
     }
 
     private void userWrites() {
@@ -186,6 +214,15 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             action.accept(createStoreBuilder().setContext(context).createOrOpen());
             return null;
         });
+    }
+
+    /**
+     * Run {@code action} in its own, retried, transaction, asynchronously. Unlike {@link #io}, this can be joined from
+     * within the indexer's asynchronous context (e.g. an index maintenance filter) without blocking-in-async detection
+     * rejecting it.
+     */
+    private void ioAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<Void>> action) {
+        fdb.runAsync(context -> createStoreBuilder().setContext(context).createOrOpenAsync().thenCompose(action)).join();
     }
 
     private OnlineIndexer.Builder trackingIndexerBuilder(@Nonnull final Index index, final boolean mutual) {
@@ -495,13 +532,9 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             if (index.getName().equals(sumIndex.getName()) && !inIo.get() && indexUpdates.incrementAndGet() % 5 == 1 && updates.get() < 10) {
                 inIo.set(true);
                 final int value = 1000 + updates.incrementAndGet();
-                // The filter runs inside the indexer's async transaction. The user transaction should run on another thread.
-                final CompletableFuture<Void> ioFuture = runOnDaemonThread(() -> {
-                    io(store -> saveSimple(store, 4, value));
-                    expectedNumValue2.put(4, value);
-                });
                 try {
-                    ioFuture.join();
+                    ioAsync(store -> saveSimpleAsync(store, 4, value));
+                    expectedNumValue2.put(4, value);
                 } finally {
                     inIo.set(false);
                 }
@@ -587,18 +620,18 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     // ---- races between the indexer's read and its commit ----
 
     private enum Race {
-        INSERT_IN_BATCH(false, store -> saveSimple(store, 7, 7 * 19)),
-        INSERT_AFTER_BATCH(false, store -> saveSimple(store, 101, 101 * 19)),
-        INSERT_OTHER_TYPE_IN_BATCH(false, store -> saveOther(store, 9)),
-        UPDATE_IN_BATCH(true, store -> saveSimple(store, 8, 1234)),
-        DELETE_IN_BATCH(true, store -> store.deleteRecord(Tuple.from(8))),
-        UPDATE_AFTER_BATCH(false, store -> saveSimple(store, 100, 4321)),
-        DELETE_AFTER_BATCH(false, store -> store.deleteRecord(Tuple.from(102)));
+        INSERT_IN_BATCH(false, store -> saveSimpleAsync(store, 7, 7 * 19)),
+        INSERT_AFTER_BATCH(false, store -> saveSimpleAsync(store, 101, 101 * 19)),
+        INSERT_OTHER_TYPE_IN_BATCH(false, store -> saveOtherAsync(store, 9)),
+        UPDATE_IN_BATCH(true, store -> saveSimpleAsync(store, 8, 1234)),
+        DELETE_IN_BATCH(true, store -> deleteAsync(store, 8)),
+        UPDATE_AFTER_BATCH(false, store -> saveSimpleAsync(store, 100, 4321)),
+        DELETE_AFTER_BATCH(false, store -> deleteAsync(store, 102));
 
         private final boolean conflictsWithIndexer;
-        private final Consumer<FDBRecordStore> action;
+        private final Function<FDBRecordStore, CompletableFuture<Void>> action;
 
-        Race(final boolean conflictsWithIndexer, final Consumer<FDBRecordStore> action) {
+        Race(final boolean conflictsWithIndexer, final Function<FDBRecordStore, CompletableFuture<Void>> action) {
             this.conflictsWithIndexer = conflictsWithIndexer;
             this.action = action;
         }
@@ -614,7 +647,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> trackingTargets,
-                        @Nonnull final Consumer<FDBRecordStore> raceAction, @Nullable final String sourceIndex) {
+                        @Nonnull final Function<FDBRecordStore, CompletableFuture<Void>> raceAction, @Nullable final String sourceIndex) {
         populateEvenRecords(100);
         openSimpleMetaData(allIndexesHook(targets));
         disableAll(targets);
@@ -623,7 +656,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicBoolean armed = new AtomicBoolean(true);
         setIndexMaintenanceFilter((index, rec) -> {
             if (index.getName().equals(sumIndex.getName()) && armed.compareAndSet(true, false)) {
-                runOnDaemonThread(() -> io(raceAction)).join();
+                ioAsync(raceAction);
             }
             return IndexMaintenanceFilter.IndexValues.ALL;
         });
@@ -661,7 +694,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         // neither sees it (it was elsewhere when the indexer read) nor conflicts (no range conflict) - but the range is
         // then marked as built.
         runRace(List.of(sumIndex), List.of(sumIndex),
-                store -> saveSimple(store, 100, 1000, 3 * 1139 + 5), UNIQUE_SOURCE_INDEX);
+                store -> saveSimpleAsync(store, 100, 1000, 3 * 1139 + 5), UNIQUE_SOURCE_INDEX);
     }
 
     @ParameterizedTest
@@ -965,33 +998,18 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final int slot = random.nextBoolean() ? -1 : Math.max(0, position + random.nextInt(13) - 6);
         final int operation = random.nextInt(5);
         final boolean insertOther = random.nextInt(4) == 0;
-        io(store -> {
-            final boolean exists = store.loadRecord(Tuple.from(recNo)) != null;
-            if (!exists) {
-                if (insertOther) {
-                    saveOther(store, recNo);
-                } else {
-                    saveSimple(store, recNo, value, fuzzUniqueValue(recNo, slot));
-                }
-                return;
+        ioAsync(store -> store.loadRecordAsync(Tuple.from(recNo)).thenCompose(existing -> {
+            if (existing == null) {
+                return insertOther ? saveOtherAsync(store, recNo) : saveSimpleAsync(store, recNo, value, fuzzUniqueValue(recNo, slot));
             }
-            switch (operation) {
-                case 0:
-                case 4:
-                    saveSimple(store, recNo, value, fuzzUniqueValue(recNo, slot));
-                    break;
-                case 1:
-                    store.deleteRecord(Tuple.from(recNo));
-                    break;
-                case 2:
-                    store.deleteRecord(Tuple.from(recNo));
-                    saveSimple(store, recNo, value, fuzzUniqueValue(recNo, slot));
-                    break;
-                default:
-                    saveOther(store, recNo);
-                    break;
-            }
-        });
+            return switch (operation) {
+                case 0, 4 -> saveSimpleAsync(store, recNo, value, fuzzUniqueValue(recNo, slot));
+                case 1 -> deleteAsync(store, recNo);
+                case 2 ->
+                        deleteAsync(store, recNo).thenCompose(ignore -> saveSimpleAsync(store, recNo, value, fuzzUniqueValue(recNo, slot)));
+                default -> saveOtherAsync(store, recNo);
+            };
+        }));
     }
 
     /**
@@ -1020,12 +1038,9 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             final int updatesSoFar = indexUpdates.incrementAndGet();
             if (index.getName().equals(targets.get(0).getName()) && !inIo.get() && updatesSoFar % 3 == 0) {
                 inIo.set(true);
-                final CompletableFuture<Void> ioFuture = runOnDaemonThread(() -> {
+                try {
                     randomIo(random, updatesSoFar, reverse);
                     ioTransactions.incrementAndGet();
-                });
-                try {
-                    ioFuture.join();
                 } finally {
                     inIo.set(false);
                 }

@@ -322,9 +322,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return IndexingRangeSet.forIndexBuild(state.store, state.index).containsAsync(rangeKey.pack());
     }
 
-    private <M extends Message> CompletableFuture<Void> updateWriteOnlyWithTrackingMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,
-                                                                                                       @Nullable final Tuple oldEntryKey,
-                                                                                                       @Nullable final FDBIndexableRecord<M> newRecord) {
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyWIthTracking(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                    @Nullable final Tuple oldEntryKey,
+                                                                                    @Nullable final FDBIndexableRecord<M> newRecord) {
         final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
             final CompletableFuture<Boolean> oldIndexed;
@@ -359,21 +359,21 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
         if ((oldEntryKey != null || newEntryKey != null) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             // Always index the new record and track it. Remove the old entry only if it was indexed (tracked, or covered by the indexer)
-            return updateWriteOnlyWithTrackingMovedToNewSourceKey(oldRecord, oldEntryKey, newRecord);
+            return updateWriteOnlyWIthTracking(oldRecord, oldEntryKey, newRecord);
         }
         if (oldEntryKey != null && newEntryKey != null) {
             if (oldEntryKey.equals(newEntryKey)) {
                 // The old and new record use the same key in the source index, so check if it has been
                 // built, and update the index if so
-                return isAlreadyIndexed(oldRecord.getPrimaryKey(), oldEntryKey).thenCompose(inRange ->
-                        inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyWithTracking(newRecord));
+                return addedRangeWithKey(oldEntryKey).thenCompose(inRange ->
+                        inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             } else {
                 // The old and new record use different keys in the source index. Check each one individually,
                 // and then simulate deleting the old record (if needed) and adding the new record (if needed)
                 // Note: index maintainers on the same index are not thread safe, so the index updates need to
                 // be serialized here, but the range set checks can be executed concurrently
-                CompletableFuture<Boolean> oldInRangeFuture = isAlreadyIndexed(oldRecord.getPrimaryKey(), oldEntryKey);
-                CompletableFuture<Boolean> newInRangeFuture = isAlreadyIndexed(newRecord.getPrimaryKey(), newEntryKey);
+                CompletableFuture<Boolean> oldInRangeFuture = addedRangeWithKey(oldEntryKey);
+                CompletableFuture<Boolean> newInRangeFuture = addedRangeWithKey(newEntryKey);
                 return oldInRangeFuture
                         .thenCompose(oldInRange -> oldInRange ? update(oldRecord, null) : AsyncUtil.DONE)
                         .thenCompose(ignore -> newInRangeFuture)
@@ -390,8 +390,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             } else {
                 // One of the entry keys is not null. Check if that one has been built, and then update if it
                 // is in the built range
-                final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
-                return isAlreadyIndexed(primaryKey, entryKey).thenCompose(inRange ->
+                return addedRangeWithKey(entryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             }
         }
