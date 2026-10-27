@@ -240,7 +240,7 @@ public class SemanticAnalyzer {
                                   startFieldString : dayTimeIntervalQualifierCtx.endField.getText().toUpperCase(Locale.ROOT);
         final var startFieldUnit = ChronoUnit.valueOf(startFieldString + "S");
         final var endField = ChronoUnit.valueOf(endFieldString + "S");
-        final var isNegative = intervalLiteral.direction != null && intervalLiteral.direction.getText().equals("-");
+        final var isNegative = intervalLiteral.direction != null && "-".equals(intervalLiteral.direction.getText());
         return ParseHelpers.parseIntervalLiteral(intervalLiteralValue, isNegative, startFieldUnit, endField);
     }
 
