@@ -172,7 +172,6 @@ public class EvaluationContext {
         return constantsMap.containsKey(constantId);
     }
 
-
     /**
      * Dereferences the constant.
      *

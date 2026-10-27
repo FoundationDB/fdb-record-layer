@@ -80,6 +80,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -193,7 +194,7 @@ public class SemanticAnalyzer {
      * @param stringLiteral the {@code stringLiteral} context to decode
      * @return the decoded string value
      */
-    @Nullable
+    @Nonnull
     public static String normalizeStringLiteral(@Nonnull final RelationalParser.StringLiteralContext stringLiteral) {
         if (stringLiteral.STRING_CHARSET_NAME() != null
                 || stringLiteral.START_NATIONAL_STRING_LITERAL() != null
@@ -209,6 +210,38 @@ public class SemanticAnalyzer {
             builder.append(normalizeStringLiteral(part.getText()));
         }
         return builder.toString();
+    }
+
+    /**
+     * Evaluates an {@code INTERVAL} literal to the number of milliseconds it denotes.
+     * <p>
+     * This is the single place where an interval literal is analyzed, and it is used by
+     * {@link com.apple.foundationdb.relational.recordlayer.query.visitors.ExpressionVisitor}, which
+     * evaluates the literal, and {@link AstNormalizer}, which extracts it as a constant for the plan
+     * cache. The two must agree exactly to ensure that cached plans can be used correctly.
+     * <p>
+     * The interval string value is taken separately from the context to make sure that it is normalized
+     * correctly by the caller before it is processed.
+     * <p>
+     * Only day-time intervals are currently supported.
+     *
+     * @param intervalLiteral the interval literal context, providing the qualifier and leading sign
+     * @param intervalLiteralValue the already-decoded string value of the literal, e.g. {@code 1 12:30}
+     * @return the signed length of the interval in milliseconds
+     */
+    public static long parseIntervalLiteral(@Nonnull final RelationalParser.IntervalLiteralContext intervalLiteral,
+                                            @Nonnull final String intervalLiteralValue) {
+        final var dayTimeIntervalQualifierCtx = Assert.castUnchecked(intervalLiteral.intervalQualifier(),
+                RelationalParser.DayTimeIntervalQualifierContext.class,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> "only day time intervals are supported");
+        final var startFieldString = dayTimeIntervalQualifierCtx.startField.getText().toUpperCase(Locale.ROOT);
+        final var endFieldString = dayTimeIntervalQualifierCtx.endField == null ?
+                                  startFieldString : dayTimeIntervalQualifierCtx.endField.getText().toUpperCase(Locale.ROOT);
+        final var startFieldUnit = ChronoUnit.valueOf(startFieldString + "S");
+        final var endField = ChronoUnit.valueOf(endFieldString + "S");
+        final var isNegative = intervalLiteral.direction != null && intervalLiteral.direction.getText().equals("-");
+        return ParseHelpers.parseIntervalLiteral(intervalLiteralValue, isNegative, startFieldUnit, endField);
     }
 
     /**
