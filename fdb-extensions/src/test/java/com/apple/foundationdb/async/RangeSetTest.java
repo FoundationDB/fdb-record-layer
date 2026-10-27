@@ -31,15 +31,15 @@ import com.apple.foundationdb.test.MultipleTransactions;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -145,7 +145,7 @@ public class RangeSetTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void containsReadConflict(final boolean snapshot) {
         // A transaction checks a key, then the range set changes to contain that key, and then it commits some other write
         try (Transaction tr = db.createTransaction()) {

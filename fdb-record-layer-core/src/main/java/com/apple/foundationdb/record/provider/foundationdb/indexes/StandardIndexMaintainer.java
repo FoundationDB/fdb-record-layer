@@ -313,13 +313,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             return addedRangeWithKey(rangeKey);
         }
         // WRITE_ONLY_WITH_TRACKING: the record is indexed if either the track table (user inserts) or the range set (indexer)
-        // say so. The track table is read with a conflict (see IndexingTrackTable), the range set as a snapshot.
+        // say so. Both are read with a conflict.
         return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked ->
                 tracked ? AsyncUtil.READY_TRUE : isBuiltByIndexer(rangeKey));
     }
 
     private CompletableFuture<Boolean> isBuiltByIndexer(@Nonnull Tuple rangeKey) {
-        return IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack());
+        return IndexingRangeSet.forIndexBuild(state.store, state.index).containsAsync(rangeKey.pack());
     }
 
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyWithTrackingMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,

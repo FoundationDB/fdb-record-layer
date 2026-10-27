@@ -72,8 +72,7 @@ public class IndexingTrackTable {
     }
 
     /**
-     * Check if a record was marked as indexed by user io. This read adds a conflict: the transaction will fail if the entry
-     * is changed, or if a write conflict is declared for it ({@link #addWriteConflict}).
+     * Check if a record was marked as indexed by user io. This read adds a conflict.
      * @param primaryKey the record's primary key
      * @return a future that is true if the record is tracked
      */
@@ -90,13 +89,5 @@ public class IndexingTrackTable {
     @Nonnull
     public CompletableFuture<Boolean> isTrackedSnapshotAsync(@Nonnull Tuple primaryKey) {
         return context.ensureActive().snapshot().get(subspace.pack(primaryKey)).thenApply(Objects::nonNull);
-    }
-
-    /**
-     * Declare a write conflict on the entry of a record..
-     * @param primaryKey the record's primary key
-     */
-    public void addWriteConflict(@Nonnull Tuple primaryKey) {
-        context.ensureActive().addWriteConflictKey(subspace.pack(primaryKey));
     }
 }

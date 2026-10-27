@@ -674,8 +674,8 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     @ValueSource(booleans = {false, true})
     void testStaleIoTransactionCommitsAfterIndexer(final boolean delete) {
         // A user transaction treats record 4 as not indexed yet (it is neither tracked nor in a built range), and only commits
-        // after the indexer has committed the batch that indexed record 4. Without the indexer's write conflict on the record's
-        // entry in the track table, that user transaction would commit, and the record would be in the index twice (update),
+        // after the indexer has committed the batch that indexed record 4. Without the user transaction's read conflict on the
+        // record's key in the range set, that user transaction would commit, and the record would be in the index twice (update),
         // or stay in the index (delete).
         populateEvenRecords(100);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));

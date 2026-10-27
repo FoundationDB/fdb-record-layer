@@ -95,23 +95,6 @@ public class IndexingRangeSet {
     }
 
     /**
-     * Determine if a key is in a range that has been inserted into the range set, without adding any read conflict.
-     *
-     * @param key the key search for in the set
-     *
-     * @return a future that will either be {@code true} or {@code false} depending on
-     * whether a range containing the key has been inserted
-     *
-     * @see RangeSet#contains(com.apple.foundationdb.ReadTransactionContext, byte[])
-     */
-    @Nonnull
-    public CompletableFuture<Boolean> containsSnapshotAsync(@Nonnull byte[] key) {
-        long startTime = System.nanoTime();
-        return context.instrument(FDBStoreTimer.Events.RANGE_SET_CONTAINS,
-                rangeSet.contains(context.ensureActive().snapshot(), key), startTime);
-    }
-
-    /**
      * Return the first missing range in the set. This behaves like {@link #firstMissingRangeAsync(byte[], byte[])},
      * but it operates on the whole range set.
      *

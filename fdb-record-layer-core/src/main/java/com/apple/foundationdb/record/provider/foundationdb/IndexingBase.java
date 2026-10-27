@@ -1095,16 +1095,15 @@ public abstract class IndexingBase {
             // WRITE_ONLY_WITH_TRACKING: if user io has inserted or updated this record, it has already indexed it and tracked its
             // primary key - skip.
             // Otherwise, the record is indexed here. The indexer must conflict with any user io that treated this record as not
-            // indexed: it reads the record (above), so it fails if the record was changed, and it declares a write conflict on the
-            // record's entry in the track table, which user io reads with a conflict - this way, a transaction that
-            // merely reads the record has nothing to conflict with.
+            // indexed: it reads the record (above), so it fails if the record was changed. User io that decided that the record is
+            // not indexed has read the record's key in the range set with a conflict, and fails when the indexer commits a range
+            // that contains it. A transaction that merely reads the record will not get a conflict.
             final CompletableFuture<Boolean> prefetched = trackTableReads.remove(trackTableReadKey(indexContext.index, rec.getPrimaryKey()));
             return (prefetched != null ? prefetched : IndexingTrackTable.of(store, indexContext.index).isTrackedSnapshotAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
                 if (tracked) {
                     return AsyncUtil.DONE;
                 }
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
-                IndexingTrackTable.of(store, indexContext.index).addWriteConflict(rec.getPrimaryKey());
                 return maintainer.updateFromIndexer(rec);
             });
         });
