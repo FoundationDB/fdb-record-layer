@@ -285,7 +285,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // Check if the record has been built by checking its primary key in the range set. Update the index
         // if it is a built range
         Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
-        return shouldUpdateWhileWriteOnly(primaryKey, primaryKey).thenCompose(inRange ->
+        return isAlreadyIndexed(primaryKey, primaryKey).thenCompose(inRange ->
                 inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyWithTracking(newRecord));
     }
 
@@ -308,7 +308,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param rangeKey the record's key in the range set's key space (the primary key, or the source index entry key)
      * @return a future that is true if the record is indexed
      */
-    private CompletableFuture<Boolean> shouldUpdateWhileWriteOnly(@Nonnull Tuple primaryKey, @Nonnull Tuple rangeKey) {
+    private CompletableFuture<Boolean> isAlreadyIndexed(@Nonnull Tuple primaryKey, @Nonnull Tuple rangeKey) {
         if (!state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             return addedRangeWithKey(rangeKey);
         }
@@ -364,15 +364,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             if (oldEntryKey.equals(newEntryKey)) {
                 // The old and new record use the same key in the source index, so check if it has been
                 // built, and update the index if so
-                return shouldUpdateWhileWriteOnly(oldRecord.getPrimaryKey(), oldEntryKey).thenCompose(inRange ->
+                return isAlreadyIndexed(oldRecord.getPrimaryKey(), oldEntryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyWithTracking(newRecord));
             } else {
                 // The old and new record use different keys in the source index. Check each one individually,
                 // and then simulate deleting the old record (if needed) and adding the new record (if needed)
                 // Note: index maintainers on the same index are not thread safe, so the index updates need to
                 // be serialized here, but the range set checks can be executed concurrently
-                CompletableFuture<Boolean> oldInRangeFuture = shouldUpdateWhileWriteOnly(oldRecord.getPrimaryKey(), oldEntryKey);
-                CompletableFuture<Boolean> newInRangeFuture = shouldUpdateWhileWriteOnly(newRecord.getPrimaryKey(), newEntryKey);
+                CompletableFuture<Boolean> oldInRangeFuture = isAlreadyIndexed(oldRecord.getPrimaryKey(), oldEntryKey);
+                CompletableFuture<Boolean> newInRangeFuture = isAlreadyIndexed(newRecord.getPrimaryKey(), newEntryKey);
                 return oldInRangeFuture
                         .thenCompose(oldInRange -> oldInRange ? update(oldRecord, null) : AsyncUtil.DONE)
                         .thenCompose(ignore -> newInRangeFuture)
@@ -390,7 +390,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 // One of the entry keys is not null. Check if that one has been built, and then update if it
                 // is in the built range
                 final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
-                return shouldUpdateWhileWriteOnly(primaryKey, entryKey).thenCompose(inRange ->
+                return isAlreadyIndexed(primaryKey, entryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             }
         }
