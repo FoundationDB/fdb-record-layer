@@ -376,6 +376,26 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testClearAndMarkIndexWriteOnlyWithQueue() {
+        populateEvenRecords(6);
+        openSimpleMetaData(allIndexesHook(List.of(myIndex)));
+        disableAll(List.of(myIndex));
+        markWriteOnlyWithQueue(myIndex);
+        writeNewRecords(List.of(1, 3));
+        assertEquals(2L, queueSizeCounter(myIndex));
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore.clearAndMarkIndexWriteOnlyWithQueue(myIndex).join();
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexState(myIndex).isWriteOnlyWithQueue());
+            context.commit();
+        }
+        assertNull(queueSizeCounter(myIndex), "the queue should have been cleared");
+    }
+
+    @Test
     void testIndexBuildStateWhileBuildingWithQueue() throws Exception {
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
         final int numInitialRecords = 20;
