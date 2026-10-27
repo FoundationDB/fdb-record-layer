@@ -80,7 +80,7 @@ public enum IndexState {
      * Queries cannot use the index in this state.
      * This index state is designed to prevent conflicts between the online indexer and user I/O.
      */
-    WRITE_ONLY_IDEM(5L, "indexesWriteOnlyIdem");
+    WRITE_ONLY_WITH_TRACKING(5L, "indexesWriteOnlyWithTracking");
 
     private final long id;
     private final String logName;
@@ -160,20 +160,20 @@ public enum IndexState {
     /**
      * Determine if an index in this state is write-only with a tracking table for non-idempotent indexes.
      *
-     * @return <code>true</code> if this state is {@link #WRITE_ONLY_IDEM} and <code>false</code> otherwise
+     * @return <code>true</code> if this state is {@link #WRITE_ONLY_WITH_TRACKING} and <code>false</code> otherwise
      */
-    public boolean isWriteOnlyIdem() {
-        return this.equals(WRITE_ONLY_IDEM);
+    public boolean isWriteOnlyWithTracking() {
+        return this.equals(WRITE_ONLY_WITH_TRACKING);
     }
 
     /**
      * Determine if an index in this state is write-only in any form ({@link #WRITE_ONLY},
-     * {@link #WRITE_ONLY_WITH_QUEUE} or {@link #WRITE_ONLY_IDEM}).
+     * {@link #WRITE_ONLY_WITH_QUEUE} or {@link #WRITE_ONLY_WITH_TRACKING}).
      *
      * @return <code>true</code> if this state is write-only in any form and <code>false</code> otherwise
      */
     public boolean isWriteOnly() {
-        return isWriteOnlyNoQueue() || isWriteOnlyWithQueue() || isWriteOnlyIdem();
+        return isWriteOnlyNoQueue() || isWriteOnlyWithQueue() || isWriteOnlyWithTracking();
     }
 
     /**

@@ -81,7 +81,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
      */
     @Test
     void monitorFormatVersion() {
-        assertEquals(FormatVersion.WRITE_ONLY_IDEM, FormatVersion.getMaximumSupportedVersion(),
+        assertEquals(FormatVersion.WRITE_ONLY_WITH_TRACKING, FormatVersion.getMaximumSupportedVersion(),
                 "New format version found. Please review the key scanner to ensure they still catch corruptions");
     }
 

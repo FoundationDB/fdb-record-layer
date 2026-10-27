@@ -233,7 +233,7 @@ public abstract class IndexingBase {
 
             boolean continuedBuild = !shouldClear && indexState.isWriteOnly();
             for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
-                // Must follow the primary index status. The write-only variants (plain, with queue, idem) are the same status.
+                // Must follow the primary index status. The write-only variants (plain, with queue, with tracking) are the same status.
                 IndexState state = store.getIndexState(targetIndex);
                 if (state != indexState && !(state.isWriteOnly() && indexState.isWriteOnly())) {
                     if (policy.getStateDesiredAction(state) != OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD ||
@@ -290,22 +290,22 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markSingleIndexWriteOnly(final FDBRecordStore store, final IndexingCommon.IndexContext indexContext) {
         final Index index = indexContext.index;
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        if (policy.shouldUseWriteOnlyIdem(index)) {
-            final String idemRefusalReason = writeOnlyIdemRefusalReason(store, indexContext, maintainer);
-            if (idemRefusalReason == null) {
+        if (policy.shouldUseWriteOnlyWithTracking(index)) {
+            final String trackingRefusalReason = writeOnlyWithTrackingRefusalReason(store, indexContext, maintainer);
+            if (trackingRefusalReason == null) {
                 if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.build("marking index write-only-idem")
+                    LOGGER.info(KeyValueLogMessage.build("marking index write-only-with-tracking")
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
                             .toString());
                 }
-                return store.markIndexWriteOnly(index, IndexState.WRITE_ONLY_IDEM);
+                return store.markIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_TRACKING);
             }
             if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn(KeyValueLogMessage.build("write-only-idem refused, marking write-only")
+                LOGGER.warn(KeyValueLogMessage.build("write-only-with-tracking refused, marking write-only")
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
-                        .addKeyAndValue(LogMessageKeys.REASON, idemRefusalReason)
+                        .addKeyAndValue(LogMessageKeys.REASON, trackingRefusalReason)
                         .addKeyAndValue(LogMessageKeys.FORMAT_VERSION, store.getFormatVersionEnum())
                         .toString());
             }
@@ -335,7 +335,7 @@ public abstract class IndexingBase {
     }
 
     @Nullable
-    private String writeOnlyIdemRefusalReason(@Nonnull final FDBRecordStore store,
+    private String writeOnlyWithTrackingRefusalReason(@Nonnull final FDBRecordStore store,
                                               @Nonnull final IndexingCommon.IndexContext indexContext,
                                               @Nonnull final IndexMaintainer maintainer) {
         if (policy.shouldUsePendingWriteQueue(indexContext.index)) {
@@ -347,7 +347,7 @@ public abstract class IndexingBase {
         if (indexContext.isSynthetic) {
             return "SYNTHETIC_INDEX";
         }
-        if (!store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_IDEM)) {
+        if (!store.getFormatVersionEnum().isAtLeast(FormatVersion.WRITE_ONLY_WITH_TRACKING)) {
             return "FORMAT_VERSION_TOO_LOW";
         }
         return null;
@@ -809,7 +809,7 @@ public abstract class IndexingBase {
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
         deferAutoMergeDuringCommit(store);
-        // Track table reads (WRITE_ONLY_IDEM), by (index name, primary key)
+        // Track table reads (WRITE_ONLY_WITH_TRACKING), by (index name, primary key)
         final Map<Tuple, CompletableFuture<Boolean>> trackTableReads = new ConcurrentHashMap<>();
         final RecordCursor<T> scanCursor = prefetchTrackTableReads(store, cursor, getRecordToIndex, trackTableReads);
 
@@ -1087,12 +1087,12 @@ public abstract class IndexingBase {
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
                 return syntheticPlan.execute(store, rec).forEachAsync(maintainer::updateFromIndexer, 1);
             }
-            if (!store.getIndexState(indexContext.index).isWriteOnlyIdem()) {
+            if (!store.getIndexState(indexContext.index).isWriteOnlyWithTracking()) {
                 // update simple index
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
                 return maintainer.updateFromIndexer(rec);
             }
-            // WRITE_ONLY_IDEM: if user io has inserted or updated this record, it has already indexed it and tracked its
+            // WRITE_ONLY_WITH_TRACKING: if user io has inserted or updated this record, it has already indexed it and tracked its
             // primary key - skip.
             // Otherwise, the record is indexed here. The user io only reads the range set without conflicts, so the indexer must
             // conflict with the record itself (read and write).
@@ -1117,7 +1117,7 @@ public abstract class IndexingBase {
     }
 
     /**
-     * How many track table reads (WRITE_ONLY_IDEM) are issued ahead of the scan.
+     * How many track table reads (WRITE_ONLY_WITH_TRACKING) are issued ahead of the scan.
      * @return the pipeline size
      */
     protected int trackTablePrefetchPipelineSize() {
@@ -1134,11 +1134,11 @@ public abstract class IndexingBase {
                                                         @Nonnull RecordCursor<T> cursor,
                                                         @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
                                                         @Nonnull Map<Tuple, CompletableFuture<Boolean>> trackTableReads) {
-        final List<Index> idemIndexes = common.getTargetIndexContexts().stream()
-                .filter(indexContext -> !indexContext.isSynthetic && store.getIndexState(indexContext.index).isWriteOnlyIdem())
+        final List<Index> trackingIndexes = common.getTargetIndexContexts().stream()
+                .filter(indexContext -> !indexContext.isSynthetic && store.getIndexState(indexContext.index).isWriteOnlyWithTracking())
                 .map(indexContext -> indexContext.index)
                 .toList();
-        if (idemIndexes.isEmpty()) {
+        if (trackingIndexes.isEmpty()) {
             return cursor;
         }
         // As the scanned items pass through, start reading their track table entries, so that the reads are on their way (or
@@ -1147,7 +1147,7 @@ public abstract class IndexingBase {
                 getRecordToIndex.apply(store, RecordCursorResult.withNextValue(item, RecordCursorStartContinuation.START))
                         .thenApply(rec -> {
                             if (rec != null) {
-                                for (Index index : idemIndexes) {
+                                for (Index index : trackingIndexes) {
                                     trackTableReads.computeIfAbsent(trackTableReadKey(index, rec.getPrimaryKey()),
                                             key -> IndexingTrackTable.forIndexBuild(store, index).isTrackedAsync(rec.getPrimaryKey()));
                                 }
@@ -1258,7 +1258,7 @@ public abstract class IndexingBase {
 
     protected static boolean canUseSnapshotResolution(@Nonnull FDBRecordStore store, @Nonnull Collection<Index> targetIndexes) {
         return targetIndexes.stream().allMatch(targetIndex ->
-                store.getIndexMaintainer(targetIndex).isIdempotent() || store.getIndexState(targetIndex).isWriteOnlyIdem());
+                store.getIndexMaintainer(targetIndex).isIdempotent() || store.getIndexState(targetIndex).isWriteOnlyWithTracking());
     }
 
     protected ScanProperties scanPropertiesWithLimits(boolean snapshotIsolationLevel) {

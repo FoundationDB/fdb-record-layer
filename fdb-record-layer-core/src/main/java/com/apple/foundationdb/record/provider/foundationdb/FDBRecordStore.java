@@ -820,11 +820,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
                     break;
 
-                case WRITE_ONLY_IDEM:
+                case WRITE_ONLY_WITH_TRACKING:
                     // Inserts are always indexed and tracked, so that the indexer will skip them. Updates and deletes
                     // consult the track table and the range set, both without conflicts. An update of a record that is not
                     // indexed yet indexes and tracks it.
-                    future = updateWhileWriteOnlyIdem(index, maintainer, oldRecord, newRecord);
+                    future = updateWhileWriteOnlyWithTracking(index, maintainer, oldRecord, newRecord);
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
                     break;
 
@@ -854,7 +854,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyIdem(@Nonnull final Index index,
+    private <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithTracking(@Nonnull final Index index,
                                                                                  @Nonnull final IndexMaintainer maintainer,
                                                                                  @Nullable final FDBIndexableRecord<M> oldRecord,
                                                                                  @Nullable final FDBIndexableRecord<M> newRecord) {
@@ -4859,7 +4859,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         switch (indexState) {
             case WRITE_ONLY:
             case WRITE_ONLY_WITH_QUEUE:
-            case WRITE_ONLY_IDEM:
+            case WRITE_ONLY_WITH_TRACKING:
                 errMessageBuilder.append("clear and mark index ").append(indexState);
                 return clearAndMarkIndexWriteOnly(index, indexState).thenApply(b -> null);
             case DISABLED:

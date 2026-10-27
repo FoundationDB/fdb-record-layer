@@ -286,11 +286,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // if it is a built range
         Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return shouldUpdateWhileWriteOnly(primaryKey, primaryKey).thenCompose(inRange ->
-                inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyIdem(newRecord));
+                inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyWithTracking(newRecord));
     }
 
-    private <M extends Message> CompletableFuture<Void> trackIfWriteOnlyIdem(@Nullable final FDBIndexableRecord<M> newRecord) {
-        if (newRecord == null || !state.store.getIndexState(state.index).isWriteOnlyIdem()) {
+    private <M extends Message> CompletableFuture<Void> trackIfWriteOnlyWithTracking(@Nullable final FDBIndexableRecord<M> newRecord) {
+        if (newRecord == null || !state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             return AsyncUtil.DONE;
         }
         // Only after the track table was read (the transaction would read its own write)
@@ -309,10 +309,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @return a future that is true if the record is indexed
      */
     private CompletableFuture<Boolean> shouldUpdateWhileWriteOnly(@Nonnull Tuple primaryKey, @Nonnull Tuple rangeKey) {
-        if (!state.store.getIndexState(state.index).isWriteOnlyIdem()) {
+        if (!state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             return addedRangeWithKey(rangeKey);
         }
-        // WRITE_ONLY_IDEM: the record is indexed if either the track table (user inserts) or the range set (indexer)
+        // WRITE_ONLY_WITH_TRACKING: the record is indexed if either the track table (user inserts) or the range set (indexer)
         // say so. Both are snapshot reads - conflicts are resolved by the record itself.
         return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked ->
                 tracked ? AsyncUtil.READY_TRUE : isBuiltByIndexer(rangeKey));
@@ -323,7 +323,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     /**
-     * WRITE_ONLY_IDEM, building by source index: the record got a new source index key (or just entered the source index).
+     * WRITE_ONLY_WITH_TRACKING, building by source index: the record got a new source index key (or just entered the source index).
      * <p>
      * We cannot tell whether the new key is already covered by the indexer, because the indexer may be committing that
      * range at this very moment and neither side would notice: the indexer never saw the record at its new key, and
@@ -332,7 +332,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * The old key is removed from the index only if it was indexed.
      * </p>
      */
-    private <M extends Message> CompletableFuture<Void> updateWriteOnlyIdemMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyWithTrackingMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                                                                @Nullable final Tuple oldEntryKey,
                                                                                                @Nonnull final FDBIndexableRecord<M> newRecord) {
         final Tuple primaryKey = newRecord.getPrimaryKey();
@@ -363,15 +363,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
-        if (newEntryKey != null && !newEntryKey.equals(oldEntryKey) && state.store.getIndexState(state.index).isWriteOnlyIdem()) {
-            return updateWriteOnlyIdemMovedToNewSourceKey(oldRecord, oldEntryKey, Verify.verifyNotNull(newRecord));
+        if (newEntryKey != null && !newEntryKey.equals(oldEntryKey) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
+            return updateWriteOnlyWithTrackingMovedToNewSourceKey(oldRecord, oldEntryKey, Verify.verifyNotNull(newRecord));
         }
         if (oldEntryKey != null && newEntryKey != null) {
             if (oldEntryKey.equals(newEntryKey)) {
                 // The old and new record use the same key in the source index, so check if it has been
                 // built, and update the index if so
                 return shouldUpdateWhileWriteOnly(oldRecord.getPrimaryKey(), oldEntryKey).thenCompose(inRange ->
-                        inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyIdem(newRecord));
+                        inRange ? update(oldRecord, newRecord) : trackIfWriteOnlyWithTracking(newRecord));
             } else {
                 // The old and new record use different keys in the source index. Check each one individually,
                 // and then simulate deleting the old record (if needed) and adding the new record (if needed)

@@ -34,7 +34,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The track table of an index that is being built in the {@link IndexState#WRITE_ONLY_IDEM} state, bound to the transaction
+ * The track table of an index that is being built in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state, bound to the transaction
  * of a record store. It holds the primary keys of the records that user io has already indexed, so that the online
  * indexer will skip them. This class encapsulates both writing to the table and reading from it.
  * <p>

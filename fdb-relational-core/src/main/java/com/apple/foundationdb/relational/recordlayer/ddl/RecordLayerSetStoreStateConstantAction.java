@@ -85,7 +85,7 @@ public class RecordLayerSetStoreStateConstantAction implements ConstantAction {
                         break;
                     case WRITE_ONLY:
                     case WRITE_ONLY_WITH_QUEUE:
-                    case WRITE_ONLY_IDEM:
+                    case WRITE_ONLY_WITH_TRACKING:
                         markIndex = recordStore.getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, recordStore.markIndexWriteOnly(indexStateEntry.getKey(), indexStateEntry.getValue()));
                         break;
                     case DISABLED:

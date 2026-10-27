@@ -135,7 +135,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the primary keys of records inserted by user io while a non-idempotent index
-     * is being built in the {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_IDEM} state.
+     * is being built in the {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_TRACKING} state.
      * @param store store
      * @param index index
      * @return subspace

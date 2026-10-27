@@ -1,5 +1,5 @@
 /*
- * OnlineIndexerWriteOnlyIdemTest.java
+ * OnlineIndexerWriteOnlyWithTrackingTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -75,16 +75,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for building a non-idempotent index in the {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_IDEM} state.
+ * Tests for building a non-idempotent index in the {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_TRACKING} state.
  */
-class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
+class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
 
     // A SUM index is not idempotent: indexing (or un-indexing) a record twice would corrupt the sum
-    private final Index sumIndex = new Index("simple$sum_idem", field("num_value_2").ungrouped(), IndexTypes.SUM);
-    private final Index countIndex = new Index("simple$count_idem", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
-    private final Index valueIndex = new Index("simple$value_idem", field("num_value_2"), IndexTypes.VALUE);
+    private final Index sumIndex = new Index("simple$sum_tracking", field("num_value_2").ungrouped(), IndexTypes.SUM);
+    private final Index countIndex = new Index("simple$count_tracking", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
+    private final Index valueIndex = new Index("simple$value_tracking", field("num_value_2"), IndexTypes.VALUE);
     // A rank index that counts duplicates is not idempotent
-    private final Index rankIndex = new Index("simple$rank_idem", field("num_value_2").ungrouped(), IndexTypes.RANK,
+    private final Index rankIndex = new Index("simple$rank_tracking", field("num_value_2").ungrouped(), IndexTypes.RANK,
             Map.of(IndexOptions.RANK_COUNT_DUPLICATES, "true"));
 
     private static final String UNIQUE_SOURCE_INDEX = "MySimpleRecord$num_value_unique";
@@ -162,9 +162,9 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         });
     }
 
-    private OnlineIndexer.Builder idemIndexerBuilder(@Nonnull final Index index, final boolean mutual) {
+    private OnlineIndexer.Builder trackingIndexerBuilder(@Nonnull final Index index, final boolean mutual) {
         final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder()
-                .setUseWriteOnlyIdem(List.of(index));
+                .setUseWriteOnlyWithTracking(List.of(index));
         if (mutual) {
             policy.setMutualIndexing(true);
         }
@@ -283,9 +283,9 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
 
-        buildPausingAfterFirstPass(idemIndexerBuilder(sumIndex, false), () -> {
+        buildPausingAfterFirstPass(trackingIndexerBuilder(sumIndex, false), () -> {
             try (FDBRecordContext context = openContext()) {
-                assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyIdem());
+                assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyWithTracking());
                 context.commit();
             }
             userWrites();
@@ -304,12 +304,12 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
 
         userWrites();
         assertFalse(isTrackTableEmpty(sumIndex));
 
-        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, mutual).build()) {
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, mutual).build()) {
             indexer.buildIndex(true);
         }
         assertReadable(sumIndex);
@@ -341,7 +341,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         });
         final FDBStoreTimer timer = new FDBStoreTimer();
         writerThread.start();
-        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false)
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false)
                 .setTimer(timer)
                 .setLimit(5)
                 .build()) {
@@ -361,15 +361,15 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
         userWrites();
         assertFalse(isTrackTableEmpty(sumIndex));
 
         // Restarting the build clears the index, its range set and the track table: records are indexed from scratch
-        inTransaction(() -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
         assertTrue(isTrackTableEmpty(sumIndex));
 
-        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).build()) {
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).build()) {
             indexer.buildIndex(true);
         }
         assertReadable(sumIndex);
@@ -383,7 +383,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         disableAll(List.of(valueIndex));
 
         final AtomicBoolean checked = new AtomicBoolean(false);
-        buildPausingAfterFirstPass(idemIndexerBuilder(valueIndex, false), () -> {
+        buildPausingAfterFirstPass(trackingIndexerBuilder(valueIndex, false), () -> {
             try (FDBRecordContext context = openContext()) {
                 assertTrue(recordStore.getIndexState(valueIndex).isWriteOnlyNoQueue());
                 checked.set(true);
@@ -400,7 +400,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(10);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
 
         inTransaction(() -> {
             for (int recNo = 1; recNo < 20; recNo += 2) {
@@ -434,7 +434,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
         assertEquals(0, rawSum(sumIndex));
 
         // not indexed yet: the update indexes the new value (only), and tracks the record
@@ -452,7 +452,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         inTransaction(() -> delete(4));
         assertEquals(0, rawSum(sumIndex));
 
-        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).build()) {
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).build()) {
             indexer.buildIndex(true);
         }
         assertReadable(sumIndex);
@@ -498,7 +498,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         });
 
         final FDBStoreTimer timer = new FDBStoreTimer();
-        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).setTimer(timer).setLimit(5).build()) {
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setTimer(timer).setLimit(5).build()) {
             indexer.buildIndex(true);
         }
         assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
@@ -511,12 +511,12 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE", "WRITE_ONLY_IDEM"})
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE", "WRITE_ONLY_WITH_TRACKING"})
     void testClearAndMarkIndexWithAWriteOnlyState(final IndexState writeOnlyState) {
         populateEvenRecords(10);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
         inTransaction(() -> save(1, 19));
         assertFalse(isTrackTableEmpty(sumIndex));
 
@@ -527,7 +527,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE", "WRITE_ONLY_IDEM"})
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE", "WRITE_ONLY_WITH_TRACKING"})
     void testMarkIndexWithAWriteOnlyState(final IndexState writeOnlyState) {
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
@@ -575,11 +575,11 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
      * started scanning and before it commits. The first batch covers records 0-8, with 10 as its continuation.
      * @return the number of indexer commits that failed
      */
-    private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> idemTargets, @Nonnull final Race race) {
-        return runRace(targets, idemTargets, race.action, null);
+    private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> trackingTargets, @Nonnull final Race race) {
+        return runRace(targets, trackingTargets, race.action, null);
     }
 
-    private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> idemTargets,
+    private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> trackingTargets,
                         @Nonnull final Consumer<FDBRecordStore> raceAction, @Nullable final String sourceIndex) {
         populateEvenRecords(100);
         openSimpleMetaData(allIndexesHook(targets));
@@ -610,7 +610,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (OnlineIndexer indexer = newIndexerBuilder(targets, timer)
                 .setLimit(5)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(idemTargets).setSourceIndex(sourceIndex).build())
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyWithTracking(trackingTargets).setSourceIndex(sourceIndex).build())
                 .build()) {
             indexer.buildIndex(true);
         }
@@ -699,7 +699,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
             }
             return IndexMaintenanceFilter.IndexValues.ALL;
         });
-        try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).setLimit(5).build()) {
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setLimit(5).build()) {
             indexer.buildIndex(true);
         }
         assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
@@ -713,7 +713,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
 
     @Test
     void testSnapshotResolutionRequiresAllTargets() {
-        // One non-idempotent target that is not write-only-idem: the scan remains serializable, an insert in the range conflicts
+        // One non-idempotent target that is not write-only-with-tracking: the scan remains serializable, an insert in the range conflicts
         assertTrue(runRace(List.of(sumIndex, countIndex), List.of(sumIndex), Race.INSERT_IN_BATCH) > 0);
     }
 
@@ -730,17 +730,17 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
 
     @ParameterizedTest
     @CsvSource({"sum,value", "sum,count", "count,sum"})
-    void testMultiTargetWithMixedWriteOnlyStatesCanContinue(final String idemTarget, final String otherTarget) {
+    void testMultiTargetWithMixedWriteOnlyStatesCanContinue(final String trackingTarget, final String otherTarget) {
         // The targets of a build end up in different write-only states: the idempotent one falls back to plain write-only,
-        // or only some of the targets requested idem. The write-only variants are the same state for continuing a build.
+        // or only some of the targets requested tracking. The write-only variants are the same state for continuing a build.
         final Map<String, Index> indexes = Map.of("sum", sumIndex, "count", countIndex, "value", valueIndex);
         populateEvenRecords(60);
-        final List<Index> targets = List.of(indexes.get(idemTarget), indexes.get(otherTarget));
+        final List<Index> targets = List.of(indexes.get(trackingTarget), indexes.get(otherTarget));
         openSimpleMetaData(allIndexesHook(targets));
         disableAll(targets);
         // the first target requests idem; the second doesn't, or it is idempotent and falls back
         final OnlineIndexer.IndexingPolicy policy = OnlineIndexer.IndexingPolicy.newBuilder()
-                .setUseWriteOnlyIdem(otherTarget.equals("value") ? targets : List.of(targets.get(0))).build();
+                .setUseWriteOnlyWithTracking(otherTarget.equals("value") ? targets : List.of(targets.get(0))).build();
 
         final AtomicBoolean interrupted = new AtomicBoolean(false);
         try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy)
@@ -754,8 +754,8 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
             assertThrows(Exception.class, () -> indexer.buildIndex(true));
         }
         inTransaction(() -> {
-            assertTrue(recordStore.getIndexState(targets.get(0)).isWriteOnlyIdem());
-            assertFalse(recordStore.getIndexState(targets.get(1)).isWriteOnlyIdem());
+            assertTrue(recordStore.getIndexState(targets.get(0)).isWriteOnlyWithTracking());
+            assertFalse(recordStore.getIndexState(targets.get(1)).isWriteOnlyWithTracking());
         });
 
         try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy).build()) {
@@ -770,27 +770,27 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(valueIndex)));
         disableAll(List.of(valueIndex));
-        buildPausingAfterFirstPass(idemIndexerBuilder(valueIndex, false), () ->
+        buildPausingAfterFirstPass(trackingIndexerBuilder(valueIndex, false), () ->
                 inTransaction(() -> assertTrue(recordStore.getIndexState(valueIndex).isWriteOnlyNoQueue())));
         assertReadable(valueIndex);
     }
 
     @Test
     void testFallsBackToWriteOnlyBelowFormatVersion() throws Exception {
-        formatVersion = FormatVersionTestUtils.previous(FormatVersion.WRITE_ONLY_IDEM);
+        formatVersion = FormatVersionTestUtils.previous(FormatVersion.WRITE_ONLY_WITH_TRACKING);
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
 
-        buildPausingAfterFirstPass(idemIndexerBuilder(sumIndex, false), () -> {
+        buildPausingAfterFirstPass(trackingIndexerBuilder(sumIndex, false), () -> {
             inTransaction(() -> {
-                assertFalse(recordStore.getIndexState(sumIndex).isWriteOnlyIdem(), "below the required format version the index must not be write-only-idem");
+                assertFalse(recordStore.getIndexState(sumIndex).isWriteOnlyWithTracking(), "below the required format version the index must not be write-only-with-tracking");
                 assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyNoQueue(), "the index should fall back to plain write-only");
             });
             userWrites();
             assertTrue(isTrackTableEmpty(sumIndex), "nothing is tracked in plain write-only");
         });
-        assertTrue(formatVersion.compareTo(FormatVersion.WRITE_ONLY_IDEM) < 0);
+        assertTrue(formatVersion.compareTo(FormatVersion.WRITE_ONLY_WITH_TRACKING) < 0);
         assertReadable(sumIndex);
         assertSum(sumIndex);
     }
@@ -841,7 +841,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         final List<Index> targets = List.of(sumIndex, countIndex);
         final OnlineIndexer.Builder builder = newIndexerBuilder(targets)
                 .setLimit(5)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets).build());
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyWithTracking(targets).build());
         final Runnable allSequences = () -> {
             sequences(2);     // within the first pass
             sequences(150);   // not indexed yet
@@ -849,7 +849,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         if (afterFirstPass) {
             buildPausingAfterFirstPass(builder, allSequences);
         } else {
-            inTransaction(() -> targets.forEach(index -> recordStore.markIndexWriteOnly(index, IndexState.WRITE_ONLY_IDEM).join()));
+            inTransaction(() -> targets.forEach(index -> recordStore.markIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_TRACKING).join()));
             allSequences.run();
             try (OnlineIndexer indexer = builder.build()) {
                 indexer.buildIndex(true);
@@ -968,7 +968,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
             return IndexMaintenanceFilter.IndexValues.ALL;
         });
 
-        final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets);
+        final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyWithTracking(targets);
         if (reverse) {
             policy.setReverseScanOrder(true);
         }
@@ -1050,7 +1050,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         openSimpleMetaData(allIndexesHook(targets));
         disableAll(targets);
 
-        final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyIdem(targets);
+        final OnlineIndexer.IndexingPolicy.Builder policy = OnlineIndexer.IndexingPolicy.newBuilder().setUseWriteOnlyWithTracking(targets);
         if (byIndex) {
             policy.setSourceIndex(UNIQUE_SOURCE_INDEX);
         }
