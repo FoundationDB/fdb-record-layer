@@ -158,6 +158,28 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         }
     }
 
+    /**
+     * Run {@code runnable} on a new daemon thread (so that it cannot block the JVM from terminating), and return a future
+     * that completes with its outcome. {@link CompletableFuture#runAsync} is not used because the runnable blocks on
+     * FDB operations, and blocking-in-async detection rejects anything running below a {@code CompletableFuture} frame.
+     */
+    @Nonnull
+    private static CompletableFuture<Void> runOnDaemonThread(@Nonnull final Runnable runnable) {
+        final CompletableFuture<Void> future = new CompletableFuture<>();
+        final Thread thread = new Thread(() -> {
+            try {
+                runnable.run();
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+                return;
+            }
+            future.complete(null);
+        });
+        thread.setDaemon(true);
+        thread.start();
+        return future;
+    }
+
     /** Run {@code action} in its own, retried, transaction (usable from any thread). */
     private void io(@Nonnull final Consumer<FDBRecordStore> action) {
         fdb.run(context -> {
@@ -257,14 +279,14 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         pauseSemaphore.acquire();
         startBuildingSemaphore.acquire();
         final AtomicBoolean passed = new AtomicBoolean(false);
-        final CompletableFuture<Void> buildFuture = CompletableFuture.runAsync(() -> {
+        final CompletableFuture<Void> buildFuture = runOnDaemonThread(() -> {
             try (OnlineIndexer indexer = builder
                     .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseSemaphore))
                     .build()) {
                 indexer.buildIndex(true);
             }
         });
-        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.acquire();  // block until pauseAfterOnePass releases this semaphore
         startBuildingSemaphore.release();
         try {
             whilePaused.run();
@@ -325,7 +347,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
 
         final Map<Integer, Integer> inserted = new ConcurrentHashMap<>();
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
+        final CompletableFuture<Void> writerFuture = runOnDaemonThread(() -> {
             try {
                 for (int recNo = 1; recNo < 240; recNo += 2) {
                     final int insertRecNo = recNo;
@@ -473,7 +495,8 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             if (index.getName().equals(sumIndex.getName()) && !inIo.get() && indexUpdates.incrementAndGet() % 5 == 1 && updates.get() < 10) {
                 inIo.set(true);
                 final int value = 1000 + updates.incrementAndGet();
-                final CompletableFuture<Void> ioFuture = CompletableFuture.runAsync(() -> {
+                // The filter runs inside the indexer's async transaction. The user transaction should run on another thread.
+                final CompletableFuture<Void> ioFuture = runOnDaemonThread(() -> {
                     io(store -> saveSimple(store, 4, value));
                     expectedNumValue2.put(4, value);
                 });
@@ -600,7 +623,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicBoolean armed = new AtomicBoolean(true);
         setIndexMaintenanceFilter((index, rec) -> {
             if (index.getName().equals(sumIndex.getName()) && armed.compareAndSet(true, false)) {
-                CompletableFuture.runAsync(() -> io(raceAction)).join();
+                runOnDaemonThread(() -> io(raceAction)).join();
             }
             return IndexMaintenanceFilter.IndexValues.ALL;
         });
@@ -625,8 +648,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     void testRaceBetweenIndexerReadAndCommit(final Race race) {
         final int failures = runRace(List.of(sumIndex), List.of(sumIndex), race);
         if (race.conflictsWithIndexer) {
-            // An update or delete of a record the indexer processed: it must fail and retry, or the index would be wrong
-            assertTrue(failures > 0, "the indexer should have conflicted with " + race);
+            assertEquals(1, failures, "the indexer should have conflicted once with " + race);
         } else {
             assertEquals(0, failures, "the indexer should not have conflicted with " + race);
         }
@@ -658,7 +680,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicBoolean firstAttempt = new AtomicBoolean(true);
         final CountDownLatch ioHasRead = new CountDownLatch(1);
         final CountDownLatch releaseIo = new CountDownLatch(1);
-        final Supplier<CompletableFuture<Void>> startIo = () -> CompletableFuture.runAsync(() -> io(store -> {
+        final Supplier<CompletableFuture<Void>> startIo = () -> runOnDaemonThread(() -> io(store -> {
             inUserTransaction.set(true);
             if (delete) {
                 store.deleteRecord(Tuple.from(4));
@@ -719,7 +741,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicBoolean firstAttempt = new AtomicBoolean(true);
         final CountDownLatch userHasRead = new CountDownLatch(1);
         final CountDownLatch releaseUser = new CountDownLatch(1);
-        final Supplier<CompletableFuture<Void>> startUser = () -> CompletableFuture.runAsync(() -> io(store -> {
+        final Supplier<CompletableFuture<Void>> startUser = () -> runOnDaemonThread(() -> io(store -> {
             userAttempts.incrementAndGet();
             assertNotNull(store.loadRecord(Tuple.from(4)));
             saveOther(store, 1001);
@@ -817,7 +839,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testOnlyIdempotentTargetsAreNotBuiltWithIdem() throws Exception {
+    void testOnlyIdempotentTargetsAreNotBuiltWithTracking() throws Exception {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(valueIndex)));
         disableAll(List.of(valueIndex));
@@ -998,7 +1020,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             final int updatesSoFar = indexUpdates.incrementAndGet();
             if (index.getName().equals(targets.get(0).getName()) && !inIo.get() && updatesSoFar % 3 == 0) {
                 inIo.set(true);
-                final CompletableFuture<Void> ioFuture = CompletableFuture.runAsync(() -> {
+                final CompletableFuture<Void> ioFuture = runOnDaemonThread(() -> {
                     randomIo(random, updatesSoFar, reverse);
                     ioTransactions.incrementAndGet();
                 });
@@ -1105,7 +1127,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                     live.add(recNo);
                 }
             }
-            writers.add(CompletableFuture.runAsync(() -> randomWorkload(id, seed, live)));
+            writers.add(runOnDaemonThread(() -> randomWorkload(id, seed, live)));
         }
         try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy.build()).build()) {
             indexer.buildIndex(true);

@@ -427,11 +427,9 @@ public abstract class IndexingBase {
                         common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                                 .thenCompose(store -> assertEmptyQueueIfNeeded(store, index).thenCompose(ignoreEmpty -> {
                                     clearHeartbeatForIndex(store, index);
-                                    CompletableFuture<Boolean> markFuture =
-                                            policy.shouldAllowUniquePendingState(store) ?
-                                            store.markIndexReadableOrUniquePending(index) :
-                                            store.markIndexReadable(index);
-                                    return markFuture;
+                                    return policy.shouldAllowUniquePendingState(store) ?
+                                           store.markIndexReadableOrUniquePending(index) :
+                                           store.markIndexReadable(index);
                                 }))))
                 .handle((changed, ex) -> {
                     if (ex == null) {
