@@ -860,7 +860,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                  @Nullable final FDBIndexableRecord<M> newRecord) {
         if (oldRecord == null) {
             // insert: track the record and index it unconditionally, the indexer will skip it
-            IndexingTrackTable.forIndexBuild(this, index).track(Verify.verifyNotNull(newRecord).getPrimaryKey());
+            IndexingTrackTable.of(this, index).track(Verify.verifyNotNull(newRecord).getPrimaryKey());
             return maintainer.update(null, newRecord);
         }
         // update/delete: a record that was neither tracked nor built by the indexer is tracked by an update (see

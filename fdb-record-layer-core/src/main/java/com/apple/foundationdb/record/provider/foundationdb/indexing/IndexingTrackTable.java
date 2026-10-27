@@ -34,13 +34,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The track table of an index that is being built in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state, bound to the transaction
- * of a record store. It holds the primary keys of the records that user io has already indexed, so that the online
- * indexer will skip them. This class encapsulates both writing to the table and reading from it.
- * <p>
- * Reading is a snapshot read: it adds no conflict, which is what keeps the indexer and user io from conflicting
- * with each other. A caller must therefore resolve conflicts through the record itself.
- * </p>
+ * The track table of an index that is being built in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state.
+ * It holds the primary keys of the records that user io has already indexed, so that the online
+ * indexer will skip them. This class should be used for all track table operations.
  */
 @API(API.Status.INTERNAL)
 public class IndexingTrackTable {
@@ -63,17 +59,27 @@ public class IndexingTrackTable {
      * @return the track table of the index
      */
     @Nonnull
-    public static IndexingTrackTable forIndexBuild(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public static IndexingTrackTable of(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         return new IndexingTrackTable(store.getRecordContext(), IndexingSubspaces.indexTrackTableSubspace(store, index));
     }
 
     /**
-     * Mark a record as indexed by user io. If this transaction also reads this record's entry, it must be read before
-     * this call (the transaction would read its own write).
+     * Mark a record as indexed by user io.
      * @param primaryKey the record's primary key
      */
     public void track(@Nonnull Tuple primaryKey) {
         context.ensureActive().set(subspace.pack(primaryKey), TRACKED);
+    }
+
+    /**
+     * Check if a record was marked as indexed by user io. This read adds a conflict: the transaction will fail if the entry
+     * is changed, or if a write conflict is declared for it ({@link #addWriteConflict}).
+     * @param primaryKey the record's primary key
+     * @return a future that is true if the record is tracked
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> isTrackedAsync(@Nonnull Tuple primaryKey) {
+        return context.ensureActive().get(subspace.pack(primaryKey)).thenApply(Objects::nonNull);
     }
 
     /**
@@ -82,7 +88,15 @@ public class IndexingTrackTable {
      * @return a future that is true if the record is tracked
      */
     @Nonnull
-    public CompletableFuture<Boolean> isTrackedAsync(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Boolean> isTrackedSnapshotAsync(@Nonnull Tuple primaryKey) {
         return context.ensureActive().snapshot().get(subspace.pack(primaryKey)).thenApply(Objects::nonNull);
+    }
+
+    /**
+     * Declare a write conflict on the entry of a record..
+     * @param primaryKey the record's primary key
+     */
+    public void addWriteConflict(@Nonnull Tuple primaryKey) {
+        context.ensureActive().addWriteConflictKey(subspace.pack(primaryKey));
     }
 }

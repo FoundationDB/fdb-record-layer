@@ -1094,16 +1094,17 @@ public abstract class IndexingBase {
             }
             // WRITE_ONLY_WITH_TRACKING: if user io has inserted or updated this record, it has already indexed it and tracked its
             // primary key - skip.
-            // Otherwise, the record is indexed here. The user io only reads the range set without conflicts, so the indexer must
-            // conflict with the record itself (read and write).
-            // The snapshot read of the track table needs no conflict of its own as it is bound to the record itself.
+            // Otherwise, the record is indexed here. The indexer must conflict with any user io that treated this record as not
+            // indexed: it reads the record (above), so it fails if the record was changed, and it declares a write conflict on the
+            // record's entry in the track table, which user io reads with a conflict - this way, a transaction that
+            // merely reads the record has nothing to conflict with.
             final CompletableFuture<Boolean> prefetched = trackTableReads.remove(trackTableReadKey(indexContext.index, rec.getPrimaryKey()));
-            return (prefetched != null ? prefetched : IndexingTrackTable.forIndexBuild(store, indexContext.index).isTrackedAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
+            return (prefetched != null ? prefetched : IndexingTrackTable.of(store, indexContext.index).isTrackedSnapshotAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
                 if (tracked) {
                     return AsyncUtil.DONE;
                 }
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
-                store.addRecordWriteConflict(rec.getPrimaryKey());
+                IndexingTrackTable.of(store, indexContext.index).addWriteConflict(rec.getPrimaryKey());
                 return maintainer.updateFromIndexer(rec);
             });
         });
@@ -1149,7 +1150,7 @@ public abstract class IndexingBase {
                             if (rec != null) {
                                 for (Index index : trackingIndexes) {
                                     trackTableReads.computeIfAbsent(trackTableReadKey(index, rec.getPrimaryKey()),
-                                            key -> IndexingTrackTable.forIndexBuild(store, index).isTrackedAsync(rec.getPrimaryKey()));
+                                            key -> IndexingTrackTable.of(store, index).isTrackedSnapshotAsync(rec.getPrimaryKey()));
                                 }
                             }
                             return item;

@@ -70,6 +70,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -414,7 +415,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
 
     private boolean isTracked(@Nonnull final Index index, final int recNo) {
         try (FDBRecordContext context = openContext()) {
-            final boolean tracked = IndexingTrackTable.forIndexBuild(recordStore, index).isTrackedAsync(Tuple.from(recNo)).join();
+            final boolean tracked = IndexingTrackTable.of(recordStore, index).isTrackedSnapshotAsync(Tuple.from(recNo)).join();
             context.commit();
             return tracked;
         }
@@ -648,14 +649,16 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testStaleIoTransactionCommitsAfterIndexer(final boolean delete) {
-        // A user transaction reads the range set (record 4 is not indexed yet, so it skips the index update), and only
-        // commits after the indexer has committed the batch that indexed record 4. Without the indexer's write conflict
-        // on the record, that user transaction would commit and leave the stale record in the index.
+        // A user transaction treats record 4 as not indexed yet (it is neither tracked nor in a built range), and only commits
+        // after the indexer has committed the batch that indexed record 4. Without the indexer's write conflict on the record's
+        // entry in the track table, that user transaction would commit, and the record would be in the index twice (update),
+        // or stay in the index (delete).
         populateEvenRecords(100);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
 
         final AtomicInteger indexUpdates = new AtomicInteger(0);
+        final AtomicBoolean inUserTransaction = new AtomicBoolean(false);
         final AtomicBoolean firstAttempt = new AtomicBoolean(true);
         final CountDownLatch ioHasRead = new CountDownLatch(1);
         final CountDownLatch releaseIo = new CountDownLatch(1);
@@ -663,11 +666,13 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final Thread ioThread = new Thread(() -> {
             try {
                 io(store -> {
+                    inUserTransaction.set(true);
                     if (delete) {
                         store.deleteRecord(Tuple.from(4));
                     } else {
                         saveSimple(store, 4, 9999);
                     }
+                    inUserTransaction.set(false);
                     if (firstAttempt.compareAndSet(true, false)) {
                         ioHasRead.countDown();
                         try {
@@ -683,7 +688,8 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         });
         // The first indexer transaction updates the index for 5 records (limit); the 6th update is in the second transaction
         setIndexMaintenanceFilter((index, rec) -> {
-            if (index.getName().equals(sumIndex.getName())) {
+            // Only the indexer's updates are counted - not those of the user transaction (an update indexes the record)
+            if (index.getName().equals(sumIndex.getName()) && !inUserTransaction.get()) {
                 try {
                     final int count = indexUpdates.incrementAndGet();
                     if (count == 1) {
@@ -709,6 +715,69 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         setIndexMaintenanceFilter(null);
         assertReadable(sumIndex);
         assertIndexesMatchRecords(List.of(sumIndex));
+    }
+
+    @Test
+    void testReaderOfIndexedRecordDoesNotConflictWithIndexer() {
+        // A user transaction reads record 4 and writes something unrelated to the index. The indexer indexes record 4, and
+        // commits, before the user transaction does. The user transaction has no business with the index, it must not fail.
+        populateEvenRecords(100);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        final AtomicInteger indexUpdates = new AtomicInteger();
+        final AtomicInteger userAttempts = new AtomicInteger();
+        final AtomicBoolean firstAttempt = new AtomicBoolean(true);
+        final CountDownLatch userHasRead = new CountDownLatch(1);
+        final CountDownLatch releaseUser = new CountDownLatch(1);
+        final AtomicReference<Throwable> userFailure = new AtomicReference<>();
+        final Thread userThread = new Thread(() -> {
+            try {
+                io(store -> {
+                    userAttempts.incrementAndGet();
+                    assertNotNull(store.loadRecord(Tuple.from(4)));
+                    saveOther(store, 1001);
+                    if (firstAttempt.compareAndSet(true, false)) {
+                        userHasRead.countDown();
+                        try {
+                            releaseUser.await();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                });
+            } catch (Throwable t) {
+                userFailure.set(t);
+            }
+        });
+        // The first indexer transaction updates the index for 5 records (limit); the 6th update is in the second transaction
+        setIndexMaintenanceFilter((index, rec) -> {
+            if (index.getName().equals(sumIndex.getName())) {
+                try {
+                    final int count = indexUpdates.incrementAndGet();
+                    if (count == 1) {
+                        userThread.start();
+                        userHasRead.await();
+                    } else if (count == 6) {
+                        releaseUser.countDown();
+                        userThread.join();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return IndexMaintenanceFilter.IndexValues.ALL;
+        });
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setLimit(5).build()) {
+            indexer.buildIndex(true);
+        }
+        setIndexMaintenanceFilter(null);
+        assertNull(userFailure.get(), () -> "the user transaction failed: " + userFailure.get());
+        assertTrue(indexUpdates.get() >= 6);
+        assertEquals(1, userAttempts.get(), "the user transaction should not have conflicted with the indexer");
+
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
     }
 
     @Test

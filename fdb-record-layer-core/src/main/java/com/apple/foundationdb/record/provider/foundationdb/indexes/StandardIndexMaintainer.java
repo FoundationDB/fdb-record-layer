@@ -299,7 +299,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     private IndexingTrackTable trackTable() {
-        return IndexingTrackTable.forIndexBuild(state.store, state.index);
+        return IndexingTrackTable.of(state.store, state.index);
     }
 
     /**
@@ -313,7 +313,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             return addedRangeWithKey(rangeKey);
         }
         // WRITE_ONLY_WITH_TRACKING: the record is indexed if either the track table (user inserts) or the range set (indexer)
-        // say so. Both are snapshot reads - conflicts are resolved by the record itself.
+        // say so. The track table is read with a conflict (see IndexingTrackTable), the range set as a snapshot.
         return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked ->
                 tracked ? AsyncUtil.READY_TRUE : isBuiltByIndexer(rangeKey));
     }
@@ -322,20 +322,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack());
     }
 
-    /**
-     * WRITE_ONLY_WITH_TRACKING, building by source index: the record got a new source index key (or just entered the source index).
-     * <p>
-     * We cannot tell whether the new key is already covered by the indexer, because the indexer may be committing that
-     * range at this very moment and neither side would notice: the indexer never saw the record at its new key, and
-     * this transaction reads the range set without conflicts. The record could then be left out of the index.
-     * So the new key is handled like an insert: the record is indexed and tracked, and the indexer will skip it.
-     * The old key is removed from the index only if it was indexed.
-     * </p>
-     */
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyWithTrackingMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                                                                @Nullable final Tuple oldEntryKey,
-                                                                                               @Nonnull final FDBIndexableRecord<M> newRecord) {
-        final Tuple primaryKey = newRecord.getPrimaryKey();
+                                                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
+        final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
             final CompletableFuture<Boolean> oldIndexed;
             if (oldRecord == null) {
@@ -349,6 +339,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 oldIndexed = isBuiltByIndexer(oldEntryKey);
             }
             return oldIndexed.thenCompose(indexed -> {
+                if (newRecord == null) {
+                    // deleted: nothing to add or track
+                    return indexed ? update(oldRecord, null) : AsyncUtil.DONE;
+                }
                 if (!tracked) {
                     // Only after reading the track table above (the transaction would read its own write)
                     trackTable().track(primaryKey);
@@ -363,8 +357,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
-        if (newEntryKey != null && !newEntryKey.equals(oldEntryKey) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
-            return updateWriteOnlyWithTrackingMovedToNewSourceKey(oldRecord, oldEntryKey, Verify.verifyNotNull(newRecord));
+        if (!Objects.equals(oldEntryKey, newEntryKey) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
+            return updateWriteOnlyWithTrackingMovedToNewSourceKey(oldRecord, oldEntryKey, newRecord);
         }
         if (oldEntryKey != null && newEntryKey != null) {
             if (oldEntryKey.equals(newEntryKey)) {
