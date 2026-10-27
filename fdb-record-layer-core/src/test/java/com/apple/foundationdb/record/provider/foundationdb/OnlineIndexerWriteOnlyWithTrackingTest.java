@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -549,6 +550,29 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             assertThrows(RecordCoreArgumentException.class, () -> recordStore.markIndexWriteOnly(sumIndex.getName(), state));
             assertThrows(RecordCoreArgumentException.class, () -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, state));
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 100})
+    void testTrackTablePrefetchFollowsThePipelineSizer(final int pipelineSize) {
+        populateEvenRecords(60);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+
+        final Set<PipelineOperation> requestedOperations = ConcurrentHashMap.newKeySet();
+        final FDBRecordStore.Builder storeBuilder = createStoreBuilder().setPipelineSizer(operation -> {
+            requestedOperations.add(operation);
+            if (operation == PipelineOperation.TRACK_TABLE_READ) {
+                return pipelineSize;
+            }
+            return FDBRecordStore.DEFAULT_PIPELINE_SIZER.getPipelineSize(operation);
+        });
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setRecordStoreBuilder(storeBuilder).build()) {
+            indexer.buildIndex(true);
+        }
+        assertTrue(requestedOperations.contains(PipelineOperation.TRACK_TABLE_READ), "the pipeline sizer should size the track table reads");
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
     }
 
     // ---- races between the indexer's read and its commit ----

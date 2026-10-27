@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -90,7 +91,6 @@ public abstract class IndexingBase {
 
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
-    private static final int DEFAULT_TRACK_TABLE_PREFETCH_PIPELINE_SIZE = 64;
     @Nonnull
     protected final IndexingCommon common; // to be used by extenders
     @Nonnull
@@ -1118,11 +1118,12 @@ public abstract class IndexingBase {
     }
 
     /**
-     * How many track table reads (WRITE_ONLY_WITH_TRACKING) are issued ahead of the scan.
+     * Number of track table reads (WRITE_ONLY_WITH_TRACKING) that are issued ahead of the scan.
+     * @param store the record store
      * @return the pipeline size
      */
-    protected int trackTablePrefetchPipelineSize() {
-        return DEFAULT_TRACK_TABLE_PREFETCH_PIPELINE_SIZE;
+    protected int trackTablePrefetchPipelineSize(@Nonnull FDBRecordStore store) {
+        return store.getPipelineSize(PipelineOperation.TRACK_TABLE_READ);
     }
 
     @Nonnull
@@ -1154,7 +1155,7 @@ public abstract class IndexingBase {
                                 }
                             }
                             return item;
-                        }), trackTablePrefetchPipelineSize());
+                        }), trackTablePrefetchPipelineSize(store));
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,

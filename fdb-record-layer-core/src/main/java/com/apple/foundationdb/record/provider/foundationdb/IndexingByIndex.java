@@ -244,7 +244,7 @@ public class IndexingByIndex extends IndexingBase {
     }
 
     @Override
-    protected int trackTablePrefetchPipelineSize() {
+    protected int trackTablePrefetchPipelineSize(@Nonnull FDBRecordStore store) {
         // The source index scan already pipelines the record reads, and its order is the source index order, not the primary
         // key order of the track table.
         return 1;
