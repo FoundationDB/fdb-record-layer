@@ -1092,12 +1092,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             @Nonnull final RelationalParser.StoredQueryParameterStateContext ctx) {
         if (ctx.nullNotnull() != null) {
             return ctx.nullNotnull().NOT() == null
-                   ? StoredQuery.ParameterState.IS_NULL
-                   : StoredQuery.ParameterState.IS_NOT_NULL;
+                    ? StoredQuery.ParameterState.IS_NULL
+                    : StoredQuery.ParameterState.IS_NOT_NULL;
         }
         return Boolean.parseBoolean(ctx.booleanLiteral().getText())
-               ? StoredQuery.ParameterState.IS_TRUE
-               : StoredQuery.ParameterState.IS_FALSE;
+                ? StoredQuery.ParameterState.IS_TRUE
+                : StoredQuery.ParameterState.IS_FALSE;
     }
 
     /**
