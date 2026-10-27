@@ -323,8 +323,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyWithTrackingMovedToNewSourceKey(@Nullable final FDBIndexableRecord<M> oldRecord,
-                                                                                               @Nullable final Tuple oldEntryKey,
-                                                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
+                                                                                                       @Nullable final Tuple oldEntryKey,
+                                                                                                       @Nullable final FDBIndexableRecord<M> newRecord) {
         final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
             final CompletableFuture<Boolean> oldIndexed;
@@ -357,7 +357,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
-        if (!Objects.equals(oldEntryKey, newEntryKey) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
+        if ((oldEntryKey != null || newEntryKey != null) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
+            // Always index the new record and track it. Remove the old entry only if it was indexed (tracked, or covered by the indexer)
             return updateWriteOnlyWithTrackingMovedToNewSourceKey(oldRecord, oldEntryKey, newRecord);
         }
         if (oldEntryKey != null && newEntryKey != null) {

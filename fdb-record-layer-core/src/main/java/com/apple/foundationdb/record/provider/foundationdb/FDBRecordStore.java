@@ -3899,12 +3899,27 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName, @Nonnull IndexState writeOnlyState) {
-        if (!writeOnlyState.isWriteOnly()) {
-            throw new RecordCoreArgumentException("Not a write-only index state",
+        final String throwMessage = markIndexWriteOnlyCheckTargetState(writeOnlyState);
+        if (throwMessage != null) {
+            throw new RecordCoreArgumentException(throwMessage,
                     LogMessageKeys.INDEX_NAME, indexName,
                     LogMessageKeys.INDEX_STATE, writeOnlyState);
         }
         return markIndexNotReadable(indexName, writeOnlyState);
+    }
+
+    @Nullable
+    private String markIndexWriteOnlyCheckTargetState(@Nonnull IndexState state) {
+        if (!state.isWriteOnly()) {
+            return "Not a write-only index state";
+        }
+        if (state.isWriteOnlyWithQueue() && !formatVersion.isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
+            return "Insufficient format version for WRITE_ONLY_WITH_QUEUE";
+        }
+        if (state.isWriteOnlyWithTracking() && !formatVersion.isAtLeast(FormatVersion.WRITE_ONLY_WITH_TRACKING)) {
+            return "Insufficient format version for WRITE_ONLY_WITH_TRACKING";
+        }
+        return null;
     }
 
     /**
@@ -5454,6 +5469,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear index maintenance data that is unneeded once the index becomes readable
         IndexingRangeSet.forIndexBuild(this, index).clear();
         IndexingHeartbeat.clearAllHeartbeats(this, index);
+        IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(context, this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")

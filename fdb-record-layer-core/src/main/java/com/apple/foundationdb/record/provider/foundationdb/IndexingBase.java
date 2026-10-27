@@ -431,11 +431,7 @@ public abstract class IndexingBase {
                                             policy.shouldAllowUniquePendingState(store) ?
                                             store.markIndexReadableOrUniquePending(index) :
                                             store.markIndexReadable(index);
-                                    return markFuture.thenApply(changed -> {
-                                        // Once the index is readable there is no need for this data
-                                        IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(store.getContext(), store, index);
-                                        return changed;
-                                    });
+                                    return markFuture;
                                 }))))
                 .handle((changed, ex) -> {
                     if (ex == null) {
