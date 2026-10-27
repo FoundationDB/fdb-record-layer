@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.match;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.util.pair.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -121,6 +122,20 @@ public class RangeConstraintsTest {
 
         invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10));
         Assertions.assertTrue(invalidRange.build().get().isEmpty(EvaluationContext.empty()));
+    }
+
+    @Test
+    public void withinDistanceComparisonIsScanPrefixEligible() {
+        // WITHIN_DISTANCE must be whitelisted in RangeConstraints.Builder.canBeUsedInScanPrefix so the geospatial R-tree
+        // match candidate can bind its trailing coordinates placeholder; otherwise the predicate is silently pushed to
+        // residual-filter evaluation and the R-tree scan is never chosen. addComparisonMaybe returns false for any
+        // comparison that fails that check, so a true result here is the whitelisting contract.
+        final var withinDistance = new Comparisons.WithinDistanceComparison(
+                new LiteralValue<>(37.3346),
+                new LiteralValue<>(-122.0090),
+                new LiteralValue<>(1_000.0));
+        final var builder = RangeConstraints.newBuilder();
+        Assertions.assertTrue(builder.addComparisonMaybe(withinDistance));
     }
 
     @Nonnull

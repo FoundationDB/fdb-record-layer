@@ -23,11 +23,13 @@ package com.apple.foundationdb.async.rtree;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.Arrays;
 
 /**
- * Utility class to compute the Hilbert value from n-dimensional points.
+ * Utility class to compute the Hilbert value from n-dimensional points. Each dimension's coordinate may be a
+ * {@link Long} or a {@link Double}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class RTreeHilbertCurveHelpers {
@@ -41,11 +43,25 @@ public class RTreeHilbertCurveHelpers {
         int numBits = 64;
         final long[] shiftedCoordinates = new long[point.getNumDimensions()];
         for (int i = 0; i < point.getNumDimensions(); i++) {
-            Long coordinateAsLong = (Long)point.getCoordinateAsNumber(i);
-            final long coordinate = coordinateAsLong == null ? nullReplacement : coordinateAsLong;
-            shiftedCoordinates[i] = shiftCoordinate(coordinate);
+            shiftedCoordinates[i] = shiftCoordinate(toSortableLong(point.getCoordinateAsNumber(i)));
         }
         return toIndex(numBits, transposedIndex(numBits, shiftedCoordinates));
+    }
+
+    /**
+     * Maps a coordinate to a {@code long} whose natural ordering matches the coordinate's own ordering
+     * ({@code Double.compare} for a {@link Double}), so it can be fed into the same bit-interleaving math used for
+     * a native {@code long} coordinate. {@code null} maps to the smallest possible value.
+     */
+    private static long toSortableLong(@Nullable final Number coordinate) {
+        if (coordinate == null) {
+            return nullReplacement;
+        }
+        if (coordinate instanceof Double) {
+            final long bits = Double.doubleToLongBits((Double)coordinate);
+            return bits ^ ((bits >> 63) & Long.MAX_VALUE);
+        }
+        return coordinate.longValue();
     }
 
     private static long shiftCoordinate(long coordinate) {

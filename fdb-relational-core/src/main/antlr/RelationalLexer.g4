@@ -136,6 +136,7 @@ FOREIGN:                             'FOREIGN';
 FROM:                                'FROM';
 FULLTEXT:                            'FULLTEXT';
 GENERATED:                           'GENERATED';
+GEOSPATIAL:                          'GEOSPATIAL';
 GET:                                 'GET';
 GRANT:                               'GRANT';
 GROUP:                               'GROUP';
