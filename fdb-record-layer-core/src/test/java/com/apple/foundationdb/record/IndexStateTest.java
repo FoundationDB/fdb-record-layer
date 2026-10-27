@@ -67,7 +67,7 @@ class IndexStateTest extends FDBRecordStoreTestBase {
                 Arguments.of(IndexState.READABLE_UNIQUE_PENDING,    false,   true,         true,     false,           false,             false,        false,    false),
                 Arguments.of(IndexState.WRITE_ONLY,                 false,   false,        false,    true,            false,             false,        true,     false),
                 Arguments.of(IndexState.WRITE_ONLY_WITH_QUEUE,      false,   false,        false,    false,           true,              false,        true,     false),
-                Arguments.of(IndexState.WRITE_ONLY_WITH_TRACKING,            false,   false,        false,    false,           false,             true,         true,     false),
+                Arguments.of(IndexState.WRITE_ONLY_WITH_TRACKING,   false,   false,        false,    false,           false,             true,         true,     false),
                 Arguments.of(IndexState.DISABLED,                   false,   false,        false,    false,           false,             false,        false,    true));
     }
 

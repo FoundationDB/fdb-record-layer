@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,6 +60,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
@@ -66,13 +68,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -159,7 +161,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     /** Run {@code action} in its own, retried, transaction (usable from any thread). */
     private void io(@Nonnull final Consumer<FDBRecordStore> action) {
         fdb.run(context -> {
-            action.accept(createStoreBuilder().setContext(context).createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE));
+            action.accept(createStoreBuilder().setContext(context).createOrOpen());
             return null;
         });
     }
@@ -255,26 +257,21 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         pauseSemaphore.acquire();
         startBuildingSemaphore.acquire();
         final AtomicBoolean passed = new AtomicBoolean(false);
-        final AtomicReference<Throwable> buildFailure = new AtomicReference<>();
-        final Thread indexerThread = new Thread(() -> {
+        final CompletableFuture<Void> buildFuture = CompletableFuture.runAsync(() -> {
             try (OnlineIndexer indexer = builder
                     .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseSemaphore))
                     .build()) {
                 indexer.buildIndex(true);
-            } catch (Throwable t) {
-                buildFailure.set(t);
             }
         });
-        indexerThread.start();
         startBuildingSemaphore.acquire();
         startBuildingSemaphore.release();
         try {
             whilePaused.run();
         } finally {
             pauseSemaphore.release();
-            indexerThread.join();
+            buildFuture.join();
         }
-        assertNull(buildFailure.get(), () -> "the build failed: " + buildFailure.get());
     }
 
     // ---- basic flows ----
@@ -300,7 +297,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void testUserWritesBeforeIndexerStarts(final boolean mutual) {
         // The indexer continues a build that user io has already been working on. Mutual indexing must behave the same.
         populateEvenRecords(21);
@@ -327,8 +324,8 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         disableAll(List.of(sumIndex));
 
         final Map<Integer, Integer> inserted = new ConcurrentHashMap<>();
-        final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
-        final Thread writerThread = new Thread(() -> {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
             try {
                 for (int recNo = 1; recNo < 240; recNo += 2) {
                     final int insertRecNo = recNo;
@@ -337,20 +334,18 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                     inserted.put(recNo, recNo * 19);
                     Thread.sleep(10);
                 }
-            } catch (Throwable t) {
-                writerFailure.set(t);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
             }
         });
-        final FDBStoreTimer timer = new FDBStoreTimer();
-        writerThread.start();
         try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false)
                 .setTimer(timer)
                 .setLimit(5)
                 .build()) {
             indexer.buildIndex(true);
         }
-        writerThread.join();
-        assertNull(writerFailure.get(), () -> "the writer failed: " + writerFailure.get());
+        writerFuture.join();
 
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT_FAILURE), "the indexer should not have conflicted");
         expectedNumValue2.putAll(inserted);
@@ -473,25 +468,17 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicInteger indexUpdates = new AtomicInteger();
         final AtomicInteger updates = new AtomicInteger();
         final AtomicBoolean inIo = new AtomicBoolean(false);
-        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
         // the first update of record 0 in each attempt (limit is 5), the record 4 is processed later in the same attempt
         setIndexMaintenanceFilter((index, rec) -> {
             if (index.getName().equals(sumIndex.getName()) && !inIo.get() && indexUpdates.incrementAndGet() % 5 == 1 && updates.get() < 10) {
                 inIo.set(true);
                 final int value = 1000 + updates.incrementAndGet();
-                final Thread ioThread = new Thread(() -> {
-                    try {
-                        io(store -> saveSimple(store, 4, value));
-                        expectedNumValue2.put(4, value);
-                    } catch (Throwable t) {
-                        ioFailure.set(t);
-                    }
+                final CompletableFuture<Void> ioFuture = CompletableFuture.runAsync(() -> {
+                    io(store -> saveSimple(store, 4, value));
+                    expectedNumValue2.put(4, value);
                 });
-                ioThread.start();
                 try {
-                    ioThread.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                    ioFuture.join();
                 } finally {
                     inIo.set(false);
                 }
@@ -503,7 +490,6 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setTimer(timer).setLimit(5).build()) {
             indexer.buildIndex(true);
         }
-        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
         setIndexMaintenanceFilter(null);
 
         assertTrue(updates.get() >= 3, "the record should have been updated in several attempts: " + updates.get());
@@ -612,22 +598,9 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
 
         // The index maintenance filter is called while the indexer updates the index, i.e. mid-transaction
         final AtomicBoolean armed = new AtomicBoolean(true);
-        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
         setIndexMaintenanceFilter((index, rec) -> {
             if (index.getName().equals(sumIndex.getName()) && armed.compareAndSet(true, false)) {
-                final Thread ioThread = new Thread(() -> {
-                    try {
-                        io(raceAction);
-                    } catch (Throwable t) {
-                        ioFailure.set(t);
-                    }
-                });
-                ioThread.start();
-                try {
-                    ioThread.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+                CompletableFuture.runAsync(() -> io(raceAction)).join();
             }
             return IndexMaintenanceFilter.IndexValues.ALL;
         });
@@ -640,7 +613,6 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             indexer.buildIndex(true);
         }
         assertFalse(armed.get(), "the race was never triggered");
-        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
 
         setIndexMaintenanceFilter(null);
         assertReadable(targets);
@@ -671,7 +643,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void testStaleIoTransactionCommitsAfterIndexer(final boolean delete) {
         // A user transaction treats record 4 as not indexed yet (it is neither tracked nor in a built range), and only commits
         // after the indexer has committed the batch that indexed record 4. Without the user transaction's read conflict on the
@@ -686,30 +658,24 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicBoolean firstAttempt = new AtomicBoolean(true);
         final CountDownLatch ioHasRead = new CountDownLatch(1);
         final CountDownLatch releaseIo = new CountDownLatch(1);
-        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
-        final Thread ioThread = new Thread(() -> {
-            try {
-                io(store -> {
-                    inUserTransaction.set(true);
-                    if (delete) {
-                        store.deleteRecord(Tuple.from(4));
-                    } else {
-                        saveSimple(store, 4, 9999);
-                    }
-                    inUserTransaction.set(false);
-                    if (firstAttempt.compareAndSet(true, false)) {
-                        ioHasRead.countDown();
-                        try {
-                            releaseIo.await();
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
-                });
-            } catch (Throwable t) {
-                ioFailure.set(t);
+        final Supplier<CompletableFuture<Void>> startIo = () -> CompletableFuture.runAsync(() -> io(store -> {
+            inUserTransaction.set(true);
+            if (delete) {
+                store.deleteRecord(Tuple.from(4));
+            } else {
+                saveSimple(store, 4, 9999);
             }
-        });
+            inUserTransaction.set(false);
+            if (firstAttempt.compareAndSet(true, false)) {
+                ioHasRead.countDown();
+                try {
+                    releaseIo.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }));
+        final AtomicReference<CompletableFuture<Void>> ioFuture = new AtomicReference<>();
         // The first indexer transaction updates the index for 5 records (limit); the 6th update is in the second transaction
         setIndexMaintenanceFilter((index, rec) -> {
             // Only the indexer's updates are counted - not those of the user transaction (an update indexes the record)
@@ -717,11 +683,11 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                 try {
                     final int count = indexUpdates.incrementAndGet();
                     if (count == 1) {
-                        ioThread.start();
+                        ioFuture.set(startIo.get());
                         ioHasRead.await();
                     } else if (count == 6) {
                         releaseIo.countDown();
-                        ioThread.join();
+                        ioFuture.get().join();
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -732,7 +698,6 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setLimit(5).build()) {
             indexer.buildIndex(true);
         }
-        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
         assertFalse(firstAttempt.get());
         assertTrue(indexUpdates.get() >= 6);
 
@@ -754,37 +719,31 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicBoolean firstAttempt = new AtomicBoolean(true);
         final CountDownLatch userHasRead = new CountDownLatch(1);
         final CountDownLatch releaseUser = new CountDownLatch(1);
-        final AtomicReference<Throwable> userFailure = new AtomicReference<>();
-        final Thread userThread = new Thread(() -> {
-            try {
-                io(store -> {
-                    userAttempts.incrementAndGet();
-                    assertNotNull(store.loadRecord(Tuple.from(4)));
-                    saveOther(store, 1001);
-                    if (firstAttempt.compareAndSet(true, false)) {
-                        userHasRead.countDown();
-                        try {
-                            releaseUser.await();
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
-                });
-            } catch (Throwable t) {
-                userFailure.set(t);
+        final Supplier<CompletableFuture<Void>> startUser = () -> CompletableFuture.runAsync(() -> io(store -> {
+            userAttempts.incrementAndGet();
+            assertNotNull(store.loadRecord(Tuple.from(4)));
+            saveOther(store, 1001);
+            if (firstAttempt.compareAndSet(true, false)) {
+                userHasRead.countDown();
+                try {
+                    releaseUser.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
-        });
+        }));
+        final AtomicReference<CompletableFuture<Void>> userFuture = new AtomicReference<>();
         // The first indexer transaction updates the index for 5 records (limit); the 6th update is in the second transaction
         setIndexMaintenanceFilter((index, rec) -> {
             if (index.getName().equals(sumIndex.getName())) {
                 try {
                     final int count = indexUpdates.incrementAndGet();
                     if (count == 1) {
-                        userThread.start();
+                        userFuture.set(startUser.get());
                         userHasRead.await();
                     } else if (count == 6) {
                         releaseUser.countDown();
-                        userThread.join();
+                        userFuture.get().join();
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -796,7 +755,6 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
             indexer.buildIndex(true);
         }
         setIndexMaintenanceFilter(null);
-        assertNull(userFailure.get(), () -> "the user transaction failed: " + userFailure.get());
         assertTrue(indexUpdates.get() >= 6);
         assertEquals(1, userAttempts.get(), "the user transaction should not have conflicted with the indexer");
 
@@ -926,7 +884,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void testSequencesInSingleTransaction(final boolean afterFirstPass) throws Exception {
         populateEvenRecords(100);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex, countIndex)));
@@ -1036,24 +994,16 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final AtomicInteger indexUpdates = new AtomicInteger();
         final AtomicInteger ioTransactions = new AtomicInteger();
         final AtomicBoolean inIo = new AtomicBoolean(false);
-        final AtomicReference<Throwable> ioFailure = new AtomicReference<>();
         setIndexMaintenanceFilter((index, rec) -> {
             final int updatesSoFar = indexUpdates.incrementAndGet();
             if (index.getName().equals(targets.get(0).getName()) && !inIo.get() && updatesSoFar % 3 == 0) {
                 inIo.set(true);
-                final Thread ioThread = new Thread(() -> {
-                    try {
-                        randomIo(random, updatesSoFar, reverse);
-                        ioTransactions.incrementAndGet();
-                    } catch (Throwable t) {
-                        ioFailure.set(t);
-                    }
+                final CompletableFuture<Void> ioFuture = CompletableFuture.runAsync(() -> {
+                    randomIo(random, updatesSoFar, reverse);
+                    ioTransactions.incrementAndGet();
                 });
-                ioThread.start();
                 try {
-                    ioThread.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                    ioFuture.join();
                 } finally {
                     inIo.set(false);
                 }
@@ -1073,7 +1023,6 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy.build()).build()) {
             indexer.buildIndex(true);
         }
-        assertNull(ioFailure.get(), () -> "the concurrent io failed: " + ioFailure.get());
         assertTrue(ioTransactions.get() > 5, "the user transactions should have run in the middle of the build");
 
         setIndexMaintenanceFilter(null);
@@ -1147,8 +1096,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         if (byIndex) {
             policy.setSourceIndex(UNIQUE_SOURCE_INDEX);
         }
-        final List<Thread> writers = new ArrayList<>();
-        final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
+        final List<CompletableFuture<Void>> writers = new ArrayList<>();
         for (int threadId = 0; threadId < 2; threadId++) {
             final int id = threadId;
             final Set<Integer> live = new HashSet<>();
@@ -1157,23 +1105,14 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                     live.add(recNo);
                 }
             }
-            final Thread writer = new Thread(() -> {
-                try {
-                    randomWorkload(id, seed, live);
-                } catch (Throwable t) {
-                    writerFailure.set(t);
-                }
-            });
-            writers.add(writer);
-            writer.start();
+            writers.add(CompletableFuture.runAsync(() -> randomWorkload(id, seed, live)));
         }
         try (OnlineIndexer indexer = newIndexerBuilder(targets).setLimit(5).setIndexingPolicy(policy.build()).build()) {
             indexer.buildIndex(true);
         }
-        for (Thread writer : writers) {
+        for (CompletableFuture<Void> writer : writers) {
             writer.join();
         }
-        assertNull(writerFailure.get(), () -> "a writer failed: " + writerFailure.get());
 
         assertReadable(targets);
         assertIndexesMatchRecords(targets);
