@@ -115,9 +115,15 @@ public final class OfflineStoredQueriesProcessor {
      * other planner-tunable &mdash; plus {@link Options.Name#PLAN_CACHE_WRITE_ONLY}, so each plan is
      * stored without a cache lookup.</p>
      *
+     * <p>There is no record store, so stored queries are planned as if every index were readable. A store with an index
+     * that is disabled or still being built plans with fewer indexes, gets a different cache key, and does not find the
+     * warmed plan.</p>
+     *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
-     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.</p>
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_PLANS_WARMED} counts plans rather than queries: a
+     * stored query with prepared cases warms one plan per case.</p>
      */
     public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
                                                            @Nonnull final MetricRegistry metricRegistry,
@@ -136,6 +142,8 @@ public final class OfflineStoredQueriesProcessor {
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED, counts.templatesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED, counts.queriesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED, counts.queriesFailed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED, counts.plansWarmed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED, counts.plansFailed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED, counts.tempFunctionsProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED, counts.tempFunctionsFailed);
         if (logger.isInfoEnabled()) {
@@ -150,6 +158,8 @@ public final class OfflineStoredQueriesProcessor {
                     "templatesProcessed", counts.templatesProcessed,
                     "storedQueriesProcessed", counts.queriesProcessed,
                     "storedQueriesFailed", counts.queriesFailed,
+                    "plansWarmed", counts.plansWarmed,
+                    "plansFailed", counts.plansFailed,
                     "tempFunctionsProcessed", counts.tempFunctionsProcessed,
                     "tempFunctionsFailed", counts.tempFunctionsFailed,
                     "durationMicros", durationMicros));
@@ -178,9 +188,8 @@ public final class OfflineStoredQueriesProcessor {
                                                            @Nonnull final MetricCollector metricCollector,
                                                            @Nonnull final RecordLayerSchemaTemplate template,
                                                            @Nonnull final Counts counts) {
-        final String templateKey = template.getName() + ":" + template.getVersion();
         for (final var storedQuery : template.getStoredQueries()) {
-            planStoredQuery(cache, metricCollector, template, templateKey, storedQuery.getName(), storedQuery, counts);
+            planStoredQuery(cache, metricCollector, template, storedQuery, counts);
         }
     }
 
@@ -203,27 +212,89 @@ public final class OfflineStoredQueriesProcessor {
     private static void planStoredQuery(@Nonnull final RelationalPlanCache cache,
                                         @Nonnull final MetricCollector metricCollector,
                                         @Nonnull final RecordLayerSchemaTemplate template,
-                                        @Nonnull final String templateKey,
-                                        @Nonnull final String storedQueryName,
                                         @Nonnull final StoredQuery storedQuery,
                                         @Nonnull final Counts counts) {
+        final var preparedCases = storedQuery.getPreparedCases();
+        if (preparedCases.isEmpty()) {
+            // No declared parameters, so one plan to build. Parameters without cases cannot occur: CREATE requires
+            // them together.
+            if (planOneCase(cache, metricCollector, template, storedQuery, PreparedParams.empty(), counts)) {
+                counts.plansWarmed++;
+                counts.queriesProcessed++;
+            } else {
+                counts.plansFailed++;
+                counts.queriesFailed++;
+            }
+            return;
+        }
+        // One plan per case, and a case that fails does not stop the others.
+        boolean allCasesPlanned = true;
+        for (final var preparedCase : preparedCases) {
+            final PreparedParams preparedParams;
+            try {
+                preparedParams = PreparedParams.ofPreparedCase(storedQuery.getParameters(), preparedCase);
+            } catch (RuntimeException e) {
+                // Unchecked only: Assert.thatUnchecked and a QueryParser parse failure both raise
+                // UncheckedRelationalException. Logged here rather than in getPlan's finally, because no plan was
+                // attempted — the declaration itself could not be resolved.
+                if (logger.isErrorEnabled()) {
+                    logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor cannot prepare a stored query case",
+                            "schemaTemplate", templateKey(template),
+                            "storedQueryName", storedQuery.getName(),
+                            "preparedCase", preparedCase), e);
+                }
+                counts.plansFailed++;
+                allCasesPlanned = false;
+                continue;
+            }
+            if (planOneCase(cache, metricCollector, template, storedQuery, preparedParams, counts)) {
+                counts.plansWarmed++;
+            } else {
+                counts.plansFailed++;
+                allCasesPlanned = false;
+            }
+        }
+        if (allCasesPlanned) {
+            counts.queriesProcessed++;
+        } else {
+            counts.queriesFailed++;
+        }
+    }
+
+    /**
+     * Plans one stored query once, with the given parameters: first each declared temporary function, folding the
+     * captured routine back into the template, then the SELECT body with the cache wired up.
+     *
+     * <p>The temporary functions are compiled inside this method rather than once for the whole stored query, because a
+     * declared parameter captured by a function's body changes that function's plan too, so each case needs its own
+     * compile from the original template. The outcome is returned rather than counted here, so that the caller can count
+     * both outcomes side by side.</p>
+     *
+     * @return {@code true} if the body was planned, {@code false} if this case failed
+     */
+    private static boolean planOneCase(@Nonnull final RelationalPlanCache cache,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final RecordLayerSchemaTemplate template,
+                                       @Nonnull final StoredQuery storedQuery,
+                                       @Nonnull final PreparedParams preparedParams,
+                                       @Nonnull final Counts counts) {
+        final var templateKey = templateKey(template);
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
 
         for (final var tempFunc : storedQuery.getTempFunctions()) {
             try {
-                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE)
+                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE, preparedParams)
                         .getPlan(tempFunc, Map.of(
                                 "schemaTemplate", templateKey,
-                                "storedQueryName", storedQueryName,
+                                "storedQueryName", storedQuery.getName(),
                                 "tempFunction", tempFunc));
                 currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
                 counts.tempFunctionsProcessed++;
             } catch (RelationalException | RuntimeException e) {
                 // error already logged inside getPlan's finally
                 counts.tempFunctionsFailed++;
-                counts.queriesFailed++;
-                return;
+                return false;
             }
         }
         try {
@@ -232,23 +303,32 @@ public final class OfflineStoredQueriesProcessor {
             PlanGenerator.create(
                             Optional.of(cache),
                             currentTemplate,
+                            // No store: every index counts as readable.
                             new RecordStoreState(null, null),
                             metricCollector,
-                            warmUpOptions)
+                            warmUpOptions,
+                            preparedParams)
                     .getPlan(sql, Map.of(
                             "schemaTemplate", templateKey,
-                            "storedQueryName", storedQueryName,
+                            "storedQueryName", storedQuery.getName(),
                             "storedQuerySql", sql));
-            counts.queriesProcessed++;
+            return true;
         } catch (java.sql.SQLException | RelationalException | RuntimeException e) {
             // error already logged inside getPlan's finally
-            counts.queriesFailed++;
+            return false;
         }
+    }
+
+    @Nonnull
+    private static String templateKey(@Nonnull final RecordLayerSchemaTemplate template) {
+        return template.getName() + ":" + template.getVersion();
     }
 
     private static final class Counts {
         int templatesProcessed;
         int queriesProcessed;
+        int plansFailed;
+        int plansWarmed;
         int queriesFailed;
         int tempFunctionsProcessed;
         int tempFunctionsFailed;
