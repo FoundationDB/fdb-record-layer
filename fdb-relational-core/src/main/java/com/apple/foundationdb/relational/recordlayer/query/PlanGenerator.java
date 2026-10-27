@@ -248,9 +248,7 @@ public final class PlanGenerator {
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
-        } catch (VerifyException | SemanticException ve) {
-            throw ExceptionUtil.toRelationalException(ve);
-        } catch (SQLException e) {
+        } catch (VerifyException | SemanticException | SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
     }
