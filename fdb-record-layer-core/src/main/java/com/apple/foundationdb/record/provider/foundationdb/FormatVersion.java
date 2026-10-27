@@ -183,8 +183,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * consults to avoid indexing a record twice. This special indexing mode is designed to prevent conflicts between
      * the indexer and user transactions.
      */
-    WRITE_ONLY_WITH_TRACKING(16),
-    ;
+    WRITE_ONLY_WITH_TRACKING(16);
 
     private final int value;
 
