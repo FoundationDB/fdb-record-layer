@@ -163,7 +163,7 @@ public enum IndexState {
      * @return <code>true</code> if this state is {@link #WRITE_ONLY_WITH_TRACKING} and <code>false</code> otherwise
      */
     public boolean isWriteOnlyWithTracking() {
-        return this.equals(WRITE_ONLY_WITH_TRACKING);
+        return this == WRITE_ONLY_WITH_TRACKING;
     }
 
     /**
