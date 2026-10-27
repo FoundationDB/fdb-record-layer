@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
  * indexer will skip them. This class should be used for all track table operations.
  */
 @API(API.Status.INTERNAL)
-public class IndexingTrackTable {
+public class IndexingTrackingTable {
     private static final byte[] TRACKED = new byte[0];
 
     @Nonnull
@@ -47,7 +47,7 @@ public class IndexingTrackTable {
     @Nonnull
     private final Subspace subspace;
 
-    private IndexingTrackTable(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace) {
+    private IndexingTrackingTable(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace) {
         this.context = context;
         this.subspace = subspace;
     }
@@ -59,8 +59,8 @@ public class IndexingTrackTable {
      * @return the track table of the index
      */
     @Nonnull
-    public static IndexingTrackTable of(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        return new IndexingTrackTable(store.getRecordContext(), IndexingSubspaces.indexTrackTableSubspace(store, index));
+    public static IndexingTrackingTable of(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+        return new IndexingTrackingTable(store.getRecordContext(), IndexingSubspaces.indexTrackTableSubspace(store, index));
     }
 
     /**

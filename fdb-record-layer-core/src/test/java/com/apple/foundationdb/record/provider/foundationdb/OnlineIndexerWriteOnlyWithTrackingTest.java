@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackingTable;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.google.protobuf.Message;
@@ -433,7 +433,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
 
     private boolean isTracked(@Nonnull final Index index, final int recNo) {
         try (FDBRecordContext context = openContext()) {
-            final boolean tracked = IndexingTrackTable.of(recordStore, index).isTrackedSnapshotAsync(Tuple.from(recNo)).join();
+            final boolean tracked = IndexingTrackingTable.of(recordStore, index).isTrackedSnapshotAsync(Tuple.from(recNo)).join();
             context.commit();
             return tracked;
         }

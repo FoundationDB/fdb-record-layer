@@ -68,7 +68,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackingTable;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -298,8 +298,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return update(null, newRecord);
     }
 
-    private IndexingTrackTable trackTable() {
-        return IndexingTrackTable.of(state.store, state.index);
+    private IndexingTrackingTable trackTable() {
+        return IndexingTrackingTable.of(state.store, state.index);
     }
 
     /**

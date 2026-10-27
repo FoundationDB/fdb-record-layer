@@ -48,10 +48,11 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackingTable;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -803,8 +804,8 @@ public abstract class IndexingBase {
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
         deferAutoMergeDuringCommit(store);
-        // Track table reads (WRITE_ONLY_WITH_TRACKING), by (index name, primary key)
-        final Map<Tuple, CompletableFuture<Boolean>> trackTableReads = new ConcurrentHashMap<>();
+        // Track table reads (WRITE_ONLY_WITH_TRACKING), by (index, primary key)
+        final Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads = new ConcurrentHashMap<>();
         final RecordCursor<T> scanCursor = prefetchTrackTableReads(store, cursor, getRecordToIndex, trackTableReads);
 
         return validateTypeStamp(store)
@@ -845,7 +846,7 @@ public abstract class IndexingBase {
                                                               @Nonnull AtomicLong recordsScannedCounter,
                                                               @Nonnull AtomicBoolean hasMore,
                                                               final boolean snapshotIsolationLevel,
-                                                              @Nonnull Map<Tuple, CompletableFuture<Boolean>> trackTableReads) {
+                                                              @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
         if (cursorResult.hasNext()) {
@@ -922,7 +923,7 @@ public abstract class IndexingBase {
                                                                      @Nonnull AtomicLong recordsScannedCounter,
                                                                      @Nonnull AtomicBoolean hasMore,
                                                                      final boolean snapshotIsolationLevel,
-                                                                     @Nonnull Map<Tuple, CompletableFuture<Boolean>> trackTableReads) {
+                                                                     @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
         // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
         // the 'lastResultCont' item should also be processed
         if (!cursorResult.hasNext()) {
@@ -1068,7 +1069,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
                                                             FDBStoredRecord<Message> rec,
                                                             final boolean snapshotIsolationLevel,
-                                                            @Nonnull Map<Tuple, CompletableFuture<Boolean>> trackTableReads) {
+                                                            @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
         return forEachTargetIndexContext(indexContext -> {
             if (!indexContext.recordTypes.contains(rec.getRecordType())) {
                 // This particular index is not affected by rec
@@ -1092,8 +1093,8 @@ public abstract class IndexingBase {
             // indexed: it reads the record (above), so it fails if the record was changed. User io that decided that the record is
             // not indexed has read the record's key in the range set with a conflict, and fails when the indexer commits a range
             // that contains it. A transaction that merely reads the record will not get a conflict.
-            final CompletableFuture<Boolean> prefetched = trackTableReads.remove(trackTableReadKey(indexContext.index, rec.getPrimaryKey()));
-            return (prefetched != null ? prefetched : IndexingTrackTable.of(store, indexContext.index).isTrackedSnapshotAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
+            final CompletableFuture<Boolean> prefetched = trackTableReads.remove(NonnullPair.of(indexContext.index, rec.getPrimaryKey()));
+            return (prefetched != null ? prefetched : IndexingTrackingTable.of(store, indexContext.index).isTrackedSnapshotAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
                 if (tracked) {
                     return AsyncUtil.DONE;
                 }
@@ -1120,15 +1121,10 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    private static Tuple trackTableReadKey(@Nonnull Index index, @Nonnull Tuple primaryKey) {
-        return Tuple.from(index.getName()).addAll(primaryKey);
-    }
-
-    @Nonnull
     private <T> RecordCursor<T> prefetchTrackTableReads(@Nonnull FDBRecordStore store,
                                                         @Nonnull RecordCursor<T> cursor,
                                                         @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
-                                                        @Nonnull Map<Tuple, CompletableFuture<Boolean>> trackTableReads) {
+                                                        @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
         final List<Index> trackingIndexes = common.getTargetIndexContexts().stream()
                 .filter(indexContext -> !indexContext.isSynthetic && store.getIndexState(indexContext.index).isWriteOnlyWithTracking())
                 .map(indexContext -> indexContext.index)
@@ -1143,8 +1139,8 @@ public abstract class IndexingBase {
                         .thenApply(rec -> {
                             if (rec != null) {
                                 for (Index index : trackingIndexes) {
-                                    trackTableReads.computeIfAbsent(trackTableReadKey(index, rec.getPrimaryKey()),
-                                            key -> IndexingTrackTable.of(store, index).isTrackedSnapshotAsync(rec.getPrimaryKey()));
+                                    trackTableReads.computeIfAbsent(NonnullPair.of(index, rec.getPrimaryKey()),
+                                            key -> IndexingTrackingTable.of(store, index).isTrackedSnapshotAsync(rec.getPrimaryKey()));
                                 }
                             }
                             return item;
