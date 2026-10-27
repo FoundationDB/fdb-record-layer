@@ -374,6 +374,11 @@ public abstract class ValueEquivalence {
         @Nonnull
         public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                  @Nonnull final LiteralValue<?> literalValue) {
+            if (evaluationContext.isValueFreeConstant(constantObjectValue.getAlias(),
+                    constantObjectValue.getConstantId())) {
+                // The constant has no value, so it equals no literal.
+                return falseValue();
+            }
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {
