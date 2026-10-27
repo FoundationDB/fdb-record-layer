@@ -151,7 +151,7 @@ class IndexStateTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.markIndexDisabled(STR_INDEX).join();
-            recordStore.markIndexWriteOnlyWithQueue(NUM_3_INDEX).join();
+            recordStore.markIndexWriteOnly(NUM_3_INDEX, IndexState.WRITE_ONLY_WITH_QUEUE).join();
 
             assertThat(recordStore.getIndexState(UNIQUE_INDEX).isReadable()).isTrue();
             assertThat(recordStore.getIndexState(STR_INDEX).isDisabled()).isTrue();

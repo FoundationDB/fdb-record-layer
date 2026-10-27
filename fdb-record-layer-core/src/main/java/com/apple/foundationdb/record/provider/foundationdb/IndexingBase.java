@@ -299,7 +299,7 @@ public abstract class IndexingBase {
                             .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
                             .toString());
                 }
-                return store.markIndexWriteOnlyIdem(index);
+                return store.markIndexWriteOnly(index, IndexState.WRITE_ONLY_IDEM);
             }
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn(KeyValueLogMessage.build("write-only-idem refused, marking write-only")
@@ -321,7 +321,7 @@ public abstract class IndexingBase {
                         .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
                         .toString());
             }
-            return store.markIndexWriteOnlyWithQueue(index);
+            return store.markIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_QUEUE);
         }
         if (LOGGER.isWarnEnabled()) {
             LOGGER.warn(KeyValueLogMessage.build("PWQ: refuse request, mark write-only")

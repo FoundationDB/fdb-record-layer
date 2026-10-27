@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
@@ -1149,7 +1150,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // Defer writes onto the queue: an insert into each group, a range delete of group 1, then an insert back into
         // the just-deleted group 1. Drained in order, the trailing insert must survive the range delete.
         try (FDBRecordContext context = openContext()) {
-            recordStore.markIndexWriteOnlyWithQueue(valueIndexName).join();
+            recordStore.markIndexWriteOnly(valueIndexName, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             assertTrue(recordStore.getIndexState(valueIndexName).isWriteOnlyWithQueue());
             saveBasicRecord(5, 1);   // queued ahead of the delete
             saveBasicRecord(6, 2);   // queued ahead of the delete
@@ -1457,7 +1458,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     private void markWriteOnlyWithQueue(@Nonnull final Index index) {
         try (FDBRecordContext context = openContext()) {
-            recordStore.markIndexWriteOnlyWithQueue(index).join();
+            recordStore.markIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             context.commit();
         }
     }

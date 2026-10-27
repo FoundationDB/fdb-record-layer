@@ -3293,8 +3293,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
-        return markIndexWriteOnly(index)
-                .thenRun(() -> clearIndexData(index));
+        return clearAndMarkIndexWriteOnly(index, IndexState.WRITE_ONLY);
     }
 
     /**
@@ -3302,22 +3301,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * index as {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
+     * @see #clearAndMarkIndexWriteOnly(Index, IndexState)
      */
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(@Nonnull Index index) {
-        return markIndexWriteOnlyWithQueue(index)
-                .thenRun(() -> clearIndexData(index));
+        return clearAndMarkIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_QUEUE);
     }
 
     /**
-     * Prepare an index for indexing with a tracking table by clearing any existing data and marking the
-     * index as {@link IndexState#WRITE_ONLY_IDEM}.
+     * Prepare an index for rebuilding by clearing any existing data and marking the index with the given write-only state.
      * @param index the index to build
-     * @return a future that completes when the index has been cleared and marked write-only-idem for building
+     * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
+     * @return a future that completes when the index has been cleared and marked for building
+     * @throws RecordCoreArgumentException if the given state is not a write-only state
      */
     @Nonnull
-    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyIdem(@Nonnull Index index) {
-        return markIndexWriteOnlyIdem(index)
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index, @Nonnull IndexState writeOnlyState) {
+        return markIndexWriteOnly(index, writeOnlyState)
                 .thenRun(() -> clearIndexData(index));
     }
 
@@ -3868,7 +3868,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName) {
-        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY);
+        return markIndexWriteOnly(indexName, IndexState.WRITE_ONLY);
     }
 
     /**
@@ -3886,55 +3886,40 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
-     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
-     * state is {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     * Adds the index of the given name to the list of write-only indexes stored within the store, with the given
+     * write-only state. See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is
+     * the target state.
      *
-     * @param indexName the name of the index to mark as write-only-with-queue
+     * @param indexName the name of the index to mark
+     * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
      * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
      * otherwise
+     * @throws RecordCoreArgumentException if the given state is not a write-only state
      * @throws IllegalArgumentException if the index is not present in the meta-data
      */
     @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull String indexName) {
-        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_WITH_QUEUE);
+    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName, @Nonnull IndexState writeOnlyState) {
+        if (!writeOnlyState.isWriteOnly()) {
+            throw new RecordCoreArgumentException("Not a write-only index state",
+                    LogMessageKeys.INDEX_NAME, indexName,
+                    LogMessageKeys.INDEX_STATE, writeOnlyState);
+        }
+        return markIndexNotReadable(indexName, writeOnlyState);
     }
 
     /**
-     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
-     * @param index the index to mark as write-only-with-queue
-     * @return a future that will contain <code>true</code> if the store was modified and
-     * <code>false</code> otherwise
-     */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
-        return markIndexWriteOnlyWithQueue(index.getName());
-    }
-
-    /**
-     * Adds the given index to the list of write-only-idem indexes stored within the store.
-     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
-     * state is {@link IndexState#WRITE_ONLY_IDEM}.
+     * Adds the given index to the list of write-only indexes stored within the store, with the given write-only state.
+     * See {@link #markIndexWriteOnly(String, IndexState)} for more details.
      *
-     * @param indexName the name of the index to mark as write-only-idem
+     * @param index the index to mark
+     * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
      * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
      * otherwise
-     * @throws IllegalArgumentException if the index is not present in the meta-data
+     * @throws RecordCoreArgumentException if the given state is not a write-only state
      */
     @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyIdem(@Nonnull String indexName) {
-        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_IDEM);
-    }
-
-    /**
-     * Adds the given index to the list of write-only-idem indexes stored within the store.
-     * @param index the index to mark as write-only-idem
-     * @return a future that will contain <code>true</code> if the store was modified and
-     * <code>false</code> otherwise
-     */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyIdem(@Nonnull Index index) {
-        return markIndexWriteOnlyIdem(index.getName());
+    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull Index index, @Nonnull IndexState writeOnlyState) {
+        return markIndexWriteOnly(index.getName(), writeOnlyState);
     }
 
     /**
@@ -4873,14 +4858,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         switch (indexState) {
             case WRITE_ONLY:
-                errMessageBuilder.append("clear and mark index write only");
-                return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
             case WRITE_ONLY_WITH_QUEUE:
-                errMessageBuilder.append("clear and mark index write only with queue");
-                return clearAndMarkIndexWriteOnlyWithQueue(index).thenApply(b -> null);
             case WRITE_ONLY_IDEM:
-                errMessageBuilder.append("clear and mark index write only idem");
-                return clearAndMarkIndexWriteOnlyIdem(index).thenApply(b -> null);
+                errMessageBuilder.append("clear and mark index ").append(indexState);
+                return clearAndMarkIndexWriteOnly(index, indexState).thenApply(b -> null);
             case DISABLED:
                 errMessageBuilder.append("mark index disabled");
                 return markIndexDisabled(index).thenApply(b -> null);

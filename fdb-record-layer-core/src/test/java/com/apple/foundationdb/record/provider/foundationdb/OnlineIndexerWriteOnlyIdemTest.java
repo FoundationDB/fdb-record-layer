@@ -23,7 +23,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -302,7 +304,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnlyIdem(sumIndex).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
 
         userWrites();
         assertFalse(isTrackTableEmpty(sumIndex));
@@ -359,12 +361,12 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnlyIdem(sumIndex).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
         userWrites();
         assertFalse(isTrackTableEmpty(sumIndex));
 
         // Restarting the build clears the index, its range set and the track table: records are indexed from scratch
-        inTransaction(() -> recordStore.clearAndMarkIndexWriteOnlyIdem(sumIndex).join());
+        inTransaction(() -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
         assertTrue(isTrackTableEmpty(sumIndex));
 
         try (OnlineIndexer indexer = idemIndexerBuilder(sumIndex, false).build()) {
@@ -398,7 +400,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(10);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnlyIdem(sumIndex).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
 
         inTransaction(() -> {
             for (int recNo = 1; recNo < 20; recNo += 2) {
@@ -432,7 +434,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
-        inTransaction(() -> recordStore.markIndexWriteOnlyIdem(sumIndex).join());
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
         assertEquals(0, rawSum(sumIndex));
 
         // not indexed yet: the update indexes the new value (only), and tracks the record
@@ -506,6 +508,46 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         assertEquals(1, timer.getCount(FDBStoreTimer.Events.COMMIT_FAILURE), "only the first attempt should conflict");
         assertReadable(sumIndex);
         assertSum(sumIndex);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE", "WRITE_ONLY_IDEM"})
+    void testClearAndMarkIndexWithAWriteOnlyState(final IndexState writeOnlyState) {
+        populateEvenRecords(10);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_IDEM).join());
+        inTransaction(() -> save(1, 19));
+        assertFalse(isTrackTableEmpty(sumIndex));
+
+        inTransaction(() -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, writeOnlyState).join());
+        inTransaction(() -> assertEquals(writeOnlyState, recordStore.getIndexState(sumIndex)));
+        assertTrue(isTrackTableEmpty(sumIndex), "the index data should have been cleared");
+        assertEquals(0, rawSum(sumIndex));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE", "WRITE_ONLY_IDEM"})
+    void testMarkIndexWithAWriteOnlyState(final IndexState writeOnlyState) {
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> assertTrue(recordStore.markIndexWriteOnly(sumIndex, writeOnlyState).join()));
+        inTransaction(() -> assertEquals(writeOnlyState, recordStore.getIndexState(sumIndex)));
+        // by name, and no change
+        inTransaction(() -> assertFalse(recordStore.markIndexWriteOnly(sumIndex.getName(), writeOnlyState).join()));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"READABLE", "READABLE_UNIQUE_PENDING", "DISABLED"})
+    void testMarkAndClearAndMarkIndexRequireAWriteOnlyState(final IndexState state) {
+        populateEvenRecords(10);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> {
+            assertThrows(RecordCoreArgumentException.class, () -> recordStore.markIndexWriteOnly(sumIndex, state));
+            assertThrows(RecordCoreArgumentException.class, () -> recordStore.markIndexWriteOnly(sumIndex.getName(), state));
+            assertThrows(RecordCoreArgumentException.class, () -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, state));
+        });
     }
 
     // ---- races between the indexer's read and its commit ----
@@ -807,7 +849,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
         if (afterFirstPass) {
             buildPausingAfterFirstPass(builder, allSequences);
         } else {
-            inTransaction(() -> targets.forEach(index -> recordStore.markIndexWriteOnlyIdem(index).join()));
+            inTransaction(() -> targets.forEach(index -> recordStore.markIndexWriteOnly(index, IndexState.WRITE_ONLY_IDEM).join()));
             allSequences.run();
             try (OnlineIndexer indexer = builder.build()) {
                 indexer.buildIndex(true);
