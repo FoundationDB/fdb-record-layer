@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
@@ -411,7 +412,7 @@ class OnlineIndexerWriteOnlyIdemTest extends OnlineIndexerTest {
 
     private boolean isTracked(@Nonnull final Index index, final int recNo) {
         try (FDBRecordContext context = openContext()) {
-            final boolean tracked = context.ensureActive().get(IndexingSubspaces.indexTrackTableKey(recordStore, index, Tuple.from(recNo))).join() != null;
+            final boolean tracked = IndexingTrackTable.forIndexBuild(recordStore, index).isTrackedAsync(Tuple.from(recNo)).join();
             context.commit();
             return tracked;
         }

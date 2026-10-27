@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -68,7 +69,6 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -1098,7 +1098,7 @@ public abstract class IndexingBase {
             // conflict with the record itself (read and write).
             // The snapshot read of the track table needs no conflict of its own as it is bound to the record itself.
             final CompletableFuture<Boolean> prefetched = trackTableReads.remove(trackTableReadKey(indexContext.index, rec.getPrimaryKey()));
-            return (prefetched != null ? prefetched : readTrackTable(store, indexContext.index, rec.getPrimaryKey())).thenCompose(tracked -> {
+            return (prefetched != null ? prefetched : IndexingTrackTable.forIndexBuild(store, indexContext.index).isTrackedAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
                 if (tracked) {
                     return AsyncUtil.DONE;
                 }
@@ -1130,13 +1130,6 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    private static CompletableFuture<Boolean> readTrackTable(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull Tuple primaryKey) {
-        final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(store, index, primaryKey);
-        // A snapshot read: it needs no conflict of its own, it is paired with the serializable (or explicitly conflicted) read of the record.
-        return store.getContext().ensureActive().snapshot().get(trackKey).thenApply(Objects::nonNull);
-    }
-
-    @Nonnull
     private <T> RecordCursor<T> prefetchTrackTableReads(@Nonnull FDBRecordStore store,
                                                         @Nonnull RecordCursor<T> cursor,
                                                         @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
@@ -1156,7 +1149,7 @@ public abstract class IndexingBase {
                             if (rec != null) {
                                 for (Index index : idemIndexes) {
                                     trackTableReads.computeIfAbsent(trackTableReadKey(index, rec.getPrimaryKey()),
-                                            key -> readTrackTable(store, index, rec.getPrimaryKey()));
+                                            key -> IndexingTrackTable.forIndexBuild(store, index).isTrackedAsync(rec.getPrimaryKey()));
                                 }
                             }
                             return item;

@@ -66,9 +66,9 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
-import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -294,12 +294,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             return AsyncUtil.DONE;
         }
         // Only after the track table was read (the transaction would read its own write)
-        track(newRecord.getPrimaryKey());
+        trackTable().track(newRecord.getPrimaryKey());
         return update(null, newRecord);
     }
 
-    private void track(@Nonnull Tuple primaryKey) {
-        state.context.ensureActive().set(IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey), new byte[0]);
+    private IndexingTrackTable trackTable() {
+        return IndexingTrackTable.forIndexBuild(state.store, state.index);
     }
 
     /**
@@ -314,17 +314,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
         // WRITE_ONLY_IDEM: the record is indexed if either the track table (user inserts) or the range set (indexer)
         // say so. Both are snapshot reads - conflicts are resolved by the record itself.
-        return isTracked(primaryKey).thenCompose(tracked ->
+        return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked ->
                 tracked ? AsyncUtil.READY_TRUE : isBuiltByIndexer(rangeKey));
     }
 
     private CompletableFuture<Boolean> isBuiltByIndexer(@Nonnull Tuple rangeKey) {
         return IndexingRangeSet.forIndexBuild(state.store, state.index).containsSnapshotAsync(rangeKey.pack());
-    }
-
-    private CompletableFuture<Boolean> isTracked(@Nonnull Tuple primaryKey) {
-        final byte[] trackKey = IndexingSubspaces.indexTrackTableKey(state.store, state.index, primaryKey);
-        return state.context.ensureActive().snapshot().get(trackKey).thenApply(Objects::nonNull);
     }
 
     /**
@@ -341,7 +336,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                                                                                                @Nullable final Tuple oldEntryKey,
                                                                                                @Nonnull final FDBIndexableRecord<M> newRecord) {
         final Tuple primaryKey = newRecord.getPrimaryKey();
-        return isTracked(primaryKey).thenCompose(tracked -> {
+        return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
             final CompletableFuture<Boolean> oldIndexed;
             if (oldRecord == null) {
                 oldIndexed = AsyncUtil.READY_FALSE;
@@ -356,7 +351,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             return oldIndexed.thenCompose(indexed -> {
                 if (!tracked) {
                     // Only after reading the track table above (the transaction would read its own write)
-                    track(primaryKey);
+                    trackTable().track(primaryKey);
                 }
                 return update(indexed ? oldRecord : null, newRecord);
             });

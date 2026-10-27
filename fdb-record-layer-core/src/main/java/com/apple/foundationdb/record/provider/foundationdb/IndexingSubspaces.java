@@ -146,18 +146,6 @@ public final class IndexingSubspaces {
     }
 
     /**
-     * Key of a record, within the track table of an index (see {@link #indexTrackTableSubspace}).
-     * @param store store
-     * @param index index
-     * @param primaryKey the record's primary key
-     * @return the track table key
-     */
-    @Nonnull
-    public static byte[] indexTrackTableKey(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull Tuple primaryKey) {
-        return indexTrackTableSubspace(store, index).pack(primaryKey);
-    }
-
-    /**
      * Subspace that stores scrubbed records ranges of the zero range-id. This subspace is backward compatible
      * to record ranges scrubbed before range-id was introduced.
      * @param store store

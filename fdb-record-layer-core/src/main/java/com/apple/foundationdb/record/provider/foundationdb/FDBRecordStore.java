@@ -92,6 +92,7 @@ import com.apple.foundationdb.record.provider.foundationdb.concurrency.NoOpConcu
 import com.apple.foundationdb.record.provider.foundationdb.concurrency.StoreConcurrencyManager;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackTable;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheEntry;
@@ -859,7 +860,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                  @Nullable final FDBIndexableRecord<M> newRecord) {
         if (oldRecord == null) {
             // insert: track the record and index it unconditionally, the indexer will skip it
-            ensureContextActive().set(IndexingSubspaces.indexTrackTableKey(this, index, Verify.verifyNotNull(newRecord).getPrimaryKey()), new byte[0]);
+            IndexingTrackTable.forIndexBuild(this, index).track(Verify.verifyNotNull(newRecord).getPrimaryKey());
             return maintainer.update(null, newRecord);
         }
         // update/delete: a record that was neither tracked nor built by the indexer is tracked by an update (see
