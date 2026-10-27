@@ -1,13 +1,23 @@
 Diagram(
-    Sequence(
-        Terminal('CREATE'),
-        Terminal('STORED'),
-        Terminal('QUERY'),
-        NonTerminal('queryName'),
-        Optional(
-            NonTerminal('declareBlock')
+    Stack(
+        Sequence(
+            Terminal('CREATE'),
+            Terminal('STORED'),
+            Terminal('QUERY'),
+            NonTerminal('queryName')
         ),
-        Terminal('AS'),
-        NonTerminal('query')
+        Optional(
+            Sequence(
+                NonTerminal('parameterList'),
+                NonTerminal('preparedCases')
+            )
+        ),
+        Sequence(
+            Optional(
+                NonTerminal('declareBlock')
+            ),
+            Terminal('AS'),
+            NonTerminal('query')
+        )
     )
 )
