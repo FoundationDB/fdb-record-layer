@@ -232,7 +232,7 @@ Important Notes
 Index Requirement
 -----------------
 
-**GROUP BY requires an appropriate index to execute.** Without a suitable index, the query will fail with an "unable to plan" error.
+**GROUP BY requires an appropriate index to execute.** Without a suitable index, the query will fail with an "unable to plan" error (0AF02).
 
 Example index creation:
 
