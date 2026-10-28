@@ -44,7 +44,7 @@ public final class IndexingSubspaces {
     private static final Object INDEX_BUILD_HEARTBEAT_PREFIX = 7L;
     private static final Object INDEX_PENDING_WRITE_QUEUE_PREFIX = 8L;
     private static final Object INDEX_PENDING_WRITE_QUEUE_SIZE = 9L;
-    private static final Object INDEX_BUILD_TRACK_TABLE = 10L;
+    private static final Object INDEX_BUILD_TRACKING_TABLE = 10L;
 
     private IndexingSubspaces() {
         throw new IllegalStateException("Utility class");
@@ -141,8 +141,8 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexTrackTableSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_TRACK_TABLE);
+    public static Subspace indexTrackingTableSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return indexBuildSubspace(store, index, INDEX_BUILD_TRACKING_TABLE);
     }
 
     /**
@@ -246,7 +246,7 @@ public final class IndexingSubspaces {
         eraseAllIndexingScrubbingData(context, store, index);
         context.clear(Range.startsWith(indexPendingWriteQueueSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexPendingWriteQueueSizeSubspace(store, index).pack()));
-        context.clear(Range.startsWith(indexTrackTableSubspace(store, index).pack()));
+        context.clear(Range.startsWith(indexTrackingTableSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));
         // The heartbeats, unlike the sync lock, may be erased here. If needed, an appropriate heartbeat will be set after this clear & within the same transaction.

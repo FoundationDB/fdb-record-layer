@@ -74,7 +74,7 @@ public enum IndexState {
     /**
      * Similar to {@link #WRITE_ONLY}, but designed for building non-idempotent indexes without a range conflict (like idempotent ones).
      * User inserts are always indexed and their primary keys are recorded in a dedicated tracking table; user updates and deletes consult the tracking
-     * table and the indexer's range set (without adding conflicts) to decide whether a record is already indexed.
+     * table and (if the record is not tracked) the indexer's range set, both with conflicts, to decide whether a record is already indexed.
      * A user update of a record that is not indexed yet indexes it (and tracks it) as well.
      * The online indexer skips records that are found in the tracking table.
      * Queries cannot use the index in this state.

@@ -293,12 +293,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (newRecord == null || !state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             return AsyncUtil.DONE;
         }
-        // Only after the track table was read (the transaction would read its own write)
-        trackTable().track(newRecord.getPrimaryKey());
+        // Only after the tracking table was read (the transaction would read its own write)
+        trackingTable().track(newRecord.getPrimaryKey());
         return update(null, newRecord);
     }
 
-    private IndexingTrackingTable trackTable() {
+    private IndexingTrackingTable trackingTable() {
         return IndexingTrackingTable.of(state.store, state.index);
     }
 
@@ -312,31 +312,42 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (!state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             return addedRangeWithKey(rangeKey);
         }
-        // WRITE_ONLY_WITH_TRACKING: the record is indexed if either the track table (user inserts) or the range set (indexer)
-        // say so. Both are read with a conflict.
-        return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked ->
-                tracked ? AsyncUtil.READY_TRUE : isBuiltByIndexer(rangeKey));
+        // WRITE_ONLY_WITH_TRACKING: the record is indexed if either the tracking table (user inserts) or the range set (indexer)
+        // say so. Both are read at once. The tracking table is read with a conflict. The range set is read as snapshot, and
+        // gets its conflict only if the record is not tracked: a tracked record need not conflict with the indexer.
+        final IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(state.store, state.index);
+        final byte[] rangeKeyBytes = rangeKey.pack();
+        final CompletableFuture<Boolean> builtFuture = rangeSet.containsSnapshotAsync(rangeKeyBytes);
+        return trackingTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
+            if (tracked) {
+                return AsyncUtil.READY_TRUE;
+            }
+            rangeSet.addReadConflictKey(rangeKeyBytes);
+            return builtFuture;
+        });
     }
 
-    private CompletableFuture<Boolean> isBuiltByIndexer(@Nonnull Tuple rangeKey) {
-        return IndexingRangeSet.forIndexBuild(state.store, state.index).containsAsync(rangeKey.pack());
-    }
-
-    private <M extends Message> CompletableFuture<Void> updateWriteOnlyWIthTracking(@Nullable final FDBIndexableRecord<M> oldRecord,
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyWithTracking(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                                                     @Nullable final Tuple oldEntryKey,
                                                                                     @Nullable final FDBIndexableRecord<M> newRecord) {
         final Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
-        return trackTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
+        // As in isAlreadyIndexed: the tracking table and the range set are read at once, and the range set gets its conflict
+        // only if the record is not tracked. Without an old record in the source index, the indexer could not have built it.
+        final IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(state.store, state.index);
+        final byte[] oldRangeKey = oldRecord == null || oldEntryKey == null ? null : oldEntryKey.pack();
+        final CompletableFuture<Boolean> oldBuiltFuture = oldRangeKey == null ? AsyncUtil.READY_FALSE : rangeSet.containsSnapshotAsync(oldRangeKey);
+        return trackingTable().isTrackedAsync(primaryKey).thenCompose(tracked -> {
             final CompletableFuture<Boolean> oldIndexed;
             if (oldRecord == null) {
                 oldIndexed = AsyncUtil.READY_FALSE;
             } else if (tracked) {
                 oldIndexed = AsyncUtil.READY_TRUE;
-            } else if (oldEntryKey == null) {
+            } else if (oldRangeKey == null) {
                 // not in the source index, so it wasn't indexed.
                 oldIndexed = AsyncUtil.READY_FALSE;
             } else {
-                oldIndexed = isBuiltByIndexer(oldEntryKey);
+                rangeSet.addReadConflictKey(oldRangeKey);
+                oldIndexed = oldBuiltFuture;
             }
             return oldIndexed.thenCompose(indexed -> {
                 if (newRecord == null) {
@@ -344,8 +355,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     return indexed ? update(oldRecord, null) : AsyncUtil.DONE;
                 }
                 if (!tracked) {
-                    // Only after reading the track table above (the transaction would read its own write)
-                    trackTable().track(primaryKey);
+                    // Only after reading the tracking table above (the transaction would read its own write)
+                    trackingTable().track(primaryKey);
                 }
                 return update(indexed ? oldRecord : null, newRecord);
             });
@@ -359,7 +370,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
         if ((oldEntryKey != null || newEntryKey != null) && state.store.getIndexState(state.index).isWriteOnlyWithTracking()) {
             // Always index the new record and track it. Remove the old entry only if it was indexed (tracked, or covered by the indexer)
-            return updateWriteOnlyWIthTracking(oldRecord, oldEntryKey, newRecord);
+            return updateWriteOnlyWithTracking(oldRecord, oldEntryKey, newRecord);
         }
         if (oldEntryKey != null && newEntryKey != null) {
             if (oldEntryKey.equals(newEntryKey)) {

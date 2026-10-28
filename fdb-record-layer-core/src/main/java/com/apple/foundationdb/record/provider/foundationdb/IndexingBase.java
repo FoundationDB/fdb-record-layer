@@ -276,9 +276,10 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> markIndexesWriteOnly(boolean continueBuild, FDBRecordStore store) {
         if (continueBuild) {
-            if (LOGGER.isInfoEnabled() && common.getTargetIndexes().stream().anyMatch(policy::shouldUsePendingWriteQueue)) {
-                // Index states are left as they are, so PWQ requests might be ignored
-                LOGGER.info(KeyValueLogMessage.build("PWQ: continued build; not changing index states")
+            if (LOGGER.isInfoEnabled() && common.getTargetIndexes().stream().anyMatch(index ->
+                    policy.shouldUsePendingWriteQueue(index) || policy.shouldUseWriteOnlyWithTracking(index))) {
+                // Index states are left as they are, so PWQ or write-only-with-tracking requests might be ignored
+                LOGGER.info(KeyValueLogMessage.build("continued build; not changing index states")
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
@@ -804,9 +805,9 @@ public abstract class IndexingBase {
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
         deferAutoMergeDuringCommit(store);
-        // Track table reads (WRITE_ONLY_WITH_TRACKING), by (index, primary key)
-        final Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads = new ConcurrentHashMap<>();
-        final RecordCursor<T> scanCursor = prefetchTrackTableReads(store, cursor, getRecordToIndex, trackTableReads);
+        // Tracking table reads (WRITE_ONLY_WITH_TRACKING), by (index, primary key)
+        final Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackingTableReads = new ConcurrentHashMap<>();
+        final RecordCursor<T> scanCursor = prefetchTrackingTableReads(store, cursor, getRecordToIndex, trackingTableReads);
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
@@ -815,11 +816,11 @@ public abstract class IndexingBase {
                                         policy.isReverseScanOrder() ?
                                         handleCursorResultReverse(store, result,
                                                 getRecordToIndex, nextResultCont,
-                                                recordsScannedCounter, hasMore, snapshotIsolationLevel, trackTableReads)
+                                                recordsScannedCounter, hasMore, snapshotIsolationLevel, trackingTableReads)
                                         :
                                         handleCursorResult(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
-                                                recordsScannedCounter, hasMore, snapshotIsolationLevel, trackTableReads)
+                                                recordsScannedCounter, hasMore, snapshotIsolationLevel, trackingTableReads)
                                 ), scanCursor.getExecutor()))
                 .thenApply(vignore -> {
                     long recordsScannedInTransaction = recordsScannedCounter.get();
@@ -846,7 +847,7 @@ public abstract class IndexingBase {
                                                               @Nonnull AtomicLong recordsScannedCounter,
                                                               @Nonnull AtomicBoolean hasMore,
                                                               final boolean snapshotIsolationLevel,
-                                                              @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
+                                                              @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackingTableReads) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
         if (cursorResult.hasNext()) {
@@ -892,9 +893,7 @@ public abstract class IndexingBase {
                         return AsyncUtil.READY_TRUE;
                     }
                     // This record should be indexed. Add it to the transaction.
-                    timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-
-                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, snapshotIsolationLevel, trackTableReads);
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, snapshotIsolationLevel, trackingTableReads);
                     if (isExhausted) {
                         // we've just processed the last item
                         timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
@@ -923,7 +922,7 @@ public abstract class IndexingBase {
                                                                      @Nonnull AtomicLong recordsScannedCounter,
                                                                      @Nonnull AtomicBoolean hasMore,
                                                                      final boolean snapshotIsolationLevel,
-                                                                     @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
+                                                                     @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackingTableReads) {
         // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
         // the 'lastResultCont' item should also be processed
         if (!cursorResult.hasNext()) {
@@ -948,9 +947,7 @@ public abstract class IndexingBase {
                         return AsyncUtil.READY_TRUE; // next
                     }
                     // This record should be indexed. Add it to the transaction.
-                    timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-
-                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, snapshotIsolationLevel, trackTableReads);
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec, snapshotIsolationLevel, trackingTableReads);
                     return updateMaintainer.thenCompose(vignore ->
                             hadTransactionReachedLimits(store)
                                     .thenApply(shouldCommit -> {
@@ -1069,7 +1066,9 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
                                                             FDBStoredRecord<Message> rec,
                                                             final boolean snapshotIsolationLevel,
-                                                            @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
+                                                            @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackingTableReads) {
+        // Count the record as indexed if any of the target indexes is updated (and not skipped, see WRITE_ONLY_WITH_TRACKING below)
+        final AtomicBoolean indexed = new AtomicBoolean(false);
         return forEachTargetIndexContext(indexContext -> {
             if (!indexContext.recordTypes.contains(rec.getRecordType())) {
                 // This particular index is not affected by rec
@@ -1080,11 +1079,13 @@ public abstract class IndexingBase {
                 // This particular index is synthetic, handle with care
                 final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
+                indexed.set(true);
                 return syntheticPlan.execute(store, rec).forEachAsync(maintainer::updateFromIndexer, 1);
             }
             if (!store.getIndexState(indexContext.index).isWriteOnlyWithTracking()) {
                 // update simple index
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
+                indexed.set(true);
                 return maintainer.updateFromIndexer(rec);
             }
             // WRITE_ONLY_WITH_TRACKING: if user io has inserted or updated this record, it has already indexed it and tracked its
@@ -1093,14 +1094,19 @@ public abstract class IndexingBase {
             // indexed: it reads the record (above), so it fails if the record was changed. User io that decided that the record is
             // not indexed has read the record's key in the range set with a conflict, and fails when the indexer commits a range
             // that contains it. A transaction that merely reads the record will not get a conflict.
-            final CompletableFuture<Boolean> prefetched = trackTableReads.remove(NonnullPair.of(indexContext.index, rec.getPrimaryKey()));
+            final CompletableFuture<Boolean> prefetched = trackingTableReads.remove(NonnullPair.of(indexContext.index, rec.getPrimaryKey()));
             return (prefetched != null ? prefetched : IndexingTrackingTable.of(store, indexContext.index).isTrackedSnapshotAsync(rec.getPrimaryKey())).thenCompose(tracked -> {
                 if (tracked) {
                     return AsyncUtil.DONE;
                 }
                 addRecordReadConflictIfSnapshot(store, rec, snapshotIsolationLevel);
+                indexed.set(true);
                 return maintainer.updateFromIndexer(rec);
             });
+        }).thenRun(() -> {
+            if (indexed.get()) {
+                timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+            }
         });
     }
 
@@ -1112,19 +1118,19 @@ public abstract class IndexingBase {
     }
 
     /**
-     * Number of track table reads (WRITE_ONLY_WITH_TRACKING) that are issued ahead of the scan.
+     * Number of tracking table reads (WRITE_ONLY_WITH_TRACKING) that are issued ahead of the scan.
      * @param store the record store
      * @return the pipeline size
      */
-    protected int trackTablePrefetchPipelineSize(@Nonnull FDBRecordStore store) {
-        return store.getPipelineSize(PipelineOperation.TRACK_TABLE_READ);
+    protected int trackingTablePrefetchPipelineSize(@Nonnull FDBRecordStore store) {
+        return store.getPipelineSize(PipelineOperation.TRACKING_TABLE_READ);
     }
 
     @Nonnull
-    private <T> RecordCursor<T> prefetchTrackTableReads(@Nonnull FDBRecordStore store,
+    private <T> RecordCursor<T> prefetchTrackingTableReads(@Nonnull FDBRecordStore store,
                                                         @Nonnull RecordCursor<T> cursor,
                                                         @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
-                                                        @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackTableReads) {
+                                                        @Nonnull Map<NonnullPair<Index, Tuple>, CompletableFuture<Boolean>> trackingTableReads) {
         final List<Index> trackingIndexes = common.getTargetIndexContexts().stream()
                 .filter(indexContext -> !indexContext.isSynthetic && store.getIndexState(indexContext.index).isWriteOnlyWithTracking())
                 .map(indexContext -> indexContext.index)
@@ -1132,19 +1138,19 @@ public abstract class IndexingBase {
         if (trackingIndexes.isEmpty()) {
             return cursor;
         }
-        // As the scanned items pass through, start reading their track table entries, so that the reads are on their way (or
+        // As the scanned items pass through, start reading their tracking table entries, so that the reads are on their way (or
         // done) by the time the records are processed.
         return cursor.mapPipelined(item ->
                 getRecordToIndex.apply(store, RecordCursorResult.withNextValue(item, RecordCursorStartContinuation.START))
                         .thenApply(rec -> {
                             if (rec != null) {
                                 for (Index index : trackingIndexes) {
-                                    trackTableReads.computeIfAbsent(NonnullPair.of(index, rec.getPrimaryKey()),
+                                    trackingTableReads.computeIfAbsent(NonnullPair.of(index, rec.getPrimaryKey()),
                                             key -> IndexingTrackingTable.of(store, index).isTrackedSnapshotAsync(rec.getPrimaryKey()));
                                 }
                             }
                             return item;
-                        }), trackTablePrefetchPipelineSize(store));
+                        }), trackingTablePrefetchPipelineSize(store));
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,

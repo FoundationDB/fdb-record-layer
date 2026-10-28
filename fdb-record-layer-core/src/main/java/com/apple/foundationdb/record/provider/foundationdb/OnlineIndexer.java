@@ -1317,7 +1317,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Whether the given target index should be built in the write-only-with-tracking state. While such a (non-idempotent)
          * index is being built, user inserts are always indexed and tracked in a dedicated table, which the indexer
-         * consults to avoid indexing them again; user updates and deletes need no range set conflicts.
+         * consults to avoid indexing them again; the indexer itself needs no range conflicts, just like the indexer of an idempotent index.
          * @param index the target index to check
          * @return true if the given index should be built in the write-only-with-tracking state
          */
@@ -1675,8 +1675,8 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the subset of target indexes that should be built in the write-only-with-tracking state. In this state the indexing
-             * process of non-idempotent can run without range conflicts (just like the indexing of idempotent indexes).
-             * This may be useful for idempotent indexes of a record store that is rapidly changing in a way that causes
+             * process of non-idempotent indexes can run without range conflicts (just like the indexing of idempotent indexes).
+             * This may be useful for non-idempotent indexes of a record store that is rapidly changing in a way that causes
              * many conflicts with the indexer. Idempotent indexes will be ignored.
              * @param indexes the target indexes that should be built in the write-only-with-tracking state
              * @return this builder

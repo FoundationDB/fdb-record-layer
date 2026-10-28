@@ -164,6 +164,21 @@ public class RangeSetTest {
     }
 
     @Test
+    void snapshotContainsWithExplicitReadConflict() {
+        // As containsReadConflict, but the key is checked with a snapshot transaction and the read conflict is added explicitly
+        try (Transaction tr = db.createTransaction()) {
+            final byte[] key = new byte[]{(byte) 0x20};
+            assertFalse(rs.contains(tr.snapshot(), key).join());
+            rs.addReadConflictKey(tr, key);
+            assertTrue(rs.insertRange(db, new byte[]{(byte) 0x10}, new byte[]{(byte) 0x30}).join());
+            tr.set(rsSubspace.pack(new byte[]{(byte) 0xf0, (byte) 0x01}), DEADC0DE);
+            final CompletionException ex = assertThrows(CompletionException.class, () -> tr.commit().join());
+            assertTrue(ex.getCause() instanceof FDBException);
+            assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)ex.getCause()).getCode());
+        }
+    }
+
+    @Test
     void containsWithSnapshotOfTransaction() {
         db.run(tr -> {
             tr.set(rsSubspace.pack(new byte[]{(byte) 0x10}), new byte[]{(byte) 0x66});

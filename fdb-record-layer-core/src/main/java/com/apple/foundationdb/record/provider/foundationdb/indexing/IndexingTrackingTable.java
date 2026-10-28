@@ -1,5 +1,5 @@
 /*
- * IndexingTrackTable.java
+ * IndexingTrackingTable.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,12 +34,12 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The track table of an index that is being built in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state.
+ * The tracking table of an index that is being built in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state.
  * It holds the primary keys of the records that user I/O has already indexed, so that the {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer}
- * will skip them. This class should be used for all track table operations.
+ * will skip them. This class should be used for all tracking table operations.
  */
 @API(API.Status.INTERNAL)
-public class IndexingTrackingTable {
+public final class IndexingTrackingTable {
     private static final byte[] TRACKED = new byte[0];
 
     @Nonnull
@@ -53,14 +53,14 @@ public class IndexingTrackingTable {
     }
 
     /**
-     * Get the track table of an index build.
+     * Get the tracking table of an index build.
      * @param store the record store associated with the index build
      * @param index the index being built
-     * @return the track table of the index
+     * @return the tracking table of the index
      */
     @Nonnull
     public static IndexingTrackingTable of(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        return new IndexingTrackingTable(store.getRecordContext(), IndexingSubspaces.indexTrackTableSubspace(store, index));
+        return new IndexingTrackingTable(store.getRecordContext(), IndexingSubspaces.indexTrackingTableSubspace(store, index));
     }
 
     /**

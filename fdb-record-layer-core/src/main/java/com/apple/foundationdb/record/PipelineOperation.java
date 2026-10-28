@@ -59,7 +59,7 @@ public class PipelineOperation {
     @Nonnull
     public static final PipelineOperation INSERT = new PipelineOperation("INSERT");
     @Nonnull
-    public static final PipelineOperation TRACK_TABLE_READ = new PipelineOperation("TRACK_TABLE_READ");
+    public static final PipelineOperation TRACKING_TABLE_READ = new PipelineOperation("TRACKING_TABLE_READ");
 
     private final String name;
 

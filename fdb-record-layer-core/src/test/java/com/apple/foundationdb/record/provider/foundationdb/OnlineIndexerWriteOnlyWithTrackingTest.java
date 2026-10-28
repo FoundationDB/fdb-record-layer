@@ -27,16 +27,20 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackingTable;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -61,6 +65,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
@@ -75,6 +80,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -297,9 +303,9 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         }
     }
 
-    private boolean isTrackTableEmpty(@Nonnull final Index index) {
+    private boolean isTrackingTableEmpty(@Nonnull final Index index) {
         try (FDBRecordContext context = openContext()) {
-            final Range range = IndexingSubspaces.indexTrackTableSubspace(recordStore, index).range();
+            final Range range = IndexingSubspaces.indexTrackingTableSubspace(recordStore, index).range();
             final boolean empty = context.ensureActive().getRange(range, 1).asList().join().isEmpty();
             context.commit();
             return empty;
@@ -347,12 +353,12 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                 context.commit();
             }
             userWrites();
-            assertFalse(isTrackTableEmpty(sumIndex), "inserted records should be tracked");
+            assertFalse(isTrackingTableEmpty(sumIndex), "inserted records should be tracked");
         });
 
         assertReadable(sumIndex);
         assertSum(sumIndex);
-        assertTrue(isTrackTableEmpty(sumIndex), "the track table should be cleared when the index is readable");
+        assertTrue(isTrackingTableEmpty(sumIndex), "the tracking table should be cleared when the index is readable");
     }
 
     @ParameterizedTest
@@ -365,14 +371,14 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
 
         userWrites();
-        assertFalse(isTrackTableEmpty(sumIndex));
+        assertFalse(isTrackingTableEmpty(sumIndex));
 
         try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, mutual).build()) {
             indexer.buildIndex(true);
         }
         assertReadable(sumIndex);
         assertSum(sumIndex);
-        assertTrue(isTrackTableEmpty(sumIndex));
+        assertTrue(isTrackingTableEmpty(sumIndex));
     }
 
     @Test
@@ -413,17 +419,17 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testRestartClearsTrackTable() {
+    void testRestartClearsTrackingTable() {
         populateEvenRecords(21);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
         inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
         userWrites();
-        assertFalse(isTrackTableEmpty(sumIndex));
+        assertFalse(isTrackingTableEmpty(sumIndex));
 
-        // Restarting the build clears the index, its range set and the track table: records are indexed from scratch
+        // Restarting the build clears the index, its range set and the tracking table: records are indexed from scratch
         inTransaction(() -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
-        assertTrue(isTrackTableEmpty(sumIndex));
+        assertTrue(isTrackingTableEmpty(sumIndex));
 
         try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).build()) {
             indexer.buildIndex(true);
@@ -463,9 +469,9 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                 saveOther(recordStore, recNo);
             }
         });
-        assertTrue(isTrackTableEmpty(sumIndex), "records of other types should not be tracked");
+        assertTrue(isTrackingTableEmpty(sumIndex), "records of other types should not be tracked");
         inTransaction(() -> save(21, 21 * 19));
-        assertFalse(isTrackTableEmpty(sumIndex));
+        assertFalse(isTrackingTableEmpty(sumIndex));
     }
 
     private boolean isTracked(@Nonnull final Index index, final int recNo) {
@@ -562,11 +568,11 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         disableAll(List.of(sumIndex));
         inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
         inTransaction(() -> save(1, 19));
-        assertFalse(isTrackTableEmpty(sumIndex));
+        assertFalse(isTrackingTableEmpty(sumIndex));
 
         inTransaction(() -> recordStore.clearAndMarkIndexWriteOnly(sumIndex, writeOnlyState).join());
         inTransaction(() -> assertEquals(writeOnlyState, recordStore.getIndexState(sumIndex)));
-        assertTrue(isTrackTableEmpty(sumIndex), "the index data should have been cleared");
+        assertTrue(isTrackingTableEmpty(sumIndex), "the index data should have been cleared");
         assertEquals(0, rawSum(sumIndex));
     }
 
@@ -595,8 +601,85 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
+    @EnumSource(value = IndexState.class, names = {"WRITE_ONLY", "WRITE_ONLY_WITH_QUEUE"})
+    void testCannotLeaveWriteOnlyWithTrackingWithoutClearing(final IndexState writeOnlyState) {
+        populateEvenRecords(21);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
+        inTransaction(() -> save(41, 777)); // indexed and tracked by user io
+
+        // In another write-only state, the indexer would index the tracked record again
+        inTransaction(() -> {
+            final CompletionException ex = assertThrows(CompletionException.class,
+                    () -> recordStore.markIndexWriteOnly(sumIndex, writeOnlyState).join());
+            assertInstanceOf(RecordCoreException.class, ex.getCause());
+        });
+        inTransaction(() -> assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyWithTracking()));
+
+        try (OnlineIndexer indexer = newIndexerBuilder(List.of(sumIndex)).setLimit(10).build()) {
+            indexer.buildIndex(true);
+        }
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
+    }
+
+    @Test
+    void testSyntheticIndexCannotBeMarkedWriteOnlyWithTracking() {
+        // The indexer does not consult the tracking table of a synthetic index
+        final Index joinedCountIndex = new Index("join$count", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
+        openMetaData(TestRecordsJoinIndexProto.getDescriptor(), metaDataBuilder -> {
+            final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("SimpleOtherJoin");
+            joined.addConstituent("simple", metaDataBuilder.getRecordType("MySimpleRecord"));
+            joined.addConstituent("other", metaDataBuilder.getRecordType("MyOtherRecord"));
+            joined.addJoin("simple", "other_rec_no", "other", "rec_no");
+            metaDataBuilder.addIndex("SimpleOtherJoin", joinedCountIndex);
+        });
+        inTransaction(() -> {
+            assertThrows(RecordCoreArgumentException.class, () -> recordStore.markIndexWriteOnly(joinedCountIndex, IndexState.WRITE_ONLY_WITH_TRACKING));
+            assertThrows(RecordCoreArgumentException.class, () -> recordStore.clearAndMarkIndexWriteOnly(joinedCountIndex, IndexState.WRITE_ONLY_WITH_TRACKING));
+        });
+    }
+
+    @Test
+    void testTrackedRecordsAreNotCountedAsIndexedByTheIndexer() {
+        populateEvenRecords(21);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        inTransaction(() -> recordStore.markIndexWriteOnly(sumIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join());
+        inTransaction(() -> {
+            save(1, 19);
+            save(3, 57);
+        });
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setTimer(timer).build()) {
+            indexer.buildIndex(true);
+        }
+        assertEquals(21, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED), "the tracked records should be skipped");
+        assertReadable(sumIndex);
+        assertSum(sumIndex);
+    }
+
+    @Test
+    void testVacuumOfReadableIndexKeepsScrubbingData() {
+        populateEvenRecords(10);
+        openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
+        disableAll(List.of(sumIndex));
+        try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).build()) {
+            indexer.buildIndex(true);
+        }
+        assertReadable(sumIndex);
+        inTransaction(() -> IndexingRangeSet.forScrubbingRecords(recordStore, sumIndex, 0).insertRangeAsync(null, null).join());
+
+        inTransaction(() -> recordStore.vacuumReadableIndexesBuildData());
+        inTransaction(() -> assertFalse(IndexingRangeSet.forScrubbingRecords(recordStore, sumIndex, 0).isEmptyAsync().join(),
+                "the scrubbing progress of a readable index should be kept"));
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {1, 100})
-    void testTrackTablePrefetchFollowsThePipelineSizer(final int pipelineSize) {
+    void testTrackingTablePrefetchFollowsThePipelineSizer(final int pipelineSize) {
         populateEvenRecords(60);
         openSimpleMetaData(allIndexesHook(List.of(sumIndex)));
         disableAll(List.of(sumIndex));
@@ -604,7 +687,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         final Set<PipelineOperation> requestedOperations = ConcurrentHashMap.newKeySet();
         final FDBRecordStore.Builder storeBuilder = createStoreBuilder().setPipelineSizer(operation -> {
             requestedOperations.add(operation);
-            if (operation == PipelineOperation.TRACK_TABLE_READ) {
+            if (operation == PipelineOperation.TRACKING_TABLE_READ) {
                 return pipelineSize;
             }
             return FDBRecordStore.DEFAULT_PIPELINE_SIZER.getPipelineSize(operation);
@@ -612,7 +695,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
         try (OnlineIndexer indexer = trackingIndexerBuilder(sumIndex, false).setRecordStoreBuilder(storeBuilder).build()) {
             indexer.buildIndex(true);
         }
-        assertTrue(requestedOperations.contains(PipelineOperation.TRACK_TABLE_READ), "the pipeline sizer should size the track table reads");
+        assertTrue(requestedOperations.contains(PipelineOperation.TRACKING_TABLE_READ), "the pipeline sizer should size the tracking table reads");
         assertReadable(sumIndex);
         assertSum(sumIndex);
     }
@@ -894,7 +977,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
                 assertTrue(recordStore.getIndexState(sumIndex).isWriteOnlyNoQueue(), "the index should fall back to plain write-only");
             });
             userWrites();
-            assertTrue(isTrackTableEmpty(sumIndex), "nothing is tracked in plain write-only");
+            assertTrue(isTrackingTableEmpty(sumIndex), "nothing is tracked in plain write-only");
         });
         assertTrue(formatVersion.compareTo(FormatVersion.WRITE_ONLY_WITH_TRACKING) < 0);
         assertReadable(sumIndex);
