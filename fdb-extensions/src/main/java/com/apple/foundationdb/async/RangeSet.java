@@ -116,25 +116,19 @@ public class RangeSet {
 
     /**
      * Determines if a single key is contained within the range set. If it is, this will return
-     * <code>true</code>, and if it is not, it will return <code>false</code>. In terms of isolation, this adds a read-
-     * conflict to the key corresponding to the key being checked but to nothing else even
+     * <code>true</code>, and if it is not, it will return <code>false</code>. In terms of isolation, this adds a
+     * read conflict to the key corresponding to the key being checked but to nothing else even
      * though it has to do a range read that might be larger. This means that updates to keys
      * before this won't conflict unless they actually change whether this key is contained within
      * the range set.
-     * @param tc transaction or database in which to run operation
-     * @param key the key to check presence in set
-     * @return a future that contains whether some range in the set contains the key
-     */
-    @Nonnull
-    public CompletableFuture<Boolean> contains(@Nonnull TransactionContext tc, @Nonnull byte[] key) {
-        return contains((ReadTransactionContext)tc, key);
-    }
-
-    /**
-     * Determines if a single key is contained within the range set. This behaves the same way as
-     * {@link #contains(TransactionContext, byte[])}, but if given a snapshot transaction, it adds no read conflict. The
-     * conflict can then be added later (if needed) with {@link #addReadConflictKey(Transaction, byte[])}.
-     * @param rtc transaction, snapshot transaction, or database in which to run operation
+     *
+     * <p>
+     * If the provided {@link ReadTransactionContext} is a {@linkplain Transaction#snapshot() snapshot transaction},
+     * then the read conflict is omitted entirely. The read conflict can be applied later by
+     * calling {@link #addReadConflictKey(Transaction, byte[])}.
+     * </p>
+     *
+     * @param rtc transaction or database in which to run operation
      * @param key the key to check presence in set
      * @return a future that contains whether some range in the set contains the key
      */
@@ -159,7 +153,7 @@ public class RangeSet {
     }
 
     /**
-     * Add the read conflict that {@link #contains(TransactionContext, byte[])} adds for the given key. That is, after
+     * Add the read conflict that {@link #contains(ReadTransactionContext, byte[])} adds for the given key. That is, after
      * checking the key with a snapshot transaction, the transaction will conflict with changes to whether this key is
      * contained within the range set as if it had checked it with a serializable one.
      * @param tr transaction to add the read conflict to

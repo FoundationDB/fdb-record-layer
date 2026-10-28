@@ -87,7 +87,7 @@ public class IndexingRangeSet {
      * @return a future that will either be {@code true} or {@code false} depending on
      * whether a range containing the key has been inserted
      *
-     * @see RangeSet#contains(TransactionContext, byte[])
+     * @see RangeSet#contains(ReadTransactionContext, byte[])
      */
     @Nonnull
     public CompletableFuture<Boolean> containsAsync(@Nonnull byte[] key) {
