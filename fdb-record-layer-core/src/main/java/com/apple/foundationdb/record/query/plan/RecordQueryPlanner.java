@@ -267,6 +267,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      *        but also lead to better plans
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
      * @throws UnableToPlanException if the planner cannot plan the query
+     * @throws RecordCoreException if planning fails for another reason
      */
     @Nonnull
     @Override
@@ -283,6 +284,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
      * @throws UnableToPlanException if there is no index that matches the sort in the provided query
+     * @throws RecordCoreException if planning fails for another reason
      */
     @Nonnull
     @Override

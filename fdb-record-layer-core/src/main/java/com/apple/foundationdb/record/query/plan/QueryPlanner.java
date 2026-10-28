@@ -67,6 +67,7 @@ public interface QueryPlanner {
      *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.RecordCoreException if planning fails for another reason
      */
     @Nonnull
     RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
@@ -77,6 +78,7 @@ public interface QueryPlanner {
      * @param query a query for records on this planner's metadata
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.RecordCoreException if planning fails for another reason
      */
     @Nonnull
     default RecordQueryPlan plan(@Nonnull RecordQuery query) {
@@ -94,6 +96,7 @@ public interface QueryPlanner {
      *        bindings that are used to execute the query
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
      * @throws com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.RecordCoreException if planning fails for another reason
      */
     @Nonnull
     QueryPlanResult planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
