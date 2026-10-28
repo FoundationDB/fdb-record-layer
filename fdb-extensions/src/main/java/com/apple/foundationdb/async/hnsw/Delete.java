@@ -484,7 +484,7 @@ class Delete {
      * On a compact layer this returns {@code null} only when the layer is empty, because at least one node is always
      * read. Layer 0 is always compact, which is what lets the caller treat "no layer offered anything" as "the
      * structure is empty" rather than inferring it. An inlining layer is not scanned, so for one this also returns
-     * {@code null} when the node being deleted had no neighbor there.
+     * {@code null} when the node being deleted had no neighbor left there.
      *
      * @param <N> type parameter extending {@link NodeReference}
      * @param storageAdapter the storage adapter for the layer
@@ -496,7 +496,7 @@ class Delete {
      * @param candidateReferencesMap the candidates with their vectors, keyed by primary key
      * @param candidateChangeSetMap the change sets as they will be persisted, for the out-degree check
      * @return a future of the node to offer the promotion, or of {@code null} if this layer holds no node or is an
-     *         inlining layer on which the node being deleted had no neighbor
+     *         inlining layer on which the node being deleted had no neighbor left
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<EntryNodeReference>
@@ -526,9 +526,12 @@ class Delete {
 
         //
         // No neighbor of the deleted node can be traversed through on this layer, so read a bounded number of its
-        // other nodes looking for one that can. An inlining layer is not read: its scan counts edge records rather
-        // than nodes, and its nodes do not carry their own vector. Layer 0 is always compact and holds every node, so
-        // the promotion still finds a node by walking down to it.
+        // other nodes looking for one that can. An inlining layer is not read: a node there consists only of its edge
+        // records and holds no vector of its own, and InliningStorageAdapter.scanLayer reads synchronously, so it
+        // cannot be called here. On such a layer the offer is therefore a candidate that cannot be traversed through,
+        // or nothing if the deleted node had no neighbor left there. If it is nothing, the promotion takes a lower
+        // layer's offer, and the entry node ends up below the highest layer that still holds nodes. Layer 0 is always
+        // compact, so the promotion always finds a node there while the structure holds one.
         //
         if (storageAdapter.isInliningStorageAdapter()) {
             return CompletableFuture.completedFuture(entryNodeReferenceOrNull(anyCandidate, layer));
