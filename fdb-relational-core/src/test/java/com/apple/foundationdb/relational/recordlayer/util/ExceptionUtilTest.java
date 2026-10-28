@@ -75,6 +75,12 @@ class ExceptionUtilTest {
         Assertions.assertEquals("foo", ctxMap.get("table"), "Incorrect context value!");
     }
 
+    @Test
+    void toRelationalExceptionKeepsRecordLayerMessage() {
+        RelationalException converted = ExceptionUtil.toRelationalException(new UnableToPlanException("no plan"));
+        assertThat(converted.getMessage()).isEqualTo("no plan");
+    }
+
     @BeforeAll
     static void initFdbApi() {
         // wrapException evaluates FDB error predicates, which need the FDB API to be initialized
