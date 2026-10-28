@@ -68,9 +68,19 @@ public enum IndexState {
      * Similar to {@link #WRITE_ONLY}, but user updates are written
      * to a write pending queue rather than directly into the index.
      * Queries cannot use the index in this state.
-     * This index state is designed to prevent conflicts between the online indexer and user io.
+     * This index state is designed to prevent conflicts between the online indexer and user I/O.
      */
-    WRITE_ONLY_WITH_QUEUE(4L, "indexesWriteOnlyWithQueue");
+    WRITE_ONLY_WITH_QUEUE(4L, "indexesWriteOnlyWithQueue"),
+    /**
+     * Similar to {@link #WRITE_ONLY}, but designed for building non-idempotent indexes without a range conflict (like idempotent ones).
+     * User inserts are always indexed and their primary keys are recorded in a dedicated tracking table; user updates and deletes consult the tracking
+     * table and (if the record is not tracked) the indexer's range set, both with conflicts, to decide whether a record is already indexed.
+     * A user update of a record that is not indexed yet indexes it (and tracks it) as well.
+     * The online indexer skips records that are found in the tracking table.
+     * Queries cannot use the index in this state.
+     * This index state is designed to prevent conflicts between the online indexer and user I/O.
+     */
+    WRITE_ONLY_WITH_TRACKING(5L, "indexesWriteOnlyWithTracking");
 
     private final long id;
     private final String logName;
@@ -148,13 +158,22 @@ public enum IndexState {
     }
 
     /**
-     * Determine if an index in this state is write-only in any form ({@link #WRITE_ONLY} or
-     * {@link #WRITE_ONLY_WITH_QUEUE}).
+     * Determine if an index in this state is write-only with a tracking table for non-idempotent indexes.
+     *
+     * @return <code>true</code> if this state is {@link #WRITE_ONLY_WITH_TRACKING} and <code>false</code> otherwise
+     */
+    public boolean isWriteOnlyWithTracking() {
+        return this == WRITE_ONLY_WITH_TRACKING;
+    }
+
+    /**
+     * Determine if an index in this state is write-only in any form ({@link #WRITE_ONLY},
+     * {@link #WRITE_ONLY_WITH_QUEUE} or {@link #WRITE_ONLY_WITH_TRACKING}).
      *
      * @return <code>true</code> if this state is write-only in any form and <code>false</code> otherwise
      */
     public boolean isWriteOnly() {
-        return isWriteOnlyNoQueue() || isWriteOnlyWithQueue();
+        return isWriteOnlyNoQueue() || isWriteOnlyWithQueue() || isWriteOnlyWithTracking();
     }
 
     /**

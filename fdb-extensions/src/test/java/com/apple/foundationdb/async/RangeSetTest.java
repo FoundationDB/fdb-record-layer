@@ -21,6 +21,8 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDBError;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
@@ -29,6 +31,7 @@ import com.apple.foundationdb.test.MultipleTransactions;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -36,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -45,6 +49,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -137,6 +142,56 @@ public class RangeSetTest {
         rs.clear(db).join();
         assertTrue(db.readAsync(tr -> tr.getRange(rsSubspace.range()).asList()).join().isEmpty(), "Clear did not remove key");
         assertTrue(rs.isEmpty(db).join());
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void containsReadConflict(final boolean snapshot) {
+        // A transaction checks a key, then the range set changes to contain that key, and then it commits some other write
+        try (Transaction tr = db.createTransaction()) {
+            final byte[] key = new byte[]{(byte) 0x20};
+            assertFalse(rs.contains(snapshot ? tr.snapshot() : tr, key).join());
+            assertTrue(rs.insertRange(db, new byte[]{(byte) 0x10}, new byte[]{(byte) 0x30}).join());
+            tr.set(rsSubspace.pack(new byte[]{(byte) 0xf0, (byte) 0x01}), DEADC0DE);
+            if (snapshot) {
+                tr.commit().join(); // no read conflict
+            } else {
+                final CompletionException ex = assertThrows(CompletionException.class, () -> tr.commit().join());
+                assertTrue(ex.getCause() instanceof FDBException);
+                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)ex.getCause()).getCode());
+            }
+        }
+    }
+
+    @Test
+    void snapshotContainsWithExplicitReadConflict() {
+        // As containsReadConflict, but the key is checked with a snapshot transaction and the read conflict is added explicitly
+        try (Transaction tr = db.createTransaction()) {
+            final byte[] key = new byte[]{(byte) 0x20};
+            assertFalse(rs.contains(tr.snapshot(), key).join());
+            rs.addReadConflictKey(tr, key);
+            assertTrue(rs.insertRange(db, new byte[]{(byte) 0x10}, new byte[]{(byte) 0x30}).join());
+            tr.set(rsSubspace.pack(new byte[]{(byte) 0xf0, (byte) 0x01}), DEADC0DE);
+            final CompletionException ex = assertThrows(CompletionException.class, () -> tr.commit().join());
+            assertTrue(ex.getCause() instanceof FDBException);
+            assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)ex.getCause()).getCode());
+        }
+    }
+
+    @Test
+    void containsWithSnapshotOfTransaction() {
+        db.run(tr -> {
+            tr.set(rsSubspace.pack(new byte[]{(byte) 0x10}), new byte[]{(byte) 0x66});
+            return null;
+        });
+        db.run(tr -> {
+            // The results are the same, whether or not a conflict is added
+            assertTrue(rs.contains(tr, new byte[]{(byte) 0x20}).join());
+            assertTrue(rs.contains(tr.snapshot(), new byte[]{(byte) 0x20}).join());
+            assertFalse(rs.contains(tr, new byte[]{(byte) 0x70}).join());
+            assertFalse(rs.contains(tr.snapshot(), new byte[]{(byte) 0x70}).join());
+            return null;
+        });
     }
 
     @Test

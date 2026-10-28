@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -1323,7 +1324,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // the just-deleted group A. Drained in order, the trailing insert must survive the range delete.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, grouping);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             rec(5, "A", "c", 150, 0, sampleVector());   // queued ahead of the delete
@@ -2378,7 +2379,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // Enqueue two updates while the index is in the queue state.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 5, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             rec(1, 100);
@@ -2434,7 +2435,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // Some of the enqueued records should fall outside the sliding window.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             // Descending relevance in primary-key order: recs 1 and 2 fill the window; recs 3 and 4 are below the
@@ -2498,7 +2499,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // records must evict earlier ones as the queue is drained.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             rec(1, 100);
@@ -2536,7 +2537,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             deleteRec(2);  // in-window delete, deferred to the queue
             assertNull(recordStore.loadRecord(Tuple.from(2L)));
             commit(context);
@@ -2570,7 +2571,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             deleteRec(3);  // overflow delete, deferred to the queue
             commit(context);
         }
@@ -2603,7 +2604,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, 50);  // update: 200 -> 50, deferred to the queue
             commit(context);
         }
@@ -2627,7 +2628,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         final List<List<String>> grouping = ImmutableList.of(ImmutableList.of("zone"));
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC, grouping);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, "A", "c", 100, 0, sampleVector());
             rec(2, "A", "c", 200, 0, sampleVector());
             rec(3, "B", "c", 300, 0, sampleVector());
@@ -2657,7 +2658,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // ASC direction: the window keeps the lowest-relevance records after the queue drains.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.ASC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, 100);
             rec(2, 200);
             rec(3, 300);
@@ -2692,7 +2693,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(3, 300);  // deferred; better than the current boundary
             commit(context);
         }
@@ -2726,7 +2727,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, 250);   // update 100 -> 250, deferred to the queue; now above rec 3
             commit(context);
         }
@@ -2762,7 +2763,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, 100);   // update 400 -> 100, deferred to the queue; now below rec 3
             commit(context);
         }
@@ -2786,7 +2787,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     void writeOnlyWithQueueChainedUpdatesLandInWindow() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, 100);
             rec(1, 100);
             rec(1, 200);
@@ -2814,7 +2815,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     void writeOnlyWithQueueChainedUpdatesStayOutOfWindow() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             rec(1, 100);
             rec(1, 100);
             rec(1, 200);
@@ -2891,7 +2892,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     void canDeleteWhereWhileWriteOnlyWithQueue() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
-            recordStore.markIndexWriteOnlyWithQueue(INDEX_NAME).join();
+            recordStore.markIndexWriteOnly(INDEX_NAME, IndexState.WRITE_ONLY_WITH_QUEUE).join();
             assertTrue(recordStore.getIndexState(INDEX_NAME).isWriteOnlyWithQueue());
 
             final IndexMaintainer maintainer = maintainer();
