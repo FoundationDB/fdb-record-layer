@@ -24,8 +24,14 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.primitives.ImmutableIntArray;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,30 +43,57 @@ class AvailableFieldsTest {
         return new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
     }
 
-    @Test
-    void conditionalUponPathPredicateToProto() {
-        final AvailableFields.ConditionalUponPathPredicate predicate =
-                new AvailableFields.ConditionalUponPathPredicate(ImmutableIntArray.of(3, 1, 4));
-
-        assertThat(predicate.toProto(serializationContext()).getOrdinalPathList())
-                .containsExactly(3, 1, 4);
+    /**
+     * Ordinal paths to serialize. Apart from the empty path, none is of the form {@code [0, 1, ..., n-1]}, so
+     * that a deserializer that rebuilds the path from the element index rather than the element is caught.
+     */
+    static Stream<List<Integer>> ordinalPaths() {
+        return Stream.of(List.of(), List.of(5), List.of(2, 0), List.of(3, 1, 4));
     }
 
-    @Test
-    void conditionalUponPathPredicateToProtoWithEmptyPath() {
-        final AvailableFields.ConditionalUponPathPredicate predicate =
-                new AvailableFields.ConditionalUponPathPredicate(ImmutableIntArray.of());
-
-        assertThat(predicate.toProto(serializationContext()).getOrdinalPathList()).isEmpty();
+    private static AvailableFields.ConditionalUponPathPredicate predicate(final List<Integer> ordinalPath) {
+        return new AvailableFields.ConditionalUponPathPredicate(ImmutableIntArray.copyOf(ordinalPath));
     }
 
-    @Test
-    void conditionalUponPathPredicateToCopyIfPredicateProto() {
-        final AvailableFields.ConditionalUponPathPredicate predicate =
-                new AvailableFields.ConditionalUponPathPredicate(ImmutableIntArray.of(2, 0));
+    @ParameterizedTest
+    @MethodSource("ordinalPaths")
+    void conditionalUponPathPredicateToProto(final List<Integer> ordinalPath) {
+        assertThat(predicate(ordinalPath).toProto(serializationContext()).getOrdinalPathList())
+                .containsExactlyElementsOf(ordinalPath);
+    }
 
-        final PCopyIfPredicate copyIfPredicate = predicate.toCopyIfPredicateProto(serializationContext());
+    @ParameterizedTest
+    @MethodSource("ordinalPaths")
+    void conditionalUponPathPredicateToCopyIfPredicateProto(final List<Integer> ordinalPath) {
+        final PCopyIfPredicate copyIfPredicate = predicate(ordinalPath).toCopyIfPredicateProto(serializationContext());
+
         assertThat(copyIfPredicate.hasConditionalUponPathPredicate()).isTrue();
-        assertThat(copyIfPredicate.getConditionalUponPathPredicate().getOrdinalPathList()).containsExactly(2, 0);
+        assertThat(copyIfPredicate.getConditionalUponPathPredicate().getOrdinalPathList())
+                .containsExactlyElementsOf(ordinalPath);
+    }
+
+    @ParameterizedTest
+    @MethodSource("ordinalPaths")
+    void conditionalUponPathPredicateRoundTrip(final List<Integer> ordinalPath) {
+        final PlanSerializationContext context = serializationContext();
+        final AvailableFields.ConditionalUponPathPredicate original = predicate(ordinalPath);
+
+        final AvailableFields.ConditionalUponPathPredicate deserialized =
+                AvailableFields.ConditionalUponPathPredicate.fromProto(context, original.toProto(context));
+
+        assertThat(deserialized.toProto(context).getOrdinalPathList()).containsExactlyElementsOf(ordinalPath);
+        assertThat(deserialized.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                .isEqualTo(original.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    }
+
+    @Test
+    void conditionalUponPathPredicateRoundTripPreservesBehavior() {
+        final PlanSerializationContext context = serializationContext();
+        final AvailableFields.ConditionalUponPathPredicate deserialized =
+                AvailableFields.ConditionalUponPathPredicate.fromProto(context,
+                        predicate(List.of(1, 0)).toProto(context));
+
+        assertThat(deserialized.test(Tuple.from("a", Tuple.from(Tuple.from("x"))))).isTrue();
+        assertThat(deserialized.test(Tuple.from("a", Tuple.from("x")))).isFalse();
     }
 }
