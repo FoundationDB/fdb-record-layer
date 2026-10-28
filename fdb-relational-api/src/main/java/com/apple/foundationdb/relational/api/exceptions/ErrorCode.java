@@ -73,6 +73,7 @@ public enum ErrorCode {
     // Class 08 - Connection Exception
     UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
     CONNECTION_DOES_NOT_EXIST("08003"),
+    TRANSACTION_RESOLUTION_UNKNOWN("08007"),
     INVALID_PATH("08F01"),
     CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT("08F02"),
 
@@ -113,7 +114,6 @@ public enum ErrorCode {
 
     // Class 40 - Transaction Rollback
     SERIALIZATION_FAILURE("40001"),
-    STATEMENT_COMPLETION_UNKNOWN("40003"),
 
     // Class 42 - Syntax Error or Access Rule Violation
     SYNTAX_OR_ACCESS_VIOLATION("42000"),
