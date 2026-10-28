@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.UnsupportedQueryException;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Sort;
@@ -308,7 +309,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                     return new LuceneQuerySearchClause(filter.getType(), filter.getQuery(), filter.isQueryIsParameter());
                 }
             default:
-                throw new UnsupportedQueryException("unknown type of lucene query component");
+                throw new VerifyException("unknown type of lucene query component");
         }
     }
 
@@ -407,7 +408,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                         return new LuceneNotQuery(clause.getQueryType(), positive, negative);
                     }
                 default:
-                    throw new UnsupportedQueryException("Unsupported boolean query occur: " + booleanQuery);
+                    throw new VerifyException("Unsupported boolean query occur: " + booleanQuery);
             }
         }
         return new LuceneNotQuery(clause.getQueryType(), clause);
