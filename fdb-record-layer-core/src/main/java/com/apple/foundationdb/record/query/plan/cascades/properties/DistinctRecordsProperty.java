@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -439,12 +438,7 @@ public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
         private List<Boolean> distinctRecordsFromChildren(@Nonnull final RelationalExpression expression) {
             return expression.getQuantifiers()
                     .stream()
-                    .map(quantifier -> {
-                        if (quantifier instanceof Quantifier.AtMostOne) {
-                            return true;
-                        }
-                        return evaluateForReference(quantifier.getRangesOver());
-                    })
+                    .map(quantifier -> evaluateForReference(quantifier.getRangesOver()))
                     .collect(ImmutableList.toImmutableList());
         }
 
