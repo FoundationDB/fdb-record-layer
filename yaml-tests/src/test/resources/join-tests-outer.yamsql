@@ -419,7 +419,7 @@ test_block:
       # outer-join semantics. In the explain plan, note that `ON EMPTY NULL` is still there (not accidentally dropped),
       # and there's no UNION over it.
       - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."fname" = 'Alice' OR "e"."fname" = 'Dave';
-      - supported_version: !current_version
+      - supported_version: 4.17.1.0
       - explain: "COVERING(emp$fname [EQUALS promote(@c28 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) ∪ COVERING(emp$fname [EQUALS promote(@c34 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) COMPARE BY (_.fname, _.id) | FETCH | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }"
       - unorderedResult: [
           {'Alice', 'Engineering'},
