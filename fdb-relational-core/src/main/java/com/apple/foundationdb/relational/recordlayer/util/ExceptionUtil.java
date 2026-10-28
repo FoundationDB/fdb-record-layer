@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.util;
 
-import com.apple.foundationdb.FDBError;
-import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
@@ -78,7 +76,7 @@ public final class ExceptionUtil {
             code = ErrorCode.KEY_TOO_LARGE;
         } else if (re instanceof FDBExceptions.FDBStoreValueSizeException) {
             code = ErrorCode.VALUE_TOO_LARGE;
-        } else if (cause instanceof FDBException fdbException && fdbException.getCode() == FDBError.COMMIT_UNKNOWN_RESULT.code()) {
+        } else if (re instanceof FDBExceptions.FDBStoreMaybeCommittedException) {
             code = ErrorCode.TRANSACTION_RESULT_UNKNOWN;
         } else if (re instanceof RecordCoreRetriableTransactionException) {
             code = ErrorCode.SERIALIZATION_FAILURE;

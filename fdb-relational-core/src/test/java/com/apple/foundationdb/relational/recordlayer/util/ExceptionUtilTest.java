@@ -72,7 +72,7 @@ class ExceptionUtilTest {
                 Arguments.of(new FDBExceptions.FDBStoreTransactionSizeException(fdbException(FDBError.TRANSACTION_TOO_LARGE)), ErrorCode.TRANSACTION_TOO_LARGE),
                 Arguments.of(new FDBExceptions.FDBStoreKeySizeException(fdbException(FDBError.KEY_TOO_LARGE)), ErrorCode.KEY_TOO_LARGE),
                 Arguments.of(new FDBExceptions.FDBStoreValueSizeException(fdbException(FDBError.VALUE_TOO_LARGE)), ErrorCode.VALUE_TOO_LARGE),
-                Arguments.of(new FDBExceptions.FDBStoreRetriableException(fdbException(FDBError.COMMIT_UNKNOWN_RESULT)), ErrorCode.TRANSACTION_RESULT_UNKNOWN),
+                Arguments.of(new FDBExceptions.FDBStoreMaybeCommittedException(fdbException(FDBError.COMMIT_UNKNOWN_RESULT)), ErrorCode.TRANSACTION_RESULT_UNKNOWN),
                 Arguments.of(new FDBExceptions.FDBStoreTransactionConflictException(fdbException(FDBError.NOT_COMMITTED)), ErrorCode.SERIALIZATION_FAILURE),
                 Arguments.of(new FDBExceptions.FDBStoreTransactionIsTooOldException(fdbException(FDBError.TRANSACTION_TOO_OLD)), ErrorCode.SERIALIZATION_FAILURE),
                 Arguments.of(new FDBExceptions.FDBStoreRetriableException(fdbException(FDBError.FUTURE_VERSION)), ErrorCode.SERIALIZATION_FAILURE),
