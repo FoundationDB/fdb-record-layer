@@ -1081,9 +1081,84 @@ scalar-subquery:
     insert_time_ms: 5
     insert_new_count: 123
     insert_reused_count: 8
+-   query: EXPLAIN SELECT c.id FROM T6 c WHERE c.i1 = 1 AND c.i2 > (SELECT MIN(x.i2)
+        FROM T6 x)
+    ref: subquery-tests.yamsql:640
+    explain: ISCAN(T6_i1 [EQUALS promote(@c12 AS LONG)]) | FLATMAP q0 -> { ISCAN(T6_i1
+        <,>) | MAP (_ AS _0) | AGG (min_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL
+        | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0.i2 GREATER_THAN _._0 | MAP
+        (1 AS _0) AS q0 RETURN (q0.id AS id) }
+    task_count: 1011
+    task_total_time_ms: 57
+    transform_count: 257
+    transform_time_ms: 20
+    transform_yield_count: 70
+    insert_time_ms: 2
+    insert_new_count: 122
+    insert_reused_count: 8
+-   query: EXPLAIN SELECT c.id FROM T6 c WHERE c.i1 = 2 AND c.i2 = (SELECT MAX(x.i2)
+        FROM T6 x WHERE x.i1 = c.i1)
+    ref: subquery-tests.yamsql:645
+    explain: ISCAN(T6_i1 [EQUALS promote(@c12 AS LONG)]) | FLATMAP q0 -> { ISCAN(T6_i1
+        [EQUALS q0.i1]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () |
+        ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0.i2 EQUALS _._0
+        | MAP (1 AS _0) AS q0 RETURN (q0.id AS id) }
+    task_count: 864
+    task_total_time_ms: 60
+    transform_count: 230
+    transform_time_ms: 20
+    transform_yield_count: 58
+    insert_time_ms: 2
+    insert_new_count: 95
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT c.id FROM T6 c WHERE c.i1 = 2 OR c.i2 > (SELECT MIN(x.i2)
+        FROM T6 x WHERE x.i1 = c.i1)
+    ref: subquery-tests.yamsql:650
+    explain: ISCAN(T6_i1 <,>) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.i1]) | MAP
+        (_ AS _0) | AGG (min_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FILTER q0.i1 EQUALS promote(@c12 AS LONG) OR q0.i2
+        GREATER_THAN _._0 AS q0 RETURN (q0.id AS id) }
+    task_count: 683
+    task_total_time_ms: 40
+    transform_count: 188
+    transform_time_ms: 16
+    transform_yield_count: 47
+    insert_time_ms: 1
+    insert_new_count: 73
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT c.id, (SELECT MAX(x.i2) FROM T6 x) AS m FROM T6 c WHERE
+        c.i1 = 1
+    ref: subquery-tests.yamsql:656
+    explain: ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> {
+        ISCAN(T6_i1 [EQUALS promote(@c27 AS LONG)]) AS q1 RETURN (q1.id AS id, q0._0
+        AS m) }
+    task_count: 780
+    task_total_time_ms: 57
+    transform_count: 190
+    transform_time_ms: 22
+    transform_yield_count: 61
+    insert_time_ms: 2
+    insert_new_count: 96
+    insert_reused_count: 9
+-   query: EXPLAIN SELECT c.id, (SELECT MAX(x.i2) FROM T6 x WHERE x.i1 = c.i1) AS
+        m FROM T6 c WHERE c.i1 = 2
+    ref: subquery-tests.yamsql:661
+    explain: ISCAN(T6_i1 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(T6_i1
+        [EQUALS q0.i1]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () |
+        ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0.id AS
+        id, q0._0 AS m) }
+    task_count: 818
+    task_total_time_ms: 47
+    transform_count: 220
+    transform_time_ms: 18
+    transform_yield_count: 61
+    insert_time_ms: 1
+    insert_new_count: 90
+    insert_reused_count: 6
 -   query: EXPLAIN SELECT c.i1 FROM T6 c GROUP BY c.i1 HAVING SUM(c.id) < (SELECT
         MAX(c2.id) FROM T6 c2)
-    ref: subquery-tests.yamsql:644
+    ref: subquery-tests.yamsql:671
     explain: ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY
         (_._0.i1 AS _0) | FLATMAP q0 -> { ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.id)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL |

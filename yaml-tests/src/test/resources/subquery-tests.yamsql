@@ -634,6 +634,33 @@ test_block:
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | FILTER _.i2 EQUALS q0._0 AS q1 RETURN q1 } AS q1 RETURN (q0.id AS id, q1.id AS cid) }"
       - result: [{id: 1, cid: 2}, {id: 2, cid: 3}]
     -
+      # Scalar subquery in a predicate that sits next to an indexable predicate on the outer table. The subquery is
+      # uncorrelated, and the index on T6.i1 must still be used for the other predicate.
+      - query: SELECT c.id FROM T6 c WHERE c.i1 = 1 AND c.i2 > (SELECT MIN(x.i2) FROM T6 x)
+      - explain: "ISCAN(T6_i1 [EQUALS promote(@c12 AS LONG)]) | FLATMAP q0 -> { ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0.i2 GREATER_THAN _._0 | MAP (1 AS _0) AS q0 RETURN (q0.id AS id) }"
+      - result: [{2}]
+    -
+      # As above, but the subquery is correlated to the outer table via the indexed column.
+      - query: SELECT c.id FROM T6 c WHERE c.i1 = 2 AND c.i2 = (SELECT MAX(x.i2) FROM T6 x WHERE x.i1 = c.i1)
+      - explain: "ISCAN(T6_i1 [EQUALS promote(@c12 AS LONG)]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.i1]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0.i2 EQUALS _._0 | MAP (1 AS _0) AS q0 RETURN (q0.id AS id) }"
+      - result: [{3}]
+    -
+      # As above, but the predicates are combined with OR.
+      - query: SELECT c.id FROM T6 c WHERE c.i1 = 2 OR c.i2 > (SELECT MIN(x.i2) FROM T6 x WHERE x.i1 = c.i1)
+      - explain: "ISCAN(T6_i1 <,>) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.i1]) | MAP (_ AS _0) | AGG (min_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0.i1 EQUALS promote(@c12 AS LONG) OR q0.i2 GREATER_THAN _._0 AS q0 RETURN (q0.id AS id) }"
+      - unorderedResult: [{2}, {3}, {4}]
+    -
+      # Scalar subquery that only appears in the SELECT list, next to an indexable predicate on the outer table. The
+      # scalar quantifier is not part of any match with the index.
+      - query: SELECT c.id, (SELECT MAX(x.i2) FROM T6 x) AS m FROM T6 c WHERE c.i1 = 1
+      - explain: "ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS promote(@c27 AS LONG)]) AS q1 RETURN (q1.id AS id, q0._0 AS m) }"
+      - unorderedResult: [{id: 1, m: 300}, {id: 2, m: 300}]
+    -
+      # As above, but the subquery is correlated to the outer table via the indexed column.
+      - query: SELECT c.id, (SELECT MAX(x.i2) FROM T6 x WHERE x.i1 = c.i1) AS m FROM T6 c WHERE c.i1 = 2
+      - explain: "ISCAN(T6_i1 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.i1]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0.id AS id, q0._0 AS m) }"
+      - unorderedResult: [{id: 3, m: 300}, {id: 4, m: 300}]
+    -
       # Scalar subquery in GROUP BY. This is not supported.
       - query: SELECT COUNT(*) AS n FROM T6 c GROUP BY (SELECT MAX(c2.id) FROM T6 c2)
       - error: UNSUPPORTED_QUERY
