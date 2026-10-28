@@ -55,7 +55,8 @@ import javax.annotation.Nonnull;
  *        {@link ConfigBuilder#setReplacementEdgeMaxOutDegree(int)}
  * @param replacementEntryNodeScanLimit how many nodes of a layer a delete may read when the node it is deleting was
  *        the entry node and none of that node's neighbors can be traversed through, so that it can hand the promotion
- *        a node that can ({@code 0} disables the scan, leaving the promotion to choose among those neighbors only)
+ *        a node that can. It is at least {@code 1}, so that a compact layer that still holds a node always offers
+ *        one
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -133,8 +134,8 @@ public record Config(@Nonnull Metric metric,
                 "maxNumConcurrentDeleteFromLayer must be (0, 10]");
         Preconditions.checkArgument(replacementEdgeMaxOutDegree >= 0,
                 "replacementEdgeMaxOutDegree must be [0, MAX_INT]");
-        Preconditions.checkArgument(replacementEntryNodeScanLimit >= 0,
-                "replacementEntryNodeScanLimit must be [0, MAX_INT]");
+        Preconditions.checkArgument(replacementEntryNodeScanLimit >= 1,
+                "replacementEntryNodeScanLimit must be [1, MAX_INT]");
     }
 
     @Nonnull

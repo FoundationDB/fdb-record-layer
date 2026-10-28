@@ -450,9 +450,12 @@ class Delete {
                                             // through. The neighbors of the node being deleted are preferred, since
                                             // their vectors are already in hand, but one of them is only useful if it
                                             // still has an outgoing edge; otherwise promoting it would leave every
-                                            // search returning it alone. A null here therefore means this layer holds
-                                            // no node at all, which is what makes the decision further up -- to
-                                            // discard the access info -- correct rather than merely inferred.
+                                            // search returning it alone. On a compact layer a null here therefore
+                                            // means the layer holds no node at all. Layer 0 is always compact, which
+                                            // is what makes the decision further up -- to discard the access info when
+                                            // no layer offers anything -- correct rather than merely inferred. An
+                                            // inlining layer is not scanned, so it can offer nothing while still
+                                            // holding nodes, and the promotion then takes a lower layer's offer.
                                             //
                                             return chooseEntryNodeCandidate(storageAdapter, transaction,
                                                     storageTransform, layer, candidateReferencesMap,
@@ -478,8 +481,10 @@ class Delete {
      * lists are already known, so that check costs nothing. Only when none of them can be traversed through does this
      * read further nodes of the layer, bounded by {@link Config#replacementEntryNodeScanLimit()}.
      * <p>
-     * Returning {@code null} only when the layer is empty is what lets the caller treat "no layer offered anything" as
-     * "the structure is empty" rather than inferring it.
+     * On a compact layer this returns {@code null} only when the layer is empty, because at least one node is always
+     * read. Layer 0 is always compact, which is what lets the caller treat "no layer offered anything" as "the
+     * structure is empty" rather than inferring it. An inlining layer is not scanned, so for one this also returns
+     * {@code null} when the node being deleted had no neighbor there.
      *
      * @param <N> type parameter extending {@link NodeReference}
      * @param storageAdapter the storage adapter for the layer
@@ -490,7 +495,8 @@ class Delete {
      * @param layer the layer
      * @param candidateReferencesMap the candidates with their vectors, keyed by primary key
      * @param candidateChangeSetMap the change sets as they will be persisted, for the out-degree check
-     * @return a future of the node to offer the promotion, or of {@code null} if this layer holds no node
+     * @return a future of the node to offer the promotion, or of {@code null} if this layer holds no node or is an
+     *         inlining layer on which the node being deleted had no neighbor
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<EntryNodeReference>
@@ -524,15 +530,14 @@ class Delete {
         // than nodes, and its nodes do not carry their own vector. Layer 0 is always compact and holds every node, so
         // the promotion still finds a node by walking down to it.
         //
-        final int scanLimit = getConfig().replacementEntryNodeScanLimit();
-        if (scanLimit <= 0 || storageAdapter.isInliningStorageAdapter()) {
+        if (storageAdapter.isInliningStorageAdapter()) {
             return CompletableFuture.completedFuture(entryNodeReferenceOrNull(anyCandidate, layer));
         }
 
         final NodeReferenceWithVector anyCandidateFinal = anyCandidate;
         final AsyncIterable<AbstractNode<N>> layerNodes =
                 (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(transaction, storageTransform, layer, null,
-                        scanLimit);
+                        getConfig().replacementEntryNodeScanLimit());
         return AsyncUtil.collect(layerNodes, getExecutor())
                 .thenApply(nodes -> {
                     AbstractNode<N> mostConnectedNode = null;

@@ -140,4 +140,18 @@ class ConfigTest {
         Assertions.assertThat(config1.toString()).isEqualTo(config2.toString());
         Assertions.assertThat(config1.toString()).isNotEqualTo(config3.toString());
     }
+
+    /**
+     * A delete of the entry node always reads at least one node of a compact layer, so that a layer that still holds a
+     * node never offers nothing to the entry-node promotion, which would read that as the structure being empty.
+     */
+    @Test
+    void testReplacementEntryNodeScanLimitOfZeroIsRejected() {
+        final Config.ConfigBuilder configBuilder = HNSW.newConfigBuilder().setReplacementEntryNodeScanLimit(0);
+        Assertions.assertThatThrownBy(() -> configBuilder.build(768))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("replacementEntryNodeScanLimit");
+        Assertions.assertThat(HNSW.newConfigBuilder().setReplacementEntryNodeScanLimit(1).build(768)
+                .replacementEntryNodeScanLimit()).isEqualTo(1);
+    }
 }
