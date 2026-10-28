@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  */
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
-public final class RecordQueryPlanComplexityException extends UnableToPlanException {
+public final class RecordQueryPlanComplexityException extends RecordCoreException {
     public RecordQueryPlanComplexityException(@Nonnull String msg) {
         super(msg);
     }

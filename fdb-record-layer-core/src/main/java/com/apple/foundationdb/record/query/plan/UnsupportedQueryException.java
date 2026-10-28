@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * Exception thrown when a query uses a construct that the planner does not support.
  */
 @SuppressWarnings("serial")
-@API(API.Status.UNSTABLE)
+@API(API.Status.EXPERIMENTAL)
 public class UnsupportedQueryException extends RecordCoreException {
     public UnsupportedQueryException(@Nonnull String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
