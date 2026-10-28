@@ -21,36 +21,20 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
-import com.apple.foundationdb.async.guardiann.Config;
-import com.apple.foundationdb.async.guardiann.Guardiann;
-import com.apple.foundationdb.async.guardiann.GuardiannStructureAsserts;
-import com.apple.foundationdb.async.guardiann.OnReadListener;
-import com.apple.foundationdb.async.guardiann.OnWriteListener;
 import com.apple.foundationdb.async.guardiann.SiftTestHelpers;
 import com.apple.foundationdb.async.guardiann.VecsDatasetLoaders;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
-import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
-import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
@@ -58,10 +42,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -70,6 +52,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexTestSupport.sleepQuietly;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -272,93 +255,42 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                                       @Nonnull final AtomicLong committed,
                                       @Nonnull final AtomicLong conflictRetries,
                                       @Nonnull final AtomicLong backPressureRetries) {
-        while (true) {
-            try (FDBRecordContext context = openContext()) {
-                final FDBRecordStore store = openStore(context, metaData);
-                for (final int index : batch) {
-                    store.saveRecord(toVectorRecord(index, (DoubleRealVector) base.get(index).vector()));
-                }
-                context.commit();
-                committed.addAndGet(batch.size());
-                return;
-            } catch (final RuntimeException e) {
-                if (FDBExceptions.isOrHasCause(e, VectorIndexClusterTooLargeException.class)) {
-                    backPressureRetries.incrementAndGet();
-                    logger.info("insert back-pressured (hard cap) on batch starting {}; backing off and retrying",
-                            batch.get(0));
-                    sleepQuietly(BACK_PRESSURE_BACKOFF_MILLIS);
-                } else if (FDBExceptions.isOrHasCause(e, FDBExceptions.FDBStoreTransactionConflictException.class)) {
-                    conflictRetries.incrementAndGet();
-                    logger.info("insert conflict on batch starting {}; retrying", batch.get(0));
-                } else {
-                    throw e;
-                }
-            }
-        }
+        VectorIndexTestSupport.insertBatchWithRetry(this::openContext, context -> openStore(context, metaData),
+                store -> {
+                    for (final int index : batch) {
+                        store.saveRecord(toVectorRecord(index, (DoubleRealVector) base.get(index).vector()));
+                    }
+                },
+                batch.get(0), batch.size(), BACK_PRESSURE_BACKOFF_MILLIS, committed, conflictRetries,
+                backPressureRetries);
     }
 
     /**
-     * Verifies the on-disk Guardiann structure is internally consistent after the concurrent load + merge: rebuild a
-     * raw {@link Guardiann} over the index's subspace — the same keys the record-layer engine wrote — and run
-     * fdb-extensions' structural-invariant checker. Reusing {@link GuardiannVectorIndexEngine#parseConfig} guarantees
-     * the reconstructed {@link Guardiann} is configured exactly as the engine that wrote the data (dimensions,
-     * cluster sizes, replication thresholds). This is the no-delete variant (the test only inserts), so it also
+     * Verifies the on-disk Guardiann structure is internally consistent after the concurrent load + merge, per
+     * fdb-extensions' structural-invariant checker. This is the no-delete variant (the test only inserts), so it also
      * asserts every replica references a live primary. The checker first drains to quiescence, which is a no-op here
      * because {@link #mergeVectorIndexToCompletion} already emptied the backlog.
      */
     private void assertGuardiannStructureInvariants(@Nonnull final RecordMetaData metaData) {
-        final Subspace indexSubspace;
-        final Config config;
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openStore(context, metaData);
-            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
-            indexSubspace = store.indexSubspace(index);
-            config = GuardiannVectorIndexEngine.parseConfig(index);
-        }
-        final Guardiann guardiann = new Guardiann(indexSubspace, fdb.getExecutor(), config,
-                OnWriteListener.NOOP, OnReadListener.NOOP);
-        GuardiannStructureAsserts.assertGuardiannInvariants(fdb.database(), guardiann);
+        VectorIndexTestSupport.assertGuardiannStructureInvariants(fdb, this::openContext,
+                context -> openStore(context, metaData), INDEX_NAME);
     }
 
     /** Mean recall@{@link #RECALL_K} of the index over every SIFT query vs. the provided ground truth. */
     private double meanRecallAtK(@Nonnull final List<DoubleRealVector> queries,
-                                 @Nonnull final List<Set<Integer>> groundTruth) throws Exception {
-        double totalRecall = 0.0d;
-        for (int q = 0; q < queries.size(); q++) {
-            // siftsmall's ground truth carries the top-100 nearest per query and RECALL_K == 100, so the whole
-            // ground-truth set is the recall@K reference set.
-            final Set<Long> expected = groundTruth.get(q).stream()
-                    .map(Integer::longValue)
-                    .collect(ImmutableSet.toImmutableSet());
-            final Set<Long> got = queryTopK(queries.get(q).toHalfRealVector(), RECALL_K);
-            final long hits = got.stream().filter(expected::contains).count();
-            totalRecall += (double) hits / RECALL_K;
-        }
-        return totalRecall / queries.size();
+                                 @Nonnull final List<Set<Integer>> groundTruth) {
+        // siftsmall's ground truth carries the top-100 nearest per query and RECALL_K == 100, so the whole
+        // ground-truth set is the recall@K reference set.
+        return VectorIndexTestSupport.meanRecallAtK(queries, groundTruth, RECALL_K,
+                (queryVector, k) -> queryTopK(queryVector.toHalfRealVector(), k));
     }
 
     /** Executes the vector index kNN plan and returns the primary keys (rec_no) of the top-k hits. */
-    private Set<Long> queryTopK(@Nonnull final HalfRealVector queryVector, final int k) throws Exception {
+    private Set<Long> queryTopK(@Nonnull final HalfRealVector queryVector, final int k) {
         final RecordQueryIndexPlan plan = createIndexPlan(queryVector, k, INDEX_NAME);
-        final Set<Long> recNos = new HashSet<>();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, this::addUngroupedVectorIndex);
-            byte[] continuation = null;
-            do {
-                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
-                             executeQuery(plan, continuation, Bindings.EMPTY_BINDINGS, Integer.MAX_VALUE)) {
-                    while (cursor.hasNext()) {
-                        final VectorRecord record =
-                                VectorRecord.newBuilder().mergeFrom(Objects.requireNonNull(cursor.next()).getRecord())
-                                        .build();
-                        recNos.add(record.getRecNo());
-                    }
-                    continuation = cursor.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED
-                                   ? null : cursor.getContinuation();
-                }
-            } while (continuation != null);
-        }
-        return recNos;
+        return VectorIndexTestSupport.queryTopK(this::openContext,
+                context -> openStore(context, metaDataFor(this::addUngroupedVectorIndex)), plan,
+                queriedRecord -> VectorRecord.newBuilder().mergeFrom(queriedRecord.getRecord()).build().getRecNo());
     }
 
     @Nonnull
@@ -377,13 +309,5 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                 .setGroupId(0)
                 .setVectorData(ByteString.copyFrom(vector.toHalfRealVector().getRawData()))
                 .build();
-    }
-
-    private static void sleepQuietly(final long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

@@ -260,6 +260,34 @@ public class GuardiannTestHelpers {
     }
 
     /**
+     * Sums the under-replicated primary counts across every cluster of {@code guardiann} — i.e. how many primaries
+     * still owe replicas. Useful for asserting a reassign/replication pass drives that total down.
+     *
+     * @param db the database
+     * @param guardiann the structure to inspect
+     *
+     * @return the total number of under-replicated primaries across all clusters ({@code 0} if there are none)
+     */
+    public static int countUnderReplicatedPrimaries(@Nonnull final Database db, @Nonnull final Guardiann guardiann) {
+        final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
+        return snapshot == null ? 0 : countUnderReplicatedPrimaries(snapshot);
+    }
+
+    /**
+     * Sums the under-replicated primary counts across every cluster in {@code snapshot}, see
+     * {@link #countUnderReplicatedPrimaries(Database, Guardiann)}.
+     *
+     * @param snapshot the structure snapshot to aggregate over
+     *
+     * @return the total number of under-replicated primaries across all clusters
+     */
+    static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
+        return snapshot.clusters().values().stream()
+                .mapToInt(cv -> cv.metadata().numPrimaryUnderreplicatedVectors())
+                .sum();
+    }
+
+    /**
      * Two disjoint deterministic samples drawn from an fvecs base file in a single streaming
      * pass, never holding the full dataset in memory.
      *
