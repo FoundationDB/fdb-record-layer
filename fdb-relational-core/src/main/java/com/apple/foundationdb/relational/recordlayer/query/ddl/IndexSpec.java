@@ -78,6 +78,10 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
     /**
      * What an index is defined on: the stored tables its definition reads, as collected, or the synthetic record type a
      * {@link SyntheticTableGenerator} rewrote it onto.
+     *
+     * @param tables each stored table the definition reads, with the number of times it is scanned; a self-join scans
+     * one table twice
+     * @param syntheticTableBuilder the synthetic table the definition was rewritten onto, if any
      */
     record Source(@Nonnull Map<RecordLayerTable, Integer> tables,
                   @Nullable RecordLayerSyntheticTable.Builder syntheticTableBuilder) {
@@ -93,7 +97,7 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
 
         Type.Record getRecordType() {
             return syntheticTableBuilder == null ? Iterables.getOnlyElement(tables.keySet()).getType()
-                                                 : syntheticTableBuilder.build().getType();
+                                                 : syntheticTableBuilder.getType();
         }
 
         private Source merge(@Nonnull Source otherSource) {
@@ -240,6 +244,8 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
      * {@code RecordLayerUnnestedSyntheticTableGenerator#checkSupported} once it is known that one is needed.
      */
     public void checkValidity() {
+        Assert.thatUnchecked(scanCount > 0, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, it does not read from any table");
         // only single scan is supported
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, multiscan is not supported");

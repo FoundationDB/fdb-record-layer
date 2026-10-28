@@ -533,6 +533,15 @@ public class IndexTest {
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "requires a join condition relating them");
     }
 
+    /** A definition that reads no table has nothing to index, and is told so rather than that it scans too much. */
+    @Test
+    void createIndexOverNoTableIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p bigint, a bigint, primary key(p)) " +
+                "CREATE INDEX mv1 AS SELECT 1 AS c";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "it does not read from any table");
+    }
+
     @Test
     void createIndexWithConstantArithmethicInProjectionIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +

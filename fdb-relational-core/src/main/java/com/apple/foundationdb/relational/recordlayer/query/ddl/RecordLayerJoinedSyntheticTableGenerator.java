@@ -116,7 +116,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
                                        @Nonnull final String syntheticTableName) {
         this.constituents = constituents;
         this.quantifierValues = quantifierValues;
-        this.split = Suppliers.memoize(() -> splitPredicates(predicate, constituents.keySet()));
+        this.split = Suppliers.memoize(() -> SplitPredicates.of(predicate, constituents.keySet()));
         this.tableByStorageName = sourceTables.stream().collect(ImmutableMap.toImmutableMap(table ->
                         Objects.requireNonNull(table.getType().getStorageName()), Function.identity(), (first, second) -> first));
         this.syntheticTableName = syntheticTableName;
@@ -225,32 +225,6 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     }
 
     /**
-     * Splits the definition's predicates into the equalities that relate two constituents, which become the synthetic
-     * table's join conditions, and everything else, which stays a filter on the joined record.
-     */
-    @Nonnull
-    private static SplitPredicates splitPredicates(@Nullable final QueryPredicate predicate,
-                                                   @Nonnull final Set<CorrelationIdentifier> constituents) {
-        if (predicate == null) {
-            return new SplitPredicates(List.of(), List.of());
-        }
-        final var joinConditions = ImmutableList.<JoinCondition>builder();
-        final var residuals = ImmutableList.<QueryPredicate>builder();
-        final var childPredicates = predicate instanceof AndPredicate andPredicate
-                                    ? List.copyOf((andPredicate).getChildren())
-                                    : List.of(predicate);
-        for (final var conjunct : childPredicates) {
-            final var joinCondition = asJoinCondition(conjunct, constituents);
-            if (joinCondition.isPresent()) {
-                joinConditions.add(joinCondition.get());
-            } else {
-                residuals.add(conjunct);
-            }
-        }
-        return new SplitPredicates(joinConditions.build(), residuals.build());
-    }
-
-    /**
      * Whether a predicate is an equality between columns of two different constituents. If so, represent it as a
      * {@link JoinCondition}.
      */
@@ -333,6 +307,32 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      */
     private record SplitPredicates(@Nonnull List<JoinCondition> joinConditions,
                                    @Nonnull List<QueryPredicate> residuals) {
+
+        /**
+         * Splits the definition's predicates into the equalities that relate two constituents, which become the
+         * synthetic table's join conditions, and everything else, which stays a filter on the joined record.
+         */
+        @Nonnull
+        static SplitPredicates of(@Nullable final QueryPredicate predicate,
+                                  @Nonnull final Set<CorrelationIdentifier> constituents) {
+            if (predicate == null) {
+                return new SplitPredicates(List.of(), List.of());
+            }
+            final var joinConditions = ImmutableList.<JoinCondition>builder();
+            final var residuals = ImmutableList.<QueryPredicate>builder();
+            final var childPredicates = predicate instanceof AndPredicate andPredicate
+                                        ? List.copyOf(andPredicate.getChildren())
+                                        : List.of(predicate);
+            for (final var conjunct : childPredicates) {
+                final var joinCondition = asJoinCondition(conjunct, constituents);
+                if (joinCondition.isPresent()) {
+                    joinConditions.add(joinCondition.get());
+                } else {
+                    residuals.add(conjunct);
+                }
+            }
+            return new SplitPredicates(joinConditions.build(), residuals.build());
+        }
     }
 
     /**

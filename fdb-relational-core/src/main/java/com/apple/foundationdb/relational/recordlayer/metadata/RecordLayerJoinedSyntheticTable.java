@@ -184,6 +184,12 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
 
         @Nonnull
         @Override
+        public Type.Record getType() {
+            return type;
+        }
+
+        @Nonnull
+        @Override
         public Builder addIndex(@Nonnull final RecordLayerIndex index) {
             indexes.add(index);
             return this;
