@@ -24,8 +24,6 @@ import com.apple.foundationdb.async.guardiann.Guardiann;
 import com.apple.foundationdb.async.guardiann.GuardiannStructureAsserts;
 import com.apple.foundationdb.async.guardiann.OnReadListener;
 import com.apple.foundationdb.async.guardiann.OnWriteListener;
-import com.apple.foundationdb.half.Half;
-import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -67,7 +65,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -322,40 +319,6 @@ public class VectorIndexTestSupport {
                 .setReturnedRowLimit(Integer.MAX_VALUE).build();
         return plan.execute(store, EvaluationContext.forBindingsAndTypeRepository(Bindings.EMPTY_BINDINGS, typeRepository),
                 continuation, executeProperties).asIterator();
-    }
-
-    /**
-     * A random half-precision vector whose components are uniform in {@code [0, 1)}.
-     *
-     * @param random the source of the components
-     * @param numDimensions the number of dimensions
-     *
-     * @return a fresh random vector
-     */
-    @Nonnull
-    public static HalfRealVector randomHalfVector(@Nonnull final Random random, final int numDimensions) {
-        final Half[] componentData = new Half[numDimensions];
-        for (int i = 0; i < componentData.length; i++) {
-            componentData[i] = Half.valueOf(random.nextFloat());
-        }
-        return new HalfRealVector(componentData);
-    }
-
-    /**
-     * A half-precision vector whose components all equal {@code value}.
-     *
-     * @param value the value of every component
-     * @param numDimensions the number of dimensions
-     *
-     * @return a fresh constant vector
-     */
-    @Nonnull
-    public static HalfRealVector constantHalfVector(final float value, final int numDimensions) {
-        final Half[] componentData = new Half[numDimensions];
-        for (int i = 0; i < componentData.length; i++) {
-            componentData[i] = Half.valueOf(value);
-        }
-        return new HalfRealVector(componentData);
     }
 
     /**
