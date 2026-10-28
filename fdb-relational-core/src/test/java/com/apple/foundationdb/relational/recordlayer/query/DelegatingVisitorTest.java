@@ -159,6 +159,25 @@ public class DelegatingVisitorTest {
                 });
     }
 
+    /**
+     * Tests that {@code visitScalarSubqueryExpressionAtom()} forwards the call to the delegate.
+     */
+    @Test
+    void visitScalarSubqueryExpressionAtomTest() {
+        testSimple("(SELECT 1)",
+                RelationalParser::expressionAtom,
+                (visitor, ctx) -> visitor.visitScalarSubqueryExpressionAtom((RelationalParser.ScalarSubqueryExpressionAtomContext) ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitScalarSubqueryExpressionAtom(@Nonnull RelationalParser.ScalarSubqueryExpressionAtomContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
     @Test
     void visitUserDefinedMacroFunctionStatementBodyTest() {
         final var query = "AS testIdentifier";

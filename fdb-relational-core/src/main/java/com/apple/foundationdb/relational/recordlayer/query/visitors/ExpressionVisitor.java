@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -649,27 +650,68 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     ///// Predicates ///////
 
+    /**
+     * Visits an {@code EXISTS} predicate, as in {@code SELECT p.pid FROM parent p WHERE EXISTS (SELECT * FROM child c
+     * WHERE c.pid = p.pid)}. The subquery is bound as a {@link Quantifier.Existential} quantifier and wrapped in an
+     * {@link ExistsValue}, which yields whether the subquery returns any row at all. Unlike a scalar subquery (see
+     * {@link #visitScalarSubqueryExpressionAtom}), the subquery may project any number of columns and return any number
+     * of rows, and none of its values is observed.
+     *
+     * @see #visitScalarSubqueryExpressionAtom
+     */
     @Nonnull
     @Override
     public Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx) {
-        /*
-         * (yhatem) this is an interesting visitation, as it requires three interactions:
-         * - Firstly, LogicalOperator-visitor calls Expression-visitor to visit this predicate.
-         * - Secondly, Expression-visitor calls into LogicalOperator to visit the subquery.
-         * - Thirdly, Expression-visitor wraps the subquery in Exists predicate and returns
-         *   it to LogicalOperator-visitor.
-         */
-        // Reject subqueries outside a query, such as in the default value of a function parameter. A subquery
-        // must register its operator in the current plan fragment, and there is no plan fragment outside a query.
+        assertInsideQuery();
+        final LogicalOperator selectOperator = visitQuery(ctx.query());
+        final LogicalOperator asExistential = selectOperator.withQuantifier(
+                Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
+        final ExistsValue underlyingValue = new ExistsValue(QuantifiedObjectValue.of(asExistential.getQuantifier()));
+        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
+        return Expression.ofUnnamed(underlyingValue);
+    }
+
+    /**
+     * Visits a <em>scalar subquery</em>, that is, a parenthesized query used in a value position, as in
+     * {@code SELECT p.pid, (SELECT SUM(c.val) FROM child c WHERE c.pid = p.pid) FROM parent p}.
+     * Such a subquery must project exactly 1 column and return at most 1 row. If it returns 0 rows the subquery
+     * evaluates to {@code NULL}. If it returns more than 1 row, a {@code CARDINALITY_VIOLATION} error is raised.
+     *
+     * <p>The subquery is bound as a {@link Quantifier.Scalar} quantifier (which represents the
+     * at-most-1-row requirement), and its single column is projected out of the row flowed by the quantifier.
+     *
+     * @see #visitExistsExpressionAtom
+     */
+    @Nonnull
+    @Override
+    public Expression visitScalarSubqueryExpressionAtom(@Nonnull RelationalParser.ScalarSubqueryExpressionAtomContext ctx) {
+        assertInsideQuery();
+        final LogicalOperator selectOperator = visitQuery(ctx.query());
+        Assert.thatUnchecked(
+                selectOperator.getOutput().size() == 1,
+                ErrorCode.SUBQUERY_INCORRECT_COLUMN_COUNT,
+                "a subquery used as a value must project exactly one column");
+        final Reference subqueryReference = selectOperator.getQuantifier().getRangesOver();
+        final LogicalOperator asScalar = selectOperator.withQuantifier(
+                Quantifier.scalar(subqueryReference));
+        final QuantifiedObjectValue quantifiedValue = QuantifiedObjectValue.of(asScalar.getQuantifier());
+        // Widen the nullability of the column that’s read out of the flowed record. (The record itself is nullable, but
+        // the column has whatever nullability the subquery declared for it).
+        final FieldValue columnValue = FieldValue.ofOrdinalNumber(quantifiedValue, 0);
+        final Value underlyingValue = PromoteValue.inject(columnValue, columnValue.getResultType().nullable());
+        getDelegate().getCurrentPlanFragment().addOperator(asScalar);
+        return Expression.ofUnnamed(underlyingValue);
+    }
+
+    /**
+     * Rejects a subquery outside a query, such as in the default value of a function parameter. A subquery must
+     * register its operator in the current plan fragment, and there is no plan fragment outside a query.
+     */
+    private void assertInsideQuery() {
         Assert.thatUnchecked(
                 getDelegate().getCurrentPlanFragmentMaybe().isPresent(),
                 ErrorCode.UNSUPPORTED_QUERY,
                 "subqueries are not supported outside of a query");
-        final var selectOperator = visitQuery(ctx.query());
-        final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
-        final var underlyingValue = new ExistsValue(QuantifiedObjectValue.of(asExistential.getQuantifier()));
-        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
-        return Expression.ofUnnamed(underlyingValue);
     }
 
     @Nonnull

@@ -154,6 +154,15 @@ public final class QuantifierMatchers {
     }
 
     /**
+     * Matches a quantifier that flows exactly one item, that is, an existential or a scalar quantifier, whose reference
+     * matches {@code downstream}.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier.AtMostOne> atMostOneQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return ofTypeRangingOverRef(Quantifier.AtMostOne.class, downstream);
+    }
+
+    /**
      * Matches any for-each quantifier, plain or not. Only use this in rules that honor the semantics of non-plain
      * quantifiers; see the class documentation.
      */

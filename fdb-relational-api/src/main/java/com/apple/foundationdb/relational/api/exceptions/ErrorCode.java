@@ -162,6 +162,7 @@ public enum ErrorCode {
     UNION_INCORRECT_COLUMN_COUNT("42F64"),
     UNION_INCOMPATIBLE_COLUMNS("42F65"),
     INVALID_DATABASE("42F66"),
+    SUBQUERY_INCORRECT_COLUMN_COUNT("42F67"),
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
     // Class 54 Program Limit Exceeded

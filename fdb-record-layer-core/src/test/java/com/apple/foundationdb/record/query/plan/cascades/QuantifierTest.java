@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaxOneRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableList;
@@ -241,5 +242,111 @@ class QuantifierTest {
         assertThat(quantifier.getFlowedObjectType().isNullable()).isTrue();
         assertThat(quantifier.getFlowedObjectType())
                 .isEqualTo(Quantifier.forEach(scanReference).getFlowedObjectType().nullable());
+    }
+
+    /**
+     * Tests that {@code applyGlue()} wraps the given reference in a {@link RecordQueryFirstOrDefaultPlan} that ranges
+     * over a {@link RecordQueryMaxOneRecordPlan} for a scalar quantifier whose sub-graph is not provably single-row.
+     */
+    @Test
+    void testApplyGlue7() {
+        final Quantifier.Scalar quantifier = Quantifier.scalar(scanReference);
+        final Reference glued = quantifier.applyGlue(memoizer, scanReference);
+
+        final RelationalExpression wrapper = Iterables.getOnlyElement(glued.getFinalExpressions());
+        assertThat(wrapper).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
+        assertThat(((RecordQueryFirstOrDefaultPlan)wrapper).getOnEmptyResultValue()).isInstanceOf(NullValue.class);
+
+        // The surrounding query graph refers to the wrapper, which keeps the alias of the scalar quantifier.
+        final Quantifier inner = Iterables.getOnlyElement(wrapper.getQuantifiers());
+        assertThat(inner.getAlias()).isEqualTo(quantifier.getAlias());
+        final RelationalExpression check = Iterables.getOnlyElement(inner.getRangesOver().getFinalExpressions());
+        assertThat(check).isInstanceOf(RecordQueryMaxOneRecordPlan.class);
+
+        // The check ranges over the scan via a physical quantifier with a fresh alias.
+        final Quantifier checked = Iterables.getOnlyElement(check.getQuantifiers());
+        assertThat(checked).isInstanceOf(Quantifier.Physical.class);
+        assertThat(checked.getAlias()).isNotEqualTo(quantifier.getAlias());
+        assertThat(checked.getRangesOver().getFinalExpressions()).containsExactly(scanPlan);
+    }
+
+    /**
+     * Tests that {@code applyGlue()} does not add a {@link RecordQueryMaxOneRecordPlan} for a scalar quantifier whose
+     * sub-graph is provably single-row, as that check could never fire.
+     */
+    @Test
+    void testApplyGlue8() {
+        final RecordQueryMaxOneRecordPlan singleRowPlan =
+                new RecordQueryMaxOneRecordPlan(Quantifier.physical(scanReference));
+        final Reference singleRowReference = Reference.plannedOf(singleRowPlan);
+        final Quantifier.Scalar quantifier = Quantifier.scalar(singleRowReference);
+        final Reference glued = quantifier.applyGlue(memoizer, singleRowReference);
+
+        final RelationalExpression wrapper = Iterables.getOnlyElement(glued.getFinalExpressions());
+        assertThat(wrapper).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
+        final Quantifier inner = Iterables.getOnlyElement(wrapper.getQuantifiers());
+        assertThat(inner.getAlias()).isEqualTo(quantifier.getAlias());
+        assertThat(inner.getRangesOver().getFinalExpressions()).containsExactly(singleRowPlan);
+    }
+
+    /**
+     * Tests that rebuilding a scalar quantifier via {@code toBuilder()} and {@code overNewReference()} keeps it a
+     * scalar quantifier, and keeps its alias unless a new one is given.
+     */
+    @Test
+    void testScalar1() {
+        final Quantifier.Scalar quantifier = Quantifier.scalar(scanReference);
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+
+        assertThat(quantifier.toBuilder().build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Scalar.class,
+                        rebuilt -> assertThat(rebuilt.getAlias()).isEqualTo(quantifier.getAlias()));
+        assertThat(quantifier.toBuilder().withAlias(newAlias).build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Scalar.class,
+                        rebuilt -> assertThat(rebuilt.getAlias()).isEqualTo(newAlias));
+
+        final Quantifier.Scalar moved = quantifier.overNewReference(otherReference);
+        assertThat(moved.getAlias()).isEqualTo(quantifier.getAlias());
+        assertThat(moved.getRangesOver()).isSameAs(otherReference);
+        final Quantifier.Scalar renamed = quantifier.overNewReference(otherReference, newAlias);
+        assertThat(renamed.getAlias()).isEqualTo(newAlias);
+        assertThat(renamed.getRangesOver()).isSameAs(otherReference);
+    }
+
+    /**
+     * Tests that only a scalar quantifier requires its sub-graph to produce at most one record, that both kinds of
+     * quantifiers are {@link Quantifier.AtMostOne}, and that they have different shorthands.
+     */
+    @Test
+    void testScalar2() {
+        final Quantifier.Scalar scalar = Quantifier.scalar(scanReference);
+        final Quantifier.Existential existential = Quantifier.existential(scanReference);
+
+        assertThat(scalar).isInstanceOf(Quantifier.AtMostOne.class);
+        assertThat(scalar.requiresMaxOneRecord()).isTrue();
+        assertThat(existential.requiresMaxOneRecord()).isFalse();
+        assertThat(scalar.getShorthand()).isNotEqualTo(existential.getShorthand());
+        assertThat(scalar.getFlowedObjectType().isNullable()).isTrue();
+    }
+
+    /**
+     * Tests that a scalar quantifier is semantically equal to a scalar quantifier over the same reference, but not
+     * to an existential or a for-each quantifier over the same reference, and not to a scalar quantifier over a
+     * different reference.
+     */
+    @Test
+    void testScalar3() {
+        final Quantifier.Scalar quantifier = Quantifier.scalar(scanReference);
+        final Quantifier.Scalar sameQuantifier = Quantifier.scalar(scanReference);
+        assertThat(quantifier).isEqualTo(sameQuantifier);
+        assertThat(quantifier.semanticHashCode()).isEqualTo(sameQuantifier.semanticHashCode());
+
+        assertThat(quantifier).isNotEqualTo(Quantifier.existential(scanReference));
+        assertThat(Quantifier.existential(scanReference)).isNotEqualTo(quantifier);
+        assertThat(quantifier).isNotEqualTo(Quantifier.forEach(scanReference));
+
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+        assertThat(quantifier).isNotEqualTo(Quantifier.scalar(otherReference));
     }
 }

@@ -33,8 +33,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.atMostOneQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.existentialQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
@@ -139,5 +142,28 @@ class QuantifierMatchersTest {
         final BindingMatcher<?> withoutNullOnEmpty = withNullOnEmpty(false, forEachQuantifier());
         assertThat(bindMatches(withoutNullOnEmpty, plainQuantifier)).isPresent();
         assertThat(bindMatches(withoutNullOnEmpty, nullOnEmptyQuantifier)).isEmpty();
+    }
+
+    /**
+     * Tests that {@code atMostOneQuantifierOverRef()} matches existential and scalar quantifiers whose reference
+     * matches, but not for-each quantifiers.
+     */
+    @Test
+    void testAtMostOneQuantifierOverRef1() {
+        for (final Quantifier quantifier : List.of(Quantifier.existential(scanReference), Quantifier.scalar(scanReference))) {
+            assertThat(bindMatches(atMostOneQuantifierOverRef(ReferenceMatchers.anyRef()), quantifier)).isPresent();
+        }
+        assertThat(bindMatches(atMostOneQuantifierOverRef(ReferenceMatchers.anyRef()), plainQuantifier)).isEmpty();
+        assertThat(bindMatches(atMostOneQuantifierOverRef(ReferenceMatchers.anyRef()), nullOnEmptyQuantifier)).isEmpty();
+    }
+
+    /**
+     * Tests that {@code existentialQuantifierOverRef()} does not match a scalar quantifier, in contrast to
+     * {@code atMostOneQuantifierOverRef()}.
+     */
+    @Test
+    void testAtMostOneQuantifierOverRef2() {
+        assertThat(bindMatches(existentialQuantifierOverRef(ReferenceMatchers.anyRef()), Quantifier.scalar(scanReference)))
+                .isEmpty();
     }
 }
