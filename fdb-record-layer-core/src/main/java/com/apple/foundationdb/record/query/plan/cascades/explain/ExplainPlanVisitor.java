@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnV
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaxOneRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
@@ -314,6 +315,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         visit(firstOrDefaultPlan.getChild());
         return pipe().addKeyword("DEFAULT").addWhitespace()
                 .addNested(firstOrDefaultPlan.getOnEmptyResultValue().explain().getExplainTokens());
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitMaxOneRecordPlan(@Nonnull final RecordQueryMaxOneRecordPlan maxOneRecordPlan) {
+        visit(maxOneRecordPlan.getChild());
+        return pipe().addKeyword("MAX").addWhitespace().addToString(1).addWhitespace().addKeyword("RECORD");
     }
 
     @Nonnull
