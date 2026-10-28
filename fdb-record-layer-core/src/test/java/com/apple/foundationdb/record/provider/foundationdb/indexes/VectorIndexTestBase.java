@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.NodeReferenceWithDistance;
-import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
@@ -240,22 +239,12 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     protected static HalfRealVector randomHalfVector(final Random random, final int numDimensions) {
-        final Half[] componentData = new Half[numDimensions];
-        for (int i = 0; i < componentData.length; i++) {
-            componentData[i] = Half.valueOf(random.nextFloat());
-        }
-
-        return new HalfRealVector(componentData);
+        return VectorIndexTestSupport.randomHalfVector(random, numDimensions);
     }
 
     @Nonnull
     protected static HalfRealVector constantHalfVector(final float value, final int numDimensions) {
-        final Half[] componentData = new Half[numDimensions];
-        for (int i = 0; i < componentData.length; i++) {
-            componentData[i] = Half.valueOf(value);
-        }
-
-        return new HalfRealVector(componentData);
+        return VectorIndexTestSupport.constantHalfVector(value, numDimensions);
     }
 
     protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
