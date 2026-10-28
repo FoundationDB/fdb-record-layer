@@ -45,8 +45,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
 
-import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
-
 public final class CommonTestHelpers {
     /**
      * Time budget for a single logical database operation in a test, including any retries.
@@ -112,7 +110,7 @@ public final class CommonTestHelpers {
         final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfVectors; i ++) {
             final Tuple primaryKey = createPrimaryKey(i);
-            final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+            final HalfRealVector dataVector = randomHalfVector(random, numDimensions);
             resultBuilder.add(new PrimaryKeyAndVector(primaryKey, dataVector));
         }
         return resultBuilder.build();
@@ -174,6 +172,18 @@ public final class CommonTestHelpers {
      *
      * @return a fresh perturbed vector
      */
+    /**
+     * A random half-precision vector whose components are uniform in {@code (-1, 1)}.
+     */
+    @Nonnull
+    private static HalfRealVector randomHalfVector(@Nonnull final Random random, final int numDimensions) {
+        final double[] components = new double[numDimensions];
+        for (int d = 0; d < numDimensions; d++) {
+            components[d] = random.nextDouble() * (random.nextBoolean() ? -1 : 1);
+        }
+        return new HalfRealVector(components);
+    }
+
     @Nonnull
     public static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
                                            @Nonnull final RandomHelpers.GaussianSampler sampler,
