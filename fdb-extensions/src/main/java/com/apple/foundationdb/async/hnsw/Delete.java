@@ -472,10 +472,11 @@ class Delete {
      * no node at all. It is only called for a delete of the entry node, the only delete whose offers are used.
      * <p>
      * A node is only useful as an entry node if it has an outgoing edge, since a search starting at a node with none
-     * returns that node and nothing else. The neighbors of the node being deleted are considered first because their
-     * vectors are already in hand and their pending neighbor lists are already known, so that check costs nothing.
-     * Only when none of them can be traversed through does this read further nodes of the layer, bounded by
-     * {@link Config#replacementEntryNodeScanLimit()}.
+     * returns that node and nothing else. Of the nodes that have one, the one with the most is offered: a search first
+     * evaluates the entry node's neighbors, so more of them give it more nodes to continue from. The neighbors of the
+     * node being deleted are considered first because their vectors are already in hand and their pending neighbor
+     * lists are already known, so that check costs nothing. Only when none of them can be traversed through does this
+     * read further nodes of the layer, bounded by {@link Config#replacementEntryNodeScanLimit()}.
      * <p>
      * Returning {@code null} only when the layer is empty is what lets the caller treat "no layer offered anything" as
      * "the structure is empty" rather than inferring it.
@@ -499,20 +500,22 @@ class Delete {
                                      final int layer,
                                      @Nonnull final Map<Tuple, NodeReferenceWithVector> candidateReferencesMap,
                                      @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
-        NodeReferenceWithVector traversableCandidate = null;
+        NodeReferenceWithVector mostConnectedCandidate = null;
+        int mostConnectedCandidateNumNeighbors = 0;
         NodeReferenceWithVector anyCandidate = null;
         for (final Map.Entry<Tuple, NodeReferenceWithVector> entry : candidateReferencesMap.entrySet()) {
             if (anyCandidate == null) {
                 anyCandidate = entry.getValue();
             }
             final NeighborsChangeSet<N> changeSet = candidateChangeSetMap.get(entry.getKey());
-            if (changeSet != null && changeSet.size() > 0) {
-                traversableCandidate = entry.getValue();
-                break;
+            final int numNeighbors = changeSet == null ? 0 : changeSet.size();
+            if (numNeighbors > mostConnectedCandidateNumNeighbors) {
+                mostConnectedCandidate = entry.getValue();
+                mostConnectedCandidateNumNeighbors = numNeighbors;
             }
         }
-        if (traversableCandidate != null) {
-            return CompletableFuture.completedFuture(entryNodeReferenceOrNull(traversableCandidate, layer));
+        if (mostConnectedCandidate != null) {
+            return CompletableFuture.completedFuture(entryNodeReferenceOrNull(mostConnectedCandidate, layer));
         }
 
         //
@@ -532,15 +535,20 @@ class Delete {
                         scanLimit);
         return AsyncUtil.collect(layerNodes, getExecutor())
                 .thenApply(nodes -> {
+                    AbstractNode<N> mostConnectedNode = null;
                     for (final AbstractNode<N> node : nodes) {
-                        if (!node.getNeighbors().isEmpty()) {
-                            if (logger.isTraceEnabled()) {
-                                logger.trace("offering scanned key={} as a replacement entry node on layer={}",
-                                        node.getPrimaryKey(), layer);
-                            }
-                            return new EntryNodeReference(node.getPrimaryKey(), node.asCompactNode().getVector(),
-                                    layer);
+                        if (node.getNeighbors().size() >
+                                (mostConnectedNode == null ? 0 : mostConnectedNode.getNeighbors().size())) {
+                            mostConnectedNode = node;
                         }
+                    }
+                    if (mostConnectedNode != null) {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("offering scanned key={} as a replacement entry node on layer={}",
+                                    mostConnectedNode.getPrimaryKey(), layer);
+                        }
+                        return new EntryNodeReference(mostConnectedNode.getPrimaryKey(),
+                                mostConnectedNode.asCompactNode().getVector(), layer);
                     }
                     if (anyCandidateFinal != null) {
                         return entryNodeReferenceOrNull(anyCandidateFinal, layer);
