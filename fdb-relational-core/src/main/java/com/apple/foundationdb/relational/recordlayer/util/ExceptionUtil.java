@@ -65,8 +65,9 @@ public final class ExceptionUtil {
     }
 
     private static RelationalException recordCoreToRelationalException(RecordCoreException re) {
-        if (re.getCause() instanceof RelationalException) {
-            return (RelationalException) re.getCause();
+        final Throwable cause = re.getCause();
+        if (cause instanceof RelationalException relationalException) {
+            return relationalException;
         }
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
@@ -77,25 +78,25 @@ public final class ExceptionUtil {
             code = ErrorCode.KEY_TOO_LARGE;
         } else if (re instanceof FDBExceptions.FDBStoreValueSizeException) {
             code = ErrorCode.VALUE_TOO_LARGE;
-        } else if (re.getCause() instanceof FDBException && ((FDBException)re.getCause()).getCode() == FDBError.COMMIT_UNKNOWN_RESULT.code()) {
+        } else if (cause instanceof FDBException fdbException && fdbException.getCode() == FDBError.COMMIT_UNKNOWN_RESULT.code()) {
             code = ErrorCode.TRANSACTION_RESULT_UNKNOWN;
         } else if (re instanceof RecordCoreRetriableTransactionException) {
             code = ErrorCode.SERIALIZATION_FAILURE;
         } else if (re instanceof FDBExceptions.FDBStoreException) {
             code = ErrorCode.STORAGE_ERROR;
-        } else if (re instanceof RecordContextNotActiveException || re.getCause() instanceof RecordContextNotActiveException) {
+        } else if (re instanceof RecordContextNotActiveException || cause instanceof RecordContextNotActiveException) {
             code = ErrorCode.TRANSACTION_INACTIVE;
-        } else if (re instanceof RecordDeserializationException || re.getCause() instanceof RecordDeserializationException) {
+        } else if (re instanceof RecordDeserializationException || cause instanceof RecordDeserializationException) {
             code = ErrorCode.DESERIALIZATION_FAILURE;
-        } else if (re instanceof RecordAlreadyExistsException || re.getCause() instanceof RecordAlreadyExistsException || re instanceof RecordIndexUniquenessViolation) {
+        } else if (re instanceof RecordAlreadyExistsException || cause instanceof RecordAlreadyExistsException || re instanceof RecordIndexUniquenessViolation) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
         } else if (re instanceof MetaDataException) {
             //TODO(bfines) map this to specific error codes based on the violation
             code = ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
-        } else if (re instanceof SemanticException) {
-            code = translateErrorCode((SemanticException)re);
-        } else if (re.getCause() instanceof SemanticException) {
-            code = translateErrorCode((SemanticException)(re.getCause()));
+        } else if (re instanceof SemanticException semanticException) {
+            code = translateErrorCode(semanticException);
+        } else if (cause instanceof SemanticException semanticException) {
+            code = translateErrorCode(semanticException);
         } else if (re instanceof RecordQueryPlanComplexityException) {
             code = ErrorCode.PLAN_TOO_COMPLEX;
         } else if (re instanceof UnableToPlanException) {
