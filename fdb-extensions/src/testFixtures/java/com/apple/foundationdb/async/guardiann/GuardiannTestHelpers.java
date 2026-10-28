@@ -1,5 +1,5 @@
 /*
- * TestHelpers.java
+ * GuardiannTestHelpers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.TopK;
 import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.tuple.Tuple;
@@ -48,6 +49,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -65,15 +68,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
-import static com.apple.foundationdb.async.common.CommonTestHelpers.createPrimaryKey;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Test helpers for testing {@link Guardiann}s.
+ * Test helpers for testing {@link Guardiann}s: batched insert/delete drivers, deterministic dataset sampling, recall
+ * and result-ordering checks, the churn schedules of the SIFT workloads, and listeners that count the bytes and
+ * deferred tasks of each transaction. Lives in {@code testFixtures} so both the fdb-extensions guardiann tests and
+ * other vector-index tests can share them.
  */
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-class TestHelpers {
-    private static final Logger logger = LoggerFactory.getLogger(TestHelpers.class);
+public class GuardiannTestHelpers {
+    private static final Logger logger = LoggerFactory.getLogger(GuardiannTestHelpers.class);
+
+    /** Salt mixed into the seed to drive the random insert/delete schedule independently of sampling. */
+    private static final long INTERLEAVE_SEED_SALT = 0x5EED_4DA7_D17_C0DEL;
 
     // Parameters for assertOrderedByDistanceQualityAtLeast: it asks for the entire dataset (k, the reorder
     // window, and the probed-cluster cap are all set to the index size), ordered from the start of the cursor,
@@ -92,12 +100,33 @@ class TestHelpers {
      */
     private static final int MAX_ORDERED_BY_DISTANCE_INDEX_SIZE = 25_000;
 
+    private GuardiannTestHelpers() {
+    }
+
+    /**
+     * Inserts up to {@code batchSize} records produced by {@code insertFunction} into {@code guardiann} inside a
+     * single transaction. The loop bails out as soon as a deferred maintenance task executes mid-batch, so a call may
+     * insert only a prefix of the batch; the caller is expected to re-invoke with the un-inserted tail. Requires
+     * {@code guardiann} to have been created with a {@link TestOnWriteListener} and a {@link TestOnReadListener}.
+     *
+     * @param db the database
+     * @param guardiann the structure to insert into
+     * @param batchSize the maximum number of records to insert
+     * @param firstId the id handed to {@code insertFunction} for the first record of the batch
+     * @param insertFunction produces the record for a given id, or {@code null} to end the batch before that id
+     *
+     * @return the records that were actually inserted, in order
+     *
+     * @throws ExecutionException if the insert transaction fails
+     * @throws InterruptedException if interrupted while waiting for the insert transaction
+     * @throws TimeoutException if the insert transaction, including retries, does not finish in time
+     */
     @Nonnull
-    static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
-                                                      @Nonnull final Guardiann guardiann,
-                                                      final int batchSize,
-                                                      final long firstId,
-                                                      @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
+    public static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
+                                                             @Nonnull final Guardiann guardiann,
+                                                             final int batchSize,
+                                                             final long firstId,
+                                                             @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
             throws ExecutionException, InterruptedException, TimeoutException {
 
         return db.runAsync(tr -> {
@@ -152,11 +181,21 @@ class TestHelpers {
      * {@code recordsToDelete} processed before any bail-out). The caller is responsible for
      * advancing past those records on the next call. This mirrors the contract of
      * {@link #basicInsertBatch}.
+     *
+     * @param db the database
+     * @param guardiann the structure to delete from
+     * @param recordsToDelete the records to delete, in order
+     *
+     * @return the records that were actually issued for deletion, in order
+     *
+     * @throws ExecutionException if the delete transaction fails
+     * @throws InterruptedException if interrupted while waiting for the delete transaction
+     * @throws TimeoutException if the delete transaction, including retries, does not finish in time
      */
     @Nonnull
-    static List<PrimaryKeyAndVector> basicDeleteBatch(@Nonnull final Database db,
-                                                      @Nonnull final Guardiann guardiann,
-                                                      @Nonnull final List<PrimaryKeyAndVector> recordsToDelete)
+    public static List<PrimaryKeyAndVector> basicDeleteBatch(@Nonnull final Database db,
+                                                             @Nonnull final Guardiann guardiann,
+                                                             @Nonnull final List<PrimaryKeyAndVector> recordsToDelete)
             throws ExecutionException, InterruptedException, TimeoutException {
 
         final int batchSize = recordsToDelete.size();
@@ -204,10 +243,14 @@ class TestHelpers {
      * @param db the database
      * @param guardiann the structure to delete from
      * @param records the records to delete
+     *
+     * @throws ExecutionException if a delete transaction fails
+     * @throws InterruptedException if interrupted while waiting for a delete transaction
+     * @throws TimeoutException if a delete transaction, including retries, does not finish in time
      */
-    static void deleteToCompletion(@Nonnull final Database db,
-                                   @Nonnull final Guardiann guardiann,
-                                   @Nonnull final List<PrimaryKeyAndVector> records)
+    public static void deleteToCompletion(@Nonnull final Database db,
+                                          @Nonnull final Guardiann guardiann,
+                                          @Nonnull final List<PrimaryKeyAndVector> records)
             throws ExecutionException, InterruptedException, TimeoutException {
         final List<PrimaryKeyAndVector> remaining = new ArrayList<>(records);
         while (!remaining.isEmpty()) {
@@ -217,27 +260,13 @@ class TestHelpers {
     }
 
     /**
-     * Sums the under-replicated primary counts across every cluster in {@code snapshot} — i.e. how many primaries
-     * still owe replicas. Useful for asserting a reassign/replication pass drives that total down.
-     *
-     * @param snapshot the structure snapshot to aggregate over
-     *
-     * @return the total number of under-replicated primaries across all clusters
-     */
-    static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
-        return snapshot.clusters().values().stream()
-                .mapToInt(cv -> cv.metadata().numPrimaryUnderreplicatedVectors())
-                .sum();
-    }
-
-    /**
      * Two disjoint deterministic samples drawn from an fvecs base file in a single streaming
      * pass, never holding the full dataset in memory.
      *
      * @param a first sample
      * @param b second sample, disjoint from {@code a}
      */
-    record Samples(@Nonnull List<PrimaryKeyAndVector> a, @Nonnull List<PrimaryKeyAndVector> b) {
+    public record Samples(@Nonnull List<PrimaryKeyAndVector> a, @Nonnull List<PrimaryKeyAndVector> b) {
     }
 
     /**
@@ -256,9 +285,11 @@ class TestHelpers {
      * @param sizeA size of the first sample
      * @param sizeB size of the second sample
      * @return a {@link Samples} pair
+     *
+     * @throws IOException if {@code baseFile} cannot be read
      */
     @Nonnull
-    static Samples loadDisjointSamples(@Nonnull final String baseFile, final long seed, final int sizeA, final int sizeB) throws IOException {
+    public static Samples loadDisjointSamples(@Nonnull final String baseFile, final long seed, final int sizeA, final int sizeB) throws IOException {
         Verify.verify(sizeA > 0 && sizeB > 0, "sample sizes must be positive (sizeA=%s, sizeB=%s)", sizeA, sizeB);
         final List<PrimaryKeyAndVector> sampled = reservoirSample(baseFile, seed, sizeA + sizeB);
         return new Samples(
@@ -277,9 +308,11 @@ class TestHelpers {
      * @param size number of records to sample
      *
      * @return the sampled records
+     *
+     * @throws IOException if {@code baseFile} cannot be read
      */
     @Nonnull
-    static List<PrimaryKeyAndVector> loadSample(@Nonnull final String baseFile, final long seed, final int size) throws IOException {
+    public static List<PrimaryKeyAndVector> loadSample(@Nonnull final String baseFile, final long seed, final int size) throws IOException {
         Verify.verify(size > 0, "sample size must be positive (size=%s)", size);
         return ImmutableList.copyOf(reservoirSample(baseFile, seed, size));
     }
@@ -330,7 +363,7 @@ class TestHelpers {
         final List<PrimaryKeyAndVector> sampled = new ArrayList<>(totalSize);
         for (int i = 0; i < totalSize; i++) {
             sampled.add(new PrimaryKeyAndVector(
-                    createPrimaryKey(reservoirIndices[i]),
+                    Tuple.from(reservoirIndices[i]),
                     reservoirVectors[i]));
         }
         // Mix the seed with a salt so the reservoir RNG and the shuffle RNG don't share state.
@@ -348,11 +381,13 @@ class TestHelpers {
      * @param guardiann the structure to insert into
      * @param records the records to insert, in order
      * @param batchSize the number of records per insert transaction
+     *
+     * @throws Exception if an insert transaction fails or does not finish in time
      */
-    static void insertRecords(@Nonnull final Database db,
-                              @Nonnull final Guardiann guardiann,
-                              @Nonnull final List<PrimaryKeyAndVector> records,
-                              final int batchSize) throws Exception {
+    public static void insertRecords(@Nonnull final Database db,
+                                     @Nonnull final Guardiann guardiann,
+                                     @Nonnull final List<PrimaryKeyAndVector> records,
+                                     final int batchSize) throws Exception {
         for (int i = 0; i < records.size(); i += batchSize) {
             final int end = Math.min(i + batchSize, records.size());
             insertBatchWithRetry(db, guardiann, records.subList(i, end), i);
@@ -393,9 +428,9 @@ class TestHelpers {
      * duplicate.
      */
     private static double singleQueryRecall(@Nonnull final Set<Integer> groundTruthIndices,
-                                            @Nonnull final List<? extends ResultEntry> results) {
-        final Set<Integer> resultIndices = results.stream()
-                .map(re -> (int) re.primaryKey().getLong(0))
+                                            @Nonnull final List<Tuple> resultPrimaryKeys) {
+        final Set<Integer> resultIndices = resultPrimaryKeys.stream()
+                .map(primaryKey -> (int) primaryKey.getLong(0))
                 .collect(ImmutableSet.toImmutableSet());
         final long hits = resultIndices.stream().filter(groundTruthIndices::contains).count();
         return (double) hits / groundTruthIndices.size();
@@ -409,10 +444,26 @@ class TestHelpers {
      *
      * @return a search config tuned for recall@k checks
      */
-    static SearchConfig recallSearchConfig() {
+    @Nonnull
+    public static SearchConfig recallSearchConfig() {
         return new SearchConfig.SearchConfigBuilder()
                 .setCandidatePoolFactor(SearchConfig.DEFAULT_CANDIDATE_POOL_FACTOR)
                 .build();
+    }
+
+    /**
+     * The searcher the {@link Guardiann} overloads of the recall checks hand to their searcher overloads: one
+     * {@link Guardiann#kNearestNeighborsSearch} per query, in its own transaction, with {@link #recallSearchConfig()}.
+     */
+    @Nonnull
+    private static BiFunction<RealVector, Integer, List<Tuple>> guardiannSearcher(
+            @Nonnull final Database db, @Nonnull final Guardiann guardiann) {
+        return (query, k) -> {
+            final List<? extends ResultEntry> results =
+                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, recallSearchConfig(),
+                            true, query).join());
+            return results.stream().map(ResultEntry::primaryKey).collect(ImmutableList.toImmutableList());
+        };
     }
 
     /**
@@ -423,18 +474,41 @@ class TestHelpers {
      * Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
      * with ground truth.
      *
+     * @param db the database
+     * @param guardiann the structure to search
      * @param queries pre-loaded query vectors (see {@link VecsDatasetLoaders#loadQueryVectors})
      * @param groundTruth pre-loaded per-query ground-truth index sets (see
      *        {@link VecsDatasetLoaders#loadGroundTruth}); must have the same size as {@code queries}
      * @param k top-k to retrieve per query
      * @param minMeanRecall floor that the mean recall must meet or exceed
      */
-    static void assertRecallAtKAtLeast(@Nonnull final Database db,
-                                       @Nonnull final Guardiann guardiann,
-                                       @Nonnull final List<? extends RealVector> queries,
-                                       @Nonnull final List<? extends Set<Integer>> groundTruth,
-                                       final int k,
-                                       final double minMeanRecall) {
+    public static void assertRecallAtKAtLeast(@Nonnull final Database db,
+                                              @Nonnull final Guardiann guardiann,
+                                              @Nonnull final List<? extends RealVector> queries,
+                                              @Nonnull final List<? extends Set<Integer>> groundTruth,
+                                              final int k,
+                                              final double minMeanRecall) {
+        assertRecallAtKAtLeast(guardiannSearcher(db, guardiann), queries, groundTruth, k, minMeanRecall);
+    }
+
+    /**
+     * As {@link #assertRecallAtKAtLeast(Database, Guardiann, List, List, int, double)}, but searching through
+     * {@code searcher} rather than a raw {@link Guardiann}, so an index maintained elsewhere (e.g. by a record store)
+     * can be checked the same way. A result's index is taken to be {@code (int) primaryKey.getLong(0)}, the convention
+     * of the ground-truth files.
+     *
+     * @param searcher runs a top-{@code k} search for a query vector and returns the primary keys found, best first
+     * @param queries pre-loaded query vectors (see {@link VecsDatasetLoaders#loadQueryVectors})
+     * @param groundTruth pre-loaded per-query ground-truth index sets (see
+     *        {@link VecsDatasetLoaders#loadGroundTruth}); must have the same size as {@code queries}
+     * @param k top-k to retrieve per query
+     * @param minMeanRecall floor that the mean recall must meet or exceed
+     */
+    public static void assertRecallAtKAtLeast(@Nonnull final BiFunction<RealVector, Integer, List<Tuple>> searcher,
+                                              @Nonnull final List<? extends RealVector> queries,
+                                              @Nonnull final List<? extends Set<Integer>> groundTruth,
+                                              final int k,
+                                              final double minMeanRecall) {
         Verify.verify(queries.size() == groundTruth.size(),
                 "queries (%s) and groundTruth (%s) must align", queries.size(), groundTruth.size());
         double sumRecall = 0.0;
@@ -445,10 +519,7 @@ class TestHelpers {
                 continue;
             }
             final RealVector q = queries.get(i);
-            final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, recallSearchConfig(),
-                            true, q).join());
-            final double recall = singleQueryRecall(truth, results);
+            final double recall = singleQueryRecall(truth, searcher.apply(q, k));
             logger.debug("assertRecallAtKAtLeast: recall@{} = {} for query {}",
                     k, String.format(Locale.ROOT, "%.4f", recall), i);
             sumRecall += recall;
@@ -467,27 +538,56 @@ class TestHelpers {
 
     /**
      * Like {@link #assertRecallAtKAtLeast} but computes ground truth on the fly from the given
-     * {@code active} map of {@code (primaryKey, vector)} entries — i.e. brute-force squared-L2
-     * top-{@code k} per query. Useful when the active set is a moving subset of the original
+     * {@code active} map of {@code (primaryKey, vector)} entries — i.e. brute-force top-{@code k}
+     * under {@code metric} per query. Useful when the active set is a moving subset of the original
      * universe (insert/delete churn) so the static {@code .ivecs} ground truth no longer applies.
      * <p>
-     * Implementation note: scoring uses {@link RealVector#l2SquaredDistance} for ordering — the
-     * monotonic-square shortcut to skip a {@code sqrt} that the Euclidean estimator would just
-     * undo. Results are compared with the kNN search via {@link #singleQueryRecall} (deduplicated
-     * set intersection) so the threshold is comparable to the static-truth helper.
+     * Implementation note: for a Euclidean index pass {@link Metric#EUCLIDEAN_SQUARE_METRIC} — the
+     * monotonic-square shortcut to skip a {@code sqrt} that would not change the ordering. Results
+     * are compared with the kNN search via {@link #singleQueryRecall} (deduplicated set
+     * intersection) so the threshold is comparable to the static-truth helper.
      *
+     * @param db the database
+     * @param guardiann the structure to search
+     * @param metric the metric the brute-force ground truth ranks {@code active} by
      * @param queries query vectors to score against
      * @param active the current active set, keyed by {@link Tuple} primary key
      * @param k top-k to retrieve from both brute force and the index
      * @param minMeanRecall floor that the mean recall must meet or exceed
      * @return the observed mean recall (for logging/assertions in the caller)
      */
-    static double assertRecallAtKAtLeastDynamic(@Nonnull final Database db,
-                                                @Nonnull final Guardiann guardiann,
-                                                @Nonnull final List<? extends RealVector> queries,
-                                                @Nonnull final Map<Tuple, ? extends RealVector> active,
-                                                final int k,
-                                                final double minMeanRecall) {
+    public static double assertRecallAtKAtLeastDynamic(@Nonnull final Database db,
+                                                       @Nonnull final Guardiann guardiann,
+                                                       @Nonnull final Metric metric,
+                                                       @Nonnull final List<? extends RealVector> queries,
+                                                       @Nonnull final Map<Tuple, ? extends RealVector> active,
+                                                       final int k,
+                                                       final double minMeanRecall) {
+        return assertRecallAtKAtLeastDynamic(guardiannSearcher(db, guardiann), metric, queries, active, k,
+                minMeanRecall);
+    }
+
+    /**
+     * As {@link #assertRecallAtKAtLeastDynamic(Database, Guardiann, Metric, List, Map, int, double)}, but searching
+     * through {@code searcher} rather than a raw {@link Guardiann}, so an index maintained elsewhere (e.g. by a record
+     * store) can be checked the same way. The primary keys in {@code active} and those {@code searcher} returns are
+     * matched as {@code (int) primaryKey.getLong(0)}.
+     *
+     * @param searcher runs a top-{@code k} search for a query vector and returns the primary keys found, best first
+     * @param metric the metric the brute-force ground truth ranks {@code active} by
+     * @param queries query vectors to score against
+     * @param active the current active set, keyed by {@link Tuple} primary key
+     * @param k top-k to retrieve from both brute force and the index
+     * @param minMeanRecall floor that the mean recall must meet or exceed
+     * @return the observed mean recall (for logging/assertions in the caller)
+     */
+    public static double assertRecallAtKAtLeastDynamic(
+            @Nonnull final BiFunction<RealVector, Integer, List<Tuple>> searcher,
+            @Nonnull final Metric metric,
+            @Nonnull final List<? extends RealVector> queries,
+            @Nonnull final Map<Tuple, ? extends RealVector> active,
+            final int k,
+            final double minMeanRecall) {
         Verify.verify(active.size() >= k,
                 "active set (%s) must have at least k=%s entries for a meaningful recall check",
                 active.size(), k);
@@ -495,14 +595,11 @@ class TestHelpers {
         int countedQueries = 0;
         for (int i = 0; i < queries.size(); i++) {
             final RealVector query = queries.get(i);
-            final Set<Integer> truth = bruteForceTopKByEuclidean(query, active, k);
+            final Set<Integer> truth = bruteForceTopK(metric, query, active, k);
             if (truth.isEmpty()) {
                 continue;
             }
-            final List<? extends ResultEntry> results =
-                    db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, recallSearchConfig(),
-                            true, query).join());
-            final double recall = singleQueryRecall(truth, results);
+            final double recall = singleQueryRecall(truth, searcher.apply(query, k));
             logger.debug("assertRecallAtKAtLeastDynamic: recall@{} = {} for query {}",
                     k, String.format(Locale.ROOT, "%.4f", recall), i);
             sumRecall += recall;
@@ -534,7 +631,7 @@ class TestHelpers {
      * @return up to {@code count} elements of {@code items} in a deterministic, seed-dependent order
      */
     @Nonnull
-    static <T> List<T> deterministicSample(@Nonnull final List<T> items, final long seed, final int count) {
+    public static <T> List<T> deterministicSample(@Nonnull final List<T> items, final long seed, final int count) {
         if (items.size() <= count) {
             return items;
         }
@@ -571,11 +668,11 @@ class TestHelpers {
      * @param minMeanQuality floor that the mean quality must meet or exceed
      * @return the observed mean quality, or {@link Double#NaN} if the check was skipped
      */
-    static double assertOrderedByDistanceQualityAtLeast(@Nonnull final Database db,
-                                                        @Nonnull final Guardiann guardiann,
-                                                        @Nonnull final List<? extends RealVector> queries,
-                                                        final int indexSize,
-                                                        final double minMeanQuality) {
+    public static double assertOrderedByDistanceQualityAtLeast(@Nonnull final Database db,
+                                                               @Nonnull final Guardiann guardiann,
+                                                               @Nonnull final List<? extends RealVector> queries,
+                                                               final int indexSize,
+                                                               final double minMeanQuality) {
         if (indexSize > MAX_ORDERED_BY_DISTANCE_INDEX_SIZE) {
             logger.info("skipping searchOrderedByDistance quality check: indexSize={} exceeds the "
                     + "single-transaction limit {}", indexSize, MAX_ORDERED_BY_DISTANCE_INDEX_SIZE);
@@ -664,29 +761,177 @@ class TestHelpers {
     }
 
     /**
-     * Brute-force top-{@code k} primary-key indices in {@code active} by squared Euclidean
-     * distance to {@code query}. Maintains a max-heap of size {@code k} so the per-query work is
-     * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the dot products).
+     * Brute-force top-{@code k} primary-key indices in {@code active} by {@code metric} distance
+     * to {@code query}. Maintains a max-heap of size {@code k} so the per-query work is
+     * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the distances).
      * <p>
      * Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
      * convention used by {@link #singleQueryRecall} so the two are directly comparable.
      */
     @Nonnull
-    static Set<Integer> bruteForceTopKByEuclidean(@Nonnull final RealVector query,
-                                                  @Nonnull final Map<Tuple, ? extends RealVector> active,
-                                                  final int k) {
+    static Set<Integer> bruteForceTopK(@Nonnull final Metric metric,
+                                       @Nonnull final RealVector query,
+                                       @Nonnull final Map<Tuple, ? extends RealVector> active,
+                                       final int k) {
         // Local record so we don't need a top-level helper class.
         record IndexedDistance(double distance, int index) { }
 
         final TopK<IndexedDistance> topK = TopK.min(
                 Comparator.comparingDouble(IndexedDistance::distance).thenComparingInt(IndexedDistance::index), k);
         for (final Map.Entry<Tuple, ? extends RealVector> e : active.entrySet()) {
-            topK.add(new IndexedDistance(query.l2SquaredDistance(e.getValue()), (int) e.getKey().getLong(0)));
+            topK.add(new IndexedDistance(metric.distance(query, e.getValue()), (int) e.getKey().getLong(0)));
         }
         return topK.toSortedList().stream().map(IndexedDistance::index).collect(ImmutableSet.toImmutableSet());
     }
 
-    static class TestOnWriteListener implements OnWriteListener {
+    /**
+     * One step of a churn schedule: a batch of records to delete from, or to insert into, the index.
+     *
+     * @param delete {@code true} if {@code batch} is to be deleted, {@code false} if it is to be inserted
+     * @param batch the records of this step, in order
+     */
+    public record ChurnStep(boolean delete, @Nonnull List<PrimaryKeyAndVector> batch) {
+    }
+
+    /**
+     * Precomputes a random interleaving of deleting {@code a} and inserting {@code b}, in batches of
+     * {@code batchSize}, until both are exhausted. The index is expected to hold {@code a} when the schedule starts;
+     * once every step has run, it holds exactly {@code b}. While both queues still hold records each step flips a
+     * coin, drawn from a {@link SplittableRandom} seeded by {@code seed} mixed with a fixed salt, to choose between
+     * the next batch of {@code a} and the next batch of {@code b}; once one queue is empty the other is drained. The
+     * choices depend only on the seed and the queue sizes, so the schedule is reproducible per seed. The final batch
+     * taken from each queue may be smaller than {@code batchSize}.
+     *
+     * @param seed the seed for the coin flips
+     * @param a the records to delete, in order
+     * @param b the records to insert, in order
+     * @param batchSize the number of records per step
+     *
+     * @return the steps, in order
+     */
+    @Nonnull
+    public static List<ChurnStep> interleavedChurnSchedule(final long seed,
+                                                           @Nonnull final List<PrimaryKeyAndVector> a,
+                                                           @Nonnull final List<PrimaryKeyAndVector> b,
+                                                           final int batchSize) {
+        final SplittableRandom interleaveRng = new SplittableRandom(seed ^ INTERLEAVE_SEED_SALT);
+        final Deque<PrimaryKeyAndVector> deleteQueueA = new ArrayDeque<>(a);
+        final Deque<PrimaryKeyAndVector> insertQueueB = new ArrayDeque<>(b);
+        final ImmutableList.Builder<ChurnStep> schedule = ImmutableList.builder();
+        while (!deleteQueueA.isEmpty() || !insertQueueB.isEmpty()) {
+            final boolean canDelete = !deleteQueueA.isEmpty();
+            final boolean canInsert = !insertQueueB.isEmpty();
+            final boolean doDelete;
+            if (!canDelete) {
+                doDelete = false;
+            } else if (!canInsert) {
+                doDelete = true;
+            } else {
+                doDelete = interleaveRng.nextBoolean();
+            }
+
+            final Deque<PrimaryKeyAndVector> source = doDelete ? deleteQueueA : insertQueueB;
+            schedule.add(new ChurnStep(doDelete, takeUpTo(source, batchSize)));
+        }
+        return schedule.build();
+    }
+
+    /**
+     * Precomputes the batches that delete every record of {@code records} in a random order: a Fisher–Yates shuffle
+     * of a copy, driven by a {@link SplittableRandom} seeded by {@code seed} mixed with the same salt as
+     * {@link #interleavedChurnSchedule}, cut into batches of {@code batchSize}. The final batch may be smaller.
+     *
+     * @param seed the seed for the shuffle
+     * @param records the records to delete (left untouched)
+     * @param batchSize the number of records per batch
+     *
+     * @return the batches, in order
+     */
+    @Nonnull
+    public static List<List<PrimaryKeyAndVector>> shuffledDeleteBatches(final long seed,
+                                                                       @Nonnull final List<PrimaryKeyAndVector> records,
+                                                                       final int batchSize) {
+        final SplittableRandom deleteRng = new SplittableRandom(seed ^ INTERLEAVE_SEED_SALT);
+        final Deque<PrimaryKeyAndVector> deleteQueue = new ArrayDeque<>(shuffledCopy(records, deleteRng));
+        final ImmutableList.Builder<List<PrimaryKeyAndVector>> batches = ImmutableList.builder();
+        while (!deleteQueue.isEmpty()) {
+            batches.add(takeUpTo(deleteQueue, batchSize));
+        }
+        return batches.build();
+    }
+
+    /**
+     * A mutable {@code primaryKey -> vector} map over {@code records}, mirroring what is live in the index.
+     *
+     * @param records the records live in the index
+     *
+     * @return a fresh, mutable map from each record's primary key to its vector
+     */
+    @Nonnull
+    public static Map<Tuple, RealVector> activeMapOf(@Nonnull final List<PrimaryKeyAndVector> records) {
+        final Map<Tuple, RealVector> active = new HashMap<>(records.size());
+        for (final PrimaryKeyAndVector r : records) {
+            active.put(r.primaryKey(), r.vector());
+        }
+        return active;
+    }
+
+    /**
+     * Asserts that no record of {@code b} shares a primary key with a record of {@code a}.
+     *
+     * @param a the first set of records
+     * @param b the second set of records
+     */
+    public static void verifyDisjoint(@Nonnull final List<PrimaryKeyAndVector> a,
+                                      @Nonnull final List<PrimaryKeyAndVector> b) {
+        final Set<Tuple> pksA = a.stream()
+                .map(PrimaryKeyAndVector::primaryKey)
+                .collect(ImmutableSet.toImmutableSet());
+        for (final PrimaryKeyAndVector r : b) {
+            assertThat(pksA)
+                    .as("setA and setB must be disjoint by primary key")
+                    .doesNotContain(r.primaryKey());
+        }
+    }
+
+    /**
+     * Returns a freshly shuffled copy of {@code records}, using {@code rng} to drive an in-place Fisher–Yates
+     * shuffle of the copy. The input list is left untouched.
+     */
+    @Nonnull
+    private static List<PrimaryKeyAndVector> shuffledCopy(@Nonnull final List<PrimaryKeyAndVector> records,
+                                                          @Nonnull final SplittableRandom rng) {
+        final List<PrimaryKeyAndVector> copy = new ArrayList<>(records);
+        for (int i = copy.size() - 1; i > 0; i--) {
+            final int j = rng.nextInt(i + 1);
+            final PrimaryKeyAndVector tmp = copy.get(i);
+            copy.set(i, copy.get(j));
+            copy.set(j, tmp);
+        }
+        return copy;
+    }
+
+    /**
+     * Removes up to {@code batchSize} records from the front of {@code queue} and returns them. The final batch
+     * from each queue may be smaller than {@code batchSize}; all earlier batches are exactly {@code batchSize}.
+     */
+    @Nonnull
+    private static List<PrimaryKeyAndVector> takeUpTo(@Nonnull final Deque<PrimaryKeyAndVector> queue,
+                                                      final int batchSize) {
+        final int n = Math.min(batchSize, queue.size());
+        final List<PrimaryKeyAndVector> batch = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            batch.add(queue.removeFirst());
+        }
+        return batch;
+    }
+
+    /**
+     * An {@link OnWriteListener} that counts, per stack frame, the bytes written, the deferred tasks enqueued and
+     * executed by kind, and the vector-reference cleanups. {@link #basicInsertBatch} and {@link #basicDeleteBatch}
+     * push a frame per transaction, and stop a batch once a deferred task has executed in it.
+     */
+    public static class TestOnWriteListener implements OnWriteListener {
         @Nonnull
         private final ArrayDeque<Frame> frames;
 
@@ -786,7 +1031,10 @@ class TestHelpers {
         }
     }
 
-    static class TestOnReadListener implements OnReadListener {
+    /**
+     * An {@link OnReadListener} that counts, per stack frame, the bytes read.
+     */
+    public static class TestOnReadListener implements OnReadListener {
         @Nonnull
         private final ArrayDeque<AtomicLong> frames;
 
