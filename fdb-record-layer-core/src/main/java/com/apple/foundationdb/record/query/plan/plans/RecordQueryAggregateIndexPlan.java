@@ -406,7 +406,6 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                     .setToRecord(toRecord.toProto(serializationContext))
                     .setResultType(resultValue.getResultType().toTypeProto(serializationContext))
                     .setConstraint(constraint.toProto(serializationContext));
-            default -> throw new RecordCoreException("unsupported plan hash mode");
         };
         if (indexEntryToRecordValue != null) {
             builder.setIndexEntryToRecordValue(indexEntryToRecordValue.toValueProto(serializationContext));

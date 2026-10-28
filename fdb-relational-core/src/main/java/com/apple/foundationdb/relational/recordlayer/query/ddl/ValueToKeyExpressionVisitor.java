@@ -548,7 +548,7 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
                 "Unsupported index definition, expecting column or function arguments in group by");
         if (groupingExpression instanceof FunctionKeyExpression) {
             return BITMAP_BUCKET_OFFSET.equals(((FunctionKeyExpression)groupingExpression).getName())
-                   ? null : groupingExpression;
+                    ? null : groupingExpression;
         }
         final List<KeyExpression> children = ((ThenKeyExpression)groupingExpression).getChildren();
         final var last = children.get(children.size() - 1);

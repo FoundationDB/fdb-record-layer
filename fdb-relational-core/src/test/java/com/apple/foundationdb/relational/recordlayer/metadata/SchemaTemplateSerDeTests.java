@@ -817,9 +817,9 @@ public class SchemaTemplateSerDeTests {
     @Nonnull
     private static KeyExpression arrayElementsExpression(final String arrayFieldName, final boolean nullableArray) {
         return nullableArray
-               ? Key.Expressions.field(arrayFieldName)
+                ? Key.Expressions.field(arrayFieldName)
                        .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut))
-               : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
+                : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
     }
 
     @Nonnull

@@ -295,10 +295,11 @@ public class TypeConversion {
     private static Array toArray(RelationalArray relationalArray) throws SQLException {
         var arrayBuilder = Array.newBuilder();
         if (relationalArray != null) {
-            var relationalResultSet = relationalArray.getResultSet();
-            while (relationalResultSet.next()) {
-                final var value = relationalResultSet.getObject(2);
-                arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+            try (var relationalResultSet = relationalArray.getResultSet()) {
+                while (relationalResultSet.next()) {
+                    final var value = relationalResultSet.getObject(2);
+                    arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+                }
             }
         }
         return arrayBuilder.build();
@@ -757,6 +758,9 @@ public class TypeConversion {
                             throw new SQLException("Unknown vector index engine preference");
                     }
                     break;
+                case FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS:
+                    builder.setFixedEpochTimestampMillisForCurrentDatetimeFunctions(((Long)entry.getValue()).toString());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -910,6 +914,9 @@ public class TypeConversion {
                     throw new SQLException("Unknown isolation level");
             }
             builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot);
+        }
+        if (!protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions().isEmpty()) {
+            builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, Long.valueOf(protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions()));
         }
         return builder.build();
     }

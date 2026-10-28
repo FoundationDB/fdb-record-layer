@@ -172,8 +172,8 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                       (nodeKind == NodeKind.INTERMEDIATE && childSlots != null));
 
         return nodeKind == NodeKind.LEAF
-               ? new LeafNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
+                ? new LeafNode(nodeId, itemSlots)
+                : new IntermediateNode(nodeId, childSlots);
     }
 
     @Nonnull

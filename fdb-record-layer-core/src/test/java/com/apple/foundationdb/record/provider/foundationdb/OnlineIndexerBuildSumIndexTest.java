@@ -215,6 +215,12 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
         );
     }
 
+    @Nonnull
+    static Stream<Arguments> sourceIndexesRandomSeedsAndTracking() {
+        return sourceIndexesAndRandomSeeds().flatMap(args ->
+                Stream.of(false, true).map(tracking -> Arguments.of(args.get()[0], args.get()[1], tracking)));
+    }
+
     @Test
     void emptyRangeSum() {
         sumRebuild(Collections.emptyList());
@@ -272,9 +278,10 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexesAndRandomSeeds")
+    @MethodSource("sourceIndexesRandomSeedsAndTracking")
     @Tag(Tags.Slow)
-    void addWhileBuildingSum(Index sourceIndex, long seed) {
+    void addWhileBuildingSum(Index sourceIndex, long seed, boolean tracking) {
+        useWriteOnlyWithTracking = tracking;
         Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -370,9 +377,10 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexesAndRandomSeeds")
+    @MethodSource("sourceIndexesRandomSeedsAndTracking")
     @Tag(Tags.Slow)
-    public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+    public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed, boolean tracking) {
+        useWriteOnlyWithTracking = tracking;
         Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -388,9 +396,10 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexesAndRandomSeeds")
+    @MethodSource("sourceIndexesRandomSeedsAndTracking")
     @Tag(Tags.Slow)
-    public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+    public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed, boolean tracking) {
+        useWriteOnlyWithTracking = tracking;
         Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -406,9 +415,10 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexesAndRandomSeeds")
+    @MethodSource("sourceIndexesRandomSeedsAndTracking")
     @Tag(Tags.Slow)
-    public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+    public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed, boolean tracking) {
+        useWriteOnlyWithTracking = tracking;
         Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()

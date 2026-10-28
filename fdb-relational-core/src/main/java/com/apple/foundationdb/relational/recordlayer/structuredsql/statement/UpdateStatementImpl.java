@@ -598,7 +598,7 @@ public class UpdateStatementImpl implements UpdateStatement {
                                                     @Nonnull final SchemaTemplate schemaTemplate,
                                                     @Nonnull final ParseTreeInfoImpl parseTreeInfo,
                                                     @Nonnull final Map<String, List<String>> columnSynonyms) {
-            Assert.thatUnchecked(parseTreeInfo.getQueryType().equals(ParseTreeInfo.QueryType.UPDATE),
+            Assert.thatUnchecked(parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.UPDATE,
                     String.format(Locale.ROOT, "Expecting update statement, got '%s' statement", parseTreeInfo.getQueryType().name()));
             final var updateVisitor = new UpdateVisitor(relationalConnection, schemaTemplate, parseTreeInfo.getRootContext(), columnSynonyms);
             return updateVisitor.getUpdateBuilder();

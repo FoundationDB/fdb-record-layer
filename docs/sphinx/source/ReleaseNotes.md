@@ -4,6 +4,87 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-17}
+
+## 4.17
+
+{#release-4-17-1-0}
+
+### 4.17.1.0
+
+<h4> Breaking Changes </h4>
+
+* Add index state: WRITE_ONLY_WITH_TRACKING - [PR #4789](https://github.com/FoundationDB/fdb-record-layer/pull/4789)
+* Stop reading the zero_based_ordinality field of explode plans - [PR #4763](https://github.com/FoundationDB/fdb-record-layer/pull/4763)
+<h4> New Features </h4>
+
+* Implement day-time intervals and current timestamp value function - [PR #4645](https://github.com/FoundationDB/fdb-record-layer/pull/4645)
+* Drop the 0-based ordinality flag from the VC1 plan hash of explode plans - [PR #4768](https://github.com/FoundationDB/fdb-record-layer/pull/4768)
+* Honor null-on-empty for-each quantifiers outside select boxes - [PR #4489](https://github.com/FoundationDB/fdb-record-layer/pull/4489)
+* Add `RecordLayerJoinedSyntheticTable` and its metadata serialization - [PR #4737](https://github.com/FoundationDB/fdb-record-layer/pull/4737)
+<h4> Bug Fixes </h4>
+
+* Correct deserialization of `AvailableFields.ConditionalUponPathPredicate` when used with synthetic record types - [PR #4793](https://github.com/FoundationDB/fdb-record-layer/pull/4793)
+* Remove neighbor references that name a deleted node - [PR #4685](https://github.com/FoundationDB/fdb-record-layer/pull/4685)
+* Online Indexer: stop retrying an unresolvable partly-built mismatch - [PR #4454](https://github.com/FoundationDB/fdb-record-layer/pull/4454)
+* Move check on indexes that `addedVersion <= lastModifiedVersion` to `MetaDataValidator` - [PR #4766](https://github.com/FoundationDB/fdb-record-layer/pull/4766)
+* Retry Guardiann splits with k-means size balancing when no candidate is admissible - [PR #4736](https://github.com/FoundationDB/fdb-record-layer/pull/4736)
+* Make Join predicate condition necessary for Inner Joins - [PR #4747](https://github.com/FoundationDB/fdb-record-layer/pull/4747)
+<h4> Dependency Updates </h4>
+
+* Bump gRPC to 1.85.1 - [PR #4783](https://github.com/FoundationDB/fdb-record-layer/pull/4783)
+* Bump black from 26.3.1 to 26.10.1 in /scripts - [PR #4782](https://github.com/FoundationDB/fdb-record-layer/pull/4782)
+* Bump grpc from 1.84.0 to 1.84.2 - [PR #4777](https://github.com/FoundationDB/fdb-record-layer/pull/4777)
+* Constrain Guava to a consistent version via dependency constraints - [PR #4765](https://github.com/FoundationDB/fdb-record-layer/pull/4765)
+* Bump guava from 33.7.1-jre to 33.7.2-jre - [PR #4764](https://github.com/FoundationDB/fdb-record-layer/pull/4764)
+* Bump caffeine from 3.2.4 to 3.3.0 - [PR #4726](https://github.com/FoundationDB/fdb-record-layer/pull/4726)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix PMD failure introduced during merge skew - [PR #4795](https://github.com/FoundationDB/fdb-record-layer/pull/4795)
+* Update to PMD 7.28.0 - [PR #4787](https://github.com/FoundationDB/fdb-record-layer/pull/4787)
+* Update the checkstyle version in IDEA to match the version in gradle - [PR #4788](https://github.com/FoundationDB/fdb-record-layer/pull/4788)
+* Update checkstyle version to 14.3.0 - [PR #4785](https://github.com/FoundationDB/fdb-record-layer/pull/4785)
+* Constrain `jline3` modules pulled in via `sqlline` to a patched version - [PR #4784](https://github.com/FoundationDB/fdb-record-layer/pull/4784)
+* Bump org.jline:jline from 4.4.6 to 4.4.7 - [PR #4780](https://github.com/FoundationDB/fdb-record-layer/pull/4780)
+* Bump actions/upload-artifact from 7.0.1 to 7.0.2 in /actions/gradle-test - [PR #4778](https://github.com/FoundationDB/fdb-record-layer/pull/4778)
+* Add a Dependency Submission workflow to submit the resolved Gradle dependency graph to GitHub - [PR #4772](https://github.com/FoundationDB/fdb-record-layer/pull/4772)
+* Bump org.apache.httpcomponents.client5:httpclient5 from 5.6.4 to 5.6.5 - [PR #4781](https://github.com/FoundationDB/fdb-record-layer/pull/4781)
+* Bump tomli from 2.4.1 to 2.5.0 in /docs/sphinx - [PR #4775](https://github.com/FoundationDB/fdb-record-layer/pull/4775)
+* Bump markupsafe from 3.0.3 to 3.0.4 in /docs/sphinx - [PR #4774](https://github.com/FoundationDB/fdb-record-layer/pull/4774)
+* Bump gradle-wrapper from 9.8.0 to 9.8.1 - [PR #4779](https://github.com/FoundationDB/fdb-record-layer/pull/4779)
+* Bump actions/upload-artifact from 7.0.1 to 7.0.2 - [PR #4776](https://github.com/FoundationDB/fdb-record-layer/pull/4776)
+* Bump actions/download-artifact from 8.0.1 to 8.0.2 - [PR #4773](https://github.com/FoundationDB/fdb-record-layer/pull/4773)
+* Fix flaky `KMeansTest.fitPrefersRunPassingSizePredicateOverLowerObjectiveRun` - [PR #4771](https://github.com/FoundationDB/fdb-record-layer/pull/4771)
+* Bump certifi from 2026.7.22 to 2026.10.19 in /docs/sphinx - [PR #4767](https://github.com/FoundationDB/fdb-record-layer/pull/4767)
+* Publish test results when they take way too long - [PR #4710](https://github.com/FoundationDB/fdb-record-layer/pull/4710)
+* Remove unused tattletale buildscript dependency - [PR #4762](https://github.com/FoundationDB/fdb-record-layer/pull/4762)
+* Update MoreHalfTest.roundTripTest for new overflow threshold - [PR #4759](https://github.com/FoundationDB/fdb-record-layer/pull/4759)
+* Bump com.github.spotbugs from 6.5.11 to 6.5.12 - [PR #4753](https://github.com/FoundationDB/fdb-record-layer/pull/4753)
+* Bump charset-normalizer from 3.5.1 to 3.5.2 in /docs/sphinx - [PR #4754](https://github.com/FoundationDB/fdb-record-layer/pull/4754)
+* Bump cqse/teamscale-upload-action from 2.10.0 to 2.11.0 in /actions/teamscale-upload - [PR #4757](https://github.com/FoundationDB/fdb-record-layer/pull/4757)
+* Bump gradle/actions/setup-gradle from 6.3.0 to 6.4.0 in /actions/setup-base-env - [PR #4756](https://github.com/FoundationDB/fdb-record-layer/pull/4756)
+
+</details>
+
+
+**[Full Changelog (4.16.4.0...4.17.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.16.4.0...4.17.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/40686053123)
+
+
+
 {#release-4-16}
 
 ## 4.16

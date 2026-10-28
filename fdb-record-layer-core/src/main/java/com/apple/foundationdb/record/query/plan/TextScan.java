@@ -181,8 +181,8 @@ public class TextScan implements PlanHashable {
         final int prefixEntries = 1 + (prefix != null ? prefix.size() : 0);
 
         final Comparisons.Type comparisonType = textComparison.getType();
-        if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PREFIX) || (tokenList.size() == 1 && (
-                comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL_PREFIXES) || comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX)))) {
+        if (comparisonType == Comparisons.Type.TEXT_CONTAINS_PREFIX || (tokenList.size() == 1 && (
+                comparisonType == Comparisons.Type.TEXT_CONTAINS_ALL_PREFIXES || comparisonType == Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX))) {
             if (tokenList.size() != 1) {
                 throw new RecordCoreException("text prefix comparison included " + tokenList.size() + " comparands instead of one");
             }
@@ -193,7 +193,7 @@ public class TextScan implements PlanHashable {
             // plans throw an error when there are fewer than two children, so this special case
             // is necessary, not just nice to have.
             return scanToken(store, tokenList.get(0), prefix, suffix, index, scanProperties).apply(continuation);
-        } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL)) {
+        } else if (comparisonType == Comparisons.Type.TEXT_CONTAINS_ALL) {
             // Take the intersection of all children. Note that to handle skip and the returned row limit correctly,
             // the skip and limit are both removed and then applied later.
             final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
@@ -203,7 +203,7 @@ public class TextScan implements PlanHashable {
             return IntersectionCursor.create(suffixComparisonKeyFunction(prefixEntries), scanProperties.isReverse(), intersectionChildren, continuation, store.getTimer())
                     .skip(scanProperties.getExecuteProperties().getSkip())
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
-        } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL_PREFIXES)) {
+        } else if (comparisonType == Comparisons.Type.TEXT_CONTAINS_ALL_PREFIXES) {
             final Comparisons.TextContainsAllPrefixesComparison allPrefixesComparison = (Comparisons.TextContainsAllPrefixesComparison)textComparison;
             final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
             List<Function<byte[], RecordCursor<IndexEntry>>> intersectionChildren = tokenList.stream()
@@ -216,7 +216,7 @@ public class TextScan implements PlanHashable {
                     )
                     .skip(scanProperties.getExecuteProperties().getSkip())
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
-        } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ANY)) {
+        } else if (comparisonType == Comparisons.Type.TEXT_CONTAINS_ANY) {
             // Take the union of all children. Note that to handle skip and the returned row limit correctly,
             // the skip is removed from the children and applied to the returned cursor. Also, the limit
             // is adjusted upwards and then must be applied again to returned union.
@@ -227,7 +227,7 @@ public class TextScan implements PlanHashable {
             return UnionCursor.create(suffixComparisonKeyFunction(prefixEntries), scanProperties.isReverse(), unionChildren, continuation, store.getTimer())
                     .skip(scanProperties.getExecuteProperties().getSkip())
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
-        } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX)) {
+        } else if (comparisonType == Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX) {
             final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndAdjustLimit);
             List<Function<byte[], RecordCursor<IndexEntry>>> unionChildren = tokenList.stream()
                     .map(token -> scanTokenPrefix(store, token, prefix, suffix, index, childScanProperties))
@@ -238,10 +238,10 @@ public class TextScan implements PlanHashable {
         } else {
             // Apply the filter based on the position lists
             final Function<List<IndexEntry>, Boolean> predicate;
-            if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL_WITHIN) && textComparison instanceof Comparisons.TextWithMaxDistanceComparison) {
+            if (comparisonType == Comparisons.Type.TEXT_CONTAINS_ALL_WITHIN && textComparison instanceof Comparisons.TextWithMaxDistanceComparison) {
                 int maxDistance = ((Comparisons.TextWithMaxDistanceComparison)textComparison).getMaxDistance();
                 predicate = entries -> entriesContainAllWithin(entries, maxDistance);
-            } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PHRASE)) {
+            } else if (comparisonType == Comparisons.Type.TEXT_CONTAINS_PHRASE) {
                 List<String> tokensWithStopWords = getTokenList(store, context, false);
                 predicate = entries -> entriesContainPhrase(entries, tokensWithStopWords);
             } else {

@@ -60,6 +60,7 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      * @return a future that when complete will hold <code>true</code> if {@link #next()} would return a record.
      * @see com.apple.foundationdb.async.AsyncIterator#onHasNext()
      */
+    @SuppressWarnings("PMD.UnusedAssignment") // false positive: mayGetContinuation is a field observed while the async future is pending
     @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {

@@ -242,7 +242,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         public void writeField(FieldInfo info, IndexableField field) throws IOException {
             inner.writeField(info, field);
             try {
-                if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+                if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(info.name)) {
                     final byte[] primaryKey = field.binaryValue().bytes;
                     addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, segmentName);
                 }
@@ -353,7 +353,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
 
         @Override
         public Status needsField(final FieldInfo fieldInfo) {
-            if (fieldInfo.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(fieldInfo.name)) {
                 return Status.YES;
             } else if (primaryKey != null) {
                 return Status.STOP;
@@ -364,7 +364,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
 
         @Override
         public void binaryField(final FieldInfo fieldInfo, final byte[] value) {
-            if (fieldInfo.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(fieldInfo.name)) {
                 primaryKey = value;
             }
         }

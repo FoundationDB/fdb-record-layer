@@ -179,7 +179,7 @@ public class Reference implements Correlated<Reference>, Typed {
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
         this.propertiesMap = plannerStage.createPropertiesMap();
-        finalExpressions.forEach(finalExpression -> propertiesMap.add(finalExpression));
+        finalExpressions.forEach(propertiesMap::add);
         this.allMembersView = exploratoryMembers.concatExpressions(finalMembers);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);

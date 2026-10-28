@@ -77,9 +77,9 @@ public class ValueRange<T> {
         }
         ValueRange<?> that = (ValueRange<?>)o;
         return Objects.equals(low, that.low) &&
-               Objects.equals(high, that.high) &&
-               lowEndpoint == that.lowEndpoint &&
-               highEndpoint == that.highEndpoint;
+                Objects.equals(high, that.high) &&
+                lowEndpoint == that.lowEndpoint &&
+                highEndpoint == that.highEndpoint;
     }
 
     @Override
@@ -90,6 +90,6 @@ public class ValueRange<T> {
     @Override
     public String toString() {
         return lowEndpoint.toString(false) + low +
-               "," + high + highEndpoint.toString(true);
+                "," + high + highEndpoint.toString(true);
     }
 }

@@ -357,8 +357,8 @@ class Primitives {
 
         final Config config = getConfig();
         return config.useRaBitQ()
-               ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
-               : Quantizer.noOpQuantizer(config.metric());
+                ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
+                : Quantizer.noOpQuantizer(config.metric());
     }
 
     /**
@@ -1607,8 +1607,8 @@ class Primitives {
         // both of them are replicated vector references -- take the one with the higher
         // replication priority
         return oldVectorReference.replicationPriority() > vectorReference.replicationPriority()
-               ? oldVectorReference
-               : vectorReference;
+                ? oldVectorReference
+                : vectorReference;
     }
 
     /**

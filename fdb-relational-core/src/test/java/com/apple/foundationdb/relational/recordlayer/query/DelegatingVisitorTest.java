@@ -82,6 +82,9 @@ public class DelegatingVisitorTest {
                 .build();
     }
 
+    @Nonnull
+    private static final QueryEvaluationConstants evaluationConstants = QueryEvaluationConstants.empty();
+
     /**
      * Generic test helper for visitor methods that return Object or void.
      *
@@ -120,7 +123,7 @@ public class DelegatingVisitorTest {
 
     private BaseVisitor createBaseVisitor(String query, AtomicBoolean called) {
         return new BaseVisitor(
-                new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                 generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE,
                 URI.create("/FDB/FRL1"), false);
     }
@@ -130,7 +133,7 @@ public class DelegatingVisitorTest {
         testSimple("X BETWEEN 32 AND 43",
                 RelationalParser::expression,
                 (visitor, ctx) -> visitor.visitPredicatedExpression((RelationalParser.PredicatedExpressionContext) ctx),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -146,7 +149,7 @@ public class DelegatingVisitorTest {
         testSimple("X[42]",
                 RelationalParser::expressionAtom,
                 (visitor, ctx) -> visitor.visitSubscriptExpression((RelationalParser.SubscriptExpressionContext) ctx),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
@@ -160,7 +163,7 @@ public class DelegatingVisitorTest {
     void visitUserDefinedMacroFunctionStatementBodyTest() {
         final var query = "AS testIdentifier";
         final AtomicBoolean called = new AtomicBoolean(false);
-        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                 generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
             @Nonnull
             @Override
@@ -183,7 +186,7 @@ public class DelegatingVisitorTest {
         testSimple("fake query",
                 RelationalParser::userDefinedScalarFunctionName,
                 (visitor, ctx) -> Assertions.assertThat(visitor.visitUserDefinedScalarFunctionName(ctx)).isEqualTo("testFunction"),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -204,7 +207,7 @@ public class DelegatingVisitorTest {
         testSimple(query,
                 RelationalParser::traversalOrderClause,
                 DelegatingVisitor::visitTraversalOrderClause,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitTraversalOrderClause(RelationalParser.TraversalOrderClauseContext ctx) {
@@ -221,7 +224,7 @@ public class DelegatingVisitorTest {
         testSimple("VIEW V AS SELECT * FROM T",
                 RelationalParser::viewDefinition,
                 DelegatingVisitor::visitViewDefinition,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitViewDefinition(RelationalParser.ViewDefinitionContext ctx) {
@@ -236,7 +239,7 @@ public class DelegatingVisitorTest {
         testSimple("STORED QUERY q AS SELECT * FROM table1",
                 RelationalParser::storedQueryDefinition,
                 DelegatingVisitor::visitStoredQueryDefinition,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryDefinition(RelationalParser.StoredQueryDefinitionContext ctx) {
@@ -251,7 +254,7 @@ public class DelegatingVisitorTest {
         testSimple("DECLARE FUNCTION f() AS (SELECT 1)",
                 RelationalParser::declareBlock,
                 DelegatingVisitor::visitDeclareBlock,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitDeclareBlock(RelationalParser.DeclareBlockContext ctx) {
@@ -266,7 +269,7 @@ public class DelegatingVisitorTest {
         testSimple("FUNCTION f() AS (SELECT 1)",
                 RelationalParser::declaredFunction,
                 DelegatingVisitor::visitDeclaredFunction,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitDeclaredFunction(RelationalParser.DeclaredFunctionContext ctx) {
@@ -281,7 +284,7 @@ public class DelegatingVisitorTest {
         testSimple("myFunction(123)",
                 RelationalParser::functionCall,
                 (visitor, ctx) -> visitor.visitUserDefinedScalarFunctionCall((RelationalParser.UserDefinedScalarFunctionCallContext) ctx),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -297,7 +300,7 @@ public class DelegatingVisitorTest {
         testSimple("OPTIONS (LEGACY_EXTREMUM_EVER)",
                 RelationalParser::indexOptions,
                 DelegatingVisitor::visitIndexOptions,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitIndexOptions(@Nonnull RelationalParser.IndexOptionsContext ctx) {
@@ -312,7 +315,7 @@ public class DelegatingVisitorTest {
         testSimple("LEGACY_EXTREMUM_EVER",
                 RelationalParser::indexOption,
                 DelegatingVisitor::visitIndexOption,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitIndexOption(@Nonnull RelationalParser.IndexOptionContext ctx) {
@@ -327,7 +330,7 @@ public class DelegatingVisitorTest {
         testSimple("OPTIONS (NOCACHE)",
                 RelationalParser::statementOptions,
                 DelegatingVisitor::visitStatementOptions,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
@@ -342,7 +345,7 @@ public class DelegatingVisitorTest {
         testSimple("NOCACHE",
                 RelationalParser::statementOption,
                 DelegatingVisitor::visitStatementOption,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
@@ -361,7 +364,7 @@ public class DelegatingVisitorTest {
                     Assertions.assertThat(ctx).isInstanceOf(RelationalParser.VectorIndexDefinitionContext.class);
                     visitor.visitVectorIndexDefinition((RelationalParser.VectorIndexDefinitionContext) ctx);
                 },
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -381,7 +384,7 @@ public class DelegatingVisitorTest {
                     Assertions.assertThat(ctx).isInstanceOf(RelationalParser.PartitionClauseContext.class);
                     visitor.visitPartitionClause(ctx);
                 },
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -397,7 +400,7 @@ public class DelegatingVisitorTest {
         testSimple("(col1, col2)",
                 RelationalParser::indexColumnList,
                 DelegatingVisitor::visitIndexColumnList,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -413,7 +416,7 @@ public class DelegatingVisitorTest {
         testSimple("INCLUDE (col1, col2)",
                 RelationalParser::includeClause,
                 DelegatingVisitor::visitIncludeClause,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -433,7 +436,7 @@ public class DelegatingVisitorTest {
                     Assertions.assertThat(ctx).isInstanceOf(RelationalParser.IndexOnSourceDefinitionContext.class);
                     visitor.visitIndexOnSourceDefinition((RelationalParser.IndexOnSourceDefinitionContext) ctx);
                 },
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -449,7 +452,7 @@ public class DelegatingVisitorTest {
         testSimple("UNIQUE",
                 RelationalParser::indexType,
                 DelegatingVisitor::visitIndexType,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitIndexType(@Nonnull RelationalParser.IndexTypeContext ctx) {
@@ -464,7 +467,7 @@ public class DelegatingVisitorTest {
         testSimple("col1 ASC",
                 RelationalParser::indexColumnSpec,
                 DelegatingVisitor::visitIndexColumnSpec,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -484,7 +487,7 @@ public class DelegatingVisitorTest {
                     Assertions.assertThat(ctx).isInstanceOf(RelationalParser.IndexAsSelectDefinitionContext.class);
                     visitor.visitIndexAsSelectDefinition((RelationalParser.IndexAsSelectDefinitionContext) ctx);
                 },
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -500,7 +503,7 @@ public class DelegatingVisitorTest {
         testSimple("ASC NULLS FIRST",
                 RelationalParser::orderClause,
                 DelegatingVisitor::visitOrderClause,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitOrderClause(@Nonnull RelationalParser.OrderClauseContext ctx) {
@@ -515,7 +518,7 @@ public class DelegatingVisitorTest {
         testSimple("OPTIONS (EF_CONSTRUCTION = 100)",
                 RelationalParser::vectorIndexOptions,
                 DelegatingVisitor::visitVectorIndexOptions,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitVectorIndexOptions(@Nonnull RelationalParser.VectorIndexOptionsContext ctx) {
@@ -530,7 +533,7 @@ public class DelegatingVisitorTest {
         testSimple("EUCLIDEAN_METRIC",
                 RelationalParser::hnswMetric,
                 DelegatingVisitor::visitHnswMetric,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitHnswMetric(@Nonnull RelationalParser.HnswMetricContext ctx) {
@@ -545,7 +548,7 @@ public class DelegatingVisitorTest {
         testSimple("GUARDIANN",
                 RelationalParser::vectorEngine,
                 DelegatingVisitor::visitVectorEngine,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitVectorEngine(@Nonnull RelationalParser.VectorEngineContext ctx) {
@@ -560,7 +563,7 @@ public class DelegatingVisitorTest {
         testSimple("16",
                 RelationalParser::vectorIndexOptionValue,
                 DelegatingVisitor::visitVectorIndexOptionValue,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitVectorIndexOptionValue(@Nonnull RelationalParser.VectorIndexOptionValueContext ctx) {
@@ -575,7 +578,7 @@ public class DelegatingVisitorTest {
         testSimple("EF_CONSTRUCTION = 100",
                 RelationalParser::vectorIndexOption,
                 DelegatingVisitor::visitVectorIndexOption,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitVectorIndexOption(@Nonnull RelationalParser.VectorIndexOptionContext ctx) {
@@ -590,7 +593,7 @@ public class DelegatingVisitorTest {
         testSimple("PARTITION BY (col1)",
                 RelationalParser::indexPartitionClause,
                 DelegatingVisitor::visitIndexPartitionClause,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitIndexPartitionClause(@Nonnull RelationalParser.IndexPartitionClauseContext ctx) {
@@ -605,7 +608,7 @@ public class DelegatingVisitorTest {
         testSimple("OPTIONS (ef_search = 100)",
                 RelationalParser::windowOptionsClause,
                 DelegatingVisitor::visitWindowOptionsClause,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -621,7 +624,7 @@ public class DelegatingVisitorTest {
         testSimple("ef_search = 100",
                 RelationalParser::windowOption,
                 DelegatingVisitor::visitWindowOption,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -637,7 +640,7 @@ public class DelegatingVisitorTest {
         testSimple("(PARTITION BY col1 ORDER BY col2)",
                 RelationalParser::windowSpec,
                 DelegatingVisitor::visitWindowSpec,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitWindowSpec(@Nonnull RelationalParser.WindowSpecContext ctx) {
@@ -652,7 +655,7 @@ public class DelegatingVisitorTest {
         testSimple("ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)",
                 RelationalParser::functionCall,
                 (visitor, ctx) -> visitor.visitNonAggregateFunctionCall((RelationalParser.NonAggregateFunctionCallContext) ctx),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -671,7 +674,7 @@ public class DelegatingVisitorTest {
         testSimple("IGNORE NULLS",
                 RelationalParser::nullTreatmentClause,
                 (visitor, ctx) -> Assertions.assertThat(visitor.visitNullTreatmentClause(ctx)).isTrue(),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -690,7 +693,7 @@ public class DelegatingVisitorTest {
         testSimple("LIMIT 42",
                 RelationalParser::aggregateLimitClause,
                 (visitor, ctx) -> Assertions.assertThat(visitor.visitAggregateLimitClause(ctx)).isEqualTo(42),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -709,7 +712,7 @@ public class DelegatingVisitorTest {
         testSimple("LEFT",
                 RelationalParser::functionNameKeyword,
                 DelegatingVisitor::visitFunctionNameKeyword,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nonnull
                     @Override
@@ -755,7 +758,7 @@ public class DelegatingVisitorTest {
                                 .build())
                 .build();
         final AtomicBoolean called = new AtomicBoolean(false);
-        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                 schemaTemplate, NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
             @Nullable
             @Override
@@ -786,7 +789,7 @@ public class DelegatingVisitorTest {
         testSimple("CROSS JOIN table1",
                 RelationalParser::joinPart,
                 (visitor, ctx) -> visitor.visitCrossJoin((RelationalParser.CrossJoinContext)ctx),
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Nullable
                     @Override
@@ -852,7 +855,7 @@ public class DelegatingVisitorTest {
     void visitNamedOrUnnamedFunctionArgs() {
         final var query = "1, 2, 3";
         final AtomicBoolean called = new AtomicBoolean(false);
-        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                 generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
             @Nonnull
             @Override
@@ -867,5 +870,117 @@ public class DelegatingVisitorTest {
         final var result = delegatingVisitor.visitNamedOrUnnamedFunctionArgs(routineBodyContext);
         Assertions.assertThat(result.getSingleItem().getUnderlying()).isEqualTo(LiteralValue.ofScalar(42));
         Assertions.assertThat(called.get()).isTrue();
+    }
+
+    @Test
+    void visitDatetimeValueFunctionCallTest() {
+        testSimple("CURRENT_TIMESTAMP()",
+                RelationalParser::functionCall,
+                (visitor, ctx) -> visitor.visitDatetimeValueFunctionCall((RelationalParser.DatetimeValueFunctionCallContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitDatetimeValueFunctionCall(@Nonnull RelationalParser.DatetimeValueFunctionCallContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDatetimeValueFunctionTest() {
+        testSimple("CURRENT_TIMESTAMP",
+                RelationalParser::datetimeValueFunction,
+                DelegatingVisitor::visitDatetimeValueFunction,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitDatetimeValueFunction(@Nonnull RelationalParser.DatetimeValueFunctionContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDatetimePlusMinusIntervalExpressionTest() {
+        testSimple("CURRENT_TIMESTAMP() + INTERVAL '1' DAY",
+                RelationalParser::datetimeIntervalMathExpression,
+                (visitor, ctx) -> visitor.visitDatetimePlusMinusIntervalExpression((RelationalParser.DatetimePlusMinusIntervalExpressionContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitDatetimePlusMinusIntervalExpression(@Nonnull RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitIntervalPlusDatetimeExpressionTest() {
+        testSimple("INTERVAL '1' DAY + CURRENT_TIMESTAMP()",
+                RelationalParser::datetimeIntervalMathExpression,
+                (visitor, ctx) -> visitor.visitIntervalPlusDatetimeExpression((RelationalParser.IntervalPlusDatetimeExpressionContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitIntervalPlusDatetimeExpression(@Nonnull RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitIntervalLiteralTest() {
+        testSimple("INTERVAL '1' DAY",
+                RelationalParser::intervalLiteral,
+                DelegatingVisitor::visitIntervalLiteral,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitIntervalLiteral(@Nonnull RelationalParser.IntervalLiteralContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDayTimeIntervalQualifierTest() {
+        testSimple("DAY TO SECOND",
+                RelationalParser::intervalQualifier,
+                (visitor, ctx) -> visitor.visitDayTimeIntervalQualifier((RelationalParser.DayTimeIntervalQualifierContext)ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitDayTimeIntervalQualifier(@Nonnull RelationalParser.DayTimeIntervalQualifierContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    @Test
+    void visitDayTimeIntervalFieldTest() {
+        testSimple("SECOND",
+                RelationalParser::dayTimeIntervalField,
+                DelegatingVisitor::visitDayTimeIntervalField,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Object visitDayTimeIntervalField(@Nonnull RelationalParser.DayTimeIntervalFieldContext ctx) {
+                        called.set(true);
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
     }
 }

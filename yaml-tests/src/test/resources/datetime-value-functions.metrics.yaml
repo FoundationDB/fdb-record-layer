@@ -1,0 +1,92 @@
+basic-sql-function-tests:
+-   query: EXPLAIN select col1 from t1 where timestamp > CURRENT_TIMESTAMP()
+    ref: datetime-value-functions.yamsql:55
+    explain: 'COVERING(I1 [[GREATER_THAN current_timestamp(@__evaluation_timestamp)]]
+        -> [COL1: KEY:[2], TIMESTAMP: KEY:[0]]) | MAP (_.COL1 AS COL1)'
+    task_count: 307
+    task_total_time_ms: 41
+    transform_count: 87
+    transform_time_ms: 18
+    transform_yield_count: 25
+    insert_time_ms: 1
+    insert_new_count: 29
+    insert_reused_count: 2
+-   query: EXPLAIN select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL
+        '10' DAY
+    ref: datetime-value-functions.yamsql:59
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp)
+        - @c12 | MAP (_.COL1 AS COL1)
+    task_count: 208
+    task_total_time_ms: 11
+    transform_count: 61
+    transform_time_ms: 5
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN select * from f1
+    ref: datetime-value-functions.yamsql:75
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp)
+        - 864000000l | MAP (_.COL1 AS COL1)
+    task_count: 231
+    task_total_time_ms: 29
+    transform_count: 66
+    transform_time_ms: 14
+    transform_yield_count: 19
+    insert_time_ms: 2
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN select * from f2
+    setup:
+    - create temporary function f2 () on commit drop function as select col1 from
+        t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL '10' DAY
+    ref: datetime-value-functions.yamsql:80
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp)
+        - @cF223 | MAP (_.COL1 AS COL1)
+    task_count: 231
+    task_total_time_ms: 13
+    transform_count: 66
+    transform_time_ms: 7
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN select col1 from t1 where timestamp > yesterday()
+    ref: datetime-value-functions.yamsql:84
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp)
+        - 86400000l | MAP (_.COL1 AS COL1)
+    task_count: 208
+    task_total_time_ms: 29
+    transform_count: 61
+    transform_time_ms: 17
+    transform_yield_count: 17
+    insert_time_ms: 2
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN select col1 from t1 where timestamp > yesterday_temp()
+    setup:
+    - create temporary function yesterday_temp () on commit drop function as CURRENT_TIMESTAMP()
+        - INTERVAL '1' DAY
+    ref: datetime-value-functions.yamsql:89
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp(@__evaluation_timestamp)
+        - 86400000l | MAP (_.COL1 AS COL1)
+    task_count: 208
+    task_total_time_ms: 11
+    transform_count: 61
+    transform_time_ms: 6
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN select col1 from t1 where timestamp < INTERVAL '1' DAY + NOW
+    ref: datetime-value-functions.yamsql:93
+    explain: SCAN([IS T1]) | FILTER _.TIMESTAMP LESS_THAN @c8 + current_timestamp(@__evaluation_timestamp)
+        | MAP (_.COL1 AS COL1)
+    task_count: 208
+    task_total_time_ms: 13
+    transform_count: 61
+    transform_time_ms: 7
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2

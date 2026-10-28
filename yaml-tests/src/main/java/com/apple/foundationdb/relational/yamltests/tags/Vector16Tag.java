@@ -40,7 +40,7 @@ public final class Vector16Tag extends AbstractVectorTag {
         @Override
         @Nonnull
         public Matchable construct(Node node) {
-            return new VectorMatcher<HalfRealVector>(node, 16);
+            return new VectorMatcher(node, 16, HalfRealVector.class);
         }
     };
 

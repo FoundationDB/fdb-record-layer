@@ -92,6 +92,7 @@ import com.apple.foundationdb.record.provider.foundationdb.concurrency.NoOpConcu
 import com.apple.foundationdb.record.provider.foundationdb.concurrency.StoreConcurrencyManager;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackingTable;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheEntry;
@@ -119,6 +120,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
@@ -644,14 +646,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nullable
     private FDBRecordVersion recordVersionForSave(@Nonnull RecordMetaData metaData, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
-        if (behavior.equals(VersionstampSaveBehavior.NO_VERSION)) {
+        if (behavior == VersionstampSaveBehavior.NO_VERSION) {
             if (version != null) {
                 throw recordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
             }
             return null;
-        } else if (behavior.equals(VersionstampSaveBehavior.IF_PRESENT)) {
+        } else if (behavior == VersionstampSaveBehavior.IF_PRESENT) {
             return version;
-        } else if (version == null && (behavior.equals(VersionstampSaveBehavior.WITH_VERSION) || metaData.isStoreRecordVersions())) {
+        } else if (version == null && (behavior == VersionstampSaveBehavior.WITH_VERSION || metaData.isStoreRecordVersions())) {
             return FDBRecordVersion.incomplete(context.claimLocalVersion());
         }
         return version;
@@ -818,6 +820,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
                     break;
 
+                case WRITE_ONLY_WITH_TRACKING:
+                    // Inserts are always indexed and tracked, so that the indexer will skip them. Updates and deletes
+                    // consult the tracking table and (if not tracked) the range set, both with conflicts. An update of a
+                    // record that is not indexed yet indexes and tracks it.
+                    future = updateWhileWriteOnlyWithTracking(index, maintainer, oldRecord, newRecord);
+                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_INDEXES_UPDATED, index.getName());
+                    break;
+
                 case WRITE_ONLY:
                     // The index is still being built. For some index
                     // types, the index update needs to check whether indexing
@@ -842,6 +852,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 futures.add(future);
             }
         }
+    }
+
+    private <M extends Message> CompletableFuture<Void> updateWhileWriteOnlyWithTracking(@Nonnull final Index index,
+                                                                                 @Nonnull final IndexMaintainer maintainer,
+                                                                                 @Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                                 @Nullable final FDBIndexableRecord<M> newRecord) {
+        if (oldRecord == null) {
+            // insert: track the record and index it unconditionally, the indexer will skip it
+            IndexingTrackingTable.of(this, index).track(Verify.verifyNotNull(newRecord).getPrimaryKey());
+            return maintainer.update(null, newRecord);
+        }
+        // update/delete: a record that was neither tracked nor built by the indexer is tracked by an update (see
+        // StandardIndexMaintainer.updateWhileWriteOnly). A tracked key is not cleared on delete. A stale entry is harmless
+        // (a re-insert re-adds it and the indexer never sees a deleted record), while clearing it asynchronously could race
+        // with a re-insert in the same transaction.
+        return maintainer.updateWhileWriteOnly(oldRecord, newRecord);
     }
 
     @API(API.Status.EXPERIMENTAL)
@@ -2898,7 +2924,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return false;
         } else {
             final FDBRecordStoreKeyspace keyspace = determineRecordStoreKeyspace(firstKey, subspaceProvider, context);
-            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.equals(keyspace)) {
+            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE == keyspace || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE == keyspace || FDBRecordStoreKeyspace.INDEX_BUILD_SPACE == keyspace) {
                 // Allow list of acceptable key ranges for the first key. This may need to be updated as more keyspaces are added.
                 // Includes: INDEX_STATE_SPACE, INDEX_RANGE_SPACE, and INDEX_BUILD_SPACE as those contain only meta-data about the state of the
                 // index or index build but no "user data"
@@ -2995,7 +3021,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordMetaDataProto.DataStoreInfo.StoreLockState.State lockState = storeLockState.getLockState();
 
         // Check if store is fully locked (applies to all format versions)
-        if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE)) {
+        if (lockState == RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE) {
             // Allow bypass if the provided reason matches the stored reason
             if (bypassFullStoreLockReason != null && bypassFullStoreLockReason.equals(storeLockState.getReason())) {
                 // Bypass the lock - allow the store to open
@@ -3006,7 +3032,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         // All unknown states (including UNSPECIFIED) prevent opening
         if (FormatVersion.getFormatVersion(storeHeader.getFormatVersion()).isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
-            if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED)) {
+            if (lockState == RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED) {
                 throw new UnknownStoreLockStateException("Store has unknown lock state",
                         storeLockState.getUnknownFields(), subspaceProvider.logKey(), subspaceProvider);
             }
@@ -3267,8 +3293,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
-        return markIndexWriteOnly(index)
-                .thenRun(() -> clearIndexData(index));
+        return clearAndMarkIndexWriteOnly(index, IndexState.WRITE_ONLY);
     }
 
     /**
@@ -3276,10 +3301,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * index as {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
+     * @see #clearAndMarkIndexWriteOnly(Index, IndexState)
      */
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(@Nonnull Index index) {
-        return markIndexWriteOnlyWithQueue(index)
+        return clearAndMarkIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_QUEUE);
+    }
+
+    /**
+     * Prepare an index for rebuilding by clearing any existing data and marking the index with the given write-only state.
+     * @param index the index to build
+     * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
+     * @return a future that completes when the index has been cleared and marked for building
+     * @throws RecordCoreArgumentException if the given state is not a write-only state
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index, @Nonnull IndexState writeOnlyState) {
+        return markIndexWriteOnly(index.getName(), writeOnlyState, true)
                 .thenRun(() -> clearIndexData(index));
     }
 
@@ -3769,9 +3807,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Boolean> markIndexNotReadable(@Nonnull String indexName, @Nonnull IndexState indexState) {
+    private CompletableFuture<Boolean> markIndexNotReadable(@Nonnull String indexName, @Nonnull IndexState indexState,
+                                                            final boolean clearingIndexData) {
         if (recordStoreStateRef.get() == null) {
-            return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexNotReadable(indexName, indexState));
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexNotReadable(indexName, indexState, clearingIndexData));
         }
 
         addIndexStateReadConflict(indexName);
@@ -3801,6 +3840,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         return true;
                     });
                 } else if (!Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
+                    if (!clearingIndexData && indexState.isWriteOnly() &&
+                            IndexState.fromCode(Tuple.fromBytes(previous).get(0)).isWriteOnlyWithTracking()) {
+                        // The records that user I/O has indexed (and tracked) would be indexed again by the indexer
+                        throw new RecordCoreException("Cannot change a write-only-with-tracking index to another write-only state without clearing it",
+                                LogMessageKeys.INDEX_NAME, indexName,
+                                LogMessageKeys.INDEX_STATE, indexState);
+                    }
                     updateIndexState(indexName, indexKey, indexState);
                     return AsyncUtil.READY_TRUE;
                 } else {
@@ -3830,7 +3876,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName) {
-        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY);
+        return markIndexWriteOnly(indexName, IndexState.WRITE_ONLY);
     }
 
     /**
@@ -3848,29 +3894,71 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
-     * See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is the target
-     * state is {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     * Adds the index of the given name to the list of write-only indexes stored within the store, with the given
+     * write-only state. See {@link #markIndexWriteOnly(String)} for details on the mark semantics; the only difference is
+     * the target state.
      *
-     * @param indexName the name of the index to mark as write-only-with-queue
+     * @param indexName the name of the index to mark
+     * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
      * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
      * otherwise
+     * @throws RecordCoreArgumentException if the given state is not a write-only state, or if the index cannot be marked as requested.
      * @throws IllegalArgumentException if the index is not present in the meta-data
+     * @throws RecordCoreException (in the returned future) if the index is in the {@link IndexState#WRITE_ONLY_WITH_TRACKING}
+     * state, and the given state is another write-only state. Use {@link #clearAndMarkIndexWriteOnly(Index, IndexState)} instead.
      */
     @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull String indexName) {
-        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_WITH_QUEUE);
+    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName, @Nonnull IndexState writeOnlyState) {
+        return markIndexWriteOnly(indexName, writeOnlyState, false);
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName, @Nonnull IndexState writeOnlyState,
+                                                          final boolean clearingIndexData) {
+        final String throwMessage = markIndexWriteOnlyCheckTargetState(indexName, writeOnlyState);
+        if (throwMessage != null) {
+            throw new RecordCoreArgumentException(throwMessage,
+                    LogMessageKeys.INDEX_NAME, indexName,
+                    LogMessageKeys.INDEX_STATE, writeOnlyState);
+        }
+        return markIndexNotReadable(indexName, writeOnlyState, clearingIndexData);
+    }
+
+    @Nullable
+    private String markIndexWriteOnlyCheckTargetState(@Nonnull String indexName, @Nonnull IndexState state) {
+        if (!state.isWriteOnly()) {
+            return "Not a write-only index state";
+        }
+        if (state.isWriteOnlyWithQueue() && !formatVersion.isAtLeast(FormatVersion.WRITE_ONLY_WITH_QUEUE)) {
+            return "Insufficient format version for WRITE_ONLY_WITH_QUEUE";
+        }
+        if (state.isWriteOnlyWithTracking()) {
+            if (!formatVersion.isAtLeast(FormatVersion.WRITE_ONLY_WITH_TRACKING)) {
+                return "Insufficient format version for WRITE_ONLY_WITH_TRACKING";
+            }
+            final Index index = getRecordMetaData().getIndex(indexName);
+            // The indexer does not consult the tracking table of a synthetic index. An idempotent index needs no tracking, but
+            // tracking it is harmless.
+            if (getRecordMetaData().recordTypesForIndex(index).stream().anyMatch(RecordType::isSynthetic)) {
+                return "A synthetic index cannot be marked WRITE_ONLY_WITH_TRACKING";
+            }
+        }
+        return null;
     }
 
     /**
-     * Adds the given index to the list of write-only-with-queue indexes stored within the store.
-     * @param index the index to mark as write-only-with-queue
-     * @return a future that will contain <code>true</code> if the store was modified and
-     * <code>false</code> otherwise
+     * Adds the given index to the list of write-only indexes stored within the store, with the given write-only state.
+     * See {@link #markIndexWriteOnly(String, IndexState)} for more details.
+     *
+     * @param index the index to mark
+     * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
+     * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     * @throws RecordCoreArgumentException if the given state is not a write-only state
      */
     @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
-        return markIndexWriteOnlyWithQueue(index.getName());
+    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull Index index, @Nonnull IndexState writeOnlyState) {
+        return markIndexWriteOnly(index.getName(), writeOnlyState);
     }
 
     /**
@@ -3903,7 +3991,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexDisabled(@Nonnull Index index) {
-        return markIndexNotReadable(index.getName(), IndexState.DISABLED).thenApply(changed -> {
+        return markIndexNotReadable(index.getName(), IndexState.DISABLED, true).thenApply(changed -> {
             if (changed) {
                 clearIndexData(index);
             }
@@ -4086,6 +4174,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 updateIndexState(index.getName(), indexKey, IndexState.READABLE);
                 clearReadableIndexBuildData(index);
+                // Once the index is readable there is no need for this data.
+                IndexingSubspaces.eraseAllIndexingDataButTheLockAndRangeSet(context, this, index);
                 return true;
             }
         });
@@ -4809,11 +4899,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         switch (indexState) {
             case WRITE_ONLY:
-                errMessageBuilder.append("clear and mark index write only");
-                return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
             case WRITE_ONLY_WITH_QUEUE:
-                errMessageBuilder.append("clear and mark index write only with queue");
-                return clearAndMarkIndexWriteOnlyWithQueue(index).thenApply(b -> null);
+            case WRITE_ONLY_WITH_TRACKING:
+                errMessageBuilder.append("clear and mark index ").append(indexState);
+                return clearAndMarkIndexWriteOnly(index, indexState).thenApply(b -> null);
             case DISABLED:
                 errMessageBuilder.append("mark index disabled");
                 return markIndexDisabled(index).thenApply(b -> null);

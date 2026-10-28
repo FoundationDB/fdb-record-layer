@@ -136,7 +136,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
             openContextAndGenerateCursor(null);
         }
 
-        return MoreAsyncUtil.handleOnException(() -> currentCursor.onNext(), exception -> {
+        return MoreAsyncUtil.handleOnException(currentCursor::onNext, exception -> {
             if (!FDBExceptions.isRetriable(exception) || attempt >= maxRetriesOnRetriableException) {
                 throw FDBExceptions.wrapException(exception);
             }

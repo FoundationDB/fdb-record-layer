@@ -138,11 +138,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 .build();
     }
 
-    private static boolean areTheyAllIdempotent(@Nonnull FDBRecordStore store, List<Index> targetIndexes) {
-        return targetIndexes.stream()
-                .allMatch(targetIndex -> store.getIndexMaintainer(targetIndex).isIdempotent());
-    }
-
     @Override
     List<Object> indexingLogMessageKeyValues() {
         List<Object> list = new ArrayList<>();
@@ -370,8 +365,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
                 .collect(Collectors.toList());
 
-        final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
-        final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
+        final boolean snapshotIsolationLevel = canUseSnapshotResolution(store, targetIndexes);
+        final ScanProperties scanProperties = scanPropertiesWithLimits(snapshotIsolationLevel);
 
         return targetRangeSets.get(0).firstMissingRangeAsync(thisRange.begin, thisRange.end).thenCompose(range -> {
             if (range == null) {
@@ -389,7 +384,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
 
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned, isIdempotent)
+                    lastResult, hasMore, recordsScanned, snapshotIsolationLevel)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getPrimaryKey().pack() :
                                           rangeEnd)
@@ -448,16 +443,16 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private static Range notEmptyRange(Range range) {
         // check the (rare, maybe test only) case of empty ranges
         return ByteArrayUtil.compareUnsigned(range.begin, range.end) >= 0 ?
-               null : range;
+                null : range;
     }
 
     @VisibleForTesting
     static List<Range> sortAndSquash(List<Range> ranges) {
         ranges.sort((a, b) -> ByteArrayUtil.compareUnsigned(a.begin, b.begin));
-        boolean squasshed = false;
+        boolean squashed = false;
         for (int i = 0; i < ranges.size() - 1; i++) {
             if (ByteArrayUtil.compareUnsigned(ranges.get(i).end, ranges.get(i + 1).begin) >= 0) {
-                squasshed = true;
+                squashed = true;
                 ranges.set(i + 1, new Range(ranges.get(i).begin,
                         ByteArrayUtil.compareUnsigned(ranges.get(i).end, ranges.get(i + 1).end) >= 0 ?
                         ranges.get(i).end :
@@ -465,9 +460,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 ranges.set(i, null);
             }
         }
-        return squasshed ?
-               ranges.stream().filter(Objects::nonNull).collect(Collectors.toList()) :
-               ranges;
+        return squashed ?
+                ranges.stream().filter(Objects::nonNull).collect(Collectors.toList()) :
+                ranges;
     }
 
     private void infiniteLoopProtection(final Range range, final List<Range> missingRanges) {

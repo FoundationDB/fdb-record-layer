@@ -80,7 +80,7 @@ public class PredicateMap extends PredicateMultiMap {
 
     private static boolean mappingsAreEquivalent(@Nonnull final PredicateMapping mapping1,
                                                  @Nonnull final PredicateMapping mapping2) {
-        if (!mapping1.getMappingKind().equals(mapping2.getMappingKind())) {
+        if (mapping1.getMappingKind() != mapping2.getMappingKind()) {
             return false;
         }
         if (!mapping1.getParameterAliasOptional().equals(mapping2.getParameterAliasOptional())) {

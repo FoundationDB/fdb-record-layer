@@ -56,9 +56,9 @@ public final class NullableArrayUtils {
     @Nonnull
     public static KeyExpression arrayElements(@Nonnull final String arrayFieldName, final boolean nullableArray) {
         return nullableArray
-               ? Key.Expressions.field(arrayFieldName)
+                ? Key.Expressions.field(arrayFieldName)
                        .nest(Key.Expressions.field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
-               : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
+                : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
     }
 
     public static String getRepeatedFieldName() {

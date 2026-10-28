@@ -182,7 +182,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
 
         if (otherGroupByExpr.getGroupingValue() != null) {
             return Objects.requireNonNull(getGroupingValue()).semanticEquals(otherGroupByExpr.getGroupingValue(), equivalences)
-                   && getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
+                    && getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
         } else {
             return getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
         }

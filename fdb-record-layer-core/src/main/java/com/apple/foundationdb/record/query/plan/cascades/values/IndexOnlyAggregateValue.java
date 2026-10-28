@@ -177,7 +177,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> operator.equals(((IndexOnlyAggregateValue)other).operator));
+                .filter(ignored -> operator == ((IndexOnlyAggregateValue)other).operator);
     }
 
     @Nonnull

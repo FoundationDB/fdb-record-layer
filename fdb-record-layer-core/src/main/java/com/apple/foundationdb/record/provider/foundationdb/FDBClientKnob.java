@@ -286,7 +286,7 @@ public enum FDBClientKnob {
         /**
          * A Boolean knob value type. Accepts {@code "true"} or {@code "false"} (case-insensitively),
          * or any value that can be parsed as an integer (as with {@link #INT}), with a non-zero value interpreted
-         * as {@code true} and zero interpreted as {@code false}.</td></tr>
+         * as {@code true} and zero interpreted as {@code false}.
          */
         BOOLEAN,
         /**

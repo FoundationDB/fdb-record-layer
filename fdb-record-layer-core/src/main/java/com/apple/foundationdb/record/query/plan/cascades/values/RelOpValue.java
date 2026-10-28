@@ -231,15 +231,16 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         rightChild = promotedOperands.getRight();
         final boolean isArrayComparison = leftChild.getResultType().isArray();
         final boolean isEnumComparison = leftChild.getResultType().isEnum();
+        final boolean rightHasConstantObjectValues = rightChild.hasConstantObjectValues();
 
         // Note: When arrays are compared, we always use `ValueComparison`. `SimpleComparison` cannot be used because
         // it would encounter a serialization failure when calling `LiteralKeyExpression.toProtoValue()` to serialize
         // its comparand; that serializer currently cannot handle a `List` or `Enum`.
-        if (typeRepository != null && !isArrayComparison && !isEnumComparison) {
+        if (typeRepository != null && !isArrayComparison && !isEnumComparison && !rightHasConstantObjectValues) {
             final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
-                   ? Optional.of(new ConstantPredicate(false))
-                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                    ? Optional.of(new ConstantPredicate(false))
+                    : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
         } else {
             return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
         }

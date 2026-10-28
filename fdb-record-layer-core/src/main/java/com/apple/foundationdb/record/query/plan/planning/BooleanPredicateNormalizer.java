@@ -160,8 +160,8 @@ public class BooleanPredicateNormalizer {
     @Nonnull
     private static BooleanPredicateNormalizer getDefaultInstance(@Nonnull final Mode mode) {
         return mode == Mode.CNF
-               ? DEFAULT_CNF
-               : DEFAULT_DNF;
+                ? DEFAULT_CNF
+                : DEFAULT_DNF;
     }
 
     /**

@@ -340,6 +340,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * allowing for incremental scanning of large layers.
      *
      * @param readTransaction the transaction to use for reading data
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param layer the layer of the graph to scan
      * @param lastPrimaryKey the primary key of the last node read in a previous scan, used for pagination.
      * If {@code null}, the scan starts from the beginning of the layer.
@@ -350,6 +352,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     @Nonnull
     @Override
     public Iterable<AbstractNode<NodeReferenceWithVector>> scanLayer(@Nonnull final ReadTransaction readTransaction,
+                                                                     @Nonnull final StorageTransform storageTransform,
                                                                      int layer,
                                                                      @Nullable final Tuple lastPrimaryKey,
                                                                      int maxNumRead) {
@@ -376,7 +379,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
             final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
             final Tuple neighborValueTuple = Tuple.fromBytes(value);
             final NodeReferenceWithVector neighbor =
-                    neighborFromTuples(StorageTransform.identity(), neighborKeyTuple, neighborValueTuple);
+                    neighborFromTuples(storageTransform, neighborKeyTuple, neighborValueTuple);
             final Tuple nodePrimaryKeyFromNeighbor = neighborKeyTuple.getNestedTuple(1);
             if (nodePrimaryKey == null || !nodePrimaryKey.equals(nodePrimaryKeyFromNeighbor)) {
                 if (nodePrimaryKey != null) {

@@ -156,7 +156,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
             }
 
             final byte[] key = state.indexSubspace.pack(groupKey);
-            if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
+            if (AtomicMutation.Standard.MAX_EVER_VERSION == mutation) {
                 if (groupedValue.getKey().hasIncompleteVersionstamp()) {
                     // With an incomplete versionstamp, we need to call SET_VERSIONSTAMPED_VALUE.
                     // If multiple records (with possibly different local versions) are written with the same
@@ -222,8 +222,8 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         String functionName = function.getName();
         String indexType = state.index.getType();
         return functionName.equals(indexType) ||
-               (FunctionNames.MAX_EVER.equals(functionName) && (IndexTypes.MAX_EVER_LONG.equals(indexType) || IndexTypes.MAX_EVER_TUPLE.equals(indexType))) ||
-               (FunctionNames.MIN_EVER.equals(functionName) && (IndexTypes.MIN_EVER_LONG.equals(indexType) || IndexTypes.MIN_EVER_TUPLE.equals(indexType)));
+                (FunctionNames.MAX_EVER.equals(functionName) && (IndexTypes.MAX_EVER_LONG.equals(indexType) || IndexTypes.MAX_EVER_TUPLE.equals(indexType))) ||
+                (FunctionNames.MIN_EVER.equals(functionName) && (IndexTypes.MIN_EVER_LONG.equals(indexType) || IndexTypes.MIN_EVER_TUPLE.equals(indexType)));
     }
 
     @Override

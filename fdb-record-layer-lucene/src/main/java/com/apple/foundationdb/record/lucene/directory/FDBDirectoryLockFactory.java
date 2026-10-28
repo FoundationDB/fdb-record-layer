@@ -211,6 +211,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
+        @SuppressWarnings("PMD.UnusedAssignment") // false positive: closed is a field read during flush() before the final assignment
         private void fileLockClearFlushAndClose(boolean isRecovery) {
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)

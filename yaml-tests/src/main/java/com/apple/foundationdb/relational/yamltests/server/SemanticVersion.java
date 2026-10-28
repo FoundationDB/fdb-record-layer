@@ -230,7 +230,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
                 .map(Integer::parseInt)
                 .collect(Collectors.toList());
         final String prereleaseString = matcher.group("prerelease");
-        if (prereleaseString != null && !prereleaseString.equals("SNAPSHOT")) {
+        if (prereleaseString != null && !"SNAPSHOT".equals(prereleaseString)) {
             throw new IllegalArgumentException("Only SNAPSHOT (all caps) pre-release is supported right now");
         }
         final List<String> prerelease = prereleaseString == null ? List.of() : List.of(prereleaseString.split("\\."));
@@ -274,7 +274,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
             return false;
         }
         final SemanticVersion that = (SemanticVersion)o;
-        return type.equals(that.type)
+        return type == that.type
                 && Objects.equals(versionNumbers, that.versionNumbers)
                 && Objects.equals(prerelease, that.prerelease);
     }
