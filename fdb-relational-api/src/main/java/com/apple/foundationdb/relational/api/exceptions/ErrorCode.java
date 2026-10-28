@@ -169,6 +169,7 @@ public enum ErrorCode {
 
     // Class 55 - Object Not In Prerequisite State
     STATEMENT_CLOSED("55F00"),
+    LOCK_NOT_AVAILABLE("55F03"),
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),

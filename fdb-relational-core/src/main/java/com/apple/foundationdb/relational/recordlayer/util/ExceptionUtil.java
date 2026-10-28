@@ -78,6 +78,8 @@ public final class ExceptionUtil {
             code = ErrorCode.VALUE_TOO_LARGE;
         } else if (re instanceof FDBExceptions.FDBStoreMaybeCommittedException) {
             code = ErrorCode.TRANSACTION_RESULT_UNKNOWN;
+        } else if (re instanceof FDBExceptions.FDBStoreLockTakenException) {
+            code = ErrorCode.LOCK_NOT_AVAILABLE;
         } else if (re instanceof RecordCoreRetriableTransactionException) {
             code = ErrorCode.SERIALIZATION_FAILURE;
         } else if (re instanceof FDBExceptions.FDBStoreException) {

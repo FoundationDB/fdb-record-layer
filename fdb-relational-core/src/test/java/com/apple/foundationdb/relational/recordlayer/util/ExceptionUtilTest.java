@@ -76,7 +76,7 @@ class ExceptionUtilTest {
                 Arguments.of(new FDBExceptions.FDBStoreTransactionConflictException(fdbException(FDBError.NOT_COMMITTED)), ErrorCode.SERIALIZATION_FAILURE),
                 Arguments.of(new FDBExceptions.FDBStoreTransactionIsTooOldException(fdbException(FDBError.TRANSACTION_TOO_OLD)), ErrorCode.SERIALIZATION_FAILURE),
                 Arguments.of(new FDBExceptions.FDBStoreRetriableException(fdbException(FDBError.FUTURE_VERSION)), ErrorCode.SERIALIZATION_FAILURE),
-                Arguments.of(new FDBExceptions.FDBStoreLockTakenException("lock taken", new RuntimeException()), ErrorCode.SERIALIZATION_FAILURE),
+                Arguments.of(new FDBExceptions.FDBStoreLockTakenException("lock taken", new RuntimeException()), ErrorCode.LOCK_NOT_AVAILABLE),
                 Arguments.of(new FDBExceptions.FDBStoreException(fdbException(FDBError.INTERNAL_ERROR)), ErrorCode.STORAGE_ERROR),
                 Arguments.of(new RecordQueryPlanComplexityException("too complex"), ErrorCode.PLAN_TOO_COMPLEX),
                 Arguments.of(new UnableToPlanException("no plan"), ErrorCode.UNABLE_TO_PLAN),
