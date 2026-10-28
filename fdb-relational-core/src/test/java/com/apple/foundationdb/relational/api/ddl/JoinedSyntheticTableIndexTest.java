@@ -759,6 +759,21 @@ public class JoinedSyntheticTableIndexTest {
                 "a group by cannot be defined on a joined synthetic table");
     }
 
+    /**
+     * Computed and constant columns are not yet supported over a joined table.
+     */
+    @Test
+    void computedColumnOverJoinIsRejected() throws Exception {
+        shouldFailWith(TWO_TABLE_SCHEMA
+                        + "CREATE INDEX mv1 AS SELECT a.x, b.y, a.x + 1 AS z FROM T1 AS a, T2 AS b WHERE a.k = b.k "
+                        + "ORDER BY a.x, b.y ",
+                "supports only plain column references");
+        shouldFailWith(TWO_TABLE_SCHEMA
+                        + "CREATE INDEX mv1 AS SELECT a.x, b.y, 3 AS c FROM T1 AS a, T2 AS b WHERE a.k = b.k "
+                        + "ORDER BY a.x, b.y ",
+                "supports only plain column references");
+    }
+
     /** Unnesting and joining do not yet compose; a definition needing both is rejected rather than losing one. */
     @Test
     void unnestingCombinedWithJoinIsRejected() throws Exception {
