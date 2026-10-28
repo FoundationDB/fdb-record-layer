@@ -327,7 +327,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
                     RecordCoreException.class, "Cannot save versionStamp in both key and value");
         } else if (!testConfig.splitLongRecords && serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
-                    RecordCoreException.class, "Record is too long");
+                    FDBExceptions.FDBStoreValueSizeException.class, "Record is too long");
         } else {
             return saveOnly(context, key, serialized, version, testConfig, previousSizeInfo);
         }

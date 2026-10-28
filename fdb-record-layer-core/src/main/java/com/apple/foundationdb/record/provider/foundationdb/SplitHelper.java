@@ -140,7 +140,7 @@ public class SplitHelper {
         }
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             if (!splitLongRecords) {
-                throw new RecordCoreException("Record is too long to be stored in a single value; consider split_long_records")
+                throw new FDBExceptions.FDBStoreValueSizeException("Record is too long to be stored in a single value; consider split_long_records")
                         .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
                         .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                         .addLogInfo(LogMessageKeys.VALUE_SIZE, serialized.length);
