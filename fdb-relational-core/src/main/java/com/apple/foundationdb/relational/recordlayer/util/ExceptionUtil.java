@@ -105,7 +105,7 @@ public final class ExceptionUtil {
     @Nonnull
     private static ErrorCode retriableErrorCode(@Nonnull RecordCoreRetriableTransactionException re) {
         if (re instanceof FDBExceptions.FDBStoreMaybeCommittedException) {
-            return ErrorCode.TRANSACTION_RESULT_UNKNOWN;
+            return ErrorCode.STATEMENT_COMPLETION_UNKNOWN;
         } else if (re instanceof FDBExceptions.FDBStoreLockTakenException) {
             return ErrorCode.LOCK_NOT_AVAILABLE;
         }
