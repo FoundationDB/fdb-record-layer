@@ -136,6 +136,7 @@ class FDBExceptionsTest {
         dbExtension.getDatabase();
         RuntimeException wrapped = FDBExceptions.wrapException(new FDBException(error.name(), error.code()));
         assertThat(wrapped, instanceOf(FDBExceptions.FDBStoreMaybeCommittedException.class));
+        assertTrue(FDBExceptions.isRetriable(wrapped));
     }
 
     @Test
@@ -144,6 +145,7 @@ class FDBExceptionsTest {
         RuntimeException wrapped = FDBExceptions.wrapException(new FDBException("future_version", FDBError.FUTURE_VERSION.code()));
         assertThat(wrapped, instanceOf(FDBExceptions.FDBStoreRetriableException.class));
         assertThat(wrapped, not(instanceOf(FDBExceptions.FDBStoreMaybeCommittedException.class)));
+        assertTrue(FDBExceptions.isRetriable(wrapped));
     }
 
     private void testWrappedStackTrace(Exception cause, String methodName) {
