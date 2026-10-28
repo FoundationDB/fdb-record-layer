@@ -44,10 +44,13 @@ import java.util.stream.Stream;
  * 0A | Unsupported Operation
  * 22 | Data exception
  * 23 | Integrity Constraint Violation
+ * 24 | Invalid Cursor State
  * 25 | Transaction State
  * 40 | Transaction Rollback
  * 42 | Syntax Error
  * 53 | Insufficient Resources
+ * 54 | Program Limit Exceeded
+ * 55 | Object Not In Prerequisite State
  * 58 | System Error (errors external to Relational)
  * XX | Internal Error
  * <p>
@@ -159,7 +162,7 @@ public enum ErrorCode {
     INVALID_DATABASE("42F66"),
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
-    // Class 54 Program Limit Exceeded
+    // Class 54 - Program Limit Exceeded
     STATEMENT_TOO_COMPLEX("54001"),
     TOO_MANY_COLUMNS("54011"),
     EXECUTION_LIMIT_REACHED("54F01"),
