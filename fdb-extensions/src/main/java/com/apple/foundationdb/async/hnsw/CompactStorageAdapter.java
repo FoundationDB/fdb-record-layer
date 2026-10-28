@@ -297,6 +297,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * useful for paginating through the nodes in a large layer.
      *
      * @param readTransaction the transaction to use for reading data; must not be {@code null}
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param layer the layer to scan for nodes
      * @param lastPrimaryKey the primary key of the last node from a previous scan. If {@code null},
      * the scan starts from the beginning of the layer.
@@ -307,7 +309,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      */
     @Nonnull
     @Override
-    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction,
+                                                                @Nonnull final StorageTransform storageTransform,
+                                                                int layer,
                                                                 @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
         final Range range =
@@ -322,7 +326,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             final byte[] key = keyValue.getKey();
             final byte[] value = keyValue.getValue();
             final Tuple primaryKey = getDataSubspace().unpack(key).getNestedTuple(1);
-            return nodeFromRaw(StorageTransform.identity(), layer, primaryKey, key, value);
+            return nodeFromRaw(storageTransform, layer, primaryKey, key, value);
         });
     }
 }
