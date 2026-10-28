@@ -96,7 +96,7 @@ class ExceptionUtilTest {
                 Arguments.of(wrapFdbError(FDBError.INTERNAL_ERROR), ErrorCode.STORAGE_ERROR),
                 Arguments.of(named(new FDBExceptions.FDBStoreLockTakenException("lock taken", new RuntimeException())), ErrorCode.LOCK_NOT_AVAILABLE),
                 Arguments.of(named(new RecordCoreRetriableTransactionException("retriable")), ErrorCode.SERIALIZATION_FAILURE),
-                Arguments.of(named(new RecordQueryPlanComplexityException("too complex")), ErrorCode.PLAN_TOO_COMPLEX),
+                Arguments.of(named(new RecordQueryPlanComplexityException("too complex")), ErrorCode.STATEMENT_TOO_COMPLEX),
                 Arguments.of(named(new UnableToPlanException("no plan")), ErrorCode.UNABLE_TO_PLAN),
                 Arguments.of(named(new UnsupportedQueryException("unsupported")), ErrorCode.UNSUPPORTED_QUERY));
     }

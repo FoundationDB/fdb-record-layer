@@ -128,7 +128,7 @@ public final class ExceptionUtil {
         } else if (cause instanceof SemanticException semanticException) {
             return translateErrorCode(semanticException);
         } else if (re instanceof RecordQueryPlanComplexityException) {
-            return ErrorCode.PLAN_TOO_COMPLEX;
+            return ErrorCode.STATEMENT_TOO_COMPLEX;
         } else if (re instanceof UnableToPlanException) {
             return ErrorCode.UNABLE_TO_PLAN;
         } else if (re instanceof UnsupportedQueryException) {

@@ -160,9 +160,9 @@ public enum ErrorCode {
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
     // Class 54 Program Limit Exceeded
+    STATEMENT_TOO_COMPLEX("54001"),
     TOO_MANY_COLUMNS("54011"),
     EXECUTION_LIMIT_REACHED("54F01"),
-    PLAN_TOO_COMPLEX("54F02"),
     TRANSACTION_TOO_LARGE("54F03"),
     KEY_TOO_LARGE("54F04"),
     VALUE_TOO_LARGE("54F05"),
