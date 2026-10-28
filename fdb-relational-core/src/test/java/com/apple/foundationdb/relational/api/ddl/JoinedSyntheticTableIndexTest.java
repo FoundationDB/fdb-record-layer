@@ -750,6 +750,15 @@ public class JoinedSyntheticTableIndexTest {
                 "an aggregate cannot be defined on a joined synthetic table");
     }
 
+    /** A group by without an aggregate is rejected too, since a joined synthetic table only supports value indexes. */
+    @Test
+    void groupByOverJoinIsRejected() throws Exception {
+        shouldFailWith(TWO_TABLE_SCHEMA
+                        + "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
+                        + "GROUP BY a.x, b.y ",
+                "a group by cannot be defined on a joined synthetic table");
+    }
+
     /** Unnesting and joining do not yet compose; a definition needing both is rejected rather than losing one. */
     @Test
     void unnestingCombinedWithJoinIsRejected() throws Exception {

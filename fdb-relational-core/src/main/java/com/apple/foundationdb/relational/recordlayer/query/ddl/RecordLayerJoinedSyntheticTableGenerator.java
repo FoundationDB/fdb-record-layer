@@ -187,6 +187,8 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         final var projection = spec.projection();
         Assert.thatUnchecked(projection.aggregate() == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, an aggregate cannot be defined on a joined synthetic table");
+        Assert.thatUnchecked(spec.groupBy() == null, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a group by cannot be defined on a joined synthetic table");
         // The row version belongs to a stored record, and a joined record has none of its own: taking one constituent's
         // would make the index depend on which side it was read through.
         Assert.thatUnchecked(projection.versionValues().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
@@ -347,8 +349,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     @Nonnull
     @Override
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
-        Assert.isNullUnchecked(spec.groupBy(), ErrorCode.UNSUPPORTED_OPERATION,
-                "group by on an index over a joined synthetic table");
+        Assert.isNullUnchecked(spec.groupBy(), "group by on an index over a joined synthetic table");
         final var residualPredicates = split.get().residuals();
         final var residual = residualPredicates.isEmpty()
                              ? null
