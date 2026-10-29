@@ -47,13 +47,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -63,14 +66,60 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 /**
- * Everything an index is made of, as read off the plan of the query that defines it: the record type, the predicate, the
- * group by, and the projection and ordering, both resolved down to the base record. {@link #collect} gathers it in one
- * bottom-up pass, stating each rule at the node it concerns; {@link #checkValidity} rejects the plans that cannot become
- * an index.
+ * Everything an index is made of, as read off the plan of the query that defines it: what it is defined on, the
+ * predicate, the group by, and the projection and ordering, both resolved down to the base record. {@link #collect}
+ * gathers it in one bottom-up pass, stating each rule at the node it concerns; {@link #checkValidity} rejects the plans
+ * that cannot become an index.
  */
-record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable QueryPredicate predicate,
+record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate predicate,
                         @Nullable GroupByExpression groupBy, @Nullable OrderBy orderBy,
                         @Nullable Projection projection) {
+
+    /**
+     * What an index is defined on: the stored tables its definition reads, as collected, or the synthetic record type a
+     * {@link SyntheticTableGenerator} rewrote it onto.
+     *
+     * @param tables each stored table the definition reads, with the number of times it is scanned; a self-join scans
+     * one table twice
+     * @param syntheticTableBuilder the synthetic table the definition was rewritten onto, if any
+     */
+    record Source(@Nonnull Map<RecordLayerTable, Integer> tables,
+                  @Nullable RecordLayerSyntheticTable.Builder syntheticTableBuilder) {
+
+        Source {
+            Assert.thatUnchecked(tables.isEmpty() || syntheticTableBuilder == null,
+                    "Invalid IndexSpec");
+        }
+
+        boolean hasSingleSource() {
+            return syntheticTableBuilder() != null || tables.size() == 1;
+        }
+
+        Type.Record getRecordType() {
+            return syntheticTableBuilder == null ? Iterables.getOnlyElement(tables.keySet()).getType()
+                                                 : syntheticTableBuilder.getType();
+        }
+
+        private Source merge(@Nonnull Source otherSource) {
+            Assert.thatUnchecked(otherSource.syntheticTableBuilder == null && this.syntheticTableBuilder == null,
+                    "Cannot merge index source of tables with that of synthetic table");
+            final Map<RecordLayerTable, Integer> mergedTables = new HashMap<>(tables);
+            otherSource.tables.forEach((table, scanCount) -> mergedTables.merge(table, scanCount, Integer::sum));
+            return of(mergedTables);
+        }
+
+        static Source of(@Nonnull Map<RecordLayerTable, Integer> tables) {
+            return new Source(ImmutableMap.copyOf(tables), null);
+        }
+
+        static Source of(@Nonnull RecordLayerSyntheticTable.Builder syntheticTableBuilder) {
+            return new Source(ImmutableMap.of(), syntheticTableBuilder);
+        }
+
+        static Source empty() {
+            return new Source(ImmutableMap.of(), null);
+        }
+    }
 
     /**
      * Collects what the plan of an index-defining query is making.
@@ -155,38 +204,37 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
 
     @Nonnull
     private IndexSpec withProjection(@Nonnull final Projection newProjection) {
-        return new IndexSpec(scanCount, table, predicate, groupBy, orderBy, newProjection);
+        return new IndexSpec(scanCount, source, predicate, groupBy, orderBy, newProjection);
     }
 
     @Nonnull
     private IndexSpec withOrderBy(@Nonnull final OrderBy newOrderBy) {
         Assert.thatUnchecked(orderBy == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, more than one sort expression found");
-        return new IndexSpec(scanCount, table, predicate, groupBy, newOrderBy, projection);
+        return new IndexSpec(scanCount, source, predicate, groupBy, newOrderBy, projection);
     }
 
     @Nonnull
     private IndexSpec withScan() {
-        return new IndexSpec(scanCount + 1, table, predicate, groupBy, orderBy, projection);
+        return new IndexSpec(scanCount + 1, source, predicate, groupBy, orderBy, projection);
     }
 
     @Nonnull
-    private IndexSpec withTable(@Nonnull final RecordLayerTable newTable) {
-        Assert.thatUnchecked(table == null, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported query, expected to find exactly one type filter operator");
-        return new IndexSpec(scanCount, newTable, predicate, groupBy, orderBy, projection);
+    private IndexSpec withTable(@Nonnull final RecordLayerTable table) {
+        return new IndexSpec(scanCount, Source.of(ImmutableMap.of(table, scanCount)), predicate, groupBy, orderBy,
+                projection);
     }
 
     @Nonnull
     private IndexSpec withPredicate(@Nonnull final QueryPredicate newPredicate) {
-        return new IndexSpec(scanCount, table, newPredicate, groupBy, orderBy, projection);
+        return new IndexSpec(scanCount, source, newPredicate, groupBy, orderBy, projection);
     }
 
     @Nonnull
     private IndexSpec withGroupBy(@Nonnull final GroupByExpression newGroupBy) {
         Assert.thatUnchecked(groupBy == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, multiple group by expressions found");
-        return new IndexSpec(scanCount, table, predicate, newGroupBy, orderBy, projection);
+        return new IndexSpec(scanCount, source, predicate, newGroupBy, orderBy, projection);
     }
 
     /**
@@ -196,12 +244,14 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
      * {@code RecordLayerUnnestedSyntheticTableGenerator#checkSupported} once it is known that one is needed.
      */
     public void checkValidity() {
-        // the traversal rejects a second scan as a join, leaving none to reject here
+        Assert.thatUnchecked(scanCount > 0, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, it does not read from any table");
+        // only single scan is supported
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, no iteration generator found");
-        // throws unless exactly one type filter was found
-        Assert.notNullUnchecked(table, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported query, expected to find exactly one type filter operator");
+                "Unsupported index definition, multiscan is not supported");
+        // throws unless there is exactly one source
+        Assert.thatUnchecked(source.hasSingleSource() , ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, expected to find single source");
 
         final var projection = projection();
         reject(projection.values().stream()
@@ -283,33 +333,20 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
     }
 
     /**
-     * Combines what the children of one expression found. At most one child may contribute a record type, a predicate, a
-     * group by or a scan; a second scan is a join.
+     * Combines what the children of one expression found. Their tables are collected and their scans counted, but only a
+     * join may draw either from more than one child; a predicate, a group by and a sort may come from one child at most.
      */
     @Nonnull
     private static IndexSpec merge(@Nonnull final List<IndexSpec> childSpecs) {
-        var merged = new IndexSpec(0, null, null, null, null, null);
+        var merged = new IndexSpec(0, Source.empty(), null, null, null, null);
         for (final var childSpec : childSpecs) {
-            // the record type comes first: a join trips this before the scan below, which is the message callers see
-            final var table = pickOneTable(merged.table, childSpec.table);
-            Assert.thatUnchecked(merged.scanCount == 0 || childSpec.scanCount == 0,
-                    ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, join indexes are not supported");
             merged = new IndexSpec(merged.scanCount + childSpec.scanCount,
-                    table,
+                    merged.source.merge(childSpec.source),
                     pickOne(merged.predicate, childSpec.predicate, "predicate"),
                     pickOne(merged.groupBy, childSpec.groupBy, "group by expression"),
                     pickOne(merged.orderBy, childSpec.orderBy, "sort expression"), null);
         }
         return merged;
-    }
-
-    @Nullable
-    private static RecordLayerTable pickOneTable(@Nullable final RecordLayerTable left,
-                                                 @Nullable final RecordLayerTable right) {
-        Assert.thatUnchecked(left == null || right == null, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported query, expected to find exactly one type filter operator");
-        return left == null ? right : left;
     }
 
     @Nullable
@@ -436,7 +473,7 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
             if (predicates.isEmpty()) {
                 return spec;
             }
-            return spec.withPredicate(IndexPredicates.normalize(predicates));
+            return spec.withPredicate(IndexPredicates.conjoin(predicates));
         }
 
         @Nonnull

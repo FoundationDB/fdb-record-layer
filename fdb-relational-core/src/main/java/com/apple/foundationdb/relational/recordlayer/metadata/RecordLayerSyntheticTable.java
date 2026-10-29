@@ -86,6 +86,12 @@ public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
     }
 
     public interface Builder {
+        /**
+         * {@return the record type of the synthetic table being built}
+         */
+        @Nonnull
+        Type.Record getType();
+
         @Nonnull
         Builder addIndex(@Nonnull RecordLayerIndex index);
 

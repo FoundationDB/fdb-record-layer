@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.util.Assert;
+
 import javax.annotation.Nonnull;
 import java.util.Optional;
 
@@ -45,8 +48,18 @@ final class SyntheticTableGeneratorFactory {
     static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final IndexSpec spec,
                                                                      @Nonnull final String indexName,
                                                                      @Nonnull final QuantifierValues quantifierValues) {
-        // An unnesting only needs a synthetic table when the key reads through one in a way a fan-out cannot
-        // express, which is for the unnested generator to say.
-        return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        final var scanCount = spec.scanCount();
+        final var hasUnnesting = !quantifierValues.getExplodes().isEmpty();
+        if (scanCount > 1 && hasUnnesting) {
+            // The two kinds do not compose yet, and no one kind can serve a definition needing both.
+            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, an unnesting cannot be combined with a join");
+        } else if (scanCount > 1) {
+            return RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        } else if (scanCount == 1 && hasUnnesting) {
+            return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        } else {
+            return Optional.empty();
+        }
     }
 }
