@@ -114,6 +114,8 @@ public enum ErrorCode {
 
     // Class 40 - Transaction Rollback
     SERIALIZATION_FAILURE("40001"),
+    TRANSACTION_TOO_OLD("40F01"),
+    TRANSIENT_TRANSACTION_FAILURE("40F02"),
 
     // Class 42 - Syntax Error or Access Rule Violation
     SYNTAX_OR_ACCESS_VIOLATION("42000"),

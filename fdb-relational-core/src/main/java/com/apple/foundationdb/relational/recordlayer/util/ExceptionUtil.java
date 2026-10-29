@@ -101,7 +101,7 @@ public final class ExceptionUtil {
 
     /**
      * Error code for a retriable transaction failure. Subclasses must be checked before
-     * {@link RecordCoreRetriableTransactionException}, which means the transaction did not commit and a retry is safe.
+     * {@link RecordCoreRetriableTransactionException}.
      */
     @Nonnull
     private static ErrorCode retriableErrorCode(@Nonnull RecordCoreRetriableTransactionException re) {
@@ -109,8 +109,12 @@ public final class ExceptionUtil {
             return ErrorCode.TRANSACTION_RESOLUTION_UNKNOWN;
         } else if (re instanceof FDBExceptions.FDBStoreLockTakenException) {
             return ErrorCode.LOCK_NOT_AVAILABLE;
+        } else if (re instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
+            return ErrorCode.TRANSACTION_TOO_OLD;
+        } else if (re instanceof FDBExceptions.FDBStoreTransactionConflictException) {
+            return ErrorCode.SERIALIZATION_FAILURE;
         }
-        return ErrorCode.SERIALIZATION_FAILURE;
+        return ErrorCode.TRANSIENT_TRANSACTION_FAILURE;
     }
 
     @Nonnull
