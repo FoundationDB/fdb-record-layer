@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisit
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerJoinedSyntheticTable;
@@ -403,8 +404,9 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         @Nonnull
         @Override
         public Value evaluateAtValue(@Nonnull final Value value, @Nonnull final List<Value> childResults) {
-            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, an index over a joined synthetic table supports only plain column references");
+            throw new RelationalException(
+                    "Unsupported index definition, an index over a joined synthetic table supports only plain column references",
+                    ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
         }
 
         @Nonnull
