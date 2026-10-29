@@ -489,8 +489,8 @@ test_block:
                 WHERE m.owner IS NOT NULL
                   AND 'featured' IN r.tags
                   AND r.rid = 20
-      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [{aid: BIGINT}, {rid: BIGINT}, {url: STRING}]}}]
-      - explain: "SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
+      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [DOC_ASSET, {aid: BIGINT}, {rid: BIGINT}, {url: STRING}]}}]
+      - explain: "SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
       - result: [{1, 20, [{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
 ---
 # Tests for the interaction between ARRAY_AGG() and aggregate indexes. Since aggregate indexes do not support
@@ -515,7 +515,7 @@ test_block:
     -
       # The STRUCT form, whose aggregate result type is an array of records rather than an array of primitives.
       - query: SELECT ARRAY_AGG((T4.*)) FROM T4
-      - explain: "ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{[{1, 10, 100}, {2, 10, 200}, {3, 20, 300}]}]
     -
       # Mixing ARRAY_AGG() with an aggregate that *is* indexable. The whole group-by nevertheless has to be computed by
@@ -539,7 +539,7 @@ test_block:
                  FROM T1 t,
                       (SELECT ARRAY_AGG((d.*)) AS vals FROM T4 d WHERE d.grp = t.grp) sq
                 WHERE t.id = 1
-      - explain: "SCAN([IS T1, EQUALS promote(@c42 AS LONG)]) | FLATMAP q0 -> { ISCAN(T4_grp [EQUALS q0.grp]) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0.id AS id, q0._0._0 AS vals) }"
+      - explain: "SCAN([IS T1, EQUALS promote(@c42 AS LONG)]) | FLATMAP q0 -> { ISCAN(T4_grp [EQUALS q0.grp]) | MAP (_ AS _0) | AGG (array_agg(_._0) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0.id AS id, q0._0._0 AS vals) }"
       - result: [{1, [{1, 10, 100}, {2, 10, 200}]}]
 ---
 test_block:

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -165,8 +166,17 @@ public final class Star extends Expression {
     public static Star overIndividualExpressions(@Nonnull Optional<Identifier> qualifier,
                                                  @Nonnull String typeName,
                                                  @Nonnull Expressions expansion) {
-        final var starType = createStarType(typeName, expansion);
-        return new Star(qualifier, starType, RecordConstructorValue.ofColumns(expansion.underlyingAsColumns()), expansion);
+        final DataType.StructType starType = createStarType(typeName, expansion);
+
+        // If the expansion spells out a value field by field, use the value in place of a record constructor over the
+        // individual fields. This way, the name of its record type is preserved. The collapse takes place only if the
+        // value has the same type as the record constructor (including its nullability), so the fields of the star
+        // are the same either way.
+        final RecordConstructorValue rcv = RecordConstructorValue.ofColumns(expansion.underlyingAsColumns());
+        final Optional<Value> collapsed = Values.collapseSimpleSelectMaybe(rcv);
+        final Value underlying = collapsed.orElse(rcv);
+
+        return new Star(qualifier, starType, underlying, expansion);
     }
 
     @Nonnull
