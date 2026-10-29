@@ -290,7 +290,7 @@ Example index for ``ORDER BY price``:
 
     CREATE INDEX price_idx AS SELECT price FROM products ORDER BY price
 
-Without a suitable index, the query will fail with an "unable to plan" error (0AF00).
+Without a suitable index, the query will fail with an "unable to plan" error (0AF02).
 
 See :ref:`Indexes <index_definition>` for details on creating indexes that support ORDER BY operations.
 
@@ -304,7 +304,7 @@ Mixed ordering (e.g., ``ORDER BY a ASC, b DESC``) is only supported if a matchin
     -- This requires an index: ORDER BY category ASC, price DESC
     SELECT * FROM products ORDER BY category ASC, price DESC
 
-Without a matching index, mixed ordering queries will fail with error 0AF00.
+Without a matching index, mixed ordering queries will fail with error 0AF02.
 
 To create a matching index:
 
@@ -354,7 +354,7 @@ The query planner will:
 
 1. Look for an index with matching sort order
 2. Use that index to scan results in the correct order
-3. Fail with error 0AF00 if no suitable index exists
+3. Fail with error 0AF02 if no suitable index exists
 
 See Also
 ========
