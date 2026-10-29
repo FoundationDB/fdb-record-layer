@@ -239,6 +239,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void inQueryOrOverlapBytes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("in-query-or-overlap-bytes.yamsql");
+    }
+
+    @TestTemplate
     public void insertEnum(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("insert-enum.yamsql");
     }

@@ -1,0 +1,84 @@
+#
+# in-query-or-overlap-bytes.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create table bin_record(id bigint, bin_value bytes, primary key(id))
+    create index bin_record_bin_value as select bin_value from bin_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    in-query-or-overlap-bytes-includes/simple-record-100.yamsql
+---
+setup:
+  steps:
+    - query: insert into bin_record values (1006, x'01'), (1005, x'02'), (1004, x'03'), (1003, x'04'), (1002, x'05'), (1001, x'ff'), (1007, null)
+---
+test_block:
+  name: in-query-or-overlap
+  preset: single_repetition_ordered
+  options:
+    # Requires a fix in KeyComparisons that is not present in already-released versions, so this
+    # only runs against the current build.
+    supported_version: !current_version
+  tests:
+    -
+      - query: select * from my_simple_record
+               where num_value_unique in (903, 905, 901) or num_value_unique in (906, 905, 904)
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0]) } ∪ [IN arrayDistinct(@c17)] INUNION q1 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q1] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.REC_NO, _.NUM_VALUE_UNIQUE) | FETCH COMPARE BY (to_ordered_bytes(_.NUM_VALUE_UNIQUE, DESC_NULLS_LAST), _.REC_NO)"
+      - unorderedResult: [{REC_NO: 94, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 906, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 95, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 905, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 97, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 903, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 99, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]}]
+---
+test_block:
+  # The same overlap shape over a BYTES column. The union deduplicates by comparing the BYTES values of
+  # the comparison key, which `KeyComparisons` has to order as unsigned byte strings.
+  name: in-query-or-overlap-bytes
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select id from bin_record where bin_value in (x'03', x'05', x'01') or bin_value in (x'06', x'05', x'04')
+      - unorderedResult: [{ID: 1002}, {ID: 1003}, {ID: 1004}, {ID: 1006}]
+    -
+      - query: select id from bin_record where bin_value in (x'ff', x'01') or bin_value in (x'ff', x'02')
+      - unorderedResult: [{ID: 1001}, {ID: 1005}, {ID: 1006}]
+    -
+      - query: select id from bin_record where bin_value in (x'02', x'03') or bin_value in (x'03', x'02')
+      - unorderedResult: [{ID: 1004}, {ID: 1005}]
+    -
+      - query: select id from bin_record where bin_value in (x'01') or bin_value in (x'02')
+      - unorderedResult: [{ID: 1005}, {ID: 1006}]
+...
