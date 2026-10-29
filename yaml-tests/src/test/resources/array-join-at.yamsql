@@ -278,9 +278,9 @@ test_block:
     -
       # ORDER BY on the AT ordinal cannot be planned without and index.
       - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE T1."id" = 2 ORDER BY "at" DESC
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # STRING array with AT via VALUES. Verifies ordinals also work with non-integer element types.

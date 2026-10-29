@@ -278,9 +278,9 @@ test_block:
       # ORDER BY on a column from the null-producing side: In general, the null-padded rows have no defined ordering
       # relative to matching rows, and the planner cannot satisfy the ordering from a scan on the preserved side.
       - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" ORDER BY "d"."name";
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # ORDER BY on the null-producing side when the preserved side has a cardinality of 1 (scalar subquery).

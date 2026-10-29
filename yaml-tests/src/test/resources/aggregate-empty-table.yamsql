@@ -59,33 +59,33 @@ test_block:
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T2;
@@ -173,33 +173,33 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T2;
@@ -317,9 +317,9 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0 group by col2;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select sum(col1) from T2 where col2 = 0 group by col2;
@@ -328,9 +328,9 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T2 where col1 > 0 group by col2;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select sum(col1) from T2 where col2 > 0 group by col2;
@@ -429,33 +429,33 @@ test_block:
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(*) from T2;
@@ -524,33 +524,33 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 where col1 = 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T1 where col1 > 0 group by col1;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select count(col2) from T2;
@@ -666,9 +666,9 @@ test_block:
       - result: [{!l 0}]
     -
       - query: select sum(col1) from T2 where col1 = 0 group by col2;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select sum(col1) from T2 where col2 = 0 group by col2;
@@ -676,9 +676,9 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T2 where col1 > 0 group by col2;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
 #    -
 #      # TODO ([POST] Enhance SUM aggregate index to disambiguate null results and 0 results)

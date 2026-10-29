@@ -127,9 +127,9 @@ test_block:
                           {8, !null _}]
     -
       - query: select * from ta where b is not null order by b
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
 ---
 test_block:

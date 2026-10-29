@@ -179,23 +179,23 @@ test_block:
     -
       # Simple ordering on 2 variable, arbitrary ordering exception
       - query: select c, b from t1 order by c, b desc;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # Simple ordering on 2 variable, arbitrary ordering exception
       - query: select c, b from t1 order by c asc, b desc;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # Simple ordering on 2 variable, arbitrary ordering exception
       - query: select c, b from t1 order by c desc, b;
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # Simple ordering on 2 variable, point filter on outer

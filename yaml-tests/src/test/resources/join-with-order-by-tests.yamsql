@@ -360,9 +360,9 @@ test_block:
                  from t1, t2
                  where t1.a1 = 1 and t2.b1 = 1
                  order by t1.a2, t2.b3
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # This should be possible to plan, but it requires noting that if the outer is on t2 and ordered by t2.b3,
@@ -371,9 +371,9 @@ test_block:
                  from t1, t2
                  where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                  order by t2.b3, t1.a3
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select (t1.*), (t3.*)
@@ -440,9 +440,9 @@ test_block:
                 order by t3.c3 desc
       # This can't be planned because it can't figure out that m has max cardinality 1 (coming from the fact that the group by columns are all equality bound by the having)
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3975
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select t1.*
@@ -555,9 +555,9 @@ test_block:
       # This should be possible to plan, as there is an equality predicate on t1.id, so we should be able to freely
       # introduce it into the ordering
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3974
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select (t1.*), (t2.*)
@@ -567,9 +567,9 @@ test_block:
       # This should be possible to plan, as the fact that the max cardinality on the t1 quantifier should allow us to move
       # the order around as we want
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3974
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       - query: select (t1.*), (t3.*)
@@ -616,9 +616,9 @@ test_block:
       # will give us the right order, as the index scan on t3$c1_c2 produces distinct elements. However, this
       # fails as we are unable to parlay the uniqueness constraint into a distinct ordering
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3976
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
 
     #

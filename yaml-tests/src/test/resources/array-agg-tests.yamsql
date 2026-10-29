@@ -462,9 +462,9 @@ test_block:
                   AND r.rid = 20
                   AND a.rid = r.rid
                 GROUP BY m.mid, r.rid
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.17.2.0
       - error: UNSUPPORTED_QUERY
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
     -
       # Variant 4: Aggregates the detail table on its own, grouping by the join column, and joins in the result. Unlike
