@@ -425,6 +425,9 @@ test_block:
       - supported_version: 4.14.1.0
       - error: UNSUPPORTED_QUERY
 ---
+# Following tests are run once because running them the second time around causes the error to be different. This is
+# "expected" as the point of error is different in both the cases.
+# https://github.com/FoundationDB/fdb-record-layer/issues/3583
 test_block:
   tests:
       -
