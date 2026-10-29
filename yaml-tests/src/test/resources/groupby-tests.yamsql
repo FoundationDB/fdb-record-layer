@@ -337,5 +337,8 @@ test_block:
     -
       # An ORDER BY over an aggregate is not supported, whatever the aggregate’s argument looks like.
       - query: SELECT col1 FROM T1 GROUP BY col1 ORDER BY COUNT((T1.*))
+      - initialVersionLessThan: !current_version
       - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: !current_version
+      - error: UNABLE_TO_PLAN
 ...

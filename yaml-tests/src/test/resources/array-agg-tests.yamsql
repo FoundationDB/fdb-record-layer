@@ -462,7 +462,10 @@ test_block:
                   AND r.rid = 20
                   AND a.rid = r.rid
                 GROUP BY m.mid, r.rid
+      - initialVersionLessThan: !current_version
       - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: !current_version
+      - error: UNABLE_TO_PLAN
     -
       # Variant 4: Aggregates the detail table on its own, grouping by the join column, and joins in the result. Unlike
       # the two variants above, the subquery here is not correlated. The `doc_asset_by_rid` index provides the ordering

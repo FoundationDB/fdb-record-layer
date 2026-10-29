@@ -44,10 +44,13 @@ import java.util.stream.Stream;
  * 0A | Unsupported Operation
  * 22 | Data exception
  * 23 | Integrity Constraint Violation
+ * 24 | Invalid Cursor State
  * 25 | Transaction State
  * 40 | Transaction Rollback
  * 42 | Syntax Error
  * 53 | Insufficient Resources
+ * 54 | Program Limit Exceeded
+ * 55 | Object Not In Prerequisite State
  * 58 | System Error (errors external to Relational)
  * XX | Internal Error
  * <p>
@@ -70,6 +73,7 @@ public enum ErrorCode {
     // Class 08 - Connection Exception
     UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
     CONNECTION_DOES_NOT_EXIST("08003"),
+    TRANSACTION_RESOLUTION_UNKNOWN("08007"),
     INVALID_PATH("08F01"),
     CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT("08F02"),
 
@@ -77,6 +81,7 @@ public enum ErrorCode {
     UNSUPPORTED_OPERATION("0A000"),
     UNSUPPORTED_QUERY("0AF00"),
     UNSUPPORTED_SORT("0AF01"),
+    UNABLE_TO_PLAN("0AF02"),
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
@@ -111,6 +116,8 @@ public enum ErrorCode {
 
     // Class 40 - Transaction Rollback
     SERIALIZATION_FAILURE("40001"),
+    TRANSACTION_TOO_OLD("40F01"),
+    TRANSIENT_TRANSACTION_FAILURE("40F02"),
 
     // Class 42 - Syntax Error or Access Rule Violation
     SYNTAX_OR_ACCESS_VIOLATION("42000"),
@@ -159,12 +166,17 @@ public enum ErrorCode {
     INVALID_DATABASE("42F66"),
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
-    // Class 54 Program Limit Exceeded
+    // Class 54 - Program Limit Exceeded
+    STATEMENT_TOO_COMPLEX("54001"),
     TOO_MANY_COLUMNS("54011"),
     EXECUTION_LIMIT_REACHED("54F01"),
+    TRANSACTION_TOO_LARGE("54F02"),
+    KEY_TOO_LARGE("54F03"),
+    VALUE_TOO_LARGE("54F04"),
 
     // Class 55 - Object Not In Prerequisite State
     STATEMENT_CLOSED("55F00"),
+    LOCK_NOT_AVAILABLE("55F03"),
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),
@@ -180,7 +192,9 @@ public enum ErrorCode {
      * system.
      */
     INTERNAL_ERROR("XX000"),
-    DESERIALIZATION_FAILURE("XXF01");
+    DESERIALIZATION_FAILURE("XXF01"),
+    SCHEMA_TEMPLATE_SERIALIZATION_FAILURE("XXF02"),
+    STORAGE_ERROR("XXF03");
 
     private final String errorCode;
 

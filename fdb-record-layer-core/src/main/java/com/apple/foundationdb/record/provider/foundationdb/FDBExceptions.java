@@ -194,6 +194,17 @@ public class FDBExceptions {
         }
     }
 
+    /**
+     * A retriable exception where the transaction may have committed, so a blind retry is not safe.
+     * @see FDBException#isMaybeCommitted
+     */
+    @SuppressWarnings("serial")
+    public static class FDBStoreMaybeCommittedException extends FDBStoreRetriableException {
+        public FDBStoreMaybeCommittedException(FDBException cause) {
+            super(cause);
+        }
+    }
+
     public static RuntimeException wrapException(@Nonnull Throwable ex) {
         //transfer any logging details into mapped exception
         Object[] logInfo;
@@ -223,7 +234,9 @@ public class FDBExceptions {
                 case VALUE_TOO_LARGE:
                     return new FDBStoreValueSizeException(fdbex).addLogInfo(logInfo);
                 default:
-                    if (fdbex.isRetryable()) {
+                    if (fdbex.isMaybeCommitted()) {
+                        return new FDBStoreMaybeCommittedException(fdbex).addLogInfo(logInfo);
+                    } else if (fdbex.isRetryable()) {
                         return new FDBStoreRetriableException(fdbex).addLogInfo(logInfo);
                     } else {
                         return new FDBStoreException(fdbex).addLogInfo(logInfo);
