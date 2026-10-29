@@ -178,7 +178,6 @@ public enum ErrorCode {
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),
-    STORAGE_ERROR("58F02"),
 
     // Class XX - Internal Error
     /**
@@ -192,7 +191,8 @@ public enum ErrorCode {
      */
     INTERNAL_ERROR("XX000"),
     DESERIALIZATION_FAILURE("XXF01"),
-    SCHEMA_TEMPLATE_SERIALIZATION_FAILURE("XXF02");
+    SCHEMA_TEMPLATE_SERIALIZATION_FAILURE("XXF02"),
+    STORAGE_ERROR("XXF03");
 
     private final String errorCode;
 
