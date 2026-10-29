@@ -8,6 +8,47 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.17
 
+{#release-4-17-2-0}
+
+### 4.17.2.0
+
+<h4> Breaking Changes </h4>
+
+* New error codes for planning, plan complexity, and storage failures - [PR #4792](https://github.com/FoundationDB/fdb-record-layer/pull/4792)
+<h4> New Features </h4>
+
+* Introduce `Quantifier.AtMostOne` as the base class of `Quantifier.Existential` - [PR #4657](https://github.com/FoundationDB/fdb-record-layer/pull/4657)
+<h4> Bug Fixes </h4>
+
+* Offer the entry-node promotion a node that can be traversed through - [PR #4686](https://github.com/FoundationDB/fdb-record-layer/pull/4686)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Move the proto-free vector index test helpers into the core test fixtures - [PR #4678](https://github.com/FoundationDB/fdb-record-layer/pull/4678)
+* Make the Guardiann test helpers reusable as test fixtures - [PR #4677](https://github.com/FoundationDB/fdb-record-layer/pull/4677)
+* Reduce the HNSW churn tests to the properties they assert - [PR #4687](https://github.com/FoundationDB/fdb-record-layer/pull/4687)
+* Publish test fixtures jars for fdb-extensions and core - [PR #4676](https://github.com/FoundationDB/fdb-record-layer/pull/4676)
+
+</details>
+
+
+**[Full Changelog (4.17.1.0...4.17.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.17.1.0...4.17.2.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.13.5.0`, ❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/40886617305)
+
+
+
 {#release-4-17-1-0}
 
 ### 4.17.1.0
