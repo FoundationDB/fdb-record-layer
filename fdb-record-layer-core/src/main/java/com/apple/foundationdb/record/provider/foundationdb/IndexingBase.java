@@ -1274,8 +1274,19 @@ public abstract class IndexingBase {
     // rebuildIndexAsync - builds the whole index inline (without committing)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
+        return rebuildIndexAsync(store, store::clearAndMarkIndexWriteOnly);
+    }
+
+    @Nonnull
+    CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store, @Nonnull RecordStoreOperationContext ctx) {
+        return rebuildIndexAsync(store, index -> store.clearAndMarkIndexWriteOnly(index, IndexState.WRITE_ONLY, ctx));
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store,
+                                                      @Nonnull Function<Index, CompletableFuture<Void>> clearAndMarkIndexWriteOnly) {
         validateOrThrowEx(!policy.isReverseScanOrder(), "rebuild do not support reverse scan order");
-        return forEachTargetIndex(index -> store.clearAndMarkIndexWriteOnly(index).thenCompose(bignore -> {
+        return forEachTargetIndex(index -> clearAndMarkIndexWriteOnly.apply(index).thenCompose(bignore -> {
             // Insert the full range into the range set. (The internal rebuild method only indexes the records and
             // does not update the range set.) This is important because if marking the index as readable fails (for
             // example, because of uniqueness violations), we still want to record in the range set that the entire

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.util.LoggableException;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -117,6 +118,32 @@ public class TestHelpers {
     private static void assertDidNotLog(String loggerName, MatchingAppender appender, Callable<?> callable) {
         callAndMonitorLogging(loggerName, appender, callable);
         assertFalse(appender.matched(), () -> "Test should not have produced log message matching [" + appender + "]");
+    }
+
+    /**
+     * Run a callable and collect the formatted messages that the given logger class logs at the given level while it runs.
+     * Messages are collected in the order they are logged, and include those logged by other threads.
+     *
+     * @param loggingClass the class whose logger to monitor
+     * @param level the exact level of the messages to collect
+     * @param callable the code to run
+     * @return the formatted messages logged at {@code level}
+     */
+    public static List<String> collectLogs(Class<?> loggingClass, Level level, Callable<?> callable) {
+        final CollectingAppender appender = new CollectingAppender(UUID.randomUUID().toString(), level);
+        LoggerContext context = LoggerContext.getContext(false);
+        Logger logger = context.getLogger(loggingClass.getName());
+        logger.addAppender(appender);
+        try {
+            callable.call();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AssertionError("Unexpected exception", e);
+        } finally {
+            logger.removeAppender(appender);
+        }
+        return appender.getCollectedMessages();
     }
 
     /**
@@ -354,6 +381,30 @@ public class TestHelpers {
         assertNotNull(context.getTimer());
         int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == 0, "discarded records unnecessarily\nExpected: 0\nActual: " + discarded);
+    }
+
+    @SuppressWarnings("serial")
+    private static class CollectingAppender extends AbstractAppender {
+        @Nonnull
+        private final Level level;
+        private final List<String> collectedMessages = new ArrayList<>();
+
+        protected CollectingAppender(@Nonnull String name, @Nonnull Level level) {
+            super(name, null, null, true, null);
+            this.level = level;
+        }
+
+        @Nonnull
+        public synchronized List<String> getCollectedMessages() {
+            return new ArrayList<>(collectedMessages);
+        }
+
+        @Override
+        public synchronized void append(@Nonnull LogEvent event) {
+            if (event.getLevel().equals(level)) {
+                collectedMessages.add(event.getMessage().getFormattedMessage());
+            }
+        }
     }
 
     @SuppressWarnings("serial")

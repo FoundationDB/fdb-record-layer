@@ -1539,9 +1539,10 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     @Nonnull
                     @Override
                     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
-                            boolean newStore, boolean rebuildRecordCounts,
+                            boolean rebuildRecordCounts,
                             @Nonnull Map<Index, List<RecordType>> indexes,
-                            @Nullable RecordType singleRecordTypeWithPrefixKey) {
+                            @Nullable RecordType singleRecordTypeWithPrefixKey,
+                            @Nonnull RecordStoreOperationContext ctx) {
                         recordStoreStateRef.get().beginRead();
                         return MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS).thenApply(vignore -> {
                             recordStoreStateRef.get().endRead();
