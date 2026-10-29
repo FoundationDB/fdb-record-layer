@@ -195,13 +195,13 @@ public class MetaDataEvolutionValidator {
         final Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors = new HashSet<>();
 
         for (FieldDescriptor oldUnionField : oldUnionDescriptor.getFields()) {
-            if (!oldUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+            if (oldUnionField.getType() != FieldDescriptor.Type.MESSAGE) {
                 throw new MetaDataException("field in union is not a message type", LogMessageKeys.FIELD_NAME, oldUnionField.getName());
             }
             int fieldNumber = oldUnionField.getNumber();
             FieldDescriptor newUnionField = newUnionDescriptor.findFieldByNumber(fieldNumber);
             if (newUnionField != null) {
-                if (!newUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+                if (newUnionField.getType() != FieldDescriptor.Type.MESSAGE) {
                     throw new MetaDataException("field in new union is not a message type", LogMessageKeys.FIELD_NAME, newUnionField.getName());
                 }
                 Descriptor oldRecord = oldUnionField.getMessageType();
@@ -275,7 +275,7 @@ public class MetaDataEvolutionValidator {
 
     private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
         if (!oldDescriptor.getFile().toProto().getSyntax().equals(newDescriptor.getFile().toProto().getSyntax())
-                || !oldDescriptor.getFile().toProto().getEdition().equals(newDescriptor.getFile().toProto().getEdition())) {
+                || oldDescriptor.getFile().toProto().getEdition() != newDescriptor.getFile().toProto().getEdition()) {
             throw new MetaDataException("message descriptor proto syntax changed",
                     LogMessageKeys.RECORD_TYPE, oldDescriptor.getName());
         }
@@ -303,7 +303,7 @@ public class MetaDataEvolutionValidator {
             throw new MetaDataException("field is no longer deprecated",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
-        if (!oldFieldDescriptor.getType().equals(newFieldDescriptor.getType())) {
+        if (oldFieldDescriptor.getType() != newFieldDescriptor.getType()) {
             validateTypeChange(oldFieldDescriptor, newFieldDescriptor);
         }
         if (oldFieldDescriptor.isRequired() && !newFieldDescriptor.isRequired()) {
@@ -316,10 +316,10 @@ public class MetaDataEvolutionValidator {
             throw new MetaDataException("field changed whether default values are stored if set explicitly",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
-        if (oldFieldDescriptor.getType().equals(FieldDescriptor.Type.ENUM)) {
+        if (oldFieldDescriptor.getType() == FieldDescriptor.Type.ENUM) {
             validateEnum(newFieldDescriptor.getName(), oldFieldDescriptor.getEnumType(), newFieldDescriptor.getEnumType());
         }
-        if (oldFieldDescriptor.getType().equals(FieldDescriptor.Type.GROUP) || oldFieldDescriptor.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+        if (oldFieldDescriptor.getType() == FieldDescriptor.Type.GROUP || oldFieldDescriptor.getType() == FieldDescriptor.Type.MESSAGE) {
             // Message types need to be validated against each other as well.
             final Descriptor oldMessageType = oldFieldDescriptor.getMessageType();
             final Descriptor newMessageType = newFieldDescriptor.getMessageType();
@@ -330,8 +330,8 @@ public class MetaDataEvolutionValidator {
     private void validateTypeChange(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor) {
         // Allowed changes: Going from a variable length 32 bit integer to a variable length 64 bit integer
         // Other changes either change the Protobuf or the Tuple serialization of the field or can lead to a loss of precision.
-        if (!(oldFieldDescriptor.getType().equals(FieldDescriptor.Type.INT32) && newFieldDescriptor.getType().equals(FieldDescriptor.Type.INT64)) &&
-                !(oldFieldDescriptor.getType().equals(FieldDescriptor.Type.SINT32) && newFieldDescriptor.getType().equals(FieldDescriptor.Type.SINT64))) {
+        if (!(oldFieldDescriptor.getType() == FieldDescriptor.Type.INT32 && newFieldDescriptor.getType() == FieldDescriptor.Type.INT64) &&
+                !(oldFieldDescriptor.getType() == FieldDescriptor.Type.SINT32 && newFieldDescriptor.getType() == FieldDescriptor.Type.SINT64)) {
             throw new MetaDataException("field type changed",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName(),
                     LogMessageKeys.OLD_FIELD_TYPE, oldFieldDescriptor.getType(),

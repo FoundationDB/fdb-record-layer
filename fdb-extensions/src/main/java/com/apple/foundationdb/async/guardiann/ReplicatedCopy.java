@@ -68,7 +68,7 @@ record ReplicatedCopy(@Nonnull VectorId id, @Nonnull Transformed<RealVector> vec
     @Override
     public VectorReference toReplicatedCopy(final double newReplicationScore) {
         return replicationPriority == newReplicationScore
-               ? this : new ReplicatedCopy(id, vector, newReplicationScore, isCollapsed);
+                ? this : new ReplicatedCopy(id, vector, newReplicationScore, isCollapsed);
     }
 
     @Nonnull

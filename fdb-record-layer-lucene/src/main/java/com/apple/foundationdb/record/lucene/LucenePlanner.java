@@ -85,7 +85,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
                                    @Nullable KeyExpression sort, boolean sortReverse,
                                    @Nullable KeyExpression commonPrimaryKey) {
-        if (index.getType().equals(LuceneIndexTypes.LUCENE)) {
+        if (LuceneIndexTypes.LUCENE.equals(index.getType())) {
             return planLucene(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
         } else {
             return super.planOther(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
@@ -113,7 +113,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (rootExp instanceof GroupingKeyExpression) {
             groupingKey = ((GroupingKeyExpression)rootExp).getGroupingSubKey();
             final QueryToKeyMatcher.Match groupingMatch = new QueryToKeyMatcher(filter).matchesCoveringKey(groupingKey, filterMask);
-            if (!groupingMatch.getType().equals((QueryToKeyMatcher.MatchType.EQUALITY))) {
+            if (groupingMatch.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                 return null;
             }
             if (filterMask.allSatisfied()) {

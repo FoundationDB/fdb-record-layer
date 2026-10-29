@@ -346,9 +346,9 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
         public boolean canReuse(IndexInput docIn, FieldInfo fieldInfo) {
             return docIn == startDocIn &&
-                   indexHasFreq == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0) &&
-                   indexHasPos == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0) &&
-                   indexHasPayloads == fieldInfo.hasPayloads();
+                    indexHasFreq == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0) &&
+                    indexHasPos == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0) &&
+                    indexHasPayloads == fieldInfo.hasPayloads();
         }
 
         public PostingsEnum reset(IntBlockTermState termState, int flags) throws IOException {
@@ -658,8 +658,8 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
         public boolean canReuse(IndexInput docIn, FieldInfo fieldInfo) {
             return docIn == startDocIn &&
-                   indexHasOffsets == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0) &&
-                   indexHasPayloads == fieldInfo.hasPayloads();
+                    indexHasOffsets == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0) &&
+                    indexHasPayloads == fieldInfo.hasPayloads();
         }
 
         public EverythingEnum reset(IntBlockTermState termState, int flags) throws IOException {

@@ -92,11 +92,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                         .build();
     }
 
-    private static boolean areTheyAllIdempotent(@Nonnull FDBRecordStore store, List<Index> targetIndexes) {
-        return targetIndexes.stream()
-                .allMatch(targetIndex -> store.getIndexMaintainer(targetIndex).isIdempotent());
-    }
-
     @Override
     List<Object> indexingLogMessageKeyValues() {
         return Arrays.asList(
@@ -131,8 +126,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
          */
         validateSameMetadataOrThrow(store);
         final List<Index> targetIndexes = common.getTargetIndexes();
-        final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
-        final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
+        final boolean snapshotIsolationLevel = canUseSnapshotResolution(store, targetIndexes);
+        final ScanProperties scanProperties = scanPropertiesWithLimits(snapshotIsolationLevel);
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getPrimaryIndex());
 
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
@@ -154,7 +149,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                     .collect(Collectors.toList());
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned, isIdempotent)
+                    lastResult, hasMore, recordsScanned, snapshotIsolationLevel)
                     .thenCompose(ignore -> postIterateRangeOnly(targetRangeSets, hasMore.get(), lastResult,
                             rangeStart, rangeEnd, scanProperties.isReverse()));
         });
@@ -208,10 +203,10 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned, @Nullable Tuple rangeEndInclusive) {
         validateSameMetadataOrThrow(store);
-        final boolean isIdempotent = areTheyAllIdempotent(store, common.getTargetIndexes());
+        final boolean snapshotIsolationLevel = canUseSnapshotResolution(store, common.getTargetIndexes());
 
         final IsolationLevel isolationLevel =
-                isIdempotent ?
+                snapshotIsolationLevel ?
                 IsolationLevel.SNAPSHOT :
                 IsolationLevel.SERIALIZABLE;
 
@@ -228,7 +223,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
         return iterateRangeOnly(store, cursor,
                 this::getRecordIfTypeMatch,
-                lastResult, hasMore, recordsScanned, isIdempotent
+                lastResult, hasMore, recordsScanned, snapshotIsolationLevel
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getPrimaryKey() :
                                null );

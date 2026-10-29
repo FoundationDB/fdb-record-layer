@@ -129,8 +129,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
                                 .map(dimensionScanComparisons -> {
                                     @Nullable var dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
                                     return dimensionTupleRange == null
-                                           ? dimensionScanComparisons.explain().getExplainTokens()
-                                           : new ExplainTokens().addToString(dimensionTupleRange);
+                                            ? dimensionScanComparisons.explain().getExplainTokens()
+                                            : new ExplainTokens().addToString(dimensionTupleRange);
                                 }).iterator());
 
 

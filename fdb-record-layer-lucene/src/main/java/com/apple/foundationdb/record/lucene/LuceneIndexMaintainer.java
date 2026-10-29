@@ -698,8 +698,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private static int getIncarnationSafe(@Nonnull FDBRecordStore store) {
         return store.getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)
-               ? store.getIncarnation()
-               : 0;
+                ? store.getIncarnation()
+                : 0;
     }
 
     @SuppressWarnings("PMD.CloseResource")

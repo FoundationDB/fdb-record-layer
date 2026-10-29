@@ -39,6 +39,9 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
     @Nonnull
     private final Literals literals;
 
+    @Nonnull
+    private final QueryEvaluationConstants evaluationConstants;
+
     @Nullable
     private final byte[] continuation;
 
@@ -49,12 +52,14 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
     @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
 
-    private NormalizedQueryExecutionContext(@Nonnull Literals literals,
+    private NormalizedQueryExecutionContext(@Nonnull final Literals literals,
+                                            @Nonnull final QueryEvaluationConstants evaluationConstants,
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
                                             @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
+        this.evaluationConstants = evaluationConstants;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
         this.parameterHash = parameterHash;
@@ -92,6 +97,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     @Nonnull
     @Override
+    public QueryEvaluationConstants getEvaluationConstants() {
+        return evaluationConstants;
+    }
+
+    @Nonnull
+    @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
         return planHashMode;
     }
@@ -105,6 +116,9 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         private final Literals.Builder literalsBuilder;
 
+        @Nonnull
+        private QueryEvaluationConstants evaluationConstants;
+
         private boolean isForExplain;
 
         @Nullable
@@ -117,6 +131,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private Builder() {
             this.literalsBuilder = Literals.newBuilder();
+            this.evaluationConstants = QueryEvaluationConstants.empty();
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
@@ -141,6 +156,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
+        public Builder setQueryEvaluationConstants(@Nonnull final QueryEvaluationConstants queryEvaluationConstants) {
+            this.evaluationConstants = queryEvaluationConstants;
+            return this;
+        }
+
+        @Nonnull
         public Builder setForExplain(boolean isForExplain) {
             this.isForExplain = isForExplain;
             return this;
@@ -154,7 +175,9 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         @Nonnull
         public NormalizedQueryExecutionContext build() {
-            return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
+            return new NormalizedQueryExecutionContext(literalsBuilder.build(),
+                    evaluationConstants,
+                    continuation,
                     parameterHash, isForExplain,
                     Objects.requireNonNull(planHashMode));
         }

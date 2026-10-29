@@ -21,6 +21,5 @@
 /**
  * Test fixtures for planning and executing queries against an
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore}.
- * </p>
  */
 package com.apple.foundationdb.record.provider.foundationdb.query;

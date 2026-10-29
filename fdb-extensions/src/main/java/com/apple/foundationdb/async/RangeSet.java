@@ -116,23 +116,30 @@ public class RangeSet {
 
     /**
      * Determines if a single key is contained within the range set. If it is, this will return
-     * <code>true</code>, and if it is not, it will return <code>false</code>. In terms of isolation, this adds a read-
-     * conflict to the key corresponding to the key being checked but to nothing else even
+     * <code>true</code>, and if it is not, it will return <code>false</code>. In terms of isolation, this adds a
+     * read conflict to the key corresponding to the key being checked but to nothing else even
      * though it has to do a range read that might be larger. This means that updates to keys
      * before this won't conflict unless they actually change whether this key is contained within
      * the range set.
-     * @param tc transaction or database in which to run operation
+     *
+     * <p>
+     * If the provided {@link ReadTransactionContext} is a {@linkplain Transaction#snapshot() snapshot transaction},
+     * then the read conflict is omitted entirely. The read conflict can be applied later by
+     * calling {@link #addReadConflictKey(Transaction, byte[])}.
+     * </p>
+     *
+     * @param rtc transaction or database in which to run operation
      * @param key the key to check presence in set
      * @return a future that contains whether some range in the set contains the key
      */
     @Nonnull
-    public CompletableFuture<Boolean> contains(@Nonnull TransactionContext tc, @Nonnull byte[] key) {
+    public CompletableFuture<Boolean> contains(@Nonnull ReadTransactionContext rtc, @Nonnull byte[] key) {
         checkKey(key);
-        return tc.runAsync(tr -> {
+        return rtc.readAsync(tr -> {
+            byte[] frobnicated = subspace.pack(key);
             // Add a read conflict to only the key being checked so that if this gets
             // overwritten somewhere else, this causes a conflict.
-            byte[] frobnicated = subspace.pack(key);
-            tr.addReadConflictKey(frobnicated);
+            tr.addReadConflictKeyIfNotSnapshot(frobnicated);
             AsyncIterator<KeyValue> iterator = tr.snapshot().getRange(subspace.range().begin, keyAfter(frobnicated), 1, true).iterator();
             return iterator.onHasNext().thenApply(hasNext -> {
                 if (!hasNext) {
@@ -143,6 +150,18 @@ public class RangeSet {
                 }
             });
         });
+    }
+
+    /**
+     * Add the read conflict that {@link #contains(ReadTransactionContext, byte[])} adds for the given key. That is, after
+     * checking the key with a snapshot transaction, the transaction will conflict with changes to whether this key is
+     * contained within the range set as if it had checked it with a serializable one.
+     * @param tr transaction to add the read conflict to
+     * @param key the key whose presence in the set was checked
+     */
+    public void addReadConflictKey(@Nonnull Transaction tr, @Nonnull byte[] key) {
+        checkKey(key);
+        tr.addReadConflictKey(subspace.pack(key));
     }
 
     /**

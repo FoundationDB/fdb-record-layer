@@ -151,6 +151,7 @@ public interface ComparisonCompensation {
             });
         }
 
+        @SuppressWarnings("PMD.ImplicitSwitchFallThrough")
         @Nonnull
         private static Optional<Comparisons.Type> adjustComparisonTypeMaybe(@Nonnull final Comparisons.Type comparisonType,
                                                                             @Nonnull final Ordering.OrderPreservingKind orderPreservingKind) {

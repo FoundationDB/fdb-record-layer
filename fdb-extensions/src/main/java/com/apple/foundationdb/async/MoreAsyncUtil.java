@@ -148,7 +148,7 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T> CloseableAsyncIterator<T> limitRemaining(@Nonnull final AsyncIterator<T> iterator,
                                                                final int limit) {
-        return new CloseableAsyncIterator<T>() {
+        return new CloseableAsyncIterator<>() {
             int count = 0;
 
             @Override
@@ -316,7 +316,7 @@ public class MoreAsyncUtil {
     public static <T> CloseableAsyncIterator<T> filterRemaining(@Nonnull Executor executor,
                                                                 @Nonnull final AsyncIterator<T> iterator,
                                                                 @Nonnull final Function<T, Boolean> filter) {
-        return new CloseableAsyncIterator<T>() {
+        return new CloseableAsyncIterator<>() {
             T next;
             boolean haveNext;
             @Nullable
@@ -430,11 +430,11 @@ public class MoreAsyncUtil {
     @Nonnull
     @SuppressWarnings("unchecked") // parameterized vararg
     public static <T> AsyncIterable<T> concatIterables(@Nonnull Executor executor, @Nonnull final AsyncIterable<T>... iterables) {
-        return new AsyncIterable<T>() {
+        return new AsyncIterable<>() {
             @Nonnull
             @Override
             public CloseableAsyncIterator<T> iterator() {
-                return new CloseableAsyncIterator<T>() {
+                return new CloseableAsyncIterator<>() {
                     int index = 0;
                     @Nullable
                     AsyncIterator<T> current;
@@ -525,7 +525,7 @@ public class MoreAsyncUtil {
                     return iterables[0].asList();
                 } else {
                     final List<T> result = new ArrayList<>();
-                    return tag(whileTrue(new Supplier<CompletableFuture<Boolean>>() {
+                    return tag(whileTrue(new Supplier<>() {
                                 int index = 0;
 
                                 @Override
@@ -566,7 +566,7 @@ public class MoreAsyncUtil {
             @Nonnull
             @Override
             public CloseableAsyncIterator<T2> iterator() {
-                CloseableAsyncIterator<T2> it = new CloseableAsyncIterator<T2>() {
+                CloseableAsyncIterator<T2> it = new CloseableAsyncIterator<>() {
                     final AsyncIterator<T1> iterator = iterable.iterator();
                     final Queue<AsyncIterator<T2>> pipeline = new ArrayDeque<>(pipelineSize);
                     @Nullable
@@ -670,7 +670,7 @@ public class MoreAsyncUtil {
             @Override
             public CompletableFuture<List<T2>> asList() {
                 final List<T2> result = new ArrayList<>();
-                return tag(whileTrue(new Supplier<CompletableFuture<Boolean>>() {
+                return tag(whileTrue(new Supplier<>() {
                             final AsyncIterator<T1> iterator = iterable.iterator();
                             boolean more = false;
 
@@ -711,11 +711,11 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T> AsyncIterable<T> filterToIterable(final T item,
                                                         @Nonnull final Function<T, CompletableFuture<Boolean>> filter) {
-        return new AsyncIterable<T>() {
+        return new AsyncIterable<>() {
             @Nullable
             @Override
             public CloseableAsyncIterator<T> iterator() {
-                return new CloseableAsyncIterator<T>() {
+                return new CloseableAsyncIterator<>() {
                     boolean used = false;
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
@@ -797,11 +797,11 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
                                                            @Nonnull final Function<T1, CompletableFuture<T2>> func) {
-        return new AsyncIterable<T2>() {
+        return new AsyncIterable<>() {
             @Nullable
             @Override
             public CloseableAsyncIterator<T2> iterator() {
-                return new CloseableAsyncIterator<T2>() {
+                return new CloseableAsyncIterator<>() {
                     T2 result;
                     boolean used = false;
                     @Nullable
@@ -860,7 +860,7 @@ public class MoreAsyncUtil {
             @Override
             public CompletableFuture<List<T2>> asList() {
                 return func.apply(item)
-                    .thenApply(result -> Collections.singletonList(result));
+                    .thenApply(Collections::singletonList);
             }
         };
     }

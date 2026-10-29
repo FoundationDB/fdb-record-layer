@@ -161,7 +161,7 @@ public class DistanceValue extends AbstractValue {
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             DistanceValue otherDistance = (DistanceValue)other;
-            return operator.equals(otherDistance.operator);
+            return operator == otherDistance.operator;
         });
     }
 

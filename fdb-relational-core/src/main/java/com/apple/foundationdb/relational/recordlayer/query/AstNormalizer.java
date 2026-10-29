@@ -158,18 +158,23 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
-                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain,
+                          @Nonnull final QueryEvaluationConstants queryEvaluationConstants) {
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
-        // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
-        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode).setForExplain(forExplain);
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
         queryCachingFlags = EnumSet.noneOf(NormalizationResult.QueryCachingFlags.class);
         queryOptions = Options.builder();
         this.caseSensitive = caseSensitive;
+
+        // needed to collect information that guide query execution
+        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder()
+                .setPlanHashMode(currentPlanHashMode)
+                .setForExplain(forExplain)
+                .setQueryEvaluationConstants(queryEvaluationConstants);
     }
 
     @Override
@@ -445,6 +450,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return param;
     }
 
+    @SuppressWarnings("PMD.UnusedAssignment") // false positive: allowTokenAddition is a field read by visit() between the assignments
     @Override
     public Object visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
         if (ctx.NOT() != null) {
@@ -490,6 +496,26 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             sqlCanonicalizer.append(") ");
         }
 
+        return null;
+    }
+
+    @Override
+    public Object visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        // Make sure all interval literals are canonicalized to use the same qualifiers (DAY TO SECOND for day-time intervals).
+        Assert.castUnchecked(ctx.intervalQualifier(),
+                RelationalParser.DayTimeIntervalQualifierContext.class,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> "only day time intervals are supported");
+        sqlCanonicalizer.append("INTERVAL ");
+
+        // Must decode exactly as ExpressionVisitor.visitIntervalLiteral does to ensure cached plans can be reused
+        // correctly.
+        processScalarLiteral(
+                SemanticAnalyzer.parseIntervalLiteral(ctx,
+                        SemanticAnalyzer.normalizeStringLiteral(ctx.value)),
+                ctx.value.getStart().getTokenIndex());
+
+        sqlCanonicalizer.append("DAY TO SECOND").append(" ");
         return null;
     }
 
@@ -636,7 +662,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public static NormalizationResult normalizeQuery(@Nonnull final PlanContext context,
                                                      @Nonnull final String query,
                                                      boolean isCaseSensitive,
-                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
+                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                     @Nonnull final QueryEvaluationConstants queryEvaluationConstants) throws RelationalException {
         // lexing, parsing, and normalization are profiled through the metric collector.
         final var metricCollector = context.getMetricsCollector();
         final var parseTreeInfo = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
@@ -649,7 +676,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
-                        query
+                        query,
+                        queryEvaluationConstants
                 ));
     }
 
@@ -661,8 +689,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
-                                                   @Nonnull final String query) throws RelationalException {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
+                                                   @Nonnull final String query,
+                                                   @Nonnull final QueryEvaluationConstants queryEvaluationConstants) throws RelationalException {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, queryEvaluationConstants);
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
@@ -690,7 +719,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         plannerConfiguration,
                         caseSensitive,
                         currentPlanHashMode,
-                        recordLayerRoutine.getDescription());
+                        recordLayerRoutine.getDescription(),
+                        queryEvaluationConstants);
                 astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
         }

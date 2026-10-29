@@ -73,6 +73,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerBuildIndexTest.class);
 
+    /**
+     * Build the index in the {@link IndexState#WRITE_ONLY_WITH_TRACKING} state. Subclasses may set it per test; it is
+     * only meaningful for a single agent build of a non-idempotent index.
+     */
+    boolean useWriteOnlyWithTracking = false;
+
     <M extends Message> void singleRebuild(
             @Nonnull OnlineIndexerTestRecordHandler<M> recordHandler,
             @Nonnull List<M> records,
@@ -169,6 +175,9 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         if (sourceIndex != null) {
             indexingPolicy.setSourceIndex(sourceIndex.getName())
                     .setForbidRecordScan(true);
+        }
+        if (useWriteOnlyWithTracking) {
+            indexingPolicy.setUseWriteOnlyWithTracking(List.of(index));
         }
         builder.setIndexingPolicy(indexingPolicy.build());
         boolean isMutualIndexing = false;
@@ -274,7 +283,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 if (isAlwaysReadable) {
                     assertEquals(IndexState.READABLE, indexState);
                 } else {
-                    assertEquals(IndexState.WRITE_ONLY, indexState);
+                    assertTrue(indexState.isWriteOnly());
                     if (!isMutualIndexing) {
                         assertEquals(indexBuilder.getTotalRecordsScanned(), indexBuildState.getRecordsScanned());
                     }

@@ -312,7 +312,7 @@ public abstract class IndexComparison {
 
         @VisibleForTesting
         public NullComparison(@Nonnull final Comparisons.NullComparison comparison) {
-            this.isNull = comparison.getType().equals(Comparisons.Type.IS_NULL);
+            this.isNull = comparison.getType() == Comparisons.Type.IS_NULL;
         }
 
         public boolean isNull() {

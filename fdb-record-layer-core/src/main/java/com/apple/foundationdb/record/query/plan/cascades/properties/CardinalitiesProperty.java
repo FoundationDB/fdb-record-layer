@@ -223,8 +223,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     matchCandidate.computeOrderingFromScanComparisons(indexScanPlan.getScanComparisons(),
                             indexScanPlan.isReverse(), false);
             return ordering.getEqualityBoundValues().contains(groupingValue)
-                   ? Cardinalities.atMostOne()
-                   : Cardinalities.unknownMaxCardinality();
+                    ? Cardinalities.atMostOne()
+                    : Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull
@@ -872,7 +872,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
         @Nonnull
         private Cardinalities fromQuantifier(@Nonnull final Quantifier quantifier) {
-            if (quantifier instanceof Quantifier.Existential) {
+            if (quantifier instanceof Quantifier.AtMostOne) {
                 return Cardinalities.exactlyOne();
             }
             Cardinalities childCardinalities = visit(quantifier.getRangesOver().get());

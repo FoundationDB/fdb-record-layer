@@ -975,8 +975,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
             final Index permissiveIndex = recordStore.getRecordMetaData().getIndex(permissiveIndexName);
 
-            recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
-            recordStore.markIndexWriteOnlyWithQueue(permissiveIndexName).get();
+            recordStore.markIndexWriteOnly(standardIndex, IndexState.WRITE_ONLY_WITH_QUEUE).get();
+            recordStore.markIndexWriteOnly(permissiveIndexName, IndexState.WRITE_ONLY_WITH_QUEUE).get();
 
             // Exercise both the Index and String overloads of getIndexState.
             assertThat(recordStore.getIndexState(standardIndex).isWriteOnlyWithQueue(), is(true));
@@ -999,7 +999,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final Index standardIndex = recordStore.getRecordMetaData().getIndex(standardIndexName);
 
             // Now only the standard index is deferred to the queue; the permissive index stays readable.
-            recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
+            recordStore.markIndexWriteOnly(standardIndex, IndexState.WRITE_ONLY_WITH_QUEUE).get();
 
             // Saving a record routes the update through serializePendingWriteQueue for the standard maintainer
             // rather than writing the index entries directly.

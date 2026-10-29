@@ -37,13 +37,15 @@ class CopyPlanTest {
     private static MutablePlanGenerationContext createContext(String sql) {
         final PreparedParams preparedParams = PreparedParams.of(Map.of(), Map.of());
         return new MutablePlanGenerationContext(preparedParams,
-                PlanHashable.PlanHashMode.VC1, sql, sql, 0);
+                PlanHashable.PlanHashMode.VC1, sql, sql,
+                0, QueryEvaluationConstants.empty());
     }
 
     private static MutablePlanGenerationContext createImportContext(String sql) {
         final PreparedParams preparedParams = PreparedParams.of(Map.of(1, List.of()), Map.of());
         final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
-                PlanHashable.PlanHashMode.VC1, sql, sql, 0);
+                PlanHashable.PlanHashMode.VC1, sql, sql, 0,
+                QueryEvaluationConstants.empty());
         context.processUnnamedPreparedParam(1);
         return context;
     }

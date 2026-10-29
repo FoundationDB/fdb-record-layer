@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -69,6 +70,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1700,6 +1702,85 @@ public class StandardQueryTests {
                         Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
                     }
                     Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testSelectWithDatetimeValueFunctions() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, timestamp bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (1, 10, CURRENT_TIMESTAMP())")) {
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(
+                        statement.execute("SELECT * FROM T1 WHERE timestamp > CURRENT_TIMESTAMP() - INTERVAL '10' DAY"),
+                        "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("PK", 1L)
+                            .hasColumn("a", 10L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testSelectWithFixedCurrentTimestamp() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, timestamp bigint, PRIMARY KEY(pk))";
+        final long fixedTimestamp = 10000L;
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            connection.setOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, fixedTimestamp);
+            try (var insert = connection.prepareStatement("insert into t1 values (1, 10, CURRENT_TIMESTAMP), (2, 20, CURRENT_TIMESTAMP)")) {
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(2, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(
+                        statement.execute("SELECT pk, CURRENT_TIMESTAMP AS fixed_ts FROM T1"),
+                        "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("PK", 1L)
+                            .hasColumn("fixed_ts", fixedTimestamp)
+                            .hasNextRow()
+                            .hasColumn("pk", 2L)
+                            .hasColumn("fixed_ts", fixedTimestamp)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testInsertMultipleRecordWithCurrentTimestamp() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, timestamp bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (1, 10, CURRENT_TIMESTAMP), (2, 20, CURRENT_TIMESTAMP), (3, 30, CURRENT_TIMESTAMP)")) {
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(3, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(
+                        statement.execute("SELECT pk, timestamp FROM T1"),
+                        "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    final var firstTimestamp = resultSet.getLong("timestamp");
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasColumns(Map.of("pk", 1L, "timestamp", firstTimestamp))
+                            .hasNextRow()
+                            .hasColumns(Map.of("pk", 2L, "timestamp", firstTimestamp))
+                            .hasNextRow()
+                            .hasColumns(Map.of("pk", 3L, "timestamp", firstTimestamp))
+                            .hasNoNextRow();
                 }
             }
         }

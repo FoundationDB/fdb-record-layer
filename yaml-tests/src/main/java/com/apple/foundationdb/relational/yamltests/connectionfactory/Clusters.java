@@ -72,7 +72,7 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
     }
 
     public static <K, V> Entry<V> mapEntry(Clusters.Entry<K> existing, Function<K, V> mapper) {
-        return new Clusters.Entry<V>(mapper.apply(existing.server), existing.clusterFile);
+        return new Clusters.Entry<>(mapper.apply(existing.server), existing.clusterFile);
     }
 
     /**

@@ -25,20 +25,35 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 
 public interface QueryExecutionContext {
 
     @Nonnull
     default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        final var literals = getLiterals();
-        if (literals.isEmpty()) {
-            return EvaluationContext.forTypeRepository(typeRepository);
-        }
         final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), literals.asMap());
+        final var constantsMap = new LinkedHashMap<String, Object>();
+
+        final var literals = getLiterals();
+        if (!literals.isEmpty()) {
+            constantsMap.putAll(literals.asMap());
+        }
+
+        final var evaluationConstantsMap = getEvaluationConstants().asMapByConstantId();
+        Assert.thatUnchecked(
+                Sets.intersection(constantsMap.keySet(), evaluationConstantsMap.keySet()).isEmpty(),
+                ErrorCode.INTERNAL_ERROR,
+                "conflict between the IDs of evaluation constants and IDs of ordered literals");
+        constantsMap.putAll(evaluationConstantsMap);
+
+        builder.setConstant(Quantifier.constant(), Collections.unmodifiableMap(constantsMap));
         return builder.build(typeRepository);
     }
 
@@ -59,6 +74,9 @@ public interface QueryExecutionContext {
     Literals getLiterals();
 
     boolean isForExplain(); // todo (yhatem) remove.
+
+    @Nonnull
+    QueryEvaluationConstants getEvaluationConstants();
 
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();
