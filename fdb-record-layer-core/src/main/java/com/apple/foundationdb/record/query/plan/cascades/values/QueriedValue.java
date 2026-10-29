@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PQueriedValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -88,6 +89,16 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;
+    }
+
+    /**
+     * Two queried values are equal if they stand for streams of the same type.
+     */
+    @Nonnull
+    @Override
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> resultType.equals(((QueriedValue)other).resultType));
     }
 
     @Override
