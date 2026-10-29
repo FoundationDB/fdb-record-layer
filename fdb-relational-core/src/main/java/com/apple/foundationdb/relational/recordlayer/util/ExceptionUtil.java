@@ -78,8 +78,7 @@ public final class ExceptionUtil {
         }
 
         Map<String, Object> extraContext = re.getLogInfo();
-        final String message = Objects.requireNonNullElseGet(re.getMessage(), re::toString);
-        return new RelationalException(message, code, re).withContext(extraContext);
+        return new RelationalException(code, re).withContext(extraContext);
     }
 
     /**
