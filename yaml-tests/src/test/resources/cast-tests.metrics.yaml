@@ -5,8 +5,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19,
         @c6, @c8) AS ARRAY(STRING)) AS _0)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 3
+    transform_count: 58
     transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
@@ -17,9 +17,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 204
-    task_total_time_ms: 1
-    transform_count: 57
-    transform_time_ms: 0
+    task_total_time_ms: 3
+    transform_count: 58
+    transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -30,9 +30,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19,
         @c6, @c8) AS ARRAY(DOUBLE)) AS _0)
     task_count: 204
-    task_total_time_ms: 1
-    transform_count: 57
-    transform_time_ms: 0
+    task_total_time_ms: 3
+    transform_count: 58
+    transform_time_ms: 2
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -44,7 +44,7 @@ cast-operator-tests:
         @c6, @c8) AS ARRAY(INT)) AS _0)
     task_count: 204
     task_total_time_ms: 2
-    transform_count: 57
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -57,7 +57,7 @@ cast-operator-tests:
         @c6, @c8) AS ARRAY(INT)) AS _0)
     task_count: 204
     task_total_time_ms: 2
-    transform_count: 57
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -69,8 +69,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c4,
         @c6, @c8) AS ARRAY(INT)) AS _0)
     task_count: 204
-    task_total_time_ms: 1
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -83,7 +83,7 @@ cast-operator-tests:
         @c6, @c4) AS ARRAY(INT)) AS _0)
     task_count: 204
     task_total_time_ms: 2
-    transform_count: 57
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -95,8 +95,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c19 AS LONG)]) | MAP (CAST(array(@c19,
         @c6, @c8) AS ARRAY(BOOLEAN)) AS _0)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -108,7 +108,7 @@ cast-operator-tests:
         _0)
     task_count: 204
     task_total_time_ms: 1
-    transform_count: 57
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -119,8 +119,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 204
-    task_total_time_ms: 1
-    transform_count: 57
+    task_total_time_ms: 2
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -131,8 +131,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (array() AS
         _0)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -145,7 +145,7 @@ cast-operator-tests:
         @c6, @c8) AS _0)
     task_count: 204
     task_total_time_ms: 1
-    transform_count: 57
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -157,9 +157,9 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c33 AS LONG)]) | MAP (CAST(array(@c33,
         @c6, @c8, @c10, @c12, @c14, @c16, @c18, @c20, @c22) AS ARRAY(STRING)) AS _0)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
-    transform_time_ms: 1
+    task_total_time_ms: 1
+    transform_count: 58
+    transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17
@@ -170,8 +170,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS STRING) AS CASTED_VALUE)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -183,8 +183,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS DOUBLE) AS CASTED_VALUE)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -196,8 +196,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL
         AS INT) AS CASTED_VALUE)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -209,8 +209,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.BOOL_COL
         AS INT) AS CASTED_VALUE)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -222,8 +222,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c14 AS LONG)]) | MAP (CAST(_.STR_COL
         AS INT) AS CASTED_VALUE)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -235,8 +235,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c24 AS LONG)]) | MAP (CAST(CAST(CAST(_.NUM_COL
         AS STRING) AS INT) AS DOUBLE) AS NESTED_CAST)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 3
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -248,8 +248,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c16 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS DOUBLE) * @c8 AS CAST_ARITHMETIC)
     task_count: 204
-    task_total_time_ms: 4
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -261,8 +261,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c21 AS LONG)]) | MAP (CAST(_.NUM_COL
         AS LONG) + CAST(@c10 AS LONG) AS CAST_SUM)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0
@@ -274,8 +274,8 @@ cast-operator-tests:
     explain: SCAN([IS TEST_CAST, EQUALS promote(@c23 AS LONG)]) | MAP (pick(ConditionSelector(CAST(_.BOOL_COL
         AS INT) equals @c23, TRUE), @c12, @c14) AS CAST_CASE)
     task_count: 204
-    task_total_time_ms: 2
-    transform_count: 57
+    task_total_time_ms: 1
+    transform_count: 58
     transform_time_ms: 0
     transform_yield_count: 16
     insert_time_ms: 0

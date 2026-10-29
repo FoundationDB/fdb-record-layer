@@ -1,17 +1,19 @@
 ﬂ
 =
 primary-key-equality%EXPLAIN SELECT * from t1 where a = 10ù
-µïú”L Óõc(0∆°	8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
+µëº€M ‘«j(0®å
+8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}·
+}‡
 >
-primary-key-equality&EXPLAIN SELECT * from t2 where c = 100û
-µÚ≥áL ∑Ññ(0¶„	8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
+primary-key-equality&EXPLAIN SELECT * from t2 where c = 100ù
+µå‹€M ùæe(0ê£
+8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -159,17 +161,19 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201˚
 }Ÿ
 7
 dml-operations%EXPLAIN SELECT * from t1 where a = 13ù
-µïú”L Óõc(0∆°	8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
+µëº€M ‘«j(0®å
+8"@*SCAN([IS T1, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS promote(@c7 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}€
+}⁄
 8
-dml-operations&EXPLAIN SELECT * from t2 where c = 103û
-µÚ≥áL ∑Ññ(0¶„	8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
+dml-operations&EXPLAIN SELECT * from t2 where c = 103ù
+µå‹€M ùæe(0ê£
+8"@*SCAN([IS T2, EQUALS promote(@c7 AS LONG)])‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

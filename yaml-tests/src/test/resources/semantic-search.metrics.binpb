@@ -159,7 +159,7 @@
 }ç 
 À
 semantic-search-queries¤EXPLAIN select title from documents where zone = 'zone1' and bookshelf = 'fiction' qualify (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)¡
-Ðˆþ‘Ž ºª¹(10¬æ?8'@÷ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) âˆª ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c54: @c36}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)ˆdigraph G {
+Ðð–µ Ý¹é(10‰Ÿ'8'@÷ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) âˆª ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c54: @c36}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)ˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -331,10 +331,10 @@ t
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ý
+}ü
 Ö
-3user-defined-scalar-function-with-expressions-tests?EXPLAIN select temp_constructor(r.u.w) from nested where id = 1^create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L)¡
-ÌÕÐ«9 ÷€ž(0¿ø8@VSCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)«digraph G {
+3user-defined-scalar-function-with-expressions-tests?EXPLAIN select temp_constructor(r.u.w) from nested where id = 1^create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L) 
+ÌÆšƒ: ŽŸv(0Œ´	8@VSCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

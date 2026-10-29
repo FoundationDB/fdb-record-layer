@@ -927,26 +927,26 @@ agg-index-tests:
     explain: 'AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0
         AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 1142
-    task_total_time_ms: 129
-    transform_count: 293
-    transform_time_ms: 48
-    transform_yield_count: 101
-    insert_time_ms: 3
-    insert_new_count: 129
+    task_count: 1172
+    task_total_time_ms: 55
+    transform_count: 298
+    transform_time_ms: 20
+    transform_yield_count: 103
+    insert_time_ms: 1
+    insert_new_count: 132
     insert_reused_count: 8
 -   query: EXPLAIN select sum(col3) as s from T2 where col2 = 90
     ref: aggregate-index-tests.yamsql:695
     explain: 'AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0
         AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 1142
-    task_total_time_ms: 129
-    transform_count: 293
-    transform_time_ms: 48
-    transform_yield_count: 101
-    insert_time_ms: 3
-    insert_new_count: 129
+    task_count: 1172
+    task_total_time_ms: 55
+    transform_count: 298
+    transform_time_ms: 20
+    transform_yield_count: 103
+    insert_time_ms: 1
+    insert_new_count: 132
     insert_reused_count: 8
 -   query: EXPLAIN select sum(col3) from T2;
     ref: aggregate-index-tests.yamsql:699

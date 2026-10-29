@@ -336,4 +336,28 @@ test_block:
       - query: SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY country
       - explain: "AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c12 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)"
       - result: [{France, 35}]
+---
+test_block:
+  name: unique_index_null_keys
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: INSERT INTO customers_index_on_table VALUES (6, 'Eve', 'eve@example.com', 31, 'Oslo', 'Norway', NULL), (7, 'Frank', 'frank@example.com', 33, 'Bergen', 'Norway', NULL)
+      - count: 2
+    -
+      # Tests that a lookup of NULL in a unique index is not treated as a lookup of at most one record. A unique index
+      # allows many entries with a NULL key, so the two records above qualify, and the order by city cannot be
+      # provided. Planning fails.
+      - query: SELECT name, city FROM customers_index_on_table WHERE profession IS NULL ORDER BY city
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
+    -
+      # Tests that the same holds for a grouping; the records with a NULL key can be several groups.
+      - query: SELECT city, COUNT(*) FROM customers_index_on_table WHERE profession IS NULL GROUP BY city
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
 ...

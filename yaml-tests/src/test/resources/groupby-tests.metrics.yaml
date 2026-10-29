@@ -1,7 +1,7 @@
 group-by-tests:
 -   query: EXPLAIN select AVG(x.col2) from (select col1,col2 from t1) as x group by
         x.col1;
-    ref: groupby-tests.yamsql:136
+    ref: groupby-tests.yamsql:145
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 292
@@ -14,7 +14,7 @@ group-by-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2
         from t1) as x group by x.col1;
-    ref: groupby-tests.yamsql:144
+    ref: groupby-tests.yamsql:153
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2)
         AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1
         AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)
@@ -27,7 +27,7 @@ group-by-tests:
     insert_new_count: 29
     insert_reused_count: 2
 -   query: EXPLAIN select MAX(x.col2) from (select col1,col2 from t1) as x;
-    ref: groupby-tests.yamsql:154
+    ref: groupby-tests.yamsql:163
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 338
@@ -39,7 +39,7 @@ group-by-tests:
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select MIN(x.col2) from (select col1,col2 from t1) as x;
-    ref: groupby-tests.yamsql:158
+    ref: groupby-tests.yamsql:167
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 338
@@ -51,7 +51,7 @@ group-by-tests:
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(x.col2) from (select col1,col2 from t1) as x;
-    ref: groupby-tests.yamsql:162
+    ref: groupby-tests.yamsql:171
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 338
@@ -63,7 +63,7 @@ group-by-tests:
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select AVG(x.col2) from (select col1,col2 from t1) as x;
-    ref: groupby-tests.yamsql:166
+    ref: groupby-tests.yamsql:175
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 338
@@ -75,7 +75,7 @@ group-by-tests:
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(*) from T1;
-    ref: groupby-tests.yamsql:185
+    ref: groupby-tests.yamsql:194
     explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 315
@@ -87,7 +87,7 @@ group-by-tests:
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(col1) from T1;
-    ref: groupby-tests.yamsql:189
+    ref: groupby-tests.yamsql:198
     explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 315
@@ -99,28 +99,93 @@ group-by-tests:
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
-    ref: groupby-tests.yamsql:196
+    ref: groupby-tests.yamsql:221
     explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2
         EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 1071
-    task_total_time_ms: 88
-    transform_count: 260
-    transform_time_ms: 26
-    transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 146
+    task_count: 1041
+    task_total_time_ms: 42
+    transform_count: 255
+    transform_time_ms: 13
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 143
     insert_reused_count: 17
 -   query: EXPLAIN SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
-    ref: groupby-tests.yamsql:205
+    ref: groupby-tests.yamsql:230
     explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2
         EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 1071
-    task_total_time_ms: 88
-    transform_count: 260
-    transform_time_ms: 26
-    transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 146
+    task_count: 1041
+    task_total_time_ms: 42
+    transform_count: 255
+    transform_time_ms: 13
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 143
     insert_reused_count: 17
+group-by-single-record:
+-   query: EXPLAIN SELECT col2, COUNT(*) FROM t1 WHERE id = 3 GROUP BY col2
+    ref: groupby-tests.yamsql:354
+    explain: SCAN([IS T1, EQUALS promote(@c12 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._0._0 AS COL2, _._1._0 AS _1)
+    task_count: 263
+    task_total_time_ms: 6
+    transform_count: 76
+    transform_time_ms: 2
+    transform_yield_count: 23
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT c, COUNT(*) FROM t2 WHERE pk = 3 GROUP BY c
+    ref: groupby-tests.yamsql:360
+    explain: SCAN([IS T2, EQUALS promote(@c12 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY (_._0.C AS _0) | MAP (_._0._0 AS C, _._1._0 AS _1)
+    task_count: 263
+    task_total_time_ms: 4
+    transform_count: 76
+    transform_time_ms: 2
+    transform_yield_count: 23
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT r.v.y, COUNT(*) FROM nested WHERE q.s = 200 AND r.u.w =
+        5 GROUP BY r.v.y
+    ref: groupby-tests.yamsql:367
+    explain: SCAN([IS NESTED, EQUALS promote(@c18 AS LONG), EQUALS promote(@c26 AS
+        LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.R.V.Y AS
+        _0) | MAP (_._0._0 AS Y, _._1._0 AS _1)
+    task_count: 263
+    task_total_time_ms: 12
+    transform_count: 76
+    transform_time_ms: 6
+    transform_yield_count: 23
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT COUNT(*) AS n FROM t1 ORDER BY n
+    ref: groupby-tests.yamsql:382
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS N)
+    task_count: 315
+    task_total_time_ms: 12
+    transform_count: 76
+    transform_time_ms: 7
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT n, COUNT(*) FROM (SELECT COUNT(*) AS n FROM t1) AS s GROUP
+        BY n
+    ref: groupby-tests.yamsql:389
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP ((coalesce_long(_._0._0, 0l) AS N) AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY (_._0.N AS _0) | MAP (_._0._0 AS N, _._1._0 AS _1)
+    task_count: 427
+    task_total_time_ms: 7
+    transform_count: 101
+    transform_time_ms: 3
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 45
+    insert_reused_count: 4

@@ -311,4 +311,52 @@ test_block:
       - query: select (*) from t2_func_3() order by "ordered2", "ordered1"
       - supported_version: 4.10.1.0
       - result: [ {{{2, 1}, 2, 1}}, {{{4, 1}, 4, 1}}, {{{6, 1}, 6, 1}}, {{{8, 1}, 8, 1}}, {{{1, 2}, 1, 2}}, {{{3, 2}, 3, 2}}, {{{5, 2}, 5, 2}}, {{{7, 2}, 7, 2}} ]
+---
+test_block:
+  name: orderby-single-record
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Tests that a lookup by the primary key can be ordered by a column no index provides an order for. At most one
+      # record qualifies, so no sort is needed.
+      - query: SELECT a, d FROM t3 WHERE p = 1 ORDER BY d
+      - supported_version: !current_version
+      - explain: "SCAN([IS T3, EQUALS promote(@c9 AS LONG)]) | MAP (_.A AS A, _.D AS D)"
+      - result: [{9, 2}]
+    -
+      # Tests that the same holds for a descending order, which does not change the plan.
+      - query: SELECT b, d FROM t3 WHERE p = 3 ORDER BY d DESC
+      - supported_version: !current_version
+      - explain: "SCAN([IS T3, EQUALS promote(@c9 AS LONG)]) | MAP (_.B AS B, _.D AS D)"
+      - result: [{5, 0}]
+    -
+      # Tests that a lookup that finds no record is planned the same way, as the plan does not depend on the data.
+      - query: SELECT a, d FROM t3 WHERE p = 99 ORDER BY d
+      - supported_version: !current_version
+      - explain: "SCAN([IS T3, EQUALS promote(@c9 AS LONG)]) | MAP (_.A AS A, _.D AS D)"
+      - result: []
+    -
+      # Tests that a range over the primary key cannot be ordered by `d`. Several records qualify and no index orders
+      # by `d`, so planning fails.
+      - query: SELECT a, d FROM t3 WHERE p > 14 ORDER BY d
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
+    -
+      # Tests that binding only the first column of the index on (a, b, c, d) is not enough to order by `d`. Several
+      # records qualify, so planning fails.
+      - query: SELECT b, d FROM t3 WHERE a = 9 ORDER BY d
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
+    -
+      # Tests that an `OR` of two lookups by the primary key cannot be ordered by `d`. Together they can qualify two
+      # records, so planning fails.
+      - query: SELECT a, d FROM t3 WHERE p = 1 OR p = 2 ORDER BY d
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
 ...

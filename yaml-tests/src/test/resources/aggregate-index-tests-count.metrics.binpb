@@ -1,7 +1,7 @@
 ©
 8
 agg-index-tests-countEXPLAIN select count(*) from t1ì
-™ç©út ±¼Ý(*0Óø'8#@tAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Ødigraph G {
+·¥õæy Ï–Ä(,0†£&8&@tAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -30,7 +30,7 @@ digraph G {
 }¬
 ;
 agg-index-tests-count"EXPLAIN select count(col1) from t1ì
-™ÔÇ²t Ìê 	(*0Ýª-8#@tAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Ødigraph G {
+·Ó Èy ’šÞ(,0€ô(8&@tAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

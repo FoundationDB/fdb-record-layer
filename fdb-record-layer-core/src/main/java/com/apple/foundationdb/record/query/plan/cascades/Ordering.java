@@ -51,6 +51,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +60,8 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * This class captures an ordering property.
@@ -118,6 +121,14 @@ public class Ordering {
     @Nonnull
     private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(),
             false, (b, o) -> { } );
+
+    /**
+     * The ordering of a result that has nothing to be ordered by and still is distinct. Only a result of at most one
+     * record can have such an ordering. It is compatible with any requested ordering.
+     */
+    @Nonnull
+    private static final Ordering EMPTY_DISTINCT = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(),
+            true, (b, o) -> { } );
 
     /**
      * Union merge operator to be used to obtain the resulting order of a distinct ordered union operation,
@@ -246,6 +257,58 @@ public class Ordering {
         return bindingMap.isEmpty();
     }
 
+    /**
+     * Indicates whether a value is bound by exactly one equality, i.e. whether it has the same value for all records.
+     * @param value a value of this ordering
+     * @return {@code true} if the value is bound by exactly one equality
+     */
+    private boolean isBoundByExactlyOneEquality(@Nonnull final Value value) {
+        return bindingMap.containsKey(value) &&
+                areAllBindingsFixed(bindingMap.get(value)) &&
+                !hasMultipleFixedBindings(bindingMap.get(value));
+    }
+
+    /**
+     * Computes the values of this ordering that tell records apart, i.e. the values that are not bound by exactly one
+     * equality.
+     * @return the values that are not bound by exactly one equality
+     */
+    @Nonnull
+    private Set<Value> unboundValues() {
+        return orderingSet.getSet()
+                .stream()
+                .filter(value -> !isBoundByExactlyOneEquality(value))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Computes the parts of a requested ordering that matter for this ordering. If this ordering is distinct, no two
+     * records tie on the values that are not bound by exactly one equality. Thus, the parts of the requested ordering
+     * after the one that completes these values do not matter, as the records are already in the requested order. If
+     * there are no such values at all, there is at most one record and none of the requested parts matter.
+     * @param requestedOrdering a requested ordering
+     * @return the parts of the requested ordering that this ordering has to satisfy
+     */
+    @Nonnull
+    private List<RequestedOrderingPart> relevantRequestedOrderingParts(@Nonnull final RequestedOrdering requestedOrdering) {
+        final var requestedOrderingParts = requestedOrdering.getOrderingParts();
+        if (!isDistinct) {
+            return requestedOrderingParts;
+        }
+
+        final var unboundValues = unboundValues();
+        if (unboundValues.isEmpty()) {
+            return ImmutableList.of();
+        }
+        for (int i = 0; i < requestedOrderingParts.size(); i++) {
+            unboundValues.remove(requestedOrderingParts.get(i).getValue());
+            if (unboundValues.isEmpty()) {
+                return requestedOrderingParts.subList(0, i + 1);
+            }
+        }
+        return requestedOrderingParts;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -332,7 +395,12 @@ public class Ordering {
             return false;
         }
 
-        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+        final var relevantOrderingParts = relevantRequestedOrderingParts(requestedOrdering);
+        if (relevantOrderingParts.isEmpty()) {
+            return true;
+        }
+
+        for (final var requestedOrderingPart : relevantOrderingParts) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
                 return false;
             }
@@ -342,15 +410,16 @@ public class Ordering {
                 return false;
             }
         }
-        final var requestedValuesSet =
-                ImmutableSet.copyOf(requestedOrdering.getOrderingValues());
+        final var relevantValues =
+                relevantOrderingParts.stream().map(OrderingPart::getValue).collect(ImmutableList.toImmutableList());
+        final var requestedValuesSet = ImmutableSet.copyOf(relevantValues);
 
         return !Iterables.isEmpty(
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet().filterElements(requestedValuesSet::contains),
-                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
+                        relevantValues,
                         Function.identity(),
-                        permutation -> requestedOrdering.getOrderingParts().size()));
+                        permutation -> relevantOrderingParts.size()));
     }
 
     /**
@@ -386,7 +455,21 @@ public class Ordering {
             return ImmutableList.of();
         }
 
-        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+        //
+        // The parts of the requested ordering that do not matter are compatible as they are, whatever their sort order.
+        //
+        final var relevantOrderingParts = relevantRequestedOrderingParts(requestedOrdering);
+        final var irrelevantOrderingParts =
+                requestedOrdering.getOrderingParts()
+                        .subList(relevantOrderingParts.size(), requestedOrdering.getOrderingParts().size())
+                        .stream()
+                        .map(requestedOrderingPart -> new RequestedOrderingPart(requestedOrderingPart.getValue(), RequestedSortOrder.ANY))
+                        .collect(ImmutableList.toImmutableList());
+        if (relevantOrderingParts.isEmpty() && isDistinct && unboundValues().isEmpty()) {
+            return ImmutableList.of(irrelevantOrderingParts);
+        }
+
+        for (final var requestedOrderingPart : relevantOrderingParts) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
                 return ImmutableList.of();
             }
@@ -400,18 +483,20 @@ public class Ordering {
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet(),
-                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
+                        relevantOrderingParts.stream().map(OrderingPart::getValue).collect(ImmutableList.toImmutableList()),
                         Function.identity(),
-                        permutation -> requestedOrdering.getOrderingParts().size());
+                        permutation -> relevantOrderingParts.size());
         return Iterables.transform(satisfyingValuePermutations,
-                permutation -> permutation.stream()
-                        .map(value -> {
-                            final var bindings = bindingMap.get(value);
-                            if (areAllBindingsFixed(bindings)) {
-                                return new RequestedOrderingPart(value, RequestedSortOrder.ANY);
-                            }
-                            return new RequestedOrderingPart(value, sortOrder(bindings).toRequestedSortOrder());
-                        })
+                permutation -> Stream.concat(
+                                permutation.stream()
+                                        .map(value -> {
+                                            final var bindings = bindingMap.get(value);
+                                            if (areAllBindingsFixed(bindings)) {
+                                                return new RequestedOrderingPart(value, RequestedSortOrder.ANY);
+                                            }
+                                            return new RequestedOrderingPart(value, sortOrder(bindings).toRequestedSortOrder());
+                                        }),
+                                irrelevantOrderingParts.stream())
                         .collect(ImmutableList.toImmutableList()));
     }
 
@@ -441,6 +526,12 @@ public class Ordering {
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
         // no ordering left worth further considerations
         if (requestedGroupingValues.isEmpty()) {
+            return true;
+        }
+
+        // If this ordering is distinct, the values that are not bound by exactly one equality identify a single
+        // record. If all of them are grouped by, every group consists of one record, whatever else is grouped by.
+        if (isDistinct && requestedGroupingValues.containsAll(unboundValues())) {
             return true;
         }
 
@@ -502,7 +593,17 @@ public class Ordering {
             }
         }
 
-        return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
+        //
+        // The ordering is only distinct as long as every value that could not be pulled up is bound by equality, as
+        // otherwise there can be records that are only told apart by a value that is no longer visible.
+        //
+        final var isStillDistinct =
+                isDistinct() &&
+                        getOrderingSet().getSet()
+                                .stream()
+                                .filter(orderingValue -> !pulledUpValuesMultimap.containsKey(orderingValue))
+                                .allMatch(orderingValue -> areAllBindingsFixed(bindingMap.get(orderingValue)));
+        return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isStillDistinct);
     }
 
     @Nonnull
@@ -1178,7 +1279,18 @@ public class Ordering {
 
     @Nonnull
     public static Ordering empty() {
-        return EMPTY;
+        return empty(false);
+    }
+
+    /**
+     * Ordering that has nothing to be ordered by. If the ordering is distinct, no two records can tie on anything, so
+     * the result consists of at most one record. Such an ordering is compatible with any requested ordering.
+     * @param isDistinct {@code true} if the records of the result are distinct
+     * @return the empty ordering
+     */
+    @Nonnull
+    public static Ordering empty(final boolean isDistinct) {
+        return isDistinct ? EMPTY_DISTINCT : EMPTY;
     }
 
     @Nonnull

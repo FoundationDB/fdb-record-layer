@@ -250,7 +250,7 @@ digraph G {
 }è
 @
 uuid-as-a-primary-key'EXPLAIN select B, A from TB where a = ?£
-ÚÁþ”> æ–³(0Êµ58@ESCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)¾
+ÚûÌÿ? ‚ÀÓ(0þÕ78@ESCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)¾
 digraph G {
   fontname=courier;
   rankdir=BT;

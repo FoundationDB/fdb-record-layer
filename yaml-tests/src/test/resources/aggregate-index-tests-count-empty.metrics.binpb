@@ -1,7 +1,7 @@
 Ø
 >
 agg-index-tests-count-emptyEXPLAIN select count(*) from t1Ï
-°•ÔÂx ùÅ»(.0Œ—8#@tAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ÿdigraph G {
+ø√á›} …˜è(00ÍÈ)8&@tAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -31,7 +31,7 @@ digraph G {
 }≤
 A
 agg-index-tests-count-empty"EXPLAIN select count(col1) from t1Ï
-°˙˚·x ±ïË(.0•ù8#@tAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ÿdigraph G {
+ø≈≤⁄} ÈÌÎ(00÷ˆ8&@tAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -125,10 +125,10 @@ O
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ˆ
+}˜
 Q
-agg-index-tests-count-empty2EXPLAIN select count(col2) from t1 where col1 = 22†
-°º¥◊{ ï∫Å(,0∏Á8#@‹AISCAN(MV6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)£digraph G {
+agg-index-tests-count-empty2EXPLAIN select count(col2) from t1 where col1 = 22°
+øΩ“¨Ä —∆„(.0´î8&@‹AISCAN(MV6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -314,9 +314,9 @@ user-defined-scalar-function-with-expressions-tests:
     explain: SCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X,
         5l AS _1) AS _0)
     task_count: 204
-    task_total_time_ms: 7
-    transform_count: 57
-    transform_time_ms: 2
+    task_total_time_ms: 6
+    transform_count: 58
+    transform_time_ms: 1
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 17

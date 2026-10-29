@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
@@ -129,6 +130,9 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
         final var seenValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
+        // We keep track of the values that are bound by a plain EQUALS to find out if the primary key is bound.
+        final var equalsBoundValues = Sets.<Value>newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
@@ -149,6 +153,9 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
             bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
             seenValues.add(simplifiedComparisonPair.getLeft());
+            if (simplifiedComparisonPair.getRight().getType() == Comparisons.Type.EQUALS) {
+                equalsBoundValues.add(simplifiedComparisonPair.getLeft());
+            }
         }
 
         //
@@ -162,8 +169,19 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             seenValues.add(orderingPart.getValue());
         });
 
+        //
+        // A primary key that is bound by EQUALS comparisons produces at most one record. There is nothing left to tell
+        // two records apart, so the ordering is distinct, and the remaining columns do not contribute to the ordering.
+        // The same does not hold for IS NULL, as the number of records with a NULL key is not bounded.
+        //
+        final var isAtMostOneRecord =
+                this instanceof WithPrimaryKeyMatchCandidate &&
+                        ((WithPrimaryKeyMatchCandidate)this).getPrimaryKeyValuesMaybe()
+                                .map(equalsBoundValues::containsAll)
+                                .orElse(false);
+
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
-        for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
+        for (var i = scanComparisons.getEqualitySize(); !isAtMostOneRecord && i < normalizedKeyExpressions.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
             if (normalizedKeyExpression.createsDuplicates()) {
@@ -195,6 +213,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             }
         }
 
-        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(),
+                isDistinct || isAtMostOneRecord);
     }
 }

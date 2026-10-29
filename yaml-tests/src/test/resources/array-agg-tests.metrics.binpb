@@ -256,7 +256,7 @@ c
 }ª
 A
 array-agg-with-aggregate-indexEXPLAIN SELECT COUNT(*) FROM T4ı
-ŸÈâÕL~ …Â∆7(00ê¡ö8/@yAISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)€digraph G {
+˜Ä§ãÉ ë–Ã(20√‹82@yAISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
