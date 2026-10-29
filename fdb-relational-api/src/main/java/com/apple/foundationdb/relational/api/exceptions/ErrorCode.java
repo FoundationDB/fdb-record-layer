@@ -189,7 +189,8 @@ public enum ErrorCode {
      * system.
      */
     INTERNAL_ERROR("XX000"),
-    DESERIALIZATION_FAILURE("XXF01");
+    DESERIALIZATION_FAILURE("XXF01"),
+    SCHEMA_TEMPLATE_SERIALIZATION_FAILURE("XXF02");
 
     private final String errorCode;
 
