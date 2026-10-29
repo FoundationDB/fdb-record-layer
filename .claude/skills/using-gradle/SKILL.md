@@ -32,6 +32,7 @@ Compile a single module without running tests:
 | `quickTest` | Like `test` but faster (excludes `WipesFDB`) |
 | `destructiveTest` | Tests tagged `WipesFDB` — wipes FDB data, single fork |
 | `performanceTest` | Tests tagged `Performance`, assertions disabled |
+| `indexScenarioTest` | Tests tagged `IndexScenarios` — the index-maintainer scenario matrix (all modules) |
 | `rpcTest` | Tests via embedded RPC server rather than embedded connection |
 | `mixedModeTest` | Tests tagged `MixedMode` (requires external server JARs) |
 | `singleVersionTest` | Tests against a single external server version |
