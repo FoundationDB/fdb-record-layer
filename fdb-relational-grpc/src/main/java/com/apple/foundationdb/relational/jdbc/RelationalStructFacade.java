@@ -423,20 +423,9 @@ class RelationalStructFacade implements RelationalStruct {
          * @param fieldName Name of field whose presence we are to check for.
          * @return Zero-based offset at where <code>fieldName</code> was inserted else -1 if unknown field.
          */
-        @SuppressWarnings("PMD.ForLoopCanBeForeach")
         @VisibleForTesting
         int getZeroBasedOffset(String fieldName) {
-            int offset = -1;
-            if (this.metadata.containsKey(fieldName)) {
-                for (int i = 0; i < this.fieldOrder.size(); i++) {
-                    if (this.fieldOrder.get(i).equals(fieldName)) {
-                        // This is probably a bug: it returns -1 rather than i, so a known field is never found.
-                        // See https://github.com/FoundationDB/fdb-record-layer/issues/4786
-                        return offset;
-                    }
-                }
-            }
-            return offset;
+            return this.fieldOrder.indexOf(fieldName);
         }
 
         /**
@@ -455,13 +444,25 @@ class RelationalStructFacade implements RelationalStruct {
             return offset;
         }
 
+        /**
+         * Store column data at <code>offset</code>: replace the existing column if the field is being overwritten,
+         * else append it.
+         */
+        private void putColumn(int offset, Column column) {
+            if (offset < this.listColumnBuilder.getColumnCount()) {
+                this.listColumnBuilder.setColumn(offset, column);
+            } else {
+                this.listColumnBuilder.addColumn(column);
+            }
+        }
+
         @Override
         public RelationalStructBuilder addBoolean(String fieldName, boolean b) {
             // Add the metadata and get offset at where to insert data.
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.BOOLEAN).build());
             // Add field data.
-            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setBoolean(b).build());
+            putColumn(offset, Column.newBuilder().setBoolean(b).build());
             return this;
         }
 
@@ -469,7 +470,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addLong(String fieldName, long l) {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.LONG).build());
-            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setLong(l).build());
+            putColumn(offset, Column.newBuilder().setLong(l).build());
             return this;
         }
 
@@ -482,7 +483,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addDouble(String fieldName, double d) {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.DOUBLE).build());
-            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setDouble(d).build());
+            putColumn(offset, Column.newBuilder().setDouble(d).build());
             return this;
         }
 
@@ -490,7 +491,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addBytes(String fieldName, byte[] bytes) {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.BYTES).build());
-            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setBinary(ByteString.copyFrom(bytes)).build());
+            putColumn(offset, Column.newBuilder().setBinary(ByteString.copyFrom(bytes)).build());
             return this;
         }
 
@@ -500,7 +501,7 @@ class RelationalStructFacade implements RelationalStruct {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.STRING).build());
             // TODO: setString requires a non-null string, but this method takes a nullable string
-            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setString(s).build());
+            putColumn(offset, Column.newBuilder().setString(s).build());
             return this;
         }
 
@@ -509,10 +510,10 @@ class RelationalStructFacade implements RelationalStruct {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.UUID).build());
             if (uuid == null) {
-                this.listColumnBuilder.addColumn(offset, Column.newBuilder().build());
+                putColumn(offset, Column.newBuilder().build());
             } else {
                 final var uuidColumn = Uuid.newBuilder().setMostSignificantBits(uuid.getMostSignificantBits()).setLeastSignificantBits(uuid.getLeastSignificantBits()).build();
-                this.listColumnBuilder.addColumn(offset, Column.newBuilder().setUuid(uuidColumn).build());
+                putColumn(offset, Column.newBuilder().setUuid(uuidColumn).build());
             }
             return this;
         }
@@ -530,8 +531,7 @@ class RelationalStructFacade implements RelationalStruct {
             RelationalStructFacade relationalStructFacade = struct.unwrap(RelationalStructFacade.class);
             int offset = addMetadata(ColumnMetadata.newBuilder().setName(fieldName)
                     .setType(Type.STRUCT).setStructMetadata(relationalStructFacade.getDelegateMetadata()).build());
-            this.listColumnBuilder
-                    .addColumn(offset, Column.newBuilder().setStruct(relationalStructFacade.delegate).build());
+            putColumn(offset, Column.newBuilder().setStruct(relationalStructFacade.delegate).build());
             return this;
         }
 
@@ -545,7 +545,7 @@ class RelationalStructFacade implements RelationalStruct {
                     .setName(fieldName).setType(Type.ARRAY)
                     .setArrayMetadata(relationalArrayFacade.getDelegateMetadata())
                     .build());
-            this.listColumnBuilder.addColumn(offset,
+            putColumn(offset,
                     Column.newBuilder().setArray(relationalArrayFacade.getDelegate()).build());
             return this;
         }
@@ -554,7 +554,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addInt(String fieldName, int i) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setType(Type.INTEGER).build());
-            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setInteger(i).build());
+            putColumn(offset, Column.newBuilder().setInteger(i).build());
             return this;
         }
 

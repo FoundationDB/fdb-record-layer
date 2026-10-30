@@ -237,6 +237,7 @@ class StorageAdapter {
                 .setM(16)
                 .setMMax(24)
                 .setMMax0(32)
+                .setWriteAppendableNodes(config.writeAppendableCentroidNodes())
                 .build(config.numDimensions());
     }
 

@@ -80,8 +80,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
 @SuppressWarnings("PMD.TooManyStaticImports")
 final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     // Only stats and concurrency knobs may change on an existing index, plus the primary-cluster hard cap (a runtime
-    // back-pressure valve, not an on-disk encoding knob); see validateChangedOptions. Each key already covers its
-    // current and legacy names.
+    // back-pressure valve, not an on-disk encoding knob) and the storage format of the centroid HNSW (both formats
+    // can always be read); see validateChangedOptions. Each key already covers its current and legacy names.
     private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
             // stats knobs
             VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
@@ -95,7 +95,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY,
             // back-pressure valve (does not reinterpret on-disk data)
-            VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX);
+            VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX,
+            // storage format of the centroid HNSW (both formats can always be read)
+            VectorIndexOptionKeys.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES);
 
     @Nonnull
     private final Config config;
@@ -315,6 +317,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 builder::setMaxRelativeImbalance);
         applyDouble(VectorIndexOptionKeys.GUARDIANN_SPLIT_IMBALANCE_PENALTY, index,
                 builder::setSplitImbalancePenalty);
+        applyBoolean(VectorIndexOptionKeys.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, index,
+                builder::setWriteAppendableCentroidNodes);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX, index, builder::setPrimaryClusterMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, index,
                 builder::setPrimaryClusterHardMax);

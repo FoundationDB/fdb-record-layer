@@ -110,6 +110,12 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
         return neighbors;
     }
 
+    @Nonnull
+    @Override
+    public List<N> getPureInsertions() {
+        return ImmutableList.of();
+    }
+
     @Override
     public int size() {
         return neighbors.size();

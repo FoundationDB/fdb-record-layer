@@ -26,6 +26,7 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -91,6 +92,19 @@ interface NeighborsChangeSet<N extends NodeReference> {
      * @return {@code true} if a neighbor with that primary key is present
      */
     boolean containsNeighbor(@Nonnull Tuple primaryKey);
+
+    /**
+     * If this change set only adds neighbors to the neighbors the node was read with, returns those added neighbors in
+     * the order that {@link #merge()} yields them after the neighbors that were read. Returns {@code null} if this
+     * change set removes a neighbor or replaces a neighbor that was already present, i.e. if it cannot be expressed
+     * as just appending to the neighbors that were read. No implementation may perform I/O.
+     *
+     * @return the added neighbors, which is empty if this change set has no changes, or {@code null}
+     */
+    @Nullable
+    default List<N> getPureInsertions() {
+        return null;
+    }
 
     /**
      * Writes the neighbor delta for a given {@link AbstractNode} to the specified storage layer.

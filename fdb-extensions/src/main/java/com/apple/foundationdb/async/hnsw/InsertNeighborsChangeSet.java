@@ -23,12 +23,14 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -104,13 +106,22 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     }
 
     /**
-     * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
+     * {@inheritDoc}
      * <p>
-     * This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
-     * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
-     * set of neighbors from this node and all its ancestors.
-     * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
+     * This is the case iff the parent only adds neighbors and no neighbor inserted by this change set replaces a
+     * neighbor that is already present.
      */
+    @Nullable
+    @Override
+    public List<N> getPureInsertions() {
+        final List<N> parentInsertions = parent.getPureInsertions();
+        if (parentInsertions == null || size != parent.size() + insertedNeighborsMap.size()) {
+            // some inserted neighbor replaces a neighbor that is already present
+            return null;
+        }
+        return ImmutableList.<N>builder().addAll(parentInsertions).addAll(insertedNeighborsMap.values()).build();
+    }
+
     @Override
     public int size() {
         return size;
@@ -121,6 +132,14 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return insertedNeighborsMap.containsKey(primaryKey) || parent.containsNeighbor(primaryKey);
     }
 
+    /**
+     * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
+     * <p>
+     * This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
+     * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
+     * set of neighbors from this node and all its ancestors.
+     * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
+     */
     @Nonnull
     @Override
     public Iterable<N> merge() {

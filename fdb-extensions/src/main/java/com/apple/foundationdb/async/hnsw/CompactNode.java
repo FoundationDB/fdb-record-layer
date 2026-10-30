@@ -70,6 +70,13 @@ class CompactNode extends AbstractNode<NodeReference> {
     private final Tuple additionalValues;
 
     /**
+     * The number of bytes of the value this node was read from if that value is in the appendable format (see
+     * {@link NodeKind#COMPACT_APPENDABLE}), i.e. if neighbors can be appended to it; {@code -1} otherwise, in
+     * particular for a node that was not read from the database.
+     */
+    private final int appendableValueSize;
+
+    /**
      * Constructs a new {@code CompactNode} instance.
      * <p>
      * This constructor initializes the node with its primary key, a data vector,
@@ -86,9 +93,28 @@ class CompactNode extends AbstractNode<NodeReference> {
                        @Nonnull final List<NodeReference> neighbors,
                        @Nonnull final Transformed<RealVector> vector,
                        @Nullable final Tuple additionalValues) {
+        this(primaryKey, neighbors, vector, additionalValues, -1);
+    }
+
+    /**
+     * Constructs a new {@code CompactNode} that was read from the database.
+     *
+     * @param primaryKey the primary key that uniquely identifies this node; must not be {@code null}.
+     * @param neighbors a list of {@link NodeReference} objects representing the neighbors of this node; must not be
+     *                  {@code null}.
+     * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}.
+     * @param additionalValues additional values to be stored with the node
+     * @param appendableValueSize the size of the stored value if it is in the appendable format, {@code -1} otherwise
+     */
+    CompactNode(@Nonnull final Tuple primaryKey,
+                @Nonnull final List<NodeReference> neighbors,
+                @Nonnull final Transformed<RealVector> vector,
+                @Nullable final Tuple additionalValues,
+                final int appendableValueSize) {
         super(primaryKey, neighbors);
         this.vector = vector;
         this.additionalValues = additionalValues;
+        this.appendableValueSize = appendableValueSize;
     }
 
     /**
@@ -131,6 +157,22 @@ class CompactNode extends AbstractNode<NodeReference> {
     @Nullable
     public Tuple getAdditionalValues() {
         return additionalValues;
+    }
+
+    /**
+     * Whether neighbors can be appended to the value this node was read from.
+     * @return {@code true} iff this node was read from a value in the appendable format
+     */
+    boolean isAppendable() {
+        return appendableValueSize >= 0;
+    }
+
+    /**
+     * The size of the value this node was read from, if {@link #isAppendable()}.
+     * @return the size of the stored value in bytes, or {@code -1} if this node is not appendable
+     */
+    int getAppendableValueSize() {
+        return appendableValueSize;
     }
 
     @Override

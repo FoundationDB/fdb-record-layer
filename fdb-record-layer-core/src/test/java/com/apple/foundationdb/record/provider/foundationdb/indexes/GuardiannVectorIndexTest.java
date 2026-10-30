@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.google.common.collect.ImmutableMap;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -42,6 +44,19 @@ import java.util.Map;
  * within {@code searchMaxClusters} so recall stays high on these small, uniformly-random test datasets.
  */
 class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
+    private boolean writeAppendableCentroidNodes;
+
+    /**
+     * Runs roughly half of the tests with the centroid HNSW writing nodes in the appendable format, and the other half
+     * in the existing format. Both formats can always be read, so the scenarios behave the same either way. Which half
+     * a test belongs to is derived from its display name, so that a run can be reproduced.
+     *
+     * @param testInfo information about the test that is about to run
+     */
+    @BeforeEach
+    void chooseCentroidStorageFormat(@Nonnull final TestInfo testInfo) {
+        writeAppendableCentroidNodes = (testInfo.getDisplayName().hashCode() & 1) == 0;
+    }
 
     @Nonnull
     @Override
@@ -53,6 +68,8 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "20")
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
+                .put(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES,
+                        Boolean.toString(writeAppendableCentroidNodes))
                 .build();
     }
 
@@ -93,7 +110,9 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.GUARDIANN_SPLIT_MERGE_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_REASSIGN_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_COLLAPSE_CONCURRENCY, "5")
-                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5").build());
+                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5")
+                            // the storage format of the centroid HNSW can be switched on (and off) for an existing index
+                            .put(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "true").build());
 
             // switching the engine is never allowed
             assertInvalidOptionsEvolution(metaData, index,

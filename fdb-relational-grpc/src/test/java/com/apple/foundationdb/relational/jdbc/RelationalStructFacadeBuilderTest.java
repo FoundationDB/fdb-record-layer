@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.jdbc;
 
 
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -42,5 +43,30 @@ public class RelationalStructFacadeBuilderTest {
         SQLException thrown = Assertions.assertThrows(SQLException.class,
                 () -> builder.getZeroBasedOffsetOrThrow("NO SUCH FIELD"));
         Assertions.assertTrue(thrown.getMessage().contains("Unknown"));
+    }
+
+    @Test
+    public void testGetZeroBasedOffsetKnownField() {
+        RelationalStructFacade.RelationalStructFacadeBuilder builder =
+                (RelationalStructFacade.RelationalStructFacadeBuilder) RelationalStructFacade.newBuilder();
+        builder.addLong("A", 1L);
+        builder.addString("B", "b");
+        Assertions.assertEquals(0, builder.getZeroBasedOffset("A"));
+        Assertions.assertEquals(1, builder.getZeroBasedOffset("B"));
+        Assertions.assertEquals(-1, builder.getZeroBasedOffset("C"));
+    }
+
+    @Test
+    public void testOverwriteFieldReplacesInPlace() throws SQLException {
+        RelationalStruct struct = RelationalStructFacade.newBuilder()
+                .addLong("A", 1L)
+                .addString("B", "b")
+                .addLong("A", 2L)
+                .build();
+        Assertions.assertEquals(2, struct.getMetaData().getColumnCount());
+        Assertions.assertEquals("A", struct.getMetaData().getColumnName(1));
+        Assertions.assertEquals("B", struct.getMetaData().getColumnName(2));
+        Assertions.assertEquals(2L, struct.getLong("A"));
+        Assertions.assertEquals("b", struct.getString("B"));
     }
 }

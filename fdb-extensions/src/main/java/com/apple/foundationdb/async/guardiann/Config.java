@@ -98,6 +98,11 @@ import java.util.List;
  * @param splitImbalancePenalty weight of the imbalance term when scoring a <em>split</em>, which biases the choice
  *        between otherwise comparable candidates toward the more balanced one. Merges keep the evaluator's default
  *        weight, since their shape is dictated by the clusters they are handed
+ * @param writeAppendableCentroidNodes whether the nodes of the cluster-centroid HNSW are written in the appendable
+ *        format, which lets a pure insertion of neighbors into a node that is already stored in that format be
+ *        persisted as an append of the new neighbors rather than a rewrite of the entire node. Nodes of either format
+ *        can always be read, so this can be changed for an existing structure; see
+ *        {@link com.apple.foundationdb.async.hnsw.Config#writeAppendableNodes()}
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -145,7 +150,9 @@ public record Config(@Nonnull Metric metric,
                      double mergeMaxEverFraction,
                      double minChildFraction,
                      double maxRelativeImbalance,
-                     double splitImbalancePenalty) implements VectorEncodingConfig {
+                     double splitImbalancePenalty,
+                     // storage format of the cluster-centroid HNSW
+                     boolean writeAppendableCentroidNodes) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
@@ -158,6 +165,8 @@ public record Config(@Nonnull Metric metric,
     // Weight of the imbalance term when scoring a split; above the evaluator's default of 1.0 so that, between
     // otherwise comparable candidates, the more balanced one wins.
     public static final double DEFAULT_SPLIT_IMBALANCE_PENALTY = 3.0d;
+    // cluster-centroid HNSW storage format
+    public static final boolean DEFAULT_WRITE_APPENDABLE_CENTROID_NODES = false;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -247,7 +256,7 @@ public record Config(@Nonnull Metric metric,
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
                 constructionSearchConfig(), mergeMaxEverFraction(), minChildFraction(), maxRelativeImbalance(),
-                splitImbalancePenalty());
+                splitImbalancePenalty(), writeAppendableCentroidNodes());
     }
 
     @Override
@@ -287,6 +296,7 @@ public record Config(@Nonnull Metric metric,
                 ", minChildFraction=" + minChildFraction() +
                 ", maxRelativeImbalance=" + maxRelativeImbalance() +
                 ", splitImbalancePenalty=" + splitImbalancePenalty() +
+                ", writeAppendableCentroidNodes=" + writeAppendableCentroidNodes() +
                 "]";
     }
 
@@ -351,6 +361,8 @@ public record Config(@Nonnull Metric metric,
         private double minChildFraction = DEFAULT_MIN_CHILD_FRACTION;
         private double maxRelativeImbalance = DEFAULT_MAX_RELATIVE_IMBALANCE;
         private double splitImbalancePenalty = DEFAULT_SPLIT_IMBALANCE_PENALTY;
+        // cluster-centroid HNSW storage format
+        private boolean writeAppendableCentroidNodes = DEFAULT_WRITE_APPENDABLE_CENTROID_NODES;
 
         public ConfigBuilder() {
         }
@@ -380,7 +392,8 @@ public record Config(@Nonnull Metric metric,
                              final double mergeMaxEverFraction,
                              final double minChildFraction,
                              final double maxRelativeImbalance,
-                             final double splitImbalancePenalty) {
+                             final double splitImbalancePenalty,
+                             final boolean writeAppendableCentroidNodes) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -418,6 +431,7 @@ public record Config(@Nonnull Metric metric,
             this.minChildFraction = minChildFraction;
             this.maxRelativeImbalance = maxRelativeImbalance;
             this.splitImbalancePenalty = splitImbalancePenalty;
+            this.writeAppendableCentroidNodes = writeAppendableCentroidNodes;
         }
 
         @Nonnull
@@ -830,6 +844,17 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public boolean isWriteAppendableCentroidNodes() {
+            return writeAppendableCentroidNodes;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setWriteAppendableCentroidNodes(final boolean writeAppendableCentroidNodes) {
+            this.writeAppendableCentroidNodes = writeAppendableCentroidNodes;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getPrimaryClusterHardMax(),
@@ -847,7 +872,8 @@ public record Config(@Nonnull Metric metric,
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
                     getConstructionSearchConfig(), getMergeMaxEverFraction(), getMinChildFraction(),
-                    getMaxRelativeImbalance(), getSplitImbalancePenalty());
+                    getMaxRelativeImbalance(), getSplitImbalancePenalty(),
+                    isWriteAppendableCentroidNodes());
         }
     }
 }

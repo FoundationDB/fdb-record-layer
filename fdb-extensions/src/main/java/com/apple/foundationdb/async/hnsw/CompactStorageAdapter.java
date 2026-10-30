@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
@@ -56,6 +57,12 @@ import java.util.concurrent.CompletableFuture;
 class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implements StorageAdapter<NodeReference> {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CompactStorageAdapter.class);
+
+    /**
+     * The maximum size of a value in FoundationDB. There is no shared constant for this in {@code fdb-extensions}
+     * ({@code FDBRecordStore.VALUE_SIZE_LIMIT} lives in {@code fdb-record-layer-core}, which depends on this module).
+     */
+    static final int MAX_APPENDABLE_VALUE_SIZE = 100_000;
 
     /**
      * Constructs a new {@code CompactStorageAdapter}.
@@ -134,7 +141,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                                     final @Nonnull Tuple primaryKey,
                                                     @Nonnull final byte[] keyBytes, @Nonnull final byte[] valueBytes) {
         final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
-        final AbstractNode<NodeReference> node = nodeFromKeyValuesTuples(storageTransform, primaryKey, nodeTuple);
+        final AbstractNode<NodeReference> node =
+                nodeFromKeyValuesTuples(storageTransform, primaryKey, nodeTuple, valueBytes.length);
         final OnReadListener onReadListener = getOnReadListener();
         onReadListener.onNodeRead(layer, node);
         onReadListener.onKeyValueRead(layer, keyBytes, valueBytes);
@@ -146,32 +154,46 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * <p>
      * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
-     * {@link #compactNodeFromTuples(StorageTransform, Tuple, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected
-     * to have a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1,
-     * a nested tuple for the neighbors at index 2 and, optionally a tuple for additional values at index 3.
+     * {@link #compactNodeFromTuples(StorageTransform, Tuple, Tuple, Tuple, Tuple, int)}. The {@code valueTuple} is
+     * expected to have one of two structures, depending on the serialized node kind at index 0. For
+     * {@link NodeKind#COMPACT}, a nested tuple for the vector at index 1, a nested tuple for the neighbors at index 2
+     * and, optionally a tuple for additional values at index 3. For {@link NodeKind#COMPACT_APPENDABLE}, a nested
+     * tuple for the vector at index 1, a tuple for the additional values (or {@code null}) at index 2, followed by
+     * one nested tuple per neighbor.
      *
      * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
      * @param primaryKey the tuple representing the primary key of the node
      * @param valueTuple the tuple containing the serialized node data, including kind, vector, and neighbors
+     * @param valueSize the size of the serialized value in bytes
      *
      * @return the reconstructed compact {@link AbstractNode}
      *
-     * @throws com.google.common.base.VerifyException if the node kind encoded in {@code valueTuple} is not
-     *         {@link NodeKind#COMPACT}
+     * @throws com.google.common.base.VerifyException if the node kind encoded in {@code valueTuple} is neither
+     *         {@link NodeKind#COMPACT} nor {@link NodeKind#COMPACT_APPENDABLE}
      */
     @Nonnull
     private AbstractNode<NodeReference> nodeFromKeyValuesTuples(@Nonnull final StorageTransform storageTransform,
                                                                 @Nonnull final Tuple primaryKey,
-                                                                @Nonnull final Tuple valueTuple) {
+                                                                @Nonnull final Tuple valueTuple,
+                                                                final int valueSize) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)valueTuple.getLong(0));
-        Verify.verify(nodeKind == NodeKind.COMPACT);
+        Verify.verify(nodeKind.isCompact());
 
         final Tuple vectorTuple = valueTuple.getNestedTuple(1);
+        if (nodeKind == NodeKind.COMPACT_APPENDABLE) {
+            Verify.verify(valueTuple.size() >= 3);
+            final Tuple additionalValuesTuple = valueTuple.get(2) == null ? null : valueTuple.getNestedTuple(2);
+            final Tuple neighborsTuple = Tuple.fromList(valueTuple.getItems().subList(3, valueTuple.size()));
+            return compactNodeFromTuples(storageTransform, primaryKey, vectorTuple, additionalValuesTuple,
+                    neighborsTuple, valueSize);
+        }
+
         final Tuple neighborsTuple = valueTuple.getNestedTuple(2);
         final Tuple additionalValuesTuple = valueTuple.size() > 3 ? valueTuple.getNestedTuple(3) : null;
 
-        return compactNodeFromTuples(storageTransform, primaryKey, vectorTuple, additionalValuesTuple, neighborsTuple);
+        return compactNodeFromTuples(storageTransform, primaryKey, vectorTuple, additionalValuesTuple, neighborsTuple,
+                -1);
     }
 
     /**
@@ -188,6 +210,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param primaryKey the tuple representing the node's primary key
      * @param vectorTuple the tuple containing the node's vector data
      * @param neighborsTuple the tuple containing a list of nested tuples, where each nested tuple represents a neighbor
+     * @param appendableValueSize the size of the serialized value if it is in the appendable format, {@code -1}
+     *        otherwise
      *
      * @return a new {@code Node} instance containing the deserialized data from the input tuples
      */
@@ -196,7 +220,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                                               @Nonnull final Tuple primaryKey,
                                                               @Nonnull final Tuple vectorTuple,
                                                               @Nullable final Tuple additionalValuesTuple,
-                                                              @Nonnull final Tuple neighborsTuple) {
+                                                              @Nonnull final Tuple neighborsTuple,
+                                                              final int appendableValueSize) {
         final Transformed<RealVector> vector =
                 storageTransform.transform(StorageHelpers.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
@@ -206,7 +231,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             nodeReferences.add(new NodeReference(neighborTuple));
         }
 
-        return getNodeFactory().create(primaryKey, vector, additionalValuesTuple, nodeReferences);
+        // not using the node factory as it cannot convey how the node is stored
+        return new CompactNode(primaryKey, nodeReferences, vector, additionalValuesTuple, appendableValueSize);
     }
 
     /**
@@ -214,7 +240,12 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * This method handles the serialization of the node's vector and its final set of neighbors based on the
      * provided {@code neighborsChangeSet}.
      *
-     * <p>The node is stored as a {@link Tuple} with the structure {@code (NodeKind, RealVector, NeighborPrimaryKeys)}.
+     * <p>If {@link Config#writeAppendableNodes()} is not set, the node is stored as a {@link Tuple} with the structure
+     * {@code (NodeKind.COMPACT, RealVector, NeighborPrimaryKeys, [additionalValues])}. Otherwise, it is stored in the
+     * format of {@link NodeKind#COMPACT_APPENDABLE}, i.e.
+     * {@code (NodeKind.COMPACT_APPENDABLE, RealVector, additionalValues or null, NeighborPrimaryKey...)}. If the
+     * node was read from a value in that format and {@code neighborsChangeSet} only adds neighbors, just the added
+     * neighbors are appended to the stored value. In all other cases the entire node is written.
      * The key for the storage is derived from the node's layer and its primary key. After writing, it notifies any
      * registered write listeners via {@code onNodeWritten} and {@code onKeyValueWritten}.
      *
@@ -230,11 +261,17 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                                   final int layer, @Nonnull final AbstractNode<NodeReference> node,
                                   @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
         final byte[] key = getNodeKey(layer, node.getPrimaryKey());
-
         final CompactNode compactNode = node.asCompactNode();
+
+        if (getConfig().writeAppendableNodes() && tryAppendNeighbors(transaction, layer, key, compactNode,
+                neighborsChangeSet)) {
+            return;
+        }
+
         final Tuple additionalValues = compactNode.getAdditionalValues();
+        final boolean writeAppendable = getConfig().writeAppendableNodes();
         final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(additionalValues == null ? 3 : 4);
-        nodeItems.add(NodeKind.COMPACT.getSerialized());
+        nodeItems.add((writeAppendable ? NodeKind.COMPACT_APPENDABLE : NodeKind.COMPACT).getSerialized());
         // getting underlying vector is okay as it is only written to the database
         nodeItems.add(StorageHelpers.tupleFromVector(quantizer.encode(compactNode.getVector())));
 
@@ -244,9 +281,14 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         for (final NodeReference neighborReference : neighbors) {
             neighborItems.add(neighborReference.getPrimaryKey());
         }
-        nodeItems.add(Tuple.fromList(neighborItems));
-        if (additionalValues != null) {
+        if (writeAppendable) {
             nodeItems.add(additionalValues);
+            nodeItems.addAll(neighborItems);
+        } else {
+            nodeItems.add(Tuple.fromList(neighborItems));
+            if (additionalValues != null) {
+                nodeItems.add(additionalValues);
+            }
         }
 
         final Tuple nodeTuple = Tuple.fromList(nodeItems);
@@ -260,6 +302,64 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             logger.trace("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
                     node.getNeighbors().size(), neighborItems.size());
         }
+    }
+
+    /**
+     * Persists a change set that only adds neighbors by appending the added neighbors to the stored value of the node.
+     * This only works if the stored value is known to be in the appendable format, which is the case iff the node was
+     * read from such a value, and if the appended value does not exceed {@link #MAX_APPENDABLE_VALUE_SIZE}, as
+     * {@link MutationType#APPEND_IF_FITS} silently does nothing otherwise.
+     * <p>
+     * This relies on the node having been read with a (non-snapshot) read in this transaction, whose read conflict
+     * guards against the stored value having been rewritten or deleted concurrently, and on the node not having been
+     * modified in this transaction since it was read: both the size check and the change set are based on the node as
+     * it was read.
+     * <p>
+     * The second assumption is not enforced. If several operations of the same transaction run concurrently and
+     * modify the same node, each of them works on its own copy of the node. For a full rewrite that means that the last
+     * write wins and the neighbors added by the others are lost. For an append no neighbors are lost but a neighbor can
+     * be added twice, and the appended neighbors can in aggregate exceed the maximum size of a value, in which case
+     * FDB silently ignores the append that does not fit (this adapter only checks the size of the node as it was
+     * read). If this turns out to matter, accesses to a node can be serialized per transaction, similar to how an
+     * {@code AsyncLock} serializes accesses to a whole index.
+     *
+     * @param transaction the transaction to use for the write operation
+     * @param layer the graph layer index for the node
+     * @param key the key of the node
+     * @param compactNode the node as it was read
+     * @param neighborsChangeSet the change set to persist
+     *
+     * @return {@code true} if the neighbors were appended, {@code false} if the caller needs to write the entire node
+     */
+    private boolean tryAppendNeighbors(@Nonnull final Transaction transaction, final int layer, final byte[] key,
+                                       @Nonnull final CompactNode compactNode,
+                                       @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
+        if (!compactNode.isAppendable()) {
+            return false;
+        }
+        final List<NodeReference> insertions = neighborsChangeSet.getPureInsertions();
+        if (insertions == null || insertions.isEmpty()) {
+            return false;
+        }
+
+        final List<Tuple> insertedPrimaryKeys = Lists.newArrayListWithExpectedSize(insertions.size());
+        for (final NodeReference insertion : insertions) {
+            insertedPrimaryKeys.add(insertion.getPrimaryKey());
+        }
+        final byte[] appendBytes = Tuple.fromList(insertedPrimaryKeys).pack();
+        if ((long)compactNode.getAppendableValueSize() + appendBytes.length > MAX_APPENDABLE_VALUE_SIZE) {
+            return false;
+        }
+
+        transaction.mutate(MutationType.APPEND_IF_FITS, key, appendBytes);
+        getOnWriteListener().onNodeWritten(layer, compactNode);
+        getOnWriteListener().onKeyValueWritten(layer, key, appendBytes);
+
+        if (logger.isTraceEnabled()) {
+            logger.trace("appended neighbors of primaryKey={}, oldSize={}, numAppended={}",
+                    compactNode.getPrimaryKey(), compactNode.getNeighbors().size(), insertions.size());
+        }
+        return true;
     }
 
     @Override
