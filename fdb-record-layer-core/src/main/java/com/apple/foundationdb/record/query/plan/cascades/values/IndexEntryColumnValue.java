@@ -158,10 +158,20 @@ public class IndexEntryColumnValue extends AbstractValue implements LeafValue {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> {
                     final var otherColumnValue = (IndexEntryColumnValue)other;
-                    return alias.equals(otherColumnValue.alias) &&
-                            source == otherColumnValue.source &&
-                            ordinalPath.equals(otherColumnValue.ordinalPath);
+                    return alias.equals(otherColumnValue.alias) && readsSameElementAs(otherColumnValue);
                 });
+    }
+
+    /**
+     * Checks whether {@code other} reads the same element of an index entry as this value does, regardless of the
+     * quantifier that the entry is reached through.
+     *
+     * @param other the value to compare to
+     *
+     * @return {@code true} if both values read the same position of the same tuple
+     */
+    public boolean readsSameElementAs(@Nonnull final IndexEntryColumnValue other) {
+        return source == other.source && ordinalPath.equals(other.ordinalPath);
     }
 
     @Override
@@ -210,6 +220,17 @@ public class IndexEntryColumnValue extends AbstractValue implements LeafValue {
     @Override
     public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setIndexEntryColumnValue(toProto(serializationContext)).build();
+    }
+
+    /**
+     * Checks whether {@code value} or any value it is composed of is an {@code IndexEntryColumnValue}.
+     *
+     * @param value the value to inspect
+     *
+     * @return {@code true} if {@code value} reads at least one element of an index entry
+     */
+    public static boolean occursIn(@Nonnull final Value value) {
+        return value.preOrderStream().anyMatch(IndexEntryColumnValue.class::isInstance);
     }
 
     @Nonnull

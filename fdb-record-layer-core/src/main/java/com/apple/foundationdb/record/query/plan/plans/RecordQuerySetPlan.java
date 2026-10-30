@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryColumnValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
@@ -137,7 +138,12 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     continue;
                 }
 
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, sourceAlias, targetAlias);
+                // Refuse a pushed value that reads an element of an index entry. The caller only uses the pushed values to
+                // decide whether the set operation can be pushed, while the pushed set operation keeps evaluating the
+                // original values on the partial records that its legs flow, and these do not hold the index entry.
+                final Optional<Value> pushedValueOptional =
+                        dependentFunction.translateValue(value, sourceAlias, targetAlias)
+                                .filter(pushedValue -> !IndexEntryColumnValue.occursIn(pushedValue));
 
                 if (pushedValueOptional.isEmpty()) {
                     candidatesAliases.remove(quantifier.getAlias());

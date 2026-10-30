@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryColumnValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
@@ -42,8 +42,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalProjectionExpression;
 
 /**
- * A rule that removes a {@link LogicalProjectionExpression} and a {@link RecordQueryFetchFromPartialRecordPlan}
- * if all fields needed by the projection are already available prior to the fetch.
+ * Removes a {@link LogicalProjectionExpression} and a {@link RecordQueryFetchFromPartialRecordPlan} directly
+ * underneath if all values required by the projection are already available in the partial record prior to the fetch.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -62,19 +62,44 @@ public class MergeProjectionAndFetchRule extends AbstractCascadesRule<LogicalPro
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalProjectionExpression projectionExpression = call.get(root);
-
-        // if the fetch is able to push all values we can eliminate the fetch as well
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = call.get(innerPlanMatcher);
+
+        // Ask the FETCH to push each projected value underneath itself, that is, to rewrite the value so that it reads
+        // the partial record produced below the FETCH instead of the fetched record. If this is possible, then the
+        // partial record holds everything the value needs, and we can eliminate both the projection and the FETCH.
         final CorrelationIdentifier oldInnerAlias = Iterables.getOnlyElement(projectionExpression.getQuantifiers()).getAlias();
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueId();
-        final List<? extends Value> projectedValues = projectionExpression.getProjectedValues();
-        final boolean allPushable = projectedValues
-                .stream()
-                .allMatch(value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias).isPresent());
-        if (allPushable) {
-            // all fields in the projection are already available underneath the fetch
-            // we don't need the projection nor the fetch
+        final boolean canPushAllProjectedValues = projectionExpression.getProjectedValues().stream()
+                .allMatch(value -> canPushToPartialRecord(fetchPlan, value, oldInnerAlias, newInnerAlias));
+        if (canPushAllProjectedValues) {
             call.yieldPlan(fetchPlan.getChild());
         }
+    }
+
+    /**
+     * Checks whether {@code value} can be pushed underneath {@code fetchPlan}, meaning that the pushed value reads
+     * nothing but the partial record. This is the case if {@link RecordQueryFetchFromPartialRecordPlan#pushValue}
+     * succeeds and the pushed value does not contain any {@link IndexEntryColumnValue}.
+     *
+     * <p>An {@code IndexEntryColumnValue} may get substituted by the push for a computed index column. It extracts an
+     * element from the index entry that is <i>not</i> a field of the partial record. After this rule discards the
+     * projection and the FETCH, the plan returns the partial records themselves from the child of the FETCH and every
+     * required value therefore <i>must</i> be a field of the partial record. Since the pushed values are discarded
+     * after this check, nothing in the plan would evaluate the {@code IndexEntryColumnValue}, and the returned records
+     * would lack the required value.
+     *
+     * @param fetchPlan the fetch to push {@code value} through
+     * @param value the value to push, correlated to {@code sourceAlias}
+     * @param sourceAlias the alias that {@code value} reads the fetched record through
+     * @param targetAlias the alias that the pushed value is to read the partial record through; as the pushed value is
+     *        discarded, this can be any unique id
+     */
+    private static boolean canPushToPartialRecord(@Nonnull final RecordQueryFetchFromPartialRecordPlan fetchPlan,
+                                                  @Nonnull final Value value,
+                                                  @Nonnull final CorrelationIdentifier sourceAlias,
+                                                  @Nonnull final CorrelationIdentifier targetAlias) {
+        return fetchPlan.pushValue(value, sourceAlias, targetAlias)
+                .filter(pushedValue -> !IndexEntryColumnValue.occursIn(pushedValue))
+                .isPresent();
     }
 }
