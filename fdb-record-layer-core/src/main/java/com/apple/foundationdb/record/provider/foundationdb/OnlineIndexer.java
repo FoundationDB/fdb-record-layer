@@ -479,6 +479,11 @@ public class OnlineIndexer implements AutoCloseable {
         return indexingLauncher(attemptIndexer -> attemptIndexer.rebuildIndexAsync(store));
     }
 
+    @Nonnull
+    CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store, @Nonnull RecordStoreOperationContext ctx) {
+        return indexingLauncher(attemptIndexer -> attemptIndexer.rebuildIndexAsync(store, ctx));
+    }
+
     /**
      * Transactionally rebuild an entire index.
      * Synchronous version of {@link #rebuildIndexAsync}
