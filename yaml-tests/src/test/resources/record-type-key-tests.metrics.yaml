@@ -4,7 +4,7 @@ primary-key-equality:
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
     task_count: 309
     task_total_time_ms: 3
-    transform_count: 76
+    transform_count: 77
     transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
@@ -14,9 +14,9 @@ primary-key-equality:
     ref: record-type-key-tests.yamsql:47
     explain: SCAN([IS T2, EQUALS promote(@c7 AS LONG)])
     task_count: 309
-    task_total_time_ms: 4
-    transform_count: 76
-    transform_time_ms: 2
+    task_total_time_ms: 3
+    transform_count: 77
+    transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 34
@@ -166,7 +166,7 @@ dml-operations:
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
     task_count: 309
     task_total_time_ms: 3
-    transform_count: 76
+    transform_count: 77
     transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
@@ -176,9 +176,9 @@ dml-operations:
     ref: record-type-key-tests.yamsql:139
     explain: SCAN([IS T2, EQUALS promote(@c7 AS LONG)])
     task_count: 309
-    task_total_time_ms: 4
-    transform_count: 76
-    transform_time_ms: 2
+    task_total_time_ms: 3
+    transform_count: 77
+    transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 34
@@ -188,7 +188,7 @@ dml-operations:
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
     task_count: 309
     task_total_time_ms: 3
-    transform_count: 76
+    transform_count: 77
     transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0

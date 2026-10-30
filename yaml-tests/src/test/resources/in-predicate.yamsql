@@ -480,4 +480,29 @@ test_block:
         # Complex (STRUCT) left type matched against IN list
         - query: select a, e from ta where f in (34, 23)
         - error: CANNOT_CONVERT_TYPE
+---
+test_block:
+  name: in-predicate-order-by-primary-key
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Tests that an IN list on the primary key can be ordered by the primary key. The list yields several records, so
+      # this must not be mistaken for a lookup of at most one record. The plan still sorts through the IN join.
+      - query: SELECT a, b FROM ta WHERE a IN (1, 2, 5) ORDER BY a
+      - supported_version: !current_version
+      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { SCAN([IS TA, EQUALS q0]) | MAP (_.A AS A, _.B AS B) }"
+      - result: [{1, 8}, {2, 7}, {5, 4}]
+    -
+      - query: SELECT a, b FROM ta WHERE a IN (1, 2, 5) ORDER BY a DESC
+      - supported_version: !current_version
+      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { SCAN([IS TA, EQUALS q0]) | MAP (_.A AS A, _.B AS B) }"
+      - result: [{5, 4}, {2, 7}, {1, 8}]
+    -
+      # Tests that an IN list on the primary key cannot be ordered by another column. Several records can qualify, and
+      # no index provides the order, so planning fails.
+      - query: SELECT a, b FROM ta WHERE a IN (1, 2, 5) ORDER BY b
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
 ...

@@ -57,11 +57,11 @@ union-tests:
         [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY
         NULL | MAP (_._0._0 AS S)'
-    task_count: 816
-    task_total_time_ms: 45
-    transform_count: 219
-    transform_time_ms: 15
-    transform_yield_count: 62
-    insert_time_ms: 1
-    insert_new_count: 74
+    task_count: 856
+    task_total_time_ms: 30
+    transform_count: 225
+    transform_time_ms: 8
+    transform_yield_count: 64
+    insert_time_ms: 0
+    insert_new_count: 80
     insert_reused_count: 6

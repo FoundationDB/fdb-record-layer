@@ -871,6 +871,145 @@ class OrderingTest {
         assertTrue(mergedOrdering.satisfies(requestedOrdering));
     }
 
+    /**
+     * Tests that a distinct ordering whose values are all bound by equality is compatible with every requested
+     * ordering and grouping, including those of values it does not know.
+     */
+    @Test
+    void testAtMostOneRecord1() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var orderings =
+                ImmutableList.of(
+                        Ordering.ofOrderingSet(bindingMap(a, equalsComparison(1)),
+                                PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of()), true),
+                        Ordering.empty(true));
+        for (final var ordering : orderings) {
+            for (final var distinctness : RequestedOrdering.Distinctness.values()) {
+                final var requestedOrdering = RequestedOrdering.ofPrimitiveParts(requested(b, c), distinctness, false);
+                assertTrue(ordering.satisfies(requestedOrdering));
+                assertEquals(1, Iterables.size(ordering.enumerateCompatibleRequestedOrderings(requestedOrdering)));
+            }
+            assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(b, c)));
+        }
+    }
+
+    /**
+     * Tests that the same ordering without being distinct is only compatible with what it knows.
+     */
+    @Test
+    void testAtMostOneRecord2() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+
+        final var ordering =
+                Ordering.ofOrderingSet(bindingMap(a, equalsComparison(1)),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of()), false);
+
+        assertFalse(ordering.satisfies(
+                RequestedOrdering.ofPrimitiveParts(requested(b), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(b)));
+        assertFalse(Ordering.empty().satisfiesGroupingValues(ImmutableSet.of(b)));
+    }
+
+    /**
+     * Tests that a distinct ordering ignores the requested parts after the ones that complete its values that are not
+     * bound by equality, as no two records tie on these values. A requested part before that point still matters.
+     */
+    @Test
+    void testAtMostOneRecord3() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var ordering =
+                Ordering.ofOrderingSequence(bindingMap(a, ProvidedSortOrder.ASCENDING, b, equalsComparison(1)),
+                        ImmutableList.of(a), true);
+
+        assertTrue(ordering.satisfies(RequestedOrdering.ofPrimitiveParts(requested(a), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+        assertTrue(ordering.satisfies(RequestedOrdering.ofPrimitiveParts(requested(a, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+        assertFalse(ordering.satisfies(RequestedOrdering.ofPrimitiveParts(requested(c, a), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+        assertFalse(ordering.satisfies(RequestedOrdering.ofPrimitiveParts(requested(c), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+        assertTrue(ordering.satisfiesGroupingValues(ImmutableSet.of(a, c)));
+        assertFalse(ordering.satisfiesGroupingValues(ImmutableSet.of(c)));
+    }
+
+    /**
+     * Tests that a value that is bound by several equalities, as it happens for the result of a union, still tells
+     * records apart.
+     */
+    @Test
+    void testAtMostOneRecord4() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+
+        final var leftOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, equalsComparison(1)),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of()), true);
+        final var rightOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, equalsComparison(2)),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of()), true);
+
+        final var mergedOrdering =
+                Ordering.merge(ImmutableList.of(leftOrdering, rightOrdering), Ordering.UNION, (left, right) -> true);
+        assertFalse(mergedOrdering.satisfies(
+                RequestedOrdering.ofPrimitiveParts(requested(b), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+        assertFalse(mergedOrdering.satisfiesGroupingValues(ImmutableSet.of(b)));
+    }
+
+    /**
+     * Tests that pulling up a distinct ordering stays compatible with everything if only values that are bound by
+     * equality get lost.
+     */
+    @Test
+    void testAtMostOneRecord5() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, equalsComparison(1), b, equalsComparison(2)),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b), ImmutableSetMultimap.of()), true);
+
+        // the result only contains `a`, so `b` gets lost
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(select("a"), EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+        assertTrue(pulledUpOrdering.isDistinct());
+        assertTrue(pulledUpOrdering.satisfiesGroupingValues(ImmutableSet.of(a)));
+        assertTrue(pulledUpOrdering.satisfies(
+                RequestedOrdering.ofPrimitiveParts(requested(b), RequestedOrdering.Distinctness.NOT_DISTINCT, false)));
+    }
+
+    /**
+     * Tests that pulling up a distinct ordering does not stay distinct if a value that is sorted gets lost, as there
+     * can be records that are only told apart by that value.
+     */
+    @Test
+    void testAtMostOneRecord6() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var innerOrdering =
+                Ordering.ofOrderingSequence(bindingMap(a, ProvidedSortOrder.ASCENDING, b, equalsComparison(2)),
+                        ImmutableList.of(a), true);
+
+        // the result only contains `b`, so `a` gets lost
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(select("b"), EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+        assertFalse(pulledUpOrdering.isDistinct());
+        assertFalse(pulledUpOrdering.satisfiesGroupingValues(ImmutableSet.of(ValueTestHelpers.field(qov, "x"))));
+    }
+
+    @Nonnull
+    private static Comparisons.Comparison equalsComparison(final int operand) {
+        return new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, operand);
+    }
+
     @Nonnull
     private static RecordConstructorValue select(@Nonnull final String... projection) {
 

@@ -169,10 +169,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TD, TE, TA, TB, TC]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(UUID AS A, LONG AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
+}
 e
-uuid-as-a-primary-keyLEXPLAIN select B, A from TB where a = '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'£
-Μ¤—9 ή—Ά(0«ƒ8@ESCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)Ύ
+uuid-as-a-primary-keyLEXPLAIN select B, A from TB where a = '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'Ά
+Μϊιω: Γ£S(0 ”8@ESCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)Ύ
 digraph G {
   fontname=courier;
   rankdir=BT;

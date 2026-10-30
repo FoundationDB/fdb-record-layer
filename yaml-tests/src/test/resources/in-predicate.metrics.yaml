@@ -211,13 +211,13 @@ unnamed-2:
     ref: in-predicate.yamsql:214
     explain: ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17
         AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)
-    task_count: 1122
-    task_total_time_ms: 87
-    transform_count: 316
-    transform_time_ms: 26
-    transform_yield_count: 73
+    task_count: 1140
+    task_total_time_ms: 90
+    transform_count: 318
+    transform_time_ms: 23
+    transform_yield_count: 75
     insert_time_ms: 2
-    insert_new_count: 144
+    insert_new_count: 146
     insert_reused_count: 5
 -   query: EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L))
     ref: in-predicate.yamsql:219
@@ -451,13 +451,13 @@ unnamed-2:
         AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME
         EQUALS q0.ID AND _.NUM EQUALS q2 } | FILTER @c34 EQUALS q1 AS q3 RETURN q3
         } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }
-    task_count: 9358
-    task_total_time_ms: 983
-    transform_count: 4099
-    transform_time_ms: 247
-    transform_yield_count: 514
-    insert_time_ms: 167
-    insert_new_count: 1394
+    task_count: 9377
+    task_total_time_ms: 782
+    transform_count: 4102
+    transform_time_ms: 166
+    transform_yield_count: 516
+    insert_time_ms: 136
+    insert_new_count: 1399
     insert_reused_count: 287
 -   query: EXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN
         (10, 20)
@@ -521,13 +521,13 @@ unnamed-2:
     explain: '[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY
         AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }'
-    task_count: 1166
-    task_total_time_ms: 104
-    transform_count: 454
-    transform_time_ms: 29
-    transform_yield_count: 70
-    insert_time_ms: 3
-    insert_new_count: 140
+    task_count: 1175
+    task_total_time_ms: 80
+    transform_count: 455
+    transform_time_ms: 23
+    transform_yield_count: 71
+    insert_time_ms: 2
+    insert_new_count: 142
     insert_reused_count: 9
 -   query: EXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx
         WHERE f IN ('apple', 'mango')
@@ -544,3 +544,28 @@ unnamed-2:
     insert_time_ms: 2
     insert_new_count: 115
     insert_reused_count: 6
+in-predicate-order-by-primary-key:
+-   query: EXPLAIN SELECT a, b FROM ta WHERE a IN (1, 2, 5) ORDER BY a
+    ref: in-predicate.yamsql:493
+    explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED] | INJOIN q0 ->
+        { SCAN([IS TA, EQUALS q0]) | MAP (_.A AS A, _.B AS B) }'
+    task_count: 808
+    task_total_time_ms: 18
+    transform_count: 258
+    transform_time_ms: 9
+    transform_yield_count: 59
+    insert_time_ms: 1
+    insert_new_count: 86
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT a, b FROM ta WHERE a IN (1, 2, 5) ORDER BY a DESC
+    ref: in-predicate.yamsql:498
+    explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED DESC] | INJOIN
+        q0 -> { SCAN([IS TA, EQUALS q0]) | MAP (_.A AS A, _.B AS B) }'
+    task_count: 808
+    task_total_time_ms: 23
+    transform_count: 258
+    transform_time_ms: 13
+    transform_yield_count: 59
+    insert_time_ms: 1
+    insert_new_count: 86
+    insert_reused_count: 5

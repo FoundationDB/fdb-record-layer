@@ -11,3 +11,15 @@ primary-key-tests:
     insert_time_ms: 0
     insert_new_count: 21
     insert_reused_count: 2
+-   query: EXPLAIN SELECT g FROM T1 WHERE id.a = 1 AND id.b = 2 ORDER BY g
+    ref: primary-key-tests.yamsql:53
+    explain: SCAN([IS T1, EQUALS promote(@c9 AS LONG), EQUALS promote(@c15 AS LONG)])
+        | MAP (_.G AS G)
+    task_count: 162
+    task_total_time_ms: 19
+    transform_count: 51
+    transform_time_ms: 13
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 12
+    insert_reused_count: 0

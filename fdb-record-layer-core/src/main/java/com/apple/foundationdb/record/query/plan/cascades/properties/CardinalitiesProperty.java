@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
@@ -109,13 +111,16 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.Set;
 
 /**
  * This property attempts to derive the minimum and the maximum cardinality of the conceptual result of a
@@ -341,7 +346,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     matchCandidate.computeOrderingFromScanComparisons(indexPlan.getScanComparisons(),
                             indexPlan.isReverse(),
                             false);
-            final var equalityBoundValues = ordering.getEqualityBoundValues();
+            final var equalityBoundValues = valuesBoundByEquals(ordering);
 
             // try to see if the primary key is bound by equalities
             if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
@@ -525,6 +530,24 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return unionCardinalities(fromChildren(unorderedUnionPlan));
         }
 
+        /**
+         * Compute the values of an ordering that are bound by a plain {@code EQUALS} comparison. Other equality-like
+         * comparisons are not good enough to bound the number of records: {@code IS NULL} is an equality, but a unique
+         * index allows many entries with a {@code NULL} key.
+         * @param ordering an ordering computed from the comparisons of a scan
+         * @return the values that are bound by {@code EQUALS}
+         */
+        @Nonnull
+        private static Set<Value> valuesBoundByEquals(@Nonnull final Ordering ordering) {
+            return ordering.getFixedBindingMap().asMap().entrySet()
+                    .stream()
+                    .filter(entry -> entry.getValue()
+                            .stream()
+                            .allMatch(binding -> binding.getComparison().getType() == Comparisons.Type.EQUALS))
+                    .map(Map.Entry::getKey)
+                    .collect(ImmutableSet.toImmutableSet());
+        }
+
         @Nonnull
         @Override
         public Cardinalities visitRecordQueryScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
@@ -545,7 +568,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                             scanPlan.isReverse(),
                             false);
 
-            final var equalityBoundValues = ordering.getEqualityBoundValues();
+            final var equalityBoundValues = valuesBoundByEquals(ordering);
             if (equalityBoundValues.containsAll(primaryKeyValues)) {
                 return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
             }

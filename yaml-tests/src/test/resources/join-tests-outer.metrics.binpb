@@ -162,7 +162,7 @@ z
 }›"
 ù
 left-outer-joinâEXPLAIN SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE NOT EXISTS (SELECT "d"."id" FROM "dept" "d" WHERE "e"."dept_id" = "d"."id");∫!
-ÆÒˆ≥ø ‡ëÅ(:0≤¿8Q@πISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }ﬂdigraph G {
+ÕŒ¬Ò√ ò‰ (;0Ø∞8U@πISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }ﬂdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -192,10 +192,10 @@ z
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ﬁ"
+}›"
 ù
-left-outer-joinâEXPLAIN SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE NOT EXISTS (SELECT "d"."id" FROM "dept" "d" WHERE "d"."id" = "e"."dept_id");ª!
-ÆÕ¬Ã*ø ®÷(:0ŒÏ≤8Q@πISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }ﬂdigraph G {
+left-outer-joinâEXPLAIN SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE NOT EXISTS (SELECT "d"."id" FROM "dept" "d" WHERE "d"."id" = "e"."dept_id");∫!
+ÕÖ’∑√ òÖ¶(;0È“8U@πISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }ﬂdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1049,10 +1049,10 @@ k
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}å3
+}ã3
 Ø
-left-outer-joinõEXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."fname" = 'Alice' OR "e"."fname" = 'Dave';◊1
-≥ã„€î ﬁ¸»(u0¨ƒ™8˙@àCOVERING(emp$fname [EQUALS promote(@c28 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) ‚à™ COVERING(emp$fname [EQUALS promote(@c34 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) COMPARE BY (_.fname, _.id) | FETCH | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }´.digraph G {
+left-outer-joinõEXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."fname" = 'Alice' OR "e"."fname" = 'Dave';÷1
+≥Œ£±ì ‚∆ˆ(u0∫ô68˙@àCOVERING(emp$fname [EQUALS promote(@c28 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) ‚à™ COVERING(emp$fname [EQUALS promote(@c34 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) COMPARE BY (_.fname, _.id) | FETCH | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }´.digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1321,27 +1321,27 @@ k
 }˚0
 º
 left-outer-join®EXPLAIN SELECT "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."fname" = 'Dave' UNION ALL SELECT "name" FROM "dept" WHERE "id" = 3;π/
-∫	‡Û€	∏ å‰ë(e0Ø·S8ü@ùISCAN(emp$fname [EQUALS promote(@c24 AS STRING)]) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q1.name AS name) } ‚äé SCAN([IS dept, EQUALS promote(@c34 AS LONG)]) | MAP (_.name AS name)˘,digraph G {
+∫	¶´÷π ”µ≈(e0ﬁ®28ü@ùISCAN(emp$fname [EQUALS promote(@c24 AS STRING)]) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q1.name AS name) } ‚äé SCAN([IS dept, EQUALS promote(@c34 AS LONG)]) | MAP (_.name AS name)˘,digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union All</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(STRING AS name)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6.name AS name)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS name)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c24 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS fname, STRING AS lname, LONG AS dept_id)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">emp$fname</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS fname, STRING AS lname, LONG AS dept_id)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, STRING AS name)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c24 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS fname, STRING AS lname, LONG AS dept_id)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, STRING AS name)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">emp$fname</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS fname, STRING AS lname, LONG AS dept_id)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.dept_id EQUALS q121.id</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">dept$name</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q14.name AS name)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS name)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS dept, EQUALS promote(@c34 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [project, emp, award, dept]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, STRING AS name)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q123> label="q123" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q123> label="q123" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ label=<&nbsp;q121> label="q121" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q177> label="q177" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1354,7 +1354,7 @@ k
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }ã
 |

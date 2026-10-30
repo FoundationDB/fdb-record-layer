@@ -18,13 +18,13 @@ unnamed-10:
     explain: SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0)
         | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0)
-    task_count: 319
-    task_total_time_ms: 7
-    transform_count: 92
-    transform_time_ms: 2
-    transform_yield_count: 27
+    task_count: 334
+    task_total_time_ms: 3
+    transform_count: 93
+    transform_time_ms: 1
+    transform_yield_count: 28
     insert_time_ms: 0
-    insert_new_count: 30
+    insert_new_count: 32
     insert_reused_count: 1
 unnamed-20:
 -   query: EXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'

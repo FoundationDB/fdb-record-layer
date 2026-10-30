@@ -185,13 +185,13 @@ array-join-at:
     explain: '[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         T1, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS q2
         RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } }'
-    task_count: 1162
-    task_total_time_ms: 14
-    transform_count: 452
-    transform_time_ms: 5
-    transform_yield_count: 68
+    task_count: 1171
+    task_total_time_ms: 13
+    transform_count: 453
+    transform_time_ms: 4
+    transform_yield_count: 69
     insert_time_ms: 0
-    insert_new_count: 140
+    insert_new_count: 142
     insert_reused_count: 9
 -   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
         WHERE "at" IN (1, 2)

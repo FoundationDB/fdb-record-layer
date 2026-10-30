@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -769,6 +770,24 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     }
 
     /**
+     * Method to indicate whether the scan of a {@link PartialMatch} binds a {@link MatchedOrderingPart} by a plain
+     * {@code EQUALS} comparison. A part that is equality-bound but not part of the bound prefix of the scan does not
+     * count, as the scan does not use that comparison (see {@link #adjustMatchedOrderingParts}). Neither does an
+     * {@code IS NULL} comparison, as the number of records with a {@code NULL} key is not bounded, not even in a
+     * unique index.
+     * @param partialMatch the partial match that determines what the scan binds
+     * @param orderingPart the ordering part to check
+     * @return {@code true} if the scan binds the ordering part by {@code EQUALS}
+     */
+    private static boolean isBoundByEquals(@Nonnull final PartialMatch partialMatch,
+                                           @Nonnull final MatchedOrderingPart orderingPart) {
+        final var comparisonRange = orderingPart.getComparisonRange();
+        return comparisonRange.isEquality() &&
+                partialMatch.getBoundParameterPrefixMap().containsKey(orderingPart.getParameterId()) &&
+                comparisonRange.getEqualityComparison().getType() == Comparisons.Type.EQUALS;
+    }
+
+    /**
      * Method to indicate whether a {@link PartialMatch} satisfies a {@link RequestedOrdering}. Note that we do not
      * check the directional requirements of the requested order here.
      * @param partialMatch the partial match to check
@@ -781,17 +800,27 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
             return Optional.of(ScanDirection.BOTH);
         }
 
-        // We initially assume that we can do either forward or reverse.
-        ScanDirection resolvedScanDirection = ScanDirection.BOTH;
-
         final var matchInfo = partialMatch.getMatchInfo();
         final var orderingParts = matchInfo.getMatchedOrderingParts();
-        final var equalityBoundKeys =
-                orderingParts
-                        .stream()
-                        .filter(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                        .map(MatchedOrderingPart::getValue)
-                        .collect(ImmutableSet.toImmutableSet());
+
+        // Accept any requested ordering, in both scan directions, if the candidate produces at most one record, as that
+        // record is trivially sorted by any value. That is the case for a primary scan if all key columns are bound by
+        // equality. Count only the ordering parts that the scan really binds (see isBoundByEquals()). A key column
+        // that does not contribute an ordering part is not counted, which at worst makes us miss such a candidate.
+        final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
+        if (matchCandidate instanceof PrimaryScanMatchCandidate &&
+                orderingParts.stream().filter(orderingPart -> isBoundByEquals(partialMatch, orderingPart)).count() >=
+                        matchCandidate.getColumnSize()) {
+            return Optional.of(ScanDirection.BOTH);
+        }
+
+        final Set<Value> equalityBoundKeys = orderingParts.stream()
+                .filter(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
+                .map(MatchedOrderingPart::getValue)
+                .collect(ImmutableSet.toImmutableSet());
+
+        // We initially assume that we can do either forward or reverse.
+        ScanDirection resolvedScanDirection = ScanDirection.BOTH;
 
         final var orderingPartIterator = orderingParts.iterator();
         for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {

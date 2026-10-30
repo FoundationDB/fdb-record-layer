@@ -192,13 +192,13 @@ join-tests:
         [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS
         _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME
         AS _1, q2.NAME AS _2) } }'
-    task_count: 21936
-    task_total_time_ms: 2281
-    transform_count: 8112
-    transform_time_ms: 591
-    transform_yield_count: 1209
-    insert_time_ms: 301
-    insert_new_count: 3823
+    task_count: 21990
+    task_total_time_ms: 1519
+    transform_count: 8118
+    transform_time_ms: 369
+    transform_yield_count: 1215
+    insert_time_ms: 191
+    insert_new_count: 3854
     insert_reused_count: 409
 -   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
         and dept.id in (1, 2) and emp.id not in (1, 5)
@@ -207,13 +207,13 @@ join-tests:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID:
         KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) |
         FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 6257
-    task_total_time_ms: 1050
-    transform_count: 1873
-    transform_time_ms: 279
-    transform_yield_count: 368
-    insert_time_ms: 48
-    insert_new_count: 1096
+    task_count: 6284
+    task_total_time_ms: 680
+    transform_count: 1876
+    transform_time_ms: 163
+    transform_yield_count: 371
+    insert_time_ms: 28
+    insert_new_count: 1103
     insert_reused_count: 65
 -   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
         and dept.id in (1, 2) and emp.id not in (1, 5)
@@ -222,13 +222,13 @@ join-tests:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0],
         ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID
         EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 5354
-    task_total_time_ms: 769
-    transform_count: 1622
-    transform_time_ms: 216
-    transform_yield_count: 319
-    insert_time_ms: 36
-    insert_new_count: 882
+    task_count: 5372
+    task_total_time_ms: 594
+    transform_count: 1624
+    transform_time_ms: 153
+    transform_yield_count: 321
+    insert_time_ms: 26
+    insert_new_count: 887
     insert_reused_count: 60
 -   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
         = 1 and emp.id in (10, 20, 30)
@@ -236,14 +236,14 @@ join-tests:
     explain: SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c27
         AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID
         EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }
-    task_count: 6626
-    task_total_time_ms: 1126
-    transform_count: 1914
-    transform_time_ms: 280
-    transform_yield_count: 406
-    insert_time_ms: 52
-    insert_new_count: 1216
-    insert_reused_count: 60
+    task_count: 6669
+    task_total_time_ms: 889
+    transform_count: 1919
+    transform_time_ms: 196
+    transform_yield_count: 411
+    insert_time_ms: 35
+    insert_new_count: 1229
+    insert_reused_count: 61
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:422
     explain: SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS
@@ -558,13 +558,13 @@ three-way-joins-right-deep-planner:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP
         q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3
         } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }'
-    task_count: 8826
-    task_total_time_ms: 719
-    transform_count: 2647
-    transform_time_ms: 206
-    transform_yield_count: 525
-    insert_time_ms: 32
-    insert_new_count: 1559
+    task_count: 8844
+    task_total_time_ms: 546
+    transform_count: 2649
+    transform_time_ms: 141
+    transform_yield_count: 527
+    insert_time_ms: 25
+    insert_new_count: 1569
     insert_reused_count: 110
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:627

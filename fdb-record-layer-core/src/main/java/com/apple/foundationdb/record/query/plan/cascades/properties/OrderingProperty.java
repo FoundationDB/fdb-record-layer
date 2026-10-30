@@ -383,9 +383,8 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
-            // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
-            //      We cannot express that as of yet.
-            return Ordering.empty();
+            // This plan flows exactly one record, which is sorted by anything.
+            return Ordering.empty(true);
         }
 
         @Nonnull
@@ -623,10 +622,10 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             //
             final var groupingValue = streamingAggregationPlan.getGroupingValue();
 
-            if (groupingValue == null) {
-                // TODO To be reconsidered. It should be an ordering that is ordered by anything as the result
-                //      has a maximum cardinality of 1L.
-                return Ordering.empty();
+            if (groupingValue == null || groupingValue.isConstant()) {
+                // Without grouping, or with a constant grouping, the result has at most one record, which is sorted by
+                // anything.
+                return Ordering.empty(true);
             }
 
             final var groupingKeyAlias = streamingAggregationPlan.getGroupingKeyAlias();

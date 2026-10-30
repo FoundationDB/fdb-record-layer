@@ -44,4 +44,20 @@ test_block:
       - query: select * from t1;
       - result: [{{1, 2, 3, 4}, 5},
                  {{1, 3, 30, 40}, 50}]
+    -
+      # Tests that a lookup by a composite primary key can be ordered by a column no index orders by. Both columns of
+      # the key are bound by equality, so at most one record qualifies and no sort is needed: the plan is a primary key
+      # scan with two equalities.
+      - query: SELECT g FROM T1 WHERE id.a = 1 AND id.b = 2 ORDER BY g
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1, EQUALS promote(@c9 AS LONG), EQUALS promote(@c15 AS LONG)]) | MAP (_.G AS G)"
+      - result: [{5}]
+    -
+      # Tests that binding only the first column of a composite primary key is not enough to order by `g`. Several
+      # records qualify, so planning fails.
+      - query: SELECT g FROM T1 WHERE id.a = 1 ORDER BY g
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
 ...

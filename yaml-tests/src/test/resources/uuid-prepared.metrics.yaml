@@ -218,9 +218,9 @@ uuid-as-a-primary-key:
     ref: uuid-prepared.yamsql:218
     explain: SCAN([IS TB, EQUALS promote(@c9 AS UUID)]) | MAP (_.B AS B, _.A AS A)
     task_count: 218
-    task_total_time_ms: 23
-    transform_count: 62
-    transform_time_ms: 7
+    task_total_time_ms: 18
+    transform_count: 63
+    transform_time_ms: 5
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 21

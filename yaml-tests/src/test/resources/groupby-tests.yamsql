@@ -341,4 +341,51 @@ test_block:
       - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
+---
+test_block:
+  name: group-by-single-record
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Tests that a lookup by the primary key can be grouped by a column even without a suitable index. The single
+      # record forms a single group, so the aggregation needs no sorted input.
+      - query: SELECT col2, COUNT(*) FROM t1 WHERE id = 3 GROUP BY col2
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1, EQUALS promote(@c12 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._0._0 AS COL2, _._1._0 AS _1)"
+      - result: [{!l 3, !l 1}]
+    -
+      # Tests that the same holds for another table, where the grouping column is not indexed either.
+      - query: SELECT c, COUNT(*) FROM t2 WHERE pk = 3 GROUP BY c
+      - supported_version: !current_version
+      - explain: "SCAN([IS T2, EQUALS promote(@c12 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.C AS _0) | MAP (_._0._0 AS C, _._1._0 AS _1)"
+      - result: [{!l 5, !l 1}]
+    -
+      # Tests that a composite primary key bounds the number of records if all of its columns are bound by equality,
+      # as the two EQUALS in the scan show.
+      - query: SELECT r.v.y, COUNT(*) FROM nested WHERE q.s = 200 AND r.u.w = 5 GROUP BY r.v.y
+      - supported_version: !current_version
+      - explain: "SCAN([IS NESTED, EQUALS promote(@c18 AS LONG), EQUALS promote(@c26 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.R.V.Y AS _0) | MAP (_._0._0 AS Y, _._1._0 AS _1)"
+      - result: [{!l 10, !l 1}]
+    -
+      # Tests that binding only one column of the composite primary key does not bound the number of records.
+      # The grouping cannot be provided, so planning fails.
+      - query: SELECT r.v.y, COUNT(*) FROM nested WHERE q.s = 200 GROUP BY r.v.y
+      - initialVersionLessThan: 4.17.2.0
+      - error: UNSUPPORTED_QUERY
+      - initialVersionAtLeast: 4.17.2.0
+      - error: UNABLE_TO_PLAN
+    -
+      # Tests that an aggregate without GROUP BY can be ordered. It always produces exactly one record, so no sort is
+      # needed. The scan of index I1 only supplies the records to count.
+      - query: SELECT COUNT(*) AS n FROM t1 ORDER BY n
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS N)"
+      - result: [{!l 13}]
+    -
+      # Tests that the result of such an aggregate can be grouped again. The inner aggregate produces one record, so the
+      # outer aggregation needs no sorted input.
+      - query: SELECT n, COUNT(*) FROM (SELECT COUNT(*) AS n FROM t1) AS s GROUP BY n
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP ((coalesce_long(_._0._0, 0l) AS N) AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.N AS _0) | MAP (_._0._0 AS N, _._1._0 AS _1)"
+      - result: [{!l 13, !l 1}]
 ...

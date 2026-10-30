@@ -272,11 +272,11 @@ exists-subquery:
         (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0,
         0l) AS n, exists(q0) AS e) }
     task_count: 544
-    task_total_time_ms: 43
+    task_total_time_ms: 30
     transform_count: 147
-    transform_time_ms: 14
+    transform_time_ms: 8
     transform_yield_count: 47
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 62
     insert_reused_count: 6
 -   query: EXPLAIN SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
@@ -287,7 +287,7 @@ exists-subquery:
         T1]) | FILTER _.T2 EQUALS promote(@c19 AS INT) | MAP (_.id AS id) | DEFAULT
         NULL AS q1 RETURN (coalesce_long(q0._0._0, 0l) AS n, exists(q1) AS e) }
     task_count: 715
-    task_total_time_ms: 28
+    task_total_time_ms: 34
     transform_count: 196
     transform_time_ms: 11
     transform_yield_count: 55
@@ -374,26 +374,26 @@ exists-subquery:
     explain: SCAN([IS T1, EQUALS promote(@c14 AS INT)]) | MAP (_.id AS id) | DEFAULT
         NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS T1]) AS q1 RETURN (q1.id
         AS id) }
-    task_count: 472
-    task_total_time_ms: 52
-    transform_count: 131
-    transform_time_ms: 18
-    transform_yield_count: 33
+    task_count: 503
+    task_total_time_ms: 35
+    transform_count: 135
+    transform_time_ms: 9
+    transform_yield_count: 34
     insert_time_ms: 1
-    insert_new_count: 52
+    insert_new_count: 57
     insert_reused_count: 3
 -   query: EXPLAIN SELECT id FROM T2 WHERE EXISTS (SELECT T2 FROM T1 WHERE id = 1)
     ref: subquery-tests.yamsql:269
     explain: SCAN([IS T1, EQUALS promote(@c14 AS INT)]) | MAP (_.T2 AS T2) | DEFAULT
         NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS T2]) AS q1 RETURN (q1.id
         AS id) }
-    task_count: 500
-    task_total_time_ms: 21
-    transform_count: 140
-    transform_time_ms: 7
-    transform_yield_count: 38
-    insert_time_ms: 0
-    insert_new_count: 55
+    task_count: 531
+    task_total_time_ms: 23
+    transform_count: 144
+    transform_time_ms: 6
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 60
     insert_reused_count: 3
 -   query: EXPLAIN SELECT p.id FROM T5 p WHERE EXISTS (SELECT c.id FROM T6 c WHERE
         c.i1 = p.id)
@@ -664,11 +664,11 @@ exists-subquery:
         promote(@c14 AS INT)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0, 0l) AS n) }
     task_count: 876
-    task_total_time_ms: 60
+    task_total_time_ms: 55
     transform_count: 234
-    transform_time_ms: 18
+    transform_time_ms: 13
     transform_yield_count: 61
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 102
     insert_reused_count: 7
 -   query: EXPLAIN SELECT COUNT(*) AS n FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT
@@ -679,11 +679,11 @@ exists-subquery:
         promote(@c14 AS INT)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0, 0l) AS n) }
     task_count: 876
-    task_total_time_ms: 60
+    task_total_time_ms: 55
     transform_count: 234
-    transform_time_ms: 18
+    transform_time_ms: 13
     transform_yield_count: 61
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 102
     insert_reused_count: 7
 -   query: EXPLAIN SELECT 7 AS x FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2
@@ -693,11 +693,11 @@ exists-subquery:
         id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) |
         MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }
     task_count: 705
-    task_total_time_ms: 60
+    task_total_time_ms: 35
     transform_count: 185
-    transform_time_ms: 17
+    transform_time_ms: 7
     transform_yield_count: 53
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 82
     insert_reused_count: 8
 -   query: EXPLAIN SELECT 7 AS x FROM T4 HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2
@@ -707,11 +707,11 @@ exists-subquery:
         id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) |
         MAP (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }
     task_count: 705
-    task_total_time_ms: 60
+    task_total_time_ms: 35
     transform_count: 185
-    transform_time_ms: 17
+    transform_time_ms: 7
     transform_yield_count: 53
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 82
     insert_reused_count: 8
 -   query: EXPLAIN SELECT 7 AS x FROM T4 WHERE T4.i > 100 HAVING EXISTS (SELECT id
@@ -722,11 +722,11 @@ exists-subquery:
         EQUALS promote(@c24 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q1 RETURN (7 AS x) }
     task_count: 876
-    task_total_time_ms: 35
+    task_total_time_ms: 28
     transform_count: 234
-    transform_time_ms: 12
+    transform_time_ms: 8
     transform_yield_count: 61
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 102
     insert_reused_count: 7
 -   query: EXPLAIN SELECT 7 AS x FROM T4 HAVING COUNT(*) > 5

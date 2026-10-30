@@ -12,11 +12,10 @@
   3 -> 2 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}ê
 ã
-'where-boolean-operand-non-boolean-value`EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and false) or rest_no = 1000Ä
-ˆœ∑‚| …ëæ
-(,0íÓÊ87@]SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)Çdigraph G {
+'where-boolean-operand-non-boolean-value`EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and false) or rest_no = 1000ˇ
+ˆî«â} ù´Ë(,0ø÷87@]SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -27,10 +26,10 @@
   3 -> 2 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}ê
 ã
-'where-boolean-operand-non-boolean-value`EXPLAIN select rest_no from restaurant_record where (false and rest_no > 1001) or rest_no = 1000Ä
-ˆÎÀ£| ç¢æ	(,0‡¢±87@]SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)Çdigraph G {
+'where-boolean-operand-non-boolean-value`EXPLAIN select rest_no from restaurant_record where (false and rest_no > 1001) or rest_no = 1000ˇ
+ˆ«˛¶} êê•(,0‡˘87@]SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -81,10 +80,10 @@ v
   3 -> 2 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‡.
+}ﬂ.
 ä
-'where-boolean-operand-non-boolean-value_EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and null) or rest_no = 1000–-
-¡&ˇ√ÆãÉ  ¯œ1(ä0ëí∑8è@;èSCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)õ+digraph G {
+'where-boolean-operand-non-boolean-value_EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and null) or rest_no = 1000œ-
+Â&ÃŸ◊à ÆéΩ(ç0ˆ—û8°@>èSCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)õ+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -93,25 +92,25 @@ v
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE null</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [RESTAURANT_RECORD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q541.REST_NO EQUALS promote(@c15 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q557.REST_NO EQUALS promote(@c15 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [RESTAURANT_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">RESTAURANT_RECORD_NAME</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
-  3 -> 2 [ label=<&nbsp;q611> label="q611" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q613> label="q613" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q627> label="q627" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q629> label="q629" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q543> label="q543" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q577> label="q577" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q541> label="q541" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q559> label="q559" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q593> label="q593" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q557> label="q557" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}í
 |
-'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and null)í
-÷
-ﬁìÛ ® ÷Èë(Z0◊∂Õ8Æ@ÆCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO LESS_THAN_OR_EQUALS promote(@c9 AS LONG) OR NOT null | MAP (_.REST_NO AS REST_NO)¿digraph G {
+'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and null)ë
+÷
+–™Õß Ω‚Ø(Z0ÄÏG8Æ@ÆCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO LESS_THAN_OR_EQUALS promote(@c9 AS LONG) OR NOT null | MAP (_.REST_NO AS REST_NO)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -122,11 +121,11 @@ v
   3 -> 2 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q90> label="q90" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ˆ
+}ı
 u
-'where-boolean-operand-non-boolean-valueJEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or null¸
-»
-“Œü!¢ ™¶õ(X0·Ó 8™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
+'where-boolean-operand-non-boolean-valueJEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or null˚
+»
+˚ÛÂ° âñÂ(X0π˚68™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -140,7 +139,7 @@ u
 }¯.
 ç
 'where-boolean-operand-non-boolean-valuebEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 or null) or rest_no = 1000Â-
-œ&˚≠Ôfä ÌÌ¨%(å0ßÉÊ	8ì@;öSCAN([[LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER NOT null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c16 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)¶+digraph G {
+Û&π≠ºè õ∑µ(è0∆úŒ8•@>öSCAN([[LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER NOT null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c16 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)¶+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -149,25 +148,25 @@ u
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE NOT null</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [RESTAURANT_RECORD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q542.REST_NO EQUALS promote(@c16 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q558.REST_NO EQUALS promote(@c16 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [RESTAURANT_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">RESTAURANT_RECORD_NAME</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
-  3 -> 2 [ label=<&nbsp;q612> label="q612" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q614> label="q614" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q628> label="q628" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q630> label="q630" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q544> label="q544" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q578> label="q578" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q542> label="q542" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q560> label="q560" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q594> label="q594" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q558> label="q558" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¯
+}˜
 y
-'where-boolean-operand-non-boolean-valueNEXPLAIN select rest_no from restaurant_record where not true or rest_no = 1000˙
-Í
-¥•Å™ ¶ø∞([0≈“¥8µ@¢COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT true OR _.REST_NO EQUALS promote(@c10 AS LONG) | MAP (_.REST_NO AS REST_NO)¥digraph G {
+'where-boolean-operand-non-boolean-valueNEXPLAIN select rest_no from restaurant_record where not true or rest_no = 1000˘
+ˆ
+–Æƒ´ ¥ÎÂ(\0òöC8π@¢COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT true OR _.REST_NO EQUALS promote(@c10 AS LONG) | MAP (_.REST_NO AS REST_NO)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -192,12 +191,11 @@ h
   3 -> 2 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q90> label="q90" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ú
+}Ò
 {
-'where-boolean-operand-non-boolean-valuePEXPLAIN select rest_no from restaurant_record where not (null) or rest_no = 1000Ú
-‹
-¥˛Ú§ ∂¸Ç
-(Y0°éÚ8±@ûCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER null OR _.REST_NO EQUALS promote(@c12 AS LONG) | MAP (_.REST_NO AS REST_NO)∞digraph G {
+'where-boolean-operand-non-boolean-valuePEXPLAIN select rest_no from restaurant_record where not (null) or rest_no = 1000Ò
+Ë
+¶ÙÈ• á∫π(Z0æá38µ@ûCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER null OR _.REST_NO EQUALS promote(@c12 AS LONG) | MAP (_.REST_NO AS REST_NO)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -224,10 +222,10 @@ h
   4 -> 3 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}®
+}ß
 |
-'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and true)ß
-ì¶˚â#ˆ ¬®»(m0˙˛é8’@∑COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT _.REST_NO GREATER_THAN promote(@c9 AS LONG) OR NOT @c11 EQUALS true | MAP (_.REST_NO AS REST_NO)Ãdigraph G {
+'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and true)¶
+ìôì·ı ‚«”(m0¥—J8’@∑COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT _.REST_NO GREATER_THAN promote(@c9 AS LONG) OR NOT @c11 EQUALS true | MAP (_.REST_NO AS REST_NO)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -267,11 +265,10 @@ k
   3 -> 2 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ñ
+}É
 
-where-boolean-operand-parameter\EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and ?) or rest_no = 1000Ä
-ˆ±¡Ó| û´¿
-(,0ùÚ√87@]SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)Çdigraph G {
+where-boolean-operand-parameter\EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and ?) or rest_no = 1000ˇ
+ˆî«â} ù´Ë(,0ø÷87@]SCAN([EQUALS promote(@c15 AS LONG)]) | TFILTER RESTAURANT_RECORD | MAP (_.REST_NO AS REST_NO)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -285,7 +282,7 @@ k
 }’.
 
 where-boolean-operand-parameter\EXPLAIN select rest_no from restaurant_record where (? and rest_no > 1001) or rest_no = 1000—-
-¡&´∑ïIÉ Æ°◊(ä0ëßÖ8è@;êSCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)ú+digraph G {
+Â&˝ªéà ºìª(ç0œÎ´8°@>êSCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)ú+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -294,25 +291,25 @@ k
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE null</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [RESTAURANT_RECORD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q541.REST_NO EQUALS promote(@c15 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q557.REST_NO EQUALS promote(@c15 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [RESTAURANT_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">RESTAURANT_RECORD_NAME</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
-  3 -> 2 [ label=<&nbsp;q611> label="q611" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q613> label="q613" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q627> label="q627" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q629> label="q629" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q543> label="q543" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q577> label="q577" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q541> label="q541" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q559> label="q559" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q593> label="q593" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q557> label="q557" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Î
+}Í
 j
-where-boolean-operand-parameterGEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or ?¸
-»
-À€∑¢ éáÀ(X0π∆≈8™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
+where-boolean-operand-parameterGEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or ?˚
+»
+¬ø ° ÏΩ’(X0˜È18™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
