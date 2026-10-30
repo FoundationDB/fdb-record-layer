@@ -56,11 +56,20 @@ import java.util.function.Supplier;
 import static com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.getForOrdinalPath;
 
 /**
- * Represents a value that references into an index entry in the bindings of {@link EvaluationContext} by means of an
- * ordinal path (dewey id).
+ * A value that references into an index entry in the bindings of {@link EvaluationContext} by means of an ordinal
+ * path (dewey id). This is useful in conjunction with a plan that returns records from an index without fetching them,
+ * such as a covering index scan or an aggregate index scan. This value can be used to fill a field of a partial record
+ * from an element of the key or the value tuple of the index entry. The plan temporarily binds the entry under
+ * {@link Quantifier#current()} while it is decoding that entry into a partial record. Thus, this value has meaning only
+ * in the value trees that do that decoding. It is not correlated to a quantifier of the query graph, and it cannot be
+ * evaluated above the scan.
+ *
+ * <p>The closely related {@link IndexEntryColumnValue} addresses an entry the same way but reads it from the record
+ * flowing from a covering index scan, so it can appear anywhere above that scan.
+ *
+ * @see IndexEntryColumnValue
  */
 public class IndexEntryObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
-
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Entry-Object-Value");
 
@@ -70,7 +79,6 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     private final TupleSource source;
     @Nonnull
     private final ImmutableIntArray ordinalPath;
-
     @Nonnull
     private final Type resultType;
 
@@ -103,37 +111,23 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
         return ImmutableList.of();
     }
 
+    @Nullable
     @Override
-    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    public boolean equals(final Object o) {
-        return semanticEquals(o, AliasMap.emptyMap());
-    }
-
-    @Override
-    public int hashCode() {
-        return semanticHashCode();
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final IndexEntry indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(Bindings.Internal.CORRELATION, indexEntryAlias));
+        return TupleFieldsHelper.tupleValueToRuntimeValue(getForOrdinalPath(indexEntry, source, ordinalPath), resultType);
     }
 
     @Nonnull
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> ordinalPath.equals(((IndexEntryObjectValue)other).ordinalPath));
-    }
-
-    @Nullable
-    @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(Bindings.Internal.CORRELATION, indexEntryAlias));
-
-        final var tuple = (source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue());
-        var value = getForOrdinalPath(tuple, ordinalPath);
-        if (value == null) {
-            return null;
-        }
-
-        return TupleFieldsHelper.tupleValueToRuntimeValue(value, resultType);
+                .filter(ignored -> {
+                    final var otherObjectValue = (IndexEntryObjectValue)other;
+                    return indexEntryAlias.equals(otherObjectValue.indexEntryAlias) &&
+                            source == otherObjectValue.source &&
+                            ordinalPath.equals(otherObjectValue.ordinalPath);
+                });
     }
 
     @Override
@@ -150,8 +144,21 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(source.toString())
-                .addOptionalWhitespace().addToString(":").addIdentifier(ordinalPath.toString()));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens()
+                .addKeyword(source.toString()).addOptionalWhitespace().addToString(":")
+                .addIdentifier(ordinalPath.toString()));
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @Nonnull

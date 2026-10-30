@@ -287,6 +287,7 @@ message PValue {
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
     PCurrentTimestampValue current_timestamp_value = 65;
+    PIndexEntryColumnValue index_entry_column_value = 66;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -570,6 +571,13 @@ message PIndexedValue {
 
 message PIndexEntryObjectValue {
   optional string index_entry_alias = 1;
+  optional PIndexKeyValueToPartialRecord.PTupleSource source = 2;
+  repeated int32 ordinal_path = 3;
+  optional PType result_type = 4;
+}
+
+message PIndexEntryColumnValue {
+  optional string alias = 1;
   optional PIndexKeyValueToPartialRecord.PTupleSource source = 2;
   repeated int32 ordinal_path = 3;
   optional PType result_type = 4;
