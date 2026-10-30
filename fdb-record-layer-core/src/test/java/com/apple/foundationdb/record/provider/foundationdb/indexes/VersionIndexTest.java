@@ -872,6 +872,7 @@ public class VersionIndexTest {
             assertNull(version);
             versionOptional = recordStore.loadRecordVersion(Tuple.from(1066L));
             assertFalse(versionOptional.isPresent());
+            assertNull(recordStore.loadRecord(Tuple.from(1066L)));
 
             // Save a new record and verify version removed with it after it is deleted
             MySimpleRecord record2 = record.toBuilder().setRecNo(1415L).build();
@@ -884,12 +885,16 @@ public class VersionIndexTest {
             versionOptional = recordStore.loadRecordVersion(Tuple.from(1415L));
             assertTrue(versionOptional.isPresent());
             assertEquals(version, versionOptional.get());
+            FDBStoredRecord<Message> loadedRecord2 = recordStore.loadRecord(Tuple.from(1415L));
+            assertNotNull(loadedRecord2);
+            assertEquals(version, loadedRecord2.getVersion());
 
             assertTrue(recordStore.deleteRecord(Tuple.from(1415L)));
             version = recordStore.evaluateRecordFunction(function, storedRecord2).join();
             assertNull(version);
             versionOptional = recordStore.loadRecordVersion(Tuple.from(1415L));
             assertFalse(versionOptional.isPresent());
+            assertNull(recordStore.loadRecord(Tuple.from(1415L)));
 
             context.commit();
         }
@@ -899,6 +904,7 @@ public class VersionIndexTest {
             // pre-commit hook that writes all the versioned keys and values
             Optional<FDBRecordVersion> versionOptional = recordStore.loadRecordVersion(Tuple.from(1415L));
             assertFalse(versionOptional.isPresent());
+            assertNull(recordStore.loadRecord(Tuple.from(1415L)));
             context.commit();
         }
     }
