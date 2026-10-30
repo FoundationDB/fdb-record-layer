@@ -21,7 +21,6 @@
 import java.time.Instant
 
 plugins {
-    alias(libs.plugins.gitversion)
     id 'java-test-fixtures'
 }
 
@@ -35,7 +34,8 @@ tasks.register('createVersionPropertiesFile') {
     def projectVersion = project.version
     def rootProjectName = rootProject.name
     def projectUrl = project.url
-    def gitDetails = versionDetails()
+    def gitHash = providers.exec { commandLine 'git', 'rev-parse', 'HEAD' }.standardOutput.asText.map { it.trim() }
+    def gitBranch = providers.exec { commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD' }.standardOutput.asText.map { it.trim() }
 
     outputs.file versionsFile
     doLast {
@@ -46,8 +46,8 @@ name=${rootProjectName}
 # Returned by RelationalDatabaseMetaData#getDatabaseProductVersion()
 # and by RelationalDatabaseMetaData#getDriverVersion()
 version=${projectVersion}
-gitHash=${gitDetails.gitHashFull}
-branch=${gitDetails.branchName}
+gitHash=${gitHash.get()}
+branch=${gitBranch.get()}
 # Returned as RelationalDatabaseMetaData#getUrl()
 url=${projectUrl.replace('\'', '')}
 user=${System.getProperty("user.name")}
