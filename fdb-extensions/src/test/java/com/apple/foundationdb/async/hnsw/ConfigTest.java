@@ -54,6 +54,7 @@ class ConfigTest {
 
         final int replacementEdgeMaxOutDegree = Config.DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE + 1;
         final int replacementEntryNodeScanLimit = Config.DEFAULT_REPLACEMENT_ENTRY_NODE_SCAN_LIMIT + 1;
+        final boolean writeAppendableNodes = !Config.DEFAULT_WRITE_APPENDABLE_NODES;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.useInlining()).isNotEqualTo(useInlining);
@@ -78,6 +79,7 @@ class ConfigTest {
 
         Assertions.assertThat(defaultConfig.replacementEdgeMaxOutDegree()).isNotEqualTo(replacementEdgeMaxOutDegree);
         Assertions.assertThat(defaultConfig.replacementEntryNodeScanLimit()).isNotEqualTo(replacementEntryNodeScanLimit);
+        Assertions.assertThat(defaultConfig.writeAppendableNodes()).isNotEqualTo(writeAppendableNodes);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -100,6 +102,7 @@ class ConfigTest {
                         .setMaxNumConcurrentDeleteFromLayer(maxNumConcurrentDeleteFromLayer)
                         .setReplacementEdgeMaxOutDegree(replacementEdgeMaxOutDegree)
                         .setReplacementEntryNodeScanLimit(replacementEntryNodeScanLimit)
+                        .setWriteAppendableNodes(writeAppendableNodes)
                         .build(768);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -125,6 +128,7 @@ class ConfigTest {
 
         Assertions.assertThat(newConfig.replacementEdgeMaxOutDegree()).isEqualTo(replacementEdgeMaxOutDegree);
         Assertions.assertThat(newConfig.replacementEntryNodeScanLimit()).isEqualTo(replacementEntryNodeScanLimit);
+        Assertions.assertThat(newConfig.writeAppendableNodes()).isEqualTo(writeAppendableNodes);
     }
 
     @Test

@@ -62,7 +62,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
 final class HnswVectorIndexEngine implements VectorIndexEngine {
-    // Stats and concurrency knobs are the only mutable options; everything else is immutable (see
+    // Stats, concurrency, and storage format knobs are the only mutable options; everything else is immutable (see
     // validateChangedOptions). Each key already covers its current and legacy names.
     private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
             VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
@@ -70,7 +70,8 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.STATS_THRESHOLD,
             VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES,
             VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
-            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
+            VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER,
+            VectorIndexOptionKeys.HNSW_WRITE_APPENDABLE_NODES);
 
     @Nonnull
     private final Config config;
@@ -198,6 +199,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.HNSW_EF_REPAIR, index, builder::setEfRepair);
         applyInteger(VectorIndexOptionKeys.HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE, index,
                 builder::setReplacementEdgeMaxOutDegree);
+        applyBoolean(VectorIndexOptionKeys.HNSW_WRITE_APPENDABLE_NODES, index, builder::setWriteAppendableNodes);
         applyBoolean(VectorIndexOptionKeys.HNSW_EXTEND_CANDIDATES, index, builder::setExtendCandidates);
         applyBoolean(VectorIndexOptionKeys.HNSW_KEEP_PRUNED_CONNECTIONS, index, builder::setKeepPrunedConnections);
         applyDouble(VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY, index,
@@ -219,7 +221,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
      * Validates which HNSW options may change on an existing index. Comparison is on <em>effective</em> config values
      * (parsed and defaulted), so setting an immutable option to a value equal to its default is not treated as a
      * change. Structural options (metric, dimensions, graph connectivity, construction/repair, and RaBitQ encoding) are
-     * immutable; the stats and concurrency options are mutable. Each key covers both its current and legacy names, so a
+     * immutable; the stats, concurrency and storage format options are mutable. Each key covers both its current and legacy names, so a
      * change expressed through either is caught. Handled options are removed from {@code changedOptions}.
      *
      * @param oldIndex the pre-change index
@@ -256,7 +258,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         disallowChange(changedOptions, VectorIndexOptionKeys.RABITQ_NUM_EX_BITS, oldConfig.raBitQNumExBits(),
                 newConfig.raBitQNumExBits(), name);
 
-        // Mutable tuning options — stats and concurrency.
+        // Mutable tuning options — stats, concurrency and storage format.
         for (final VectorOptionKey<?> key : MUTABLE_OPTIONS) {
             allowChange(changedOptions, key);
         }
