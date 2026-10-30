@@ -1,0 +1,89 @@
+#
+# or-query-to-union-proto-only.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrQueryToUnionTest` — the two distinct-union tests that run against the unmodified
+# `test_records_1.proto` index set (`complexQuerySetup(null)`), with no MULTI_INDEX to compete.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: or-query-to-union-proto-only
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testOrQueryToDistinctUnionWithPartialDefer — three legs, one of which needs a residual filter
+      # so only part of the union can defer its fetch. NUM_VALUE_2 only reaches 2, so the third leg
+      # matches nothing.
+      - query: select * from my_simple_record
+               where str_value_indexed = 'm' or num_value_3_indexed = 3
+                  or (num_value_2 = 3 and num_value_3_indexed = 4)
+      - explain: "COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)] -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.REC_NO) | FETCH ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c20 AS INT)]) | FILTER _.NUM_VALUE_2 EQUALS promote(@c11 AS INT) COMPARE BY (_.REC_NO)"
+      - unorderedResult: [{REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 8, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 992, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 13, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 987, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 18, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 982, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 23, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 977, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 28, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 972, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 33, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 967, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 38, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 962, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 43, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 957, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 48, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 952, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 53, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 947, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 58, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 942, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 63, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 937, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 68, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 932, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 73, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 927, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 78, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 922, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 83, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 917, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 88, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 912, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 93, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 907, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 98, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 902, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]}]
+    -
+      # testComplexOrQueryToDistinctUnion — nine open-interval legs, none of which can match because
+      # each is of the form `> n AND < n + 1` over an integer column, under an equality on
+      # STR_VALUE_INDEXED that no row satisfies. The source asserts on the plan only.
+      - query: select * from my_simple_record
+               where str_value_indexed = 'outer'
+                 and ((num_value_3_indexed > 1 and num_value_3_indexed < 2)
+                   or (num_value_3_indexed > 3 and num_value_3_indexed < 4)
+                   or (num_value_3_indexed > 5 and num_value_3_indexed < 6)
+                   or (num_value_3_indexed > 7 and num_value_3_indexed < 8)
+                   or (num_value_3_indexed > 9 and num_value_3_indexed < 10)
+                   or (num_value_3_indexed > 11 and num_value_3_indexed < 12)
+                   or (num_value_3_indexed > 13 and num_value_3_indexed < 14)
+                   or (num_value_3_indexed > 15 and num_value_3_indexed < 16)
+                   or (num_value_3_indexed > 17 and num_value_3_indexed < 18))
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c13 AS INT) && LESS_THAN promote(@c17 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c23 AS INT) && LESS_THAN promote(@c27 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c33 AS INT) && LESS_THAN promote(@c37 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c43 AS INT) && LESS_THAN promote(@c47 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c53 AS INT) && LESS_THAN promote(@c57 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c63 AS INT) && LESS_THAN promote(@c67 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c73 AS INT) && LESS_THAN promote(@c77 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c83 AS INT) && LESS_THAN promote(@c87 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c93 AS INT) && LESS_THAN promote(@c97 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO)"
+      - result: []
+...

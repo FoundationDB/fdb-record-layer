@@ -1,0 +1,60 @@
+#
+# multi-field-index-selection-wider-covering.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBMultiFieldIndexSelectionTest.testWiderCoveringIndex` — when the projection needs
+# a column that only the wider index carries, the planner should prefer WIDER over NARROWER so
+# that the fetch can be avoided.
+#
+# This is a plan-choice test: both indexes can satisfy the predicate, so it deliberately does NOT
+# use `USE INDEX` — hinting would test the hint rather than the cost model. The predicate matches
+# no rows (NUM_VALUE_2 is i % 3, so it never reaches 10); the source test likewise only inspects
+# the plan and never executes the query. The real assertion arrives with the `explain:` value.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index narrower as select str_value_indexed, num_value_2 from my_simple_record
+        order by str_value_indexed, num_value_2
+    create index wider as select str_value_indexed, num_value_2, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_2, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: multi-field-index-selection-wider-covering
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testWiderCoveringIndex
+      - query: select str_value_indexed, num_value_2, num_value_3_indexed from my_simple_record
+               where str_value_indexed = 'even' and num_value_2 >= 10
+      - explain: "COVERING(WIDER [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c16 AS INT)]] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[0]]) | MAP (_.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - result: []
+...

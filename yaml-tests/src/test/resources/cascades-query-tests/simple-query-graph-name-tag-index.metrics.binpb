@@ -1,0 +1,55 @@
+¿7
+»
+!simple-query-graph-name-tag-index•EXPLAIN select r.rest_no from restaurant_record as r where r.name in ('ABC') and exists (select 1 from r.tags as t where t.value in ('les aliments'))þ5
+Éƒ¼ª¥ ‰ºº(…0–œ—8 @¶[IN arrayDistinct(@c13)] | INJOIN q0 -> { ISCAN(RESTAURANT_RECORD_NAME [EQUALS q0]) } | FLATMAP q1 -> { EXPLODE arrayDistinct(@c32) | FLATMAP q2 -> { EXPLODE q1.TAGS | FILTER _.VALUE EQUALS q2 AS q3 RETURN (@c20 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q4 RETURN (q1.REST_NO AS REST_NO) }£3digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.REST_NO AS REST_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c13))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q137]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">RESTAURANT_RECORD_NAME</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8 NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q8 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (@c20 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4.VALUE EQUALS q84</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS VALUE, INT AS WEIGHT)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c32)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.TAGS</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS VALUE, INT AS WEIGHT)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q121> label="q121" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 8 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 9 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 9 [ label=<&nbsp;q84> label="q84" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 10 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    10 -> 9 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    11 -> 10 [ color="red" style="invis" ];
+  }
+  {
+    12 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}

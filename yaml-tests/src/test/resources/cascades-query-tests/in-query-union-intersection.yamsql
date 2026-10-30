@@ -1,0 +1,209 @@
+#
+# in-query-union-intersection.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBInQueryTest.testInUnionWithIntersectionOnTwoPredicates` — both `IN` predicates are
+# sargable, each against a different composite index, so the plan can intersect two in-unions.
+#
+# This is the `dropNumValue3Index = false` variant: MySimpleRecord$num_value_3_indexed is still
+# present, so the planner also has a single-index option for the sort.
+#
+# The source's `replans` parameter is planner configuration the SQL layer does not expose, so it
+# collapses. The three `str_list` bindings are reproduced as three queries.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index num_value2_num_value3 as select num_value_2, num_value_3_indexed from my_simple_record
+        order by num_value_2, num_value_3_indexed
+    create index str_value_num_value3 as select str_value_indexed, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: in-query-union-intersection
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testInUnionWithIntersectionOnTwoPredicates
+      # str_list = ('even')
+      - query: select * from my_simple_record
+               where num_value_2 in (0, 2) and str_value_indexed in ('even')
+               order by num_value_3_indexed
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
+      - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 8, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 992, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 12, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 988, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 14, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 986, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 18, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 982, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 20, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 980, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 24, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 976, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 26, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 974, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 30, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 970, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 32, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 968, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 36, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 964, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 38, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 962, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 42, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 958, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 44, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 956, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 48, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 952, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 50, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 950, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 54, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 946, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 56, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 944, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 60, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 940, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 62, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 938, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 66, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 934, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 68, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 932, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 72, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 928, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 74, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 926, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 78, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 922, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 80, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 920, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 84, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 916, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 86, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 914, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 90, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 910, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 92, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 908, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 98, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 902, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]}]
+    -
+      # testInUnionWithIntersectionOnTwoPredicates
+      # str_list = ('odd')
+      - query: select * from my_simple_record
+               where num_value_2 in (0, 2) and str_value_indexed in ('odd')
+               order by num_value_3_indexed
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
+      - unorderedResult: [{REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 5, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 995, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 9, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 991, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 11, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 989, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 15, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 985, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 17, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 983, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 21, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 979, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 23, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 977, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 27, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 973, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 29, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 971, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 33, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 967, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 35, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 965, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 39, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 961, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 41, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 959, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 45, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 955, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 47, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 953, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 51, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 949, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 53, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 947, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 57, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 943, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 59, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 941, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 63, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 937, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 65, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 935, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 69, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 931, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 71, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 929, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 75, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 925, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 77, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 923, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 81, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 919, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 83, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 917, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 87, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 913, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 89, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 911, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 93, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 907, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 95, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 905, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 99, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]}]
+    -
+      # testInUnionWithIntersectionOnTwoPredicates
+      # str_list = ('even', 'odd', 'other')
+      - query: select * from my_simple_record
+               where num_value_2 in (0, 2) and str_value_indexed in ('even', 'odd', 'other')
+               order by num_value_3_indexed
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
+      - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 5, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 995, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 8, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 992, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 9, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 991, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 11, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 989, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 12, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 988, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 14, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 986, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 15, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 985, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 17, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 983, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 18, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 982, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 20, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 980, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 21, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 979, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 23, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 977, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 24, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 976, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 26, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 974, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 27, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 973, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 29, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 971, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 30, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 970, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 32, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 968, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 33, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 967, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 35, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 965, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 36, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 964, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 38, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 962, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 39, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 961, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 41, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 959, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 42, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 958, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 44, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 956, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 45, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 955, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 47, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 953, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 48, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 952, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 50, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 950, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 51, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 949, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 53, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 947, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 54, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 946, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 56, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 944, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 57, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 943, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 59, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 941, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 60, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 940, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 62, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 938, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 63, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 937, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 65, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 935, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 66, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 934, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 68, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 932, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 69, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 931, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 71, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 929, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 72, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 928, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 74, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 926, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 75, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 925, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 77, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 923, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 78, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 922, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 80, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 920, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 81, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 919, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 83, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 917, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 84, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 916, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
+                          {REC_NO: 86, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 914, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 87, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 913, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},
+                          {REC_NO: 89, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 911, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
+                          {REC_NO: 90, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 910, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 92, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 908, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
+                          {REC_NO: 93, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 907, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 95, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 905, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
+                          {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 98, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 902, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 99, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]}]
+...

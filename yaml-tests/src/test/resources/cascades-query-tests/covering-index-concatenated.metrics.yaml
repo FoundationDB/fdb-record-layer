@@ -1,0 +1,16 @@
+covering-index-concatenated:
+-   query: EXPLAIN select num_value_2, num_value_3_indexed from my_simple_record where
+        num_value_2 > 0 and num_value_2 < 10
+    ref: covering-index-concatenated.yamsql:54
+    explain: 'COVERING(MY_SIMPLE_RECORD_2_3 [[GREATER_THAN promote(@c9 AS INT) &&
+        LESS_THAN promote(@c13 AS INT)]] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED:
+        KEY:[1], REC_NO: KEY:[2]]) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED
+        AS NUM_VALUE_3_INDEXED)'
+    task_count: 910
+    task_total_time_ms: 13
+    transform_count: 227
+    transform_time_ms: 5
+    transform_yield_count: 75
+    insert_time_ms: 1
+    insert_new_count: 106
+    insert_reused_count: 10

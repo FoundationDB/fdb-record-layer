@@ -1,0 +1,99 @@
+#
+# nested-field-query-reviewer-sorted.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedWithAndSorted` and `.nestedWithAndSortedEquality` — an
+# ORDER BY on a nested field that the index already provides, so no sort operator is needed. The pair
+# shares an index configuration, so it shares a file.
+#
+# Its own file: the hook drops `stats$school` outright and adds
+# `stats$cat_school_email` = (category, stats.start_date, email). Nothing here can fall back to
+# stats.start_date alone.
+#
+# Each source method plans a second query that asks for *more* ordering than the first and asserts the
+# plan is unchanged: with CATEGORY equality-bound the index already delivers (stats.start_date, email),
+# and in the equality case stats.start_date is bound too, which makes every trailing sort column
+# redundant. Both are ported.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_cat_school_email as
+        select category, stats.start_date, email from restaurant_reviewer
+        order by category, stats.start_date, email
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer-sorted
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedWithAndSorted
+      - query: select * from restaurant_reviewer
+               where category = 1 and stats.start_date > 0
+               order by stats.start_date
+      - explain: "ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), [GREATER_THAN promote(@c13 AS LONG)]])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+    -
+      # nestedWithAndSorted, second query — sorting further by EMAIL asks for exactly what the index
+      # already gives after (category, stats.start_date), so the plan must not change.
+      - query: select * from restaurant_reviewer
+               where category = 1 and stats.start_date > 0
+               order by stats.start_date, email
+      - explain: "ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), [GREATER_THAN promote(@c13 AS LONG)]])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+    -
+      # nestedWithAndSortedEquality
+      - query: select * from restaurant_reviewer
+               where category = 1 and stats.start_date = 1066
+               order by stats.start_date
+      - explain: "ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG)])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+    -
+      # nestedWithAndSortedEquality, second query — CATEGORY is equality-bound, so sorting by it is
+      # reductive; the plan must be the same as above.
+      - query: select * from restaurant_reviewer
+               where category = 1 and stats.start_date = 1066
+               order by stats.start_date, category, email
+      - explain: "ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG)])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+...

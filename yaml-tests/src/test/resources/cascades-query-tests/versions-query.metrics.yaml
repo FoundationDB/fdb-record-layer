@@ -1,0 +1,80 @@
+versions-query:
+-   query: EXPLAIN select * from my_simple_record order by "__ROW_VERSION"
+    ref: versions-query.yamsql:208
+    explain: ISCAN(VERSION_INDEX <,>) | MAP (_.REC_NO AS REC_NO, _.STR_VALUE_INDEXED
+        AS STR_VALUE_INDEXED, _.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_2
+        AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.REPEATER AS
+        REPEATER)
+    task_count: 350
+    task_total_time_ms: 3
+    transform_count: 95
+    transform_time_ms: 1
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select rec_no, "__ROW_VERSION" from my_simple_record order by "__ROW_VERSION"
+    ref: versions-query.yamsql:316
+    explain: ISCAN(VERSION_INDEX <,>) | MAP (_.REC_NO AS REC_NO, _.__ROW_VERSION AS
+        __ROW_VERSION)
+    task_count: 228
+    task_total_time_ms: 2
+    transform_count: 65
+    transform_time_ms: 1
+    transform_yield_count: 44
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_2 = 1 order by "__ROW_VERSION"
+    ref: versions-query.yamsql:424
+    explain: ISCAN(VERSION_BY_NUM_VALUE_2_INDEX [EQUALS promote(@c7 AS INT)]) | MAP
+        (_.REC_NO AS REC_NO, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE, _.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS
+        NUM_VALUE_3_INDEXED, _.REPEATER AS REPEATER)
+    task_count: 436
+    task_total_time_ms: 4
+    transform_count: 114
+    transform_time_ms: 2
+    transform_yield_count: 57
+    insert_time_ms: 0
+    insert_new_count: 41
+    insert_reused_count: 2
+-   query: EXPLAIN select rec_no, "__ROW_VERSION" from my_simple_record where str_value_indexed
+        = 'even'
+    ref: versions-query.yamsql:463
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c9 AS STRING)])
+        | MAP (_.REC_NO AS REC_NO, _.__ROW_VERSION AS __ROW_VERSION)
+    task_count: 996
+    task_total_time_ms: 9
+    transform_count: 257
+    transform_time_ms: 3
+    transform_yield_count: 84
+    insert_time_ms: 0
+    insert_new_count: 117
+    insert_reused_count: 11
+-   query: EXPLAIN select "__ROW_VERSION" as version, rec_no as number from my_simple_record
+        order by version
+    ref: versions-query.yamsql:523
+    explain: ISCAN(VERSION_INDEX <,>) | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO
+        AS NUMBER)
+    task_count: 228
+    task_total_time_ms: 2
+    transform_count: 65
+    transform_time_ms: 1
+    transform_yield_count: 44
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select "__ROW_VERSION" as version, rec_no from my_simple_record
+        where str_value_indexed = 'even'
+    ref: versions-query.yamsql:631
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c11 AS STRING)])
+        | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO AS REC_NO)
+    task_count: 996
+    task_total_time_ms: 9
+    transform_count: 257
+    transform_time_ms: 4
+    transform_yield_count: 84
+    insert_time_ms: 0
+    insert_new_count: 117
+    insert_reused_count: 11

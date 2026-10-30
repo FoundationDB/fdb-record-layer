@@ -1,0 +1,129 @@
+recursive-queries-multiples:
+-   query: EXPLAIN with recursive multiples as ( select id from seed union all select
+        id from (select id * 2 as id from multiples) as sq where id < 50) select id
+        from multiples
+    ref: recursive-queries-multiples.yamsql:63
+    explain: RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID)
+        | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18
+        LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP
+        q1 }} | MAP (_.ID AS ID)
+    task_count: 454
+    task_total_time_ms: 3
+    transform_count: 106
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed union all select
+        id from (select id * 2 as id from multiples) as sq where id < 50) traversal
+        order level_order select id from multiples
+    ref: recursive-queries-multiples.yamsql:76
+    explain: RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID)
+        | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18
+        LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP
+        q1 }} | MAP (_.ID AS ID)
+    task_count: 454
+    task_total_time_ms: 4
+    transform_count: 106
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed union all select
+        id from (select id * 2 as id from multiples) as sq where id < 6) select id
+        from multiples
+    ref: recursive-queries-multiples.yamsql:87
+    explain: RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID)
+        | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18
+        LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP
+        q1 }} | MAP (_.ID AS ID)
+    task_count: 454
+    task_total_time_ms: 3
+    transform_count: 106
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed union all select
+        id from (select id * 2 as id from multiples) as sq where id < 6) traversal
+        order level_order select id from multiples
+    ref: recursive-queries-multiples.yamsql:97
+    explain: RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID)
+        | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18
+        LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP
+        q1 }} | MAP (_.ID AS ID)
+    task_count: 454
+    task_total_time_ms: 4
+    transform_count: 106
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed union all select
+        id from (select id * 2 as id from multiples) as sq where id < 0) select id
+        from multiples
+    ref: recursive-queries-multiples.yamsql:108
+    explain: RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID)
+        | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18
+        LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP
+        q1 }} | MAP (_.ID AS ID)
+    task_count: 454
+    task_total_time_ms: 3
+    transform_count: 106
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed union all select
+        id from (select id * 2 as id from multiples) as sq where id < 0) traversal
+        order level_order select id from multiples
+    ref: recursive-queries-multiples.yamsql:118
+    explain: RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID)
+        | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18
+        LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP
+        q1 }} | MAP (_.ID AS ID)
+    task_count: 454
+    task_total_time_ms: 4
+    transform_count: 106
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed where id > 1000
+        union all select id from (select id * 2 as id from multiples) as sq where
+        id < 1000) select id from multiples
+    ref: recursive-queries-multiples.yamsql:129
+    explain: RUNION q0, q1 { INITIAL { SCAN([[GREATER_THAN promote(@c12 AS LONG)]])
+        | TFILTER SEED | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER
+        _.ID * @c22 LESS_THAN promote(@c12 AS LONG) | MAP (_.ID * @c22 AS ID) | INSERT
+        INTO TEMP q1 }} | MAP (_.ID AS ID)
+    task_count: 465
+    task_total_time_ms: 3
+    transform_count: 108
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 48
+    insert_reused_count: 1
+-   query: EXPLAIN with recursive multiples as ( select id from seed where id > 1000
+        union all select id from (select id * 2 as id from multiples) as sq where
+        id < 1000) traversal order level_order select id from multiples
+    ref: recursive-queries-multiples.yamsql:139
+    explain: RUNION q0, q1 { INITIAL { SCAN([[GREATER_THAN promote(@c12 AS LONG)]])
+        | TFILTER SEED | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER
+        _.ID * @c22 LESS_THAN promote(@c12 AS LONG) | MAP (_.ID * @c22 AS ID) | INSERT
+        INTO TEMP q1 }} | MAP (_.ID AS ID)
+    task_count: 465
+    task_total_time_ms: 3
+    transform_count: 108
+    transform_time_ms: 1
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 48
+    insert_reused_count: 1

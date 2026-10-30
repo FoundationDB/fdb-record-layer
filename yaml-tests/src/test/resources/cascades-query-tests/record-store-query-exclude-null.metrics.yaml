@@ -1,0 +1,13 @@
+record-store-query-exclude-null:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed < 2
+    ref: record-store-query-exclude-null.yamsql:163
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[LESS_THAN promote(@c7 AS
+        INT)]])
+    task_count: 571
+    task_total_time_ms: 6
+    transform_count: 135
+    transform_time_ms: 3
+    transform_yield_count: 58
+    insert_time_ms: 0
+    insert_new_count: 68
+    insert_reused_count: 6
