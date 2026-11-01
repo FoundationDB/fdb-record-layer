@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -39,6 +38,8 @@ import org.junit.jupiter.api.Assertions;
 import javax.annotation.Nonnull;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.elementOf;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.explode;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullScanExpression;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
@@ -52,10 +53,9 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = setUp();
         var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
         final var explodeQun =
-                Quantifier.forEach(Reference.initialOf(
-                        new ExplodeExpression(FieldValue.ofFieldName(
+                explode(FieldValue.ofFieldName(
                                 QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()),
-                                "reviews"))));
+                                "reviews"));
 
         var graphExpansionBuilder = GraphExpansion.builder();
         graphExpansionBuilder.addQuantifier(outerQun);
@@ -65,7 +65,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
                         outerQun.getFlowedObjectType()), "name"),
                         new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "name")));
 
-        final var explodeResultValue = QuantifiedObjectValue.of(explodeQun.getAlias(), explodeQun.getFlowedObjectType());
+        final var explodeResultValue = elementOf(explodeQun);
         graphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
         outerQun = Quantifier.forEach(Reference.initialOf(
                 graphExpansionBuilder.build().buildSelect()));
@@ -118,10 +118,9 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var fullScanQuantifierForRestaurant = forEach(fuseReference);
         var outerQun = fullTypeScan(metaData, "RestaurantRecord", fullScanQuantifierForRestaurant);
         final var explodeQun =
-                Quantifier.forEach(Reference.initialOf(
-                        new ExplodeExpression(FieldValue.ofFieldName(
+                explode(FieldValue.ofFieldName(
                                 QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()),
-                                "reviews"))));
+                                "reviews"));
 
         var graphExpansionBuilder = GraphExpansion.builder();
         graphExpansionBuilder.addQuantifier(outerQun);
@@ -131,7 +130,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
                         outerQun.getFlowedObjectType()), "name"),
                         new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "name")));
 
-        final var explodeResultValue = QuantifiedObjectValue.of(explodeQun.getAlias(), explodeQun.getFlowedObjectType());
+        final var explodeResultValue = elementOf(explodeQun);
         graphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
         outerQun = Quantifier.forEach(Reference.initialOf(
                 graphExpansionBuilder.build().buildSelect()));

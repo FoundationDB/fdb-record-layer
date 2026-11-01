@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -47,7 +46,9 @@ import java.util.Set;
 /**
  * Helper class to describe an IN-list for physical {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
  * IN lists can be based on values or other outer bindings through the use of parameter names or correlations.
- * This class is more or less a physical counterpart of a {@link Quantifier} ranging over an {@link ExplodeExpression}.
+ * This class is more or less a physical counterpart of a {@link Quantifier} ranging over a
+ * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression} over an
+ * {@link com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue}.
  */
 @API(API.Status.INTERNAL)
 public abstract class InSource implements PlanHashable, PlanSerializable, Typed {

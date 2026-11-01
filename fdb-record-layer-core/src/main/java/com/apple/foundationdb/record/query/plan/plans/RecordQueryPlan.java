@@ -42,6 +42,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
@@ -54,8 +56,10 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 
 /**
  * An executable query plan for producing records.
@@ -87,7 +91,12 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                                                                   @Nonnull EvaluationContext context,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties) {
-        return executePlan(store, context, continuation, executeProperties)
+        final Set<Type> usedTypes = usedTypes().evaluate(this);
+        final EvaluationContext typedContext = usedTypes.stream().allMatch(context.getTypeRepository()::containsType)
+                ? context
+                : EvaluationContext.forBindingsAndTypeRepository(context.getBindings(),
+                        TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        return executePlan(store, typedContext, continuation, executeProperties)
                 .map(QueryResult::getQueriedRecord);
     }
 

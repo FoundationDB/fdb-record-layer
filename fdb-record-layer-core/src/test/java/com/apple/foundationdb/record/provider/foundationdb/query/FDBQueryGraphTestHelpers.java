@@ -38,9 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -127,6 +129,27 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
     public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
         return fullTypeScan(metaData, typeName, fullScan(metaData));
+    }
+
+    /**
+     * Creates a quantifier over an explode of a collection, that is, a {@link TableFunctionExpression} over an
+     * {@link ExplodeValue}. Read the elements through {@link #elementOf(Quantifier)}.
+     * @param collectionValue the collection to explode
+     * @return a quantifier over the explode
+     */
+    @Nonnull
+    public static Quantifier.ForEach explode(@Nonnull Value collectionValue) {
+        return Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(collectionValue))));
+    }
+
+    /**
+     * Returns the element an explode quantifier flows.
+     * @param explodeQun a quantifier over an explode
+     * @return the element of the {@code (element, ordinal)} struct the quantifier flows
+     */
+    @Nonnull
+    public static Value elementOf(@Nonnull Quantifier explodeQun) {
+        return ExplodeValue.elementValue(explodeQun.getFlowedObjectValue());
     }
 
     @Nonnull

@@ -35,19 +35,17 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
-import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.InExplodeSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
-import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.google.common.base.Verify;
@@ -58,14 +56,14 @@ import com.google.common.collect.ImmutableSetMultimap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.explodeValue;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule.findInnerQuantifier;
 
 /**
@@ -74,10 +72,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
-    private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
+    private static final BindingMatcher<ExplodeValue> explodeValueMatcher = explodeValue();
     // Match plain for-each quantifiers only. This rule turns each matched explode quantifier into an `InSource` instead
     // of planning it, so there would be no plan to apply the glue for a null-on-empty quantifier to.
-    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(plainForEachQuantifier(explodeExpressionMatcher));
+    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(plainForEachQuantifier(tableFunctionExpression(explodeValueMatcher)));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);
@@ -124,41 +122,28 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
             return;
         }
 
-        final var explodeExpressions = bindings.getAll(explodeExpressionMatcher);
+        final var explodeValues = bindings.getAll(explodeValueMatcher);
 
-        Verify.verify(explodeExpressions.size() == explodeQuantifiers.size());
+        Verify.verify(explodeValues.size() == explodeQuantifiers.size());
 
         final var sourcesBuilder = ImmutableList.<InSource>builder();
 
         int i = 0;
         for (final var explodeQuantifier : explodeQuantifiers) {
-            final var explodeExpression = explodeExpressions.get(i++);
-            final Value explodeCollectionValue = explodeExpression.getCollectionValue();
+            final var explodeValue = explodeValues.get(i++);
+            final Value explodeCollectionValue = explodeValue.getCollectionValue();
+            if (!(explodeCollectionValue instanceof LiteralValue<?>) &&
+                    !(explodeCollectionValue instanceof QuantifiedObjectValue) &&
+                    !(explodeCollectionValue instanceof ParameterObjectValue) &&
+                    !explodeCollectionValue.isConstant()) {
+                return;
+            }
 
             //
             // Create the source for the in-union plan
             //
-            final InSource inSource;
-            final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
-            if (explodeCollectionValue instanceof LiteralValue<?>) {
-                final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
-                if (literalValue instanceof List<?>) {
-                    inSource = new InValuesSource(bindingName, (List<Object>)literalValue);
-                } else {
-                    return;
-                }
-            } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
-                inSource = new InParameterSource(bindingName,
-                        ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
-            } else if (explodeCollectionValue instanceof ParameterObjectValue) {
-                inSource = new InParameterSource(bindingName,
-                        ((ParameterObjectValue)explodeCollectionValue).getParameterName());
-            } else if (explodeCollectionValue.isConstant()) {
-                inSource = new InComparandSource(bindingName,
-                        new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue));
-            } else {
-                return;
-            }
+            final InSource inSource =
+                    new InExplodeSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), explodeValue);
             sourcesBuilder.add(inSource);
         }
 

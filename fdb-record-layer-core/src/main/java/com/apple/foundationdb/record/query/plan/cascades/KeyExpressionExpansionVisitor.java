@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
@@ -145,8 +146,13 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
-                value = state.registerValue(childBase.getFlowedObjectValue());
-                column = Column.unnamedOf(value);
+                value = state.registerValue(ExplodeValue.elementValue(childBase.getFlowedObjectValue()));
+                //
+                // The select over the explode flows the explode's whole (element, ordinal) struct rather than just the
+                // element, so that a query's select over the explode matches it whether it flows the element or the
+                // struct. The element is then accessed on the struct to form the column of this expansion.
+                //
+                column = Column.unnamedOf(childBase.getFlowedObjectValue());
                 final GraphExpansion childExpansion;
                 if (state.isKey() && !state.isInternalExpansion()) {
                     childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
@@ -161,7 +167,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion.Sealed sealedChildExpansion = childExpansion.seal();
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders()
-                        .pullUpQuantifier(childQuantifier)
+                        .addQuantifier(childQuantifier)
+                        .addResultColumn(Column.unnamedOf(ExplodeValue.elementValue(
+                                FieldValue.ofOrdinalNumber(childQuantifier.getFlowedObjectValue(), 0))))
                         .build();
             case Concatenate:
             case None:
@@ -311,7 +319,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
-                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier).withFieldNamePrefix(ImmutableList.of()))));
+                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier)
+                                .withFieldNamePrefix(ImmutableList.of(ExplodeValue.ELEMENT_FIELD_NAME)))));
                 final GraphExpansion baseAndChildExpansion;
                 if (state.isSelectStar()) {
                     final GraphExpansion baseExpansion =

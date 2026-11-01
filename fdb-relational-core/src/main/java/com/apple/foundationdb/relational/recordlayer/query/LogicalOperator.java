@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
@@ -39,12 +38,14 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
@@ -311,32 +312,29 @@ public class LogicalOperator {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
-        final boolean withOrdinality = atAlias.isPresent();
-        // for the case when `withOrdinality` is true, we ask for a RecordConstructor value.
-        final var explode = new ExplodeExpression(expression.getUnderlying(), withOrdinality, withOrdinality);
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
-        final QuantifiedObjectValue flowedObjectValue = resultingQuantifier.getFlowedObjectValue();
-        final Type flowedObjectType = resultingQuantifier.getFlowedObjectType();
+        // The explode produces a struct (element) for every element of the array, or (element, ordinal) if the
+        // ordinal is needed for an `AT` alias.
+        final var explodeValue = new ExplodeValue(expression.getUnderlying(), atAlias.isPresent());
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(explodeValue)));
+        final Value elementValue = ExplodeValue.elementValue(resultingQuantifier.getFlowedObjectValue());
+        final Type elementType = explodeValue.getElementType();
 
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         if (atAlias.isPresent()) {
-            // With AT, the `ExplodeExpression` produces a struct (element, ordinal). Use `FieldValue` accessors.
-            final Type elementType = explode.getElementType();
-            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType), elementValue));
             // The explode flows 0-based ordinals. SQL `AT` is 1-based per the standard.
             // TODO: An `AT` ordinal is never null, but `ArithmeticValue` reports a nullable result type even when both
             //       of its operands are not nullable, so the column is declared nullable to match the value it flows.
             //       Once #4622 is fixed, this should go back to `DataType.Primitives.INTEGER`.
             final Value oneBasedOrdinal = (Value)new ArithmeticValue.AddFn()
-                    .encapsulate(CallSiteArguments.ofPositional(FieldValue.ofOrdinalNumber(flowedObjectValue, 1),
+                    .encapsulate(CallSiteArguments.ofPositional(
+                            ExplodeValue.ordinalValue(resultingQuantifier.getFlowedObjectValue()),
                             LiteralValue.ofScalar(1)));
             attributesBuilder.add(new Expression(atAlias, DataType.Primitives.NULLABLE_INTEGER.type(), oneBasedOrdinal));
-        } else if (flowedObjectType.isPrimitive()) {
-            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
-                    flowedObjectValue));
+        } else if (elementType.isPrimitive()) {
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType), elementValue));
         } else {
-            attributesBuilder.addAll(convertToExpressions(resultingQuantifier));
+            attributesBuilder.addAll(convertToExpressions(elementValue));
         }
         final Expressions outputAttributes = Expressions.of(attributesBuilder.build());
 
@@ -351,10 +349,9 @@ public class LogicalOperator {
         //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
         //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
         //  - item.b: exact match item.b.
-        if (alias.isPresent() && atAlias.isEmpty() && flowedObjectType.isRecord()) {
-            final var elementType = DataTypeUtils.toRelationalType(flowedObjectType);
-            final var wholeStructExpr = new EphemeralExpression(alias, elementType, flowedObjectValue,
-                    Expression.Visibility.VISIBLE);
+        if (alias.isPresent() && atAlias.isEmpty() && elementType.isRecord()) {
+            final var wholeStructExpr = new EphemeralExpression(alias, DataTypeUtils.toRelationalType(elementType),
+                    elementValue, Expression.Visibility.VISIBLE);
             return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
                     .add(wholeStructExpr)
                     .addAll(operator.getOutput().asList())
@@ -374,6 +371,28 @@ public class LogicalOperator {
             final var attributeName = field.getFieldNameOptional().map(Identifier::of);
             final var attributeType = DataTypeUtils.toRelationalType(value.getResultType());
             final var attributeExpression = FieldValue.ofOrdinalNumber(quantifier.getFlowedObjectValue(), colCount);
+            attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
+            colCount++;
+        }
+        return Expressions.of(attributesBuilder.build());
+    }
+
+    /**
+     * Converts the fields of a record-typed value into expressions, one per field, each accessing its field of the
+     * value by ordinal. An access of a field of a field is fused into one field value.
+     *
+     * @param recordValue a value of a record type
+     * @return the expressions accessing the fields of the value
+     */
+    @Nonnull
+    public static Expressions convertToExpressions(@Nonnull Value recordValue) {
+        final var recordType = Assert.castUnchecked(recordValue.getResultType(), Type.Record.class);
+        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+        int colCount = 0;
+        for (final var field : recordType.getFields()) {
+            final var attributeName = field.getFieldNameOptional().map(Identifier::of);
+            final var attributeType = DataTypeUtils.toRelationalType(field.getFieldType());
+            final var attributeExpression = FieldValue.ofOrdinalNumberAndFuseIfPossible(recordValue, colCount);
             attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
             colCount++;
         }

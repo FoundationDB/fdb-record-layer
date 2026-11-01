@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
@@ -46,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableSc
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -260,13 +260,15 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<ExplodeExpression> explodeExpression() {
-        return ofTypeOwning(ExplodeExpression.class, CollectionMatcher.empty());
+    public static BindingMatcher<TableFunctionExpression> tableFunctionExpression() {
+        return ofTypeOwning(TableFunctionExpression.class, CollectionMatcher.empty());
     }
 
     @Nonnull
-    public static BindingMatcher<TableFunctionExpression> tableFunctionExpression() {
-        return ofTypeOwning(TableFunctionExpression.class, CollectionMatcher.empty());
+    public static BindingMatcher<TableFunctionExpression> tableFunctionExpression(@Nonnull final BindingMatcher<? extends StreamingValue> downstream) {
+        return typedWithDownstream(TableFunctionExpression.class,
+                Extractor.of(TableFunctionExpression::getValue, name -> "value(" + name + ")"),
+                downstream);
     }
 
     @Nonnull

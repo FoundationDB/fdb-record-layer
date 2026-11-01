@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -32,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFuncti
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.TestRuleExecution;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -140,7 +140,7 @@ public class RuleTestHelper {
 
     @Nonnull
     public static Quantifier explodeField(@Nonnull final Quantifier t, @Nonnull final String fieldName) {
-        return forEach(new ExplodeExpression(fieldValue(t, fieldName)));
+        return forEach(new TableFunctionExpression(new ExplodeValue(fieldValue(t, fieldName))));
     }
 
     @Nonnull

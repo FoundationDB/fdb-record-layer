@@ -722,7 +722,7 @@ test_block:
                 where t1.a1 IN (1, 2) and t3.aRef = t1.id
                 order by t1.a2
       # Order by just a2 gives us an in-union
-      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2, _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2 [EQUALS q0._0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2, _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
       - result: [
          { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
          { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
@@ -739,7 +739,7 @@ test_block:
                 where t1.a1 IN (1, 2) and t3.aRef = t1.id
                 order by t1.a1, t1.a2
       # Order by a1, a2 also gives us an in join.
-      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0._0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
       - result: [
          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -756,7 +756,7 @@ test_block:
                 where t1.a1 IN (1, 2) and t3.aRef = t1.id
                 order by t1.a1 asc, t1.a2 desc
       # Order by a1, a2 also gives us an in join.
-      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0] REVERSE -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0._0] REVERSE -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
       - result: [
          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
@@ -773,7 +773,7 @@ test_block:
                 where t1.a1 IN (1, 2) and t3.aRef = t1.id
                 order by t1.a1 desc, t1.a2 asc
       # Order by a1, a2 also gives us an in join.
-      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
+      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0._0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }"
       - result: [
          { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
          { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
@@ -791,7 +791,7 @@ test_block:
                   and exists (select 4 from t2 where t2.b1 = t1.a1)
                   and t3.c2 = t1.a2
                 order by t1.a1 asc, t1.a2 desc
-      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0] REVERSE -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { COVERING(t2$b1 [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c42 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q2 -> { ISCAN(t3$c1_c2 [EQUALS q1.a1, EQUALS q1.a2]) AS q3 RETURN q3 } AS q3 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q3.id AS id, q3.c1 AS c1, q3.c2 AS c2, q3.c3 AS c3, q3.aRef AS aRef) AS b) }"
+      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { COVERING(t1$a1_a2 [EQUALS q0._0] REVERSE -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } | FETCH | FLATMAP q1 -> { COVERING(t2$b1 [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c42 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS c3, q4.aRef AS aRef) AS b) }"
       - result: [
           { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
           { a: { id: 1003, a1: 1, a2: 12, a3: "a" }, b: { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
