@@ -34,14 +34,16 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -62,7 +64,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of {@link UnnestedRecordType#expand(AccessHint)}, of {@link JoinedRecordType#expand(AccessHint)}, and of the
@@ -118,18 +119,17 @@ class SyntheticRecordTypeExpansionTest {
         assertThat(scan.getAccessHints().getAccessHintSet(), contains(ACCESS_HINT));
         assertEquals(parentQuantifier.getFlowedObjectValue(), columnValue(expansion, PARENT));
 
-        // The nested constituent explodes `parent.map.entry`, with ordinality so that positions can be recovered.
+        // The nested constituent explodes `parent.map.entry`; the explode flows ordinals, so that positions can be recovered.
         final Quantifier entryQuantifier = expansion.getQuantifiers().get(1);
-        final ExplodeExpression explode = assertSelectOverExplode(entryQuantifier);
-        assertTrue(explode.isWithOrdinality());
+        final ExplodeValue explode = assertSelectOverExplode(entryQuantifier);
         assertEquals(FieldValue.ofFieldNames(parentQuantifier.getFlowedObjectValue(), List.of("map", "entry")),
                 explode.getCollectionValue());
 
         // The constituent's column is the element the explode flows, not the `(element, ordinal)` pair, and it is typed
-        // as the synthetic record type declares that constituent.
+        // as the synthetic record type declares that constituent, except that an element of an array is never null.
         assertEquals(FieldValue.ofOrdinalNumber(entryQuantifier.getFlowedObjectValue(), 0),
                 columnValue(expansion, "map_entry"));
-        assertEquals(Type.Record.fromDescriptor(type.getDescriptor()).getFieldNameFieldMap().get("map_entry").getFieldType(),
+        assertEquals(Type.Record.fromDescriptor(type.getDescriptor()).getFieldNameFieldMap().get("map_entry").getFieldType().notNullable(),
                 columnValue(expansion, "map_entry").getResultType());
     }
 
@@ -160,8 +160,8 @@ class SyntheticRecordTypeExpansionTest {
         }
 
         // Both constituents unnest the same array, but each gets its own explode, so that they range independently.
-        final ExplodeExpression explodeOne = assertSelectOverExplode(expansion.getQuantifiers().get(1));
-        final ExplodeExpression explodeTwo = assertSelectOverExplode(expansion.getQuantifiers().get(2));
+        final ExplodeValue explodeOne = assertSelectOverExplode(expansion.getQuantifiers().get(1));
+        final ExplodeValue explodeTwo = assertSelectOverExplode(expansion.getQuantifiers().get(2));
         assertNotEquals(expansion.getQuantifiers().get(1).getAlias(), expansion.getQuantifiers().get(2).getAlias());
         assertEquals(explodeOne.getCollectionValue(), explodeTwo.getCollectionValue());
     }
@@ -215,7 +215,7 @@ class SyntheticRecordTypeExpansionTest {
         final Value collectionValue = assertSelectOverExplode(expansion.getQuantifiers().get(1)).getCollectionValue();
         assertEquals(FieldValue.ofFieldNames(expansion.getQuantifiers().get(0).getFlowedObjectValue(),
                 List.of("reviews")), collectionValue);
-        assertEquals(Type.Record.fromDescriptor(type.getDescriptor()).getFieldNameFieldMap().get("review").getFieldType(),
+        assertEquals(Type.Record.fromDescriptor(type.getDescriptor()).getFieldNameFieldMap().get("review").getFieldType().notNullable(),
                 columnValue(expansion, "review").getResultType());
     }
 
@@ -510,14 +510,16 @@ class SyntheticRecordTypeExpansionTest {
      * explode underneath it.
      */
     @Nonnull
-    private static ExplodeExpression assertSelectOverExplode(@Nonnull Quantifier quantifier) {
+    private static ExplodeValue assertSelectOverExplode(@Nonnull Quantifier quantifier) {
         final RelationalExpression expression = quantifier.getRangesOver().get();
         assertThat(expression, instanceOf(SelectExpression.class));
         final SelectExpression select = (SelectExpression)expression;
         final Quantifier explodeQuantifier = Iterables.getOnlyElement(select.getQuantifiers());
         assertEquals(explodeQuantifier.getFlowedObjectValue(), select.getResultValue());
-        final RelationalExpression explode = explodeQuantifier.getRangesOver().get();
-        assertThat(explode, instanceOf(ExplodeExpression.class));
-        return (ExplodeExpression)explode;
+        final RelationalExpression tableFunction = explodeQuantifier.getRangesOver().get();
+        assertThat(tableFunction, instanceOf(TableFunctionExpression.class));
+        final StreamingValue explode = ((TableFunctionExpression)tableFunction).getValue();
+        assertThat(explode, instanceOf(ExplodeValue.class));
+        return (ExplodeValue)explode;
     }
 }

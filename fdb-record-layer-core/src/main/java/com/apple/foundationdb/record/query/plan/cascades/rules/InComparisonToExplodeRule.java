@@ -25,12 +25,11 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
@@ -39,10 +38,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArrayDistinctValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -63,7 +61,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that traverses a predicate in a {@link SelectExpression} and attempts to extract IN-comparisons into
- * separate {@link ExplodeExpression}s, e.g.
+ * separate explodes, that is {@link TableFunctionExpression}s over {@link ExplodeValue}s, e.g.
  *
  * <pre>
  * {@code
@@ -79,7 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * {@code
  * SELECT ...
  * FROM T, EXPLODE(LIST(1, 2, 3)) AS e
- * WHERE t.a = e
+ * WHERE t.a = e._0
  * }
  * </pre>
  *
@@ -158,36 +156,29 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
                 final Type elementType = value.getResultType();
                 final var comparison = valuePredicate.getComparison();
                 Verify.verify(comparison.getType() == Comparisons.Type.IN);
-                final ExplodeExpression explodeExpression;
-                final Quantifier.ForEach newQuantifier;
+                final ExplodeValue explodeValue;
 
-                if (comparison instanceof Comparisons.ValueComparison) {
-                    final var comparisonValue = (Comparisons.ValueComparison)comparison;
+                if (comparison instanceof final Comparisons.ValueComparison comparisonValue) {
                     Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
-                    Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
-                    Verify.verify(arrayElementType != null);
-                    explodeExpression = new ExplodeExpression(new ArrayDistinctValue(comparisonValue.getComparandValue()));
-                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
-                    if (arrayElementType.isRecord()) {
-                        transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, newQuantifier));
-                    } else {
-                        transformedPredicates.add(new ValuePredicate(value,
-                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
-                    }
-                } else if (comparison instanceof Comparisons.ListComparison) {
-                    final var listComparison = (Comparisons.ListComparison)comparison;
-                    explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
-                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
-                    transformedPredicates.add(new ValuePredicate(value,
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
-
+                    explodeValue = new ExplodeValue(new ArrayDistinctValue(comparisonValue.getComparandValue()));
+                } else if (comparison instanceof final Comparisons.ListComparison listComparison) {
+                    // type the list by the compared value, as the elements need not determine a type, e.g. if they
+                    // are enums or the list is empty
+                    explodeValue = new ExplodeValue(new LiteralValue<>(new Type.Array(elementType.notNullable()),
+                            (List<?>)listComparison.getComparand(null, null)));
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
-                    explodeExpression = new ExplodeExpression(ParameterObjectValue.of(((Comparisons.ParameterComparison)comparison).getParameter(), new Type.Array(elementType)));
-                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
-                    transformedPredicates.add(new ValuePredicate(value,
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
+                    explodeValue = new ExplodeValue(ParameterObjectValue.of(((Comparisons.ParameterComparison)comparison).getParameter(), new Type.Array(elementType)));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
+                }
+                final Quantifier.ForEach newQuantifier =
+                        Quantifier.forEach(call.memoizeExploratoryExpression(new TableFunctionExpression(explodeValue)));
+                final Value element = ExplodeValue.elementValue(newQuantifier.getFlowedObjectValue());
+                if (element.getResultType().isRecord()) {
+                    transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, element));
+                } else {
+                    transformedPredicates.add(new ValuePredicate(value,
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, element)));
                 }
                 transformedQuantifiers.add(newQuantifier);
             } else {
@@ -206,16 +197,16 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
      */
     @Nonnull
     private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(@Nonnull final Value value,
-                                                                                 @Nonnull final Quantifier.ForEach newQuantifier) {
+                                                                                 @Nonnull final Value element) {
         Verify.verify(value.getResultType().isRecord(), "value should be of type record and not %s", value.getResultType());
         final List<Value> fieldValues = Values.deconstructRecord(value);
 
-        List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
+        final List<Value> comparandValueChildren = Values.deconstructRecord(element);
         Verify.verify(fieldValues.size() == comparandValueChildren.size(), "record type value and comparand should have matching number of fields");
         final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
         for (int i = 0; i < fieldValues.size(); i++) {
             final Value fieldValue = fieldValues.get(i);
-            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(fieldValue, comparandValueChildren.get(i).getValue()));
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(fieldValue, comparandValueChildren.get(i)));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());
             resultsBuilder.add(currentQueryPredicate.get());

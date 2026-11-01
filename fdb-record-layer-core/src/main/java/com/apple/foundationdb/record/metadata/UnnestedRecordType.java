@@ -40,8 +40,9 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -386,8 +387,8 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                         constituentQuantifier(ownerElementValue, constituent.getNestingExpression());
                 builder.addQuantifier(constituentQuantifier);
                 final Value flowedValue = constituentQuantifier.getFlowedObjectValue();
-                elementValue = FieldValue.ofOrdinalNumber(flowedValue, 0);
-                final Value positionValue = PromoteValue.inject(FieldValue.ofOrdinalNumber(flowedValue, 1),
+                elementValue = ExplodeValue.elementValue(flowedValue);
+                final Value positionValue = PromoteValue.inject(ExplodeValue.ordinalValue(flowedValue),
                         Type.primitiveType(Type.TypeCode.LONG, false));
                 positionColumns.add(Column.of(Optional.of(constituent.getName()), positionValue));
             }
@@ -402,10 +403,8 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     /**
      * Builds the quantifier standing for one constituent: a select over an explode of the constituent's array.
      *
-     * <p>The explode is created {@code WITH ORDINALITY}, so it flows an anonymous {@code (element, ordinal)} struct.
-     * The ordinal is needed to reconstruct the {@code __positions} field of a synthetic record, without which the
-     * synthetic primary key cannot be expressed. The struct is asked for as a record constructor, so that the
-     * element and the ordinal are sub-values a query's values can be matched against.
+     * <p>The explode is an {@link ExplodeValue}, so it flows an anonymous {@code (element, ordinal)} struct. The ordinal
+     * is needed to reconstruct the {@code __positions} field of a synthetic record.
      *
      * @param ownerElementValue the record the array hangs off
      * @param nestingExpression the constituent's nesting expression
@@ -415,8 +414,8 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     private static Quantifier.ForEach constituentQuantifier(@Nonnull final Value ownerElementValue,
                                                             @Nonnull final KeyExpression nestingExpression) {
         final Quantifier.ForEach explodeQuantifier =
-                Quantifier.forEach(Reference.initialOf(new ExplodeExpression(
-                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true, true)));
+                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(
+                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true))));
         return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
                 .seal()
                 .buildSimpleSelectOverQuantifier(explodeQuantifier)));

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.EliminateNullOnEm
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctUnionRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementExplodeRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
@@ -164,7 +163,6 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementInJoinRule(),
             new ImplementInUnionRule(),
             new ImplementSimpleSelectRule(),
-            new ImplementExplodeRule(),
             new ImplementNestedLoopJoinRule(),
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),

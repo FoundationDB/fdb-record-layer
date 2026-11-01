@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -320,8 +319,8 @@ public class ExplodePlanTest {
     }
 
     /**
-     * Verify that {@link ExplodeExpression#getDynamicTypes()} registers the synthesized (element, ordinal) struct as
-     * a dynamic type in the WITH ORDINALITY variant.
+     * Verify that {@link RecordQueryExplodePlan#getDynamicTypes()} registers the synthesized (element, ordinal) struct
+     * as a dynamic type in the WITH ORDINALITY variant.
      */
     @Test
     void dynamicTypesIncludeOrdinalityStruct() {
@@ -332,12 +331,12 @@ public class ExplodePlanTest {
         final var qov = QuantifiedObjectValue.of(sourceAlias, recordType);
         final Value collectionValue = FieldValue.ofFieldName(qov, "arr");
 
-        final var withOrdinality = new ExplodeExpression(collectionValue, true);
+        final var withOrdinality = new RecordQueryExplodePlan(collectionValue, true);
         final Type structType = withOrdinality.getExplodeResultType();
         final Set<Type> dynamicTypes = withOrdinality.getDynamicTypes();
         Assertions.assertTrue(dynamicTypes.contains(structType));
 
-        final var withoutOrdinality = new ExplodeExpression(collectionValue, false);
+        final var withoutOrdinality = new RecordQueryExplodePlan(collectionValue, false);
         Assertions.assertFalse(withoutOrdinality.getDynamicTypes().contains(structType));
     }
 
@@ -459,19 +458,6 @@ public class ExplodePlanTest {
     }
 
     @Test
-    void theShapeOfTheFlowedValueEntersTheSemanticHash() {
-        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
-
-        Assertions.assertEquals(new ExplodeExpression(collectionValue, true, true).semanticHashCode(),
-                new ExplodeExpression(collectionValue, true, true).semanticHashCode());
-
-        Assertions.assertNotEquals(new ExplodeExpression(collectionValue, true).semanticHashCode(),
-                new ExplodeExpression(collectionValue, true, true).semanticHashCode());
-        Assertions.assertNotEquals(new ExplodeExpression(collectionValue).semanticHashCode(),
-                new ExplodeExpression(collectionValue, false, true).semanticHashCode());
-    }
-
-    @Test
     void plainExplodeCanFlowARecordConstructorToo() {
         final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
 
@@ -499,12 +485,6 @@ public class ExplodePlanTest {
         Assertions.assertEquals(new RecordQueryExplodePlan(collectionValue, true).getExplodeResultType(),
                 new RecordQueryExplodePlan(collectionValue, true, true).getExplodeResultType());
         Assertions.assertTrue(recordConstructor.getDynamicTypes().contains(recordConstructor.getExplodeResultType()));
-
-        // An expression flows what the plan implementing it flows.
-        final var expression = new ExplodeExpression(collectionValue, false, true);
-        Assertions.assertTrue(expression.flowsRecordConstructorValue());
-        Assertions.assertEquals(recordConstructor.getExplodeResultType(), expression.getExplodeResultType());
-        Assertions.assertEquals(recordConstructor.getResultValue(), expression.getResultValue());
     }
 
     /**

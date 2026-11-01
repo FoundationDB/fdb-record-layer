@@ -306,8 +306,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 ))
                 )
         ));
-        assertEquals(1428357657, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(-1222046388, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(257175491, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(1690988598, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -387,7 +387,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                         .and(isNotReverse())
                                         ))
                         )));
-        assertEquals(-379608724, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(-1453452657, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         final var usedTypes = usedTypes().evaluate(plan);
         final var evaluationContext =
                 EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
@@ -644,8 +644,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 ))
         )));
 
-        assertEquals(reverse ? 1779528640 : 1779528826, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(reverse ? -870875405 : -870875219, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(reverse ? 257169539 : 257169725, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(reverse ? 763596554 : 763602320, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -1040,8 +1040,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 ).where(inUnionComparisonValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no"))))
         );
 
-        assertEquals(reverse ? -621059059 : -621088850,  plan.planHash(CURRENT_LEGACY));
-        assertEquals(reverse ? -296784631 : -291243505, plan.planHash(CURRENT_FOR_CONTINUATION));
+        assertEquals(reverse ? -1792241225 : -1792271016,  plan.planHash(CURRENT_LEGACY));
+        assertEquals(reverse ? -1678716941 : -1673175815, plan.planHash(CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
