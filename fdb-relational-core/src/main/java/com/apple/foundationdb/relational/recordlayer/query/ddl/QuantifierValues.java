@@ -25,17 +25,19 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -63,6 +65,12 @@ final class QuantifierValues {
     private final List<FieldValue> explodes;
 
     /**
+     * The result type of the explode each quantifier ranging over an explode ranges over.
+     */
+    @Nonnull
+    private final Map<CorrelationIdentifier, Type> explodeTypes;
+
+    /**
      * The stored table behind each type-filter quantifier, by the correlation it is bound to: the storage name of its
      * record type, and the expression it is a quantifier of. In the order the traversal found them, which is the same
      * for the same definition, so that the definition always numbers a joined table's constituents the same way.
@@ -74,10 +82,14 @@ final class QuantifierValues {
 
     private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
                              @Nonnull final List<FieldValue> explodes,
+                             @Nonnull final Map<CorrelationIdentifier, Type> explodeTypes,
                              @Nonnull final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents,
                              final boolean hasOuterJoin) {
         this.valuesByQuantifier = valuesByQuantifier;
-        this.explodes = explodes;
+        this.explodes = explodes.stream()
+                .map(explode -> (FieldValue)throughExplodedElements(explode, explodeTypes))
+                .collect(ImmutableList.toImmutableList());
+        this.explodeTypes = explodeTypes;
         this.constituents = ImmutableMap.copyOf(constituents);
         this.hasOuterJoin = hasOuterJoin;
     }
@@ -117,8 +129,37 @@ final class QuantifierValues {
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
         final var collector = new Collector();
-        return new QuantifierValues(collector.visit(expression), collector.explodes,
+        return new QuantifierValues(collector.visit(expression), collector.explodes, collector.explodeTypes,
                 collector.constituents, collector.hasOuterJoin);
+    }
+
+    /**
+     * Rewrites an access of the element of an explode's {@code (element, ordinal)} struct into an access of the
+     * quantifier ranging over the explode itself, which stands for the collection being unnested. An array unnested
+     * through another one is reached through the element of the outer explode, and this keeps its path the path
+     * of fields it has in the stored record.
+     *
+     * @param value a value written in terms of the plan's quantifiers
+     * @param explodeTypes the result type of the explode each quantifier ranging over an explode ranges over
+     *
+     * @return the value with an access of the element of an explode skipped, or the value itself
+     */
+    @Nonnull
+    private static Value throughExplodedElements(@Nonnull final Value value,
+                                                 @Nonnull final Map<CorrelationIdentifier, Type> explodeTypes) {
+        // the type tells an access of the struct apart from an access of the element this has already skipped to
+        if (!(value instanceof final FieldValue field) ||
+                !(field.getChild() instanceof final QuantifiedObjectValue quantified) ||
+                !quantified.getResultType().equals(explodeTypes.get(quantified.getAlias())) ||
+                field.getFieldOrdinals().get(0) != 0) {
+            return value;
+        }
+        final var element = QuantifiedObjectValue.of(quantified.getAlias(), field.getFieldPathTypes().get(0));
+        final var accessors = field.getFieldPath().getFieldAccessors();
+        if (accessors.size() == 1) {
+            return element;
+        }
+        return FieldValue.ofFields(element, new FieldValue.FieldPath(accessors.subList(1, accessors.size())));
     }
 
     /**
@@ -151,6 +192,13 @@ final class QuantifierValues {
 
         @Nonnull
         @Override
+        public Value visitFieldValue(@Nonnull final FieldValue element) {
+            final var throughElements = throughExplodedElements(element, explodeTypes);
+            return throughElements == element ? visitDefault(element) : visit(throughElements);
+        }
+
+        @Nonnull
+        @Override
         public Value visitQuantifiedObjectValue(@Nonnull final QuantifiedObjectValue element) {
             // A column of a join has to keep which of the tables it is read from, so it stops at that table's
             // correlation; a single table's resolves down to its record, as for any other quantifier.
@@ -176,6 +224,12 @@ final class QuantifierValues {
         @Nonnull
         private final List<FieldValue> explodes = new ArrayList<>();
 
+        /**
+         * The result type of the explode each quantifier ranging over an explode ranges over.
+         */
+        @Nonnull
+        private final Map<CorrelationIdentifier, Type> explodeTypes = new HashMap<>();
+
         @Nonnull
         private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents = new LinkedHashMap<>();
 
@@ -199,9 +253,13 @@ final class QuantifierValues {
                     }
                 }
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
-                merged.put(quantifier.getAlias(), rangesOver instanceof ExplodeExpression
-                                                  ? unnestedCollectionValue((ExplodeExpression)rangesOver)
-                                                  : rangesOver.getResultValue());
+                if (rangesOver instanceof final TableFunctionExpression tableFunction &&
+                        tableFunction.getValue() instanceof final ExplodeValue explode) {
+                    explodeTypes.put(quantifier.getAlias(), explode.getResultType());
+                    merged.put(quantifier.getAlias(), unnestedCollectionValue(explode));
+                } else {
+                    merged.put(quantifier.getAlias(), rangesOver.getResultValue());
+                }
             }
             return merged;
         }
@@ -214,7 +272,7 @@ final class QuantifierValues {
         }
 
         @Nonnull
-        private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode) {
+        private Value unnestedCollectionValue(@Nonnull final ExplodeValue explode) {
             final var collectionValue = explode.getCollectionValue();
             if (!(collectionValue instanceof final FieldValue field)) {
                 return collectionValue;

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
@@ -70,6 +71,11 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<ConstantObjectValue> anyConstantObjectValue() {
         return typed(ConstantObjectValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ExplodeValue> explodeValue() {
+        return typed(ExplodeValue.class);
     }
 
     @Nonnull

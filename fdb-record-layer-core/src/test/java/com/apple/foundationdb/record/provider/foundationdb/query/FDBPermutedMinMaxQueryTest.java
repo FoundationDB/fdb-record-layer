@@ -38,9 +38,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -154,12 +155,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private static Quantifier explodeRepeated(@Nonnull Quantifier baseQun, @Nonnull String repeatedField) {
-        final ExplodeExpression explode = new ExplodeExpression(FieldValue.ofFieldNameAndFuseIfPossible(baseQun.getFlowedObjectValue(), repeatedField));
-        final Quantifier explodeQun = Quantifier.forEach(Reference.initialOf(explode));
+        final ExplodeValue explode = new ExplodeValue(FieldValue.ofFieldNameAndFuseIfPossible(baseQun.getFlowedObjectValue(), repeatedField));
+        final Quantifier explodeQun = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(explode)));
 
         return Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                 .addQuantifier(explodeQun)
-                .addResultValue(explodeQun.getFlowedObjectValue())
+                .addResultValue(ExplodeValue.elementValue(explodeQun.getFlowedObjectValue()))
                 .build()
                 .buildSelect()
         ));
@@ -417,12 +418,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> selectMaxWithInOrderByMax() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 2026350341, -272644765),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 2026350341, 888440045),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(-1, -1)), nv2List -> {
                     Assumptions.assumeTrue(nv2List.equals(List.of(-1, -1)));
                     return Bindings.EMPTY_BINDINGS;
-                }, -1983342670, 12629520),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, 1404710389)
+                }, -1983342670, 1663559830),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, 22778079)
         );
     }
 
@@ -504,12 +505,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> testMaxWithInAndDupes() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 2106093264, 1809779597),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 2106093264, -65027792),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of("even", "odd")), strValueList -> {
                     Assumptions.assumeTrue(strValueList.equals(List.of("even", "odd")));
                     return Bindings.EMPTY_BINDINGS;
-                }, -1932450623, 2066203006),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, 451242552)
+                }, -1932450623, -560907506),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, -930689758)
         );
     }
 
@@ -650,12 +651,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> testSortedMaxWithInOnRepeater() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "xValueList"), xValueList -> Bindings.newBuilder().set("xValueList", xValueList).build(), -1502950720, -1056018522),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "xValueList"), xValueList -> Bindings.newBuilder().set("xValueList", xValueList).build(), -1502950720, 1968033730),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(0, 0)), strValueList -> {
                     Assumptions.assumeTrue(strValueList.equals(List.of(0, 0)));
                     return Bindings.EMPTY_BINDINGS;
-                }, 645291999, 1092224197),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, -1810663222)
+                }, 645291999, -1551783029),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, 1102371764)
         );
     }
 
@@ -764,12 +765,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
         List<String> literalStrList = ImmutableList.of("even", "odd", "empty", "other1", "other2");
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 755361732, -85959138),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), -1774357479, -1960766527),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, literalStrList), strValueList -> {
                     Assumptions.assumeTrue(strValueList.equals(literalStrList));
                     return Bindings.EMPTY_BINDINGS;
-                }, 381518259, -459802611),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), -603175313, -1444496183)
+                }, -1774357479, -520083103),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), -1774357479, 1468538803)
         );
     }
 

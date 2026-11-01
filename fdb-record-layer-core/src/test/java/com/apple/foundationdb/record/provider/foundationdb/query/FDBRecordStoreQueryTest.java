@@ -868,7 +868,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
                 // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
                 // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                assertEquals(-1152849777, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                assertEquals(914843935, plan.planHash(PlanHashable.CURRENT_LEGACY));
             }
 
             assertEquals(Arrays.asList(800L, 1776L),

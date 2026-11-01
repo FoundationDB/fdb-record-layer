@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.InExplodeSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
@@ -68,6 +69,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
@@ -247,6 +249,35 @@ public class RecordQueryPlanMatchers {
     public static BindingMatcher<RecordQueryInParameterJoinPlan> inParameter(@Nonnull BindingMatcher<String> downstream) {
         return typedWithDownstream(RecordQueryInParameterJoinPlan.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getExternalBinding()), name -> "externalBinding(" + name + ")"),
+                downstream);
+    }
+
+    /**
+     * Matches an IN-join over an {@link InExplodeSource}. Combine it with {@link #inExplodeParameter} or
+     * {@link #inExplodeValues} to match the exploded collection.
+     * @param downstream the matcher for the inner plan
+     * @return a matcher for IN-joins over explodes
+     */
+    @Nonnull
+    public static BindingMatcher<RecordQueryInComparandJoinPlan> inExplodeJoinPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInComparandJoinPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInComparandJoinPlan> inExplodeParameter(@Nonnull BindingMatcher<String> downstream) {
+        return typedWithDownstream(RecordQueryInComparandJoinPlan.class,
+                Extractor.of(plan -> plan.getInSource() instanceof InExplodeSource
+                                     ? Objects.requireNonNullElse(((InExplodeSource)plan.getInSource()).getParameterName(), "")
+                                     : "", name -> "explodedParameter(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInComparandJoinPlan> inExplodeValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
+        return typedWithDownstream(RecordQueryInComparandJoinPlan.class,
+                Extractor.of(plan -> plan.getInSource() instanceof InExplodeSource
+                                     ? Objects.requireNonNullElse(((InExplodeSource)plan.getInSource()).getLiteralValues(), ImmutableList.of())
+                                     : ImmutableList.of(), name -> "explodedValues(" + name + ")"),
                 downstream);
     }
 
@@ -646,6 +677,20 @@ public class RecordQueryPlanMatchers {
     }
     
     @Nonnull
+    public static BindingMatcher<InExplodeSource> inUnionInExplodeValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
+        return typedWithDownstream(InExplodeSource.class,
+                Extractor.of(source -> Objects.requireNonNullElse(source.getLiteralValues(), ImmutableList.of()), name -> "explodedValues(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<InExplodeSource> inUnionInExplodeParameter(@Nonnull BindingMatcher<String> downstream) {
+        return typedWithDownstream(InExplodeSource.class,
+                Extractor.of(source -> Objects.requireNonNullElse(source.getParameterName(), ""), name -> "explodedParameter(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
     public static BindingMatcher<InParameterSource> inUnionInParameter(@Nonnull BindingMatcher<String> downstream) {
         return typedWithDownstream(InParameterSource.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getParameterName()), name -> "parameter(" + name + ")"),
@@ -773,6 +818,11 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryExplodePlan> explodePlan() {
         return ofTypeOwning(RecordQueryExplodePlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryTableFunctionPlan> tableFunctionPlan() {
+        return ofTypeOwning(RecordQueryTableFunctionPlan.class, CollectionMatcher.empty());
     }
 
     @Nonnull

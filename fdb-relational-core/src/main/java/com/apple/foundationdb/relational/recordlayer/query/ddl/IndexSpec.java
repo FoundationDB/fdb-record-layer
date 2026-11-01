@@ -25,13 +25,13 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedS
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -481,11 +481,12 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
         }
 
         /**
-         * An explode yields elements rather than records, so it skips the record-typed result check.
+         * A table function, such as an explode, yields the rows of a streaming value rather than records, so it skips
+         * the record-typed result check.
          */
         @Nonnull
         @Override
-        public IndexSpec visitExplodeExpression(@Nonnull final ExplodeExpression expression) {
+        public IndexSpec visitTableFunctionExpression(@Nonnull final TableFunctionExpression expression) {
             return IndexSpec.merge(visitQuantifiers(expression));
         }
 
