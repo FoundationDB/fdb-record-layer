@@ -226,6 +226,12 @@ public class InOpValue extends AbstractValue implements BooleanValue {
             final Typed operandArg = res0.isArray() ? arg1 : arg0;
 
             final var arrayElementType = Objects.requireNonNull(((Type.Array) arrayType).getElementType());
+
+            if (arrayElementType.isNull() && !operandType.isNull() && !operandType.isUnresolved()) {
+                return new InOpValue((Value)operandArg,
+                        PromoteValue.inject((Value)arrayArg, new Type.Array(arrayType.isNullable(), operandType.withNullability(true))));
+            }
+
             if (!arrayElementType.isUnresolved() && operandType.getTypeCode() != arrayElementType.getTypeCode()) {
                 final var maximumType = Type.maximumType(operandType, arrayElementType);
                 // Incompatible types
