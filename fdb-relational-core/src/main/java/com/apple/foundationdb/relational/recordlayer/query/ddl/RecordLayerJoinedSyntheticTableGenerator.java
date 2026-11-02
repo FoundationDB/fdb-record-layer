@@ -147,7 +147,8 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
 
     /**
      * Assigns each joined table a numbered constituent alias, rather than one taken from the plan's correlations, whose
-     * values differ between runs of the same DDL.
+     * values differ between runs of the same DDL. The numbers follow the order the tables were found in, which is the
+     * same for the same DDL, so that it always yields the same metadata.
      *
      * @param constituents the joined tables, by the correlation each is bound to
      *
