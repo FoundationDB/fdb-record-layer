@@ -217,6 +217,35 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     @Nonnull
+    public Type getElementType() {
+        return elementType;
+    }
+
+    /**
+     * Returns the element of a struct produced by an explode.
+     *
+     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode, typically the
+     *        flowed object value of a quantifier ranging over the explode
+     * @return the element the struct carries
+     */
+    @Nonnull
+    public static Value elementValue(@Nonnull final Value explodedValue) {
+        return FieldValue.ofOrdinalNumberAndFuseIfPossible(explodedValue, 0);
+    }
+
+    /**
+     * Returns the 0-based ordinal of a struct produced by an explode {@linkplain #hasOrdinality() with ordinality}.
+     *
+     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode with ordinality,
+     *        typically the flowed object value of a quantifier ranging over the explode
+     * @return the ordinal the struct carries
+     */
+    @Nonnull
+    public static Value ordinalValue(@Nonnull final Value explodedValue) {
+        return FieldValue.ofOrdinalNumberAndFuseIfPossible(explodedValue, 1);
+    }
+
+    @Nonnull
     @Override
     public Type.Record getResultType() {
         return structValue.getResultType();
