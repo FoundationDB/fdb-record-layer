@@ -607,7 +607,7 @@ message PLikeOperatorValue {
 message PLiteralValue {
   optional PType result_type = 1;
   optional PComparableObject value = 2;
-  // set instead of value if the literal is a list
+  // set instead of value if the literal is a list; readers that do not know these fields read such a literal as null
   repeated PComparableObject list_elements = 3;
   optional bool is_list = 4;
 }

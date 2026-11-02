@@ -74,7 +74,8 @@ public class InExplodeSource extends InComparandSource {
 
     public InExplodeSource(@Nonnull final String bindingName, @Nonnull final ExplodeValue explodeValue) {
         super(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue.getCollectionValue()));
-        Verify.verify(!explodeValue.hasOrdinality() || !(explodeValue.getCollectionValue() instanceof ArraySortValue));
+        Verify.verify(!explodeValue.hasOrdinality() || !(explodeValue.getCollectionValue() instanceof ArraySortValue),
+                "cannot sort the collection of an explode with ordinality");
         this.explodeValue = explodeValue;
     }
 

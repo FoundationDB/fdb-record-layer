@@ -168,6 +168,8 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         // TODO there should be no punishment if the type is serialized alongside with the value
         final var resultTypeProto = resultType.isVector() ? resultType.toTypeProto(serializationContext) : null;
         if (value instanceof List<?>) {
+            // the elements are serialized like the comparand of a list comparison, so they are limited to the same
+            // scalar types
             builder.setIsList(true);
             for (final Object element : (List<?>)value) {
                 builder.addListElements(PlanSerialization.valueObjectToProto(element));
