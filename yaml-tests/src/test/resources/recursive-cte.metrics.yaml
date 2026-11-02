@@ -40,12 +40,12 @@ recursive-cte-tests:
         level + 1 as y from c1) as a, t1 as b where a.parent = b.id) traversal order
         level_order select id, parent, level from c1
     ref: recursive-cte.yamsql:67
-    explain: RUNION q0, q1 { INITIAL { SCAN([IS T1, EQUALS promote(@c18 AS LONG)])
-        | MAP (_.ID AS ID, _.PARENT AS PARENT, @c10 AS LEVEL) | INSERT INTO TEMP q1
-        } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER
-        _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL
-        + @c44 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS
-        PARENT, _.LEVEL AS LEVEL)
+    explain: 'RUNION q0, q1 { INITIAL { COVERING(CHILDIDX [EQUALS promote(@c18 AS
+        LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
+        @c10 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) |
+        FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN
+        (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL + @c44 AS LEVEL) } | INSERT INTO
+        TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
     task_count: 1434
     task_total_time_ms: 134
     transform_count: 361

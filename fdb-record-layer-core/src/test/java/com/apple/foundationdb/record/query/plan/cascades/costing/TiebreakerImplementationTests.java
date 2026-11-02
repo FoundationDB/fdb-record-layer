@@ -22,8 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -35,10 +39,12 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
@@ -57,9 +63,12 @@ class TiebreakerImplementationTests {
     }
 
     private static <T extends RelationalExpression> int compare(@Nonnull Tiebreaker<? super T> tiebreaker, @Nonnull T a, @Nonnull T b) {
-        return tiebreaker.compare(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                new PlanOpsMap(a), new PlanOpsMap(b),
-                a, b);
+        return compare(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), tiebreaker, a, b);
+    }
+
+    private static <T extends RelationalExpression> int compare(@Nonnull RecordQueryPlannerConfiguration configuration,
+                                                                @Nonnull Tiebreaker<? super T> tiebreaker, @Nonnull T a, @Nonnull T b) {
+        return tiebreaker.compare(configuration, new PlanOpsMap(a), new PlanOpsMap(b), a, b);
     }
 
     private static int signum(int intValue) {
@@ -82,7 +91,13 @@ class TiebreakerImplementationTests {
      * @param <T> the type of expression consumed by the {@link Tiebreaker}
      */
     private static <T extends RelationalExpression> void assertCompares(@Nonnull Tiebreaker<? super T> tiebreaker, @Nonnull T a, @Nonnull T b, int comparison) {
-        int compareAB = compare(tiebreaker, a, b);
+        assertCompares(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), tiebreaker, a, b, comparison);
+    }
+
+    private static <T extends RelationalExpression> void assertCompares(@Nonnull RecordQueryPlannerConfiguration configuration,
+                                                                        @Nonnull Tiebreaker<? super T> tiebreaker,
+                                                                        @Nonnull T a, @Nonnull T b, int comparison) {
+        int compareAB = compare(configuration, tiebreaker, a, b);
         assertThat(signum(compareAB))
                 .as("comparison of %s and %s should have same sign as %s", a, b, comparison)
                 .isEqualTo(signum(comparison));
@@ -152,5 +167,58 @@ class TiebreakerImplementationTests {
         assertCompares(inOperatorTiebreaker, inJoinNonSargedPlan, filterScanWithInPlan, 1);
         assertCompares(inOperatorTiebreaker, inJoinSargedComparisonPlan, filterScanWithInPlan, 0);
         assertCompares(inOperatorTiebreaker, inJoinSargedComparisonPlan, inJoinNonSargedPlan, 0); // anti-symmetry violation!
+    }
+
+    /**
+     * Tests that {@link PlanningCostModel#primaryScanVsIndexScanTiebreaker()} prefers both an index scan with a fetch
+     * and a covering index scan without a fetch over a primary scan if the configuration prefers index scans.
+     */
+    @Test
+    void primaryScanVsIndexScanTest1() {
+        assertPrimaryScanVsIndexScan(IndexScanPreference.PREFER_INDEX, 1);
+    }
+
+    /**
+     * Tests that {@link PlanningCostModel#primaryScanVsIndexScanTiebreaker()} prefers a primary scan over an index scan
+     * with a fetch, but still prefers a covering index scan without a fetch over the primary scan, if the configuration
+     * prefers primary scans.
+     */
+    @Test
+    void primaryScanVsIndexScanTest2() {
+        assertPrimaryScanVsIndexScan(IndexScanPreference.PREFER_SCAN, -1);
+    }
+
+    /**
+     * Assert that {@link PlanningCostModel#primaryScanVsIndexScanTiebreaker()} compares a primary scan against an index
+     * scan with a fetch according to the index scan preference, that it always prefers a covering index scan without a
+     * fetch over the primary scan, and that it leaves the two index scans to the other tiebreakers. If it left the
+     * covering index scan to the other tiebreakers as well, they could prefer the primary scan over the covering index
+     * scan and the covering index scan over the index scan with a fetch, and the plan that wins would depend on the
+     * order in which the plans are compared.
+     *
+     * @param indexScanPreference the index scan preference of the planner configuration
+     * @param primaryScanVsIndexScanWithFetch the expected signum of comparing the primary scan to the index scan with a
+     *        fetch
+     */
+    private static void assertPrimaryScanVsIndexScan(@Nonnull IndexScanPreference indexScanPreference,
+                                                     int primaryScanVsIndexScanWithFetch) {
+        final RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
+                .setIndexScanPreference(indexScanPreference)
+                .build();
+        final Tiebreaker<RecordQueryPlan> primaryScanVsIndexScanTiebreaker = PlanningCostModel.primaryScanVsIndexScanTiebreaker();
+
+        final RecordQueryScanPlan primaryScanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
+        final RecordQueryIndexPlan indexScanPlan = new RecordQueryIndexPlan("blahIndex", new IndexScanComparisons(IndexScanType.BY_VALUE, ScanComparisons.EMPTY), false);
+        final RecordQueryCoveringIndexPlan coveringIndexScanPlan = new RecordQueryCoveringIndexPlan(
+                new RecordQueryIndexPlan("blahIndex", new IndexScanComparisons(IndexScanType.BY_VALUE, ScanComparisons.EMPTY), false),
+                TestRecords1Proto.MySimpleRecord.getDescriptor().getName(), AvailableFields.NO_FIELDS,
+                IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor()).build());
+
+        assertCompares(configuration, primaryScanVsIndexScanTiebreaker, primaryScanPlan, indexScanPlan, primaryScanVsIndexScanWithFetch);
+        assertCompares(configuration, primaryScanVsIndexScanTiebreaker, indexScanPlan, primaryScanPlan, -primaryScanVsIndexScanWithFetch);
+        assertCompares(configuration, primaryScanVsIndexScanTiebreaker, primaryScanPlan, coveringIndexScanPlan, 1);
+        assertCompares(configuration, primaryScanVsIndexScanTiebreaker, coveringIndexScanPlan, primaryScanPlan, -1);
+        assertCompares(configuration, primaryScanVsIndexScanTiebreaker, indexScanPlan, coveringIndexScanPlan, 0);
+        assertCompares(configuration, primaryScanVsIndexScanTiebreaker, coveringIndexScanPlan, indexScanPlan, 0);
     }
 }

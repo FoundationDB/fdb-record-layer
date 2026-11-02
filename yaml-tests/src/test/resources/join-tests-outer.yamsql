@@ -409,7 +409,7 @@ test_block:
       # in the outer SELECT.
       - query: SELECT "e"."fname", "sq"."info" FROM "emp" "e" LEFT JOIN (SELECT "id" AS "k", ("id", "name") AS "info" FROM "dept") "sq" ON "e"."dept_id" = "sq"."k";
       - supported_version: 4.12.9.0
-      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.info AS info) }"
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS k, (_.id AS id, _.name AS name) AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.info AS info) }"
       - unorderedResult: [
           {'Alice', {!l 1, 'Engineering'}},
           {'Bob', {!l 1, 'Engineering'}},
