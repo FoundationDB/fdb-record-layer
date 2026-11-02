@@ -62,14 +62,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * post-insert state, a first round of reassigns pushes mis-homed primaries toward their nearest cluster (driving
  * the <em>wrong-assignment</em> count down), and a second round replicates the primaries that the first round
  * re-homed into new clusters (driving the <em>under-replication</em> count down).
- * <p>
- * Reassigns are driven directly, in memory, one cluster per transaction: for each cluster the test builds a
+ *
+ * <p>Reassigns are driven directly, in memory, one cluster per transaction: for each cluster the test builds a
  * {@link ReassignTask} with precomputed nearest clusters and calls {@link ReassignTask#reassign} with
  * {@code enqueueFollowUpTasks=false}, so the two rounds are the only work — no follow-up split/reassign tasks are
  * enqueued. This is the realization of the "reassign-convergence" idea: insert, observe imperfection, then show two
  * controlled reassign rounds reduce it.
- * <p>
- * The post-insert state must actually be imperfect for the test to mean anything; it almost always is (small,
+ *
+ * <p>The post-insert state must actually be imperfect for the test to mean anything; it almost always is (small,
  * bordered clusters), but in the rare degenerate case the test deactivates itself via {@link Assumptions}.
  */
 public class ReassignConvergenceTest implements BaseTest {

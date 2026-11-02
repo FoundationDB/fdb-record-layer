@@ -30,8 +30,7 @@ import java.util.UUID;
  * A {@link VectorId} together with the additional ("covering") values stored alongside the vector, if any. These
  * are the extra index-entry values carried so that queries can be answered without fetching the source record.
  *
- * <p>
- * This type <em>composes</em> a {@link VectorId} rather than extending it: the identity is available via
+ * <p>This type <em>composes</em> a {@link VectorId} rather than extending it: the identity is available via
  * {@link #vectorId()} and the covering values via {@link #additionalValues()}.
  *
  * @param vectorId the identity (primary key plus UUID) of the vector this metadata describes

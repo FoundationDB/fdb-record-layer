@@ -56,21 +56,21 @@ import java.util.concurrent.CompletableFuture;
  * stored "collapsed" {@link VectorReference}s and records the absorbed vectors as collapsed-id mappings so they
  * remain resolvable at query time. It then applies the resulting writes and deletions to the cluster, updates the
  * cluster's metadata, and clears its {@link ClusterMetadata.State#COLLAPSE} state.
- * <p>
- * Two primary vectors are considered equivalent, and hence collapsible, iff they share the same content
+ *
+ * <p>Two primary vectors are considered equivalent, and hence collapsible, iff they share the same content
  * signature (a hash of the stored, encoded vector; see {@link StorageAdapter#signatureUuid}), which means their
  * stored bytes are identical. A signature group is only collapsed once it holds more than
  * {@link Config#collapseMinDuplicates()} members: those vectors are absorbed into a single stored "collapsed"
  * reference and each absorbed {@link VectorId} is recorded as a signature-to-id mapping so queries still resolve it.
- * <p>
- * Besides collapsing, this task also subsamples the cluster's replicas down to
+ *
+ * <p>Besides collapsing, this task also subsamples the cluster's replicas down to
  * {@link Config#replicatedClusterTarget()}, keeping the highest-{@link VectorReference#replicationPriority()
  * replication-priority} replicas and dropping the rest — exactly what {@link ReassignTask} does. That pruning is
  * orthogonal to collapsing, but it is performed here opportunistically: the cluster's vectors have already been read
  * (the read is the expensive part), so pruning in the same pass avoids a redundant reassign. A cluster that is only
  * ever collapsed therefore still converges to the replica target.
- * <p>
- * {@link ClusterMetadata.State#COLLAPSE} acts as a blocking state while it is set: both {@link ReassignTask} and
+ *
+ * <p>{@link ClusterMetadata.State#COLLAPSE} acts as a blocking state while it is set: both {@link ReassignTask} and
  * {@link SplitMergeTask} skip a cluster marked for collapse without mutating it, so a collapse in flight is never
  * raced by a concurrent reassign or split/merge. Clearing that state on completion is therefore also what unblocks the
  * follow-up: a collapse is typically scheduled by {@link AbstractDeferredTask#enqueueCollapseIfNecessary} (for example
@@ -78,8 +78,8 @@ import java.util.concurrent.CompletableFuture;
  * this task and, once it commits, re-runs the cluster as a {@code SPLIT_MERGE} — collapsing changes the cluster's
  * effective size, so the split/merge is re-evaluated afterwards. That bounce skips any cluster still carrying a
  * COLLAPSE state, so this task clearing it is exactly what lets the follow-up proceed.
- * <p>
- * The task is a benign no-op if the target cluster no longer exists or is no longer marked for collapse; both can
+ *
+ * <p>The task is a benign no-op if the target cluster no longer exists or is no longer marked for collapse; both can
  * occur naturally when the cluster was merged away or otherwise re-tasked between this task being enqueued and run.
  */
 class CollapseTask extends AbstractDeferredTask {

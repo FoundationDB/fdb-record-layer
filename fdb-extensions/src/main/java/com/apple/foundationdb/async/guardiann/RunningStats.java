@@ -27,12 +27,10 @@ import javax.annotation.Nonnull;
  * for numerically stable computation of mean and variance. Used by cluster metadata to track the
  * distribution of vector-to-centroid distances without storing the individual values.
  *
- * <p>
- * Supports incremental {@link #add} and {@link #remove} of individual values, as well as parallel
+ * <p>Supports incremental {@link #add} and {@link #remove} of individual values, as well as parallel
  * {@link #combine} and {@link #subtract} of two accumulators. Also tracks the maximum value ever
  * observed ({@link #maxEver()}), which is maintained exactly on {@code add}/{@code combine} but
  * intentionally left as a stale upper bound after {@code remove}/{@code subtract}.
- * </p>
  *
  * @param numElements the number of values currently represented
  * @param runningMean the running mean (Welford's online mean)

@@ -31,8 +31,8 @@ import java.util.function.Predicate;
 
 /**
  * A sampler which tests individual elements according to a fixed-throughput adaptive strategy.
- * <p>
- * Essentially, this logger ensures that the given item is only logged as often as a specified rate requires. It
+ *
+ * <p>Essentially, this logger ensures that the given item is only logged as often as a specified rate requires. It
  * does this by maintaining a cache of items. Upon request, if the element is not in the cache, it is logged. Otherwise,
  * it is logged according to the configured {@link TokenBucketSampler} for that item, which maintains a (mostly)
  * constant rate of log sampling.

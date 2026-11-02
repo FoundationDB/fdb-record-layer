@@ -74,8 +74,8 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     /**
      * Returns the high-water mark this cluster would carry after adopting {@code newStandardDeviation}: the larger of
      * the peak it holds now and the primary count those statistics imply.
-     * <p>
-     * Every caller that replaces the running statistics must route the mark through here, since the compact
+     *
+     * <p>Every caller that replaces the running statistics must route the mark through here, since the compact
      * constructor rejects a mark below the current count rather than quietly raising it.
      *
      * @param newStandardDeviation the statistics about to be adopted
@@ -93,22 +93,22 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
      * Computes the primary-vector count below which <em>this</em> cluster becomes merge-eligible: the larger of the
      * absolute {@link Config#primaryClusterMin()} floor and {@link Config#mergeMaxEverFraction()} of the cluster's own
      * {@linkplain #maxEverNumPrimaryVectors() lifetime peak}.
-     * <p>
-     * The fraction term is a <em>shrinkage</em> detector, and only that. It fires once a cluster has shed all but that
+     *
+     * <p>The fraction term is a <em>shrinkage</em> detector, and only that. It fires once a cluster has shed all but that
      * fraction of the largest it has ever been, which consolidates a cluster that has drained away instead of leaving
      * it to linger at a size the floor alone would tolerate. It has no say over a cluster sitting at its peak: such a
      * cluster has {@code current == maxEver}, and since {@code fraction * maxEver < maxEver} for any fraction below
      * one, the comparison reduces to {@code current < primaryClusterMin} — the floor decides alone. In particular the
      * fraction does <em>not</em> shield a freshly split child; what keeps a child from being born already
      * merge-eligible is {@link Config#minChildFraction()}, which bounds how small a split may make one.
-     * <p>
-     * The two terms have distinct roles: the floor sets the smallest cluster worth keeping, and the fraction decides
+     *
+     * <p>The two terms have distinct roles: the floor sets the smallest cluster worth keeping, and the fraction decides
      * when a once-large cluster has shrunk enough to be merged. A non-zero fraction affects the outcome only for a
      * cluster whose peak is large enough that the fraction of that peak exceeds the floor; for any smaller peak the
      * floor is the larger of the two terms and determines the threshold on its own. A fraction of {@code 0} removes
      * the fraction term for every cluster, so the floor is the entire trigger.
-     * <p>
-     * This lives here rather than on {@link Config} because the threshold is a property of a cluster, not of the
+     *
+     * <p>This lives here rather than on {@link Config} because the threshold is a property of a cluster, not of the
      * configuration: the peak it is derived from belongs to this record.
      *
      * @param config the configuration supplying the floor and the fraction
@@ -162,14 +162,14 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     /**
      * Returns a copy with the two auxiliary counts adjusted by the given deltas, the running statistics replaced, and
      * the given states raised on top of the existing ones.
-     * <p>
-     * Note the asymmetry: the underreplicated and replicated counts arrive as <em>deltas</em>, but the primary count
+     *
+     * <p>Note the asymmetry: the underreplicated and replicated counts arrive as <em>deltas</em>, but the primary count
      * does not, because it has no independent representation —
      * {@link #getNumPrimaryVectors()} is the element count of the running statistics. So a primary added or removed is
      * expressed solely by {@code newStandardDeviation} carrying one more or one fewer distance sample, and neither
      * delta parameter has any bearing on it.
-     * <p>
-     * That is also why this method passes the existing {@link #maxEverNumPrimaryVectors()} through untouched rather
+     *
+     * <p>That is also why this method passes the existing {@link #maxEverNumPrimaryVectors()} through untouched rather
      * than trying to raise it: the compact constructor clamps the mark up to the new primary count on every
      * construction, so the caller's only obligation is not to <em>lose</em> the prior peak. Since
      * {@code Math.max} can only move it up, preservation across a shrink falls out for free.

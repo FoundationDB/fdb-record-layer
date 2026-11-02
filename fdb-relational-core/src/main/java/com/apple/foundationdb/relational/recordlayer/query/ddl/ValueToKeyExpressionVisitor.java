@@ -71,16 +71,14 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 /**
  * Translates the result value of an index-defining select into the {@link KeyExpression} the index key is built from, and
  * reports the type of index that can store it.
- * <p>
- * A supported kind of value gets a visitation method; {@link #evaluateAtValue} rejects the rest. The grouping of an
+ *
+ * <p>A supported kind of value gets a visitation method; {@link #evaluateAtValue} rejects the rest. The grouping of an
  * aggregate index is everything in the projection other than the single aggregate. Sort direction comes from the caller,
  * as an ordering function per column.
- * </p>
- * <p>
- * <b>Collapsing.</b> Key columns whose field paths share a prefix can be written in either of two ways. Collapsed, the
+ *
+ * <p><b>Collapsing.</b> Key columns whose field paths share a prefix can be written in either of two ways. Collapsed, the
  * shared prefix is navigated once and the columns hang underneath it; uncollapsed, every column is navigated from the
  * root on its own:
- * </p>
  * <pre>{@code
  * // collapsed
  * field("A", FanOut).nest(concat(field("COL2"), field("COL3")))
@@ -88,14 +86,13 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
  * concat(field("A", FanOut).nest(field("COL2")),
  *        field("A", FanOut).nest(field("COL3")))
  * }</pre>
- * <p>
- * The two diverge as soon as the shared prefix crosses a repeated field, since a navigation carrying a {@code FanOut}
+ *
+ * <p>The two diverge as soon as the shared prefix crosses a repeated field, since a navigation carrying a {@code FanOut}
  * enumerates the array it steps into: collapsed, a single enumeration puts {@code COL2} and {@code COL3} of the same
  * element in one entry; uncollapsed, two enumerations range independently and the entries are their cross product.
  * Crossing no repeated field, the two stand for the same entries and differ only in shape. Collapsing also groups by
  * prefix rather than by position, so it keeps the requested key order only where the columns sharing a prefix are
  * adjacent. Which form is wanted does not follow from the values alone, so it is the caller's to choose.
- * </p>
  */
 final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpression> {
 

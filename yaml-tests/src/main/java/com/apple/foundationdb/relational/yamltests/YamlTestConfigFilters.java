@@ -26,10 +26,9 @@ import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 
 /**
  * An enum of reasons to disable a {@link YamlTest} test for a given {@link YamlTestConfig}.
- * <p>
- *     Note: Part of the reason this exists as an enum, is that fields on annotations can only be certain types, and
+ *
+ * <p>Note: Part of the reason this exists as an enum, is that fields on annotations can only be certain types, and
  *     enum seemed like the cleanest.
- * </p>
  */
 public enum YamlTestConfigFilters {
     /**

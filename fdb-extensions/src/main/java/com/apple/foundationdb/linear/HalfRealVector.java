@@ -270,8 +270,8 @@ public class HalfRealVector extends AbstractRealVector {
 
     /**
      * Creates a {@link HalfRealVector} from a byte array produced by {@link #getRawData()}.
-     * <p>
-     * The input is interpreted as a leading type byte (which must match {@link VectorType#HALF})
+     *
+     * <p>The input is interpreted as a leading type byte (which must match {@link VectorType#HALF})
      * followed by a sequence of big-endian 16-bit {@link Half}-encoded components, one per
      * dimension.
      * @param vectorBytes the non-null byte array to convert

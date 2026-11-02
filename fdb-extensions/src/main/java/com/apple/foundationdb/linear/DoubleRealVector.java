@@ -275,8 +275,8 @@ public class DoubleRealVector extends AbstractRealVector {
 
     /**
      * Creates a {@link DoubleRealVector} from a byte array.
-     * <p>
-     * This method interprets the input byte array as a sequence of 64-bit double-precision floating-point numbers. Each
+     *
+     * <p>This method interprets the input byte array as a sequence of 64-bit double-precision floating-point numbers. Each
      * run of eight bytes is converted into a {@code double} value, which then becomes a component of the resulting
      * vector.
      * @param vectorBytes the non-null byte array to convert

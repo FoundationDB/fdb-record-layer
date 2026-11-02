@@ -189,23 +189,23 @@ public final class ParseHelpers {
 
     /**
      * Converts the literal string value of a day-time interval literal into a signed number of milliseconds.
-     * <p>
-     * The passed qualifiers {@code startField} and {@code endField} decide how the string is read,
+     *
+     * <p>The passed qualifiers {@code startField} and {@code endField} decide how the string is read,
      * according to the SQL standard rules for interval literals. For example, {@code '90' MINUTE} and
      * {@code '1:30' HOUR TO MINUTE} mean the same interval, but {@code '1:30'} on its own could also
      * mean minutes and seconds. Without the qualifier there would be no single correct reading. If
      * the interval literal value is invalid or doesn't match the qualifiers, it is rejected with the
      * error {@link ErrorCode#INVALID_INTERVAL_FORMAT}.
-     * <p>
-     * In the interval literal, only the leading field is unbounded, trailing fields past its natural range, such as
+     *
+     * <p>In the interval literal, only the leading field is unbounded, trailing fields past its natural range, such as
      * {@code '1:75' HOUR TO MINUTE}, are rejected with {@link ErrorCode#INTERVAL_FIELD_OVERFLOW}. The
      * seconds field can have a fractional component which currently supports up to 3 digits following the
      * decimal point, representing the number of milliseconds in the interval.
-     * <p>
-     * The sign (i.e. direction) of an interval can appear in two places, before the quotes, denoted by
+     *
+     * <p>The sign (i.e. direction) of an interval can appear in two places, before the quotes, denoted by
      * {@code isNegative} and inside the string. Both signs are honoured so they can cancel each other.
-     * <p>
-     * The result is in milliseconds, if the interval is too large to be stored in a
+     *
+     * <p>The result is in milliseconds, if the interval is too large to be stored in a
      * {@code long} it is rejected with {@link ErrorCode#INTERVAL_FIELD_OVERFLOW}.
      *
      * @param intervalLiteral the normalized interval string, e.g. {@code 1 12:30:00.5}

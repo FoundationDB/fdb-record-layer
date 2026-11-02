@@ -27,13 +27,13 @@ import javax.annotation.Nonnull;
 /**
  * Derives a whole Guardiann {@link Config} from the two decisions a caller actually has to make: the distance
  * {@link Metric} and how large a cluster may grow before it splits.
- * <p>
- * Most of {@link Config}'s knobs are not independent — they only behave sensibly in certain ratios to
+ *
+ * <p>Most of {@link Config}'s knobs are not independent — they only behave sensibly in certain ratios to
  * {@code primaryClusterMax}, and getting one of those ratios wrong is not obvious from reading the value. This class
  * states each ratio once, with the reason, so a caller changing the cluster size gets a coherent set rather than a
  * mix of scaled and unscaled numbers. {@code ConfigRecommendationTest} pins the relationships that must hold.
- * <p>
- * Returns a builder rather than a {@code Config} for two reasons: the number of dimensions is a property of the data
+ *
+ * <p>Returns a builder rather than a {@code Config} for two reasons: the number of dimensions is a property of the data
  * rather than of the tuning, and a caller with dataset-specific knowledge (SIFT's density, say, which wants far more
  * replication than the generic ratio gives) should be able to override individual knobs on top.
  *

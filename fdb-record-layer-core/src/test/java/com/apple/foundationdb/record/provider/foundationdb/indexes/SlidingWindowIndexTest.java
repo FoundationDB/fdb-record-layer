@@ -116,7 +116,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Each test creates an HNSW index decorated with a sliding window. The window key is
  * {@code relevance} (lower = more relevant for ASC, higher for DESC). The vector field
- * is {@code vector_data}. Records are identified by {@code rec_no}.</p>
+ * is {@code vector_data}. Records are identified by {@code rec_no}.
  */
 @Tag(Tags.RequiresFDB)
 class SlidingWindowIndexTest extends FDBRecordStoreTestBase {

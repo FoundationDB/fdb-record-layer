@@ -27,8 +27,8 @@ import javax.annotation.Nonnull;
 /**
  * Trait used to capture side effects resulting from the integration of a
  * {@link com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction} into a query plan.
- * <br>
- * These side effects necessitate processing to ensure proper query plan construction and optimization.
+ *
+ * <p>These side effects necessitate processing to ensure proper query plan construction and optimization.
  * Currently, the only side effect to consider is the set of {@link com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral}
  * instances.  These literals represent either extracted constant values or prepared parameters encountered during
  * the function's processing.

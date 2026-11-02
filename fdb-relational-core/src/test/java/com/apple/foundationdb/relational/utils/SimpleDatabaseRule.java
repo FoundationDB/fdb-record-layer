@@ -32,11 +32,11 @@ import java.net.URI;
 
 /**
  * A JUnit extension that automatically creates all the framework necessary for a unique database and schema.
- * <p>
- * This creates a SchemaTemplate with the specified configuration, then creates a database with the specified name. Once
+ *
+ * <p>This creates a SchemaTemplate with the specified configuration, then creates a database with the specified name. Once
  * this is done, it automatically creates a schema called 'TEST_SCHEMA' which has the specified template.
- * <p>
- * Use this whenever you want a SQL-style database for testing (i.e. you just want a single database with a single
+ *
+ * <p>Use this whenever you want a SQL-style database for testing (i.e. you just want a single database with a single
  * schema format).
  */
 public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback {

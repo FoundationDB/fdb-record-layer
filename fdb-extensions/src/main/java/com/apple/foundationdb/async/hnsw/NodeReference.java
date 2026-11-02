@@ -62,8 +62,8 @@ public class NodeReference {
 
     /**
      * Casts this object to a {@link NodeReferenceWithVector}.
-     * <p>
-     * This method is intended to be used on subclasses that actually represent a node reference with a vector. For this
+     *
+     * <p>This method is intended to be used on subclasses that actually represent a node reference with a vector. For this
      * base class or specific implementation, it is not a valid operation.
      * @return this instance cast as a {@code NodeReferenceWithVector}
      * @throws IllegalStateException always, to indicate that this object cannot be
@@ -76,8 +76,8 @@ public class NodeReference {
 
     /**
      * Compares this {@code NodeReference} to the specified object for equality.
-     * <p>
-     * The result is {@code true} if and only if the argument is not {@code null} and is a {@code NodeReference} object
+     *
+     * <p>The result is {@code true} if and only if the argument is not {@code null} and is a {@code NodeReference} object
      * that has the same {@code primaryKey} as this object.
      *
      * @param o the object to compare with this {@code NodeReference} for equality.

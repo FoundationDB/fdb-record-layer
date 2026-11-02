@@ -47,8 +47,8 @@ import java.util.Optional;
 /**
  * A step builder that instantiates a {@link UserDefinedFunction} from the function definition specified in
  * a {@code CREATE FUNCTION} DDL statement.
- * <p>
- * Construction is split into a fixed sequence of steps, each modeled as its own interface which returns the next
+ *
+ * <p>Construction is split into a fixed sequence of steps, each modeled as its own interface which returns the next
  * builder step interface. This is to make the compiler enforce which set of options can be provided together and in
  * what order instead of relying on runtime checks. The builder steps are as follows:
  * <ol>
@@ -63,7 +63,6 @@ import java.util.Optional;
  *     <li>{@link FinalStepBuilder}: the builder step returned after specifying the function body, which applies any
  *     remaining optional specification and instantiates the correct instance of {@link UserDefinedFunction}.</li>
  * </ol>
- * </p>
  */
 public final class UserDefinedFunctionBuilder {
     private UserDefinedFunctionBuilder() {
@@ -90,13 +89,12 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Appends a single parameter to the signature.
-         * <p>
-         * The parameter carries its name, type and, optionally, a default value within the supplied {@link Expression};
+         *
+         * <p>The parameter carries its name, type and, optionally, a default value within the supplied {@link Expression};
          * a parameter whose underlying value is a {@link ThrowsValue} is taken to have no default.
-         * </p>
-         * <p>
-         * Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
-         * </p>
+         *
+         * <p>Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
+         *
          * @param expression the parameter to append.
          * @return this builder, for chaining.
          */
@@ -104,13 +102,12 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Appends all the given parameters to the signature, preserving their order.
-         * <p>
-         * The parameters carry their names, types and, optionally, a default value within the {@link Expression}; a
+         *
+         * <p>The parameters carry their names, types and, optionally, a default value within the {@link Expression}; a
          * parameter expression whose underlying value is a {@link ThrowsValue} is taken to have no default.
-         * </p>
-         * <p>
-         * Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
-         * </p>
+         *
+         * <p>Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
+         *
          * @param expressions the parameters to append.
          * @return this builder, for chaining.
          */

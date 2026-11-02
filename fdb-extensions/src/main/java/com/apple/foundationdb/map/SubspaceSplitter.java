@@ -69,9 +69,7 @@ public interface SubspaceSplitter<T> {
      * <code>Subspace</code>, it should return the same value
      * both times.
      *
-     * <p>
-     * By default, this function will just return <code>null</code>.
-     * </p>
+     * <p>By default, this function will just return <code>null</code>.
      *
      * @param subspace the {@link Subspace} to generate a tag from
      * @return some tag to associate with the provided subspace.

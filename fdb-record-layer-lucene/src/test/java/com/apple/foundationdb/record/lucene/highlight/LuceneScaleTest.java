@@ -95,22 +95,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Low level scale test that does a variety of operations against lucene, generating a csv that shows various
  * store timer events as the number of records in the account goes up.
- * <p>
- *     Since this is run on a variety of hardware, in a non-isolated environment, metrics around specific millis aren't
+ *
+ * <p>Since this is run on a variety of hardware, in a non-isolated environment, metrics around specific millis aren't
  *     super reliable, but the metrics around data read, or written can be a good indication of how a change in code
  *     might impact performance in a production environment.
- * </p>
- * <p>
- *     The nested class {@link Config} is intended to hold the options, which you may adjust to see how a specific
+ *
+ * <p>The nested class {@link Config} is intended to hold the options, which you may adjust to see how a specific
  *     change interacts with a single run. We may at some point want to pull this out into something that is not
  *     committed, but this should work for now.
- * </p>
- * <p>
- *     The key test here is {@link #runPerfTest()}, which, depending on the config, does a loop of inserting some
+ *
+ * <p>The key test here is {@link #runPerfTest()}, which, depending on the config, does a loop of inserting some
  *     records, then doing some operations and capturing metrics and dumping them to csvs in
  *     {@code .out/LuceneScaleTest*}. There are some other tests in this class, mostly to make sure things work, or
  *     to run a profiler or debugger.
- * </p>
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)
@@ -147,13 +144,12 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         static final boolean CLEAR_BEFORE_RUN = true;
         /**
          * If {@code true}, at the start of the test it will disable the lucene index.
-         * <p>
-         *     This is mostly useful with {@link Command#IncreaseCount} to fill an account to a certain large size
+         *
+         * <p>This is mostly useful with {@link Command#IncreaseCount} to fill an account to a certain large size
          *     quickly. After running like that for a while, you can set this back to {@code true} and set
          *     {@link #CLEAR_BEFORE_RUN} to {@code false} and re-run to have it rebuild the index and then start
          *     profiling. Currently, it looks like there is much better performance saving records with the index
          *     disabled, and then building the index than saving the records with the index enabled.
-         * </p>
          */
         static final IndexMaintenance INDEX_MAINTENANCE = IndexMaintenance.Build;
         /**

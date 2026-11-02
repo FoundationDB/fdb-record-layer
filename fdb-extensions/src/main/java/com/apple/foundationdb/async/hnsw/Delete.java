@@ -56,12 +56,12 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 /**
  * An implementation of the delete/repair operations of the Hierarchical Navigable Small World (HNSW) algorithm for
  * efficient approximate nearest neighbor (ANN) search.
- * <p>
- * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it. The top layers serve as fast
+ *
+ * <p>HNSW constructs a multi-layer graph, where each layer is a subset of the one below it. The top layers serve as fast
  * entry points to navigate the graph, while the bottom layer contains all the data points. This structure allows for
  * logarithmic-time complexity for search operations, making it suitable for large-scale, high-dimensional datasets.
- * <p>
- * The entry point for any interactions with the HNSW data structure is implemented in {@link HNSW}. Do not instantiate
+ *
+ * <p>The entry point for any interactions with the HNSW data structure is implemented in {@link HNSW}. Do not instantiate
  * this class directly.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -142,8 +142,8 @@ class Delete {
 
     /**
      * Deletes a record using its associated primary key from the HNSW graph.
-     * <p>
-     * This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
+     *
+     * <p>This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
      * graph. The deletion process consists of several key phases:
      * <ul>
      *     <li><b>Layer Determination:</b> First determines the top layer for the node using the same deterministic
@@ -473,15 +473,15 @@ class Delete {
     /**
      * Chooses the node this layer offers the promotion as a replacement entry node, or {@code null} if the layer holds
      * no node at all. It is only called for a delete of the entry node, the only delete whose offers are used.
-     * <p>
-     * A node is only useful as an entry node if it has an outgoing edge, since a search starting at a node with none
+     *
+     * <p>A node is only useful as an entry node if it has an outgoing edge, since a search starting at a node with none
      * returns that node and nothing else. Of the nodes that have one, the one with the most is offered: a search first
      * evaluates the entry node's neighbors, so more of them give it more nodes to continue from. The neighbors of the
      * node being deleted are considered first because their vectors are already in hand and their pending neighbor
      * lists are already known, so that check costs nothing. Only when none of them can be traversed through does this
      * read further nodes of the layer, bounded by {@link Config#replacementEntryNodeScanLimit()}.
-     * <p>
-     * On a compact layer this returns {@code null} only when the layer is empty, because at least one node is always
+     *
+     * <p>On a compact layer this returns {@code null} only when the layer is empty, because at least one node is always
      * read. Layer 0 is always compact, which is what lets the caller treat "no layer offered anything" as "the
      * structure is empty" rather than inferring it. An inlining layer is not scanned, so for one this also returns
      * {@code null} when the node being deleted had no neighbor left there.
@@ -661,8 +661,8 @@ class Delete {
     /**
      * What {@link #buildRepairContext} establishes about the candidates of one layer's repair, held in one record so
      * that it is passed as one argument rather than as separate ones.
-     * <p>
-     * The two collections are mutable and change as the repair proceeds: the change sets accumulate the edges each
+     *
+     * <p>The two collections are mutable and change as the repair proceeds: the change sets accumulate the edges each
      * step grants, and once every repair has completed, the candidates a repair granted an edge are removed from
      * {@code candidatesThatLostTheirEdge}. This record is therefore a grouping of state belonging to a single
      * {@code deleteFromLayer} call, not a value.
@@ -821,8 +821,8 @@ class Delete {
      * incoming references to this node. As this method is called once per direct neighbor and all direct neighbors are
      * in the candidate set, outgoing references from this node to other nodes (in {@code p_out}) are repaired when this
      * method is called for the respective neighbors.
-     * <p>
-     * This method does not give the neighbor any outgoing edge. The edge it held to the node being deleted was removed
+     *
+     * <p>This method does not give the neighbor any outgoing edge. The edge it held to the node being deleted was removed
      * in {@link #buildRepairContext}, and {@link #addReplacementOutEdges} decides once, after every
      * repair has completed, whether to replace it.
      *
@@ -879,16 +879,16 @@ class Delete {
     /**
      * Grants one replacement outgoing edge to each node that lost its reference to the node being deleted, received no
      * edge from a repair in its place, and is left short of outgoing edges.
-     * <p>
-     * {@link #buildRepairContext} removes exactly one reference to an existing node from such a node, the one to the
+     *
+     * <p>{@link #buildRepairContext} removes exactly one reference to an existing node from such a node, the one to the
      * node being deleted, because a neighbor list holds at most one reference per primary key; any other reference it
      * removes names a node that no longer exists. {@link #repairInsForNeighborNode} adds edges only towards the nodes
      * the deleted node pointed at, from the candidates it selects for each of them, so the node regains an outgoing
      * edge only if one of those repairs selects it for a node it did not point at yet. Otherwise nothing replaces the
      * lost edge, and a node that participates in many deletes can run out of outgoing edges. Whether that node is a
      * direct neighbor of the deleted node or only a second degree candidate, the loss is the same.
-     * <p>
-     * The candidates a repair granted such an edge were removed from the repair context before the pruning, so every
+     *
+     * <p>The candidates a repair granted such an edge were removed from the repair context before the pruning, so every
      * node considered here received none. This runs after every repair and the pruning have completed, which has two
      * consequences. The decision does not depend on the order in which the repairs completed. And a node that is granted
      * an edge ends the delete with at most as many neighbors as its stored neighbor list held before the delete, fewer
