@@ -75,10 +75,9 @@ import java.util.stream.IntStream;
  * first anonymous field is the element. If the explode is {@linkplain #hasOrdinality() with ordinality}, the struct has
  * a second anonymous field that holds the 0-based ordinal of the element within the array, akin to SQL's
  * {@code UNNEST ... WITH ORDINALITY}.
- * <p>
- * An explode without ordinality does not expose the positions of the elements, so its collection can be replaced by
+ *
+ * <p>An explode without ordinality does not expose the positions of the elements, so its collection can be replaced by
  * any permutation of it, for example by a sorted one.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -346,10 +345,9 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     /**
      * A cursor over the elements of an array, producing a struct of each element and its ordinal. The continuation
      * records the position of the next element.
-     * <p>
-     * The continuation is not tied to the array it came from. Resuming is only correct if the array evaluates to the
+     *
+     * <p>The continuation is not tied to the array it came from. Resuming is only correct if the array evaluates to the
      * same elements in the same order as it did when the continuation was created.
-     * </p>
      */
     static class Cursor implements RecordCursor<QueryResult> {
         @Nonnull

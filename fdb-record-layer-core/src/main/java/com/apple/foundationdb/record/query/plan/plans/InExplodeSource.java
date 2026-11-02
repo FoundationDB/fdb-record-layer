@@ -51,11 +51,10 @@ import java.util.Set;
  * Source of values for an "IN" query that is planned from a quantifier ranging over an {@link ExplodeValue}. Like
  * the explode itself, it binds the struct of each element of the collection, so the correlated inner plan can read
  * the element and, if any, the ordinal the same way it would read them from the explode.
- * <p>
- * The source is sorted if the collection of the explode is an {@link ArraySortValue}. Sorting the collection would
+ *
+ * <p>The source is sorted if the collection of the explode is an {@link ArraySortValue}. Sorting the collection would
  * renumber the ordinals, which is why only the collections of explodes that are not
  * {@linkplain ExplodeValue#hasOrdinality() with ordinality} may be sorted.
- * </p>
  */
 @API(API.Status.INTERNAL)
 public class InExplodeSource extends InComparandSource {
