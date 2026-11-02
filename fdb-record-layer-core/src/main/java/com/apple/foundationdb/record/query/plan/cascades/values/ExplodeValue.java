@@ -346,6 +346,10 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     /**
      * A cursor over the elements of an array, producing a struct of each element and its ordinal. The continuation
      * records the position of the next element.
+     * <p>
+     * The continuation is not tied to the array it came from. Resuming is only correct if the array evaluates to the
+     * same elements in the same order as it did when the continuation was created.
+     * </p>
      */
     static class Cursor implements RecordCursor<QueryResult> {
         @Nonnull
