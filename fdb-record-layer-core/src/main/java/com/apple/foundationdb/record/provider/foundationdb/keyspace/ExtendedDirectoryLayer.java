@@ -265,8 +265,8 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     public ResolverResult deserializeValue(byte[] value) {
         Tuple unpacked = contentSubspace.unpack(value);
         return unpacked.size() == 1 ?
-               new ResolverResult(unpacked.getLong(0), null) :
-               new ResolverResult(unpacked.getLong(0), unpacked.getBytes(1));
+                new ResolverResult(unpacked.getLong(0), null) :
+                new ResolverResult(unpacked.getLong(0), unpacked.getBytes(1));
 
     }
 

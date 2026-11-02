@@ -26,13 +26,17 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -41,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * What every quantifier of an index-defining plan stands for, and with it the ability to resolve a value written in terms
@@ -52,8 +55,57 @@ final class QuantifierValues {
     @Nonnull
     private final Map<CorrelationIdentifier, Value> valuesByQuantifier;
 
-    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier) {
+    /**
+     * The array each explode of the plan ranges over, in the order they were found. An explode's {@link AnnotatedAccessor}
+     * marker <em>is</em> its position here.
+     */
+    @Nonnull
+    private final List<FieldValue> explodes;
+
+    /**
+     * The stored table behind each type-filter quantifier, by the correlation it is bound to: the storage name of its
+     * record type, and the expression it is a quantifier of. In the order the traversal found them, which is the same
+     * for the same definition, so that the definition always numbers a joined table's constituents the same way.
+     */
+    @Nonnull
+    private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents;
+
+    private final boolean hasOuterJoin;
+
+    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
+                             @Nonnull final List<FieldValue> explodes,
+                             @Nonnull final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents,
+                             final boolean hasOuterJoin) {
         this.valuesByQuantifier = valuesByQuantifier;
+        this.explodes = explodes;
+        this.constituents = ImmutableMap.copyOf(constituents);
+        this.hasOuterJoin = hasOuterJoin;
+    }
+
+
+    /**
+     * {@return the tables this expression sources from, by correlation}
+     */
+    @Nonnull
+    public Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> getConstituents() {
+        return constituents;
+    }
+
+    /**
+     * {@return whether any of the joins (if any) is an outer join}
+     */
+    public boolean hasOuterJoin() {
+        return hasOuterJoin;
+    }
+
+    /**
+     * The array each explode of the plan ranges over, in the order they were found.
+     *
+     * @return what the traversal saw at each explode
+     */
+    @Nonnull
+    public List<FieldValue> getExplodes() {
+        return explodes;
     }
 
     /**
@@ -65,7 +117,9 @@ final class QuantifierValues {
      */
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
-        return new QuantifierValues(Assert.notNullUnchecked(new Collector().visit(expression)));
+        final var collector = new Collector();
+        return new QuantifierValues(collector.visit(expression), collector.explodes,
+                collector.constituents, collector.hasOuterJoin);
     }
 
     /**
@@ -100,6 +154,11 @@ final class QuantifierValues {
         @Nonnull
         @Override
         public Value visitQuantifiedObjectValue(@Nonnull final QuantifiedObjectValue element) {
+            // A column of a join has to keep which of the tables it is read from, so it stops at that table's
+            // correlation; a single table's resolves down to its record, as for any other quantifier.
+            if (constituents.size() > 1 && constituents.containsKey(element.getAlias())) {
+                return element;
+            }
             // what a quantifier stands for may reference another
             return visit(Assert.notNullUnchecked(valuesByQuantifier.get(element.getAlias())));
         }
@@ -112,19 +171,35 @@ final class QuantifierValues {
     private static final class Collector implements SimpleExpressionVisitor<Map<CorrelationIdentifier, Value>> {
 
         /**
-         * Numbers the unnestings, so that two unnestings of the same array field compare unequal. Only distinctness
-         * matters; the number never reaches the key expression.
+         * The array each explode ranges over, in the order they were found. A position doubles as the explode's marker,
+         * which only has to be distinct -- it numbers the unnestings so two unnestings of one array field compare
+         * unequal, and never reaches the key expression.
          */
         @Nonnull
-        private final AtomicInteger explodeCounter = new AtomicInteger(0);
+        private final List<FieldValue> explodes = new ArrayList<>();
+
+        @Nonnull
+        private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents = new LinkedHashMap<>();
+
+        private boolean hasOuterJoin;
 
         @Nonnull
         @Override
         public Map<CorrelationIdentifier, Value> evaluateAtExpression(@Nonnull final RelationalExpression expression,
                                                                       @Nonnull final List<Map<CorrelationIdentifier, Value>> childResults) {
             final var merged = merge(childResults);
+            if (expression instanceof OuterJoinExpression) {
+                hasOuterJoin = true;
+            }
             for (final var quantifier : expression.getQuantifiers()) {
                 final var rangesOver = quantifier.getRangesOver().get();
+                if (rangesOver instanceof LogicalTypeFilterExpression typeFilter) {
+                    final var recordTypes = typeFilter.getRecordTypes();
+                    if (recordTypes.size() == 1) {
+                        constituents.putIfAbsent(quantifier.getAlias(),
+                                NonnullPair.of(recordTypes.iterator().next(), expression));
+                    }
+                }
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
                 merged.put(quantifier.getAlias(), rangesOver instanceof ExplodeExpression
                                                   ? unnestedCollectionValue((ExplodeExpression)rangesOver)
@@ -142,16 +217,17 @@ final class QuantifierValues {
 
         @Nonnull
         private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode) {
-            final var marker = explodeCounter.incrementAndGet();
             final var collectionValue = explode.getCollectionValue();
-            if (!(collectionValue instanceof FieldValue)) {
+            if (!(collectionValue instanceof final FieldValue field)) {
                 return collectionValue;
             }
-            final var field = (FieldValue)collectionValue;
+            final var marker = explodes.size();
             final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
             fieldAccessors.set(fieldAccessors.size() - 1,
                     AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), marker));
-            return FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            final var annotated = FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            explodes.add(annotated);
+            return annotated;
         }
 
         @Nonnull
@@ -165,6 +241,14 @@ final class QuantifierValues {
     /**
      * A {@link FieldValue.ResolvedAccessor} tagged with which unnesting it came from, which distinguishes two unnestings
      * of the same array field and marks the field as reached through an unnest.
+     *
+     * <p>That tag is the marker: a small integer handed to each explode of the plan in the order the traversal finds them,
+     * so that it is also the explode's position in {@link QuantifierValues#getExplodes()}. It is stamped onto the last
+     * accessor of the field path that reaches the array, and so travels along with every value later built from that
+     * path; a plain {@link FieldValue.ResolvedAccessor} in that position means the field was not reached through an
+     * unnest at all. Two markers therefore mean two unnestings even where the field paths are identical, as in
+     * {@code FROM T1, T1.A X, T1.A Y}. A consumer recovers the markers a key column reads through and looks each one up
+     * against the explode it names, which is how it tells what a column was unnested from.
      */
     static final class AnnotatedAccessor extends FieldValue.ResolvedAccessor {
 
@@ -173,6 +257,15 @@ final class QuantifierValues {
         private AnnotatedAccessor(@Nonnull final Type.Record.Field field, final int ordinal, final int marker) {
             super(field, ordinal);
             this.marker = marker;
+        }
+
+        /**
+         * Which unnesting of the plan the field this accessor reaches was unnested by.
+         *
+         * @return the marker, which is that unnesting's position in {@link QuantifierValues#getExplodes()}
+         */
+        int getMarker() {
+            return marker;
         }
 
         @Nonnull

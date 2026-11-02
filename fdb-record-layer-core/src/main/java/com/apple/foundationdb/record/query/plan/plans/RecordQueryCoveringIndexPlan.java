@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -70,6 +71,7 @@ import java.util.Set;
  * A query plan that reconstructs records from the entries in a covering index.
  */
 @API(API.Status.INTERNAL)
+@HeuristicPlanner
 public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithIndexEntryToQueriedRecord {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Plan");
 

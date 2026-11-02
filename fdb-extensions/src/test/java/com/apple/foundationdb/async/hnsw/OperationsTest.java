@@ -21,7 +21,8 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.BaseTest;
 import com.apple.foundationdb.async.common.CommonTestHelpers;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.RealVectorTest;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestDatabaseExtension;
@@ -79,6 +81,7 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -88,6 +91,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.async.common.CommonTestHelpers.orderedByDistances;
 import static com.apple.foundationdb.async.common.CommonTestHelpers.randomVectors;
+import static com.apple.foundationdb.async.common.CommonTestHelpers.runAsyncToSync;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomDoubleVector;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -161,7 +165,7 @@ class OperationsTest implements BaseTest {
                     return randomCompactNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 0,
+        runAsyncToSync(db, tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 0,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         assertThat(node).satisfies(
@@ -179,7 +183,7 @@ class OperationsTest implements BaseTest {
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
                                     assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
-                )).join());
+                )));
 
         assertThat(
                 TestHelpers.dumpLayer(getDb(), getSubspace(), HNSW.newConfigBuilder()
@@ -210,7 +214,7 @@ class OperationsTest implements BaseTest {
                     return randomInliningNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 1,
+        runAsyncToSync(db, tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 1,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         assertThat(node).satisfies(
@@ -226,7 +230,7 @@ class OperationsTest implements BaseTest {
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
                                     assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
-                        )).join());
+                        )));
 
         assertThat(
                 TestHelpers.dumpLayer(getDb(), getSubspace(), HNSW.newConfigBuilder()
@@ -363,8 +367,7 @@ class OperationsTest implements BaseTest {
         onReadListener.reset();
         final long beginTs = System.nanoTime();
         final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector));
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
@@ -432,8 +435,8 @@ class OperationsTest implements BaseTest {
         onReadListener.reset();
         final long beginTs = System.nanoTime();
         final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsRingSearch(tr, k, 100, true, queryVector, radius).join());
+                runAsyncToSync(db, tr ->
+                        hnsw.kNearestNeighborsRingSearch(tr, k, 100, true, queryVector, radius));
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
@@ -482,14 +485,17 @@ class OperationsTest implements BaseTest {
                     CommonTestHelpers.pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
             final long beginTs = System.nanoTime();
-            db.run(tr -> {
+            runAsyncToSync(db, tr -> {
                 onWriteListener.reset();
                 onReadListener.reset();
 
+                // Chain the deletes rather than issuing them concurrently: this test is about delete
+                // semantics, not about hnsw's handling of concurrent mutations within one transaction.
+                CompletableFuture<Void> future = AsyncUtil.DONE;
                 for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
-                    hnsw.delete(tr, primaryKeyAndVector.primaryKey()).join();
+                    future = future.thenCompose(ignored -> hnsw.delete(tr, primaryKeyAndVector.primaryKey()));
                 }
-                return null;
+                return future;
             });
             long endTs = System.nanoTime();
 
@@ -517,8 +523,7 @@ class OperationsTest implements BaseTest {
 
                 final long beginTsQuery = System.nanoTime();
                 final List<? extends ResultEntry> results =
-                        db.run(tr ->
-                                hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                        runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector));
                 final long endTsQuery = System.nanoTime();
 
                 int recallCount = 0;
@@ -543,8 +548,8 @@ class OperationsTest implements BaseTest {
         } while (!remainingData.isEmpty());
 
         final var accessInfo =
-                db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
-                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
+                runAsyncToSync(db, transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
+                        transaction, hnsw.getSubspace(), OnReadListener.NOOP));
         assertThat(accessInfo).isNull();
     }
 
@@ -594,8 +599,7 @@ class OperationsTest implements BaseTest {
         // Still run a kNN search to make sure that recall is satisfactory.
         //
         final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 500, true, queryVector).join());
+                runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 500, true, queryVector));
 
         final ImmutableSet<Tuple> trueNN =
                 orderedByDistances(metric, insertedData, queryVector)
@@ -636,6 +640,306 @@ class OperationsTest implements BaseTest {
         assertThat(encodedVectorCount).isGreaterThan(0);
     }
 
+    @Nonnull
+    private static Stream<Arguments> seedAndUseInlining() {
+        return RandomizedTestUtils.randomSeeds(0x0fdbL, 0x5ca1eL)
+                .flatMap(seed -> ImmutableSet.of(false, true).stream()
+                        .map(useInlining -> Arguments.of(seed, useInlining)));
+    }
+
+    /**
+     * Creates a structure that switches to RaBitQ after {@code 200} inserts, so that once more vectors than that are
+     * inserted it holds both kinds of nodes: those written before the switch, stored as plain vectors in client
+     * coordinates, and those written after it, stored encoded in the rotated and translated storage space.
+     */
+    @Nonnull
+    private HNSW newStructureSwitchingToRaBitQ(final int numDimensions, final boolean useInlining) {
+        return new HNSW(subspaceExtension.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.newConfigBuilder()
+                        .setMetric(Metric.EUCLIDEAN_METRIC)
+                        .setUseInlining(useInlining)
+                        .setUseRaBitQ(true)
+                        .setRaBitQNumExBits(5)
+                        .setSampleVectorStatsProbability(1.0d) // every vector is sampled
+                        .setMaintainStatsProbability(1.0d) // for every vector we maintain the stats
+                        .setStatsThreshold(200) // after 200 vectors we enable RaBitQ
+                        .build(numDimensions),
+                new TestOnWriteListener(), new TestOnReadListener());
+    }
+
+    private void insertAll(@Nonnull final HNSW hnsw, @Nonnull final List<PrimaryKeyAndVector> data)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        for (int i = 0; i < data.size();) {
+            i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, i,
+                    (tr, nextId) -> data.get(Math.toIntExact(nextId))).size();
+        }
+    }
+
+    @Nonnull
+    private AccessInfo fetchAccessInfo(@Nonnull final HNSW hnsw)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        return Objects.requireNonNull(runAsyncToSync(db, tr ->
+                StorageAdapter.fetchAccessInfo(hnsw.getConfig(), tr, getSubspace(), OnReadListener.NOOP)));
+    }
+
+    /**
+     * {@link StorageAdapter#scanLayer} decodes the nodes it reads with the storage transform it is given, exactly like
+     * {@link StorageAdapter#fetchNode}. Only the transform brings a node written before the switch to RaBitQ, which is
+     * stored in client coordinates, into the storage space, so such nodes are what this checks.
+     */
+    @ParameterizedTest
+    @MethodSource("seedAndUseInlining")
+    void scanLayerDecodesNodesLikeFetchNode(final long seed, final boolean useInlining) throws Exception {
+        final Random random = new Random(seed);
+        final int numDimensions = 64;
+        final HNSW hnsw = newStructureSwitchingToRaBitQ(numDimensions, useInlining);
+        insertAll(hnsw, randomVectors(random, numDimensions, 300));
+
+        final AccessInfo accessInfo = fetchAccessInfo(hnsw);
+        assertThat(accessInfo.canUseRaBitQ()).as("the structure must have switched to RaBitQ").isTrue();
+        final Primitives primitives = hnsw.getLocator().primitives();
+        final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
+
+        int numCheckedWrittenBeforeSwitch = 0;
+        for (int layer = 0; layer <= accessInfo.getEntryNodeReference().getLayer(); layer ++) {
+            final StorageAdapter<? extends NodeReference> storageAdapter = primitives.storageAdapterForLayer(layer);
+            numCheckedWrittenBeforeSwitch += storageAdapter.isInliningStorageAdapter()
+                                             ? assertInliningScanMatchesFetch(storageAdapter.asInliningStorageAdapter(),
+                                                     storageTransform, layer)
+                                             : assertCompactScanMatchesFetch(storageAdapter.asCompactStorageAdapter(),
+                                                     storageTransform, layer);
+        }
+        assertThat(numCheckedWrittenBeforeSwitch)
+                .as("vectors written before the switch must have been checked")
+                .isPositive();
+    }
+
+    /**
+     * Asserts that every node {@code scanLayer} reads on a compact layer has the vector {@code fetchNode} reads for it,
+     * and returns how many of those nodes are stored as plain vectors, i.e. were written before the switch to RaBitQ.
+     */
+    private int assertCompactScanMatchesFetch(@Nonnull final CompactStorageAdapter storageAdapter,
+                                              @Nonnull final StorageTransform storageTransform, final int layer)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final List<AbstractNode<NodeReference>> scannedNodes = db.run(tr ->
+                ImmutableList.copyOf(storageAdapter.scanLayer(tr, storageTransform, layer, null, Integer.MAX_VALUE)));
+        final List<AbstractNode<NodeReference>> storedNodes = db.run(tr ->
+                ImmutableList.copyOf(storageAdapter.scanLayer(tr, StorageTransform.identity(), layer, null,
+                        Integer.MAX_VALUE)));
+        final List<AbstractNode<NodeReference>> fetchedNodes = runAsyncToSync(db, tr ->
+                AsyncUtil.getAll(scannedNodes.stream()
+                        .map(node -> storageAdapter.fetchNode(tr, storageTransform, layer, node.getPrimaryKey()))
+                        .collect(ImmutableList.toImmutableList())));
+        assertThat(storedNodes).hasSameSizeAs(scannedNodes);
+
+        int numWrittenBeforeSwitch = 0;
+        for (int i = 0; i < scannedNodes.size(); i ++) {
+            final AbstractNode<NodeReference> scannedNode = scannedNodes.get(i);
+            assertThat(scannedNode.asCompactNode().getVector())
+                    .as("layer %d node %s", layer, scannedNode.getPrimaryKey())
+                    .isEqualTo(fetchedNodes.get(i).asCompactNode().getVector());
+            if (!(storedNodes.get(i).asCompactNode().getVector().getUnderlyingVector() instanceof EncodedRealVector)) {
+                numWrittenBeforeSwitch ++;
+            }
+        }
+        return numWrittenBeforeSwitch;
+    }
+
+    /**
+     * Asserts that every neighbor reference {@code scanLayer} reads on an inlining layer carries the vector
+     * {@code fetchNode} reads for it, and returns how many of those references are stored as plain vectors.
+     */
+    private int assertInliningScanMatchesFetch(@Nonnull final InliningStorageAdapter storageAdapter,
+                                               @Nonnull final StorageTransform storageTransform, final int layer)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final List<AbstractNode<NodeReferenceWithVector>> scannedNodes = db.run(tr ->
+                ImmutableList.copyOf(storageAdapter.scanLayer(tr, storageTransform, layer, null, Integer.MAX_VALUE)));
+        final List<AbstractNode<NodeReferenceWithVector>> storedNodes = db.run(tr ->
+                ImmutableList.copyOf(storageAdapter.scanLayer(tr, StorageTransform.identity(), layer, null,
+                        Integer.MAX_VALUE)));
+        final List<AbstractNode<NodeReferenceWithVector>> fetchedNodes = runAsyncToSync(db, tr ->
+                AsyncUtil.getAll(scannedNodes.stream()
+                        .map(node -> storageAdapter.fetchNode(tr, storageTransform, layer, node.getPrimaryKey()))
+                        .collect(ImmutableList.toImmutableList())));
+        assertThat(storedNodes).hasSameSizeAs(scannedNodes);
+
+        int numWrittenBeforeSwitch = 0;
+        for (int i = 0; i < scannedNodes.size(); i ++) {
+            final Map<Tuple, RealVector> fetchedNeighborVectors = Maps.newHashMap();
+            for (final NodeReferenceWithVector neighbor : fetchedNodes.get(i).getNeighbors()) {
+                fetchedNeighborVectors.put(neighbor.getPrimaryKey(), neighbor.getVector().getUnderlyingVector());
+            }
+            final Map<Tuple, RealVector> scannedNeighborVectors = Maps.newHashMap();
+            for (final NodeReferenceWithVector neighbor : scannedNodes.get(i).getNeighbors()) {
+                scannedNeighborVectors.put(neighbor.getPrimaryKey(), neighbor.getVector().getUnderlyingVector());
+            }
+            assertThat(scannedNeighborVectors)
+                    .as("layer %d node %s", layer, scannedNodes.get(i).getPrimaryKey())
+                    .isEqualTo(fetchedNeighborVectors);
+            for (final NodeReferenceWithVector neighbor : storedNodes.get(i).getNeighbors()) {
+                if (!(neighbor.getVector().getUnderlyingVector() instanceof EncodedRealVector)) {
+                    numWrittenBeforeSwitch ++;
+                }
+            }
+        }
+        return numWrittenBeforeSwitch;
+    }
+
+    /**
+     * {@link HNSW#scanLayer} returns every vector in client coordinates: it reads each node into the storage space and
+     * untransforms it from there. A node written before the switch to RaBitQ is stored in client coordinates, so it has
+     * to come back as it was inserted rather than untransformed a second time.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void hnswScanLayerReturnsVectorsInClientCoordinates(final long seed) throws Exception {
+        final Random random = new Random(seed);
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final int numDimensions = 64;
+        final HNSW hnsw = newStructureSwitchingToRaBitQ(numDimensions, false);
+        final List<PrimaryKeyAndVector> insertedData = randomVectors(random, numDimensions, 300);
+        insertAll(hnsw, insertedData);
+        final Map<Tuple, RealVector> insertedVectors = Maps.newHashMap();
+        for (final PrimaryKeyAndVector primaryKeyAndVector : insertedData) {
+            insertedVectors.put(primaryKeyAndVector.primaryKey(), primaryKeyAndVector.vector());
+        }
+
+        final Set<Tuple> writtenBeforeSwitch = Sets.newHashSet();
+        TestHelpers.scanLayer(getDb(), getSubspace(), hnsw.getConfig(), 0, 100, node -> {
+            if (!(node.asCompactNode().getVector().getUnderlyingVector() instanceof EncodedRealVector)) {
+                writtenBeforeSwitch.add(node.getPrimaryKey());
+            }
+        });
+        assertThat(writtenBeforeSwitch).as("the structure must hold both kinds of nodes")
+                .isNotEmpty()
+                .hasSizeLessThan(insertedData.size());
+
+        final List<ResultEntry> resultEntries = new ArrayList<>();
+        HNSW.scanLayer(hnsw.getConfig(), getSubspace(), getDb(), 0, 100, resultEntries::add);
+        assertThat(resultEntries).hasSameSizeAs(insertedData);
+        for (final ResultEntry resultEntry : resultEntries) {
+            final RealVector insertedVector = Objects.requireNonNull(insertedVectors.get(resultEntry.primaryKey()));
+            final RealVector scannedVector = Objects.requireNonNull(resultEntry.vector());
+            if (writtenBeforeSwitch.contains(resultEntry.primaryKey())) {
+                assertThat(metric.distance(insertedVector, scannedVector))
+                        .as("node %s was written before the switch", resultEntry.primaryKey())
+                        .isCloseTo(0.0d, within(2E-12));
+            } else {
+                assertThat(metric.distance(insertedVector, scannedVector.toDoubleRealVector()))
+                        .as("node %s is encoded", resultEntry.primaryKey())
+                        .isCloseTo(0.0d, within(20.0d));
+            }
+        }
+    }
+
+    /**
+     * When the deleted node was the entry node and no candidate on its top layer can be traversed through, the delete
+     * scans that layer for a node that can and offers it as the new entry node. The access info holds the entry node in
+     * the storage space, so the offered vector has to be in the storage space as well, also for a node written before
+     * the switch to RaBitQ, which is stored in client coordinates.
+     *
+     * <p>The graph is written directly. On layer 1 the entry node and its partner point only at each other, and a separate
+     * pair of nodes points only at each other. Deleting the entry node leaves its partner, its only candidate, without
+     * an outgoing edge, which is what makes the delete scan the layer, where the first node it reads with an outgoing
+     * edge is the first node of the separate pair.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void deleteOfEntryNodeOffersScannedNodeInStorageSpace(final long seed) throws Exception {
+        final Random random = new Random(seed);
+        final int numDimensions = 16;
+        final HNSW hnsw = new HNSW(subspaceExtension.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.newConfigBuilder()
+                        .setMetric(Metric.EUCLIDEAN_METRIC)
+                        .setUseRaBitQ(true)
+                        .build(numDimensions),
+                new TestOnWriteListener(), new TestOnReadListener());
+        final Primitives primitives = hnsw.getLocator().primitives();
+
+        //
+        // Four nodes whose top layer is 1, in the order the scan reads them: the entry node, its partner, and the
+        // separate pair.
+        //
+        final List<Tuple> primaryKeys = LongStream.range(0, Long.MAX_VALUE)
+                .mapToObj(i -> Tuple.from(i))
+                .filter(primaryKey -> primitives.topLayer(primaryKey) == 1)
+                .limit(4)
+                .collect(ImmutableList.toImmutableList());
+        final Tuple entryPrimaryKey = primaryKeys.get(0);
+        final Tuple partnerPrimaryKey = primaryKeys.get(1);
+        final Tuple firstOfPairPrimaryKey = primaryKeys.get(2);
+        final Tuple secondOfPairPrimaryKey = primaryKeys.get(3);
+        final Map<Tuple, RealVector> vectors = Maps.newHashMap();
+        for (final Tuple primaryKey : primaryKeys) {
+            vectors.put(primaryKey, createRandomDoubleVector(random, numDimensions));
+        }
+
+        final long rotatorSeed = random.nextLong();
+        final RealVector negatedCentroid = createRandomDoubleVector(random, numDimensions);
+        final StorageTransform storageTransform = primitives.storageTransform(rotatorSeed, negatedCentroid,
+                primitives.isMetricNeedsNormalizedVectors());
+
+        db.run(tr -> {
+            final CompactStorageAdapter layer0StorageAdapter =
+                    primitives.storageAdapterForLayer(0).asCompactStorageAdapter();
+            for (final Tuple primaryKey : primaryKeys) {
+                writePlainNode(tr, layer0StorageAdapter, 0, primaryKey, vectors.get(primaryKey),
+                        primaryKeys.stream()
+                                .filter(other -> !other.equals(primaryKey))
+                                .collect(ImmutableList.toImmutableList()));
+            }
+            final CompactStorageAdapter layer1StorageAdapter =
+                    primitives.storageAdapterForLayer(1).asCompactStorageAdapter();
+            writePlainNode(tr, layer1StorageAdapter, 1, entryPrimaryKey, vectors.get(entryPrimaryKey),
+                    ImmutableList.of(partnerPrimaryKey));
+            writePlainNode(tr, layer1StorageAdapter, 1, partnerPrimaryKey, vectors.get(partnerPrimaryKey),
+                    ImmutableList.of(entryPrimaryKey));
+            writePlainNode(tr, layer1StorageAdapter, 1, firstOfPairPrimaryKey, vectors.get(firstOfPairPrimaryKey),
+                    ImmutableList.of(secondOfPairPrimaryKey));
+            writePlainNode(tr, layer1StorageAdapter, 1, secondOfPairPrimaryKey, vectors.get(secondOfPairPrimaryKey),
+                    ImmutableList.of(firstOfPairPrimaryKey));
+            StorageAdapter.writeAccessInfo(tr, getSubspace(),
+                    new AccessInfo(new EntryNodeReference(entryPrimaryKey,
+                            storageTransform.transform(vectors.get(entryPrimaryKey)), 1),
+                            rotatorSeed, negatedCentroid),
+                    OnWriteListener.NOOP);
+            return null;
+        });
+
+        runAsyncToSync(db, tr -> hnsw.delete(tr, entryPrimaryKey));
+
+        final EntryNodeReference newEntryNodeReference = fetchAccessInfo(hnsw).getEntryNodeReference();
+        assertThat((Object)newEntryNodeReference.getPrimaryKey())
+                .as("the scan must offer the first node it reads that has an outgoing edge")
+                .isEqualTo(firstOfPairPrimaryKey);
+        assertThat(newEntryNodeReference.getLayer()).isEqualTo(1);
+        final Transformed<RealVector> expectedVector =
+                storageTransform.transform(vectors.get(firstOfPairPrimaryKey));
+        assertThat(expectedVector.getUnderlyingVector())
+                .as("the storage transform must move the vector, or the next assertion proves nothing")
+                .isNotEqualTo(vectors.get(firstOfPairPrimaryKey));
+        assertThat(newEntryNodeReference.getVector())
+                .as("the new entry node must be held in the storage space")
+                .isEqualTo(expectedVector);
+    }
+
+    /**
+     * Writes a compact node whose vector is stored as a plain vector in client coordinates, as for a node written
+     * before the switch to RaBitQ.
+     */
+    private static void writePlainNode(@Nonnull final Transaction transaction,
+                                       @Nonnull final CompactStorageAdapter storageAdapter, final int layer,
+                                       @Nonnull final Tuple primaryKey, @Nonnull final RealVector vector,
+                                       @Nonnull final List<Tuple> neighborPrimaryKeys) {
+        TestHelpers.writeNode(transaction, storageAdapter,
+                storageAdapter.getNodeFactory().create(primaryKey, StorageTransform.identity().transform(vector),
+                        null,
+                        neighborPrimaryKeys.stream()
+                                .map(NodeReference::new)
+                                .collect(ImmutableList.toImmutableList())),
+                layer);
+    }
+
     @ParameterizedTest
     @MethodSource("differentMetrics")
     void testOrderByDistance(final long seed, final Config config) throws ExecutionException, InterruptedException, TimeoutException {
@@ -664,16 +968,11 @@ class OperationsTest implements BaseTest {
         onReadListener.reset();
 
         final List<ResultEntry> results =
-                db.run(tr -> {
-                    final AsyncIterator<ResultEntry> it =
-                            hnsw.orderByDistance(tr, 100, 1000, false,
-                                    queryVector, discriminator.distance(), discriminator.primaryKey(), false);
-                    final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
-                    while (it.hasNext()) {
-                        resultsBuilder.add(it.next());
-                    }
-                    return resultsBuilder.build();
-                });
+                runAsyncToSync(db, tr ->
+                        AsyncUtil.collectRemaining(
+                                hnsw.orderByDistance(tr, 100, 1000, false,
+                                        queryVector, discriminator.distance(), discriminator.primaryKey(), false),
+                                TestExecutors.defaultThreadPool()));
 
         int numInversions = 0;
         for (int i = 1; i < results.size(); i++) {

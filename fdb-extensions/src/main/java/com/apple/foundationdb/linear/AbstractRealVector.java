@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
  * functions of the data ({@link #hashCode()}, {@link #getRawData()}, {@link #l2SquaredNorm()}),
  * and delegates the precision-specific bits (raw-byte format, conversions to other vector
  * representations) to concrete subclasses.
- * <p>
- * The class is intentionally precision-agnostic at this level — every accessor returns
+ *
+ * <p>The class is intentionally precision-agnostic at this level — every accessor returns
  * {@code double}, and subclasses only differ in <em>storage</em> resolution (which they truncate
  * to in their constructors) and in the wire format produced by {@link #computeRawData()}.
  * Mutable storage is the special case modeled by {@link MutableDoubleRealVector}; everything
@@ -61,8 +61,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Constructs a new RealVector with the given data.
-     * <p>
-     * This constructor uses the provided array directly as the backing store for the vector. It does not create a
+     *
+     * <p>This constructor uses the provided array directly as the backing store for the vector. It does not create a
      * defensive copy. Therefore, any subsequent modifications to the input array will be reflected in this vector's
      * state. The contract of this constructor is that callers do not modify {@code data} after calling the constructor.
      * We do not want to copy the array here for performance reasons.
@@ -84,8 +84,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Gets the component of this object at the specified dimension.
-     * <p>
-     * The dimension is a zero-based index. For a 3D vector, for example, dimension 0 might correspond to the
+     *
+     * <p>The dimension is a zero-based index. For a 3D vector, for example, dimension 0 might correspond to the
      * x-component, 1 to the y-component, and 2 to the z-component. This method provides direct access to the
      * underlying data element.
      * @param dimension the zero-based index of the component to retrieve.
@@ -100,8 +100,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Returns the underlying {@code double[]} data array.
-     * <p>
-     * The returned array is guaranteed to be non-null. Note that this method
+     *
+     * <p>The returned array is guaranteed to be non-null. Note that this method
      * returns a direct reference to the internal array, not a copy — callers must not mutate it
      * unless the concrete subtype is {@link MutableDoubleRealVector}.
      * @return the data array, never {@code null}.
@@ -114,8 +114,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Gets the raw byte data representation of this object.
-     * <p>
-     * This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
+     *
+     * <p>This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
      * implementation-specific and should be documented by the concrete class that implements this method.
      * @return a non-null byte array containing the raw data.
      */
@@ -127,8 +127,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Computes the raw byte data representation of this object.
-     * <p>
-     * This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
+     *
+     * <p>This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
      * implementation-specific and should be documented by the concrete class that implements this method.
      * @return a non-null byte array containing the raw data.
      */
@@ -137,8 +137,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Compares this vector to the specified object for equality.
-     * <p>
-     * The result is {@code true} if and only if the argument is not {@code null} and is a {@code RealVector} object that
+     *
+     * <p>The result is {@code true} if and only if the argument is not {@code null} and is a {@code RealVector} object that
      * has the same data elements as this object. This method performs a deep equality check on the underlying data
      * elements using {@link Objects#deepEquals(Object, Object)}.
      * @param o the object to compare with this {@code RealVector} for equality.
@@ -171,8 +171,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Returns a string representation of the object.
-     * <p>
-     * This method provides a default string representation by calling
+     *
+     * <p>This method provides a default string representation by calling
      * {@link #toString(int)} with a predefined indentation level of 3.
      *
      * @return a string representation of this object with a default indentation.
@@ -184,8 +184,8 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Generates a string representation of the data array, with an option to limit the number of dimensions shown.
-     * <p>
-     * If the specified {@code limitDimensions} is less than the actual number of dimensions in the data array,
+     *
+     * <p>If the specified {@code limitDimensions} is less than the actual number of dimensions in the data array,
      * the resulting string will be a truncated view, ending with {@code ", ..."} to indicate that more elements exist.
      * Otherwise, the method returns a complete string representation of the entire array.
      * @param limitDimensions The maximum number of array elements to include in the string. A non-positive

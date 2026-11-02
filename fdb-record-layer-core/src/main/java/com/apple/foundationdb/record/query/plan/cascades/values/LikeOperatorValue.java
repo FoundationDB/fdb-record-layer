@@ -109,34 +109,26 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * Matcher for the SQL {@code LIKE} operator. It returns whether the given {@code text} matches the given
      * {@code pattern}.
      *
-     * <p>
-     * The {@code pattern} is a {@code LIKE} pattern as specified by the SQL specification: {@code '%'} matches any
+     * <p>The {@code pattern} is a {@code LIKE} pattern as specified by the SQL specification: {@code '%'} matches any
      * sequence of characters, {@code '_'} matches exactly one character, and {@code escape} escapes the next character
      * as a literal. All other characters match themselves. If {@code escape} is null, then no characters are escaped
      * (which means that there is no way to match the literal {@code '%'} or {@code '_'} characters).
-     * </p>
      *
-     * <p>
-     * This will reject any escape values that are either already used for wildcards ({@code '%'} or {@code '_'}),
+     * <p>This will reject any escape values that are either already used for wildcards ({@code '%'} or {@code '_'}),
      * or are not a single character. It also rejects any escape values that are made up of the invalid Unicode
      * codepoints used by UTF-16 strings to model multi-character codepoints.
-     * </p>
      *
-     * <p>
-     * Note that the escape character only matches the next character as a literal if the next character is actually
+     * <p>Note that the escape character only matches the next character as a literal if the next character is actually
      * special. So {@code escape + '_'} matches the literal {@code '_'}, {@code escape + '%'} matches the literal
      * {@code '%'}, and also {@code escape + escape} matches the escape character {@code escape}. If the pattern
      * has an {@code escape} followed by a non-special character or if it ends with a single {@code escape}, then
      * this throws a {@link SemanticException} with an {@link SemanticException.ErrorCode#INVALID_ESCAPE_SEQUENCE}
      * error code.
-     * </p>
      *
-     * <p>
-     * One note on the implementation. Some care has been taken here to avoid exponential backtracking, which naïve
+     * <p>One note on the implementation. Some care has been taken here to avoid exponential backtracking, which naïve
      * regex compilation could result in for certain patterns. Instead, this is designed to operate in polynomial time,
      * though given an adversarial pattern, it can still devolve to <i>O</i>(<i>n</i> &sdot; <i>p</i>) where
      * <i>n</i> is the length of the {@code text} and <i>p</i> is the length of the {@code pattern}.
-     * </p>
      *
      * @param text the text to attempt to match
      * @param pattern the pattern to match the text against
@@ -321,7 +313,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();
         Type patternType = arguments.get(1).getResultType();
-        SemanticException.check(srcType.isNull() || srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(srcType.isNull() || srcType.getTypeCode() == TypeCode.STRING, SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
         SemanticException.check(PatternForLikeValue.TYPE.equals(patternType), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new LikeOperatorValue((Value) arguments.get(0), (Value) arguments.get(1));

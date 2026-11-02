@@ -48,10 +48,9 @@ import java.util.function.Function;
 /**
  * A cursor that maps elements to another cursor which is then flattened.
  *
- * <p>
- * The cursor is <i>pipelined</i>, that is, it maintains up to a specified number of open cursors ahead of what it has returned,
+ * <p>The cursor is <i>pipelined</i>, that is, it maintains up to a specified number of open cursors ahead of what it has returned,
  * so that work is done in parallel.
- * </p>
+ *
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor produced by the function
  */

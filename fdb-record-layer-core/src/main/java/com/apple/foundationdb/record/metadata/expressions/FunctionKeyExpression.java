@@ -184,13 +184,12 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * the function's argument expression is evaluated and is expected to produce a set of arguments. This method
      * is invoked once for each of these and, itself, may produce a set of <code>Key.Evaluated</code> values that
      * produce the final set of keys.
-     * <p>
-     * Note that the <code>record</code> parameter might be <code>null</code>. Function implementors should treat
+     *
+     * <p>Note that the <code>record</code> parameter might be <code>null</code>. Function implementors should treat
      * this case the same way that they would treat a non-<code>null</code> record that has all of its non-repeated
      * fields unset and all of its repeated fields empty. If the function result depends only on the
      * value of <code>arguments</code> and not <code>record</code> directly, then the implementor can ignore
      * the nullity of <code>record</code>.
-     * </p>
      *
      * @param <M> the type of the records
      * @param record the record against which this function will produce a key

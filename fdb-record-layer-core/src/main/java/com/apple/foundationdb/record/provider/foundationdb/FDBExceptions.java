@@ -110,9 +110,7 @@ public class FDBExceptions {
      * FoundationDB client, which can be configured by either setting the transaction timeout milliseconds
      * on the {@link FDBDatabaseFactory}, the {@link FDBDatabaseRunner}, or the {@link FDBRecordContextConfig}.
      *
-     * <p>
-     * Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
-     * </p>
+     * <p>Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
      *
      * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
      * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)
@@ -156,8 +154,26 @@ public class FDBExceptions {
      */
     @SuppressWarnings("serial")
     public static class FDBStoreLockTakenException extends RecordCoreRetriableTransactionException {
+        @Nullable
+        private final Long leaseRemainingMillis;
+
         public FDBStoreLockTakenException(String message, Exception cause) {
+            this(message, cause, null);
+        }
+
+        public FDBStoreLockTakenException(String message, Exception cause, @Nullable Long leaseRemainingMillis) {
             super(message, cause);
+            this.leaseRemainingMillis = leaseRemainingMillis;
+        }
+
+        /**
+         * If available, get the lease time that was left when the lock attempt failed. The lock holder may renew the
+         * lease before it expires.
+         * @return the time left in milliseconds, or {@code null} if unknown
+         */
+        @Nullable
+        public Long getLeaseRemainingMillis() {
+            return leaseRemainingMillis;
         }
     }
 
@@ -173,6 +189,17 @@ public class FDBExceptions {
 
         public FDBStoreRetriableException(String message, FDBException cause) {
             super(message, cause);
+        }
+    }
+
+    /**
+     * A retriable exception where the transaction may have committed, so a blind retry is not safe.
+     * @see FDBException#isMaybeCommitted
+     */
+    @SuppressWarnings("serial")
+    public static class FDBStoreMaybeCommittedException extends FDBStoreRetriableException {
+        public FDBStoreMaybeCommittedException(FDBException cause) {
+            super(cause);
         }
     }
 
@@ -205,7 +232,9 @@ public class FDBExceptions {
                 case VALUE_TOO_LARGE:
                     return new FDBStoreValueSizeException(fdbex).addLogInfo(logInfo);
                 default:
-                    if (fdbex.isRetryable()) {
+                    if (fdbex.isMaybeCommitted()) {
+                        return new FDBStoreMaybeCommittedException(fdbex).addLogInfo(logInfo);
+                    } else if (fdbex.isRetryable()) {
                         return new FDBStoreRetriableException(fdbex).addLogInfo(logInfo);
                     } else {
                         return new FDBStoreException(fdbex).addLogInfo(logInfo);

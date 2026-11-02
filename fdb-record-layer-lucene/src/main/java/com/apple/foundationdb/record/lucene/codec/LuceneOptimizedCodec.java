@@ -88,9 +88,8 @@ public class LuceneOptimizedCodec extends Codec {
 
     /**
      * Instantiates a new codec.
-     * <p>
-     *     The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
-     * </p>
+     *
+     * <p>The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
      */
     public LuceneOptimizedCodec() {
         super("RL");

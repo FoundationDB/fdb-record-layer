@@ -70,8 +70,8 @@ import java.util.function.Supplier;
  * type coercions are applied in one pass to each record. The resulting record is of the target type and is encoded
  * using the target protobuf {@link com.google.protobuf.Descriptors.Descriptor}. That record is then handed to an
  * abstract method that can implement a mutation to the store.
- * <br>
- * Example
+ *
+ * <p>Example
  * <pre>
  * recordType:
  * {@code Restaurant(STRING as name, FLOAT as avg_review)}, descriptor from precompiled {@code RestaurantRecord}
@@ -192,6 +192,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        QueryPlanUtils.enforceSerializable(executeProperties, this.getClass());
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
         final var targetDescriptor = store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
@@ -287,7 +288,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         if (getClass() != other.getClass()) {
             return false;
         }
-        final RecordQueryUpdatePlan otherUpdatePlan = (RecordQueryUpdatePlan)other;
+        final RecordQueryAbstractDataModificationPlan otherUpdatePlan = (RecordQueryAbstractDataModificationPlan)other;
         if (!getTargetRecordType().equals(otherUpdatePlan.getTargetRecordType())) {
             return false;
         }

@@ -78,8 +78,8 @@ public class TestFDBDirectory extends FDBDirectory {
     /**
      * Buffer all {@link IndexInput} content on {@code #openInput} so that it can continue to be read after the
      * associated file has been deleted.
-     * <p>
-     * Some tests depend on the following behavior, that is hopefully only a test behavior, and not a real Lucene
+     *
+     * <p>Some tests depend on the following behavior, that is hopefully only a test behavior, and not a real Lucene
      * dependency:
      *     <ol>
      *         <li>open an {@code IndexInput}</li>
@@ -90,16 +90,13 @@ public class TestFDBDirectory extends FDBDirectory {
      *     contains the whole file in a byte array. It works for the various {@link org.apache.lucene.store.FSDirectory}s
      *     because, at least on a mac, if you open a file handle, and then delete the associated file, you can continue
      *     to read from the file (at least as much as is cached).
-     * </p>
-     * <p>
-     *     Right now it only fails for one test, and that test seems suspect, and looks as though it is just a weird
+     *
+     * <p>Right now it only fails for one test, and that test seems suspect, and looks as though it is just a weird
      *     assumption of the test. Anytime we add a new usage of this we should make sure that it's not a sign that
      *     Lucene itself has an assumption that you can read files after they are deleted, and thus we could break
      *     lucene.
-     * </p>
-     * <p>
-     *     If you set this to {@code true} make sure to set it back to {@code false} in a {@code finally} block.
-     * </p>
+     *
+     * <p>If you set this to {@code true} make sure to set it back to {@code false} in a {@code finally} block.
      */
     public static void useFullBufferToSurviveDeletes() {
         TestFDBDirectory.fullBufferToSurviveDeletes = true;
@@ -107,8 +104,8 @@ public class TestFDBDirectory extends FDBDirectory {
 
     /**
      * Enables support so that {@link IndexWriter#addIndexes} works correctly.
-     * <p>
-     * {@link IndexWriter#addIndexes} is used to copy segments from one directory to another. Under the hood this
+     *
+     * <p>{@link IndexWriter#addIndexes} is used to copy segments from one directory to another. Under the hood this
      * uses {@link org.apache.lucene.store.Directory#copyFrom} to copy the data, which we could override, but
      * {@link org.apache.lucene.store.MockDirectoryWrapper} explicitly does not call into the wrapped function, so
      * there is no clean way for us to copy non-file data, instead it will always just copy the files. This looks
@@ -118,7 +115,6 @@ public class TestFDBDirectory extends FDBDirectory {
      * commit</a>.
      * The code that is run when this is enabled analyzes the stack trace and copies the data that is not stored in
      * files to the destination.
-     * </p>
      */
     public static void allowAddIndexes() {
         TestFDBDirectory.allowAddIndexes = true;

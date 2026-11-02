@@ -64,13 +64,13 @@ import java.util.stream.StreamSupport;
  * careful memoization. The Cascades "group expression", represented by the {@code Reference}, is the key to
  * that memoization by sharing optimization work on a sub-expression with other parts of the expression that reference
  * the same sub-expression.
- * <br>
- * The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
+ *
+ * <p>The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
  * which is undefined behavior. Note that a {@link Reference} cannot be "de-referenced" using the {@link #get()}
  * method if it contains more than one member. Expressions with more than one member should not be used outside the
  * query planner, and {@link #get()} should not be used inside the query planner.
- * <br>
- * A reference contains expressions. It further differentiates between contained exploratory expressions and final
+ *
+ * <p>A reference contains expressions. It further differentiates between contained exploratory expressions and final
  * expressions. Utilized during planning, exploratory expressions are expressions that designated exploration rules
  * explore and yield whereas final expressions are those expressions that are yielded by implementation rules and which
  * take part in a best-plan selection process called pruning that will eventually distill one remaining final expression
@@ -79,11 +79,11 @@ import java.util.stream.StreamSupport;
  * {@link RecordQueryPlan}s while all final expressions are {@link RecordQueryPlan}s. Note that other planner phases do
  * not make such a type-based distinction between exploratory and final expressions. For instance
  * {@link PlannerPhase#REWRITING} uses {@link RelationalExpression} for both exploratory and final expressions.
- * <br>
- * All exploratory expressions form a set and all final expressions form a set as well. It is, however, possible, that
+ *
+ * <p>All exploratory expressions form a set and all final expressions form a set as well. It is, however, possible, that
  * an expression is part of both sets.
- * <br>
- * Both sets of exploratory and final expressions are mutated during in the following contexts during the planning
+ *
+ * <p>Both sets of exploratory and final expressions are mutated during in the following contexts during the planning
  * process:
  * <ul>
  *     <li>
@@ -179,7 +179,7 @@ public class Reference implements Correlated<Reference>, Typed {
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
         this.propertiesMap = plannerStage.createPropertiesMap();
-        finalExpressions.forEach(finalExpression -> propertiesMap.add(finalExpression));
+        finalExpressions.forEach(propertiesMap::add);
         this.allMembersView = exploratoryMembers.concatExpressions(finalMembers);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);

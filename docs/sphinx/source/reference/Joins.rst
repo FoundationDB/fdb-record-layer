@@ -4,11 +4,11 @@ Joins
 
 .. _joins:
 
-Joins combine rows from two or more tables based on a related column. The FDB Record Layer supports the standard SQL join keywords ``INNER JOIN`` (or just ``JOIN``), ``LEFT OUTER JOIN`` (or ``LEFT JOIN``), and ``RIGHT OUTER JOIN`` (or ``RIGHT JOIN``). As an alternative to the ``INNER JOIN`` syntax, inner joins can also be expressed using comma-separated table references in the ``FROM`` clause with join conditions specified in the ``WHERE`` clause.
+Joins combine rows from two or more tables based on a related column. The FDB Record Layer supports the standard SQL join keywords ``INNER JOIN`` (or just ``JOIN``), ``CROSS JOIN``, ``LEFT OUTER JOIN`` (or ``LEFT JOIN``), and ``RIGHT OUTER JOIN`` (or ``RIGHT JOIN``). As an alternative to the ``INNER JOIN`` syntax, inner joins can also be expressed using comma-separated table references in the ``FROM`` clause with join conditions specified in the ``WHERE`` clause.
 
 .. important::
 
-   The FDB Record Layer **does not support** the ``FULL OUTER JOIN`` and ``CROSS JOIN`` variants.
+   The FDB Record Layer **does not support** the ``FULL OUTER JOIN`` variant.
 
 Basic join syntax
 =================
@@ -16,13 +16,32 @@ Basic join syntax
 Cross join (Cartesian product)
 ------------------------------
 
-The FDB Record Layer **does not support** the ``CROSS JOIN`` keyword. List multiple tables separated by commas instead:
+Use ``CROSS JOIN`` to combine every row of one table with every row of another:
+
+.. code-block:: sql
+
+    SELECT columns FROM table1 CROSS JOIN table2
+
+This produces a Cartesian product of all rows from both tables. It is equivalent to listing the tables separated by commas:
 
 .. code-block:: sql
 
     SELECT columns FROM table1, table2
 
-This produces a Cartesian product of all rows from both tables.
+A ``CROSS JOIN`` takes no ``ON`` or ``USING`` clause. To keep only some of the combinations, filter them in the ``WHERE`` clause:
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM table1 CROSS JOIN table2
+    WHERE table1.column = table2.column
+
+When the ``FROM`` clause contains only inner and cross joins, this returns the same rows as the equivalent ``INNER JOIN … ON``.
+
+.. important::
+
+   A ``WHERE`` clause does not always replace an ``ON`` condition, so take care when using ``CROSS JOIN … WHERE`` in place of ``INNER JOIN … ON``. A ``WHERE`` clause applies to the result of *all* joins in the ``FROM`` clause, while an ``ON`` condition applies only to its own join. When an outer join follows, the two forms can return different rows: for example, ``A CROSS JOIN B RIGHT JOIN C ON … WHERE A.x = B.y`` drops the unmatched ``C`` rows that ``A INNER JOIN B ON A.x = B.y RIGHT JOIN C ON …`` keeps.
+
 
 Inner join with ``ON``
 ----------------------
@@ -292,6 +311,31 @@ Use Common Table Expressions in joins:
 
 This creates two CTEs and joins them using a cross join.
 
+Cross join with a filter
+------------------------
+
+Pair every project with a department, keeping only the Sales department:
+
+.. code-block:: sql
+
+    SELECT dept.name, project.name
+    FROM dept CROSS JOIN project
+    WHERE dept.name = 'Sales'
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`name`
+      - :sql:`name`
+    * - :json:`"Sales"`
+      - :json:`"OLAP"`
+    * - :json:`"Sales"`
+      - :json:`"SEO"`
+    * - :json:`"Sales"`
+      - :json:`"Feedback"`
+
+Without the ``WHERE`` clause, the query returns all 9 combinations of the 3 departments and the 3 projects.
+
 Self-join
 ---------
 
@@ -369,9 +413,11 @@ Use aliases to:
 Join conditions
 ---------------
 
-- Join conditions should be specified in the ``WHERE`` clause (for comma-separated tables) or the ``ON`` clause (for ``INNER JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``).
+- Join conditions should be specified in the ``WHERE`` clause (for comma-separated tables and ``CROSS JOIN``) or the ``ON`` clause (for ``INNER JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``).
+- A ``CROSS JOIN`` takes no ``ON`` condition, but its rows can be filtered with a ``WHERE`` clause (see `Cross join (Cartesian product)`_).
 - Use ``AND`` to combine multiple join conditions and filters.
-- Omitting join conditions produces a Cartesian product (all combinations of rows).
+- ``INNER JOIN`` (or ``JOIN``) requires an ``ON`` condition or a ``USING`` column list; omitting both is a syntax error.
+- Comma-separated tables or a ``CROSS JOIN`` without a ``WHERE`` condition produce a Cartesian product (all combinations of rows).
 
 See also
 ========

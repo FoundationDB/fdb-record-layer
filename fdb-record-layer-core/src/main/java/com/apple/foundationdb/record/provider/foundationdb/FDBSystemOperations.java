@@ -56,9 +56,7 @@ public class FDBSystemOperations {
      * where this value might change if the cluster decides that it needs to fail over to a secondary region. The returned
      * datacenter ID will be {@code null} if the FDB cluster's datacenter has not been set.
      *
-     * <p>
-     * Note that this operation must read this information from the database's storage and uses its own transaction.
-     * </p>
+     * <p>Note that this operation must read this information from the database's storage and uses its own transaction.
      *
      * @param runner a runner to use to perform the operation
      * @return a future that will complete with the primary datacenter of the cluster for the database underlying {@code runner}
@@ -98,11 +96,9 @@ public class FDBSystemOperations {
      * may schedule to complete the work at a later time), it does not actually perform any network calls but reads
      * the value from the client's local memory.
      *
-     * <p>
-     * For more information, see the documentation on the
+     * <p>For more information, see the documentation on the
      * <a href="https://apple.github.io/foundationdb/administration.html#cluster-file-format">cluster file format</a>
      * in the FoundationDB documentation.
-     * </p>
      *
      * @param runner a runner to use to perform the operation
      * @return a future that will contain the current cluster connection string

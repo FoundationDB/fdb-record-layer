@@ -33,14 +33,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ofFields;
 
 /**
- * A rule that decomposes a {@link FieldValue} that uses multiple steps into two {@link FieldValue}s as follows:
+ * A rule that decomposes a {@link FieldValue} that uses multiple steps into two {@link FieldValue}s. The decomposition
+ * is as follows:
  * <pre>
  * {@code
  *     FieldValue(val, [s1.s2.....sn])) ==> FieldValue(FieldValue(val, [s1.s2.....sn-1])), sn)
  * }
  * </pre>
- * <br>
- * Note that this rule is the conceptual opposite of {@link ComposeFieldValueOverFieldValueRule}. These rules should
+ *
+ * <p>Note that this rule is the conceptual opposite of {@link ComposeFieldValueOverFieldValueRule}. These rules should
  * not be placed into the same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)

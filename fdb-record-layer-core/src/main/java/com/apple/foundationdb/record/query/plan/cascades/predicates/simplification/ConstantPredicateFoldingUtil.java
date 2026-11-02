@@ -114,13 +114,13 @@ public final class ConstantPredicateFoldingUtil {
 
         switch (comparisonType) {
             case EQUALS:
-                if (lhsOperand.equals(rhsOperand)) {
+                if (lhsOperand == rhsOperand) {
                     return PredicateCategory.SINGLETON_TRUE;
                 } else {
                     return PredicateCategory.SINGLETON_FALSE;
                 }
             case NOT_EQUALS:
-                if (!lhsOperand.equals(rhsOperand)) {
+                if (lhsOperand != rhsOperand) {
                     return PredicateCategory.SINGLETON_TRUE;
                 } else {
                     return PredicateCategory.SINGLETON_FALSE;
@@ -192,8 +192,8 @@ public final class ConstantPredicateFoldingUtil {
                 ImmutableSet.of(),
                 ConstantFoldingRuleSet.ofSimplificationRules()).get();
         return (simplifiedPredicate instanceof ConstantPredicate constantPredicate)
-               ? toEffectiveConstant(constantPredicate)
-               : EffectiveConstant.UNKNOWN;
+                ? toEffectiveConstant(constantPredicate)
+                : EffectiveConstant.UNKNOWN;
     }
 
     /**

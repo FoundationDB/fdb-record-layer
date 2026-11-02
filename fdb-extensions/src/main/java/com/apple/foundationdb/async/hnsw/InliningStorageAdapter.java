@@ -46,8 +46,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An implementation of {@link StorageAdapter} for an HNSW graph that stores node vectors "in-line" with the node's
  * neighbor information.
- * <p>
- * In this storage model, each key-value pair in the database represents a single neighbor relationship. The key
+ *
+ * <p>In this storage model, each key-value pair in the database represents a single neighbor relationship. The key
  * contains the primary keys of both the source node and the neighbor node, while the value contains the neighbor's
  * vector. This contrasts with a "compact" storage model where a compact node represents a vector and all of its
  * neighbors. This adapter is responsible for serializing and deserializing these structures to and from the underlying
@@ -59,8 +59,8 @@ import java.util.concurrent.CompletableFuture;
 class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVector> implements StorageAdapter<NodeReferenceWithVector> {
     /**
      * Constructs a new {@code InliningStorageAdapter} with the given configuration and components.
-     * <p>
-     * This constructor initializes the storage adapter by passing all necessary components
+     *
+     * <p>This constructor initializes the storage adapter by passing all necessary components
      * to its superclass.
      *
      * @param config the HNSW configuration to use for the graph
@@ -87,13 +87,13 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Asynchronously fetches a single node from a given layer by its primary key.
-     * <p>
-     * This internal method constructs a prefix key based on the {@code layer} and {@code primaryKey}.
+     *
+     * <p>This internal method constructs a prefix key based on the {@code layer} and {@code primaryKey}.
      * It then performs an asynchronous range scan to retrieve all key-value pairs associated with that prefix.
      * Finally, it reconstructs the complete {@link AbstractNode} object from the collected raw data using
      * the {@code nodeFromRaw} method.
-     * <p>
-     * Note that when using the inlining storage adapter it is not possible for distinguish between a node that has no
+     *
+     * <p>Note that when using the inlining storage adapter it is not possible for distinguish between a node that has no
      * neighbors and a node that is not present in the database (i.e. it was deleted).
      *
      * @param readTransaction the transaction to use for reading from the database
@@ -121,13 +121,13 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Constructs a {@code Node} from its raw key-value representation from storage.
-     * <p>
-     * This method is responsible for deserializing a node and its neighbors. It processes a list of {@code KeyValue}
+     *
+     * <p>This method is responsible for deserializing a node and its neighbors. It processes a list of {@code KeyValue}
      * pairs, where each pair represents a neighbor of the node being constructed. Each neighbor is converted from its
      * raw form into a {@link NodeReferenceWithVector} by calling the
      * {@link #neighborFromRaw(StorageTransform, int, byte[], byte[])} method.
-     * <p>
-     * Once the node is created with its primary key and list of neighbors, it notifies the configured
+     *
+     * <p>Once the node is created with its primary key and list of neighbors, it notifies the configured
      * {@link OnReadListener} of the read operation.
      *
      * @param storageTransform a vector transformation operator that is used to transform the fetched vector
@@ -160,8 +160,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Constructs a {@code NodeReferenceWithVector} from raw key and value byte arrays retrieved from storage.
-     * <p>
-     * This helper method deserializes a neighbor's data. It unpacks the provided {@code key} to extract the neighbor's
+     *
+     * <p>This helper method deserializes a neighbor's data. It unpacks the provided {@code key} to extract the neighbor's
      * primary key and unpacks the {@code value} to extract the neighbor's vector. It also notifies the configured
      * {@link OnReadListener} of the read operation.
      *
@@ -214,8 +214,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Writes a given node and its neighbor changes to the specified layer within a transaction.
-     * <p>
-     * This implementation first converts the provided {@link AbstractNode} to an {@link  InliningNode}. It then
+     *
+     * <p>This implementation first converts the provided {@link AbstractNode} to an {@link  InliningNode}. It then
      * delegates the writing of neighbor modifications to the {@link NeighborsChangeSet#writeDelta} method. After the
      * changes are written, it notifies the registered {@code OnWriteListener} that the node has been processed via
      * {@code getOnWriteListener().onNodeWritten()}.
@@ -251,8 +251,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Constructs the raw database key for a node based on its layer and primary key.
-     * <p>
-     * This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
+     *
+     * <p>This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
      * within the data subspace. The resulting byte array is suitable for use in direct database lookups and preserves
      * the sort order of the components.
      *
@@ -269,8 +269,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Writes a neighbor for a given node to the underlying storage within a specific transaction.
-     * <p>
-     * This method serializes the neighbor's vector and constructs a unique key based on the layer, the source
+     *
+     * <p>This method serializes the neighbor's vector and constructs a unique key based on the layer, the source
      * {@code node}, and the neighbor's primary key. It then persists this key-value pair using the provided
      * {@link Transaction}. After a successful write, it notifies any registered listeners.
      *
@@ -295,8 +295,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Deletes a neighbor edge from a given node within a specific layer.
-     * <p>
-     * This operation removes the key-value pair representing the neighbor relationship from the database within the
+     *
+     * <p>This operation removes the key-value pair representing the neighbor relationship from the database within the
      * given {@link Transaction}. It also notifies the {@code onWriteListener} about the deletion.
      *
      * @param transaction the transaction in which to perform the deletion
@@ -313,8 +313,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Constructs the key for a specific neighbor of a node within a given layer.
-     * <p>
-     * This key is used to uniquely identify and store the neighbor relationship in the underlying data store. It is
+     *
+     * <p>This key is used to uniquely identify and store the neighbor relationship in the underlying data store. It is
      * formed by packing a {@link Tuple} containing the {@code layer}, the primary key of the source {@code node}, and
      * the {@code neighborPrimaryKey}.
      *
@@ -333,13 +333,15 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     /**
      * Scans a specific layer of the graph, reconstructing nodes and their neighbors from the underlying key-value
      * store.
-     * <p>
-     * This method reads raw {@link com.apple.foundationdb.KeyValue} records from the database within a given layer.
+     *
+     * <p>This method reads raw {@link com.apple.foundationdb.KeyValue} records from the database within a given layer.
      * It groups adjacent records that belong to the same parent node and uses a {@link NodeFactory} to construct
      * {@link AbstractNode} objects. The method supports pagination through the {@code lastPrimaryKey} parameter,
      * allowing for incremental scanning of large layers.
      *
      * @param readTransaction the transaction to use for reading data
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param layer the layer of the graph to scan
      * @param lastPrimaryKey the primary key of the last node read in a previous scan, used for pagination.
      * If {@code null}, the scan starts from the beginning of the layer.
@@ -350,6 +352,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     @Nonnull
     @Override
     public Iterable<AbstractNode<NodeReferenceWithVector>> scanLayer(@Nonnull final ReadTransaction readTransaction,
+                                                                     @Nonnull final StorageTransform storageTransform,
                                                                      int layer,
                                                                      @Nullable final Tuple lastPrimaryKey,
                                                                      int maxNumRead) {
@@ -376,7 +379,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
             final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
             final Tuple neighborValueTuple = Tuple.fromBytes(value);
             final NodeReferenceWithVector neighbor =
-                    neighborFromTuples(StorageTransform.identity(), neighborKeyTuple, neighborValueTuple);
+                    neighborFromTuples(storageTransform, neighborKeyTuple, neighborValueTuple);
             final Tuple nodePrimaryKeyFromNeighbor = neighborKeyTuple.getNestedTuple(1);
             if (nodePrimaryKey == null || !nodePrimaryKey.equals(nodePrimaryKeyFromNeighbor)) {
                 if (nodePrimaryKey != null) {

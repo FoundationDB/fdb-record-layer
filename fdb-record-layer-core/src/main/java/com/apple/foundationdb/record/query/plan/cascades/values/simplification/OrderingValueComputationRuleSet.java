@@ -51,7 +51,7 @@ import java.util.function.Function;
  * @param <P> type variable for ordering part
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("java:S1452")
+@SuppressWarnings({"java:S1452", "PMD.FieldDeclarationsShouldBeAtStartOfClass"})
 public class OrderingValueComputationRuleSet<O extends SortOrder, P extends OrderingPart<O>> extends ValueComputationRuleSet<OrderingPartCreator<O, P>, P> {
 
     private OrderingValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>> rules,

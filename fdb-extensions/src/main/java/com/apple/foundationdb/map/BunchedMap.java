@@ -60,8 +60,7 @@ import java.util.function.Consumer;
  * if the subspace prefix is too large as that prefix will be repeated many times (once for each key
  * in the map).
  *
- * <p>
- * This structure "bunches" adjacent keys together so that one key in the database is responsible
+ * <p>This structure "bunches" adjacent keys together so that one key in the database is responsible
  * for storing multiple entries in the map, which effectively amortizes the cost of this subspace prefix
  * across multiple map entries. In particular, the map will choose "signpost" keys in the map. For each
  * signpost, a key in the database is constructed that is the subspace prefix concatenated with the
@@ -71,31 +70,24 @@ import java.util.function.Consumer;
  * "bunch size" that is a parameter to the map, and upon inserting, the map will see if there is a
  * bunch that the given key can be placed in without exceeding the bunch size. If not, it will create
  * one by adding a new signpost key.
- * </p>
  *
- * <p>
- * The cost for bunching entries this way is that it requires that the client perform additional database
+ * <p>The cost for bunching entries this way is that it requires that the client perform additional database
  * reads while inserting, so mutations have a higher latency than under the simpler scheme, and two clients
  * attempting to modify the same map are likely to experience contention. It is also more expensive to read
  * a single key from the map (as the read now will also read the data for keys in the same bunch as the desired
  * key). A full scan of the map requires less data be transferred over the wire as the subspace prefix can
  * be sent fewer times, so scan-heavy use-cases might not experience much of an overhead at all.
- * </p>
  *
- * <p>
- * Most methods of this class take a subspace. For the most part, these methods assume that there is one
+ * <p>Most methods of this class take a subspace. For the most part, these methods assume that there is one
  * durable instance of a <code>BunchedMap</code> within the bounds of the subspace provided. The exception
  * to this is the
  * {@link #scanMulti(ReadTransaction, Subspace, SubspaceSplitter, byte[], byte[], byte[], int, boolean)} scanMulti()}
  * family of methods. See the documentation on those methods for more information.
- * </p>
  *
- * <p>
- * This class is not thread-safe in the general case. Assuming that the serializer and key-comparator are
+ * <p>This class is not thread-safe in the general case. Assuming that the serializer and key-comparator are
  * both thread-safe, this class is safe to use from multiple transactions at once or with multiple subspaces
  * concurrently within a single transaction. However, it is unsafe to modify two keys within the same subspace
  * in the same transaction from multiple threads.
- * </p>
  *
  * @param <K> type of keys in the map
  * @param <V> type of values in the map
@@ -456,15 +448,11 @@ public class BunchedMap<K, V> {
      * contains <code>key</code>, it will overwrite the existing key with the new value. This will
      * return the old value if one is present.
      *
-     * <p>
-     * Note that this method is <b>not</b> thread-safe if multiple threads call it with the same
+     * <p>Note that this method is <b>not</b> thread-safe if multiple threads call it with the same
      * transaction and subspace. (Multiple calls with different transactions or subspaces are safe.)
-     * </p>
      *
-     * <p>
-     * Note that this call is asynchronous. It will return a {@link CompletableFuture} that will be
+     * <p>Note that this call is asynchronous. It will return a {@link CompletableFuture} that will be
      * completed when this task has completed.
-     * </p>
      *
      * @param tcx database or transaction to use when performing the insertion
      * @param subspace subspace within which the map's data are located
@@ -597,15 +585,11 @@ public class BunchedMap<K, V> {
      * old value associated with the key within the map (prior to deletion) if one is present or
      * will be empty if the key was not contained within the map.
      *
-     * <p>
-     * Note that this method is <b>not</b> thread-safe if multiple threads call it with the same
+     * <p>Note that this method is <b>not</b> thread-safe if multiple threads call it with the same
      * transaction and subspace. (Multiple calls with different transactions or subspaces are safe.)
-     * </p>
      *
-     * <p>
-     * Note that this call is asynchronous. It will return a {@link CompletableFuture} that will be completed
+     * <p>Note that this call is asynchronous. It will return a {@link CompletableFuture} that will be completed
      * when this task has completed.
-     * </p>
      *
      * @param tcx database or transaction to use when removing the key
      * @param subspace subspace within which the map's data are located
@@ -948,12 +932,10 @@ public class BunchedMap<K, V> {
      * that map with some value that might be used to distinguish one map from the other (if
      * the application needs it).
      *
-     * <p>
-     * For example, suppose there are ten <code>BunchedMaps</code> that all begin with a raw prefix
+     * <p>For example, suppose there are ten <code>BunchedMaps</code> that all begin with a raw prefix
      * <code>prefix</code> followed by a {@link com.apple.foundationdb.tuple.Tuple Tuple}-encoded
      * integer (0 through 10). If one wanted to scan the three maps starting with map 3 and ending
      * with map 6, one would supply the following parameters:
-     * </p>
      * <ul>
      *     <li><code>subspace</code> should be set to <code>new Subspace(prefix)</code></li>
      *     <li>
@@ -965,14 +947,12 @@ public class BunchedMap<K, V> {
      *     <li><code>subspaceEnd</code> should be set to <code>Tuple.pack(7)</code> (or <code>Tuple.pack(6)</code> concatenated with a 0-byte)</li>
      * </ul>
      *
-     * <p>
-     * Furthermore, this method can be used across multiple calls or transactions by setting the
+     * <p>Furthermore, this method can be used across multiple calls or transactions by setting the
      * <code>continuation</code> parameter to the result of {@link BunchedMapMultiIterator#getContinuation() getContinuation()}
      * from a previous scan. (One should pass <code>null</code> to restart the scan from the beginning.)
      * The iterator will return at most <code>limit</code> entries. The entries will ordered first
      * by subspace and within a subspace by key. If <code>reverse</code> is <code>true</code>, the
      * items will be returned in descending order. Otherwise, they will be returned in ascending order.
-     * </p>
      *
      * @param tr transaction to use when scanning the maps
      * @param subspace subspace containing one or more maps

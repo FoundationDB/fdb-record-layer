@@ -26,6 +26,9 @@ jobs:
   #     entirely if the `plan` job determined none of these subprojects are affected.
   #  5. coverage: Merges the JaCoCo output of 3 and 4 and generates reports. Tolerates 3 and/or 4
   #     having been skipped or having skipped some matrix legs.
+  #  6. docs: Builds the documentation site and uploads it as a zipped artifact so reviewers can
+  #     download and preview it. This does NOT publish the site anywhere (that only happens during
+  #     a release).
 
   style:
     runs-on: ubuntu-latest
@@ -64,7 +67,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr diff ${{ github.event.pull_request.number }} --name-only | tee changed_files.txt
+          # If `gh pr diff` fails (e.g., HTTP 406 for PRs changing more than 300 files), don't treat that as
+          # "nothing changed": leave changed_files.txt absent. The `affected_subprojects` script will then
+          # run all of the tests if the file is not present.
+          if ! gh pr diff ${{ github.event.pull_request.number }} --name-only > changed_files.txt; then
+            rm -f changed_files.txt
+            echo "::warning::Could not get the list of changed files; all tests will be run"
+          else
+            cat changed_files.txt
+          fi
       - name: Get subproject dependency graph
         uses: ./actions/run-gradle
         with:
@@ -121,7 +132,7 @@ jobs:
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.subproject }}-coverage-data
           path: |
@@ -164,7 +175,7 @@ jobs:
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
           report_name: other-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: other-coverage-data
           path: |
@@ -199,35 +210,33 @@ jobs:
       # so the coverage data (for e.g. lucene) does not end up in the appropirate subproject directory
       - name: 'Download lucene'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-record-layer-lucene')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: fdb-record-layer-lucene-coverage-data
       - name: 'Download extensions'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-extensions')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: fdb-extensions-coverage-data
       - name: 'Download core'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-record-layer-core')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: fdb-record-layer-core-coverage-data
       - name: 'Download yaml'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'yaml-tests')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: yaml-tests-coverage-data
       - name: 'Download other'
         if: needs.plan.outputs.run_other_tests == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: other-coverage-data
       # If this run tested no subprojects there are no jars or execution data to merge, so
       # codeCoverageReport would be skipped and no coverage-report artifact would be produced.
       # Build all jars and seed empty execution data so codeCoverageReport still emits a
-      # full-codebase 0% report. This must be a separate Gradle invocation from the report below:
-      # codeCoverageReport only mustRunAfter (not dependsOn) the jar tasks and evaluates which
-      # jars exist at configuration time, so the jars must already be on disk when it configures.
+      # full-codebase 0% report.
       - name: Build jars and seed empty coverage data
         if: needs.plan.outputs.run_all != 'true' && needs.plan.outputs.matrix == '[]' && needs.plan.outputs.run_other_tests != 'true'
         uses: ./actions/run-gradle
@@ -256,7 +265,7 @@ jobs:
           fi
       - name: Publish Coverage Report
         if: steps.coverage_report.outputs.should_exist == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
           path: |
@@ -281,3 +290,36 @@ jobs:
           python3 build/coverage_annotations.py \
             --report .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml \
             --diff pr_diff.patch
+
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Base Environment
+        id: setup-base
+        uses: ./actions/setup-base-env
+      - name: Cache Python Environment
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: docs/sphinx/.venv
+          key: ${{ runner.os }}-sphinx-python-${{ steps.setup-base.outputs.python-version }}-${{ hashFiles('docs/sphinx/requirements.txt') }}
+      - name: Build Documentation Site
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: documentationSite -PreleaseBuild=false
+      - name: Zip Documentation Site
+        shell: bash
+        run: |
+          cd docs/sphinx/.out/html
+          zip -r "${{ github.workspace }}/documentation-site.zip" .
+      # Upload to the build's artifacts only. Note: does not use upload-pages-artifact or deploy-docs here
+      - name: Upload Documentation
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: documentation-site
+          path: documentation-site.zip
+          retention-days: 7

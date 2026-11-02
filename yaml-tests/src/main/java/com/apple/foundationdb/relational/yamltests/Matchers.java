@@ -657,23 +657,24 @@ public class Matchers {
                 return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 to match an array, got 🟡 instead.%n🟢 %s (Array)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
             }
             final var actualArray = (RelationalArray) (actual);
-            final var actualArrayContent = actualArray.getResultSet();
-            for (int i = 0; i < expectedArray.size(); i++) {
-                if (!actualArrayContent.next()) {
-                    return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
-                            rowNumber, cellRef, expectedArray.size(), i, expected, actual));
-                }
-                if (isMap(expectedArray.get(i))) {
-                    final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getStructMetaData(2).getColumnCount(),
-                            valueByName(actualArrayContent.getStruct(2)), valueByIndex(actualArrayContent.getStruct(2)), rowNumber, cellRef + "[" + i + "]");
-                    if (!matchResult.equals(ResultSetMatchResult.success())) {
-                        return matchResult; // propagate failure.
+            try (RelationalResultSet actualArrayContent = actualArray.getResultSet()) {
+                for (int i = 0; i < expectedArray.size(); i++) {
+                    if (!actualArrayContent.next()) {
+                        return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
+                                rowNumber, cellRef, expectedArray.size(), i, expected, actual));
                     }
-                } else {
-                    final var actualObject = actualArrayContent.getObject(2);
-                    final var matchResult = matchField(expectedArray.get(i), actualObject, rowNumber, cellRef + "[" + i + "]");
-                    if (!matchResult.equals(ResultSetMatchResult.success())) {
-                        return matchResult; // propagate failure.
+                    if (isMap(expectedArray.get(i))) {
+                        final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getStructMetaData(2).getColumnCount(),
+                                valueByName(actualArrayContent.getStruct(2)), valueByIndex(actualArrayContent.getStruct(2)), rowNumber, cellRef + "[" + i + "]");
+                        if (!matchResult.equals(ResultSetMatchResult.success())) {
+                            return matchResult; // propagate failure.
+                        }
+                    } else {
+                        final var actualObject = actualArrayContent.getObject(2);
+                        final var matchResult = matchField(expectedArray.get(i), actualObject, rowNumber, cellRef + "[" + i + "]");
+                        if (!matchResult.equals(ResultSetMatchResult.success())) {
+                            return matchResult; // propagate failure.
+                        }
                     }
                 }
             }

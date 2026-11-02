@@ -168,12 +168,14 @@ public interface AgilityContext {
     }
 
     /**
+     * Add a callback to run before committing. Callbacks accumulate: each one added runs on every commit that follows.
+     * In agile mode, a callback applies to sub contexts created after it was added (not to the current one).
      * The {@code commitCheck} callback is expected to use the argument context but should never call other
      * agility context functions as it may cause a deadlock.
      *
      * @param commitCheck callback
      */
-    void setCommitCheck(Function<FDBRecordContext, CompletableFuture<Void>> commitCheck);
+    void addCommitCheck(Function<FDBRecordContext, CompletableFuture<Void>> commitCheck);
 
     default void commit(@Nonnull FDBRecordContext context) {
         LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, context.commitAsync(), context);

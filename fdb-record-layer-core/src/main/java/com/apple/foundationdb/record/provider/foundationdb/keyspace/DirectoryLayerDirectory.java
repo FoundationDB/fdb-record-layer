@@ -197,7 +197,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
                 }
 
                 return lookupInScope(context, (String) this.value)
-                        .thenApply(new Function<ResolverResult, PathValue>() {
+                        .thenApply(new Function<>() {
                             @Override
                             public PathValue apply(ResolverResult resolved) {
                                 if (resolved.getValue() != (Long)value) {

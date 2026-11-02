@@ -483,17 +483,13 @@ public abstract class FDBDatabaseFactory {
      * and will not be retried. Any outstanding work from the transaction will be cancelled, though the
      * user should still close the {@link FDBRecordContext} to free any native memory used by the transaction.
      *
-     * <p>
-     * If set to {@link #DEFAULT_TR_TIMEOUT_MILLIS}, then the transaction's timeout will default to the system default,
+     * <p>If set to {@link #DEFAULT_TR_TIMEOUT_MILLIS}, then the transaction's timeout will default to the system default,
      * which is the value set by {@link com.apple.foundationdb.DatabaseOptions#setTransactionTimeout(long)}. If that
      * option is not set, then no timeout will be imposed on the transaction. Note also that this is the
      * default value
-     * </p>
      *
-     * <p>
-     * If set to {@link #UNLIMITED_TR_TIMEOUT_MILLIS}, then the no timeout will be imposed on the transaction. This
+     * <p>If set to {@link #UNLIMITED_TR_TIMEOUT_MILLIS}, then the no timeout will be imposed on the transaction. This
      * will override the system default if one is set.
-     * </p>
      *
      * @param transactionTimeoutMillis the amount of time in milliseconds before a transaction should timeout
      */
@@ -575,8 +571,8 @@ public abstract class FDBDatabaseFactory {
     /**
      * Set the number of threads per FDB client version. The default value is 1
      * (the multi-threaded client is effectively disabled).
-     * <p>
-     * Setting this above 1 enables FDB's multi-threaded client, which also requires
+     *
+     * <p>Setting this above 1 enables FDB's multi-threaded client, which also requires
      * at least one external client library on the FDB network options, even when the
      * cluster and the local client are on the same version. See
      * {@link FDBDatabaseFactoryImpl#setThreadsPerClientVersion(int)}.
@@ -635,18 +631,14 @@ public abstract class FDBDatabaseFactory {
      * FoundationDB client behavior, it is generally recommended that the user set this option in production
      * environments.
      *
-     * <p>
-     * The logs will be placed in the directory on the local filesystem specified by the {@code traceDirectory}
+     * <p>The logs will be placed in the directory on the local filesystem specified by the {@code traceDirectory}
      * parameter. If the {@code traceLogGroup} is set to a non-null value, each log message will have a
      * {@code LogGroup} field associated with it that is set to the parameter's value. This can be used to associate
      * log messages from related processes together.
-     * </p>
      *
-     * <p>
-     * This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
+     * <p>This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
      * The factory will configure the client in a manner consistent with the passed parameters the first
      * time a database is needed, and subsequent calls to this method will have no effect.
-     * </p>
      *
      * @param traceDirectory the directory in which to write trace log files or {@code null} to disable writing logs
      * @param traceLogGroup the value to set the log group field to in each message of {@code null} to set no group
@@ -660,11 +652,9 @@ public abstract class FDBDatabaseFactory {
      * then this will be used to configure what the output format of trace log files should be. See
      * {@link FDBTraceFormat} for more details on what options are available.
      *
-     * <p>
-     * This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
+     * <p>This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
      * The factory will configure the client in a manner consistent with the passed parameters the first
      * time a database is needed, and subsequent calls to this method will have no effect.
-     * </p>
      *
      * @param traceFormat the output format for client trace logs
      *
@@ -680,15 +670,13 @@ public abstract class FDBDatabaseFactory {
      * user wants to have more control, they should consider disabling the shutdown hook via this method, and
      * then invoking {@link #shutdown()} in a hook that they control.
      *
-     * <p>
-     * This method can be called before or after {@link FDB} initialization. If it is called before the
+     * <p>This method can be called before or after {@link FDB} initialization. If it is called before the
      * FDB client is initialized, then the shutdown hook will never be registered. If it is called after
      * the client is initialized, then the previously registered shutdown hook will be removed. That does
      * mean that if an instance is shut down between FDB client initialization and the invocation of
      * this method, the shutdown hook <em>will</em> run. To avoid that case, it is generally suggested that
      * the user invoke this before client initialization. If this method is invoked multiple times, it has
      * no effect.
-     * </p>
      *
      * @see #shutdown()
      * @see FDB#disableShutdownHook()
@@ -705,6 +693,78 @@ public abstract class FDBDatabaseFactory {
      * @see #disableShutdownHook()
      */
     public abstract boolean isShutdownHookDisabled();
+
+    /**
+     * Set a client knob to the given value. Knobs are how the FDB native client exposes lower-level tuning
+     * parameters. This method should be preferred over {@link #setKnob(String, String)} when the knob being
+     * configured has a corresponding {@link FDBClientKnob} constant.
+     *
+     * <p>This method can be called before or after {@link FDB} initialization. If it is called before the client
+     * is initialized, the knob will be applied when the client starts. If it is called after the client has
+     * already started, the knob will be applied to the running client immediately. <strong>Warning:</strong>
+     * not every knob will actually have the desired effect if applied after client start-up. Therefore, though
+     * this is allowed by the API, it is generally not advisable.
+     *
+     * @param knob the knob to set
+     * @param value the value to set the knob to
+     *
+     * @throws RecordCoreArgumentException if {@code value} is not of the type that {@code knob} expects
+     *
+     * @see #setKnob(String, String)
+     * @see FDBClientKnob
+     */
+    public abstract void setKnob(@Nonnull FDBClientKnob knob, @Nonnull String value);
+
+    /**
+     * Set a client knob to the given value. Knobs are how the FDB native client exposes lower-level tuning
+     * parameters. Unlike {@link #setKnob(FDBClientKnob, String)}, this method allows any knob name to be
+     * supplied, including ones that do not (yet) have an associated {@link FDBClientKnob} constant. If
+     * {@code knobName} does happen to match a known {@link FDBClientKnob}, then {@code value} is validated
+     * against that knob's expected type just as it would be by {@link #setKnob(FDBClientKnob, String)}.
+     * Otherwise, because the type of value that the knob expects is not known to the Record Layer, this method
+     * is not able to validate that {@code value} is of the correct type; an invalid value will instead be
+     * silently ignored by the native client (with a warning written to its trace logs, if enabled).
+     *
+     * <p>This method can be called before or after {@link FDB} initialization. See {@link #setKnob(FDBClientKnob, String)}
+     * for details.
+     *
+     * @param knobName the (lower-case) name of the knob to set
+     * @param value the value to set the knob to
+     *
+     * @throws RecordCoreArgumentException if {@code knobName} is blank or contains an {@code =} character, or
+     * if {@code knobName} matches a known {@link FDBClientKnob} and {@code value} is not of the type that knob
+     * expects
+     *
+     * @see #setKnob(FDBClientKnob, String)
+     * @see com.apple.foundationdb.NetworkOptions#setKnob(String)
+     */
+    public abstract void setKnob(@Nonnull String knobName, @Nonnull String value);
+
+    /**
+     * Get the client knobs that have been configured on this factory, along with the values that they have
+     * been set to. This does not include any knobs that may have been configured outside of this factory,
+     * for example, by setting the {@code FDB_NETWORK_OPTION_KNOB} environment variable.
+     *
+     * @return an unmodifiable view of the client knobs configured on this factory
+     *
+     * @see #setKnob(FDBClientKnob, String)
+     * @see #setKnob(String, String)
+     */
+    @Nonnull
+    public abstract Map<String, String> getKnobs();
+
+    /**
+     * Remove any previously configured client knobs. This does not affect knobs that may have been configured
+     * outside of this factory, for example, by setting the {@code FDB_NETWORK_OPTION_KNOB} environment variable. Because
+     * there is no way to reset a knob that has already been applied to a running client back to its default,
+     * this method may only be called before {@link FDB} initialization.
+     *
+     * @throws RecordCoreException if the client has already been initialized
+     *
+     * @see #setKnob(FDBClientKnob, String)
+     * @see #setKnob(String, String)
+     */
+    public abstract void clearKnobs();
 
     /**
      * Set whether additional run-loop profiling of the FDB client is enabled. This can be useful for debugging
@@ -747,20 +807,16 @@ public abstract class FDBDatabaseFactory {
      * Set the API version for this database factory. This value will be used to determine what FDB APIs are
      * available.
      *
-     * <p>
-     * Note that once an API version has been set, the client will not be able to talk to any FDB cluster
+     * <p>Note that once an API version has been set, the client will not be able to talk to any FDB cluster
      * that is running an older associated server version. It is therefore important that the adopter sets
      * this value so that it does not exceed the smallest FDB server version that this client will be
      * expected to connect to. However, if there are features that are only available on a subset of
      * supported FDB API versions, the Record Layer will attempt to guard those features so that they are
      * only used if the configured API version supports it.
-     * </p>
      *
-     * <p>
-     * By default, this will be set to {@link APIVersion#getDefault()}. Note that setting the API version
+     * <p>By default, this will be set to {@link APIVersion#getDefault()}. Note that setting the API version
      * to a non-default value is currently experimental as additional testing and validation of various
      * API versions is developed.
-     * </p>
      *
      * @param apiVersion the API version to use when initializing the FDB client
      * @see APIVersion

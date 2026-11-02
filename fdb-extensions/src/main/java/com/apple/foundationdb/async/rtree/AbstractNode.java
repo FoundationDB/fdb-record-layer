@@ -226,7 +226,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     @Nonnull
     public String toString() {
         return "[" + getKind().name() + ": id = " + NodeHelpers.bytesToHex(getId()) + "; parent = " +
-               (getParentNode() == null ? "null" : NodeHelpers.bytesToHex(getParentNode().getId())) + "; slotInParent = " +
-               getSlotInParent() + "]";
+                (getParentNode() == null ? "null" : NodeHelpers.bytesToHex(getParentNode().getId())) + "; slotInParent = " +
+                getSlotInParent() + "]";
     }
 }

@@ -26,7 +26,11 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -36,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.util.Supplier;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -222,6 +228,74 @@ class OfflinePlanGenerationTest {
         // Cache must have exactly one main entry — open path hit the entry written by offline path.
         cache.cleanUp();
         assertThat(cache.getStats().numEntriesSlow()).isEqualTo(1L);
+    }
+
+    /**
+     * With {@link Options.Name#PLAN_CACHE_WRITE_ONLY} the plan is generated and stored, and no lookup happens at all.
+     * Storing twice must leave one entry, not two — the tertiary key is built from the plan's constraint, and equal
+     * constraints make equal keys.
+     */
+    @Test
+    void writeOnlyStoresWithoutReadingAndStoringTwiceKeepsOneEntry() throws Exception {
+        final var query = "select * from restaurant where rest_no > 10";
+        final var writeOnlyOptions = connection.getOptions().withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, true);
+        final var cache = RelationalPlanCache.buildWithDefaults();
+        final var metricCollector = new CountingMetricCollector();
+
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState, metricCollector, writeOnlyOptions)
+                .getPlan(query);
+
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE)).isEqualTo(1);
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isZero();
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS)).isZero();
+        assertThat(tertiaryEntries(cache)).isEqualTo(1L);
+
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState, metricCollector, writeOnlyOptions)
+                .getPlan(query);
+
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE)).isEqualTo(2);
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isZero();
+        assertThat(tertiaryEntries(cache)).isEqualTo(1L);
+
+        // A plain query, without the option, finds the stored entry.
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState, metricCollector, connection.getOptions())
+                .getPlan(query);
+
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isEqualTo(1);
+        assertThat(tertiaryEntries(cache)).isEqualTo(1L);
+    }
+
+    private static long tertiaryEntries(@Nonnull final RelationalPlanCache cache) {
+        long total = 0;
+        for (final var key : cache.getStats().getAllKeys()) {
+            for (final var secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
+                total += cache.getStats().getAllTertiaryMappings(key, secondaryKey).size();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Counts the plan-cache events, so a test can tell "stored without looking up" from "looked up and missed".
+     */
+    private static final class CountingMetricCollector implements MetricCollector {
+        private final Map<RelationalMetric.RelationalCount, Integer> counts =
+                new EnumMap<>(RelationalMetric.RelationalCount.class);
+
+        @Override
+        public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int amount) {
+            counts.merge(count, amount, Integer::sum);
+        }
+
+        @Override
+        public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event,
+                           @Nonnull final Supplier<T> supplier) throws RelationalException {
+            return supplier.get();
+        }
+
+        int countOf(@Nonnull final RelationalMetric.RelationalCount count) {
+            return counts.getOrDefault(count, 0);
+        }
     }
 
     @Test

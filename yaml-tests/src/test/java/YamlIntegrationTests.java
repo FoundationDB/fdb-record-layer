@@ -26,8 +26,8 @@ import org.junit.jupiter.api.TestTemplate;
 
 /**
  * Class covering the standard integration tests specified by yamsql files.
- * <br>
- * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPECTATIONS} or similar
+ *
+ * <p>Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPECTATIONS} or similar
  * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
  * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
  * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
@@ -162,6 +162,12 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void crossJoinTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cross-join-tests.yamsql");
+    }
+
+
+    @TestTemplate
     public void cte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("cte.yamsql");
     }
@@ -183,6 +189,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void enumDistinctFromFunction(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("enum-distinct-from-function.yamsql");
+    }
+
+    @TestTemplate
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }
@@ -195,6 +206,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void fieldOptionsExtensionTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-options-extension.yamsql");
     }
 
     @TestTemplate
@@ -358,6 +374,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void scopedKeysetPagination(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("scoped-keyset-pagination.yamsql");
+    }
+
+    @TestTemplate
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -388,6 +409,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void isolationLevelSnapshot(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("isolation-level-snapshot.yamsql");
+    }
+
+    @TestTemplate
     public void slidingWindowSemanticSearchTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sliding-window-semantic-search.yamsql");
     }
@@ -405,6 +431,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sql-functions.yamsql");
+    }
+
+    @TestTemplate
+    public void datetimeValueFunctions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("datetime-value-functions.yamsql");
     }
 
     @TestTemplate
@@ -522,6 +553,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void viewsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("views.yamsql");
+    }
+
+    @TestTemplate
+    public void whereBooleanOperand(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("where-boolean-operand.yamsql");
     }
 
     @TestTemplate

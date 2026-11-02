@@ -341,12 +341,12 @@ public class TransactionBoundDatabaseTest {
                 store -> {
                     saveSimpleRecord(store, "First");
                     saveSimpleRecord(store, "Second");
-                });
+                }, true);
         final KeySpacePath sourcePath2 = sourcePath.add("schema2");
         withStore(embeddedConnection, sourcePath2, metadata, store1 -> {
             saveSimpleRecord(store1, "Alpha");
             saveSimpleRecord(store1, "Beta");
-        });
+        }, true);
         // export the data
         final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
@@ -357,25 +357,26 @@ public class TransactionBoundDatabaseTest {
                 store -> {
                     assertSimpleRecordExists(store, "First");
                     assertSimpleRecordExists(store, "Second");
-                });
+                }, false);
 
         withStore(embeddedConnection, destPath.add("schema2"), metadata,
                 store -> {
                     assertSimpleRecordExists(store, "Alpha");
                     assertSimpleRecordExists(store, "Beta");
-                });
+                }, false);
     }
 
     private static void withStore(final EmbeddedRelationalConnection embeddedConnection,
                                   final KeySpacePath path,
                                   final RecordMetaData metadata,
-                                  final Consumer<FDBRecordStore> action) throws RelationalException {
+                                  final Consumer<FDBRecordStore> action,
+                                  final boolean newStore) throws RelationalException {
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final FDBRecordStore store = FDBRecordStore.newBuilder()
+            final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                     .setKeySpacePath(path)
                     .setMetaDataProvider(() -> metadata)
-                    .setContext(context)
-                    .build();
+                    .setContext(context);
+            final FDBRecordStore store = newStore ? storeBuilder.create() : storeBuilder.open();
             action.accept(store);
             context.commit();
         }

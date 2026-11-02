@@ -163,9 +163,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
-        replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
-        replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
-        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
+        replayedQueueContext = LazyCloseable.supply(this::createReadOnlyContext);
+        replayedQueueIndexWriter = LazyCloseable.supply(this::createIndexWriterWithReplayedQueue);
+        pendingWriteQueue = LazyOpener.supply(directory::createPendingWritesQueue);
     }
 
     @VisibleForTesting
@@ -188,9 +188,9 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
         readersToClose = new ConcurrentLinkedQueue<>();
         readersToClose.add(writerReader);
-        replayedQueueContext = LazyCloseable.supply(() -> createReadOnlyContext());
-        replayedQueueIndexWriter = LazyCloseable.supply(() -> createIndexWriterWithReplayedQueue());
-        pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
+        replayedQueueContext = LazyCloseable.supply(this::createReadOnlyContext);
+        replayedQueueIndexWriter = LazyCloseable.supply(this::createIndexWriterWithReplayedQueue);
+        pendingWriteQueue = LazyOpener.supply(directory::createPendingWritesQueue);
     }
 
     @Nonnull
@@ -501,8 +501,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                              @Nonnull final Tuple key) {
         final Boolean useConcurrent = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_CONCURRENT_MERGE_SCHEDULER);
         return Boolean.TRUE.equals(useConcurrent) ?
-               new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key) :
-               new FDBDirectorySerialMergeScheduler(state, mergeDirectoryCount, agilityContext, key);
+                new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key) :
+                new FDBDirectorySerialMergeScheduler(state, mergeDirectoryCount, agilityContext, key);
 
     }
 

@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p><b>Important note</b>: This cache is intended to be used only to retrieve directory layer entries that are
  * known to exist. An attempt to retrieve a directory layer entry that does not exist will result in a full scan
- * of the directory layer for each such request</p>
+ * of the directory layer for each such request
  */
 @API(API.Status.INTERNAL)
 public class FDBReverseDirectoryCache {

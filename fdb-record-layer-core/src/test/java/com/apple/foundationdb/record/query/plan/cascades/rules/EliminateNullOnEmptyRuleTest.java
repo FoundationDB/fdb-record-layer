@@ -63,7 +63,7 @@ class EliminateNullOnEmptyRuleTest {
     }
 
     /**
-     * Tests the rule against the following QGM:
+     * Tests that we can eliminate a single null on empty. Initial QGM:
      * <pre>{@code
      *   Select [q.a = 42]
      *     └── q: ƒ (nullOnEmpty)

@@ -32,14 +32,12 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A class that contains the build progress of a given index in a given record store.
- * <p>
- * It first contains {@link IndexState}. If the state is {@link IndexState#WRITE_ONLY}, it will also contain the number
+ *
+ * <p>It first contains {@link IndexState}. If the state is {@link IndexState#WRITE_ONLY}, it will also contain the number
  * of records scanned and the estimated total number of records that need to be scanned.
- * </p>
- * <p>
- * Note that index build state (especially records scanned) serves an informational purpose only as the number of
+ *
+ * <p>Note that index build state (especially records scanned) serves an informational purpose only as the number of
  * records scanned is not necessarily 100% of records in total when the index build completes for several reasons:
- * </p>
  * <ul>
  *     <li> If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
  *     {@link OnlineIndexer.Builder#setTrackProgress(boolean)} to {@code false}), then {@link #getRecordsScanned()} will
@@ -87,11 +85,11 @@ public class IndexBuildState {
     /**
      * Load the number of records successfully scanned and processed during the online index build process
      * asynchronously.
-     * <p>
-     * If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
+     *
+     * <p>If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
      * {@link OnlineIndexer.Builder#setTrackProgress(boolean)} to {@code false}), then the number returned will not
      * include the records scanned by that {@link OnlineIndexer}.
-     * </p>
+     *
      * @param store the record store containing the index
      * @param index the index needed to be checked
      * @return a future that completes to the total records scanned
@@ -114,17 +112,15 @@ public class IndexBuildState {
 
     /**
      * Get the number of records successfully scanned and processed during the online index build process.
-     * <p>
-     * If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
+     *
+     * <p>If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
      * {@link OnlineIndexer.Builder#setTrackProgress(boolean)} to {@code false}), then the number returned will not
      * include the records scanned by that {@link OnlineIndexer}.
-     * </p>
-     * <p>
-     * The returned value should be ignored if the index state is not {@link IndexState#WRITE_ONLY}.
-     * </p>
-     * <p>
-     * See {@link IndexBuildState} if this is used with {@link #getRecordsInTotal()} to track the index build progress.
-     * </p>
+     *
+     * <p>The returned value should be ignored if the index state is not {@link IndexState#WRITE_ONLY}.
+     *
+     * <p>See {@link IndexBuildState} if this is used with {@link #getRecordsInTotal()} to track the index build progress.
+     *
      * @return the number of scanned records
      * @see #loadRecordsScannedAsync(FDBRecordStoreBase, Index)
      */
@@ -137,13 +133,12 @@ public class IndexBuildState {
      * Get the estimated total number of records that need to be scanned to build the index. Currently, it uses the
      * number of all records in the store. In some cases, the real number of records that need to be scanned is less
      * than this.
-     * <p>
-     * To get the count, there must be a suitably grouped {@code COUNT} type index defined. Otherwise, it returns
+     *
+     * <p>To get the count, there must be a suitably grouped {@code COUNT} type index defined. Otherwise, it returns
      * {@code null}.
-     * </p>
-     * <p>
-     * The returned value should be ignored if the index state is not {@link IndexState#WRITE_ONLY}.
-     * </p>
+     *
+     * <p>The returned value should be ignored if the index state is not {@link IndexState#WRITE_ONLY}.
+     *
      * @return the number of total records
      */
     @Nullable

@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -222,13 +223,22 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     matchCandidate.computeOrderingFromScanComparisons(indexScanPlan.getScanComparisons(),
                             indexScanPlan.isReverse(), false);
             return ordering.getEqualityBoundValues().contains(groupingValue)
-                   ? Cardinalities.atMostOne()
-                   : Cardinalities.unknownMaxCardinality();
+                    ? Cardinalities.atMostOne()
+                    : Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull
         @Override
         public Cardinalities visitRecordQueryCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+            if (!(coveringIndexPlan.getIndexPlan() instanceof RecordQueryIndexPlan)) {
+                return Cardinalities.unknownMaxCardinality();
+            }
+            return visitRecordQueryIndexPlan((RecordQueryIndexPlan)coveringIndexPlan.getIndexPlan());
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecordQueryCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
             if (!(coveringIndexPlan.getIndexPlan() instanceof RecordQueryIndexPlan)) {
                 return Cardinalities.unknownMaxCardinality();
             }
@@ -862,7 +872,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
         @Nonnull
         private Cardinalities fromQuantifier(@Nonnull final Quantifier quantifier) {
-            if (quantifier instanceof Quantifier.Existential) {
+            if (quantifier instanceof Quantifier.AtMostOne) {
                 return Cardinalities.exactlyOne();
             }
             Cardinalities childCardinalities = visit(quantifier.getRangesOver().get());

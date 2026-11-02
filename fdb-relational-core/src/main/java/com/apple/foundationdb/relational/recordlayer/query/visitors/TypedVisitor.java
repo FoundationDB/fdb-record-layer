@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserVisitor;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
@@ -37,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 
 import javax.annotation.Nonnull;
@@ -47,14 +47,13 @@ import java.util.Set;
 /**
  * This interface specializes the signatures of the auto-generated {@link RelationalParserVisitor} to make
  * it type-safe and make it less error-prune.
- * <br>
- * <b>Note</b> When extending {@link RelationalParser} you should override the generated visitation method with a
+ *
+ * <p><b>Note</b> When extending {@link RelationalParser} you should override the generated visitation method with a
  * proper return type, and provide an implementation of it in the corresponding specialized visitor.
  * See {@link DdlVisitor}, {@link QueryVisitor}, {@link IdentifierVisitor}, {@link MetadataPlanVisitor}, and
  * {@link ExpressionVisitor} for more information.
  */
 public interface TypedVisitor extends RelationalParserVisitor<Object> {
-
     @Nonnull
     @Override
     Object visitRoot(@Nonnull RelationalParser.RootContext ctx);
@@ -165,15 +164,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx);
+    IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx);
 
     @Nonnull
     @Override
-    RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx);
+    IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx);
 
     @Nonnull
     @Override
-    RecordLayerIndex visitVectorIndexDefinition(RelationalParser.VectorIndexDefinitionContext ctx);
+    IndexGenerationResult visitVectorIndexDefinition(RelationalParser.VectorIndexDefinitionContext ctx);
 
     @Nonnull
     @Override
@@ -357,6 +356,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nullable
     @Override
     Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
+
+    @Nullable
+    @Override
+    Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx);
 
     @Nonnull
     @Override
@@ -747,10 +750,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx);
-
-    @Nonnull
-    @Override
     Object visitExpressionOrDefault(@Nonnull RelationalParser.ExpressionOrDefaultContext ctx);
 
     @Nonnull
@@ -783,11 +782,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx);
+    Object visitDatetimeValueFunctionCall(RelationalParser.DatetimeValueFunctionCallContext ctx);
 
     @Nonnull
     @Override
-    Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx);
+    Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx);
 
     @Nonnull
     @Override
@@ -835,6 +834,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Expression visitDatetimeValueFunction(RelationalParser.DatetimeValueFunctionContext ctx);
+
+    @Nonnull
+    @Override
     Object visitCaseFuncAlternative(@Nonnull RelationalParser.CaseFuncAlternativeContext ctx);
 
     @Nonnull
@@ -856,6 +859,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx);
+
+    @Nonnull
+    @Override
+    Integer visitAggregateLimitClause(@Nonnull RelationalParser.AggregateLimitClauseContext ctx);
 
     @Nonnull
     @Override
@@ -937,6 +944,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Object visitDatetimeIntervalArithmeticExpression(RelationalParser.DatetimeIntervalArithmeticExpressionContext ctx);
+
+    @Nonnull
+    @Override
     Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx);
 
     @Nonnull
@@ -950,6 +961,26 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitDatetimePlusMinusIntervalExpression(RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitIntervalPlusDatetimeExpression(RelationalParser.IntervalPlusDatetimeExpressionContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitIntervalLiteral(RelationalParser.IntervalLiteralContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitDayTimeIntervalQualifier(RelationalParser.DayTimeIntervalQualifierContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitDayTimeIntervalField(RelationalParser.DayTimeIntervalFieldContext ctx);
 
     @Nonnull
     @Override

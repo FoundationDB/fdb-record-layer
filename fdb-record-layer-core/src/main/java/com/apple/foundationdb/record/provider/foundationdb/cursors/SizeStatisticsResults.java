@@ -81,7 +81,7 @@ public class SizeStatisticsResults {
         result.valueSize = partialResults.getValueSize();
         result.maxValueSize = partialResults.getMaxValueSize();
         List<Long> bucketList = partialResults.getSizeBucketsList();
-        Arrays.setAll(result.sizeBuckets, i -> bucketList.get(i));
+        Arrays.setAll(result.sizeBuckets, bucketList::get);
 
         return result;
     }

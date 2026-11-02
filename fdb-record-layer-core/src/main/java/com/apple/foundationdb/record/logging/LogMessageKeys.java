@@ -198,6 +198,9 @@ public enum LogMessageKeys {
 
     // FDB client configuration
     API_VERSION,
+    CLIENT_KNOBS,
+    CLIENT_KNOB_NAME,
+    CLIENT_KNOB_VALUE,
     RUN_LOOP_PROFILING,
     THREADS_PER_CLIENT_VERSION,
     TRACE_DIRECTORY,

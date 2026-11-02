@@ -1,0 +1,91 @@
+boolean-predicate-conjunction-tests:
+-   query: EXPLAIN select a from lb where a > 1 and true;
+    ref: boolean.yamsql:127
+    explain: SCAN([IS LB, [GREATER_THAN promote(@c7 AS LONG)]]) | MAP (_.A AS A)
+    task_count: 218
+    task_total_time_ms: 16
+    transform_count: 62
+    transform_time_ms: 6
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 1
+-   query: EXPLAIN select a from lb where true and a > 1;
+    ref: boolean.yamsql:131
+    explain: SCAN([IS LB, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.A AS A)
+    task_count: 218
+    task_total_time_ms: 23
+    transform_count: 62
+    transform_time_ms: 8
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 1
+-   query: EXPLAIN select a from lb where b and b;
+    ref: boolean.yamsql:135
+    explain: SCAN([IS LB]) | FILTER _.B EQUALS true | MAP (_.A AS A)
+    task_count: 204
+    task_total_time_ms: 14
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN select a from lb where a < 3 or b;
+    ref: boolean.yamsql:139
+    explain: SCAN([IS LB]) | FILTER _.A LESS_THAN promote(@c7 AS LONG) OR _.B EQUALS
+        true | MAP (_.A AS A)
+    task_count: 541
+    task_total_time_ms: 60
+    transform_count: 154
+    transform_time_ms: 31
+    transform_yield_count: 34
+    insert_time_ms: 3
+    insert_new_count: 56
+    insert_reused_count: 8
+-   query: EXPLAIN select a from lb where not b;
+    ref: boolean.yamsql:143
+    explain: SCAN([IS LB]) | FILTER _.B NOT_EQUALS true | MAP (_.A AS A)
+    task_count: 218
+    task_total_time_ms: 16
+    transform_count: 64
+    transform_time_ms: 6
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN select a from lb where true;
+    ref: boolean.yamsql:148
+    explain: SCAN([IS LB]) | MAP (_.A AS A)
+    task_count: 204
+    task_total_time_ms: 21
+    transform_count: 64
+    transform_time_ms: 8
+    transform_yield_count: 17
+    insert_time_ms: 1
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN select a from lb where b;
+    ref: boolean.yamsql:152
+    explain: SCAN([IS LB]) | FILTER _.B EQUALS true | MAP (_.A AS A)
+    task_count: 204
+    task_total_time_ms: 22
+    transform_count: 59
+    transform_time_ms: 8
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN select a from lb where a > 1 and 1 = 1;
+    ref: boolean.yamsql:157
+    explain: SCAN([IS LB, [GREATER_THAN promote(@c7 AS LONG)]]) | FILTER @c7 EQUALS
+        @c7 | MAP (_.A AS A)
+    task_count: 224
+    task_total_time_ms: 18
+    transform_count: 61
+    transform_time_ms: 7
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1

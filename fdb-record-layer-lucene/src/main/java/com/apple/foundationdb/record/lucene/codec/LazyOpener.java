@@ -60,15 +60,15 @@ public class LazyOpener<T> {
 
     /**
      * Create a new {@link LazyOpener} for the given {@link LazyOpener.Opener}.
-     * <p>
-     *     The {@code opener} will be called at most once; see {@link Suppliers#memoize(Supplier)}.
-     * </p>
+     *
+     * <p>The {@code opener} will be called at most once; see {@link Suppliers#memoize(Supplier)}.
+     *
      * @param <U> the return type of the {@code opener}
      * @param opener a function to "open" a resource
      * @return a new lazily opened object
      */
     public static <U> LazyOpener<U> supply(LazyOpener.Opener<U> opener) {
-        return new LazyOpener<U>(opener);
+        return new LazyOpener<>(opener);
     }
 
     /**

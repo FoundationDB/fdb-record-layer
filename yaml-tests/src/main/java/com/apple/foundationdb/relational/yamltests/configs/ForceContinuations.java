@@ -26,9 +26,8 @@ import javax.annotation.Nonnull;
 
 /**
  * A configuration that runs an underlying configuration, but forces every query to be executed with {@code maxRows: 1}.
- * <p>
- *     See {@link YamlExecutionContext#OPTION_FORCE_CONTINUATIONS}.
- * </p>
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_FORCE_CONTINUATIONS}.
  */
 public class ForceContinuations extends ConfigWithOptions {
     public ForceContinuations(@Nonnull final YamlTestConfig underlying) {

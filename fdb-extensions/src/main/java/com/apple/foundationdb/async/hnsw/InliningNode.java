@@ -33,8 +33,8 @@ import java.util.Objects;
 
 /**
  * Represents a specific type of node within a graph structure that is used to represent nodes in an HNSW structure.
- * <p>
- * This node extends {@link AbstractNode}, does not store its own vector and instead specifically manages neighbors
+ *
+ * <p>This node extends {@link AbstractNode}, does not store its own vector and instead specifically manages neighbors
  * of type {@link NodeReferenceWithVector} (which do store a vector each).
  * It provides a concrete implementation for an "inlining" node, distinguishing it from other node types such as
  * {@link CompactNode}.
@@ -62,8 +62,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
 
     /**
      * Constructs a new {@code InliningNode} with a specified primary key and a list of its neighbors.
-     * <p>
-     * This constructor initializes the node by calling the constructor of its superclass,
+     *
+     * <p>This constructor initializes the node by calling the constructor of its superclass,
      * passing the primary key and neighbor list.
      *
      * @param primaryKey the non-null primary key of the node, represented by a {@link Tuple}.
@@ -111,8 +111,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
 
     /**
      * Casts this node to a {@link CompactNode}.
-     * <p>
-     * This implementation always throws an exception because this specific node type
+     *
+     * <p>This implementation always throws an exception because this specific node type
      * cannot be represented as a compact node.
      * @return this node as a {@link CompactNode}, never {@code null}
      * @throws IllegalStateException always, as this node is not a compact node
@@ -130,8 +130,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
 
     /**
      * Returns this object as an {@link InliningNode}.
-     * <p>
-     * As this class is already an instance of {@code InliningNode}, this method simply returns {@code this}.
+     *
+     * <p>As this class is already an instance of {@code InliningNode}, this method simply returns {@code this}.
      * @return this object, which is guaranteed to be an {@code InliningNode} and never {@code null}.
      */
     @Nonnull
@@ -142,8 +142,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
 
     /**
      * Returns the singleton factory instance used to create {@link NodeReferenceWithVector} objects.
-     * <p>
-     * This method provides a standard way to obtain the factory, ensuring that a single, shared instance is used
+     *
+     * <p>This method provides a standard way to obtain the factory, ensuring that a single, shared instance is used
      * throughout the application.
      *
      * @return the singleton {@link NodeFactory} instance, never {@code null}.

@@ -295,10 +295,11 @@ public class TypeConversion {
     private static Array toArray(RelationalArray relationalArray) throws SQLException {
         var arrayBuilder = Array.newBuilder();
         if (relationalArray != null) {
-            var relationalResultSet = relationalArray.getResultSet();
-            while (relationalResultSet.next()) {
-                final var value = relationalResultSet.getObject(2);
-                arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+            try (var relationalResultSet = relationalArray.getResultSet()) {
+                while (relationalResultSet.next()) {
+                    final var value = relationalResultSet.getObject(2);
+                    arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+                }
             }
         }
         return arrayBuilder.build();
@@ -734,6 +735,14 @@ public class TypeConversion {
                 case PLAN_RIGHT_DEEP:
                     builder.setPlanRightDeep((Boolean)entry.getValue());
                     break;
+                case PLAN_CACHE_WRITE_ONLY:
+                    builder.setPlanCacheWriteOnly((Boolean)entry.getValue());
+                    break;
+                case ISOLATION_LEVEL_SNAPSHOT:
+                    builder.setIsolationLevel(((Boolean)entry.getValue())
+                            ? com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SNAPSHOT
+                            : com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SERIALIZABLE);
+                    break;
                 case VECTOR_INDEX_ENGINE_PREFERENCE:
                     switch ((Options.VectorIndexEnginePreference)entry.getValue()) {
                         case NO_PREFERENCE:
@@ -748,6 +757,9 @@ public class TypeConversion {
                         default:
                             throw new SQLException("Unknown vector index engine preference");
                     }
+                    break;
+                case FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS:
+                    builder.setFixedEpochTimestampMillisForCurrentDatetimeFunctions(((Long)entry.getValue()).toString());
                     break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
@@ -885,6 +897,26 @@ public class TypeConversion {
         }
         if (protoOptions.hasPlanRightDeep()) {
             builder.withOption(Options.Name.PLAN_RIGHT_DEEP, protoOptions.getPlanRightDeep());
+        }
+        if (protoOptions.hasPlanCacheWriteOnly()) {
+            builder.withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, protoOptions.getPlanCacheWriteOnly());
+        }
+        if (protoOptions.hasIsolationLevel()) {
+            final boolean snapshot;
+            switch (protoOptions.getIsolationLevel()) {
+                case SERIALIZABLE:
+                    snapshot = false;
+                    break;
+                case SNAPSHOT:
+                    snapshot = true;
+                    break;
+                default:
+                    throw new SQLException("Unknown isolation level");
+            }
+            builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot);
+        }
+        if (!protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions().isEmpty()) {
+            builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, Long.valueOf(protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions()));
         }
         return builder.build();
     }

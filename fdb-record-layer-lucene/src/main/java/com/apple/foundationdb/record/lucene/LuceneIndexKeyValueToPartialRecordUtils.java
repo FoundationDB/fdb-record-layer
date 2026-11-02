@@ -84,7 +84,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                                     .addLogInfo(LogMessageKeys.VALUE, groupingKey.toString());
                         }
                         source.buildMessage(groupingKey.get(groupingKeyIndex), (String) value, null, null, false);
-                    } else if (type.equals(LuceneIndexExpressions.DocumentFieldType.TEXT)) {
+                    } else if (type == LuceneIndexExpressions.DocumentFieldType.TEXT) {
                         buildIfFieldNameMatch(source, fieldName, luceneField, overriddenKeyRanges, suggestion, (String) value);
                     }
                 },

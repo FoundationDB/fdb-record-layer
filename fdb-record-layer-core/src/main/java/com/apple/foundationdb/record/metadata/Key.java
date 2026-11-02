@@ -49,6 +49,7 @@ import java.util.List;
 /**
  * Namespace for classes related to {@link KeyExpression} construction and evaluation.
  */
+@SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass")
 @API(API.Status.UNSTABLE)
 public class Key {
 
@@ -102,8 +103,7 @@ public class Key {
          * If fanType is Concatenate or None, this expression will only create 1 index entry. If it is FanOut it will
          * create 1 index entry per value of the field.
          *
-         * <p>
-         * This also takes a {@link Evaluated.NullStandin} value to describe the field's behavior when it encounters an
+         * <p>This also takes a {@link Evaluated.NullStandin} value to describe the field's behavior when it encounters an
          * unset field. If the value is {@link Evaluated.NullStandin#NOT_NULL NOT_NULL}, it will use the field's default
          * value instead of {@code null}. If the value is {@link Evaluated.NullStandin#NULL NULL}, it will return the
          * value {@code null} and disable any uniqueness checks (if the index is a {@linkplain IndexOptions#UNIQUE_OPTION unique}
@@ -114,7 +114,6 @@ public class Key {
          * whether a field can be {@code null} or not. For this reason, there are plans to move this expression from
          * the field to meta-data on the {@link RecordType}. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/677">Issue #677</a>
          * for more details.
-         * </p>
          *
          * @param name the name of the field to evaluate
          * @param fanType the way that repeated fields should be handled
@@ -294,7 +293,7 @@ public class Key {
          */
         @Nonnull
         public static <T> LiteralKeyExpression<T> value(@Nullable T value) {
-            return new LiteralKeyExpression<T>(value);
+            return new LiteralKeyExpression<>(value);
         }
 
         /**

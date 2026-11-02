@@ -36,8 +36,8 @@ import java.util.Map;
  * Vector index tests against the Guardiann engine. The behavioral scenarios are inherited from
  * {@link VectorIndexEngineTestSuite}; this class pins the engine to Guardiann and adds the Guardiann-specific
  * option-evolution validation.
- * <p>
- * The cluster-size knobs are tuned so that each partition forms a handful of clusters (rather than one giant cluster or
+ *
+ * <p>The cluster-size knobs are tuned so that each partition forms a handful of clusters (rather than one giant cluster or
  * the production-sized defaults), which exercises Guardiann's multi-cluster search/replication paths while staying well
  * within {@code searchMaxClusters} so recall stays high on these small, uniformly-random test datasets.
  */
@@ -79,6 +79,10 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
                             .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
                             .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "20")
+                            .put(IndexOptions.GUARDIANN_MERGE_MAX_EVER_FRACTION, "0.2")
+                            .put(IndexOptions.GUARDIANN_MIN_CHILD_FRACTION, "0.1")
+                            .put(IndexOptions.GUARDIANN_MAX_RELATIVE_IMBALANCE, "0.36")
+                            .put(IndexOptions.GUARDIANN_SPLIT_IMBALANCE_PENALTY, "3.0")
                             .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
                             // mutable — stats and concurrency knobs may change freely
                             .put(IndexOptions.VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY, "0.999")
@@ -108,6 +112,26 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
 
             assertInvalidOptionsEvolution(metaData, index,
                     optionsWith(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "50"));
+
+            // the merge threshold's other half is equally immutable: the two compose into one trigger, so changing
+            // either would re-interpret how aggressively existing clusters are consolidated
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_MERGE_MAX_EVER_FRACTION, "0.5"));
+
+            // the repartitioning balance gates and the split imbalance weight are immutable for the same reason:
+            // they decide how existing data gets reshaped
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_MIN_CHILD_FRACTION, "0.2"));
+
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_MAX_RELATIVE_IMBALANCE, "0.5"));
+
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_SPLIT_IMBALANCE_PENALTY, "1.0"));
+
+            // so is the k-means balancing ladder, which decides how evenly an oversized cluster gets split
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_K_MEANS_BALANCING_LADDER, "0.0,0.05"));
 
             // changing an immutable construction-time centroid-walk knob is not allowed: an index must be built with a
             // single, fixed set of construction tuning

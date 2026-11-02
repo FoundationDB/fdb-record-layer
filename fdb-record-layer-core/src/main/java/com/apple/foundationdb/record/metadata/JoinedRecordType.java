@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -44,8 +46,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A <i>synthetic</i> record type representing the indexable result of <em>joining</em> stored records.
- * <p>
- * Joined record represents a collection of <i>joined constituents</i>, each represented by another record in the database.
+ *
+ * <p>Joined record represents a collection of <i>joined constituents</i>, each represented by another record in the database.
  * The constituents are joined together by a <i>join condition</i>: in this case, a set of fields that are tested for
  * equality across all constituents.
  * The joined record primary key is represented by a Tuple as follows:
@@ -54,13 +56,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </pre>
  * When loading a joined record, the joined record primary key is used to iterate and load each constituent, eventually
  * combining the collection of constituents into the completed record.
- * <p>
- * There is nothing special needed to be done to save a joined record. Once the constituent records are saved
+ *
+ * <p>There is nothing special needed to be done to save a joined record. Once the constituent records are saved
  * a joined record instance is implicitly assumed to exist. A subsequent {@link #loadByPrimaryKeyAsync(FDBRecordStore, Tuple, IndexOrphanBehavior)}
  * or a query for the record or a scan of a joined index will create the joined record. similarly, a deletion
  * of any or all of the constituents will implicitly render the joined record type deleted.
- * <p>
- * When loading a joined record (and similarly when scanning an index) an {@link IndexOrphanBehavior} can be used
+ *
+ * <p>When loading a joined record (and similarly when scanning an index) an {@link IndexOrphanBehavior} can be used
  * to determine the behavior in case one or more of the constituents are missing:
  * <ul>
  *     <li>{@link IndexOrphanBehavior#ERROR} (the default) will throw an exception</li>
@@ -162,7 +164,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
             } else {
                 futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
                     if (rec == null) {
-                        if (orphanBehavior.equals(IndexOrphanBehavior.ERROR)) {
+                        if (orphanBehavior == IndexOrphanBehavior.ERROR) {
                             throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
                         } else {
                             // For SKIP and RETURN
@@ -183,7 +185,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
                 return FDBSyntheticRecord.of(this, constituentValues);
             } else {
                 // some constituents are missing
-                if (orphanBehavior.equals(IndexOrphanBehavior.SKIP)) {
+                if (orphanBehavior == IndexOrphanBehavior.SKIP) {
                     return null;
                 } else {
                     // This is for RETURN - return the shell of the record with no constituents
@@ -214,6 +216,13 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
                     .setRightExpression(join.getRightExpression().toKeyExpression());
         }
         return typeBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.INTERNAL)
+    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
+        throw new UnsupportedOperationException("cannot expand an index defined on a " + getClass().getSimpleName());
     }
 
 }

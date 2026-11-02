@@ -342,7 +342,7 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
 
         @Nonnull
         @SuppressWarnings("unused")
-        public final PFetchIndexRecords toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PFetchIndexRecords toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case PRIMARY_KEY:
                     return PFetchIndexRecords.PRIMARY_KEY;

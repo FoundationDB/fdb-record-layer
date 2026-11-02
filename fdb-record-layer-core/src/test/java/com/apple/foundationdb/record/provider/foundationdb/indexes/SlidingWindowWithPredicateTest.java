@@ -64,7 +64,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>These tests use an AND predicate combining a value predicate (e.g. {@code score > threshold})
  * with a {@link IndexPredicate.RowNumberWindowPredicate}. Records that fail the value predicate
- * should be completely invisible to the sliding window.</p>
+ * should be completely invisible to the sliding window.
  */
 @Tag(Tags.RequiresFDB)
 class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {

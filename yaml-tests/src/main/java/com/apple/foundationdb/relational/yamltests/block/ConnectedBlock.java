@@ -37,12 +37,11 @@ import java.util.function.Consumer;
 
 /**
  * A {@link Block} that requires an active connection for execution.
- * <p>
- * Each block needs to be associated with a `connectionURI` which provides it with the address to the database to which
+ *
+ * <p>Each block needs to be associated with a `connectionURI` which provides it with the address to the database to which
  * the block connects to for running its executables. The block does so through the
  * {@link YamlConnectionFactory}. A block is free to implement `how` and `when`
  * it wants to use the factory to create a connection and also manages the lifecycle of the established connection.
- * </p>
  */
 @SuppressWarnings({"PMD.GuardLogStatement"})
 public abstract class ConnectedBlock extends ReferencedBlock implements Block {

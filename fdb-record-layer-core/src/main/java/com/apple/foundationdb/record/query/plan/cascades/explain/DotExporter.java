@@ -131,8 +131,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     @Override
     protected boolean isValidId(@Nonnull final String idCandidate) {
         return ALPHA_DIG.matcher(idCandidate).matches()
-               || DOUBLE_QUOTE.matcher(idCandidate).matches()
-               || DOT_NUMBER.matcher(idCandidate).matches() || HTML.matcher(idCandidate).matches();
+                || DOUBLE_QUOTE.matcher(idCandidate).matches()
+                || DOT_NUMBER.matcher(idCandidate).matches() || HTML.matcher(idCandidate).matches();
     }
 
     @Override
@@ -525,8 +525,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                                @Nonnull final Map<String, Attribute> nodeAttributes) {
         if (details == null || ((List<?>)details.getReference()).isEmpty()) {
             return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\">" +
-                   htmlFromMultiline(escaper.escape(name.getReference().toString())) +
-                   "</table>>";
+                    htmlFromMultiline(escaper.escape(name.getReference().toString())) +
+                    "</table>>";
         }
 
         final String detailsString =
@@ -546,8 +546,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                         .collect(Collectors.joining());
 
         return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\">" +
-               htmlFromMultiline(escaper.escape(name.getReference().toString())) +
-               detailsString + "</table>>";
+                htmlFromMultiline(escaper.escape(name.getReference().toString())) +
+                detailsString + "</table>>";
     }
 
     @Nonnull

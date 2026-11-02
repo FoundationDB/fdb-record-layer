@@ -27,10 +27,10 @@ import java.io.IOException;
 
 /**
  * Similar to {@link LazyOpener}, but that is also {@link Closeable}.
- * <p>
- *     Calling {@link #close()} on this object will not call the opener, and only close the stored value if it was
+ *
+ * <p>Calling {@link #close()} on this object will not call the opener, and only close the stored value if it was
  *     already opened.
- * </p>
+ *
  * @param <T> the value opened
  */
 public class LazyCloseable<T extends Closeable> implements Closeable {
@@ -39,9 +39,9 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
 
     /**
      * Create a new {@link LazyCloseable} for the given {@link LazyOpener.Opener}.
-     * <p>
-     *     The {@code opener} will be called at most once; see {@link com.google.common.base.Suppliers#memoize(Supplier)}.
-     * </p>
+     *
+     * <p>The {@code opener} will be called at most once; see {@link com.google.common.base.Suppliers#memoize(Supplier)}.
+     *
      * @param opener a function to "open" a resource
      * @param <U> the return type of the {@code opener}
      * @return a new lazily opened object

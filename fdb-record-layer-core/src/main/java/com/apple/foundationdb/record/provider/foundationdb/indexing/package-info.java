@@ -25,16 +25,12 @@
  * {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer OnlineIndexer} API to orchestrate
  * builds.
  *
- * <p>
- * This should not be confused with {@link com.apple.foundationdb.record.provider.foundationdb.indexes}, which
+ * <p>This should not be confused with {@link com.apple.foundationdb.record.provider.foundationdb.indexes}, which
  * contains implementations of the different index maintainers, which are used to index new records as they are
  * written (and remove old index entries are records are deleted).
- * </p>
  *
- * <p>
- * There are additional classes that are currently in {@link com.apple.foundationdb.record.provider.foundationdb}
+ * <p>There are additional classes that are currently in {@link com.apple.foundationdb.record.provider.foundationdb}
  * that should probably be moved into this package, such as
  * {@link com.apple.foundationdb.record.provider.foundationdb.IndexingBase IndexingBase} and its subclasses.
- * </p>
  */
 package com.apple.foundationdb.record.provider.foundationdb.indexing;

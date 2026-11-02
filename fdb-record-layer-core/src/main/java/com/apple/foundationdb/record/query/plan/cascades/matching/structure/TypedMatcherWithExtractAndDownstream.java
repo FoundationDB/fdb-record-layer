@@ -80,9 +80,9 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
                 : " if " + boundId + " instanceOf[" + getRootClass().getSimpleName() + "]";
 
         return boundId + " match { " + newLine(nestedIndentation) +
-               "case " + extractor.explainExtraction(nestedId) + typeConstraint + " => " + newLine(doubleNestedIndentation) +
-               downstream.explainMatcher(downstream.unboundRootClass(), nestedId, doubleNestedIndentation) + newLine(indentation) +
-               "}";
+                "case " + extractor.explainExtraction(nestedId) + typeConstraint + " => " + newLine(doubleNestedIndentation) +
+                downstream.explainMatcher(downstream.unboundRootClass(), nestedId, doubleNestedIndentation) + newLine(indentation) +
+                "}";
     }
 
     @Nonnull

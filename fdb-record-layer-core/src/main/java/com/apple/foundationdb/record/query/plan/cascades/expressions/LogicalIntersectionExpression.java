@@ -172,6 +172,22 @@ public class LogicalIntersectionExpression extends AbstractRelationalExpressionW
         return new LogicalIntersectionExpression(childRefsBuilder.build(), comparisonKeyProvidedOrderingParts);
     }
 
+    /**
+     * Creates a new intersection over the given for-each quantifiers, which may include null-on-empty quantifiers.
+     * @param quantifiers the for-each quantifiers ranging over the plans to take the intersection of
+     * @param comparisonKeyProvidedOrderingParts a list of {@link ProvidedOrderingPart}s by which the results of all
+     *        quantifiers are ordered
+     * @return a new intersection expression
+     */
+    @Nonnull
+    public static LogicalIntersectionExpression fromQuantifiers(@Nonnull List<Quantifier.ForEach> quantifiers,
+                                                                @Nonnull List<ProvidedOrderingPart> comparisonKeyProvidedOrderingParts) {
+        if (quantifiers.size() < 2) {
+            throw new RecordCoreArgumentException("fewer than two children given to intersection expression");
+        }
+        return new LogicalIntersectionExpression(quantifiers, comparisonKeyProvidedOrderingParts);
+    }
+
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {

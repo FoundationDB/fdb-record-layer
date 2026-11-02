@@ -33,11 +33,11 @@ import javax.annotation.Nonnull;
  * <p>The four variants map to the "if-exists" decisions that callers of {@code saveSchema}
  * used to encode ad-hoc at the call site (pre-load + throw, gate on {@code doesSchemaExist},
  * overwrite blindly, etc.). Pushing them into the enum forces every caller to declare its
- * intent and lets the catalog enforce that intent uniformly.</p>
+ * intent and lets the catalog enforce that intent uniformly.
  *
  * <p>The compare-and-decide logic itself lives on the enum via
  * {@link #shouldWrite(Schema, Schema)}, so every {@code StoreCatalog} implementation can share
- * one decision path rather than each open-coding an identical switch.</p>
+ * one decision path rather than each open-coding an identical switch.
  */
 public enum SchemaExistsBehavior {
     /**

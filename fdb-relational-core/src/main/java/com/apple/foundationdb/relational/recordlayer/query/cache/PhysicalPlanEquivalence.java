@@ -37,21 +37,19 @@ import java.util.Optional;
 
 /**
  * Represents a key in the secondary cache with special logic for look up.
- * <br>
- * It is designed to hold <u>only</u> the items that can not be hashed or evaluated in constant-time. When used for
+ *
+ * <p>It is designed to hold <u>only</u> the items that can not be hashed or evaluated in constant-time. When used for
  * lookup, its holds {@link EvaluationContext} information as a needle and use it to check constraint implication
  * ({@link QueryPlanConstraint#compileTimeEval(EvaluationContext)}) against other objects in the haystack.
  * See how {@link PhysicalPlanEquivalence#equals(Object)} is implemented for more information.
  * Therefore, this class accepts _either_ an {@link EvaluationContext} or a {@link QueryPlanConstraint} as a member.
  * <br>
  *
- * <p>
- * Note: I think a class similar to Scala's {@code Either} would serve us well in this case. Unfortunately, standard
+ * <p>Note: I think a class similar to Scala's {@code Either} would serve us well in this case. Unfortunately, standard
  * Java libraries do not have (yet) an {@code Either} implementation. Moreover, due to the special equality behavior
  * it is not recommended to use this class outside the current scope of it acting as a key in the secondary cache.
  * For more information about the cache structure, see {@link MultiStageCache} and examine the unit tests of this class
  * in {@code PhysicalPlanEquivalenceTests}.
- * </p>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -75,8 +73,8 @@ public final class PhysicalPlanEquivalence {
 
     /**
      * Checks whether the passed equivalence is equal to {@code this}.
-     * <br>
-     * This implementation is nuanced to address two goals:
+     *
+     * <p>This implementation is nuanced to address two goals:
      * <ol>
      *     <li>realise constraint implications for a given {@link EvaluationContext} when used as a needle during
      *     cache lookup</li>
@@ -86,11 +84,11 @@ public final class PhysicalPlanEquivalence {
      * Let's use the following terminology to demonstrate the equality behavior: we denote a {@link PhysicalPlanEquivalence}
      * that has an {@link EvaluationContext} an <b>environment</b>, and we denote a {@link PhysicalPlanEquivalence} which
      * has a {@link QueryPlanConstraint} a <b>conditional</b>.
-     * <br>
-     * if either {@code this} or {@code object} is an environment, while the other is conditional, return {@code true}
+     *
+     * <p>if either {@code this} or {@code object} is an environment, while the other is conditional, return {@code true}
      * if the conditional is implied under the environment's {@link EvaluationContext}, otherwise, return {@code false}.
-     * <br>
-     * return {@code false} in any other case (both environments or both conditional) as they are logically meaningless
+     *
+     * <p>return {@code false} in any other case (both environments or both conditional) as they are logically meaningless
      * in the context of cache lookup.
      *
      * @param object The object to check "equality" against.

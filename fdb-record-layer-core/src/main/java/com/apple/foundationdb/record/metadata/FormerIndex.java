@@ -154,8 +154,8 @@ public class FormerIndex {
         }
         FormerIndex that = (FormerIndex) o;
         return this.subspaceKey.equals(that.subspaceKey)
-               && Objects.equals(formerName, that.formerName)
-               && this.addedVersion == that.addedVersion && this.removedVersion == that.removedVersion;
+                && Objects.equals(formerName, that.formerName)
+                && this.addedVersion == that.addedVersion && this.removedVersion == that.removedVersion;
     }
 
     @Override

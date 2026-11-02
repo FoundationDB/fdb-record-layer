@@ -53,27 +53,19 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  * <code>RankedSet</code> supports the efficient retrieval of elements by their rank as
  * defined by lexicographic order.
  *
- * <p>
- * Elements are added or removed from the set as byte-array keys.
- * </p>
+ * <p>Elements are added or removed from the set as byte-array keys.
  *
- * <p>
- * The fundamental operations are:
- * </p>
+ * <p>The fundamental operations are:
  * <ul>
  * <li><b>rank</b>: the ordinal position of an element of the set ({@link #rank}).</li>
  * <li><b>select</b>: the element at a given ordinal position in the set ({@link #getNth}).</li>
  * </ul>
  *
- * <p>
- * The set is implemented as a skip-list with a specified number of levels. Level zero has one entry for each element.
+ * <p>The set is implemented as a skip-list with a specified number of levels. Level zero has one entry for each element.
  * Coarser levels have a sampling of values, determined by bits the hash code of their key.
- * </p>
  *
- * <p>
- * The skip-list is stored as key-value pairs within a given subspace, where the key is a tuple of the form <code>[<i>level</i>, <i>key</i>]</code>
+ * <p>The skip-list is stored as key-value pairs within a given subspace, where the key is a tuple of the form <code>[<i>level</i>, <i>key</i>]</code>
  * and the value is the number of elements between this key and the previous key at the same level, encoded as a little-endian long.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class RankedSet {

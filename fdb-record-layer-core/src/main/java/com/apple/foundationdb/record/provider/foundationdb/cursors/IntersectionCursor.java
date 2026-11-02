@@ -156,13 +156,11 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * perform the intersection. Additionally, the provided comparison key function should not have
      * any side-effects and should produce the same output every time it is applied to the same input.
      *
-     * <p>
-     * The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
+     * <p>The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
      * These functions should create a new <code>RecordCursor</code> instance with a given
      * continuation appropriate for that cursor type. The value of that continuation will be determined
      * by this function from the <code>continuation</code> parameter for the intersection
      * cursor as a whole.
-     * </p>
      *
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
      * @param reverse whether records are returned in descending or ascending order by the comparison key

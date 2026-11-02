@@ -47,17 +47,17 @@ import java.util.stream.Collectors;
 /**
  * A normalizer of a tree of {@link QueryPredicate}s into a normal form which may be its conjunctive or disjunctive
  * normal form.
- * <br>
- * The full normal form has a single {@code Or} or {@code And} at the root, all of whose children are {@code And} resp. {@code Or},
+ *
+ * <p>The full normal form has a single {@code Or} or {@code And} at the root, all of whose children are {@code And} resp. {@code Or},
  * none of whose children have other Boolean operators. This is abbreviated to exclude parent Boolean nodes with only one child.
  * The intermediate form for the normalizer is a list of lists.
- * <br>
- * The <em>size</em> of a Boolean expression in normal form is the number of terms in the outermost
+ *
+ * <p>The <em>size</em> of a Boolean expression in normal form is the number of terms in the outermost
  * {@code Or} <a href="http://www.contrib.andrew.cmu.edu/~ryanod/?p=646">[O'Donnell 2014]</a>.
  * The {@code BooleanPredicateNormalizer} will not normalize a {@link QueryPredicate} if the normalized form would have a size
  * that exceeds the size limit. This limit is useful to avoid wastefully normalizing expressions with a very large normal form.
- * <br>
- * We distinguish CNFs (conjunctive normal forms) and DNF (disjunctive normal forms). The logic to obtain these normal
+ *
+ * <p>We distinguish CNFs (conjunctive normal forms) and DNF (disjunctive normal forms). The logic to obtain these normal
  * forms is identical except that the roles or {@code Or}s and {@code And}s are reversed. In order to name identifiers
  * in the code in a meaningful way, we talk about major and minor where CNF uses a major of {@code And} and a minor
  * of {@code Or} and a DNF uses a major of {@code Or} and a minor of {@code And}.
@@ -160,8 +160,8 @@ public class BooleanPredicateNormalizer {
     @Nonnull
     private static BooleanPredicateNormalizer getDefaultInstance(@Nonnull final Mode mode) {
         return mode == Mode.CNF
-               ? DEFAULT_CNF
-               : DEFAULT_DNF;
+                ? DEFAULT_CNF
+                : DEFAULT_DNF;
     }
 
     /**

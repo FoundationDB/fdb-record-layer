@@ -228,8 +228,8 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Method that does the leg work to create the appropriate expression dag for data access using value indexes or
      * value index-like scans (primary scans).
-     * <br>
-     * Conceptually we do the following work:
+     *
+     * <p>Conceptually we do the following work:
      *
      * <ul>
      * <li> This method yields a scan plan for each matching primary candidate ({@link PrimaryScanMatchCandidate}).
@@ -246,26 +246,26 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      *
      * The work described above is semantically correct in a sense that it creates a search space that can be explored
      * and pruned in suitable ways that will eventually converge into an optimal data access plan.
-     * <br>
-     * We can choose to create an index scan for every index that is available regardless what the coverage
+     *
+     * <p>We can choose to create an index scan for every index that is available regardless what the coverage
      * of an index is. The coverage of an index is a measurement that tells us how well an index can answer what a
      * filter (or by extension a query) asks for. For instance, a high number of search arguments used in the index scan
      * can be associated with high coverage (as in the index scan covers more of the query) and vice versa.
-     * <br>
-     * Similarly, we can choose to create the intersection of all possible combinations of suitable scans over indexes
+     *
+     * <p>Similarly, we can choose to create the intersection of all possible combinations of suitable scans over indexes
      * (that we have matches for). Since we create a logical intersection of these access plans we can leave it up to
      * the respective implementation rules (e.g., {@link ImplementIntersectionRule}) to do the right thing and implement
      * the physical plan for the intersection if possible (e.g. ensuring compatibly ordered legs, etc.).
-     * <br>
-     * In fact, the two before-mentioned approaches are completely valid with respect to correctness of the plan and
+     *
+     * <p>In fact, the two before-mentioned approaches are completely valid with respect to correctness of the plan and
      * the guaranteed creation of the optimal plan. However, in reality using this approach, although valid and probably
      * the conceptually better and more orthogonal approach, will result in a ballooning of the search space very quickly.
      * While that may be acceptable for group-by engines and only few index access paths, in an OLTP world where there
      * are potentially dozens of indexes, memory footprint and the sheer number of tasks that would be created for
      * subsequent exploration and implementation of all these alternatives make the purist approach to planning these
      * indexes infeasible.
-     * <br>
-     * Thus, we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
+     *
+     * <p>Thus, we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
      * either in creating a successful executable plan (e.g. logical expression may not ever be able to produce a
      * compatible ordering) or cannot ever create an optimal plan. In a nutshell, we try to utilize additional
      * information that is available in addition to the matching partition in order to make decisions about which
@@ -597,8 +597,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
         int index = 0;
         final var maximumCoverageMatchesBuilder = ImmutableList.<Vectored<SingleMatchedAccess>>builder();
-        for (var i = 0; i < singleMatchedAccesses.size(); i++) {
-            final var outerAccess = singleMatchedAccesses.get(i);
+        for (final var outerAccess : singleMatchedAccesses) {
             final var isContained =
                     findContainingAccess(singleMatchedAccesses, outerAccess);
 

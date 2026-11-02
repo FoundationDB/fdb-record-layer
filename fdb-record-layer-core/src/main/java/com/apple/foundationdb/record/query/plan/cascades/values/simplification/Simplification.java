@@ -471,8 +471,8 @@ public class Simplification {
                                 new QueryPredicateSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings,
                                         aliasMap, constantAliases, constraintsMap::get));
         return simplifiedPredicate == root
-               ? Constrained.unconstrained(root)
-               : Constrained.ofConstrainedObject(simplifiedPredicate,
+                ? Constrained.unconstrained(root)
+                : Constrained.ofConstrainedObject(simplifiedPredicate,
                 collectAndComposeConstraints(simplifiedPredicate, constraintsMap));
     }
 

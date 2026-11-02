@@ -61,7 +61,7 @@ import java.util.Set;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.empty;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -79,9 +79,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * SELECT d FROM foo(42, 'hello') WHERE c IS NULL
  * }</pre>
  *
- * <p>
- * Will be expressed in the query graph as something approximating:
- * </p>
+ * <p>Will be expressed in the query graph as something approximating:
  *
  * <pre>{@code
  * SELECT f.d
@@ -90,16 +88,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *   WHERE f.c IS NULL
  * }</pre>
  *
- * <p>
- * That is, the parameters are expressed on the left-hand side of the join, and the function body is now
+ * <p>That is, the parameters are expressed on the left-hand side of the join, and the function body is now
  * in the right-hand side with correlations leading to its value box.
- * </p>
  *
- * <p>
- * This rule will then help facilitate value in-lining, in that it will detect cases where a select expression
+ * <p>This rule will then help facilitate value in-lining, in that it will detect cases where a select expression
  * has a child that is a values box and then re-write any correlated children. So, in the above expression,
  * it can push down the values box one level, giving us:
- * </p>
  *
  * <pre>{@code
  * SELECT f.d
@@ -111,9 +105,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *   WHERE f.c IS NULL
  * }</pre>
  *
- * <p>
- * The new child is also eligible for value decorrelation, leading to the expression:
- * </p>
+ * <p>The new child is also eligible for value decorrelation, leading to the expression:
  *
  * <pre>{@code
  * SELECT f.d
@@ -124,10 +116,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *   WHERE f.c IS NULL
  * }</pre>
  *
- * <p>
- * At this point, this rule is done, but further straightforward selection merging can rewrite the expression
+ * <p>At this point, this rule is done, but further straightforward selection merging can rewrite the expression
  * as:
- * </p>
  *
  * <pre>{@code
  * SELECT T.d
@@ -142,7 +132,7 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
     // want to create multiple matches if there happens to be a reference containing multiple range(1) values. Doing
     // so would result in the rule being run multiple times with the same input
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> rangeOneMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(
+    private static final BindingMatcher<Quantifier.ForEach> rangeOneMatcher = plainForEachQuantifierOverRef(
             typedMatcherWithPredicate(Reference.class,
                     ref -> ref.getAllMemberExpressions().stream().anyMatch(expr -> expr instanceof TableFunctionExpression && CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr))))
     );
@@ -169,7 +159,7 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
                     }));
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(exploratoryMember(valuesExpressionMatcher));
+    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = plainForEachQuantifierOverRef(exploratoryMember(valuesExpressionMatcher));
 
     // Match a select expression over the values boxes. Ideally, we'd also check each box's correlation sets to validate that
     // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,

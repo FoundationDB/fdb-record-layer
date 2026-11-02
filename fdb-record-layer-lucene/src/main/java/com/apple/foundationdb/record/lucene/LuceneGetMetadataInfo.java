@@ -29,9 +29,8 @@ import javax.annotation.Nullable;
 
 /**
  * Get metadata information about a given lucene index.
- * <p>
- *     This is currently intended to be used for debugging purposes.
- * </p>
+ *
+ * <p>This is currently intended to be used for debugging purposes.
  */
 @API(API.Status.EXPERIMENTAL)
 public class LuceneGetMetadataInfo extends IndexOperation {
@@ -44,10 +43,10 @@ public class LuceneGetMetadataInfo extends IndexOperation {
 
     /**
      * Create a new operation to get metadata about the lucene index.
-     * <p>
-     *     The parameters can be used to limit the scope of information gathered so that it can fit in a single
+     *
+     * <p>The parameters can be used to limit the scope of information gathered so that it can fit in a single
      *     transaction.
-     * </p>
+     *
      * @param groupingKey the grouping key, or an empty {@code Tuple} if this index is not grouped
      * @param partitionId if {@code null}, this will return information for all partitions, otherwise just the given partition
      * @param justPartitionInfo if {@code true} then only the partition info will be fetched, otherwise information from

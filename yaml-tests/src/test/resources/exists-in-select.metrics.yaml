@@ -159,9 +159,41 @@ exists-in-projection:
     insert_time_ms: 1
     insert_new_count: 164
     insert_reused_count: 15
+-   query: EXPLAIN select t1.id, t2.id as t2_id from t1 join t2 on t1.id = t2.t1_id
+        where not exists (select 1 from t3 where t3.t2_id = t2.id)
+    ref: exists-in-select.yamsql:132
+    explain: 'SCAN([IS T2]) | FLATMAP q0 -> { COVERING(T3_T2_ID [EQUALS q0.ID] ->
+        [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c27 AS _0) | DEFAULT NULL | FILTER
+        NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID])
+        AS q3 RETURN (q3.ID AS ID, q0.ID AS T2_ID) }'
+    task_count: 1259
+    task_total_time_ms: 15
+    transform_count: 421
+    transform_time_ms: 6
+    transform_yield_count: 89
+    insert_time_ms: 0
+    insert_new_count: 164
+    insert_reused_count: 15
+-   query: EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id
+        and t2.t1_id = t1.id) as has_t3 from t1 where not exists (select 1 from t2
+        where t2.t1_id = t1.id)
+    ref: exists-in-select.yamsql:140
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
+        q0.ID | MAP (@c39 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN
+        q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP
+        q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c39 AS _0) } | DEFAULT
+        NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }
+    task_count: 1296
+    task_total_time_ms: 16
+    transform_count: 424
+    transform_time_ms: 7
+    transform_yield_count: 93
+    insert_time_ms: 1
+    insert_new_count: 157
+    insert_reused_count: 16
 -   query: EXPLAIN select t3.id, t3.label, exists (select 1 from t2 where t2.id =
         t3.t2_id) as has_t2 from t3 where t3.t2_id = 100
-    ref: exists-in-select.yamsql:133
+    ref: exists-in-select.yamsql:148
     explain: ISCAN(T3_T2_ID [EQUALS promote(@c33 AS LONG)]) | FLATMAP q0 -> { SCAN([IS
         T2, EQUALS q0.T2_ID]) | MAP (@c12 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID
         AS ID, q0.LABEL AS LABEL, exists(q1) AS HAS_T2) }

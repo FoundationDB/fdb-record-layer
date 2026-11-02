@@ -37,9 +37,32 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
     };
 
     /**
+     * Callback method invoked after repartitioning has reconciled a set of vector references, reporting how many it
+     * discarded because they no longer describe where a vector lives — the vector having since been deleted, or moved
+     * to another cluster. Such a reference is still counted by the cluster it sits in, so a non-zero count means that
+     * cluster's recorded vector count had drifted above what it actually holds, and the split or merge decision was
+     * taken against the drifted figure.
+     *
+     * <p>Invoked on every reconciliation, including those that discard nothing, so that an implementor can relate the
+     * drift to how often repartitioning runs at all — a count of discarded references means little without knowing
+     * whether it came from one reconciliation or ten thousand.
+     *
+     * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     * need to observe the drift (e.g. for metrics).
+     *
+     * @param numDroppedMissingMetadata references whose vector no longer exists at all
+     * @param numDroppedSupersededMetadata references superseded by a newer copy of the same vector elsewhere
+     */
+    @SuppressWarnings("unused")
+    default void onVectorReferencesCleanedUp(final int numDroppedMissingMetadata,
+                                             final int numDroppedSupersededMetadata) {
+        // nothing
+    }
+
+    /**
      * Callback method that is invoked after a {@link AbstractDeferredTask} has been enqueued.
-     * <p>
-     * This is a default method with an empty implementation, allowing implementing classes to override it only if
+     *
+     * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if
      * they need to observe task enqueueing (e.g. for metrics).
      *
      * @param kind the kind of the enqueued task
@@ -54,8 +77,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method that is invoked after a {@link AbstractDeferredTask} has been successfully executed.
-     * <p>
-     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     *
+     * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
      * @param taskKind kind of task
      * @param taskId task identifier
@@ -69,12 +92,12 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked when a neighbor is written for a specific node.
-     * <p>
-     * This method serves as a notification that a neighbor relationship has been established or updated. It is
+     *
+     * <p>This method serves as a notification that a neighbor relationship has been established or updated. It is
      * typically called after a write operation successfully adds a {@code neighbor} to the specified {@code node}
      * within a given {@code layer}.
-     * <p>
-     * As a {@code default} method, the base implementation does nothing. Implementers can override this to perform
+     *
+     * <p>As a {@code default} method, the base implementation does nothing. Implementers can override this to perform
      * custom actions, such as updating caches or triggering subsequent events in response to the change.
      * @param layer the index of the layer where the neighbor write operation occurred
      * @param node the {@link Node} for which the neighbor was written; must not be null
@@ -88,8 +111,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked after a node has been successfully deleted from a specific layer.
-     * <p>
-     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     *
+     * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
      * @param layer the index of the layer where the node was deleted.
      * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
@@ -101,8 +124,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked when a neighbor of a specific node is deleted.
-     * <p>
-     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     *
+     * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
      * @param layer the layer index where the deletion occurred

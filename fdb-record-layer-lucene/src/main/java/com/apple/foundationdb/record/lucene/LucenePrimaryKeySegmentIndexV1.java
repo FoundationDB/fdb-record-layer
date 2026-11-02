@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -152,6 +153,15 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         }
     }
 
+    @Override
+    @Nonnull
+    public CompletableFuture<Boolean> hasPrimaryKeyAsync(@Nonnull Tuple primaryKey) {
+        // any entry means that the record had been indexed, even if its segment is unknown
+        return directory.getAgilityContext().apply(context ->
+                context.ensureActive().getRange(subspace.subspace(primaryKey).range(), 1).asList()
+                        .thenApply(keyValues -> !keyValues.isEmpty()));
+    }
+
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
                               @Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
         final SegmentInfos segmentInfos = ((StandardDirectoryReader)FilterDirectoryReader.unwrap(directoryReader)).getSegmentInfos();
@@ -232,7 +242,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         public void writeField(FieldInfo info, IndexableField field) throws IOException {
             inner.writeField(info, field);
             try {
-                if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+                if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(info.name)) {
                     final byte[] primaryKey = field.binaryValue().bytes;
                     addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, segmentName);
                 }
@@ -343,7 +353,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
 
         @Override
         public Status needsField(final FieldInfo fieldInfo) {
-            if (fieldInfo.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(fieldInfo.name)) {
                 return Status.YES;
             } else if (primaryKey != null) {
                 return Status.STOP;
@@ -354,7 +364,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
 
         @Override
         public void binaryField(final FieldInfo fieldInfo, final byte[] value) {
-            if (fieldInfo.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(fieldInfo.name)) {
                 primaryKey = value;
             }
         }

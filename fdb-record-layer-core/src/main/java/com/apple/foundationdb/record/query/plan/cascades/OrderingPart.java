@@ -602,8 +602,8 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         @Nonnull
         private Direction toTupleDirection(final boolean isReverse) {
             return isReverse
-                   ? getSortOrder().getTupleDirection().reverseDirection()
-                   : getSortOrder().getTupleDirection();
+                    ? getSortOrder().getTupleDirection().reverseDirection()
+                    : getSortOrder().getTupleDirection();
         }
 
         @Nonnull

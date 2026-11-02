@@ -61,6 +61,7 @@ import java.util.function.IntConsumer;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.allowChange;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyBoolean;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyDouble;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyDoubleList;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyInteger;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.disallowChange;
 
@@ -69,8 +70,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  * a parsed {@link Config} and constructs a fresh {@code Guardiann} bound to the partition subspace for each operation;
  * Guardiann runs its deferred maintenance (split/merge/reassign/collapse) piggy-backed on inserts and deletes, so
  * per-call construction is the intended usage.
- * <p>
- * Two things differ from HNSW. First, a Guardiann {@code delete} needs the vector (not just the primary key) to locate
+ *
+ * <p>Two things differ from HNSW. First, a Guardiann {@code delete} needs the vector (not just the primary key) to locate
  * the vector's cluster references, which is why the {@link VectorIndexEngine} delete contract always carries the vector.
  * Second, a Guardiann search requires a per-query {@link SearchConfig}, which is built from the per-query scan options
  * ({@link VectorIndexScanOptions}'s {@code GUARDIANN_*} knobs), each knob falling back to its {@link SearchConfig}
@@ -307,6 +308,13 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_MERGE_MAX_EVER_FRACTION, index,
+                builder::setMergeMaxEverFraction);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_MIN_CHILD_FRACTION, index, builder::setMinChildFraction);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_MAX_RELATIVE_IMBALANCE, index,
+                builder::setMaxRelativeImbalance);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_SPLIT_IMBALANCE_PENALTY, index,
+                builder::setSplitImbalancePenalty);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX, index, builder::setPrimaryClusterMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, index,
                 builder::setPrimaryClusterHardMax);
@@ -336,7 +344,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS, index,
                 builder::setMergeNumNearestClusters);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_ITERATIONS, index, builder::setKMeansMaxIterations);
-        applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_RESTARTS, index, builder::setKMeansMaxRestarts);
+        applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_NUM_RUNS, index, builder::setKMeansNumRuns);
+        applyDoubleList(VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER, index,
+                builder::setKMeansBalancingLadder);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS, index,
                 builder::setReassignNumNeighboringClusters);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES, index, builder::setCollapseMinDuplicates);
@@ -391,6 +401,14 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         // Immutable: Guardiann cluster shape, replication scoring, candidate counts, k-means, determinism.
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
                 oldConfig.primaryClusterMin(), newConfig.primaryClusterMin(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_MERGE_MAX_EVER_FRACTION,
+                oldConfig.mergeMaxEverFraction(), newConfig.mergeMaxEverFraction(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_MIN_CHILD_FRACTION,
+                oldConfig.minChildFraction(), newConfig.minChildFraction(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_MAX_RELATIVE_IMBALANCE,
+                oldConfig.maxRelativeImbalance(), newConfig.maxRelativeImbalance(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_SPLIT_IMBALANCE_PENALTY,
+                oldConfig.splitImbalancePenalty(), newConfig.splitImbalancePenalty(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
                 oldConfig.primaryClusterMax(), newConfig.primaryClusterMax(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
@@ -419,8 +437,10 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 oldConfig.mergeNumNearestClusters(), newConfig.mergeNumNearestClusters(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_ITERATIONS,
                 oldConfig.kMeansMaxIterations(), newConfig.kMeansMaxIterations(), name);
-        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_RESTARTS,
-                oldConfig.kMeansMaxRestarts(), newConfig.kMeansMaxRestarts(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_NUM_RUNS,
+                oldConfig.kMeansNumRuns(), newConfig.kMeansNumRuns(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER,
+                oldConfig.kMeansBalancingLadder(), newConfig.kMeansBalancingLadder(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
                 oldConfig.reassignNumNeighboringClusters(), newConfig.reassignNumNeighboringClusters(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
@@ -525,6 +545,19 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
             }
             register.onTaskExecuted(transaction);
+        }
+
+        @Override
+        public void onVectorReferencesCleanedUp(final int numDroppedMissingMetadata,
+                                                final int numDroppedSupersededMetadata) {
+            if (timer != null) {
+                final int numDropped = numDroppedMissingMetadata + numDroppedSupersededMetadata;
+                timer.increment(FDBStoreTimer.Counts.VECTOR_REFERENCE_CLEANUPS);
+                if (numDropped > 0) {
+                    timer.increment(FDBStoreTimer.Counts.VECTOR_REFERENCE_CLEANUPS_WITH_STALE);
+                    timer.increment(FDBStoreTimer.Counts.VECTOR_STALE_REFERENCES_DROPPED, numDropped);
+                }
+            }
         }
 
         // Listener for insert/delete/drain: metrics plus forwarding task enqueue/execute events to the register

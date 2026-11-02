@@ -148,7 +148,7 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T> CloseableAsyncIterator<T> limitRemaining(@Nonnull final AsyncIterator<T> iterator,
                                                                final int limit) {
-        return new CloseableAsyncIterator<T>() {
+        return new CloseableAsyncIterator<>() {
             int count = 0;
 
             @Override
@@ -210,8 +210,8 @@ public class MoreAsyncUtil {
      * elements all satisfy {@code whilePredicate}: it yields every leading element that matches and stops as soon as
      * one does not (that first failing element is not returned). For example, taking-while {@code isEven} over
      * {@code [2, 4, 3, 6, 5]} yields {@code [2, 4]}.
-     * <p>
-     * <b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
+     *
+     * <p><b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
      * stop requires actually pulling the first non-matching element ({@code iterator.next()}) in order to test it —
      * that element is then dropped rather than returned. A caller that retains a reference to the source
      * {@code iterator} will therefore find it positioned <em>past</em> the first failure: in the example above,
@@ -316,7 +316,7 @@ public class MoreAsyncUtil {
     public static <T> CloseableAsyncIterator<T> filterRemaining(@Nonnull Executor executor,
                                                                 @Nonnull final AsyncIterator<T> iterator,
                                                                 @Nonnull final Function<T, Boolean> filter) {
-        return new CloseableAsyncIterator<T>() {
+        return new CloseableAsyncIterator<>() {
             T next;
             boolean haveNext;
             @Nullable
@@ -430,11 +430,11 @@ public class MoreAsyncUtil {
     @Nonnull
     @SuppressWarnings("unchecked") // parameterized vararg
     public static <T> AsyncIterable<T> concatIterables(@Nonnull Executor executor, @Nonnull final AsyncIterable<T>... iterables) {
-        return new AsyncIterable<T>() {
+        return new AsyncIterable<>() {
             @Nonnull
             @Override
             public CloseableAsyncIterator<T> iterator() {
-                return new CloseableAsyncIterator<T>() {
+                return new CloseableAsyncIterator<>() {
                     int index = 0;
                     @Nullable
                     AsyncIterator<T> current;
@@ -525,7 +525,7 @@ public class MoreAsyncUtil {
                     return iterables[0].asList();
                 } else {
                     final List<T> result = new ArrayList<>();
-                    return tag(whileTrue(new Supplier<CompletableFuture<Boolean>>() {
+                    return tag(whileTrue(new Supplier<>() {
                                 int index = 0;
 
                                 @Override
@@ -566,7 +566,7 @@ public class MoreAsyncUtil {
             @Nonnull
             @Override
             public CloseableAsyncIterator<T2> iterator() {
-                CloseableAsyncIterator<T2> it = new CloseableAsyncIterator<T2>() {
+                CloseableAsyncIterator<T2> it = new CloseableAsyncIterator<>() {
                     final AsyncIterator<T1> iterator = iterable.iterator();
                     final Queue<AsyncIterator<T2>> pipeline = new ArrayDeque<>(pipelineSize);
                     @Nullable
@@ -670,7 +670,7 @@ public class MoreAsyncUtil {
             @Override
             public CompletableFuture<List<T2>> asList() {
                 final List<T2> result = new ArrayList<>();
-                return tag(whileTrue(new Supplier<CompletableFuture<Boolean>>() {
+                return tag(whileTrue(new Supplier<>() {
                             final AsyncIterator<T1> iterator = iterable.iterator();
                             boolean more = false;
 
@@ -711,11 +711,11 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T> AsyncIterable<T> filterToIterable(final T item,
                                                         @Nonnull final Function<T, CompletableFuture<Boolean>> filter) {
-        return new AsyncIterable<T>() {
+        return new AsyncIterable<>() {
             @Nullable
             @Override
             public CloseableAsyncIterator<T> iterator() {
-                return new CloseableAsyncIterator<T>() {
+                return new CloseableAsyncIterator<>() {
                     boolean used = false;
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
@@ -797,11 +797,11 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
                                                            @Nonnull final Function<T1, CompletableFuture<T2>> func) {
-        return new AsyncIterable<T2>() {
+        return new AsyncIterable<>() {
             @Nullable
             @Override
             public CloseableAsyncIterator<T2> iterator() {
-                return new CloseableAsyncIterator<T2>() {
+                return new CloseableAsyncIterator<>() {
                     T2 result;
                     boolean used = false;
                     @Nullable
@@ -860,7 +860,7 @@ public class MoreAsyncUtil {
             @Override
             public CompletableFuture<List<T2>> asList() {
                 return func.apply(item)
-                    .thenApply(result -> Collections.singletonList(result));
+                    .thenApply(Collections::singletonList);
             }
         };
     }
@@ -962,12 +962,10 @@ public class MoreAsyncUtil {
      * in an efficient way by {@link #delayedFuture(long, TimeUnit)}. Adopters can provide their
      * own {@link ScheduledExecutorService} by using the overloaded method.
      *
-     * <p>
-     * By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
+     * <p>By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
      * with a single thread used for executing delayed tasks. In practice, with a future chain,
      * this should be quick asynchronous callbacks, and blocking in such a callback can
      * block the task thread.
-     * </p>
      *
      * @return an executor service that allows for tasks to be efficiently scheduled for later
      * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
@@ -1157,10 +1155,10 @@ public class MoreAsyncUtil {
 
     /**
      * Combine the results of two futures, but fail fast if either future fails.
-     * <p>
-     *     This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
+     *
+     * <p>This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
      *     wait for the other one to complete before completing the result with the failure.
-     * </p>
+     *
      * @param future1 one future
      * @param future2 another future
      * @param combiner a function to combine the results of both {@code future1} and {@code future2} into a single result.

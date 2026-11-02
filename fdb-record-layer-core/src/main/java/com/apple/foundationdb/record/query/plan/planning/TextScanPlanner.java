@@ -149,7 +149,7 @@ public class TextScanPlanner {
     @Nullable
     private static TextScan getScanForNestedField(@Nonnull Index index, @Nonnull NestingKeyExpression textExpression, @Nonnull NestedField filter,
                                                   @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
-        if (textExpression.getParent().getFanType().equals(KeyExpression.FanType.None)
+        if (textExpression.getParent().getFanType() == KeyExpression.FanType.None
                 && textExpression.getParent().getFieldName().equals(filter.getFieldName())) {
             final FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(filter.getChild()) : null;
             TextScan foundScan = getScanForFilter(index, textExpression.getChild(), filter.getChild(), groupingComparisons, hasSort, childMask);
@@ -165,7 +165,7 @@ public class TextScanPlanner {
     private static TextScan getScanForRepeatedNestedField(@Nonnull Index index, @Nonnull NestingKeyExpression textExpression, @Nonnull OneOfThemWithComponent filter,
                                                           @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
 
-        if (textExpression.getParent().getFanType().equals(KeyExpression.FanType.FanOut)
+        if (textExpression.getParent().getFanType() == KeyExpression.FanType.FanOut
                 && textExpression.getParent().getFieldName().equals(filter.getFieldName())) {
             // This doesn't work for certain complex queries on child fields.
             // There are more details in this issue and there is an example of mis-planned query in the
@@ -223,7 +223,7 @@ public class TextScanPlanner {
             groupedKey = ((GroupingKeyExpression)indexExpression).getGroupedSubKey();
             QueryToKeyMatcher groupingQueryMatcher = new QueryToKeyMatcher(filter);
             QueryToKeyMatcher.Match groupingMatch = groupingQueryMatcher.matchesCoveringKey(groupingKey, localMask);
-            if (!groupingMatch.getType().equals(QueryToKeyMatcher.MatchType.EQUALITY)) {
+            if (groupingMatch.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                 return null;
             }
             groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptySet());

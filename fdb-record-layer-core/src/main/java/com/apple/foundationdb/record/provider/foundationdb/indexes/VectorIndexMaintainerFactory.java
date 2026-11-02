@@ -112,8 +112,8 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
 
         /**
          * Validates the key expression structure of a vector index.
-         * <p>
-         * The root expression must be a {@link KeyWithValueExpression}. Its split point divides the columns:
+         *
+         * <p>The root expression must be a {@link KeyWithValueExpression}. Its split point divides the columns:
          * <ul>
          * <li>columns before the split point: index prefix (for partitioning)</li>
          * <li>columns after the split point: vector column followed by optional covering columns</li>
@@ -126,8 +126,8 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
          * <li>the index must not be unique</li>
          * <li>the index must not contain any version columns</li>
          * </ul>
-         * <p>
-         * TODO: Currently only exactly one column after the split point is supported (no covering columns yet).
+         *
+         * <p>TODO: Currently only exactly one column after the split point is supported (no covering columns yet).
          */
         private void validateStructure() {
             validateNotGrouping();

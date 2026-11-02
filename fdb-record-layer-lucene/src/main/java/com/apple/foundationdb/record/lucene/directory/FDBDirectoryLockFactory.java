@@ -102,7 +102,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             lockStartTime = System.nanoTime();
             fileLockSet(false);
             agilityContext.flush();
-            agilityContext.setCommitCheck(this::ensureValidIfNotClosed);
+            agilityContext.addCommitCheck(this::ensureValidIfNotClosed);
             logSelf("FileLock: Successfully created a file lock");
         }
 
@@ -195,9 +195,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (existingTimeStamp > (nowMillis - timeWindowMilliseconds) &&
                     existingTimeStamp < (nowMillis + timeWindowMilliseconds)) {
                 // Here: this lock is valid
-                throw new FDBDirectoryLockException("FileLock: Lock failed: already locked by another entity")
+                final long leaseRemainingMillis = existingTimeStamp + timeWindowMilliseconds - nowMillis;
+                throw new FDBDirectoryLockException("FileLock: Lock failed: already locked by another entity", leaseRemainingMillis)
                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                 LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
+                                LuceneLogMessageKeys.LOCK_LEASE_REMAINING_MILLIS, leaseRemainingMillis,
                                 LuceneLogMessageKeys.LOCK_DIRECTORY, this);
             }
             // Here: this lock is either too old, or in the future. Steal it
@@ -209,6 +211,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
+        @SuppressWarnings("PMD.UnusedAssignment") // false positive: closed is a field read during flush() before the final assignment
         private void fileLockClearFlushAndClose(boolean isRecovery) {
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
@@ -292,8 +295,20 @@ public final class FDBDirectoryLockFactory extends LockFactory {
      */
     @SuppressWarnings("serial")
     public static class FDBDirectoryLockException extends LoggableException {
-        public FDBDirectoryLockException(@Nonnull final String msg) {
+        private final long leaseRemainingMillis;
+
+        public FDBDirectoryLockException(@Nonnull final String msg, final long leaseRemainingMillis) {
             super(msg);
+            this.leaseRemainingMillis = leaseRemainingMillis;
+        }
+
+        /**
+         * Get the time that was left until the existing lock's lease expires. Note that the lock holder may renew the
+         * lease before it expires.
+         * @return the time left in milliseconds
+         */
+        public long getLeaseRemainingMillis() {
+            return leaseRemainingMillis;
         }
     }
 }

@@ -66,27 +66,27 @@ import java.util.concurrent.CompletableFuture;
  * Manages a persistent queue of pending Lucene write operations in FDB.
  * When any partition is locked during a merge, write operations (insert, update, delete)
  * are queued and later moved into the index after the merge completes.
- * <p>
- * There are three flows that the queue supports:
+ *
+ * <p>There are three flows that the queue supports:
  * <ul>
  *     <li>Enqueue - Add an item to the queue when a document change request arrives and the index is locked</li>
  *     <li>Replay - Ephemeral write of the queue items to an IndexWriter so the searcher can use them in a query</li>
  *     <li>Drain - Move items from the queue to the index once the merge lock is no longer taken</li>
  * </ul>
  *
- * <p>Each queue is scoped to a specific partition (groupingKey + partitionId).</p>
+ * <p>Each queue is scoped to a specific partition (groupingKey + partitionId).
  * <p>The queueSubspace parameter should already include the grouping key and partition ID. The structure of the subspace
- * most generically looks like:</p>
+ * most generically looks like:
  * <pre>
  * &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
  * </pre>
- * <p>Although, non-grouped or non-partitioned indexes would not include all of these components.</p>
+ * <p>Although, non-grouped or non-partitioned indexes would not include all of these components.
  * <p>The key of each K/V queue entry will be a versionStamp to ensure uniqueness and ordering of the queue entries, which
  * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of
- * LucenePendingWriteQueueProto.PendingWriteItem.</p>
+ * LucenePendingWriteQueueProto.PendingWriteItem.
  * <p>The queue maintains a counter (in a separate subspace) for the number of entries it contains. The counter starts as
  * uninitialized and is atomically mutated upon enqueues and clear operations. The queue can (optionally) reject enqueues
- * if the number of entries is larger than (configurable) limit.</p>
+ * if the number of entries is larger than (configurable) limit.
  */
 @API(API.Status.INTERNAL)
 public class PendingWriteQueue {
@@ -186,7 +186,7 @@ public class PendingWriteQueue {
      * and a serializable read would install a read-conflict range over the queue subspace, causing the drain
      * to conflict with any concurrent enqueue.
      * A caller that needs to fail if writes arrived concurrently must instead gate on
-     * {@link #isQueueEmpty(FDBRecordContext)}, which is the intended (and only) conflict point.</p>
+     * {@link #isQueueEmpty(FDBRecordContext)}, which is the intended (and only) conflict point.
      *
      * @param context the record context to use
      * @param scanProperties the scan properties for the cursor; the isolation level is always forced to
@@ -313,7 +313,7 @@ public class PendingWriteQueue {
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
             replayOperation(entry.get(), indexWriter, index);
         }).thenAccept(lastResult -> {
-            if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
+            if (lastResult.getNoNextReason() == RecordCursor.NoNextReason.RETURN_LIMIT_REACHED) {
                 // Reached the row limit
                 throw new TooManyPendingWritesException("Too many entries to replay into IndexWriter", maxEntriesToReplay);
             }

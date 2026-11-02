@@ -1,0 +1,77 @@
+{
+  "records": {
+    "name": "vector_metadata.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.vectormetadata",
+    "dependency": [
+      "record_metadata_options.proto"
+    ],
+    "messageType": [
+      {
+        "name": "EMBEDDINGS",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "EMBEDDING",
+            "number": 2,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_BYTES",
+            "options": {
+              "com.apple.foundationdb.record.field": {
+                "vectorOptions": {
+                  "precision": 32,
+                  "dimensions": 3
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_EMBEDDINGS",
+            "number": 1,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_MESSAGE",
+            "typeName": ".com.apple.foundationdb.relational.yamltests.generated.vectormetadata.EMBEDDINGS"
+          }
+        ]
+      }
+    ],
+    "options": {
+      "javaOuterClassname": "VectorMetadataProto"
+    },
+    "syntax": "proto3"
+  },
+  "recordTypes": [
+    {
+      "name": "EMBEDDINGS",
+      "primaryKey": {
+        "then": {
+          "child": [
+            {
+              "recordTypeKey": {
+              }
+            },
+            {
+              "field": {
+                "fieldName": "ID",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "splitLongRecords": false,
+  "version": 0,
+  "storeRecordVersions": false
+}

@@ -77,6 +77,15 @@ public interface SchemaTemplate extends Metadata {
     Set<? extends View> getViews() throws RelationalException;
 
     /**
+     * Returns the {@link SyntheticTable}s inside the schema template.
+     *
+     * @return The {@link SyntheticTable}s inside the schema template.
+     * @throws RelationalException if it is a NoOpSchemaTemplate
+     */
+    @Nonnull
+    Set<? extends SyntheticTable> getSyntheticTables() throws RelationalException;
+
+    /**
      * Retrieves a {@link Table} by looking up its name.
      *
      * @param tableName The name of the {@link Table}.
@@ -96,8 +105,8 @@ public interface SchemaTemplate extends Metadata {
 
     /**
      * Returns a {@link BitSet} whose bits are set for each of passed index names.
-     * <br>
-     * <b>Example</b>
+     *
+     * <p><b>Example</b>
      * for a given schema template {@code st} with indexes {@code i1, i2, i3, i4} whose order are as-defined, calling
      * {@code st.getIndexEntriesAsBitset(Optiona.of(Set.of("i2", "i3"))} returns a bitset of {@code 0110}.
      *

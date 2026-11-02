@@ -37,20 +37,20 @@ import java.util.Objects;
  * an expression dag. In particular, a {@code SimpleExpressionVisitor} computes a property that depends on (much of) the
  * contents of the subtree rooted at the expression on which it is evaluated, rather than just a finite depth set of
  * paths as a {@link BindingMatcher} would.
- * <br>
- * To avoid littering {@link RelationalExpression} classes with methods for various interesting properties, we instead
+ *
+ * <p>To avoid littering {@link RelationalExpression} classes with methods for various interesting properties, we instead
  * compute those properties using a variant of the hierarchical visitor pattern over a DAG of
  * {@link RelationalExpression}s, {@link Quantifier}s, and {@link Reference}s.
- * <br>
- * A property can be computed against an expression tree by having the visitor traverse a DAG of heterogeneous objects
+ *
+ * <p>A property can be computed against an expression tree by having the visitor traverse a DAG of heterogeneous objects
  * where expressions are said to own quantifiers which range over expression references which then contain expressions
  * again. Shared sub-graphs are visited multiple times. If desired, the caller must ensure that a subgraph is not
  * visited more than once.
- * <br>
- * Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are
+ *
+ * <p>Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are
  * handed the results of the visitor evaluated at their owned quantifiers, references, and members respectively.
- * <br>
- * Note that the default implementations provided in this interface walk the entire DAG, i.e. all {@link #shouldVisit}
+ *
+ * <p>Note that the default implementations provided in this interface walk the entire DAG, i.e. all {@link #shouldVisit}
  * methods return {@code true}. That implies that properties have been computed for sub-structures of the graph when
  * {@code evaluateAtXXX()} is called and therefore are not {@code null}. That means that all such arguments can be
  * assumed to be non-nullable even though parameters are annotated as {@link Nullable}. On the other hand, if the

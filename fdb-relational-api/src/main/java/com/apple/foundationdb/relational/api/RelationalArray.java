@@ -42,9 +42,10 @@ public interface RelationalArray extends Array, Wrapper, WithMetadata {
     @Override
     default Object getArray(long oneBasedIndex, int count) throws SQLException {
         final var array = new ArrayList<>();
-        final var rs = getResultSet(oneBasedIndex, count);
-        while (rs.next()) {
-            array.add(rs.getObject(2));
+        try (var rs = getResultSet(oneBasedIndex, count)) {
+            while (rs.next()) {
+                array.add(rs.getObject(2));
+            }
         }
         return array.toArray();
     }

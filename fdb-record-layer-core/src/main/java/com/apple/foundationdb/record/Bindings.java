@@ -34,9 +34,8 @@ import java.util.Map;
 
 /**
  * A map of bound parameter values passed to query evaluation.
- * <p>
- * A binding map can also have a parent from which values are taken if they are absent in the child.
- * </p>
+ *
+ * <p>A binding map can also have a parent from which values are taken if they are absent in the child.
  */
 @API(API.Status.UNSTABLE)
 public class Bindings {

@@ -63,10 +63,8 @@ public class FDBStoreTimer extends StoreTimer {
          * FoundationDB cluster can introduce back pressure, and the cluster will favor higher priority
          * transactions over lower priority transactions.
          *
-         * <p>
-         * Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
+         * <p>Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
          * before issuing the request.
-         * </p>
          *
          * @see #GET_READ_VERSION
          * @see #INJECTED_GET_READ_VERSION_LATENCY
@@ -781,6 +779,30 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_TASK_ENQUEUED("vector maintenance tasks enqueued", false),
         /** Count of deferred maintenance tasks executed (Guardiann engine). */
         VECTOR_TASK_EXECUTED("vector maintenance tasks executed", false),
+        /**
+         * Count of times repartitioning reconciled a set of vector references (Guardiann engine). The denominator for
+         * {@link #VECTOR_REFERENCE_CLEANUPS_WITH_STALE} and {@link #VECTOR_STALE_REFERENCES_DROPPED}, neither of which
+         * means much on its own.
+         */
+        VECTOR_REFERENCE_CLEANUPS("vector reference cleanups", false),
+        /**
+         * Count of reference reconciliations that found at least one stale reference (Guardiann engine). Against
+         * {@link #VECTOR_REFERENCE_CLEANUPS} this gives the share of repartitionings whose cluster had drifted.
+         */
+        VECTOR_REFERENCE_CLEANUPS_WITH_STALE("vector reference cleanups finding stale references", false),
+        /**
+         * Count of vector references discarded by repartitioning because the vector had been deleted or had moved
+         * (Guardiann engine). A non-zero count means a cluster's recorded vector count had drifted above what it
+         * actually held, so a split or merge decision was taken against the drifted figure.
+         */
+        VECTOR_STALE_REFERENCES_DROPPED("vector stale references dropped", false),
+        /**
+         * Count of neighbor references reaped because they named a node an earlier delete had removed (HNSW engine).
+         * A delete only removes references to the node it deletes from the nodes it happens to visit, so a node it does
+         * not visit keeps a reference that no longer resolves; a later delete reaps those it reads storage for. A count
+         * that stays high across many deletes means references are being created about as fast as they are reaped.
+         */
+        VECTOR_NEIGHBOR_REFERENCES_REAPED("vector neighbor references reaped", false),
         /** Count of vector indexes disabled because a deferred-task count decoded to a negative (corrupt) value. */
         VECTOR_INDEX_DISABLED_ON_NEGATIVE_TASK_COUNT("vector indexes disabled on negative task count", false),
         /** Count of the writes to a {@code PendingWritesQueue}. */

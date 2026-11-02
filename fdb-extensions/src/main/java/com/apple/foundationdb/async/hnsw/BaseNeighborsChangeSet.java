@@ -23,17 +23,21 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Supplier;
 import java.util.function.Predicate;
 
 /**
  * A base implementation of the {@link NeighborsChangeSet} interface.
- * <p>
- * This class represents a complete, non-delta state of a node's neighbors. It holds a fixed, immutable
+ *
+ * <p>This class represents a complete, non-delta state of a node's neighbors. It holds a fixed, immutable
  * list of neighbors provided at construction time. As such, it does not support parent change sets or writing deltas.
  *
  * @param <N> the type of the node reference, which must extend {@link NodeReference}
@@ -41,22 +45,38 @@ import java.util.function.Predicate;
 class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
     @Nonnull
     private final List<N> neighbors;
+    /**
+     * The primary keys of {@link #neighbors}, built on first use. Only a caller of
+     * {@link #containsNeighbor(Tuple)} needs it, and most change sets are never asked.
+     */
+    @Nonnull
+    private final Supplier<Set<Tuple>> neighborPrimaryKeysSupplier;
 
     /**
      * Creates a new change set with the specified neighbors.
-     * <p>
-     * This constructor creates an immutable copy of the provided list.
+     *
+     * <p>This constructor creates an immutable copy of the provided list.
      *
      * @param neighbors the list of neighbors for this change set; must not be null.
      */
     public BaseNeighborsChangeSet(@Nonnull final List<N> neighbors) {
         this.neighbors = ImmutableList.copyOf(neighbors);
+        this.neighborPrimaryKeysSupplier = Suppliers.memoize(this::computeNeighborPrimaryKeys);
+    }
+
+    @Nonnull
+    private Set<Tuple> computeNeighborPrimaryKeys() {
+        final ImmutableSet.Builder<Tuple> primaryKeysBuilder = ImmutableSet.builderWithExpectedSize(neighbors.size());
+        for (final N neighbor : neighbors) {
+            primaryKeysBuilder.add(neighbor.getPrimaryKey());
+        }
+        return primaryKeysBuilder.build();
     }
 
     /**
      * Gets the parent change set.
-     * <p>
-     * This implementation always returns {@code null}, as this type of change set
+     *
+     * <p>This implementation always returns {@code null}, as this type of change set
      * does not have a parent.
      *
      * @return always {@code null}.
@@ -78,8 +98,8 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
 
     /**
      * Retrieves the list of neighbors associated with this object.
-     * <p>
-     * This implementation fulfills the {@code merge} contract by simply returning the
+     *
+     * <p>This implementation fulfills the {@code merge} contract by simply returning the
      * existing list of neighbors without performing any additional merging logic.
      * @return a non-null list of neighbors. The generic type {@code N} represents
      *         the type of the neighboring elements.
@@ -88,6 +108,16 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
     @Override
     public List<N> merge() {
         return neighbors;
+    }
+
+    @Override
+    public int size() {
+        return neighbors.size();
+    }
+
+    @Override
+    public boolean containsNeighbor(@Nonnull final Tuple primaryKey) {
+        return neighborPrimaryKeysSupplier.get().contains(primaryKey);
     }
 
     /**

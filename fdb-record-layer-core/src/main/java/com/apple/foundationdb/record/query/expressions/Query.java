@@ -287,7 +287,7 @@ public class Query {
 
     public static boolean isSingleFieldComparison(@Nonnull QueryComponent component) {
         return component instanceof FieldWithComparison ||
-               (component instanceof NestedField &&
+                (component instanceof NestedField &&
                 ((NestedField)component).getChild() instanceof FieldWithComparison);
     }
 

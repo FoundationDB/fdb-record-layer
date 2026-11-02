@@ -66,14 +66,14 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
         final String nestedIndentation = indentation + INDENTATION;
         final String doubleNestedIndentation = nestedIndentation + INDENTATION;
         return "case " + boundId + ": collection =>" + newLine(nestedIndentation) +
-               "match any " + downstreamId + " in " + boundId + " {" + newLine(doubleNestedIndentation) +
-               downstream.explainMatcher(Object.class, downstreamId, nestedIndentation) + newLine(nestedIndentation) + "}";
+                "match any " + downstreamId + " in " + boundId + " {" + newLine(doubleNestedIndentation) +
+                downstream.explainMatcher(Object.class, downstreamId, nestedIndentation) + newLine(nestedIndentation) + "}";
     }
 
     @Nonnull
     public static <T> CollectionMatcher<T> any(@Nonnull final BindingMatcher<T> downstream) {
         final AnyMatcher<T> anyMatcher = new AnyMatcher<>(downstream);
-        return new CollectionMatcher<T>() {
+        return new CollectionMatcher<>() {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {

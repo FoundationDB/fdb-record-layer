@@ -179,12 +179,12 @@ public class KeySpaceDirectory {
 
     /**
      * Validate that the given value can be used with this directory.
-     * <p>
-     *     Ideally this would be called as part of {@link KeySpacePath#add(String, Object)} to ensure the provided value
+     *
+     * <p>Ideally this would be called as part of {@link KeySpacePath#add(String, Object)} to ensure the provided value
      *     is valid, but that code has existed for a long time, so it's possible clients are adding without respecting
      *     the type. You should call this before calling add to make sure you don't have the same mistakes. At some point
      *     this will be embedded in {@code add} once there's some confidence that it won't break anyone's environments.
-     * </p>
+     *
      * @param value a potential value
      * @throws RecordCoreArgumentException if the value is not valid
      */

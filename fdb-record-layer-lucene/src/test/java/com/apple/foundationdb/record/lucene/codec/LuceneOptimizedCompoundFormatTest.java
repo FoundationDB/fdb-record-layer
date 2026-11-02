@@ -87,9 +87,8 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
     /**
      * This is a direct copy of the {@link BaseCompoundFormatTestCase#testManySubFiles()}, except in that version it
      * always creates a FSDirectory, whereas here, if testing against FDB we use the directory under test.
-     * <p>
-     * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
-     * </p>
+     *
+     * <p>You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
      *
      * @throws IOException if there's issues
      */
@@ -149,9 +148,8 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
     /**
      * This is a direct copy of the {@link BaseCompoundFormatTestCase#testLargeCFS()}, except in that version it
      * always creates a FSDirectory, whereas here, if testing against FDB we use the directory under test.
-     * <p>
-     * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
-     * </p>
+     *
+     * <p>You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
      *
      * @throws IOException if there's issues
      */

@@ -22,7 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.costing.CascadesCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.costing.PlanningCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.costing.RewritingCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerPhase;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,19 +47,19 @@ public enum PlannerPhase {
     @Nonnull
     private final PlannerStage targetStage;
     @Nonnull
-    private final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator;
+    private final Function<RecordQueryPlannerConfiguration, CascadesCostModel<? extends RelationalExpression>> costModelCreator;
     @Nullable
     private final PlannerPhase nextPhase;
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
                  @Nonnull final PlannerStage targetStage,
-                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator) {
+                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel<? extends RelationalExpression>> costModelCreator) {
         this(ruleSet, targetStage, costModelCreator, null);
     }
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
                  @Nonnull final PlannerStage targetStage,
-                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator,
+                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel<? extends RelationalExpression>> costModelCreator,
                  @Nullable final PlannerPhase nextPhase) {
         this.ruleSet = ruleSet;
         this.targetStage = targetStage;
@@ -74,7 +78,7 @@ public enum PlannerPhase {
     }
 
     @Nonnull
-    public CascadesCostModel createCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+    public CascadesCostModel<? extends RelationalExpression> createCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
         return costModelCreator.apply(configuration);
     }
 

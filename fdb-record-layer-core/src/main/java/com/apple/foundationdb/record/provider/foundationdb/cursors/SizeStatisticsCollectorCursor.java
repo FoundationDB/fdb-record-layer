@@ -60,8 +60,8 @@ import java.util.stream.Collectors;
  * version in the
  * transaction history. However, as long as the data set is not too volatile, it should produce an approximate answer
  * for the statistics it yields.
- * <p>
- * Note that the cursor emits only a single cursor result containing a value. That value represents full statistics
+ *
+ * <p>Note that the cursor emits only a single cursor result containing a value. That value represents full statistics
  * for all keys and values in the specified subspace. Any cursor results emitted prior to that are a manifestation of
  * hitting an execution limit while scanning the subspace. These results provide a continuation that can be used
  * to resume aggregating the remaining keys and values of the subspace.
@@ -368,7 +368,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
             this.valueSize = partialResults.getValueSize();
             this.maxValueSize = partialResults.getMaxValueSize();
             List<Long> bucketList = partialResults.getSizeBucketsList();
-            Arrays.setAll(sizeBuckets, i -> bucketList.get(i));
+            Arrays.setAll(sizeBuckets, bucketList::get);
         }
 
         /**

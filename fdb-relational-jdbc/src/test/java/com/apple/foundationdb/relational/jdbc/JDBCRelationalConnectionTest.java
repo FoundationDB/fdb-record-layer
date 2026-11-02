@@ -1,0 +1,83 @@
+/*
+ * JDBCRelationalConnectionTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.jdbc;
+
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.net.URI;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.stream.Stream;
+
+class JDBCRelationalConnectionTest {
+
+    private JDBCRelationalConnection connection;
+
+    @BeforeEach
+    void setUp() {
+        connection = new JDBCRelationalConnection(URI.create("relational://localhost/__SYS"),
+                Options.NONE);
+    }
+
+    @AfterEach
+    void tearDown() throws SQLException {
+        // The connection starts an in-process server, so make sure that it gets shut down
+        connection.close();
+    }
+
+    /**
+     * All of the isolation levels defined by {@link Connection}, of which we only support
+     * {@link Connection#TRANSACTION_SERIALIZABLE}.
+     *
+     * @return every isolation level that can be handed to {@link Connection#setTransactionIsolation(int)}
+     */
+    static Stream<Named<Integer>> isolationLevels() {
+        return Stream.of(
+                Named.of("TRANSACTION_NONE", Connection.TRANSACTION_NONE),
+                Named.of("TRANSACTION_READ_UNCOMMITTED", Connection.TRANSACTION_READ_UNCOMMITTED),
+                Named.of("TRANSACTION_READ_COMMITTED", Connection.TRANSACTION_READ_COMMITTED),
+                Named.of("TRANSACTION_REPEATABLE_READ", Connection.TRANSACTION_REPEATABLE_READ),
+                Named.of("TRANSACTION_SERIALIZABLE", Connection.TRANSACTION_SERIALIZABLE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("isolationLevels")
+    void setIsolationLevel(int isolationLevel) throws SQLException {
+        // SERIALIZABLE is both the default, and the only supported isolation level
+        Assertions.assertThat(connection.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
+
+        if (isolationLevel == Connection.TRANSACTION_SERIALIZABLE) {
+            connection.setTransactionIsolation(isolationLevel);
+        } else {
+            RelationalAssertions.assertThrowsSqlException(() -> connection.setTransactionIsolation(isolationLevel))
+                    .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+        }
+        Assertions.assertThat(connection.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
+    }
+}

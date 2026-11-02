@@ -35,9 +35,8 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
     public enum Rebuild {
         /**
          * Rebuild the index even if nothing has changed.
-         * <p>
-         *     Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
-         * </p>
+         *
+         * <p>Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
          */
         ALWAYS,
         /**
@@ -46,17 +45,16 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
         NEVER,
         /**
          * Rebuild the index if it is necessary to have the leaderboards contain the records they're supposed to.
-         * <p>
-         *     This can happen in a few situations:
+         *
+         * <p>This can happen in a few situations:
          *     <ul>
          *         <li>If {@link #isHighScoreFirst()} is changed</li>
          *         <li>If {@link #isAllTime()} is changed</li>
          *         <li>If a record has been saved that has a timestamp greater than the earliest timestamp for one of
          *         the provided specs</li>
          *     </ul>
-         * <p>
-         *     Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
-         * </p>
+         *
+         * <p>Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
          */
         IF_OVERLAPPING_CHANGED
     }

@@ -25,13 +25,17 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.stream.Stream;
 
 class RelationalConnectionTest {
 
@@ -94,17 +98,35 @@ class RelationalConnectionTest {
                 .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
     }
 
-    @Test
-    void setIsolationLevel() throws SQLException {
+    /**
+     * All of the isolation levels defined by {@link Connection}, of which we only support
+     * {@link Connection#TRANSACTION_SERIALIZABLE}.
+     *
+     * @return every isolation level that can be handed to {@link Connection#setTransactionIsolation(int)}
+     */
+    static Stream<Named<Integer>> isolationLevels() {
+        return Stream.of(
+                Named.of("TRANSACTION_NONE", Connection.TRANSACTION_NONE),
+                Named.of("TRANSACTION_READ_UNCOMMITTED", Connection.TRANSACTION_READ_UNCOMMITTED),
+                Named.of("TRANSACTION_READ_COMMITTED", Connection.TRANSACTION_READ_COMMITTED),
+                Named.of("TRANSACTION_REPEATABLE_READ", Connection.TRANSACTION_REPEATABLE_READ),
+                Named.of("TRANSACTION_SERIALIZABLE", Connection.TRANSACTION_SERIALIZABLE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("isolationLevels")
+    void setIsolationLevel(int isolationLevel) throws SQLException {
         try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
-            // Default isolation level
+            // SERIALIZABLE is both the default, and the only supported isolation level
             Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
 
-            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            if (isolationLevel == Connection.TRANSACTION_SERIALIZABLE) {
+                conn.setTransactionIsolation(isolationLevel);
+            } else {
+                RelationalAssertions.assertThrowsSqlException(() -> conn.setTransactionIsolation(isolationLevel))
+                        .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+            }
             Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
-
-            conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
-            Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED);
         }
     }
 }

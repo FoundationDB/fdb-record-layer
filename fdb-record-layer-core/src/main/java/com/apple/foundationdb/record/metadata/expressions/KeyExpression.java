@@ -248,12 +248,10 @@ public interface KeyExpression extends PlanHashable {
      * methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      *
-     * <p>
-     * This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
+     * <p>This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
      * original purpose was to allow for expansions of key expression into a data flow graphs. The returned graph
      * would then represent an adequate representation of the key expression as composition of relational expressions and operators
      * ({@link RelationalExpression}s). See {@link ExpansionVisitor} for more details.
-     * </p>
      *
      * @param <S> a type that represents the state that {@code visitor} uses
      * @param <R> a type that represents the result the {@code visitor} returns
@@ -418,11 +416,22 @@ public interface KeyExpression extends PlanHashable {
         if (path.isEmpty()) {
             throw new InvalidExpressionException("attempt to create key expression using empty path");
         }
-        final String fieldName = path.get(path.size() - 1);
-        KeyExpression keyExpression = Key.Expressions.field(fieldName);
-        final List<String> fieldPrefix = path.subList(0, path.size() - 1);
-        for (int i = fieldPrefix.size() - 1; i >= 0; i --) {
-            keyExpression = Key.Expressions.field(fieldPrefix.get(i)).nest(keyExpression);
+        return fromPath(path.subList(0, path.size() - 1), Key.Expressions.field(path.get(path.size() - 1)));
+    }
+
+    /**
+     * Nests an expression under a path of scalar field hops, outermost hop first. An empty path returns the expression
+     * unchanged.
+     *
+     * @param path the fields to navigate before reaching {@code nested}
+     * @param nested the expression to evaluate against the record the path ends at
+     * @return the resulting {@link KeyExpression}
+     */
+    @Nonnull
+    static KeyExpression fromPath(@Nonnull final List<String> path, @Nonnull final KeyExpression nested) {
+        KeyExpression keyExpression = nested;
+        for (int i = path.size() - 1; i >= 0; i--) {
+            keyExpression = Key.Expressions.field(path.get(i)).nest(keyExpression);
         }
         return keyExpression;
     }

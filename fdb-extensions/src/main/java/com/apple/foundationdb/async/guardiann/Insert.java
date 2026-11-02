@@ -156,13 +156,13 @@ class Insert {
 
     /**
      * Inserts a new vector with its associated primary key into the HNSW graph.
-     * <p>
-     * The method first determines a layer for the new node, called the {@code top layer}.
+     *
+     * <p>The method first determines a layer for the new node, called the {@code top layer}.
      * It then traverses the graph from the entry point downwards, greedily searching for the nearest
      * neighbors to the {@code newVector} at each layer. This search identifies the optimal
      * connection points for the new node.
-     * <p>
-     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
+     *
+     * <p>Once the nearest neighbors are found, the new node is linked into the graph structure at all
      * layers up to its {@code top layer}. Special handling is included for inserting the
      * first-ever node into the graph or when a new node's layer is higher than any existing node,
      * which updates the graph's entry point. All operations are performed asynchronously.
@@ -381,8 +381,7 @@ class Insert {
      * that all stored vectors are expressed in) and at least one cluster already exist. Here we create both from
      * scratch so the caller can go on to place the vector as the first cluster's first primary.
      *
-     * <p>
-     * The first cluster is seeded at {@code newVector} itself: a fresh cluster id with empty metadata is written and
+     * <p>The first cluster is seeded at {@code newVector} itself: a fresh cluster id with empty metadata is written and
      * the new vector is inserted into the centroid HNSW as that cluster's centroid, giving the otherwise-empty
      * centroid index its first node to navigate from.
      *
@@ -424,7 +423,7 @@ class Insert {
         final UUID clusterId = RandomHelpers.randomUuid(random, config.deterministicRandomness());
         primitives.writeClusterMetadata(transaction,
                 new ClusterMetadata(clusterId, 0, 0,
-                        RunningStats.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
+                        RunningStats.identity(), EnumSet.noneOf(ClusterMetadata.State.class), 0));
 
         return primitives.getClusterCentroidsHnsw()
                 .insert(transaction,
@@ -436,8 +435,8 @@ class Insert {
     /**
      * Method to keep stats if necessary. Stats need to be kept and maintained when the client would like to use
      * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
-     * <p>
-     * Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
+     *
+     * <p>Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
      * structure. The parameter {@link Config#sampleVectorStatsProbability()} governs when we do sample. Another
      * parameter, {@link Config#maintainStatsProbability()}, determines how many times we add-up/replace (consume)
      * vectors from this sampled-vector space and aggregate them in the typical running count/running sum scheme

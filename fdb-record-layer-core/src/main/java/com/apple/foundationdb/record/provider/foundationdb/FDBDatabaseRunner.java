@@ -43,15 +43,11 @@ import java.util.function.Function;
 /**
  * A context for running against an {@link FDBDatabase} with retrying of transient exceptions.
  *
- * <p>
- * Implements {@link #run} and {@link #runAsync} methods for executing functions in a new {@link FDBRecordContext} and returning their result.
- * </p>
+ * <p>Implements {@link #run} and {@link #runAsync} methods for executing functions in a new {@link FDBRecordContext} and returning their result.
  *
- * <p>
- * Implements {@link #close} in such a way that {@code runAsync} will not accidentally do more work afterwards. In particular, in the case
+ * <p>Implements {@link #close} in such a way that {@code runAsync} will not accidentally do more work afterwards. In particular, in the case
  * of timeouts and transaction retries, it is otherwise possible for a whole new transaction to start at some time in the future and change
  * the database even after the caller has given up, due to a timeout, for example.
- * </p>
  *
  *
  * <pre><code>
@@ -201,10 +197,8 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * then this will use the value as set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
      * then no timeout will be imposed on transactions used by this runner.
      *
-     * <p>
-     * Note that the error that the transaction hits, {@link FDBExceptions.FDBStoreTransactionTimeoutException},
+     * <p>Note that the error that the transaction hits, {@link FDBExceptions.FDBStoreTransactionTimeoutException},
      * is not retriable, so if the runner encounters such an error, it will terminate.
-     * </p>
      *
      * @param transactionTimeoutMillis the transaction timeout time in milliseconds
      * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
@@ -425,10 +419,10 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Produces a new runner, wrapping this runner, which performs all work in the context of a new
      * {@link SynchronizedSession}.
-     * <p>
-     * The returned runner will have acquired and started the lease, so care must be taken to ensure that
+     *
+     * <p>The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
-     * </p>
+     *
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return a future that will return a runner maintaining a new synchronized session

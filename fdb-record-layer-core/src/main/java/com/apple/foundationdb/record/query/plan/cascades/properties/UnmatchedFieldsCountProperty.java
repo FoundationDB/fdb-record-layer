@@ -47,8 +47,7 @@ import java.util.Objects;
  * (e.g. {@link RecordQueryCoveringIndexPlan}, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan}),
  * and also primary scans (e.g. {@link RecordQueryScanPlan}).
  *
- * <p>
- * For example, suppose that a planner expression scans two indexes:
+ * <p>For example, suppose that a planner expression scans two indexes:
  * <ul>
  *     <li>{@code concat(field1, field2)}, with a comparison {@code field1 = 'foo'}</li>
  *     <li>{@code concat(field1, field3, field4)}, with a comparison {@code field1 = 'foo', field3 < 5}</li>

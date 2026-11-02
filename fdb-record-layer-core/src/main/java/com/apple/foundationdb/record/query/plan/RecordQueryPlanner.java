@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithCo
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
@@ -265,7 +266,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @param parameterRelationshipGraph a set of bindings the planner can use that may constrain requirements of the plan
      *        but also lead to better plans
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
-     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     * @throws UnableToPlanException if the planner cannot plan the query
+     * @throws RecordCoreException if planning fails for another reason
      */
     @Nonnull
     @Override
@@ -281,7 +283,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
-     * @throws com.apple.foundationdb.record.RecordCoreException if there is no index that matches the sort in the provided query
+     * @throws UnableToPlanException if there is no index that matches the sort in the provided query
+     * @throws RecordCoreException if planning fails for another reason
      */
     @Nonnull
     @Override
@@ -301,7 +304,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         RecordQueryPlan plan = plan(planContext, filter, sort, sortReverse);
         if (plan == null) {
             if (sort == null) {
-                throw new RecordCoreException("Unexpected failure to plan without sort");
+                throw new UnableToPlanException("Unexpected failure to plan without sort");
             }
             final RecordQueryPlannerSortConfiguration sortConfiguration = configuration.getSortConfiguration();
             if (sortConfiguration != null && sortConfiguration.shouldAllowNonIndexSort()) {
@@ -309,11 +312,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                         planContext.indexes, planContext.commonPrimaryKey);
                 plan = plan(withoutSort, filter, null, false);
                 if (plan == null) {
-                    throw new RecordCoreException("Unexpected failure to plan without sort");
+                    throw new UnableToPlanException("Unexpected failure to plan without sort");
                 }
                 plan = new RecordQuerySortPlan(plan, sortConfiguration.getSortKey(sort, sortReverse));
             } else {
-                throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
+                throw new UnableToPlanException("Cannot sort without appropriate index: " + sort);
             }
         }
 
@@ -413,7 +416,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (bestPlan != null) {
             bestPlan = planRemoveDuplicates(planContext, bestPlan);
             if (bestPlan == null) {
-                throw new RecordCoreException("A common primary key is required to remove duplicates");
+                throw new UnableToPlanException("A common primary key is required to remove duplicates");
             }
             return bestPlan.getPlan();
         }
@@ -646,12 +649,10 @@ public class RecordQueryPlanner implements QueryPlanner {
      * should then used the returned {@link InExtractor} to wrap the returned plan in an
      * appropriate IN-join or IN-union plan.
      *
-     * <p>
-     * The {@code maxNumReplansConfig} parameter should be taken from the {@link RecordQueryPlannerConfiguration}.
+     * <p>The {@code maxNumReplansConfig} parameter should be taken from the {@link RecordQueryPlannerConfiguration}.
      * Separate configuration values exist for IN-joins and IN-unions, mainly for plan stability
      * reasons (they were introduced at different times, though they serve the same purpose). See
      * the javadoc on the relevant configuration parameters for more details.
-     * </p>
      *
      * @param planContext the base plan context for the query
      * @param inExtractor the original {@link InExtractor} for the query
@@ -981,7 +982,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         final Index index = candidateScan.getIndex();
-        if (index != null && index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+        if (index != null && IndexTypes.MULTIDIMENSIONAL.equals(index.getType())) {
             return matchToMultidimensionalIndexScan(candidateScan, scoredMatch, index);
         }
 
@@ -1399,7 +1400,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                         @Nonnull List<QueryComponent> filters,
                                         @Nullable KeyExpression sort) {
         final AbstractAndWithThenPlanner andWithThenPlanner;
-        if (candidateScan.index != null && candidateScan.index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+        if (candidateScan.index != null && IndexTypes.MULTIDIMENSIONAL.equals(candidateScan.index.getType())) {
             andWithThenPlanner = new MultidimensionalAndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
         } else {
             andWithThenPlanner = new AndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
@@ -1750,7 +1751,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             
             if (avoidScanPlan(candidateScan.planContext)) {
-                throw new RecordCoreException("cannot create scan plan for a synthetic record type");
+                throw new UnableToPlanException("cannot create scan plan for a synthetic record type");
             }
 
             plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
@@ -1783,8 +1784,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      * {@link com.apple.foundationdb.record.metadata.SyntheticRecordType}s have constituent parts which need to
      * be separately fetched, while index scans over regular record types just need to fetch the base record
      * using the entire primary key in the index.
-     * <br>
-     * Note that the method on how to fetch the base record(s) has to be statically resolved during planning time as
+     *
+     * <p>Note that the method on how to fetch the base record(s) has to be statically resolved during planning time as
      * the index entry itself does not contain any information to help us resolve that question on a per-record
      * basis.
      * 
@@ -1808,7 +1809,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 if (regularRecordTypes.containsAll(queriedRecordTypes)) {
                     return FetchIndexRecords.PRIMARY_KEY;
                 }
-                throw new RecordCoreException("cannot mix regular and synthetic record types in query");
+                throw new UnsupportedQueryException("cannot mix regular and synthetic record types in query");
             }
         }
         return FetchIndexRecords.PRIMARY_KEY;
@@ -2509,11 +2510,9 @@ public class RecordQueryPlanner implements QueryPlanner {
      * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
      * them into a single scan, as well as validating that the sort is matched correctly.
      *
-     * <p>
-     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * <p>In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
      * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
      * cases end up having more-or-less the same logic as the multi-field cases.
-     * </p>
      */
     private abstract class AbstractAndWithThenPlanner {
         /**
@@ -2744,11 +2743,9 @@ public class RecordQueryPlanner implements QueryPlanner {
      * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
      * them into a single scan, as well as validating that the sort is matched correctly.
      *
-     * <p>
-     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * <p>In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
      * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
      * cases end up having more-or-less the same logic as the multi-field cases.
-     * </p>
      */
     private class AndWithThenPlanner extends AbstractAndWithThenPlanner {
         /**
@@ -2882,7 +2879,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         // A sort key corresponding to an equality comparison is (trivially) satisfied throughout.
-        @SuppressWarnings({"PMD.EmptyWhileStmt", "StatementWithEmptyBody"})
+        @SuppressWarnings({"PMD.EmptyControlStatement", "StatementWithEmptyBody"})
         private void satisfyEqualitySort(@Nonnull KeyExpression child) {
             while (unsatisfiedSorts.remove(child)) {
                 // Keep removing all occurrences.
@@ -2953,17 +2950,15 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Mini-planner for handling the way that queries with multiple filters ("ands") on multidimensional indexes with
      * multiple components ("thens"). This handles things like matching comparisons to the different columns of the
      * index and then combining them into a single scan.
-     * <p>
-     * In particular, this specific mini planner matches filters to sub expressions in the index not considering
+     *
+     * <p>In particular, this specific mini planner matches filters to sub expressions in the index not considering
      * matches of preceding index sub expressions, i.e. this planner matches a filter to a sub expression independently
      * of any other match between a filter and a sub expression of the index. This allows for free permutation of
      * dimension columns for multidimensional indexes.
-     * </p>
-     * <p>
-     * If an index scan over a multidimensional index can be planned, we will still just plan a regular by-value
+     *
+     * <p>If an index scan over a multidimensional index can be planned, we will still just plan a regular by-value
      * prefix scan of that index here but leave all necessary bread crumbs to create a multi-dimensional index scan
      * plan in {@link #matchToPlan(CandidateScan, ScoredMatch)}.
-     * </p>
      */
     private class MultidimensionalAndWithThenPlanner extends AbstractAndWithThenPlanner {
         /**

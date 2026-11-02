@@ -27,14 +27,15 @@ dependencies {
     // we'd only include this as a dependency if it's being used in that case, but
     // barring that, we can exclude it as a transitive dependency when importing
     implementation(libs.javaPoet)
+    // The processor emits `@Nonnull` by class literal, so it needs `jsr305` at annotation processing time. As with
+    // Java Poet, downstream projects that import this as a regular dependency exclude it again.
+    implementation(libs.jsr305)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
-    // the processor emits @Nonnull, so the annotation has to be on the classpath of the compilation the tests run
-    testRuntimeOnly(libs.jsr305)
 }
 
 publishing {

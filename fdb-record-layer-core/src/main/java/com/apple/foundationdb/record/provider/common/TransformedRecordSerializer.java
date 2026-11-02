@@ -50,8 +50,7 @@ import java.util.zip.Inflater;
  * are encryption and compression, but other transformations could be
  * added in the future.
  *
- * <p>
- * This serializer will begin each serialized string with a prefix
+ * <p>This serializer will begin each serialized string with a prefix
  * (see {@link TransformedRecordSerializerPrefix} for details)
  * containing information about which transformations were performed. This
  * way, when deserializing, it can detect which transformations were applied
@@ -59,22 +58,17 @@ import java.util.zip.Inflater;
  * This also allows it to do things like decide not to compress records, even
  * if compression is turned on, if the compression algorithm actually produces
  * a byte array that is larger than the raw record, for example.
- * </p>
  *
- * <p>
- * This base class does not itself support encryption: an exception will be thrown
+ * <p>This base class does not itself support encryption: an exception will be thrown
  * when trying to construct a serializer with encryption enabled or when encountering
  * a serialized record that requires decryption. Subclasses, such as {@link TransformedRecordSerializerJCE},
  * implement encryption and have additional state like secret keys.
- * </p>
  *
- * <p>
- * It is designed to be compatible with the {@link DynamicMessageRecordSerializer}
+ * <p>It is designed to be compatible with the {@link DynamicMessageRecordSerializer}
  * insofar as it can deserialize records written by that serializer, though
  * records serialized by this class cannot be read by instances of that class.
  * In the future, we might remove that capability (when all existing data
  * have been migrated to use this class).
- * </p>
  *
  * @param <M> type of {@link Message} that underlying records will use
  */

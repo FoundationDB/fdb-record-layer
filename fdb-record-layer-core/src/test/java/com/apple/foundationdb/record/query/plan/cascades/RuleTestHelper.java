@@ -52,6 +52,7 @@ import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
+import static org.assertj.core.api.Fail.fail;
 
 public class RuleTestHelper {
     @Nonnull
@@ -163,7 +164,7 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
+    public TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
         // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
         // rewriting and planning
         final var copiedOriginal =
@@ -254,13 +255,8 @@ public class RuleTestHelper {
         reference.setExplored();
         final var costModel =
                 plannerPhase.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
-        RelationalExpression bestFinalExpression = null;
-        for (final var finalExpression : reference.getFinalExpressions()) {
-            if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
-                bestFinalExpression = finalExpression;
-            }
-        }
-        return Objects.requireNonNull(bestFinalExpression);
+        return costModel.getBestExpression(reference.getFinalExpressions())
+                .orElseGet(() -> fail("unable to find best expression"));
     }
 
     @CanIgnoreReturnValue

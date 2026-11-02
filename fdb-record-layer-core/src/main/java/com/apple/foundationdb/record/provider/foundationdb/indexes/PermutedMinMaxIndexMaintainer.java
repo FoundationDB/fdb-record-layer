@@ -272,7 +272,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public boolean canEvaluateAggregateFunction(@Nonnull final IndexAggregateFunction function) {
         return function.getName().equals(type.name().toLowerCase(Locale.ROOT))
-               && IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
+                && IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
     }
 
     @Nonnull

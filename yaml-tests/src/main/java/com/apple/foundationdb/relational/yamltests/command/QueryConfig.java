@@ -82,12 +82,12 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
  * </table>
  *
  * <p>Result directives must appear last (after all non-result directives). See {@code showcasing-tests.yamsql} for
- * examples of each directive.</p>
+ * examples of each directive.
  * <p>Note: any queries that validate the plan string exactly ({@code explain}, not {@code explainContains}) will also
  * validate the planner metrics, putting them in two corresponding files, with {@code ".metrics.binpb"} and
  * {@code ".metrics.yaml"} instead of {@code ".yamsql"}. The {@code .binpb} file is used for the actual assertions, and
  * {@code .yaml} file provides a human-readable version for comparing, and the test will fail if the number of tasks the
- * planner does changes.</p>
+ * planner does changes.
  */
 @SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public abstract class QueryConfig {

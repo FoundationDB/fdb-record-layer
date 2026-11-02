@@ -176,7 +176,7 @@ public class Comparisons {
             }
             UnsignedUUID that = (UnsignedUUID)o;
             return this.mostSignificantBits == that.mostSignificantBits &&
-                   this.leastSignificantBits == that.leastSignificantBits;
+                    this.leastSignificantBits == that.leastSignificantBits;
         }
 
         @Override
@@ -696,25 +696,50 @@ public class Comparisons {
         }
     }
 
+    /**
+     * Returns the comparison type that is the logical negation of the given one, or {@code null} if the comparison
+     * cannot be negated that way.
+     *
+     * <p>Note the difference from {@link #swapComparisonType}, which keeps the meaning of the comparison but exchanges
+     * its operands: Negating {@code <} yields {@code >=}, whereas swapping {@code <} yields {@code >}.
+     *
+     * @param type the comparison type to negate
+     * @return the negated comparison type, or {@code null} if there is none
+     * @see #swapComparisonType
+     */
     @Nullable
     public static Type invertComparisonType(@Nonnull final Type type) {
-        if (type.isUnary()) {
-            return null;
-        }
-        switch (type) {
-            case EQUALS:
-                return Type.NOT_EQUALS;
-            case LESS_THAN:
-                return Type.GREATER_THAN_OR_EQUALS;
-            case LESS_THAN_OR_EQUALS:
-                return Type.GREATER_THAN;
-            case GREATER_THAN:
-                return Type.LESS_THAN_OR_EQUALS;
-            case GREATER_THAN_OR_EQUALS:
-                return Type.LESS_THAN;
-            default:
-                return null;
-        }
+        return switch (type) {
+            case EQUALS -> Type.NOT_EQUALS;
+            case LESS_THAN -> Type.GREATER_THAN_OR_EQUALS;
+            case LESS_THAN_OR_EQUALS -> Type.GREATER_THAN;
+            case GREATER_THAN -> Type.LESS_THAN_OR_EQUALS;
+            case GREATER_THAN_OR_EQUALS -> Type.LESS_THAN;
+            default -> null;
+        };
+    }
+
+    /**
+     * Returns the comparison type that holds when the two operands of a binary comparison are exchanged, or
+     * {@code null} if the comparison cannot be reoriented that way.
+     *
+     * <p>Note the difference from {@link #invertComparisonType}, which negates the comparison instead of exchanging its
+     * operands.
+     *
+     * @param type the comparison type to reorient
+     * @return the reoriented comparison type, or {@code null} if there is none
+     * @see #invertComparisonType
+     */
+    @Nullable
+    public static Type swapComparisonType(@Nonnull final Type type) {
+        return switch (type) {
+            case EQUALS, NOT_EQUALS, NOT_DISTINCT_FROM, IS_DISTINCT_FROM -> type;
+            case LESS_THAN -> Type.GREATER_THAN;
+            case LESS_THAN_OR_EQUALS -> Type.GREATER_THAN_OR_EQUALS;
+            case GREATER_THAN -> Type.LESS_THAN;
+            case GREATER_THAN_OR_EQUALS -> Type.LESS_THAN_OR_EQUALS;
+            default -> null;
+        };
     }
 
     @Nullable
@@ -1322,7 +1347,7 @@ public class Comparisons {
             }
 
             return Objects.equals(relatedByEquality(), that.relatedByEquality())
-                   ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
+                    ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
         }
 
         @Nullable
@@ -2093,7 +2118,7 @@ public class Comparisons {
 
         @Override
         public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
-            if (type.equals(Type.IN)) {
+            if (type == Type.IN) {
                 if (!fannedOut && fieldDescriptor.isRepeated()) {
                     throw new RecordCoreException("In comparison with non-scalar field " + fieldDescriptor.getName());
                 }
@@ -3136,10 +3161,8 @@ public class Comparisons {
      * multiple inputs that all map to the same output. For that reason, the predicate {@code f(x) = $val}
      * may sometimes get transformed into {@code x IN f^-1($val)}.
      *
-     * <p>
-     * In most cases, users should not construct this comparison on their own, but
+     * <p>In most cases, users should not construct this comparison on their own, but
      * some planner operations may create this in internal structures.
-     * </p>
      */
     @API(API.Status.INTERNAL)
     public static class InvertedFunctionComparison implements Comparison {
@@ -3329,9 +3352,7 @@ public class Comparisons {
          * original comparison's comparand. So, for example, if the original comparison is {@code = 2} and the function
          * is the exponential function, this will produce a comparison that is equivalent to {@code = log(2)}.
          *
-         * <p>
-         * This comparison currently has the following limitations:
-         * </p>
+         * <p>This comparison currently has the following limitations:
          *
          * <ul>
          *     <li>The function must be a unary function (i.e., it must take single-column inputs and produce

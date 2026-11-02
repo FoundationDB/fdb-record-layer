@@ -118,7 +118,7 @@ public final class PreOrderIterator<T extends TreeLike<T>> extends AbstractItera
 
     @Nonnull
     public Iterator<T> descendOnlyIf(@Nonnull Predicate<? super T> predicate) {
-        return new AbstractIterator<T>() {
+        return new AbstractIterator<>() {
             @Nullable
             @Override
             protected T computeNext() {

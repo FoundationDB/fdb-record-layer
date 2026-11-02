@@ -25,17 +25,15 @@ import java.util.List;
 
 /**
  * A pending in-place edit to a YAMSQL source file.
- * <p>
- *     Corrections are buffered during a test run and applied in descending line-number order at teardown
+ *
+ * <p>Corrections are buffered during a test run and applied in descending line-number order at teardown
  *     so that earlier edits do not corrupt the line offsets of later ones.
- * </p>
- * <p>
- *     Known implementations:
+ *
+ * <p>Known implementations:
  *     <ul>
  *         <li>{@link YamlFilesMaintainer.ExplainCorrection} – replaces a single {@code explain:} line.</li>
  *         <li>{@link YamlFilesMaintainer.MetadataCorrection} – replaces a {@code resultMetadata:} block.</li>
  *     </ul>
- * </p>
  */
 public interface YamlCorrection {
 

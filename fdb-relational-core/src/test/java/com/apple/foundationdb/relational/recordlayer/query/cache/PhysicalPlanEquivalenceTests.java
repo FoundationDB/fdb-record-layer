@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
@@ -111,9 +112,28 @@ public class PhysicalPlanEquivalenceTests {
         Assertions.assertThat(ppe2).isNotEqualTo(ppe3);
     }
 
+    /**
+     * Storing a plan without a lookup relies on this: two constraint-bearing keys that hold equal constraints must
+     * collapse to one map entry rather than accumulate. Checked against {@link ConcurrentHashMap} because that is what
+     * the cache uses underneath, and because {@link PhysicalPlanEquivalence#hashCode} is a constant, so every key lands
+     * in one bucket and equality alone decides.
+     */
     @Test
-    void equalityOfPhysicalPlanEquivalenceWithMatchingEvaluationContextsWorks() {
-        // basic check for reference equality.
+    void keysWithEqualConstraintsCollapseToOneMapEntry() {
+        final var map = new ConcurrentHashMap<PhysicalPlanEquivalence, String>();
+
+        map.put(PhysicalPlanEquivalence.of(lt100Constraint), "first");
+        map.put(PhysicalPlanEquivalence.of(lt100ConstraintDup), "second");
+
+        Assertions.assertThat(map).hasSize(1).containsValue("second");
+
+        map.put(PhysicalPlanEquivalence.of(gt400Constraint), "third");
+
+        Assertions.assertThat(map).hasSize(2);
+    }
+
+    @Test
+    void equalityOfPhysicalPlanEquivalenceWithMatchingEvaluationContextsWorks() {        // basic check for reference equality.
         final var ppe1 = PhysicalPlanEquivalence.of(ec80);
         Assertions.assertThat(ppe1.equals(ppe1)).isTrue();
 

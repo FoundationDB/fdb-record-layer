@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.IndexMaintenanceUtils;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
@@ -377,8 +378,67 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             final Integer destinationPartitionIdHint,
             final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
-                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
-                        .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId)));
+                addRecord(newRecord, destinationPartitionIdHint, entry));
+    }
+
+    private <M extends Message> CompletableFuture<Void> addRecord(
+            final FDBIndexableRecord<M> newRecord,
+            final Integer destinationPartitionIdHint,
+            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
+        return partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
+                .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId));
+    }
+
+    /**
+     * Index a record scanned by the online indexer. A record that had already been indexed (e.g. by an explicit
+     * update while the index was write-only) is skipped.
+     * @param newRecordUnfiltered the scanned record, before applying the index maintenance filter
+     * @param <M> type of message
+     * @return a future that is complete when the record is indexed or found to be already indexed
+     */
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> updateFromIndexer(@Nullable FDBIndexableRecord<M> newRecordUnfiltered) {
+        final FDBIndexableRecord<M> newRecord = maybeFilterRecord(newRecordUnfiltered);
+        if (newRecord == null) {
+            return AsyncUtil.DONE;
+        }
+        final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> newRecordFields =
+                LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), newRecord);
+        return AsyncUtil.whenAll(newRecordFields.entrySet().stream()
+                .map(entry -> updateRecordFromIndexer(newRecord, entry))
+                .collect(Collectors.toList()));
+    }
+
+    private <M extends Message> CompletableFuture<Void> updateRecordFromIndexer(
+            final FDBIndexableRecord<M> newRecord,
+            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
+        final Tuple groupingKey = entry.getKey();
+        return partitioner.tryGetPartitionInfo(newRecord, groupingKey).thenCompose(partitionInfo -> {
+            if (partitioner.isPartitioningEnabled() && partitionInfo == null) {
+                // no partition covers this record's partition key, so it cannot be indexed yet
+                return addRecord(newRecord, null, entry);
+            }
+            final Integer partitionId = partitionInfo == null ? null : partitionInfo.getId();
+            final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
+            if (segmentIndex == null) {
+                // cannot tell whether the record is already indexed: fall back to delete-then-insert
+                return updateRecord(newRecord, null, entry);
+            }
+            return shouldUseQueueAsync(groupingKey, partitionId).thenCompose(useQueue -> {
+                // unlikely, but possible path
+                if (Boolean.TRUE.equals(useQueue)) {
+                    // the indexer must never push items to the pending write queue
+                    throw new IndexingBase.EnqueueFromIndexerException("Indexer attempted to enqueue a record", state.index,
+                            LogMessageKeys.INDEX_NAME, state.index.getName(),
+                            LogMessageKeys.GROUPING_KEY, groupingKey,
+                            LogMessageKeys.PARTITION_ID, partitionId,
+                            LogMessageKeys.PRIMARY_KEY, newRecord.getPrimaryKey());
+                }
+                return segmentIndex.hasPrimaryKeyAsync(newRecord.getPrimaryKey())
+                        .thenCompose(isIndexed -> Boolean.TRUE.equals(isIndexed) ? AsyncUtil.DONE : addRecord(newRecord, null, entry));
+            });
+        });
     }
 
     @Nullable
@@ -638,8 +698,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private static int getIncarnationSafe(@Nonnull FDBRecordStore store) {
         return store.getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)
-               ? store.getIncarnation()
-               : 0;
+                ? store.getIncarnation()
+                : 0;
     }
 
     @SuppressWarnings("PMD.CloseResource")

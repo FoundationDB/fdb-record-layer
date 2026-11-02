@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -49,6 +48,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
@@ -434,19 +434,19 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
         return ddlVisitor.visitIndexAsSelectDefinition(ctx);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
         return ddlVisitor.visitIndexOnSourceDefinition(ctx);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
+    public IndexGenerationResult visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
         return ddlVisitor.visitVectorIndexDefinition(ctx);
     }
 
@@ -773,6 +773,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nullable
     @Override
     public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nullable
+    @Override
+    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1358,11 +1364,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Nonnull
-    @Override
-    public Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx) {
-        return visitChildren(ctx);
-    }
 
     @Nonnull
     @Override
@@ -1402,6 +1403,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Object visitDatetimeValueFunctionCall(RelationalParser.DatetimeValueFunctionCallContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         return expressionVisitor.visitScalarFunctionCall(ctx);
     }
@@ -1410,12 +1417,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx) {
-        return visitChildren(ctx);
     }
 
     @Nonnull
@@ -1486,6 +1487,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Expression visitDatetimeValueFunction(RelationalParser.DatetimeValueFunctionContext ctx) {
+        return expressionVisitor.visitDatetimeValueFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitCaseFuncAlternative(@Nonnull RelationalParser.CaseFuncAlternativeContext ctx) {
         return visitChildren(ctx);
     }
@@ -1518,6 +1525,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
         return expressionVisitor.visitNullTreatmentClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Integer visitAggregateLimitClause(@Nonnull RelationalParser.AggregateLimitClauseContext ctx) {
+        return expressionVisitor.visitAggregateLimitClause(ctx);
     }
 
     @Nonnull
@@ -1763,6 +1776,24 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
         return metadataPlanVisitor.visitCopyImportStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimePlusMinusIntervalExpression(final RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+        return expressionVisitor.visitDatetimePlusMinusIntervalExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalPlusDatetimeExpression(final RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+        return expressionVisitor.visitIntervalPlusDatetimeExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        return expressionVisitor.visitIntervalLiteral(ctx);
     }
 
     @Nonnull

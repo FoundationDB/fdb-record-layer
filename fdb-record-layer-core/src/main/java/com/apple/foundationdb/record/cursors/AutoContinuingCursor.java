@@ -55,18 +55,14 @@ import java.util.function.BiFunction;
  *     </li>
  * </ul>
  *
- * <p>
- * {@link AutoContinuingCursor} is responsible for all {@link FDBRecordContext} management, so all reads it does are in
+ * <p>{@link AutoContinuingCursor} is responsible for all {@link FDBRecordContext} management, so all reads it does are in
  * the scope of transactions that it controls.
- * </p>
  *
- * <p>
- * The {@link AutoContinuingCursor} has no visibility into the {@link com.apple.foundationdb.record.ScanProperties} of
+ * <p>The {@link AutoContinuingCursor} has no visibility into the {@link com.apple.foundationdb.record.ScanProperties} of
  * the <i>underlying cursor</i> and, therefore, will not be involved in enforcing any limits that may be individually
  * applied to the <i>underlying cursor</i>. For example, if the generator returns an <i>underlying cursor</i> that
  * specified, say, a record scan limit of 10 records, the {@link AutoContinuingCursor} will scan all data until it is
  * exhausted, at most 10 records at a transaction.
- * </p>
  *
  * @param <T> the type of elements returned by this cursor
  */
@@ -136,7 +132,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
             openContextAndGenerateCursor(null);
         }
 
-        return MoreAsyncUtil.handleOnException(() -> currentCursor.onNext(), exception -> {
+        return MoreAsyncUtil.handleOnException(currentCursor::onNext, exception -> {
             if (!FDBExceptions.isRetriable(exception) || attempt >= maxRetriesOnRetriableException) {
                 throw FDBExceptions.wrapException(exception);
             }

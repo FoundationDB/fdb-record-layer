@@ -37,8 +37,8 @@ import java.util.function.Predicate;
 /**
  * Represents an immutable change set for the neighbors of a node in the HNSW graph, specifically
  * capturing the insertion of new neighbors.
- * <p>
- * This class layers new neighbors on top of a parent {@link NeighborsChangeSet}, allowing for a
+ *
+ * <p>This class layers new neighbors on top of a parent {@link NeighborsChangeSet}, allowing for a
  * layered representation of modifications. The changes are not applied to the database until
  * {@link #writeDelta} is called.
  *
@@ -55,9 +55,15 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     private final Map<Tuple, N> insertedNeighborsMap;
 
     /**
+     * Established here rather than counted on demand, see {@link NeighborsChangeSet#size()}. An inserted key the
+     * parent already holds replaces that entry instead of adding one.
+     */
+    private final int size;
+
+    /**
      * Creates a new {@code InsertNeighborsChangeSet}.
-     * <p>
-     * This constructor initializes the change set with its parent and a list of neighbors
+     *
+     * <p>This constructor initializes the change set with its parent and a list of neighbors
      * to be inserted. It internally builds an immutable map of the inserted neighbors,
      * keyed by their primary key for efficient lookups.
      *
@@ -73,6 +79,13 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         }
 
         this.insertedNeighborsMap = insertedNeighborsMapBuilder.build();
+        int numInsertedNotInParent = 0;
+        for (final Tuple insertedPrimaryKey : this.insertedNeighborsMap.keySet()) {
+            if (!parent.containsNeighbor(insertedPrimaryKey)) {
+                numInsertedNotInParent ++;
+            }
+        }
+        this.size = parent.size() + numInsertedNotInParent;
     }
 
     /**
@@ -92,12 +105,22 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
-     * <p>
-     * This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
+     *
+     * <p>This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
      * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
      * set of neighbors from this node and all its ancestors.
      * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
      */
+    @Override
+    public int size() {
+        return size;
+    }
+
+    @Override
+    public boolean containsNeighbor(@Nonnull final Tuple primaryKey) {
+        return insertedNeighborsMap.containsKey(primaryKey) || parent.containsNeighbor(primaryKey);
+    }
+
     @Nonnull
     @Override
     public Iterable<N> merge() {
@@ -108,8 +131,8 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Writes the delta of this layer to the specified storage adapter.
-     * <p>
-     * This implementation first delegates to the parent to write its delta, but excludes any neighbors that have been
+     *
+     * <p>This implementation first delegates to the parent to write its delta, but excludes any neighbors that have been
      * newly inserted in the current context (i.e., those in {@code insertedNeighborsMap}). It then iterates through its
      * own newly inserted neighbors. For each neighbor that satisfies the given {@code tuplePredicate}, it writes the
      * neighbor relationship to storage via the {@link InliningStorageAdapter}.

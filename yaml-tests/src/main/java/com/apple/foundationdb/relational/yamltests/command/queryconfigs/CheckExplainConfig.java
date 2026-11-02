@@ -76,7 +76,7 @@ public class CheckExplainConfig extends QueryConfig {
         return "EXPLAIN " + query;
     }
 
-    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
+    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt", "PMD.CheckResultSet"}) // lifetime of autocloseable resource persists beyond method
     @Override
     protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
                                        @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {

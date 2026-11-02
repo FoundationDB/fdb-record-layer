@@ -61,12 +61,12 @@ import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSample
 /**
  * An implementation of the insert operations of the Hierarchical Navigable Small World (HNSW) algorithm for efficient
  * approximate nearest neighbor (ANN) search.
- * <p>
- * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it. The top layers serve as fast
+ *
+ * <p>HNSW constructs a multi-layer graph, where each layer is a subset of the one below it. The top layers serve as fast
  * entry points to navigate the graph, while the bottom layer contains all the data points. This structure allows for
  * logarithmic-time complexity for search operations, making it suitable for large-scale, high-dimensional datasets.
- * <p>
- * The entry point for any interactions with the HNSW data structure is implemented in {@link HNSW}. Do not instantiate
+ *
+ * <p>The entry point for any interactions with the HNSW data structure is implemented in {@link HNSW}. Do not instantiate
  * this class directly.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -152,13 +152,13 @@ public class Insert {
 
     /**
      * Inserts a new vector with its associated primary key into the HNSW graph.
-     * <p>
-     * The method first determines a layer for the new node, called the {@code top layer}.
+     *
+     * <p>The method first determines a layer for the new node, called the {@code top layer}.
      * It then traverses the graph from the entry point downwards, greedily searching for the nearest
      * neighbors to the {@code newVector} at each layer. This search identifies the optimal
      * connection points for the new node.
-     * <p>
-     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
+     *
+     * <p>Once the nearest neighbors are found, the new node is linked into the graph structure at all
      * layers up to its {@code top layer}. Special handling is included for inserting the
      * first-ever node into the graph or when a new node's layer is higher than any existing node,
      * which updates the graph's entry point. All operations are performed asynchronously.
@@ -309,8 +309,8 @@ public class Insert {
     /**
      * Method to keep stats if necessary. Stats need to be kept and maintained when the client would like to use
      * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
-     * <p>
-     * Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
+     *
+     * <p>Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
      * structure. The parameter {@link Config#sampleVectorStatsProbability()} governs when we do sample. Another
      * parameter, {@link Config#maintainStatsProbability()}, determines how many times we add-up/replace (consume)
      * vectors from this sampled-vector space and aggregate them in the typical running count/running sum scheme
@@ -398,14 +398,13 @@ public class Insert {
 
     /**
      * Inserts a new vector into the HNSW graph across multiple layers, starting from a given entry point.
-     * <p>
-     * This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
+     *
+     * <p>This method implements the second phase of the HNSW insertion algorithm. It begins at a starting layer, which is
      * the minimum of the graph's maximum layer ({@code lMax}) and the new node's randomly assigned
      * {@code layer}. It then iterates downwards to layer 0. In each layer, it invokes
      * {@link #insertIntoLayer(StorageAdapter, Transaction, StorageTransform, Quantizer, List, int, Tuple, Transformed, Tuple)}
      * to perform the search and connect the new node. The set of nearest neighbors found at layer {@code L} serves as
      * the entry points for the search at layer {@code L-1}.
-     * </p>
      *
      * @param transaction the transaction to use for database operations
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
@@ -450,23 +449,20 @@ public class Insert {
 
     /**
      * Inserts a new node into a specified layer of the HNSW graph.
-     * <p>
-     * This method orchestrates the complete insertion process for a single layer. It begins by performing a search
+     *
+     * <p>This method orchestrates the complete insertion process for a single layer. It begins by performing a search
      * within the given layer, starting from the provided {@code nearestNeighbors} as entry points, to find a set of
      * candidate neighbors for the new node. From this candidate set, it selects the best connections based on the
      * graph's parameters (M).
-     * </p>
-     * <p>
-     * After selecting the neighbors, it creates the new node and links it to them. It then reciprocally updates
+     *
+     * <p>After selecting the neighbors, it creates the new node and links it to them. It then reciprocally updates
      * the selected neighbors to link back to the new node. If adding this new link causes a neighbor to exceed its
      * maximum allowed connections, its connections are pruned. All changes, including the new node and the updated
      * neighbors, are persisted to storage within the given transaction.
-     * </p>
-     * <p>
-     * The operation is asynchronous and returns a {@link CompletableFuture}. The future completes with the list of
+     *
+     * <p>The operation is asynchronous and returns a {@link CompletableFuture}. The future completes with the list of
      * nodes found during the initial search phase, which are then used as the entry points for insertion into the
      * next lower layer.
-     * </p>
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
      * @param storageAdapter the storage adapter for reading from and writing to the graph
@@ -542,9 +538,7 @@ public class Insert {
                                                 insertSet);
                                     }
 
-                                    final int currentMMax =
-                                            layer == 0 ? getConfig().mMax0() : getConfig().mMax();
-
+                                    final int mMax = primitives.getMMaxForLayer(layer);
                                     return forEach(selectedNeighbors,
                                             selectedNeighbor -> {
                                                 final NodeReferenceWithDistance selectedNeighborReference =
@@ -554,7 +548,7 @@ public class Insert {
                                                         Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
                                                 return primitives.pruneNeighborsIfNecessary(storageAdapter, transaction,
                                                         storageTransform, distanceEstimator, layer, selectedNeighborReference,
-                                                        currentMMax, changeSet, nodeCache)
+                                                        mMax, changeSet, nodeCache)
                                                         .thenApply(nodeReferencesAndNodes -> {
                                                             if (nodeReferencesAndNodes == null) {
                                                                 return changeSet;

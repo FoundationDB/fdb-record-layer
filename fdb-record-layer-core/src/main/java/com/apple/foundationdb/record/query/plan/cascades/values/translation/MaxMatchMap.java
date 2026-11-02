@@ -70,11 +70,11 @@ import java.util.stream.Stream;
 
 /**
  * Represents a maximum match between a query result {@link Value} and a candidate result {@link Value}.
- * <br>
- * A query {@link Value} tree is matched to a candidate {@link Value} to establish correspondences between the
+ *
+ * <p>A query {@link Value} tree is matched to a candidate {@link Value} to establish correspondences between the
  * query side and the candidate side that will then allow us to express the query side in terms of the candidate side.
- * <br>
- * For instance, assume a query {@link Value} tree
+ *
+ * <p>For instance, assume a query {@link Value} tree
  * <pre>
  * {@code
  *    rcv(fv(qov(q), a) as a, fv(qov(q), b) as b, fv(qov(q), c) as c) or shorter
@@ -92,15 +92,15 @@ import java.util.stream.Stream;
  * correspondences between the subtrees of the query value and subtrees of the candidate value. We want to find
  * correspondences where the subtrees that are being related cover a maximum subtree, that is there are no
  * correspondences between subtrees that include this subtree.
- * <br>
- * In the example above we can say that the query side value and the candidate value define maximum matches between
+ *
+ * <p>In the example above we can say that the query side value and the candidate value define maximum matches between
  * {@code q.a -> q.a}, {@code q.b -> q.b}, and {@code q.c -> q.c}. If the candidate side had been
  * {@code rcv(q.a as a, q.b as b, q.c as c)}, the maximum matches between query side and candidate side would just
  * have been {@code rcv(q.a as a, q.b as b, q.c as c) -> rcv(q.a as a, q.b as b, q.c as c)} as the entire tree under
  * the root would have matched. Even though {@code q.a -> q.a}, {@code q.b -> q.b}, and {@code q.c -> q.c} are also
  * matches, they are not maximal matches.
- * <br>
- * There are some restrictions on what we can call a match (or correspondence) of a subtree of the query side value to
+ *
+ * <p>There are some restrictions on what we can call a match (or correspondence) of a subtree of the query side value to
  * a subtree of the candidate value in addition to the semantic equality of the related subtrees. A query side subtree
  * can only match a semantically equivalent candidate side subtree if that subtree is <em>reachable</em> from the root
  * of the candidate value. A subtree {@code x} of a {@link Value} {@code v} is defined as reachable from {@code v} iff
@@ -111,20 +111,20 @@ import java.util.stream.Stream;
  * field accesses. It does not work for other operations such as arbitrary arithmetic operations, e.g. if {@code v}
  * instead is {@code q.c + q.b + q.a} then {@code q.b} is not reachable from {@code v} as we don't know the quantities
  * added to {@code q.b}. This example showcases a destructive operation that cannot be inverted or reversed.
- * <br>
- * Continuing from the modifying the example above, it can be observed that the value tree {@code q.b} is reachable from
+ *
+ * <p>Continuing from the modifying the example above, it can be observed that the value tree {@code q.b} is reachable from
  * the root {@code v} at {@code rcv(q.c + q.b + q.c, q.c as c, q.a as a)} as we can retrieve {@code q.b} by computing
  * {@code v._0 - v.c - v.a}. We cannot compute the way how to reach {@code x} from {@code v} (yet). Thus, for the
  * purpose of the logic in this class we treat these unattainable cases as if they were unreachable, and only say that a
  * subtree is reachable from a root if we can actually synthesize the value tree to reach {@code x} from {@code v}.
  * Specifically, we currently only really understand record construction and field accesses as their inverse.
- * <br>
- * In order for the actual maximum matches map or short {@link MaxMatchMap} to be useful, every leaf value on the query
+ *
+ * <p>In order for the actual maximum matches map or short {@link MaxMatchMap} to be useful, every leaf value on the query
  * side that is not constant must be contained in a subtree that is part of a correspondence (match) in the max match
  * map. For instance, a query value {@code rcv(q.a as a, q.b as b, q.c as c, q.d as d)} cannot be really be matched to
  * {@code rcv(q.a as a, q.b as b, q.c as c)} as {@code q.d} would not be covered by any matches.
- * <br>
- * The purpose of all of this matching is to be able to perform a pull-up: How can we express the query side in terms
+ *
+ * <p>The purpose of all of this matching is to be able to perform a pull-up: How can we express the query side in terms
  * of {@code v} itself? In an example where the query value is {@code rcv(q.a as a, q.b as b, q.c as c)} is matched
  * to the candidate value {@code rcv(q.c as _0, q.b as _1, q.a as _2)} via the mappings {@code q.a -> q._2},
  * {@code q.b -> q._1}, and {@code q.c -> q._0}, we can express the query value only in terms of the reference
@@ -341,8 +341,8 @@ public class MaxMatchMap {
     /**
      * Computes the maximum sub-{@link Value}s in {@code queryValue} that have an exact match in the
      * {@code candidateValue}.
-     * <br>
-     * For certain shapes of {@link Value}s, multiple matches can be found, this method is guaranteed to always find the
+     *
+     * <p>For certain shapes of {@link Value}s, multiple matches can be found, this method is guaranteed to always find the
      * maximum part of the query sub-{@link Value} that matches with a sub-{@link Value} on the candidate side.
      *
      * @param queryValue the query result {@code Value}
@@ -463,8 +463,8 @@ public class MaxMatchMap {
      * exhaustion for even simple cases. In particular, we cannot know a priori which expansions performed by the
      * simplification engine are beneficial and which ones are not and will just lead to rather pointless searching in
      * without any meaningful results.
-     * <br>
-     * In order to limit the search space we employ a number of techniques:
+     *
+     * <p>In order to limit the search space we employ a number of techniques:
      * <ul>
      *     <li>
      *         We define a property called max depth that is defined as the maximum number of steps from the current
@@ -488,8 +488,8 @@ public class MaxMatchMap {
      * parent value that through the help of one these variants may become a better match. That can only happen,
      * however, if any parent is already partially matching some reachable subtree on the candidate side. If, on the
      * other hand, that is not the case, the problem becomes local, and we can prune variants as we like.
-     * <br>
-     * The logic in this method determines whether the problem is local or not and reacts accordingly. Since that
+     *
+     * <p>The logic in this method determines whether the problem is local or not and reacts accordingly. Since that
      * is not particularly straightforward, the code is quite dense and very probably can be iterated upon.
      * @param currentQueryValue the current query value which is a sub {@link Value} of the root query side value
      * @param candidateValue the candidate value (root)
@@ -608,10 +608,7 @@ public class MaxMatchMap {
                 final var childrenResultsBuilder =
                         ImmutableList.<Collection<Map.Entry<Value, MatchResult>>>builder();
                 int i = 0;
-                for (final var childrenIterator = children.iterator();
-                         childrenIterator.hasNext(); i++) {
-                    final var child = childrenIterator.next();
-
+                for (final var child : children) {
                     if (logger.isTraceEnabled()) {
                         logger.trace("recursing into child max_depth_bound={}, value={}", childrenMaxDepthBound, child);
                     }
@@ -621,6 +618,7 @@ public class MaxMatchMap {
                                     expandedValues);
 
                     childrenResultsBuilder.add(childrenResultsMap.entrySet());
+                    i++;
                 }
 
                 final var childrenResults = childrenResultsBuilder.build();
@@ -628,15 +626,14 @@ public class MaxMatchMap {
                     boolean areAllChildrenSame = true;
                     final var childrenValuesBuilder = ImmutableList.<Value>builder();
                     i = 0;
-                    for (final var currentChildrenIterator = children.iterator();
-                             currentChildrenIterator.hasNext(); i++) {
-                        final Value child = currentChildrenIterator.next();
+                    for (final Value child : children) {
                         final var childrenResultsEntry = childrenResultEntries.get(i);
                         final var key = childrenResultsEntry.getKey();
                         if (child != key) {
                             areAllChildrenSame = false;
                         }
                         childrenValuesBuilder.add(key);
+                        i++;
                     }
                     Verify.verify(i == childrenResultEntries.size());
 
@@ -890,8 +887,8 @@ public class MaxMatchMap {
     /**
      * Class that functions as a partial matcher between a {@link Value} on the query and a reachable {@link Value} on
      * the candidate side.
-     * <br>
-     * Normally, we establish semantic equality between two {@link Value}s by considering not just the values themselves
+     *
+     * <p>Normally, we establish semantic equality between two {@link Value}s by considering not just the values themselves
      * but the subtrees rooted at these values. In order to compute semantic equality, we call
      * {@link Value#equalsWithoutChildren(Value)} and if successful recurse into the subtrees and establish semantic
      * equality for the children. The approach this class takes is somewhat the other way around. For a value
@@ -903,8 +900,8 @@ public class MaxMatchMap {
      * matches decreases as we descend a path on the query side that incurs fewer and fewer matching counterparts on the
      * candidate side. Eventually, we end up at a leaf value and still have potential matches or the list of potential
      * matches is empty and any further descending will only continue to produce empty match lists.
-     * <br>
-     * Example 1: We attempt to match {@code rcv(rcv(q.x, q.y), rcv(q.a, q.b))} to {@code rcv(q.x, rcv(q.a, q.c))}.
+     *
+     * <p>Example 1: We attempt to match {@code rcv(rcv(q.x, q.y), rcv(q.a, q.b))} to {@code rcv(q.x, rcv(q.a, q.c))}.
      * On the top level, the {@code rcv(■, ■)} on the query side potentially matches the {@code rcv(q.x, rcv(q.a, q.c))}
      * on the candidate side at root level ({@code ■} denoting an opaque, not-yet considered subtree). Let's say, we now
      * descend into the second child on the query side. {@code rcv(■, rcv(■, ■))} still partially matches
@@ -912,8 +909,8 @@ public class MaxMatchMap {
      * establish that there is still a match between: {@code rcv(■, rcv(q.a, ■))} and {@code rcv(■, rcv(q.a, ■))} on the
      * candidate side. If we had descended into the second child instead, we would have not matched anything, though:
      * {@code rcv(■, rcv(■, q.b))} does not match {@code rcv(■, rcv(■, q.c))}.
-     * <br>
-     * Example 2: We attempt to match {@code rcv(q.a, q.b))} to {@code rcv(q.x, rcv(q.a, q.b), rcv(q.a, q.c))}.
+     *
+     * <p>Example 2: We attempt to match {@code rcv(q.a, q.b))} to {@code rcv(q.x, rcv(q.a, q.b), rcv(q.a, q.c))}.
      * On top level, nothing matches to the top level of the candidate side. We can, however, establish two
      * reachable potential matches for {@code rcv(■, ■)} on the candidate side: {@code rcv(q.a, q.b)} and
      * {@code rcv(q.a, q.c)}. When we now descend further into the second child on the query side, one of these two

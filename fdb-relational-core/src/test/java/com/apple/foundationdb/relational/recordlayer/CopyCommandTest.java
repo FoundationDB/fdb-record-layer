@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.recordlayer.query.QueryEvaluationConstants;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -189,7 +190,8 @@ public class CopyCommandTest {
     private static MutablePlanGenerationContext getMutablePlanGenerationContext(final String sql, final List<byte[]> exportedData) {
         final PreparedParams preparedParams = PreparedParams.of(Map.of(1, exportedData), Map.of());
         final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
-                PlanHashable.PlanHashMode.VC1, sql, sql, 0);
+                PlanHashable.PlanHashMode.VC1, sql, sql,
+                0, QueryEvaluationConstants.empty());
         context.processUnnamedPreparedParam(1);
         return context;
     }
@@ -373,6 +375,42 @@ public class CopyCommandTest {
                     RelationalAssertions.assertThrowsSqlException(
                                     () -> continueExport(limit, conn, corruptedContinuation, results))
                             .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
+                }
+            }
+        });
+    }
+
+    /**
+     * A {@code COPY} continuation cannot be executed at snaphot isolation; data changes would result in corrupt
+     * key-value pairs. The corresponding syntax-level check — that {@code OPTIONS (...)} cannot be attached to a
+     * {@code COPY} statement at all — is covered in {@code isolation-level-snapshot.yamsql}.
+     */
+    @Test
+    void copyContinuationRejectsSnapshotIsolation() throws RelationalException, SQLException {
+        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+
+        writeTestData(connectionUtils, testPath, tenKeyValueRecords());
+        connectionUtils.runAgainstCatalog(conn -> {
+            try (RelationalStatement stmt = conn.createStatement()) {
+                final int limit = 3;
+                stmt.setMaxRows(limit);
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
+                    while (rs.next()) {
+                        // drain the first page so that a resumable continuation is produced
+                    }
+                    final Continuation continuation = rs.getContinuation();
+                    assertFalse(continuation.atEnd());
+                    assertFalse(continuation.atBeginning());
+                    try (RelationalPreparedStatement ps =
+                            conn.prepareStatement("EXECUTE CONTINUATION ?param OPTIONS (ISOLATION LEVEL SNAPSHOT)")) {
+                        ps.setBytes("param", continuation.serialize());
+                        ps.setMaxRows(limit);
+                        RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                                .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION)
+                                .containsInMessage("only supported when continuing a SELECT query");
+                    }
                 }
             }
         });

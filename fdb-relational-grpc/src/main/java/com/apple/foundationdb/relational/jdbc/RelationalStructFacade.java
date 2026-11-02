@@ -364,7 +364,7 @@ class RelationalStructFacade implements RelationalStruct {
 
     private Column getColumnInternal(int oneBasedColumn) {
         Column c = this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn));
-        wasNull = c.hasNullType() || c.getKindCase().equals(Column.KindCase.KIND_NOT_SET);
+        wasNull = c.hasNullType() || c.getKindCase() == Column.KindCase.KIND_NOT_SET;
         return c;
     }
 
@@ -423,12 +423,15 @@ class RelationalStructFacade implements RelationalStruct {
          * @param fieldName Name of field whose presence we are to check for.
          * @return Zero-based offset at where <code>fieldName</code> was inserted else -1 if unknown field.
          */
+        @SuppressWarnings("PMD.ForLoopCanBeForeach")
         @VisibleForTesting
         int getZeroBasedOffset(String fieldName) {
             int offset = -1;
             if (this.metadata.containsKey(fieldName)) {
                 for (int i = 0; i < this.fieldOrder.size(); i++) {
                     if (this.fieldOrder.get(i).equals(fieldName)) {
+                        // This is probably a bug: it returns -1 rather than i, so a known field is never found.
+                        // See https://github.com/FoundationDB/fdb-record-layer/issues/4786
                         return offset;
                     }
                 }

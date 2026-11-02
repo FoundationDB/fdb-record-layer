@@ -42,13 +42,11 @@ import java.util.stream.Stream;
  * old {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} and the new, experimental
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
  *
- * <p>
- * This is intended to be composable with {@link ParameterizedTest}s. If a test is marked as both a
+ * <p>This is intended to be composable with {@link ParameterizedTest}s. If a test is marked as both a
  * {@link ParameterizedTest} and a {@link DualPlannerTest}, then the test will be run for every parameter
  * configuration under both planners. Note that {@link DualPlannerTest.Planner#CASCADES CASCADES}-only mode
  * currently doesn't work with parameterized tests, and it will always run the test at least once with
  * the old planner. (See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2354">Issue #2354</a>.)
- * </p>
  */
 public class DualPlannerExtension implements TestTemplateInvocationContextProvider {
 

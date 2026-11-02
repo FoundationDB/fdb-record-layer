@@ -31,7 +31,7 @@ import java.util.Set;
  * Keys are defined as {@code public static final} constants in this class.
  * The constructor is package protected so no external code can introduce new keys.
  *
- * <p>Use {@link FDBRecordContext#getInSession(ContextSessionKey)} to retrieve values.</p>
+ * <p>Use {@link FDBRecordContext#getInSession(ContextSessionKey)} to retrieve values.
  *
  * @param <T> the value type for this key
  */

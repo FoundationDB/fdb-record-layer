@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * A Sampler which will aim for a long-term stable throughput at or less than a certain fraction of events
  * (instead of per unit time).
- * <p>
- * This sampler will compute whether an item can be sampled based on a number of events,
+ *
+ * <p>This sampler will compute whether an item can be sampled based on a number of events,
  * rather than as a function of time, so the long-term throughput is measured in samples/event.
  *
  * Event sampling is useful when you have a consistent steady-state of incoming events, and you just want to

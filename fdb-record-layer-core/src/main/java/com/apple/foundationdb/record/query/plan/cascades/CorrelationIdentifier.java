@@ -152,7 +152,7 @@ public class CorrelationIdentifier {
      * @return a view on the set that maps each element in {@code aliases} to itself.
      */
     public static Map<CorrelationIdentifier, CorrelationIdentifier> identityMappingMap(@Nonnull final Set<CorrelationIdentifier> aliases) {
-        return new Map<CorrelationIdentifier, CorrelationIdentifier>() {
+        return new Map<>() {
             @Override
             public int size() {
                 return aliases.size();

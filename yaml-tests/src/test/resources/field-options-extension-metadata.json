@@ -1,0 +1,57 @@
+{
+  "records": {
+    "dependency": ["custom_field_option.proto"],
+    "message_type": [
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_MyRecord_1",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "MyRecord",
+            "options": {
+              "com.apple.foundationdb.relational.yamltests.generated.customfieldoption.custom_option": {
+                "label": "generation-a",
+                "ordinal": 1
+              }
+            }
+          },
+          {
+            "name": "_MyRecord_2",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "MyRecord",
+            "options": {
+              "com.apple.foundationdb.relational.yamltests.generated.customfieldoption.custom_option": {
+                "label": "generation-b",
+                "ordinal": 2
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "MyRecord",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          }
+        ]
+      }
+    ]
+  },
+  "record_types": [
+    {
+      "name": "MyRecord",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ]
+}

@@ -119,11 +119,10 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
      * This is a direct copy of the
      * {@link BaseDocValuesFormatTestCase#doTestSortedSetVsStoredFields(int, int, int, int, int)}, except in that
      * version it always creates a FSDirectory, whereas here, if testing against FDB we use the directory under test.
-     * <p>
-     *     You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
+     *
+     * <p>You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
      *     The code was also reformatted, and two instances of {@code String stringValues[]} were changed to
      *     {@code String[] stringValues}.
-     * </p>
      *
      * @throws IOException if there's issues
      */
@@ -273,9 +272,8 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
      * except in that version it always creates a FSDirectory, whereas here, if testing against FDB we use the
      * directory
      * under test.
-     * <p>
-     * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
-     * </p>
+     *
+     * <p>You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
      *
      * @throws IOException if there's issues
      */

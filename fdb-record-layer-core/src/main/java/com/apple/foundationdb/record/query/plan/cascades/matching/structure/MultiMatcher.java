@@ -112,8 +112,8 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
             final String nestedIndentation = indentation + INDENTATION;
             final String nestedId = getDownstream().identifierFromMatcher();
             return "some " + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
-                   getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
-                   "}";
+                    getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
+                    "}";
         }
 
         @Override
@@ -144,8 +144,8 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
             final String nestedIndentation = indentation + INDENTATION;
             final String nestedId = getDownstream().identifierFromMatcher();
             return "all " + nestedId + " in " + boundId + " {" + newLine(nestedIndentation) +
-                   getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
-                   "}";
+                    getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
+                    "}";
         }
 
         @Override

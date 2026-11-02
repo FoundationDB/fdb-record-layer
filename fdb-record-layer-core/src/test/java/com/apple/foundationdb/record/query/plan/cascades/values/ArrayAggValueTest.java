@@ -63,10 +63,10 @@ class ArrayAggValueTest {
         @Nonnull
         private final TypeRepository typeRepository;
 
-        private Fixture(@Nonnull final Type elementType, final boolean ignoreNulls) {
+        private Fixture(@Nonnull final Type elementType, final boolean ignoreNulls, final int limit) {
             // The element type is derived from the child, and `notNullable()` is a no-op for the non-nullable types
             // used here, so the child type doubles as the element type.
-            this.value = new ArrayAggValue(new LiteralValue<>(elementType, null), ignoreNulls);
+            this.value = new ArrayAggValue(new LiteralValue<>(elementType, null), ignoreNulls, limit);
             // Mirrors the plan-wide repository, which is built from the plan's used types. Registering the value's
             // (nullable) array result type registers both the wrapper record the accumulator serializes its partial
             // state through and the element type it converts its elements against.
@@ -128,7 +128,7 @@ class ArrayAggValueTest {
      */
     @Test
     void getAccumulatorStatesWithoutRowsReturnsNoState() {
-        final var accumulator = new Fixture(LONG_TYPE, true).accumulator();
+        final var accumulator = new Fixture(LONG_TYPE, true, ArrayAggValue.NO_LIMIT).accumulator();
 
         assertThat(accumulator.getAccumulatorStates()).isEmpty();
         assertThat(finish(accumulator)).isEmpty();
@@ -140,7 +140,7 @@ class ArrayAggValueTest {
      */
     @Test
     void getAccumulatorStatesWithOnlyNullRowsReturnsState() {
-        final var fixture = new Fixture(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true, ArrayAggValue.NO_LIMIT);
         final var accumulator = fixture.accumulator();
         accumulator.accumulate(null);
 
@@ -158,7 +158,7 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateAfterRestoringStatePreservesElementsAndOrder() {
-        final var fixture = new Fixture(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true, ArrayAggValue.NO_LIMIT);
         final var accumulator = fixture.accumulator();
         accumulator.accumulate(100L);
         accumulator.accumulate(200L);
@@ -176,7 +176,7 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateAfterRestoringStateRepeatedlyPreservesElements() {
-        final var fixture = new Fixture(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true, ArrayAggValue.NO_LIMIT);
         var accumulator = fixture.accumulator();
         for (long i = 1L; i <= 5L; i++) {
             accumulator.accumulate(i);
@@ -191,7 +191,7 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateNullWithIgnoreNullsSkipsElement() {
-        final var fixture = new Fixture(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true, ArrayAggValue.NO_LIMIT);
         final var accumulator = fixture.accumulator();
         accumulator.accumulate(100L);
         accumulator.accumulate(null);
@@ -207,7 +207,7 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateNullWithRespectNullsThrowsUnsupported() {
-        final var accumulator = new Fixture(LONG_TYPE, false).accumulator();
+        final var accumulator = new Fixture(LONG_TYPE, false, ArrayAggValue.NO_LIMIT).accumulator();
         accumulator.accumulate(100L);
 
         assertThatThrownBy(() -> accumulator.accumulate(null))
@@ -223,7 +223,7 @@ class ArrayAggValueTest {
     @Test
     void accumulateAfterRestoringStateWithRecordElementsPreservesElements() {
         final Type.Record elementType = recordElementType();
-        final var fixture = new Fixture(elementType, true);
+        final var fixture = new Fixture(elementType, true, ArrayAggValue.NO_LIMIT);
         final Message first = fixture.record(elementType, 1L, 2L);
         final Message second = fixture.record(elementType, 3L, 4L);
 
@@ -245,7 +245,7 @@ class ArrayAggValueTest {
     @Test
     void restoredRecordElementSharesDescriptorWithFreshlyCollectedOne() {
         final Type.Record elementType = recordElementType();
-        final var fixture = new Fixture(elementType, true);
+        final var fixture = new Fixture(elementType, true, ArrayAggValue.NO_LIMIT);
 
         final var accumulator = fixture.accumulator();
         accumulator.accumulate(fixture.record(elementType, 1L, 2L));
@@ -270,11 +270,11 @@ class ArrayAggValueTest {
         final Type nullableLong = Type.primitiveType(Type.TypeCode.LONG, true);
         final Value child = new LiteralValue<>(nullableLong, 1L);
 
-        final Type respectNullsType = new ArrayAggValue(child, false).getResultType();
+        final Type respectNullsType = new ArrayAggValue(child, false, ArrayAggValue.NO_LIMIT).getResultType();
         assertThat(respectNullsType.isNullable()).isTrue();
         assertThat(((Type.Array)respectNullsType).getElementType()).isEqualTo(nullableLong);
 
-        final Type ignoreNullsType = new ArrayAggValue(child, true).getResultType();
+        final Type ignoreNullsType = new ArrayAggValue(child, true, ArrayAggValue.NO_LIMIT).getResultType();
         assertThat(ignoreNullsType.isNullable()).isTrue();
         assertThat(((Type.Array)ignoreNullsType).getElementType()).isEqualTo(nullableLong.notNullable());
     }
@@ -285,7 +285,7 @@ class ArrayAggValueTest {
      */
     @Test
     void evalThrows() {
-        final ArrayAggValue value = new ArrayAggValue(new LiteralValue<>(LONG_TYPE, 1L), true);
+        final ArrayAggValue value = new ArrayAggValue(new LiteralValue<>(LONG_TYPE, 1L), true, ArrayAggValue.NO_LIMIT);
 
         assertThatThrownBy(() -> value.eval(null, EvaluationContext.empty()))
                 .isInstanceOf(IllegalStateException.class);
@@ -298,12 +298,12 @@ class ArrayAggValueTest {
     @Test
     void equalsAndHashCodeAccountForNullTreatment() {
         final Value child = new LiteralValue<>(LONG_TYPE, 1L);
-        final ArrayAggValue ignoreNulls = new ArrayAggValue(child, true);
-        final ArrayAggValue respectNulls = new ArrayAggValue(child, false);
+        final ArrayAggValue ignoreNulls = new ArrayAggValue(child, true, ArrayAggValue.NO_LIMIT);
+        final ArrayAggValue respectNulls = new ArrayAggValue(child, false, ArrayAggValue.NO_LIMIT);
 
         assertThat(ignoreNulls).isNotEqualTo(respectNulls);
-        assertThat(ignoreNulls).isEqualTo(new ArrayAggValue(child, true));
-        assertThat(ignoreNulls.hashCode()).isEqualTo(new ArrayAggValue(child, true).hashCode());
+        assertThat(ignoreNulls).isEqualTo(new ArrayAggValue(child, true, ArrayAggValue.NO_LIMIT));
+        assertThat(ignoreNulls.hashCode()).isEqualTo(new ArrayAggValue(child, true, ArrayAggValue.NO_LIMIT).hashCode());
         assertThat(ignoreNulls.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
                 .isNotEqualTo(respectNulls.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
@@ -317,7 +317,7 @@ class ArrayAggValueTest {
     void serializationRoundTripPreservesValue() {
         final Value child = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG, true), 1L);
         for (final boolean ignoreNulls : List.of(true, false)) {
-            final ArrayAggValue value = new ArrayAggValue(child, ignoreNulls);
+            final ArrayAggValue value = new ArrayAggValue(child, ignoreNulls, ArrayAggValue.NO_LIMIT);
 
             final PlanSerializationContext context = PlanSerializationContext.newForCurrentMode();
             final Value deserialized = Value.fromValueProto(context, value.toValueProto(context));
@@ -333,7 +333,7 @@ class ArrayAggValueTest {
      */
     @Test
     void withChildrenKeepsNullTreatment() {
-        final ArrayAggValue value = new ArrayAggValue(new LiteralValue<>(LONG_TYPE, 1L), true);
+        final ArrayAggValue value = new ArrayAggValue(new LiteralValue<>(LONG_TYPE, 1L), true, ArrayAggValue.NO_LIMIT);
         final Value newChild = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, true), "x");
 
         final ArrayAggValue withNewChild = value.withChildren(ImmutableList.of(newChild));
@@ -351,9 +351,97 @@ class ArrayAggValueTest {
     void encapsulateRejectsNonBooleanNullTreatment() {
         final Value child = new LiteralValue<>(LONG_TYPE, 1L);
         final Value notABooleanLiteral = new LiteralValue<>(LONG_TYPE, 42L);
+        final Value noLimit = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), ArrayAggValue.NO_LIMIT);
 
         assertThatThrownBy(() -> new ArrayAggValue.ArrayAggFn()
-                .encapsulate(CallSiteArguments.ofPositional(child, notABooleanLiteral)))
+                .encapsulate(CallSiteArguments.ofPositional(child, notABooleanLiteral, noLimit)))
                 .isInstanceOf(RecordCoreException.class);
+    }
+
+    /**
+     * Tests that the function rejects a limit argument that is not an integer literal, as the grammar is supposed to
+     * guarantee it.
+     */
+    @Test
+    void encapsulateRejectsNonIntegerLimit() {
+        final Value child = new LiteralValue<>(LONG_TYPE, 1L);
+        final Value ignoreNulls = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
+        final Value notAnIntegerLiteral = new LiteralValue<>(LONG_TYPE, 42L);
+
+        assertThatThrownBy(() -> new ArrayAggValue.ArrayAggFn()
+                .encapsulate(CallSiteArguments.ofPositional(child, ignoreNulls, notAnIntegerLiteral)))
+                .isInstanceOf(RecordCoreException.class);
+    }
+
+    /**
+     * Tests that an in-call limit caps the collected elements, and that the cap survives a round-trip.
+     */
+    @Test
+    void accumulateWithLimitCapsElements() {
+        final var fixture = new Fixture(LONG_TYPE, true, 2);
+        final var accumulator = fixture.accumulator();
+        accumulator.accumulate(100L);
+        accumulator.accumulate(200L);
+        accumulator.accumulate(300L);
+
+        assertThat(finish(accumulator)).containsExactly(100L, 200L);
+        assertThat(finish(fixture.restore(accumulator))).containsExactly(100L, 200L);
+    }
+
+    /**
+     * Tests that the cap is a total for the group rather than a per-continuation budget. A resumed accumulator starts
+     * out already at the cap, so it keeps discarding instead of collecting a further {@code limit} elements.
+     */
+    @Test
+    void accumulateAfterRestoringStateStillRespectsLimit() {
+        final var fixture = new Fixture(LONG_TYPE, true, 2);
+        final var accumulator = fixture.accumulator();
+        accumulator.accumulate(100L);
+        accumulator.accumulate(200L);
+
+        final var restored = fixture.restore(accumulator);
+        restored.accumulate(300L);
+        restored.accumulate(400L);
+
+        assertThat(finish(restored)).containsExactly(100L, 200L);
+    }
+
+    /**
+     * Tests that a limit of 0 collects nothing, yet still reports a non-empty state, so that the group remains
+     * distinguishable from an empty one.
+     */
+    @Test
+    void accumulateWithZeroLimitCollectsNothing() {
+        final var fixture = new Fixture(LONG_TYPE, true, 0);
+        final var accumulator = fixture.accumulator();
+        accumulator.accumulate(100L);
+
+        assertThat(finish(accumulator)).isEmpty();
+        assertThat(accumulator.getAccumulatorStates()).isNotEmpty();
+    }
+
+    /**
+     * Tests that a {@code NULL} arriving once the cap is reached is dropped rather than reported as unsupported, even
+     * under {@code RESPECT NULLS}.
+     */
+    @Test
+    void accumulateNullBeyondLimitIsDropped() {
+        final var fixture = new Fixture(LONG_TYPE, false, 1);
+        final var accumulator = fixture.accumulator();
+        accumulator.accumulate(100L);
+        accumulator.accumulate(null);
+
+        assertThat(finish(accumulator)).containsExactly(100L);
+    }
+
+    /**
+     * Tests that the limit survives serialization, and that a plan serialized without the field is uncapped.
+     */
+    @Test
+    void limitSurvivesSerialization() {
+        final ArrayAggValue value = new ArrayAggValue(new LiteralValue<>(LONG_TYPE, null), true, 7);
+        final PlanSerializationContext serializationContext = PlanSerializationContext.newForCurrentMode();
+        assertThat(ArrayAggValue.fromProto(serializationContext, value.toProto(serializationContext)))
+                .isEqualTo(value);
     }
 }

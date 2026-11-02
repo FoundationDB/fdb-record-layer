@@ -20,8 +20,6 @@
 /**
  * Miscellaneous record layer support classes.
  *
- * <p>
- * {@link com.apple.foundationdb.record.util.TriFunction} Represents a function that accepts three arguments and produces a result. This is the three-arity specialization of Function.
- * </p>
+ * <p>{@link com.apple.foundationdb.record.util.TriFunction} Represents a function that accepts three arguments and produces a result. This is the three-arity specialization of Function.
  */
 package com.apple.foundationdb.record.util;

@@ -63,28 +63,28 @@ import java.util.stream.Collectors;
 /**
  * An implementation of an R-tree. See <a href="https://en.wikipedia.org/wiki/R-tree">this</a>} link for a general
  * introduction to R-trees.
- * <br>
- * The main use-case for R-trees, while they are normally used for spatial querying of actual objects in N-dimensional
+ *
+ * <p>The main use-case for R-trees, while they are normally used for spatial querying of actual objects in N-dimensional
  * space, is to function as a natural extension of regular B+-tree-based indexes in FDB, but spanning into multiple
  * dimensions. That allows to answer queries using multiple inequalities which is not possible with 1-D indexes.
- * <br>
- * Here is a short introduction copied from the explanation at the linked wikipedia page. The key idea of the data
+ *
+ * <p>Here is a short introduction copied from the explanation at the linked wikipedia page. The key idea of the data
  * structure is to group nearby objects and represent them with their minimum bounding rectangle in the next higher
  * level of the tree; the "R" in R-tree is for rectangle. Since all objects lie within this bounding rectangle, a query
  * that does not intersect the bounding rectangle also cannot intersect any of the contained objects. At the leaf level,
  * each rectangle describes a single object; at higher levels the aggregation includes an increasing number of objects.
  * This can also be seen as an increasingly coarse approximation of the data set.
- * <br>
- * Similar to the B-tree, the R-tree is also a balanced search tree (so all leaf nodes are at the same depth),
+ *
+ * <p>Similar to the B-tree, the R-tree is also a balanced search tree (so all leaf nodes are at the same depth),
  * organizes the data in pages/nodes, and is designed for storage on disk. Each node can contain a maximum number of
  * entries, often denoted as {@code M}. It also guarantees a minimum fill (except for the root node).
- * <br>
- * One of the key properties of an R-tree is that the minimum bounding rectangles (MBR) of the children of a node in the
+ *
+ * <p>One of the key properties of an R-tree is that the minimum bounding rectangles (MBR) of the children of a node in the
  * tree may overlap which may cause multiple children to intersect with a query even if that query's mbr is just a
  * single point. An object is only stored in exactly one leaf node of the tree, however, during a search of the
  * tree multiple paths may have to exhaustively followed in order go find all matching objects of that query.
- * <br>
- * The search performance of the tree is strongly linked to the size of the area being covered by a child (as indicated
+ *
+ * <p>The search performance of the tree is strongly linked to the size of the area being covered by a child (as indicated
  * by a child's mbr) as well as the overlap among children's mbrs at each level of the tree. The key difficulty in
  * constructing a search-efficient tree is to minimize both covered area and the overlap while keeping the tree balanced.
  * Variants of the R-tree such as R+-trees and R*-trees employ different techniques to improve on the basic R-tree ideas
@@ -96,14 +96,14 @@ import java.util.stream.Collectors;
  * <a href="http://www.cs.cmu.edu/~christos/PUBLICATIONS.OLDER/vldb87.pdf">R+-tree</a>,
  * for more information about R*-trees see
  * <a href="https://infolab.usc.edu/csci599/Fall2001/paper/rstar-tree.pdf">R*-tree</a>.
- * <br>
- * All variants of R-tree mentioned so far have a fatal flaw when considered in context with FDB and specifically the
+ *
+ * <p>All variants of R-tree mentioned so far have a fatal flaw when considered in context with FDB and specifically the
  * record layer. None of the R-tree variants can return their elements in a stable order that is not sensitive to
  * the physical layout of the tree at query time. That proves to be problematic for queries that are continued at a
  * later time as the physical structure of the tree may have changed due to re-balancing. Thus, it would become necessary
  * to encode all already returned items into the continuation which is simply not feasible.
- * <br>
- * Another variant (the one we implement here) is a Hilbert R-tree. See
+ *
+ * <p>Another variant (the one we implement here) is a Hilbert R-tree. See
  * <a href="https://www.vldb.org/conf/1994/P500.PDF">Hilbert R-tree</a> for details. In short, the Hilbert R-tree,
  * in addition to being a regular R-tree, also utilizes the Hilbert value
  * (see {@link RTreeHilbertCurveHelpers}) of the center of an mbr of an object (or the point itself if the object is a
@@ -116,8 +116,8 @@ import java.util.stream.Collectors;
  * order between siblings. A node can <em>transfer</em> empty slots from their siblings (for insertions) or children
  * (for deletions). In this way the tree is packed more tightly and costly re-balancing can be avoided while we still
  * do not have to resort to re-insertions of overflowing children.
- * <br>
- * Clustering based on the Hilbert value has been proven to be superior compared to R-trees, R+-trees, and R*-trees.
+ *
+ * <p>Clustering based on the Hilbert value has been proven to be superior compared to R-trees, R+-trees, and R*-trees.
  * A disadvantage of a Hilbert R-tree is the definition of the canvas the Hilbert curve is defined over. While there
  * are ways to define a Hilbert curve for floating point coordinates, we cannot support variable length dimensions such
  * as strings. In fact, we only support INT32 and INT64 dimensions.
@@ -315,8 +315,8 @@ public class RTree {
         @Override
         public String toString() {
             return storage + ", M=" + minM + "-" + maxM + ", S=" + splitS +
-                   (useNodeSlotIndex ? ", slotIndex" : "") +
-                   (storeHilbertValues ? ", storeHV" : "");
+                    (useNodeSlotIndex ? ", slotIndex" : "") +
+                    (storeHilbertValues ? ", storeHV" : "");
         }
     }
 
@@ -511,8 +511,8 @@ public class RTree {
      * Perform a scan over the tree within the transaction passed in using a predicate that is also passed in to
      * eliminate subtrees from the scan. This predicate may be stateful which allows for dynamic adjustments of the
      * queried area while the scan is active.
-     * <br>
-     * A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
+     *
+     * <p>A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
      * {@link AsyncIterator}. The predicate that is passed in is applied to intermediate nodes as well as leaf nodes,
      * but not to elements contained by a leaf node. The caller should filter out items in a downstream operation.
      * A scan of the tree will not prefetch the next node before the items of the current node have been consumed. This
@@ -534,8 +534,8 @@ public class RTree {
      * Perform a scan over the tree within the transaction passed in using a predicate that is also passed in to
      * eliminate subtrees from the scan. This predicate may be stateful which allows for dynamic adjustments of the
      * queried area while the scan is active.
-     * <br>
-     * A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
+     *
+     * <p>A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
      * {@link AsyncIterator}. The predicate that is passed in is applied to intermediate nodes as well as leaf nodes,
      * but not to elements contained in a leaf node. The caller should filter out items in a downstream operation.
      * A scan of the tree will not prefetch the next node before the items of the current node have been consumed. This

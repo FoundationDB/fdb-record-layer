@@ -407,7 +407,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         // https://github.com/FoundationDB/fdb-record-layer/issues/677
         FieldKeyExpression that = (FieldKeyExpression)o;
         return this.fieldName.equals(that.fieldName) &&
-               this.fanType == that.fanType;
+                this.fanType == that.fanType;
     }
 
     @Override

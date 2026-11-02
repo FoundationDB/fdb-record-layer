@@ -55,6 +55,8 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.concurrency.FDBRecordStoreConcurrencyManager;
+import com.apple.foundationdb.record.provider.foundationdb.concurrency.NoOpConcurrencyManager;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -135,13 +137,11 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
      * this could lead to problems where attempting to load the record with the shorter key would also read data for
      * the record with the longer key. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/782">Issue #782</a>.
      *
-     * <p>
-     * This test is parameterized by format version because the fix involves being more particular about the range that
+     * <p>This test is parameterized by format version because the fix involves being more particular about the range that
      * is scanned. In particular, the scan range is now only over those keys which are strict prefixes of the primary
      * key. This is fine as long as there aren't any data stored at that key. Prior to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX},
      * there could be data in that key was not true if {@code splitLongRecords} was {@code false}. Parameterizing here
      * tests those older configurations.
-     * </p>
      *
      * @param formatVersion format version to use when running the test
      * @param splitLongRecords whether the test should split long records or not
@@ -1532,7 +1532,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                         getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
                         getPipelineSizer(), getStoreStateCache(),
                         getStateCacheabilityOnOpen(), getUserVersionChecker(),
-                        getBypassFullStoreLockReason(), getPlanSerializationRegistry()) {
+                        getBypassFullStoreLockReason(), getPlanSerializationRegistry(),
+                        isConcurrencyManagementDisabled() ? NoOpConcurrencyManager.instance() : new FDBRecordStoreConcurrencyManager(getSubspaceProvider(), getContext())) {
                     @Nonnull
                     @Override
                     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(

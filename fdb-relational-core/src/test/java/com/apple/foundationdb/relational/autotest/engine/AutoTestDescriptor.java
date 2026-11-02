@@ -144,10 +144,10 @@ class AutoTestDescriptor extends ClassTestDescriptor {
                 .findInstance(getTestClass())
                 .orElseThrow();
 
-        List<Connector> connectors = connectionMakers.stream()
+        final List<Connector> connectors = connectionMakers.stream()
                 .map(maker -> maker.createConnector(instance))
                 .collect(Collectors.toList());
-        Collection<DataSet> dataSets = dataInvoker.getDataSets(instance, context, executableInvoker);
+        final Collection<DataSet> dataSets = dataInvoker.getDataSets(instance, context, executableInvoker);
         //TODO(bfines) deal with multiple config instances
         WorkloadConfig config = configInvoker.getConfigurations(instance, context, executableInvoker).stream().findFirst().orElse(defaultConfig);
         config.setDefaults(defaultConfig); //make sure the default values are set if they weren't overridden

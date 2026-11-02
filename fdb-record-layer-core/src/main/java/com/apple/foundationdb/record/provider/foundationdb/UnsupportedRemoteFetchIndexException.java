@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * This exception is to be thrown when an index maintainer that does not support remote fetch is asked to scan an index
  * using {@link IndexMaintainer#scanRemoteFetch}
  * <p>Note that this exception is caught and handled by {@link FDBRecordStore} and {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan}
- * and so should be thrown by any index maintainer (even outside this project) for proper handing of the error case.</p>
+ * and so should be thrown by any index maintainer (even outside this project) for proper handing of the error case.
  */
 @SuppressWarnings({"serial", "java:S110"})
 @API(API.Status.EXPERIMENTAL)

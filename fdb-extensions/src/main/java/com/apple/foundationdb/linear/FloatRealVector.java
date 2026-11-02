@@ -309,8 +309,8 @@ public class FloatRealVector extends AbstractRealVector {
 
     /**
      * Creates a {@link FloatRealVector} from a byte array produced by {@link #getRawData()}.
-     * <p>
-     * The input is interpreted as a leading type byte (which must match
+     *
+     * <p>The input is interpreted as a leading type byte (which must match
      * {@link VectorType#SINGLE}) followed by a sequence of big-endian 32-bit IEEE-754 floats,
      * one per component.
      * @param vectorBytes the non-null byte array to convert

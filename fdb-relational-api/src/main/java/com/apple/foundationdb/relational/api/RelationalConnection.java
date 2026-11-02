@@ -46,10 +46,8 @@ import java.util.concurrent.Executor;
 /**
  * A connection to a Relational database.
  *
- * <p>
- *  This functions very much like a {@link java.sql.Connection}, but contains some overloaded methods
+ * <p>This functions very much like a {@link java.sql.Connection}, but contains some overloaded methods
  *  to support {@link RelationalStatement}.
- * </p>
  */
 public interface RelationalConnection extends java.sql.Connection {
     /**

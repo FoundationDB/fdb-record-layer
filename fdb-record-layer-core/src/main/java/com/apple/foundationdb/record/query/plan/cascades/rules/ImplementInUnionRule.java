@@ -63,7 +63,7 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule.findInnerQuantifier;
@@ -75,7 +75,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
-    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
+    // Match plain for-each quantifiers only. This rule turns each matched explode quantifier into an `InSource` instead
+    // of planning it, so there would be no plan to apply the glue for a null-on-empty quantifier to.
+    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(plainForEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);

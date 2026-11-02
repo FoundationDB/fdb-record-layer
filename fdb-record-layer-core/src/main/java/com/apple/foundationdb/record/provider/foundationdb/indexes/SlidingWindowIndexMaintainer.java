@@ -81,13 +81,13 @@ import java.util.function.Supplier;
  *
  * <p>Currently, only vector indexes are supported as the delegate. This restriction is enforced
  * by {@link SlidingWindowIndexMaintainerFactory#isSlidingWindowIndex(Index)} and validated by
- * {@link SlidingWindowIndexMaintainerFactory}.</p>
+ * {@link SlidingWindowIndexMaintainerFactory}.
  *
  * <p>The sliding window subspace is organized as {@code <partition...> / <region> / ...} where
  * the partition prefix comes from the {@code PARTITION BY} clause in the
- * {@link IndexPredicate.RowNumberWindowPredicate}. When there is no partition, the prefix is empty.</p>
+ * {@link IndexPredicate.RowNumberWindowPredicate}. When there is no partition, the prefix is empty.
  *
- * <p>Within each partition, there are two logical regions:</p>
+ * <p>Within each partition, there are two logical regions:
  * <ul>
  *     <li>Entries (key 0): {@code [windowKey..., primaryKey...] → primaryKey packed} — all tracked records, sorted by window key</li>
  *     <li>Meta (key 1): {@code [3] → long} (window count), {@code [4] → packed entry key} (boundary pointer)</li>
@@ -96,10 +96,10 @@ import java.util.function.Supplier;
  * <p>All entries live in a single sorted subspace per partition. The boundary pointer marks the
  * worst entry currently in the window. Entries on the "good" side of the boundary are in the
  * window (present in the delegate index); entries on the "bad" side are overflow (not in the
- * delegate). Eviction and re-election shift the boundary pointer without moving data.</p>
+ * delegate). Eviction and re-election shift the boundary pointer without moving data.
  *
  * <p>{@code deleteWhere} is only supported when the window is partitioned. It clears the entire
- * partition group from the sliding window subspace and delegates to the inner index.</p>
+ * partition group from the sliding window subspace and delegates to the inner index.
  */
 @API(API.Status.EXPERIMENTAL)
 public class SlidingWindowIndexMaintainer extends IndexMaintainer {
@@ -394,24 +394,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
-        // During a write-only index build, the sliding window cannot rely on the normal
-        // update(old, new) contract because the indexer may have already processed newRecord
-        // in an earlier range scan. If we blindly call update(null, newRecord), the window
-        // counter would be incremented a second time, leading to an inflated count and
-        // incorrect eviction/re-election behavior.
-        //
-        // The standard index maintainer (StandardIndexMaintainer.updateWriteOnlyByRecords)
-        // handles this by checking the range set to see if the record's primary key has
-        // already been built. The sliding window takes a simpler approach: preemptively
-        // delete newRecord from the window (if it exists) before applying the full
-        // update(old, new). This is safe because:
-        //  - If newRecord was NOT previously indexed, the delete is a no-op (the entry
-        //    simply isn't found in the entries subspace).
-        //  - If newRecord WAS previously indexed, the delete removes it from the window
-        //    and decrements the counter, so the subsequent insert does not double-count.
-        //
-        // The net effect is that after this method completes, newRecord is indexed exactly
-        // once with its current values, and the counter accurately reflects the window size.
+        // During a write-only build the indexer may have already processed newRecord in an earlier range scan, so
+        // adding it blindly would count it twice and skew eviction and re-election. Where the standard maintainer
+        // (StandardIndexMaintainer.updateWriteOnlyByRecords) consults the range set and defers the write to the
+        // build, the sliding window applies it immediately and leans on handleInsert leaving an already-tracked
+        // entry alone, which makes an insert safe to apply twice whichever application arrives first.
         final EntryKey oldKey = shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
         final EntryKey newKey = shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
         return updateWindowWhileWriteOnly(oldKey, newKey,
@@ -427,10 +414,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace swSubspace = getSlidingWindowSubspace();
         return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
             CompletableFuture<Void> future = AsyncUtil.DONE;
-            if (newKey != null && !newKey.equals(oldKey)) {
-                incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY);
-                future = future.thenCompose(ignore -> handleDelete(newKey, () -> AsyncUtil.DONE));
-            }
             if (oldKey != null) {
                 future = future.thenCompose(ignore -> handleDelete(oldKey, delegateDelete));
             }
@@ -559,7 +542,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                                  @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
-        final Tuple primaryKey = key.primaryKey();
         final Tuple partitionTuple = key.partition();
 
         // Scope by partition first, then by entries/meta
@@ -567,10 +549,38 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace entriesSubspace = partitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
+        // An entry key is the window value followed by the primary key, so a key that is already present means the
+        // entries subspace, the count and the boundary already hold what this insert would produce. Online indexing
+        // hits this whenever it builds a range holding a record a write already indexed. Only the delegate can need
+        // anything, and only for a window entry: overflow entries are not in it.
+        return tr.get(entriesSubspace.pack(key.entriesKey())).thenCompose(existingEntry -> {
+            if (existingEntry == null) {
+                return insertUntrackedEntry(key, entriesSubspace, metaSubspace, tr, delegateInsert);
+            }
+            incrementCounter(SlidingWindowCounter.SW_REINSERT_ALREADY_TRACKED);
+            return tr.get(metaSubspace.pack(BOUNDARY_KEY)).thenCompose(boundaryBytes -> {
+                validateOrThrowEx(boundaryBytes != null, "sliding window boundary is missing but entry exists, possible corruption");
+                return extremumType.isInWindow(key.entriesKey(), Tuple.fromBytes(boundaryBytes))
+                        ? instrument(SlidingWindowEvent.SW_DELEGATE_INSERT, delegateInsert.get())
+                        : AsyncUtil.DONE;
+            });
+        });
+    }
+
+    /**
+     * Adds an entry that is known not to be tracked yet: writes it to the entries subspace and then either grows
+     * the window, leaves the entry in overflow, or evicts the boundary to make room for it.
+     */
+    @Nonnull
+    private CompletableFuture<Void> insertUntrackedEntry(@Nonnull final EntryKey key,
+                                                         @Nonnull final Subspace entriesSubspace,
+                                                         @Nonnull final Subspace metaSubspace,
+                                                         @Nonnull final Transaction tr,
+                                                         @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Tuple entryKey = key.entriesKey();
 
         // Always write the entry to the entries subspace
-        tr.set(entriesSubspace.pack(entryKey), primaryKey.pack());
+        tr.set(entriesSubspace.pack(entryKey), key.primaryKey().pack());
 
         final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
         final byte[] boundaryMetaKey = metaSubspace.pack(BOUNDARY_KEY);
@@ -847,7 +857,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_PARTITION_EMPTIED("partition emptied (no entries remain)"),
         SW_EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
         SW_PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
-        SW_PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
+        SW_REINSERT_ALREADY_TRACKED("reinsert of an already-tracked entry, needing no window maintenance"),
         SW_PARTITION_CLEARED("partition cleared via deleteWhere");
 
         @Nonnull

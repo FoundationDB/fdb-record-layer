@@ -58,6 +58,9 @@ public class Customize extends sqlline.Application {
     public SqlLineOpts getOpts(SqlLine sqlLine) {
         // Set do-not-ask-for-login credentials -- login not supported on Relational, not yet.
         sqlLine.getOpts().set(BuiltInProperty.CONNECT_INTERACTION_MODE, "notAskCredentials");
+        // this is the only isolation level we support via setTransactionIsolation so set it automatically
+        // to stop sqlline from warning that we don't support TRANSACTION_REPEATABLE_READ
+        sqlLine.getOpts().set(BuiltInProperty.ISOLATION, "TRANSACTION_SERIALIZABLE");
         return sqlLine.getOpts();
     }
 

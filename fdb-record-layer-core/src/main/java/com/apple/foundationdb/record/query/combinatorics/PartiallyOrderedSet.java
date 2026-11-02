@@ -136,9 +136,9 @@ public class PartiallyOrderedSet<T> {
     @Override
     public String toString() {
         return "{" +
-               set.stream().map(Object::toString).collect(Collectors.joining(", ")) +
-               (dependencyMap.isEmpty() ? "" : "| " + dependencyMap.entries().stream().map(entry -> entry.getValue() + "←" + entry.getKey()).collect(Collectors.joining(", "))) +
-               "}";
+                set.stream().map(Object::toString).collect(Collectors.joining(", ")) +
+                (dependencyMap.isEmpty() ? "" : "| " + dependencyMap.entries().stream().map(entry -> entry.getValue() + "←" + entry.getKey()).collect(Collectors.joining(", "))) +
+                "}";
     }
 
     @Nonnull

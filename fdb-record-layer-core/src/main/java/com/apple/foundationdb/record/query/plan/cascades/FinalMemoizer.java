@@ -70,8 +70,8 @@ public interface FinalMemoizer {
     /**
      * Memoize the given exploratory of final {@link RelationalExpression}. A new reference is created and returned to
      * the caller.
-     * <br>
-     * This method can only be called during {@link PlannerPhase#PLANNING} as the distinction between exploratory and
+     *
+     * <p>This method can only be called during {@link PlannerPhase#PLANNING} as the distinction between exploratory and
      * final expression is made by using the Java type for the expression that is passed in. If an expression is of
      * type {@link RecordQueryPlan}, the expression is considered a final expression, otherwise it is considered an
      * exploratory expression. Note that this method is only allowed to be called during {@link PlannerPhase#PLANNING}.

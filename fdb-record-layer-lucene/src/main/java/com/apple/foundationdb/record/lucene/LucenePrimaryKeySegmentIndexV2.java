@@ -45,6 +45,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -131,6 +132,15 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);
         }
+    }
+
+    @Override
+    @Nonnull
+    public CompletableFuture<Boolean> hasPrimaryKeyAsync(@Nonnull Tuple primaryKey) {
+        // any entry means that the record had been indexed, even if its segment is unknown
+        return directory.getAgilityContext().apply(context ->
+                context.ensureActive().getRange(subspace.subspace(primaryKey).range(), 1).asList()
+                        .thenApply(keyValues -> !keyValues.isEmpty()));
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,

@@ -153,12 +153,22 @@ public abstract class IndexMaintainer {
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                      @Nullable FDBIndexableRecord<M> newRecord);
 
+    /**
+     * Update associated index for a scanned record during online indexing.
+     * @param newRecord a scanned record that needs to be indexed.
+     * @param <M> type of message
+     * @return a future that is complete when the index update is done
+     */
+    @Nonnull
+    public <M extends Message> CompletableFuture<Void> updateFromIndexer(@Nullable FDBIndexableRecord<M> newRecord) {
+        return update(null, newRecord);
+    }
 
     /**
      * Serialize the old/new record pair into an {@link com.google.protobuf.Any}-packed message describing the deferred
      * index update. The data will be later provided to {@link #updateFromQueue(Any)} to implement the index update.
-     * <p>
-     * This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
+     *
+     * <p>This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
      * caller is responsible for checking that before invoking this method.
      *
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
@@ -189,17 +199,16 @@ public abstract class IndexMaintainer {
 
     /**
      * Scans through the list of uniqueness violations within the database.
-     * <p>
-     *     It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
+     *
+     * <p>It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
      *     return the primary key of the record causing a problem and {@link IndexEntry#getValue() getValue()} will
      *     return the index value that is being duplicated.
-     * </p>
-     * <p>
-     *     Implementors <em>should</em> store all relevant data, and nothing else in
+     *
+     * <p>Implementors <em>should</em> store all relevant data, and nothing else in
      *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, but this requirement was not
      *     clearly stated, so it's possible there are implementations that store information about uniqueness violations
      *     in another range.
-     * </p>
+     *
      * @param range range of tuples to read
      * @param continuation any continuation from a previous invocation
      * @param scanProperties row limit and other scan properties
@@ -210,15 +219,14 @@ public abstract class IndexMaintainer {
 
     /**
      * Clear the list of uniqueness violations.
-     * <p>
-     *     This should only be called when the index is no longer unique, and implementations should throw a
+     *
+     * <p>This should only be called when the index is no longer unique, and implementations should throw a
      *     {@link com.apple.foundationdb.record.RecordCoreException} if the index is unique.
-     * </p>
-     * <p>
-     *     This should be as simple as clearing the
+     *
+     * <p>This should be as simple as clearing the
      *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, as that should be where all data
      *     about the violations should be stored.
-     * </p>
+     *
      * @return a future that will complete when the violations have been cleared
      */
     public CompletableFuture<Void> clearUniquenessViolations() {

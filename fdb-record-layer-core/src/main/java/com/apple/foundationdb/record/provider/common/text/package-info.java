@@ -23,12 +23,10 @@
  *
  * <h2>Tokenizing Text</h2>
  *
- * <p>
- * A text index has an entry for every token (word) of the indexed string value.
+ * <p>A text index has an entry for every token (word) of the indexed string value.
  * The conversion of the string value to tokens is done by a {@link com.apple.foundationdb.record.provider.common.text.TextTokenizer}.
  * The {@link com.apple.foundationdb.record.metadata.Index} options in the meta-data specify the name of the tokenizer, which is looked
  * up in the {@link com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry} to get a {@link com.apple.foundationdb.record.provider.common.text.TextTokenizerFactory}
  * to create the actual tokenizer object.
- * </p>
  */
 package com.apple.foundationdb.record.provider.common.text;

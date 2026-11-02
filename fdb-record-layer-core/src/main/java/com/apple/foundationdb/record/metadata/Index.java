@@ -204,12 +204,12 @@ public class Index {
         }
         KeyExpression expr = KeyExpression.fromProto(proto.getRootExpression());
         if (!(expr instanceof GroupingKeyExpression) &&
-                (type.equals(IndexTypes.RANK) ||
-                 type.equals(IndexTypes.COUNT) ||
-                 type.equals(IndexTypes.MAX_EVER) ||
-                 type.equals(IndexTypes.MIN_EVER) ||
-                 type.equals(IndexTypes.SUM))) {
-            expr = new GroupingKeyExpression(expr, type.equals(IndexTypes.COUNT) ? expr.getColumnSize() : 1);
+                (IndexTypes.RANK.equals(type) ||
+                 IndexTypes.COUNT.equals(type) ||
+                 IndexTypes.MAX_EVER.equals(type) ||
+                 IndexTypes.MIN_EVER.equals(type) ||
+                 IndexTypes.SUM.equals(type))) {
+            expr = new GroupingKeyExpression(expr, IndexTypes.COUNT.equals(type) ? expr.getColumnSize() : 1);
         }
 
         if (proto.hasValueExpression()) {
@@ -399,13 +399,11 @@ public class Index {
      * example, integers are encoded by the {@code Tuple} layer using a variable length
      * encoding scheme that makes them a natural choice for this key.
      *
-     * <p>
-     * It is important that once an index has data that its subspace key not change. If
+     * <p>It is important that once an index has data that its subspace key not change. If
      * one wishes to change the key, the guidance would be to create a new index with the
      * same definition but at the new key. Then that index can be built using the
      * {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer OnlineIndexer}.
      * When that index has been fully built, the original index can be safely dropped.
-     * </p>
      *
      * @param subspaceKey the key used to determine this index's subspace prefix
      * @see #getSubspaceKey()
@@ -435,8 +433,7 @@ public class Index {
      * position or a negative value to indicate that that column is not found in the
      * index key.
      *
-     * <p>
-     * For example, suppose one had an index defined on a record type with a primary
+     * <p>For example, suppose one had an index defined on a record type with a primary
      * key of {@code Key.Expressions.concatenateFields("a", "b")} and suppose the index
      * was defined on {@code Key.Expressions.concatenateFields("a", "c")}. A na&iuml;ve
      * approach might serialize index key tuples of the form {@code (a, c, a, b)}
@@ -447,22 +444,17 @@ public class Index {
      * {@code {0, -1}} to indicate that the first component of the primary key can be
      * found at position 0 in the index entry key but the second component is found after
      * the index key data (which is the default location).
-     * </p>
      *
-     * <p>
-     * This method should generally not be called by users outside of the Record Layer.
+     * <p>This method should generally not be called by users outside of the Record Layer.
      * For the most part, it should be sufficient for index maintainers to call
      * {@link #getEntryPrimaryKey(Tuple)}
      * to determine the primary key of a record from an index entry and
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase#indexEntryKey(Index, Tuple, Tuple) FDBRecordStoreBase.indexEntryKey()}
      * to determine the index entry given a record's primary key.
-     * </p>
      *
-     * <p>
-     * At the moment, this optimization is not used with multi-type or universal indexes.
+     * <p>At the moment, this optimization is not used with multi-type or universal indexes.
      * See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/93">Issue #93</a>
      * for more details.
-     * </p>
      *
      * @return the positions of primary key components within the index key or {@code null}
      */
@@ -678,7 +670,7 @@ public class Index {
     public String toString() {
         StringBuilder str = new StringBuilder();
         str.append("Index {'").append(name).append("'");
-        if (!type.equals(IndexTypes.VALUE)) {
+        if (!IndexTypes.VALUE.equals(type)) {
             str.append(", ").append(type);
         }
         str.append("}");

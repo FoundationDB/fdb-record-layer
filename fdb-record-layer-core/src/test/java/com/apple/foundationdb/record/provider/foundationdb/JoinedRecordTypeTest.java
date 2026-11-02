@@ -29,7 +29,17 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexComparison;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.tuple.TupleHelpers;
+import java.util.List;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -52,6 +62,9 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     public static final String JOINED_RECORD_NAME = "JoinedRecord";
     public static final String SIMPLE_RECORD = "simple_record";
     public static final String OTHER_RECORD = "other_record";
+    private static final String FILTERED_JOINED_INDEX = "filteredJoinedNumValue";
+    /** Only joined records whose {@code other_record.num_value} exceeds this are indexed. */
+    private static final int FILTERED_NUM_VALUE_THRESHOLD = 5;
 
     @Nonnull
     private static RecordMetaData baseMetaData(@Nonnull RecordMetaDataHook hook) {
@@ -59,6 +72,23 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .setRecords(TestRecordsJoinIndexProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
+    }
+
+    /**
+     * The joined type with a filtered (sparse) index on it, keyed on one constituent and filtered on the other. The
+     * predicate can only be evaluated against the joined record, whose type is not among the stored record types.
+     */
+    @Nonnull
+    private static RecordMetaDataHook addFilteredJoinedIndex() {
+        return addJoinedType().andThen(metaDataBuilder -> {
+            final IndexPredicate predicate = new IndexPredicate.ValuePredicate(
+                    List.of(OTHER_RECORD, "num_value"),
+                    new IndexComparison.SimpleComparison(
+                            IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN,
+                            FILTERED_NUM_VALUE_THRESHOLD));
+            metaDataBuilder.addIndex(JOINED_RECORD_NAME,
+                    new Index(new Index(FILTERED_JOINED_INDEX, field(SIMPLE_RECORD).nest("num_value")), predicate));
+        });
     }
 
     @Nonnull
@@ -155,6 +185,50 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
             context.commit();
         }
+    }
+
+    /**
+     * A filtered (sparse) index over a joined type indexes only the joined records its predicate accepts, and the
+     * predicate is evaluated against the joined record rather than either stored one.
+     */
+    @Test
+    void filteredIndexOnJoinedType() {
+        final RecordMetaData metaData = baseMetaData(addFilteredJoinedIndex());
+        final Index index = metaData.getIndex(FILTERED_JOINED_INDEX);
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            final Tuple syntheticTypeKey = recordStore.getRecordMetaData()
+                    .getSyntheticRecordType(JOINED_RECORD_NAME)
+                    .getRecordTypeKeyTuple();
+
+            // accepted by the predicate: other_record.num_value is above the threshold
+            final FDBStoredRecord<Message> keptSimple = recordStore.saveRecord(joinableSimpleRecord(100, 10, 101));
+            final FDBStoredRecord<Message> keptOther = recordStore.saveRecord(createOtherRecord(101, 11));
+            // filtered out: other_record.num_value is below the threshold
+            recordStore.saveRecord(joinableSimpleRecord(200, 20, 201));
+            recordStore.saveRecord(createOtherRecord(201, 1));
+
+            final Tuple keptSyntheticKey = Tuple.from(syntheticTypeKey.getItems().get(0),
+                    keptSimple.getPrimaryKey().getItems(), keptOther.getPrimaryKey().getItems());
+            final List<IndexEntry> expected = List.of(new IndexEntry(index,
+                    Tuple.from(10L).addAll(keptSyntheticKey), TupleHelpers.EMPTY, keptSyntheticKey));
+
+            final List<IndexEntry> scanned = recordStore
+                    .scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asList()
+                    .join();
+            assertEquals(expected, scanned);
+            context.commit();
+        }
+    }
+
+    /** A simple record whose {@code other_rec_no} points at the other record, so the join matches. */
+    private Message joinableSimpleRecord(final int recNo, final int numValue, final int otherRecNo) {
+        return TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue(numValue)
+                .setOtherRecNo(otherRecNo)
+                .build();
     }
 
     private Message createSimpleRecord(final int recNo, final int numValue) {

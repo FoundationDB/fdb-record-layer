@@ -85,8 +85,8 @@ public class RelativeProbabilityPlanSelector implements PlanSelector {
     @Override
     public String toString() {
         return "RelativeProbabilityPlanSelector{" +
-               "probabilities=" + probabilities +
-               '}';
+                "probabilities=" + probabilities +
+                '}';
     }
 
     @Override

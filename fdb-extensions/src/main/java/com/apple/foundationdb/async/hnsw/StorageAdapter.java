@@ -39,8 +39,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Defines the contract for storing and retrieving HNSW graph data to/from a persistent store.
- * <p>
- * This interface provides an abstraction layer over the underlying database, handling the serialization and
+ *
+ * <p>This interface provides an abstraction layer over the underlying database, handling the serialization and
  * deserialization of HNSW graph components such as nodes, vectors, and their relationships. Implementations of this
  * interface are responsible for managing the physical layout of data within a given {@link Subspace}.
  * The generic type {@code N} represents the specific type of {@link NodeReference} that this storage adapter manages.
@@ -66,8 +66,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Returns the configuration of the HNSW graph.
-     * <p>
-     * This configuration object contains all the parameters used to build and search the graph,
+     *
+     * <p>This configuration object contains all the parameters used to build and search the graph,
      * such as the number of neighbors to connect (M), the size of the dynamic list for
      * construction (efConstruction), and the beam width for searching (ef).
      * @return the {@code HNSW.Config} for this graph, never {@code null}.
@@ -77,8 +77,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Gets the factory used to create new nodes.
-     * <p>
-     * This factory is responsible for instantiating new nodes of type {@code N}.
+     *
+     * <p>This factory is responsible for instantiating new nodes of type {@code N}.
      * @return the non-null factory for creating nodes.
      */
     @Nonnull
@@ -127,8 +127,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Gets the subspace that contains the data for this object.
-     * <p>
-     * This subspace represents the portion of the keyspace dedicated to storing the actual data, as opposed to metadata
+     *
+     * <p>This subspace represents the portion of the keyspace dedicated to storing the actual data, as opposed to metadata
      * or other system-level information.
      * @return the subspace containing the data, which is guaranteed to be non-null
      */
@@ -164,8 +164,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Asynchronously fetches a node from a specific layer, identified by its primary key.
-     * <p>
-     * The fetch operation is performed within the scope of the provided {@link ReadTransaction}, ensuring a consistent
+     *
+     * <p>The fetch operation is performed within the scope of the provided {@link ReadTransaction}, ensuring a consistent
      * view of the data. The returned {@link CompletableFuture} will be completed with the node once it has been
      * retrieved from the underlying data store.
      * @param readTransaction the {@link ReadTransaction} context for this read operation
@@ -183,8 +183,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Writes a node and its neighbor changes to the data store within a given transaction.
-     * <p>
-     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to
+     *
+     * <p>This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to
      * its
      * neighboring nodes as defined in the {@code NeighborsChangeSet}. The entire operation is performed atomically as
      * part of the provided {@link Transaction}.
@@ -209,12 +209,14 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Scans a specified layer of the structure, returning an iterable sequence of nodes.
-     * <p>
-     * This method allows for paginated scanning of a layer. The scan can be started from the beginning of the layer by
+     *
+     * <p>This method allows for paginated scanning of a layer. The scan can be started from the beginning of the layer by
      * passing {@code null} for the {@code lastPrimaryKey}, or it can be resumed from a previous point by providing the
      * key of the last item from the prior scan. The number of nodes returned is limited by {@code maxNumRead}.
      *
      * @param readTransaction the transaction to use for the read operation
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param layer the index of the layer to scan
      * @param lastPrimaryKey the primary key of the last node from a previous scan,
      *        or {@code null} to start from the beginning of the layer
@@ -222,7 +224,8 @@ interface StorageAdapter<N extends NodeReference> {
      * @return an {@link AsyncIterable} that provides the nodes found in the specified layer range
      */
     @VisibleForTesting
-    Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
+    Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction,
+                                        @Nonnull StorageTransform storageTransform, int layer,
                                         @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
     @Nonnull
@@ -261,8 +264,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Writes an {@link AccessInfo} to the database within a given transaction and subspace.
-     * <p>
-     * This method serializes the provided {@link EntryNodeReference} into a key-value pair. The key is determined by
+     *
+     * <p>This method serializes the provided {@link EntryNodeReference} into a key-value pair. The key is determined by
      * a dedicated subspace for entry nodes, and the value is a tuple containing the layer, primary key, and vector from
      * the reference. After writing the data, it notifies the provided {@link OnWriteListener}.
      * @param transaction the database transaction to use for the write operation

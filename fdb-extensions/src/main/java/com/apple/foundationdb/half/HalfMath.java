@@ -34,8 +34,7 @@ public class HalfMath {
      * positive distance between this floating-point value and the {@code half} value next larger in magnitude.<br>
      * Note that for non-NaN <i>x</i>, <code>ulp(-<i>x</i>) == ulp(<i>x</i>)</code>.
      *
-     * <p>
-     * Special Cases:
+     * <p>Special Cases:
      * <ul>
      * <li>If the argument is NaN, then the result is NaN.
      * <li>If the argument is positive or negative infinity, then the result is positive infinity.
@@ -72,8 +71,7 @@ public class HalfMath {
     /**
      * Returns the unbiased exponent used in the representation of a {@code half}.
      *
-     * <p>
-     * Special cases:
+     * <p>Special cases:
      *
      * <ul>
      * <li>If the argument is NaN or infinite, then the result is {@link Half#MAX_EXPONENT} + 1.
@@ -93,8 +91,7 @@ public class HalfMath {
     /**
      * Returns the absolute {@link Half} object of a {@code half} instance.
      *
-     * <p>
-     * Special cases:
+     * <p>Special cases:
      * <ul>
      * <li>If the argument is positive zero or negative zero, the result is positive zero.
      * <li>If the argument is infinite, the result is positive infinity.

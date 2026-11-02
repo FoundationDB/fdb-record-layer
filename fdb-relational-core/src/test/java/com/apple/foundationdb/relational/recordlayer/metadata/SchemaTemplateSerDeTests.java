@@ -24,15 +24,20 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.JoinedRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -46,6 +51,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
@@ -63,6 +69,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -72,6 +79,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -802,6 +810,517 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(updatedTemplate.findViewByName("test_view").isPresent());
     }
 
+    /**
+     * Navigates to an array's elements, the way the DDL layer does: a nullable array is stored wrapped as
+     * {@code { repeated T values; }}, a non-nullable one is a plain repeated field.
+     */
+    @Nonnull
+    private static KeyExpression arrayElementsExpression(final String arrayFieldName, final boolean nullableArray) {
+        return nullableArray
+                ? Key.Expressions.field(arrayFieldName)
+                       .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut))
+                : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
+    }
+
+    @Nonnull
+    private static KeyExpression constituentField(final String alias, final String fieldName) {
+        return Key.Expressions.field(alias, KeyExpression.FanType.None).nest(fieldName);
+    }
+
+    @Nonnull
+    private static DataType.StructType struct(final String name, final DataType.StructType.Field... fields) {
+        return DataType.StructType.from(name, List.of(fields), false);
+    }
+
+    @Nonnull
+    private static DataType.StructType.Field structField(final String name, final DataType type, final int number) {
+        return DataType.StructType.Field.from(name, type, number);
+    }
+
+    /** A table with a {@code bigint id} primary key plus the one column the unnested synthetic table unnests through. */
+    @Nonnull
+    private static RecordLayerTable tableWithId(final String tableName, final String columnName,
+                                               final DataType columnType) {
+        return RecordLayerTable.newBuilder(false)
+                .setName(tableName)
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("id")
+                        .setDataType(DataType.Primitives.LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName(columnName)
+                        .setDataType(columnType)
+                        .build())
+                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")))
+                .build();
+    }
+
+    @Nonnull
+    private static RecordLayerUnnestedSyntheticTable syntheticTable(
+            final String syntheticName, final RecordLayerTable parentTable, final String indexName,
+            final KeyExpression keyExpression,
+            final RecordLayerUnnestedSyntheticTable.NestedConstituent... constituents) {
+        final var syntheticType = syntheticRecord(syntheticName, parentTable.getDatatype());
+        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticType)
+                .setAlias("row")
+                .setParentTableType(parentTable.getType());
+        for (final var constituent : constituents) {
+            builder.addConstituent(constituent);
+        }
+        return builder.addIndex(RecordLayerIndex.newBuilder()
+                        .setName(indexName)
+                        // both names come from the synthetic type, as the generator does it, so that they stay consistent
+                        // when the declared name is not a legal protobuf identifier
+                        .setTableType(syntheticType)
+                        .setIndexType(IndexTypes.VALUE)
+                        .setKeyExpression(keyExpression)
+                        .build())
+                .build();
+    }
+
+    /**
+     * The record type of the synthetic table itself, whose first field is the parent constituent carrying the stored
+     * table's type, as {@code RecordLayerUnnestedSyntheticTableGenerator} builds it. The fields for the nested
+     * constituents are left off: a {@link RecordLayerUnnestedSyntheticTable.NestedConstituent} carries only an alias and
+     * a nesting expression, not the element type the field would need, and nothing in this file reads the synthetic
+     * type. Once it is read -- by an accessor, by {@code equals}, or by serialization -- these tests need the real
+     * element types instead.
+     */
+    @Nonnull
+    private static Type.Record syntheticRecord(final String syntheticName, final DataType.StructType parentType) {
+        return (Type.Record)DataTypeUtils.toRecordLayerType(
+                struct(syntheticName, structField("row", parentType, 1)));
+    }
+
+    /**
+     * The joined record: one field per constituent, named by the alias the index key references it by and carrying the
+     * stored table's type, as {@code RecordLayerJoinedSyntheticTableGenerator} builds it.
+     */
+    @Nonnull
+    private static Type.Record joinedSyntheticRecord(final String syntheticName,
+                                                     final List<NonnullPair<String, RecordLayerTable>> constituents) {
+        final var fields = new ArrayList<DataType.StructType.Field>();
+        for (final var constituent : constituents) {
+            fields.add(structField(constituent.getLeft(), constituent.getRight().getDatatype(), fields.size() + 1));
+        }
+        return (Type.Record)DataTypeUtils.toRecordLayerType(DataType.StructType.from(syntheticName, fields, false));
+    }
+
+    @Nonnull
+    private static RecordLayerSchemaTemplate templateWith(final RecordLayerTable table,
+                                                          final RecordLayerUnnestedSyntheticTable syntheticTable,
+                                                          final DataType.Named... auxiliaryTypes) {
+        final var builder = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42);
+        for (final var auxiliaryType : auxiliaryTypes) {
+            builder.addAuxiliaryType(auxiliaryType);
+        }
+        return builder.addTable(table).addSyntheticTable(syntheticTable).build();
+    }
+
+    /** Serializes, asserting the synthetic table reaches the metadata rather than being silently dropped. */
+    @Nonnull
+    private static RecordMetaData serializeWithSyntheticType(final RecordLayerSchemaTemplate template,
+                                                             final String syntheticName) {
+        final var recordMetaData = template.toRecordMetadata();
+        Assertions.assertTrue(recordMetaData.getSyntheticRecordTypes().containsKey(syntheticName),
+                () -> "synthetic table missing from serialized metadata, got "
+                        + recordMetaData.getSyntheticRecordTypes().keySet());
+        return recordMetaData;
+    }
+
+    /** The sole non-parent constituent of a serialized synthetic table. */
+    @Nonnull
+    private static UnnestedRecordType.NestedConstituent serializedConstituent(final RecordMetaData recordMetaData,
+                                                                             final String syntheticName) {
+        final var unnestedRecordType = (UnnestedRecordType) recordMetaData.getSyntheticRecordTypes().get(syntheticName);
+        return unnestedRecordType.getConstituents().stream()
+                .filter(candidate -> !candidate.isParent()).findFirst().orElseThrow();
+    }
+
+    @Nonnull
+    private static RecordLayerUnnestedSyntheticTable deserializeSyntheticTable(final RecordMetaData recordMetaData) {
+        final var syntheticTables = RecordLayerSchemaTemplate
+                .fromRecordMetadata(recordMetaData, "TestSchemaTemplate", 42)
+                .getUnnestedSyntheticTables();
+        Assertions.assertEquals(1, syntheticTables.size());
+        return syntheticTables.stream().findFirst().orElseThrow();
+    }
+
+    /**
+     * Round trips an unnested synthetic table over a struct array in both storage forms: a nullable array is stored wrapped as
+     * {@code { repeated T values; }}, a non-nullable one as a plain repeated field, and the serializer picks the
+     * constituent descriptor and nesting expression differently for each.
+     */
+    @ParameterizedTest(name = "nullableArray = {0}")
+    @BooleanSource
+    void testUnnestedSyntheticTableSerializationAndDeserialization(final boolean nullableArray) {
+        final var syntheticName = "__unnested_employees_score_idx";
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, nullableArray));
+        final var keyExpression = Key.Expressions.concat(
+                constituentField("SQ", "label"),
+                constituentField("row", "id"),
+                constituentField("SQ", "value"));
+        final var originalTemplate = templateWith(table,
+                syntheticTable(syntheticName, table, "score_idx", keyExpression,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", nullableArray))),
+                scoreType);
+
+        // The nesting expression says how to reach the array elements, and it depends on the storage form: a
+        // non-nullable array is a plain repeated field, a nullable one is wrapped in a holder message.
+        final var recordMetaData = serializeWithSyntheticType(originalTemplate, syntheticName);
+        Assertions.assertEquals(arrayElementsExpression("scores", nullableArray),
+                serializedConstituent(recordMetaData, syntheticName).getNestingExpression());
+
+        final var deserialized = deserializeSyntheticTable(recordMetaData);
+        Assertions.assertEquals(syntheticName, deserialized.getName());
+        Assertions.assertEquals(Set.of("employees"), deserialized.getUnderlyingTableNames());
+        Assertions.assertEquals("row", deserialized.getAlias());
+
+        final var constituent = Iterables.getOnlyElement(deserialized.getConstituents());
+        Assertions.assertEquals("SQ", constituent.getAlias());
+        Assertions.assertEquals("row", constituent.getParentAlias());
+        Assertions.assertEquals(arrayElementsExpression("scores", nullableArray), constituent.getNestingExpression());
+
+        final var index = Iterables.getOnlyElement(deserialized.getIndexes());
+        Assertions.assertEquals("score_idx", index.getName());
+        Assertions.assertEquals(IndexTypes.VALUE, index.getIndexType());
+        Assertions.assertEquals(keyExpression, KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
+        // the index has to name the table it is defined on, or nothing ties the two together once reloaded
+        Assertions.assertEquals(deserialized.getName(), index.getTableName());
+    }
+
+    /**
+     * Round trips a synthetic table whose declared name is not a legal protobuf identifier. The name is composed from the
+     * index name, which is a user identifier, so it need not be one -- and the descriptor can only hold the escaped form.
+     * Every name the deserializer hands back has to be the declared one again, including the table name the index carries,
+     * which is what lets a reloaded table and its index still refer to each other.
+     */
+    @Test
+    void testUnnestedSyntheticTableWithNonProtoCompliantNameSerializationAndDeserialization() {
+        final var syntheticName = "__unnested_employees_score.idx";
+        final var storageName = ProtoUtils.toProtoBufCompliantName(syntheticName);
+        // the dot cannot survive into a proto identifier, so the two forms really do differ here
+        Assertions.assertNotEquals(syntheticName, storageName);
+
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var keyExpression = Key.Expressions.concat(
+                constituentField("SQ", "label"),
+                constituentField("row", "id"),
+                constituentField("SQ", "value"));
+        final var originalTemplate = templateWith(table,
+                syntheticTable(syntheticName, table, "score.idx", keyExpression,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", true))),
+                scoreType);
+
+        // the descriptor is keyed by the escaped form, which is what serializeWithSyntheticType looks it up by
+        final var recordMetaData = serializeWithSyntheticType(originalTemplate, storageName);
+
+        final var deserialized = deserializeSyntheticTable(recordMetaData);
+        Assertions.assertEquals(syntheticName, deserialized.getName());
+        Assertions.assertEquals(storageName, deserialized.getType().getStorageName());
+
+        final var index = Iterables.getOnlyElement(deserialized.getIndexes());
+        Assertions.assertEquals("score.idx", index.getName());
+        Assertions.assertEquals(syntheticName, index.getTableName());
+        Assertions.assertEquals(storageName, index.getTableStorageName());
+    }
+
+    /**
+     * Indexes on an unnested synthetic table are reachable through the table-index mapping, attributed to the stored table
+     * they are maintained from. They were previously absent while {@code getIndexes()} listed them, so the two
+     * views of the same metadata disagreed.
+     */
+    @Test
+    void tableIndexMappingIncludesSyntheticTableIndexes() throws RelationalException {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id"));
+        final var template = templateWith(table,
+                syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", true))),
+                scoreType);
+
+        // Attributed to the stored table the index is maintained from, not to the synthetic table, which is not
+        // itself a stored table and does not appear in getTables()/findTableByName.
+        final var mapping = template.getTableIndexMapping();
+        Assertions.assertEquals(Set.of("score_idx"), Set.copyOf(mapping.get("employees")));
+        Assertions.assertFalse(mapping.keySet().contains("__unnested_employees_score_idx"),
+                () -> "synthetic table leaked into a table-keyed mapping: " + mapping.keySet());
+        Assertions.assertTrue(template.getIndexes().contains("score_idx"));
+    }
+
+    /**
+     * A constituent's nesting expression has to be a path of fields, since that path is what the serializer follows to
+     * reach the element descriptor. Anything else describes a navigation nothing downstream can walk, and is rejected as
+     * the constituent is created.
+     */
+    @Test
+    void constituentNestingExpressionMustBeAPathOfFields() {
+        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        Key.Expressions.field("scores").nest(Key.Expressions.concatenateFields("a", "b"))));
+        MatcherAssert.assertThat(thrown.getMessage(), Matchers.containsString("unsupported nesting expression"));
+        MatcherAssert.assertThat(thrown.getMessage(), Matchers.containsString("'SQ'"));
+    }
+
+    /**
+     * Aliases name the records a synthetic record is composed of, so a duplicate -- or a parent alias naming
+     * nothing -- describes no well-formed type. Rejected at build time rather than left for a consumer to trip over.
+     */
+    @Test
+    void duplicateConstituentAliasIsRejected() {
+        final var innerType = struct("inner", structField("y", DataType.Primitives.STRING.type(), 1));
+        final var outerType = struct("outer",
+                structField("x", DataType.Primitives.STRING.type(), 1),
+                structField("q", DataType.ArrayType.from(innerType, true), 2));
+        final var table = tableWithId("dupes", "p", DataType.ArrayType.from(outerType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "x"), constituentField("row", "id"));
+        // Rejected where the type is built, so no consumer downstream has to cope with a malformed one.
+        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("p", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "SQ",
+                                arrayElementsExpression("q", true))));
+        Assertions.assertTrue(thrown.getMessage().contains("duplicate constituent alias"),
+                () -> "unexpected message: " + thrown.getMessage());
+
+        // A parent alias that names nothing is equally malformed.
+        final var danglingParent = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "nobody",
+                                arrayElementsExpression("p", true))));
+        Assertions.assertTrue(danglingParent.getMessage().contains("is not a known alias"),
+                () -> "unexpected message: " + danglingParent.getMessage());
+
+        // Two constituents naming each other as parent describe a cycle, not a tree. Both aliases exist, so validating
+        // against the complete set would accept this; the parent has to be known when the constituent is declared.
+        final var cycle = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "INNER",
+                                arrayElementsExpression("p", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("INNER", "SQ",
+                                arrayElementsExpression("q", true))));
+        Assertions.assertTrue(cycle.getMessage().contains("is not a known alias"),
+                () -> "unexpected message: " + cycle.getMessage());
+
+        // The same shape ordered the other way is a forward reference: legal as a set, but the record layer types each
+        // constituent against its parent's descriptor, so the parent must come first.
+        final var forwardReference = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("INNER", "SQ",
+                                arrayElementsExpression("q", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("p", true))));
+        Assertions.assertTrue(forwardReference.getMessage().contains("is not a known alias"),
+                () -> "unexpected message: " + forwardReference.getMessage());
+    }
+
+    /**
+     * {@code toBuilder()} routes synthetic tables and views through the collection-taking builder methods, so a
+     * template must survive the round trip with both intact -- a synthetic table dropped here would take its
+     * indexes with it.
+     */
+    @Test
+    void toBuilderPreservesSyntheticTablesAndViews() {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id"));
+        final var synthetic = syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)));
+        final var original = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(scoreType)
+                .addTable(table)
+                .addSyntheticTable(synthetic)
+                .addView(RecordLayerView.newBuilder()
+                        .setName("v1")
+                        .setDescription("SELECT id FROM employees")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        final var rebuilt = original.toBuilder().build();
+        Assertions.assertEquals(original.getSyntheticTables(), rebuilt.getSyntheticTables());
+        Assertions.assertEquals(1, rebuilt.getUnnestedSyntheticTables().size());
+        Assertions.assertEquals(Set.of("v1"),
+                rebuilt.getViews().stream().map(RecordLayerView::getName).collect(Collectors.toSet()));
+        // the synthetic table's index survives too, and is still attributed to the stored table
+        Assertions.assertEquals(Set.of("score_idx"),
+                Set.copyOf(rebuilt.getTableIndexMapping().get("employees")));
+    }
+
+    /**
+     * Synthetic tables are held in a {@code Set}, so they need value semantics: two structurally identical
+     * instances must compare equal and collapse in a set, and a difference in any component must not.
+     */
+    @Test
+    void unnestedSyntheticTableHasValueSemantics() {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id"));
+        final java.util.function.Supplier<RecordLayerUnnestedSyntheticTable> build = () ->
+                syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", true)));
+
+        Assertions.assertEquals(build.get(), build.get());
+        Assertions.assertEquals(build.get().hashCode(), build.get().hashCode());
+        // Set.copyOf collapses duplicates, unlike Set.of which rejects them.
+        Assertions.assertEquals(1, Set.copyOf(List.of(build.get(), build.get())).size());
+
+        // A differing constituent must break equality — otherwise the set would silently collapse distinct types.
+        final var differentConstituent = syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("OTHER", "row",
+                        arrayElementsExpression("scores", true)));
+        Assertions.assertNotEquals(build.get(), differentConstituent);
+
+        final var differentName = syntheticTable("__unnested_employees_other_idx", table, "score_idx", key,
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)));
+        Assertions.assertNotEquals(build.get(), differentName);
+
+        // Guards of equals() that no round-trip exercises: neither the table nor a constituent may equal null or an
+        // object of another class, or a set of them could collapse entries that are not in fact equal. The subject has
+        // to come first, since assertNotEquals compares via Objects.equals on its first argument.
+        final var constituent = new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                arrayElementsExpression("scores", true));
+        Assertions.assertNotEquals(build.get(), null);
+        Assertions.assertNotEquals(build.get(), "__unnested_employees_score_idx");
+        Assertions.assertNotEquals(constituent, null);
+        Assertions.assertNotEquals(constituent, "SQ");
+    }
+
+    /**
+     * Both of the parent's names come from the parent's type and are kept apart: the declared name is what a schema
+     * template lookup uses, while the storage name is what the record layer's descriptor is keyed by. They differ
+     * whenever the declared name is not a legal protobuf identifier.
+     */
+    @Test
+    void unnestedSyntheticTableKeepsParentDeclaredAndStorageNamesApart() {
+        final var parentType = struct("employee.records", structField("id", DataType.Primitives.LONG.type(), 1));
+        final var table = RecordLayerUnnestedSyntheticTable.newBuilder(
+                        syntheticRecord("__unnested_employees_score_idx", parentType))
+                .setAlias("row")
+                .setParentTableType((Type.Record)DataTypeUtils.toRecordLayerType(parentType))
+                .addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)))
+                .build();
+        Assertions.assertEquals(Set.of("employee.records"), table.getUnderlyingTableNames());
+        Assertions.assertEquals(ProtoUtils.toProtoBufCompliantName("employee.records"),
+                table.getParentTableStorageName());
+        // the dot cannot survive into a proto identifier, so the storage name is not simply the table name
+        Assertions.assertFalse(table.getUnderlyingTableNames().contains(table.getParentTableStorageName()));
+    }
+
+    /**
+     * Round trips an unnested synthetic table with two chained constituents, where the second unnests an array that lives on
+     * the element type of the first.
+     */
+    @Test
+    void testChainedUnnestedSyntheticTableSerializationAndDeserialization() {
+        final var syntheticName = "__unnested_nested_employees_chained_idx";
+        final var innerType = struct("inner", structField("y", DataType.Primitives.STRING.type(), 1));
+        final var outerType = struct("outer",
+                structField("x", DataType.Primitives.STRING.type(), 1),
+                structField("q", DataType.ArrayType.from(innerType, true), 2));
+        final var table = tableWithId("nested_employees", "p", DataType.ArrayType.from(outerType, true));
+        final var keyExpression = Key.Expressions.concat(
+                constituentField("P_C", "x"),
+                constituentField("row", "id"),
+                constituentField("Q_C", "y"));
+        final var originalTemplate = templateWith(table,
+                syntheticTable(syntheticName, table, "chained_idx", keyExpression,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("P_C", "row",
+                                arrayElementsExpression("p", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("Q_C", "P_C",
+                                arrayElementsExpression("q", true))),
+                innerType, outerType);
+
+        final var deserialized =
+                deserializeSyntheticTable(serializeWithSyntheticType(originalTemplate, syntheticName));
+        Assertions.assertEquals(syntheticName, deserialized.getName());
+        Assertions.assertEquals(Set.of("nested_employees"), deserialized.getUnderlyingTableNames());
+        Assertions.assertEquals("row", deserialized.getAlias());
+
+        // Both constituents must come back with the parent link and array field they went in with; the inner one
+        // hangs off the outer constituent, not off the parent table.
+        Assertions.assertEquals(List.of("P_C", "Q_C"), deserialized.getConstituents().stream()
+                .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getAlias)
+                .collect(Collectors.toList()));
+        Assertions.assertEquals(List.of("row", "P_C"), deserialized.getConstituents().stream()
+                .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getParentAlias)
+                .collect(Collectors.toList()));
+        Assertions.assertEquals(List.of(List.of("p", "values"), List.of("q", "values")),
+                deserialized.getConstituents().stream()
+                        .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getFieldPath)
+                        .collect(Collectors.toList()));
+
+        final var index = Iterables.getOnlyElement(deserialized.getIndexes());
+        Assertions.assertEquals("chained_idx", index.getName());
+        Assertions.assertEquals(keyExpression, KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
+    }
+
+    /**
+     * Round trips a constituent whose array is reached through two meaningful hops, {@code map.entry} — the shape
+     * the record layer's own unnested record types use. Neither hop can be dropped and neither is the {@code values}
+     * wrapper, so this is only representable because the nesting expression is stored rather than a field name.
+     */
+    @Test
+    void testUnnestedSyntheticTableOverTwoHopPathSerializationAndDeserialization() {
+        final var syntheticName = "__unnested_map_records_map_idx";
+        final var entryType = struct("entryType",
+                structField("k", DataType.Primitives.STRING.type(), 1),
+                structField("v", DataType.Primitives.LONG.type(), 2));
+        // A non-nullable array, so `entry` is a plain repeated field rather than a `values` wrapper.
+        final var mapHolderType = struct("mapHolder",
+                structField("entry", DataType.ArrayType.from(entryType, false), 1));
+        final var table = tableWithId("map_records", "map", mapHolderType);
+        final var nestingExpression = Key.Expressions.field("map")
+                .nest(Key.Expressions.field("entry", KeyExpression.FanType.FanOut));
+        final var keyExpression = Key.Expressions.concat(
+                constituentField("SQ", "k"),
+                constituentField("row", "id"),
+                constituentField("SQ", "v"));
+        final var originalTemplate = templateWith(table,
+                syntheticTable(syntheticName, table, "map_idx", keyExpression,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                nestingExpression)),
+                entryType, mapHolderType);
+
+        final var recordMetaData = serializeWithSyntheticType(originalTemplate, syntheticName);
+        final var nested = serializedConstituent(recordMetaData, syntheticName);
+        Assertions.assertEquals(nestingExpression, nested.getNestingExpression());
+        // The constituent has to be the element type, which is only reachable by walking both hops. Stopping at
+        // `map` would yield the holder message, whose only field is `entry`.
+        Assertions.assertEquals(List.of("k", "v"), nested.getRecordType().getDescriptor().getFields().stream()
+                .map(Descriptors.FieldDescriptor::getName)
+                .collect(Collectors.toList()));
+
+        final var constituent = Iterables.getOnlyElement(deserializeSyntheticTable(recordMetaData).getConstituents());
+        Assertions.assertEquals(List.of("map", "entry"), constituent.getFieldPath());
+        Assertions.assertEquals(nestingExpression, constituent.getNestingExpression());
+    }
+
     @Test
     void testViewSerializationAndDeserialization() {
         // Create a schema template with a view
@@ -1072,5 +1591,501 @@ public class SchemaTemplateSerDeTests {
         }
     }
 
+    /**
+     * A table with a {@code bigint id} primary key plus one column, both nullable as a column declared in DDL is by
+     * default. A joined table's type embeds its constituents' types, and the serialized form keeps no non-nullability,
+     * so only nullable columns let the joined table compare equal once read back.
+     */
+    @Nonnull
+    private static RecordLayerTable joinableTable(final String tableName, final String columnName,
+                                                  final DataType columnType) {
+        return RecordLayerTable.newBuilder(false)
+                .setName(tableName)
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("id")
+                        .setDataType(DataType.Primitives.NULLABLE_LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName(columnName)
+                        .setDataType(columnType.withNullable(true))
+                        .build())
+                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")))
+                .build();
+    }
+
+    /** A constituent of a joined synthetic table: the stored table, under the alias the index key references it by. */
+    @Nonnull
+    private static NonnullPair<String, RecordLayerTable> constituent(final String alias, final RecordLayerTable table) {
+        return NonnullPair.of(alias, table);
+    }
+
+    @Nonnull
+    private static RecordLayerJoinedSyntheticTable.JoinCondition joinOn(final String leftAlias, final String leftField,
+                                                                        final String rightAlias, final String rightField) {
+        return new RecordLayerJoinedSyntheticTable.JoinCondition(leftAlias, Key.Expressions.field(leftField),
+                rightAlias, Key.Expressions.field(rightField));
+    }
+
+    @Nonnull
+    private static RecordLayerIndex joinedIndex(final String syntheticName, final String indexName,
+                                                final KeyExpression keyExpression) {
+        return RecordLayerIndex.newBuilder()
+                .setName(indexName)
+                .setTableName(syntheticName)
+                .setTableStorageName(syntheticName)
+                .setIndexType(IndexTypes.VALUE)
+                .setKeyExpression(keyExpression)
+                .build();
+    }
+
+    /** Builds a joined synthetic table over the given constituents, in order, with the given joins and indexes. */
+    @Nonnull
+    private static RecordLayerJoinedSyntheticTable joinedTable(final String syntheticName,
+                                                               final List<NonnullPair<String, RecordLayerTable>> constituents,
+                                                               final List<RecordLayerJoinedSyntheticTable.JoinCondition> joins,
+                                                               final List<RecordLayerIndex> indexes) {
+        final var builder = RecordLayerJoinedSyntheticTable.newBuilder(joinedSyntheticRecord(syntheticName, constituents));
+        constituents.forEach(constituent -> builder.addConstituent(constituent.getLeft(), constituent.getRight().getType()));
+        joins.forEach(builder::addJoinCondition);
+        indexes.forEach(builder::addIndex);
+        return builder.build();
+    }
+
+    /** A template holding the given stored tables, each registered once, and the given synthetic tables. */
+    @Nonnull
+    private static RecordLayerSchemaTemplate templateOf(final List<RecordLayerTable> tables,
+                                                        final List<DataType.Named> auxiliaryTypes,
+                                                        final RecordLayerSyntheticTable... syntheticTables) {
+        final var builder = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42);
+        auxiliaryTypes.forEach(builder::addAuxiliaryType);
+        tables.forEach(builder::addTable);
+        for (final var syntheticTable : syntheticTables) {
+            builder.addSyntheticTable(syntheticTable);
+        }
+        return builder.build();
+    }
+
+    /** Builds a two-table template whose joined synthetic table carries one index. */
+    @Nonnull
+    private static RecordLayerSchemaTemplate joinedTemplate(final String syntheticName,
+                                                            final RecordLayerTable left,
+                                                            final RecordLayerTable right,
+                                                            final String indexName,
+                                                            final KeyExpression keyExpression,
+                                                            final RecordLayerJoinedSyntheticTable.JoinCondition... joins) {
+        return templateOf(List.of(left, right), List.of(),
+                joinedTable(syntheticName, List.of(constituent("a", left), constituent("b", right)), List.of(joins),
+                        List.of(joinedIndex(syntheticName, indexName, keyExpression))));
+    }
+
+    @Nonnull
+    private static RecordLayerSchemaTemplate deserialize(final RecordMetaData recordMetaData) {
+        return RecordLayerSchemaTemplate.fromRecordMetadata(recordMetaData, "TestSchemaTemplate", 42);
+    }
+
+    @Nonnull
+    private static RecordLayerJoinedSyntheticTable deserializeJoinedTable(final RecordMetaData recordMetaData) {
+        final var joinedTables = deserialize(recordMetaData).getJoinedSyntheticTables();
+        Assertions.assertEquals(1, joinedTables.size());
+        return joinedTables.stream().findFirst().orElseThrow();
+    }
+
+    @Nonnull
+    private static RecordLayerJoinedSyntheticTable onlyJoinedTable(final RecordLayerSchemaTemplate template) {
+        return Iterables.getOnlyElement(template.getJoinedSyntheticTables());
+    }
+
+    /**
+     * Serializes the template, reads it back, and asserts the joined table comes back exactly as it went in: its type,
+     * constituents, join conditions and indexes all compare equal.
+     */
+    @Nonnull
+    private static RecordLayerJoinedSyntheticTable assertJoinedTableRoundTrips(final RecordLayerSchemaTemplate template,
+                                                                               final String syntheticName) {
+        final var original = onlyJoinedTable(template);
+        final var roundTripped = deserializeJoinedTable(serializeWithSyntheticType(template, syntheticName));
+        Assertions.assertEquals(original.getType(), roundTripped.getType());
+        Assertions.assertEquals(original.getConstituents(), roundTripped.getConstituents());
+        Assertions.assertEquals(original.getJoinConditions(), roundTripped.getJoinConditions());
+        Assertions.assertEquals(original.getIndexes(), roundTripped.getIndexes());
+        Assertions.assertEquals(original, roundTripped);
+        Assertions.assertEquals(original.hashCode(), roundTripped.hashCode());
+        return roundTripped;
+    }
+
+    @Nonnull
+    private static List<String> serializedConstituentRecordTypes(final JoinedRecordType joinedRecordType) {
+        return joinedRecordType.getConstituents().stream()
+                .map(constituent -> constituent.getRecordType().getName())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Round trips a joined synthetic table through {@link RecordMetaData}: two inner-joined constituents, an
+     * equality relating them, and an index keyed on a column of each.
+     */
+    @Test
+    void testJoinedSyntheticTypeSerializationAndDeserialization() {
+        final var syntheticName = "__joined_orders_customer_idx";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        final var keyExpression = Key.Expressions.concat(
+                constituentField("b", "name"), constituentField("a", "customer_id"));
+        final var template = joinedTemplate(syntheticName, orders, customers, "orders_customer_idx", keyExpression,
+                joinOn("a", "customer_id", "b", "id"));
+
+        final var recordMetaData = serializeWithSyntheticType(template, syntheticName);
+        final var joinedRecordType = (JoinedRecordType) recordMetaData.getSyntheticRecordTypes().get(syntheticName);
+
+        // Two constituents, in registration order, both inner-joined and each naming its stored record type.
+        Assertions.assertEquals(List.of("a", "b"), joinedRecordType.getConstituents().stream()
+                .map(JoinedRecordType.JoinConstituent::getName).collect(Collectors.toList()));
+        Assertions.assertEquals(List.of("orders", "customers"), serializedConstituentRecordTypes(joinedRecordType));
+        joinedRecordType.getConstituents()
+                .forEach(constituent -> Assertions.assertFalse(constituent.isOuterJoined()));
+
+        // The single equality, with each side attached to the constituent it reads from.
+        final var join = Iterables.getOnlyElement(joinedRecordType.getJoins());
+        Assertions.assertEquals("a", join.getLeft().getName());
+        Assertions.assertEquals(Key.Expressions.field("customer_id"), join.getLeftExpression());
+        Assertions.assertEquals("b", join.getRight().getName());
+        Assertions.assertEquals(Key.Expressions.field("id"), join.getRightExpression());
+
+        // The index is defined on the synthetic table, keyed by constituent-alias paths.
+        final var serializedIndex = Iterables.getOnlyElement(joinedRecordType.getIndexes());
+        Assertions.assertEquals("orders_customer_idx", serializedIndex.getName());
+        Assertions.assertEquals(keyExpression, serializedIndex.getRootExpression());
+
+        // Everything survives the trip back out of RecordMetaData.
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        Assertions.assertEquals(syntheticName, roundTripped.getName());
+        Assertions.assertEquals(List.of("orders", "customers"), roundTripped.getConstituents().stream()
+                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName).collect(Collectors.toList()));
+    }
+
+    /** A join whose two conditions relate two pairs of columns round trips with both equalities intact, in order. */
+    @Test
+    void testJoinedSyntheticTypeWithTwoJoinConditions() {
+        final var syntheticName = "__joined_two_conditions_idx";
+        final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
+        final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
+        final var template = joinedTemplate(syntheticName, left, right, "two_conditions_idx",
+                constituentField("a", "tenant"),
+                joinOn("a", "tenant", "b", "tenant"),
+                joinOn("a", "id", "b", "id"));
+
+        final var recordMetaData = serializeWithSyntheticType(template, syntheticName);
+        final var joinedRecordType = (JoinedRecordType) recordMetaData.getSyntheticRecordTypes().get(syntheticName);
+        Assertions.assertEquals(List.of(joinOn("a", "tenant", "b", "tenant"), joinOn("a", "id", "b", "id")),
+                joinedRecordType.getJoins().stream()
+                        .map(join -> new RecordLayerJoinedSyntheticTable.JoinCondition(
+                                join.getLeft().getName(), join.getLeftExpression(),
+                                join.getRight().getName(), join.getRightExpression()))
+                        .collect(Collectors.toList()));
+
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        Assertions.assertEquals(List.of(joinOn("a", "tenant", "b", "tenant"), joinOn("a", "id", "b", "id")),
+                roundTripped.getJoinConditions());
+    }
+
+    /**
+     * A self-join registers the same stored table under two aliases: both constituents name one record type, the
+     * table is registered with the template once, and the index is attributed to it once.
+     */
+    @Test
+    void testJoinedSyntheticTypeSelfJoin() {
+        final var syntheticName = "__joined_manager_idx";
+        final var employees = joinableTable("employees", "manager_id", DataType.Primitives.LONG.type());
+        final var template = templateOf(List.of(employees), List.of(),
+                joinedTable(syntheticName,
+                        List.of(constituent("e", employees), constituent("m", employees)),
+                        List.of(joinOn("e", "manager_id", "m", "id")),
+                        List.of(joinedIndex(syntheticName, "manager_idx",
+                                Key.Expressions.concat(constituentField("m", "id"), constituentField("e", "id"))))));
+
+        final var joinedRecordType = (JoinedRecordType) serializeWithSyntheticType(template, syntheticName)
+                .getSyntheticRecordTypes().get(syntheticName);
+        Assertions.assertEquals(List.of("employees", "employees"), serializedConstituentRecordTypes(joinedRecordType));
+
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        Assertions.assertEquals(Set.of("employees"), roundTripped.getUnderlyingTableNames());
+        Assertions.assertEquals(List.of("manager_idx"),
+                List.copyOf(deserialize(template.toRecordMetadata()).getTableIndexMapping().get("employees")));
+    }
+
+    /**
+     * Three tables joined in a chain: the order of the constituents and of the conditions survives, including a
+     * condition that does not involve the first constituent.
+     */
+    @Test
+    void testJoinedSyntheticTypeThreeWayChain() {
+        final var syntheticName = "__joined_chain_idx";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "region_id", DataType.Primitives.LONG.type());
+        final var regions = joinableTable("regions", "name", DataType.Primitives.STRING.type());
+        final var template = templateOf(List.of(orders, customers, regions), List.of(),
+                joinedTable(syntheticName,
+                        List.of(constituent("o", orders), constituent("c", customers), constituent("r", regions)),
+                        List.of(joinOn("o", "customer_id", "c", "id"), joinOn("c", "region_id", "r", "id")),
+                        List.of(joinedIndex(syntheticName, "chain_idx",
+                                Key.Expressions.concat(constituentField("r", "name"), constituentField("o", "id"))))));
+
+        final var joinedRecordType = (JoinedRecordType) serializeWithSyntheticType(template, syntheticName)
+                .getSyntheticRecordTypes().get(syntheticName);
+        Assertions.assertEquals(List.of("orders", "customers", "regions"),
+                serializedConstituentRecordTypes(joinedRecordType));
+        Assertions.assertEquals(2, joinedRecordType.getJoins().size());
+
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        Assertions.assertEquals(List.of("o", "c", "r"), roundTripped.getConstituents().stream()
+                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::alias).collect(Collectors.toList()));
+        Assertions.assertEquals(joinOn("c", "region_id", "r", "id"), roundTripped.getJoinConditions().get(1));
+    }
+
+    /**
+     * An index on a joined synthetic table is attributed to every joined table, since a write to any of them maintains
+     * it — both in the template as built and in the one read back out of {@link RecordMetaData}.
+     */
+    @Test
+    void joinedIndexIsAttributedToEveryJoinedTable() {
+        final var syntheticName = "__joined_orders_customer_idx";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        final var template = joinedTemplate(syntheticName, orders, customers, "orders_customer_idx",
+                constituentField("b", "name"), joinOn("a", "customer_id", "b", "id"));
+
+        for (final var candidate : List.of(template, deserialize(template.toRecordMetadata()))) {
+            final var mapping = candidate.getTableIndexMapping();
+            Assertions.assertEquals(List.of("orders_customer_idx"), List.copyOf(mapping.get("orders")));
+            Assertions.assertEquals(List.of("orders_customer_idx"), List.copyOf(mapping.get("customers")));
+        }
+    }
+
+    /**
+     * Joined synthetic tables are held in a {@code Set}, so they need value semantics: two structurally identical
+     * instances must compare equal and collapse in a set, and a difference in any component must not.
+     */
+    @Test
+    void joinedSyntheticTableHasValueSemantics() {
+        final var syntheticName = "__joined_orders_customer_idx";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        final var constituents = List.of(constituent("a", orders), constituent("b", customers));
+        final var joins = List.of(joinOn("a", "customer_id", "b", "id"));
+        final var indexes = List.of(joinedIndex(syntheticName, "orders_customer_idx", constituentField("b", "name")));
+        final Supplier<RecordLayerJoinedSyntheticTable> build = () ->
+                joinedTable(syntheticName, constituents, joins, indexes);
+
+        Assertions.assertEquals(build.get(), build.get());
+        Assertions.assertEquals(build.get().hashCode(), build.get().hashCode());
+        Assertions.assertEquals(1, Set.copyOf(List.of(build.get(), build.get())).size());
+
+        // each component on its own must break equality
+        Assertions.assertNotEquals(build.get(), joinedTable(syntheticName,
+                List.of(constituent("a", orders), constituent("c", customers)), List.of(joinOn("a", "customer_id", "c", "id")),
+                indexes));
+        Assertions.assertNotEquals(build.get(), joinedTable(syntheticName, constituents,
+                List.of(joinOn("a", "id", "b", "id")), indexes));
+        Assertions.assertNotEquals(build.get(), joinedTable(syntheticName, constituents, joins, List.of()));
+        // a name differs only together with the indexes, which name their table: the type's equality ignores its name
+        Assertions.assertNotEquals(build.get(), joinedTable("__joined_other_idx", constituents, joins,
+                List.of(joinedIndex("__joined_other_idx", "orders_customer_idx", constituentField("b", "name")))));
+        // the constituents are ordered: swapping them is a different synthetic type
+        Assertions.assertNotEquals(build.get(), joinedTable(syntheticName,
+                List.of(constituent("b", customers), constituent("a", orders)), joins, indexes));
+
+        Assertions.assertNotEquals(build.get(), null);
+        Assertions.assertNotEquals(build.get(), syntheticName);
+    }
+
+    /**
+     * A joined table whose declared name is not a legal protobuf identifier: the serializer finds its record type by the
+     * storage name, while the deserializer recovers the declared name from it.
+     */
+    @Test
+    void testJoinedSyntheticTypeWithEscapedTableName() {
+        final var syntheticName = "__joined_escaped_idx";
+        final var orders = joinableTable("customer.orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        Assertions.assertNotEquals(orders.getName(), orders.getType().getStorageName());
+        final var template = joinedTemplate(syntheticName, orders, customers, "escaped_idx",
+                constituentField("a", "customer_id"), joinOn("a", "customer_id", "b", "id"));
+
+        final var joinedRecordType = (JoinedRecordType) serializeWithSyntheticType(template, syntheticName)
+                .getSyntheticRecordTypes().get(syntheticName);
+        Assertions.assertEquals(List.of(orders.getType().getStorageName(), "customers"),
+                serializedConstituentRecordTypes(joinedRecordType));
+
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        final var roundTrippedOrders = roundTripped.getConstituents().get(0);
+        Assertions.assertEquals("customer.orders", roundTrippedOrders.tableName());
+        Assertions.assertEquals(orders.getType().getStorageName(), roundTrippedOrders.tableStorageName());
+        Assertions.assertEquals(Set.of("customer.orders", "customers"), roundTripped.getUnderlyingTableNames());
+    }
+
+    /** A join condition reading a nested field is stored as the nesting expression it is, not flattened. */
+    @Test
+    void testJoinedSyntheticTypeJoinOnNestedField() {
+        final var syntheticName = "__joined_nested_idx";
+        final var addressType = struct("address", structField("zip", DataType.Primitives.NULLABLE_LONG.type(), 1));
+        final var customers = joinableTable("customers", "address", addressType);
+        final var stores = joinableTable("stores", "zip", DataType.Primitives.LONG.type());
+        final var nestedZip = Key.Expressions.field("address").nest("zip");
+        final var template = templateOf(List.of(customers, stores), List.of(addressType),
+                joinedTable(syntheticName,
+                        List.of(constituent("c", customers), constituent("s", stores)),
+                        List.of(new RecordLayerJoinedSyntheticTable.JoinCondition("c", nestedZip,
+                                "s", Key.Expressions.field("zip"))),
+                        List.of(joinedIndex(syntheticName, "nested_idx",
+                                Key.Expressions.concat(constituentField("s", "id"), constituentField("c", "id"))))));
+
+        final var joinedRecordType = (JoinedRecordType) serializeWithSyntheticType(template, syntheticName)
+                .getSyntheticRecordTypes().get(syntheticName);
+        Assertions.assertEquals(nestedZip, Iterables.getOnlyElement(joinedRecordType.getJoins()).getLeftExpression());
+
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        Assertions.assertEquals(nestedZip, Iterables.getOnlyElement(roundTripped.getJoinConditions()).leftExpression());
+    }
+
+    /** A joined table survives serialization with no index on it, and with several. */
+    @ParameterizedTest
+    @ValueSource(ints = {0, 2})
+    void testJoinedSyntheticTypeWithIndexCount(final int indexCount) {
+        final var syntheticName = "__joined_index_count";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        final var indexes = Stream.of(
+                        joinedIndex(syntheticName, "by_name", constituentField("b", "name")),
+                        joinedIndex(syntheticName, "by_customer",
+                                Key.Expressions.concat(constituentField("a", "customer_id"), constituentField("a", "id"))))
+                .limit(indexCount)
+                .collect(Collectors.toList());
+        final var template = templateOf(List.of(orders, customers), List.of(),
+                joinedTable(syntheticName, List.of(constituent("a", orders), constituent("b", customers)),
+                        List.of(joinOn("a", "customer_id", "b", "id")), indexes));
+
+        final var joinedRecordType = (JoinedRecordType) serializeWithSyntheticType(template, syntheticName)
+                .getSyntheticRecordTypes().get(syntheticName);
+        Assertions.assertEquals(indexCount, joinedRecordType.getIndexes().size());
+
+        final var roundTripped = assertJoinedTableRoundTrips(template, syntheticName);
+        Assertions.assertEquals(indexes.stream().map(RecordLayerIndex::getName).collect(Collectors.toSet()),
+                roundTripped.getIndexes().stream().map(RecordLayerIndex::getName).collect(Collectors.toSet()));
+    }
+
+    /**
+     * A template holding both kinds of synthetic table reads each back as its own kind: the deserializer tells them apart
+     * by the record layer type, and neither accessor returns the other's.
+     */
+    @Test
+    void joinedAndUnnestedSyntheticTablesCoexist() {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                structField("value", DataType.Primitives.NULLABLE_LONG.type(), 2));
+        final var employees = joinableTable("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var badges = joinableTable("badges", "employee_id", DataType.Primitives.LONG.type());
+        final var unnestedName = "__unnested_employees_score_idx";
+        final var unnested = syntheticTable(unnestedName, employees, "score_idx",
+                Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id")),
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)));
+        final var joinedName = "__joined_badges_idx";
+        final var joined = joinedTable(joinedName,
+                List.of(constituent("b", badges), constituent("e", employees)),
+                List.of(joinOn("b", "employee_id", "e", "id")),
+                List.of(joinedIndex(joinedName, "badges_idx", constituentField("e", "id"))));
+        final var template = templateOf(List.of(employees, badges), List.of(scoreType), unnested, joined);
+
+        final var recordMetaData = template.toRecordMetadata();
+        Assertions.assertInstanceOf(UnnestedRecordType.class, recordMetaData.getSyntheticRecordType(unnestedName));
+        Assertions.assertInstanceOf(JoinedRecordType.class, recordMetaData.getSyntheticRecordType(joinedName));
+
+        final var rebuilt = deserialize(recordMetaData);
+        Assertions.assertEquals(Set.of(joined), rebuilt.getJoinedSyntheticTables());
+        Assertions.assertEquals(Set.of(unnestedName), rebuilt.getUnnestedSyntheticTables().stream()
+                .map(RecordLayerUnnestedSyntheticTable::getName).collect(Collectors.toSet()));
+        Assertions.assertEquals(2, rebuilt.getSyntheticTables().size());
+        Assertions.assertEquals(Set.of("score_idx", "badges_idx"),
+                Set.copyOf(rebuilt.getTableIndexMapping().get("employees")));
+        Assertions.assertEquals(List.of("badges_idx"), List.copyOf(rebuilt.getTableIndexMapping().get("badges")));
+    }
+
+    /** Builds a joined table, asserting it is rejected with the given error code and a message naming the problem. */
+    private static void assertJoinedTableRejected(final ErrorCode expectedErrorCode, final String expectedMessage,
+                                                  final List<NonnullPair<String, RecordLayerTable>> constituents,
+                                                  final RecordLayerJoinedSyntheticTable.JoinCondition... joins) {
+        final var exception = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                joinedTable("__joined_bad_idx", constituents, List.of(joins), List.of()));
+        Assertions.assertEquals(expectedErrorCode, exception.unwrap().getErrorCode());
+        MatcherAssert.assertThat(exception.getMessage(), Matchers.containsString(expectedMessage));
+    }
+
+    /** A join condition naming a constituent that was never added cannot be built, whichever side names it. */
+    @Test
+    void testJoinedSyntheticTypeRejectsUnknownConstituent() {
+        final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
+        final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
+        final var constituents = List.of(constituent("a", left), constituent("b", right));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "join condition references unknown constituent 'nope'", constituents,
+                joinOn("a", "tenant", "nope", "tenant"));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "join condition references unknown constituent 'nope'", constituents,
+                joinOn("nope", "tenant", "b", "tenant"));
+    }
+
+    /**
+     * A join condition has to relate two different constituents, comparing sides of the same size; anything else
+     * cannot join two records.
+     */
+    @Test
+    void testJoinedSyntheticTypeRejectsMalformedJoinConditions() {
+        final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
+        final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
+        final var constituents = List.of(constituent("a", left), constituent("b", right));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE, "join condition relates constituent 'a' to itself",
+                constituents, joinOn("a", "tenant", "a", "id"));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "join condition sides of constituents 'a' and 'b' are not the same size", constituents,
+                new RecordLayerJoinedSyntheticTable.JoinCondition(
+                        "a", Key.Expressions.concatenateFields("tenant", "id"), "b", Key.Expressions.field("tenant")));
+    }
+
+    /** A joined table needs at least two constituents, each under its own alias. */
+    @Test
+    void testJoinedSyntheticTypeRejectsMalformedConstituents() {
+        final var left = joinableTable("left_table", "tenant", DataType.Primitives.LONG.type());
+        final var right = joinableTable("right_table", "tenant", DataType.Primitives.LONG.type());
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                "joined table must have at least two constituents, found 1", List.of(constituent("a", left)));
+        assertJoinedTableRejected(ErrorCode.INVALID_SCHEMA_TEMPLATE, "duplicate constituent alias 'a' in joined table",
+                List.of(constituent("a", left), constituent("a", right)));
+    }
+
+    /**
+     * Joined tables are inner joins only, so record metadata carrying an outer-joined constituent, which the record layer
+     * can express, is rejected when read rather than silently read back as an inner join.
+     */
+    @Test
+    void testJoinedSyntheticTypeRejectsOuterJoinedConstituent() {
+        final var syntheticName = "__joined_outer_idx";
+        final var orders = joinableTable("orders", "customer_id", DataType.Primitives.LONG.type());
+        final var customers = joinableTable("customers", "name", DataType.Primitives.STRING.type());
+        final var template = joinedTemplate(syntheticName, orders, customers, "outer_idx", constituentField("b", "name"),
+                joinOn("a", "customer_id", "b", "id"));
+
+        final var proto = serializeWithSyntheticType(template, syntheticName).toProto().toBuilder();
+        proto.getJoinedRecordTypesBuilder(0).getJoinConstituentsBuilder(1).setOuterJoined(true);
+        final var outerJoinedMetaData = RecordMetaData.build(proto.build());
+
+        final var exception = Assertions.assertThrows(UncheckedRelationalException.class,
+                () -> deserialize(outerJoinedMetaData));
+        final var cause = exception.unwrap();
+        Assertions.assertEquals(ErrorCode.UNSUPPORTED_OPERATION, cause.getErrorCode());
+        Assertions.assertEquals("outer-joined constituent 'b' of joined table '" + syntheticName + "' is not supported",
+                cause.getMessage());
+    }
 
 }

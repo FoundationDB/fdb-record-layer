@@ -44,8 +44,8 @@ import java.util.function.BiConsumer;
  * Utility class to provide a graph view of a expression reference DAG given by a root expression reference
  * (to a {@link RelationalExpression} that allows to perform traversal operations that are normally not possible
  * on instances of {@link Reference} such as {@link #getLeafReferences()} and {@link #getParentRefs}.
- * <br>
- * The implementation of this class assumes that the original DAG is not mutated after the traversal is created.
+ *
+ * <p>The implementation of this class assumes that the original DAG is not mutated after the traversal is created.
  * If the underlying DAG is mutated against assumptions, the semantics of this class is defined in a way that calls to
  * graph-backed methods return data as if the mutation hadn't occurred while references that are being returned as part
  * of the result of method calls naturally reflect any mutations that have occurred.

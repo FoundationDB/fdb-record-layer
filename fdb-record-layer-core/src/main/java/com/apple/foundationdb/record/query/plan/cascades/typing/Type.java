@@ -86,12 +86,12 @@ import static java.util.function.Function.identity;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
- * <br>
- * Types bear a resemblance to protobuf types; they are either primitive such as <code>boolean</code>, <code>int</code>,
+ *
+ * <p>Types bear a resemblance to protobuf types; they are either primitive such as <code>boolean</code>, <code>int</code>,
  * and <code>string</code> or structured such as {@link Record} and {@link Array}. Moreover, it is possible to switch
  * between a {@link Type} instance and an equivalent protobuf {@link Descriptors} in a lossless manner.
- * <br>
- * Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
+ *
+ * <p>Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
  * are equal.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -148,7 +148,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is any type, otherwise <code>false</code>.
      */
     default boolean isAny() {
-        return getTypeCode().equals(TypeCode.ANY);
+        return getTypeCode() == TypeCode.ANY;
     }
 
     /**
@@ -157,7 +157,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Array}, otherwise <code>false</code>.
      */
     default boolean isArray() {
-        return getTypeCode().equals(TypeCode.ARRAY);
+        return getTypeCode() == TypeCode.ARRAY;
     }
 
     /**
@@ -166,11 +166,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Record}, otherwise <code>false</code>.
      */
     default boolean isRecord() {
-        return getTypeCode().equals(TypeCode.RECORD);
+        return getTypeCode() == TypeCode.RECORD;
     }
 
     default boolean isVector() {
-        return getTypeCode().equals(TypeCode.VECTOR);
+        return getTypeCode() == TypeCode.VECTOR;
     }
 
     /**
@@ -179,7 +179,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Relation}, otherwise <code>false</code>.
      */
     default boolean isRelation() {
-        return getTypeCode().equals(TypeCode.RELATION);
+        return getTypeCode() == TypeCode.RELATION;
     }
 
     /**
@@ -188,7 +188,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Enum}, otherwise <code>false</code>.
      */
     default boolean isEnum() {
-        return getTypeCode().equals(TypeCode.ENUM);
+        return getTypeCode() == TypeCode.ENUM;
     }
 
     /**
@@ -394,8 +394,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
     /**
      * For a given {@link TypeCode}, it returns a corresponding <i>nullable</i> {@link Type}.
-     * <br>
-     * pre-condition: The {@link TypeCode} is primitive.
+     *
+     * <p>pre-condition: The {@link TypeCode} is primitive.
      * <br>
      * @param typeCode The primitive type code.
      * @return the corresponding {@link Type}.
@@ -407,8 +407,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
     /**
      * For a given {@link TypeCode}, it returns a corresponding {@link Type}.
-     * <br>
-     * pre-condition: The {@link TypeCode} is primitive.
+     *
+     * <p>pre-condition: The {@link TypeCode} is primitive.
      * <br>
      * @param typeCode The primitive type code.
      * @param isNullable True, if the {@link Type} is supposed to be nullable, otherwise, false.
@@ -2407,7 +2407,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             final var otherType = (Record)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) ||
+                    ((isErased() && otherType.isErased()) ||
                     (Objects.requireNonNull(fields).equals(otherType.fields)));
         }
 
@@ -3064,7 +3064,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             final var otherType = (Relation)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
+                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
         }
 
         @Nonnull
@@ -3311,7 +3311,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             final var otherType = (Array)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
+                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
         }
 
         @Nonnull
@@ -3378,12 +3378,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A marker type representing an opaque function type used exclusively during compile-time type resolution
      * and higher-order function evaluation.
-     * <p>
-     * This type serves as a placeholder in the type system to indicate that a value represents a function rather
+     *
+     * <p>This type serves as a placeholder in the type system to indicate that a value represents a function rather
      * than a concrete data type. It is used during the semantic analysis phase when resolving higher-order
      * functions (functions that return functions) and has no runtime representation. Values of this type should
      * never appear in executable query plans or serialized protobuf messages.
-     * </p>
      *
      * @see com.apple.foundationdb.record.query.plan.cascades.values.Value.HighOrderValue for values that produce this type
      */

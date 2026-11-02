@@ -36,9 +36,9 @@ import java.lang.annotation.Target;
 public @interface RandomSeedSource {
     /**
      * Seeds to be used for the test.
-     * <p>
-     *     If no seeds are provided, one will be included by default.
-     * </p>
+     *
+     * <p>If no seeds are provided, one will be included by default.
+     *
      * @return the seeds to be used for the test
      */
     long[] value() default {};

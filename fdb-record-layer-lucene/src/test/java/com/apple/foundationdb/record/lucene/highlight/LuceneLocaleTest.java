@@ -50,11 +50,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests to make sure Lucene isn't using the default system locale.
- * <p>
- *     At some point, we may want to make the locale used for query parsing into an index option, or
+ *
+ * <p>At some point, we may want to make the locale used for query parsing into an index option, or
  *     {@link com.apple.foundationdb.record.lucene.LuceneRecordContextProperties}, but for now it is just set to
  *     {@link Locale#ROOT}.
- * </p>
  */
 public class LuceneLocaleTest extends FDBRecordStoreTestBase {
 

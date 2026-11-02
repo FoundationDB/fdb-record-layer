@@ -193,7 +193,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     public String toString() {
         final int restSize = getColumnSize() - prefixSize - dimensionsSize;
         return getWholeKey() +
-               " dimensions(" + prefixSize + ", " + dimensionsSize + (restSize > 0 ? ", " + restSize : "") + ")";
+                " dimensions(" + prefixSize + ", " + dimensionsSize + (restSize > 0 ? ", " + restSize : "") + ")";
     }
 
     @Override
@@ -208,8 +208,8 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
         DimensionsKeyExpression that = (DimensionsKeyExpression)o;
         return this.getWholeKey().equals(that.getWholeKey()) &&
-               (this.prefixSize == that.prefixSize) &&
-               (this.dimensionsSize == that.dimensionsSize);
+                (this.prefixSize == that.prefixSize) &&
+                (this.dimensionsSize == that.dimensionsSize);
     }
 
     @Override

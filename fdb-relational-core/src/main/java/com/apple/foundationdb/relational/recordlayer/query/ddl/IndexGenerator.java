@@ -26,8 +26,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Turns an index definition into the metadata that stores it.
- * <p>
- * A {@code CREATE INDEX} statement arrives as a parse tree, which {@link com.apple.foundationdb.relational.recordlayer.query.visitors.DdlVisitor}
+ *
+ * <p>A {@code CREATE INDEX} statement arrives as a parse tree, which {@link com.apple.foundationdb.relational.recordlayer.query.visitors.DdlVisitor}
  * visits. Whatever the syntax, the definition is first expressed as a logical plan -- a tree of
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}s rooted at a
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression}, unoptimised, since it
@@ -35,10 +35,8 @@ import javax.annotation.Nonnull;
  * {@link RecordLayerIndex}: a name, the type of index, the table it is on, the predicate it is filtered by, and the
  * {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression} its entries are keyed and valued by. That
  * index becomes part of the schema template the statement is adding to.
- * </p>
- * <p>
- * There is one implementation per definition syntax, and the plan is where they meet:
- * </p>
+ *
+ * <p>There is one implementation per definition syntax, and the plan is where they meet:
  * <ul>
  *     <li>{@code CREATE INDEX mv1 AS SELECT min_ever(col3) FROM T2 GROUP BY col1, col2} is planned as written, and
  *     {@link MaterializedViewIndexGenerator} reads the plan directly. It yields a {@code MIN_EVER_TUPLE} index keyed by
@@ -48,23 +46,25 @@ import javax.annotation.Nonnull;
  *     the partitioning ones -- and hands it to {@link MaterializedViewIndexGenerator}. It yields a {@code VECTOR} index
  *     keyed by {@code keyWithValue(concat(field("Z"), field("B")), 1)}, the vector sitting in the value.</li>
  * </ul>
- * <p>
- * What this interface provides is that last step alone: given a definition, the metadata for it. An implementation
+ *
+ * <p>What this interface provides is that last step alone: given a definition, the metadata for it. An implementation
  * carries the whole definition -- the plan, the name, the table, and what the definition asks for beyond its key -- so
  * generating takes no further input, and the syntax it came from stops being visible to the caller.
- * </p>
  */
 public interface IndexGenerator {
 
     /**
      * Builds the index this generator was configured with.
-     * <p>
-     * The returned builder is not yet built, so a caller that knows something the definition does not carry can still
-     * add it -- a vector index, for instance, sets its index type and engine options afterwards. Nothing is written to
-     * the schema template until the caller builds it and adds it.
-     * </p>
      *
-     * @return the index the definition asks for
+     * <p>The returned index builder is not yet built, so a caller that knows something the definition does not carry can
+     * still add it -- a vector index, for instance, sets its index type and engine options afterwards. Nothing is
+     * written to the schema template until the caller registers the result.
+     *
+     * <p>An index whose key spans a record composed of several others is defined on a synthetic table, which the result
+     * carries alongside the index. {@link IndexGenerationResult#registerOn} registers both, since an index whose
+     * synthetic table is not registered names a type that does not exist.
+     *
+     * @return the index the definition asks for, with the synthetic table to define it on when there is one
      *
      * @throws com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException with
      * {@link com.apple.foundationdb.relational.api.exceptions.ErrorCode#UNSUPPORTED_OPERATION} if the definition
@@ -72,5 +72,5 @@ public interface IndexGenerator {
      * key expression can express
      */
     @Nonnull
-    RecordLayerIndex.Builder generate();
+    IndexGenerationResult generate();
 }

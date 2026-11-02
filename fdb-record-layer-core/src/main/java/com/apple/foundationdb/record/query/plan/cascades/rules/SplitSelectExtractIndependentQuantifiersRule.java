@@ -73,6 +73,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
+    // Match any for-each quantifier, as the rewrite moves the extracted quantifiers unchanged into the upper SELECT,
+    // which honors their semantics.
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =

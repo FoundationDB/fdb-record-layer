@@ -42,7 +42,7 @@ import java.util.Objects;
  * StreamGrouping breaks streams of records into groups, based on grouping criteria.
  * For each record (provided through {@link #apply}) the class would decide whether this record is part
  * of the current group or of the next group.
- * <p>Note: If there are no grouping criteria provided, (the 'zero case'), then all records are placed in one group.</p>
+ * <p>Note: If there are no grouping criteria provided, (the 'zero case'), then all records are placed in one group.
  * For example, given the grouping criteria <pre>{'a', 'b'}</pre> and the records
  * <pre>
  * (1) {'a' : 1; 'b' : 1; 'c' : 1}
@@ -56,8 +56,8 @@ import java.util.Objects;
  * {'a' : 1; 'b' : 1}
  * {'a' : 1; 'b' : 2}
  * </pre>
- * <p>
- * The records are assumed to be compatibly ordered with the grouping criteria. That is, if the grouping criteria are
+ *
+ * <p>The records are assumed to be compatibly ordered with the grouping criteria. That is, if the grouping criteria are
  * {'a', 'b'}
  * then the records are expected to be sorted by at least {'a', 'b'} (though {'a', 'b', 'c'} is also compatible).
  *

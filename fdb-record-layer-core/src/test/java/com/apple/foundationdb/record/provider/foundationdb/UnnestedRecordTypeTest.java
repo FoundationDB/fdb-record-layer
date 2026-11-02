@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.TestRecordsImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexComparison;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -152,6 +154,9 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     private static final String PARENT_CONSTITUENT = "parent";
     @Nonnull
     private static final String KEY_OTHER_INT_VALUE_INDEX = "keyOtherIntValue";
+    private static final String FILTERED_KEY_OTHER_INT_VALUE_INDEX = "filteredKeyOtherIntValue";
+    /** Only map entries whose {@code int_value} exceeds this are indexed by the filtered index. */
+    private static final long FILTERED_INT_VALUE_THRESHOLD = 1L;
     @Nonnull
     private static final String KEY_ONE_KEY_TWO_VALUE_ONE_VALUE_TWO_INDEX = "keyOneKeyTwoValueOneValueTwo";
     @Nonnull
@@ -252,6 +257,28 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                     field("map_entry").nest("int_value")
             );
             metaDataBuilder.addIndex(UNNESTED_MAP, new Index(KEY_OTHER_INT_VALUE_INDEX, expr));
+        };
+    }
+
+    /**
+     * The same index as {@link #addKeyOtherIntValueIndex()}, but filtered on a field of the unnested constituent, so
+     * that the predicate has to be evaluated against the synthetic record rather than the stored one.
+     */
+    @Nonnull
+    private static RecordMetaDataHook addFilteredKeyOtherIntValueIndex() {
+        return metaDataBuilder -> {
+            final KeyExpression expr = concat(
+                    field("map_entry").nest("key"),
+                    field(PARENT_CONSTITUENT).nest("other_id"),
+                    field("map_entry").nest("int_value")
+            );
+            final IndexPredicate predicate = new IndexPredicate.ValuePredicate(
+                    List.of("map_entry", "int_value"),
+                    new IndexComparison.SimpleComparison(
+                            IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN,
+                            FILTERED_INT_VALUE_THRESHOLD));
+            metaDataBuilder.addIndex(UNNESTED_MAP,
+                    new Index(new Index(FILTERED_KEY_OTHER_INT_VALUE_INDEX, expr), predicate));
         };
     }
 
@@ -1189,6 +1216,48 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 final List<IndexEntry> expected = new ArrayList<>();
                 for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
                     final TestRecordsNestedMapProto.MapRecord.Entry entry = outerRecord.getMap().getEntry(i);
+                    final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(i));
+                    expected.add(new IndexEntry(index, Tuple.from(entry.getKey(), outerRecord.getOtherId(), entry.getIntValue()).addAll(syntheticPrimaryKey), TupleHelpers.EMPTY, syntheticPrimaryKey));
+                }
+                expected.sort(Comparator.comparing(IndexEntry::getKey));
+                List<IndexEntry> scanned = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                        .asList()
+                        .join();
+                assertEquals(expected, scanned);
+
+                recordStore.deleteRecord(stored.getPrimaryKey());
+                assertThat(recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().join(), empty());
+            }
+
+            commit(context);
+        }
+    }
+
+    /**
+     * A filtered (sparse) index over an unnested synthetic type indexes only the synthetic records its predicate
+     * accepts. The predicate names a field of the unnested constituent, so it can only be evaluated against the
+     * synthetic record; resolving it requires the synthetic type, which is not among the stored record types.
+     */
+    @ParameterizedTest(name = "filteredIndexOnMapType[{index}]")
+    @MethodSource("mapMetaDataSuppliers")
+    void filteredIndexOnMapType(Function<RecordMetaDataHook, RecordMetaData> metaDataSource) {
+        final RecordMetaData metaData = metaDataSource.apply(addMapType().andThen(addFilteredKeyOtherIntValueIndex()));
+        final RecordType unnestedType = metaData.getSyntheticRecordType(UNNESTED_MAP);
+        final Index index = metaData.getIndex(FILTERED_KEY_OTHER_INT_VALUE_INDEX);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                FDBStoredRecord<Message> stored = recordStore.saveRecord(convertOuterRecord(metaData, outerRecord));
+
+                final List<IndexEntry> expected = new ArrayList<>();
+                for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
+                    final TestRecordsNestedMapProto.MapRecord.Entry entry = outerRecord.getMap().getEntry(i);
+                    if (entry.getIntValue() <= FILTERED_INT_VALUE_THRESHOLD) {
+                        // filtered out by the index predicate
+                        continue;
+                    }
                     final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(i));
                     expected.add(new IndexEntry(index, Tuple.from(entry.getKey(), outerRecord.getOtherId(), entry.getIntValue()).addAll(syntheticPrimaryKey), TupleHelpers.EMPTY, syntheticPrimaryKey));
                 }
