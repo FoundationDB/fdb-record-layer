@@ -44,10 +44,12 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRew
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
@@ -59,7 +61,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 
 /**
  * An executable query plan for producing records.
@@ -91,13 +92,47 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                                                                   @Nonnull EvaluationContext context,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties) {
-        final Set<Type> usedTypes = usedTypes().evaluate(this);
-        final EvaluationContext typedContext = usedTypes.stream().allMatch(context.getTypeRepository()::containsType)
+        final Set<Type> explodeTypes = explodeTypes(this);
+        final EvaluationContext typedContext = explodeTypes.stream().allMatch(context.getTypeRepository()::containsType)
                 ? context
                 : EvaluationContext.forBindingsAndTypeRepository(context.getBindings(),
-                        TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+                        TypeRepository.newBuilder().addAllTypes(explodeTypes).build());
         return executePlan(store, typedContext, continuation, executeProperties)
                 .map(QueryResult::getQueriedRecord);
+    }
+
+    /**
+     * Collects the types of the structs the explodes of a plan produce, which an evaluation needs in its type
+     * repository. Only these are supplied, as supplying the type of, e.g., a scan would make it copy the records it
+     * produces into messages of that type.
+     *
+     * @param plan the plan
+     * @return the types of the structs of the explodes of the plan and of its children
+     */
+    @Nonnull
+    private static Set<Type> explodeTypes(@Nonnull final RecordQueryPlan plan) {
+        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
+        if (plan instanceof RecordQueryTableFunctionPlan &&
+                ((RecordQueryTableFunctionPlan)plan).getValue() instanceof ExplodeValue) {
+            resultBuilder.add(((RecordQueryTableFunctionPlan)plan).getValue().getResultType());
+        }
+        final List<? extends InSource> inSources;
+        if (plan instanceof RecordQueryInJoinPlan) {
+            inSources = ImmutableList.of(((RecordQueryInJoinPlan)plan).getInSource());
+        } else if (plan instanceof RecordQueryInUnionPlan) {
+            inSources = ((RecordQueryInUnionPlan)plan).getInSources();
+        } else {
+            inSources = ImmutableList.of();
+        }
+        for (final InSource inSource : inSources) {
+            if (inSource instanceof InExplodeSource) {
+                resultBuilder.add(((InExplodeSource)inSource).getResultType());
+            }
+        }
+        for (final RecordQueryPlan child : plan.getChildren()) {
+            resultBuilder.addAll(explodeTypes(child));
+        }
+        return resultBuilder.build();
     }
 
     @Nonnull
