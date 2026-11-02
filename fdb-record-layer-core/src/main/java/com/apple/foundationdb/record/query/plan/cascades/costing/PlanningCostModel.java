@@ -146,8 +146,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
     /**
      * Method to break a tie between a plan using singular index scan and one using a singular primary scan.
-     * <br>
-     * The problematic case this method tries to resolve is that:
+     *
+     * <p>The problematic case this method tries to resolve is that:
      *
      * <ul>
      *     <li>we have a scan plan that is not constraining the types of records (bad) but naturally does not need a fetch (good)</li>

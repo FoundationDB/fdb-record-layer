@@ -44,13 +44,13 @@ import java.util.List;
  * A key expression that indicates that a unique record type identifier should
  * be contained within the key. The unique value can be specified explicitly or generated automatically
  * from the corresponding field numbers in the union message descriptor.
- * <br>
- * It is important that the unique identifiers are stable. A record type's identifier should never change.
+ *
+ * <p>It is important that the unique identifiers are stable. A record type's identifier should never change.
  * If it is automatically generated, that means that fields should never be removed / reused in the union
  * message descriptor, but at most deprecated. In that way, the lowest numbered field for a given type
  * will always be the same.
- * <br>
- * If the record type key appears at the start of every primary key, the record extent is divided by type,
+ *
+ * <p>If the record type key appears at the start of every primary key, the record extent is divided by type,
  * as in other database systems.
  * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
  * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix

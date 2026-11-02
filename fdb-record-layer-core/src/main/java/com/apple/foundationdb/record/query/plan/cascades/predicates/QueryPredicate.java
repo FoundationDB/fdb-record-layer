@@ -82,8 +82,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Determines if this predicate implies some other predicate.
-     * <p>
-     * Let's say that {@code EVAL(p)} denotes the outcome of the evaluation of a predicate. A predicate {@code p1}
+     *
+     * <p>Let's say that {@code EVAL(p)} denotes the outcome of the evaluation of a predicate. A predicate {@code p1}
      * implies some other predicate {@code p2} if
      *
      * <pre>
@@ -91,11 +91,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     (EVAL(p1, recordBindings) == true) -> (EVAL(p2, recordBindings) == true)
      *     }
      * </pre>
-     * <p>
-     * for all {@code recordBindings} possibly contained in a stream of records that are potentially being flowed at
+     *
+     * <p>for all {@code recordBindings} possibly contained in a stream of records that are potentially being flowed at
      * execution time.
-     * <p>
-     * If {@code p1} implies {@code p2}, this method returns an instance of class {@link PredicateMapping} which should
+     *
+     * <p>If {@code p1} implies {@code p2}, this method returns an instance of class {@link PredicateMapping} which should
      * give the caller all necessary info to change {@code p2} to {@code COMP(p2)} in a way make the opposite also
      * true:
      *
@@ -104,8 +104,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     (EVAL(p1, recordBindings) == true) <-> (EVAL(COMP(p2), recordBindings) == true)
      *     }
      * </pre>
-     * <p>
-     * Note that this method takes special care when placeholders are involved as this method is called during index
+     *
+     * <p>Note that this method takes special care when placeholders are involved as this method is called during index
      * matching with candidates graphs. A placeholder by itself cannot be executed. In order for the place holder to
      * match it has to partake in a relationship with a query predicate that tells the placeholder the specific
      * comparison
@@ -152,8 +152,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     }
      *     {@code p1} does not imply {@code p2}, i.e., {@code x = 5} does not imply {@code y COMPARISONRANGE}.
      * </pre>
-     * <p>
-     * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
+     *
+     * <p>Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
      * also represents a tautology.
      *
      * @param valueEquivalence the current value equivalence
@@ -476,29 +476,25 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Determines whether this predicate involves an index-only value that cannot be evaluated from base records.
-     * <p>
-     * For simple predicates (like {@link ValuePredicate}), this method returns {@code true} if the left-hand side
+     *
+     * <p>For simple predicates (like {@link ValuePredicate}), this method returns {@code true} if the left-hand side
      * of the comparison is an {@link com.apple.foundationdb.record.query.plan.cascades.values.Value.IndexOnlyValue}.
      * Index-only values are scalar values that can only be fetched from an index and cannot be fetched from base
      * records nor computed on-the-fly.
-     * </p>
-     * <p>
-     * For composite predicates (like {@link AndPredicate} or {@link OrPredicate}), this method returns {@code true}
+     *
+     * <p>For composite predicates (like {@link AndPredicate} or {@link OrPredicate}), this method returns {@code true}
      * if <em>any</em> of the child predicates are index-only.
-     * </p>
-     * <p>
-     * This property is important for query planning because predicates involving index-only values must be evaluated
+     *
+     * <p>This property is important for query planning because predicates involving index-only values must be evaluated
      * using index scans and cannot be applied as residual filters on base record scans.
-     * </p>
-     * <p>
-     * <strong>Examples of index-only values:</strong>
+     *
+     * <p><strong>Examples of index-only values:</strong>
      * <ul>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue} -
      *       Distance-based ranking that can only be computed from pre-built vector indexes</li>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue} -
      *       Cosine similarity ranking from vector indexes</li>
      * </ul>
-     * </p>
      *
      * @return {@code true} if this predicate (or any of its sub-predicates) involves an index-only value,
      *         {@code false} otherwise

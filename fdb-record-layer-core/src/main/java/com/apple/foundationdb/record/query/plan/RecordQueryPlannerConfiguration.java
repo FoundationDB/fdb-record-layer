@@ -300,14 +300,14 @@ public class RecordQueryPlannerConfiguration {
 
     /**
      * Return whether the query planner should defer cross products during join enumeration.
-     * <br>
-     * Cross products are joins of data sources that are completely independent of one another, i.e., the data sources
+     *
+     * <p>Cross products are joins of data sources that are completely independent of one another, i.e., the data sources
      * are not <em>connected</em> via a join predicate, nor is one correlated to the other. It is usually better to
      * plan a cross product as the last join in a join tree as a cross product tends to increase the cardinality.
      * Thus, such a join does not need to be planned among all the other joins and can therefore avoid useless
      * exploration and over-enumeration.
-     * <br>
-     * Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
+     *
+     * <p>Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
      * join in a query. For instance, in star-like schemas, the dimension table cross products are usually of a low
      * cardinality due to some highly-selective predicates and can be joined upfront before joining the result with
      * the fact table.
@@ -361,10 +361,8 @@ public class RecordQueryPlannerConfiguration {
      * attempt to avoid non-sargable IN-predicates by planning all INs as a residual filter. If the
      * configuration value is less than 0, it will allow un-sargable IN-predicates to planned as an IN-join.
      *
-     * <p>
-     * The recommended value for this parameter is 1. The default is 0 for backwards compatibility reasons.
+     * <p>The recommended value for this parameter is 1. The default is 0 for backwards compatibility reasons.
      * This parameter is only relevant for the {@link RecordQueryPlanner}.
-     * </p>
      *
      * @return the max number of replans to perform during IN-to-JOIN planning
      */
@@ -379,10 +377,8 @@ public class RecordQueryPlannerConfiguration {
      * should only be relevant (instead of {@link #getMaxNumReplansForInToJoin()}) if the query results are
      * sorted.
      *
-     * <p>
-     * The recommended value for this parameter is 1. The default is -1 for backwards compatbility reasons.
+     * <p>The recommended value for this parameter is 1. The default is -1 for backwards compatbility reasons.
      * This parameter is only relevant for the {@link RecordQueryPlanner}.
-     * </p>
      *
      * @return the max number of replans to perform during IN-union planning
      * @see #shouldAttemptFailedInJoinAsUnion()
@@ -718,14 +714,14 @@ public class RecordQueryPlannerConfiguration {
 
         /**
          * Set whether the query planner should defer cross products during join enumeration.
-         * <br>
-         * Cross products are joins of data sources that are completely independent of one another, i.e., the data sources
+         *
+         * <p>Cross products are joins of data sources that are completely independent of one another, i.e., the data sources
          * are not <em>connected</em> via a join predicate, nor is one correlated to the other. It is usually better to
          * plan a cross product as the last join in a join tree as a cross product tends to increase the cardinality.
          * Thus, such a join does not need to be planned among all the other joins and can therefore avoid useless
          * exploration and over-enumeration.
-         * <br>
-         * Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
+         *
+         * <p>Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
          * join in a query.
          * @param deferCrossProducts indicator if the planner should defer cross products
          * @return this builder

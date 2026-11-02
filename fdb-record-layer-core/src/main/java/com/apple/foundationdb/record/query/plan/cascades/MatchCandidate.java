@@ -98,16 +98,14 @@ public interface MatchCandidate {
     /**
      * Returns the set of sargable (Search ARGument ABLE) parameter aliases that must be bound with concrete values
      * for this match candidate to be considered valid during query planning.
-     * <p>
-     * This method specifies binding requirements that act as prerequisites for using this match candidate in a query
+     *
+     * <p>This method specifies binding requirements that act as prerequisites for using this match candidate in a query
      * plan. During the matching phase, the query planner attempts to bind parameters through predicates and
      * placeholders. For a match candidate to be selected, all aliases returned by this method must have been
      * successfully bound to values.
-     * </p>
-     * <p>
-     * The default implementation returns an empty set, indicating that no specific parameter bindings are required.
+     *
+     * <p>The default implementation returns an empty set, indicating that no specific parameter bindings are required.
      * Match candidates that have binding requirements should override this method to specify their constraints.
-     * </p>
      *
      * @return a set of {@link CorrelationIdentifier}s representing parameter aliases that must be bound;
      *         returns an empty set if no bindings are required
@@ -195,11 +193,11 @@ public interface MatchCandidate {
      * Computes a set of {@link MatchedOrderingPart}s representing ordering keys that are implicitly equality-bound
      * by the candidate itself, rather than by explicit predicates in the query. These parts are prepended to the
      * matched ordering and take priority over regular matched ordering parts.
-     * <p>
-     * For example, a {@link PrimaryScanMatchCandidate} scoped to a single record type returns an equality-bound
+     *
+     * <p>For example, a {@link PrimaryScanMatchCandidate} scoped to a single record type returns an equality-bound
      * ordering part for the record type key, since the scan is inherently constrained to that type.
-     * <p>
-     * The default implementation returns an empty set, meaning no implicit equality-bound ordering parts exist.
+     *
+     * <p>The default implementation returns an empty set, meaning no implicit equality-bound ordering parts exist.
      *
      * @return a set of ordering parts that are implicitly equality-bound by this candidate
      */
@@ -212,11 +210,11 @@ public interface MatchCandidate {
      * Returns whether this match candidate is inherently constrained to a single record type. This is true when
      * the candidate queries exactly one record type, or when the record type key is part of the index definition
      * and effectively partitions the index by type.
-     * <p>
-     * This is used by {@link #computeEqualityBoundImplicitOrderingParts()} to determine whether a record type key
+     *
+     * <p>This is used by {@link #computeEqualityBoundImplicitOrderingParts()} to determine whether a record type key
      * equality-bound ordering part should be implicitly added.
-     * <p>
-     * The default implementation returns {@code false}. Subclasses that support record-type-scoped scans
+     *
+     * <p>The default implementation returns {@code false}. Subclasses that support record-type-scoped scans
      * (e.g., {@link ValueIndexScanMatchCandidate}, {@link WindowedIndexScanMatchCandidate}) override this.
      *
      * @return {@code true} if this candidate is scoped to a single record type, {@code false} otherwise

@@ -21,14 +21,10 @@
 /**
  * Classes implementing logical query expression.
  *
- * <p>
- * A {@link com.apple.foundationdb.record.query.expressions.QueryComponent} represents a boolean predicate against a record in the record store, like the {@code WHERE} clause in SQL databases.
+ * <p>A {@link com.apple.foundationdb.record.query.expressions.QueryComponent} represents a boolean predicate against a record in the record store, like the {@code WHERE} clause in SQL databases.
  * Query expressions are built using static methods on {@link com.apple.foundationdb.record.query.expressions.Query} and then passed to {@link com.apple.foundationdb.record.query.RecordQuery.Builder#setFilter setFilter}.
- * </p>
  *
- * <p>
- * For example,
- * </p>
+ * <p>For example,
  * <pre><code>
  * queryBuilder.setFilter(Query.and(
  *     Query.field("field1").equalsParameter("p1"),

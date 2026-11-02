@@ -67,7 +67,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  *
  * <p>Some of the cases above do not appear in practice due to restrictions in the construction of
- * {@link PredicateWithValueAndRanges}, but are included for completeness.</p>
+ * {@link PredicateWithValueAndRanges}, but are included for completeness.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

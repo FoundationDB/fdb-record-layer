@@ -512,8 +512,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * a per-partition lease so at most one merge drains a given prefix at a time — and, crucially, so a second merge
      * sees a claim (committed) and skips the prefix <em>before</em> doing the expensive drain, rather than racing into
      * it and rolling one back. HNSW and other inline engines defer no work and merge to a no-op.
-     * <p>
-     * Because claiming and draining must not share a transaction (the claim has to commit and become visible first),
+     *
+     * <p>Because claiming and draining must not share a transaction (the claim has to commit and become visible first),
      * each invocation does at most one of: <b>drain</b> a prefix this process already holds a lease on (re-verified
      * this invocation), or <b>claim</b> one free/stale prefix and return so the claim commits (the next invocation
      * drains it). Prefixes held live by another owner are skipped; when only those remain, the run stops and their

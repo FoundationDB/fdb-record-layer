@@ -110,9 +110,7 @@ public class FDBExceptions {
      * FoundationDB client, which can be configured by either setting the transaction timeout milliseconds
      * on the {@link FDBDatabaseFactory}, the {@link FDBDatabaseRunner}, or the {@link FDBRecordContextConfig}.
      *
-     * <p>
-     * Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
-     * </p>
+     * <p>Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
      *
      * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
      * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)

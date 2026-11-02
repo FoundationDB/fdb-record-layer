@@ -38,8 +38,8 @@ import java.util.function.UnaryOperator;
 /**
  * The {@link LockRegistry} keeps track of locking over resources in the context of a single transaction. In essence,
  * it maps a resource (by means of a {@link LockIdentifier}) to the latest lock that has been assigned on that resource.
- * <p>
- * The registry can be requested to grant the lock in either the {@code read} mode or the {@code write} mode. The
+ *
+ * <p>The registry can be requested to grant the lock in either the {@code read} mode or the {@code write} mode. The
  * difference between the 2 modes is as follows:
  * <ul>
  *     <li>{@code write}: This mode gives exclusive access over the resource, i.e., no other read or write operation can
@@ -51,8 +51,8 @@ import java.util.function.UnaryOperator;
  * Example, for a bunch of read and write locks accepted in an arbitrary order given by r1, r2, r3, w1, w2, r4, r5, w3,
  * we can expect r1, r2, r3 to occur concurrently. w1 'waits' for all of r1, r2, r3 to complete, completion of which
  * itself is waited by w2. After w2 is completed, r4 and r5 can run concurrently.
- * <p>
- * There are 2 set of methods to interact with the registry:
+ *
+ * <p>There are 2 set of methods to interact with the registry:
  * <ul>
  *     <li>{@code acquire}: {@link LockRegistry#acquireReadLock} and {@link LockRegistry#acquireWriteLock}</li>
  *     <li>{@code do}: {@link LockRegistry#doWithReadLock} and {@link LockRegistry#doWithWriteLock}</li>
@@ -61,8 +61,8 @@ import java.util.function.UnaryOperator;
  * lock needs to outlast the supplied lambda. For instance, for APIs that want to return a cursor over results that
  * retain the lock for the entire duration of a scan, the {@link #acquireReadLock} method can be used in conjunction
  * with an {@link com.apple.foundationdb.record.cursors.AsyncLockCursor}.
- * <p>
- * The sample usage with {@code do} method can be:
+ *
+ * <p>The sample usage with {@code do} method can be:
  * <pre>{@code
  *      final CompletableFuture<Void> task = registry.doWithReadLock(identifier, () -> {
  *          // do your task...

@@ -93,8 +93,8 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
      * streams by the use of a common comparison key (that identifies the group) and then freely to pick any datum
      * from any participating stream. In this way, we can access the different aggregates flowed in the individuals
      * stream.
-     * <br>
-     * For instance, if the partition we are trying to intersect, flows the result of an index scan over a
+     *
+     * <p>For instance, if the partition we are trying to intersect, flows the result of an index scan over a
      * {@code SUM} index ({@code q1 := (a, b, SUM(c)}) and another flows the result of a {@code COUNT} index using an
      * identical grouping ({@code q2: = (a, b, COUNT_STAR}), we can form a multi intersection using a comparison key
      * {@code _.1, _2}. We can then also access the aggregates in individually, e.g.

@@ -141,10 +141,8 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
              *          in index entries</li>
              * </ul>
              *
-             * <p>
-             * Note that the {@link IndexOptions#TEXT_TOKENIZER_NAME_OPTION} is <em>not</em> allowed to change
+             * <p>Note that the {@link IndexOptions#TEXT_TOKENIZER_NAME_OPTION} is <em>not</em> allowed to change
              * (without rebuilding the index).
-             * </p>
              *
              * @param oldIndex an older version of this index
              * @param changedOptions the set of changed options

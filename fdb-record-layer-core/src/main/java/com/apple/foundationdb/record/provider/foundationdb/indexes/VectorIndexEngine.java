@@ -44,15 +44,15 @@ import java.util.concurrent.CompletableFuture;
  * structure: today an {@link com.apple.foundationdb.async.hnsw.HNSW HNSW} graph
  * ({@link HnswVectorIndexEngine}) or a {@link com.apple.foundationdb.async.guardiann.Guardiann Guardiann} clustered
  * structure ({@link GuardiannVectorIndexEngine}).
- * <p>
- * The maintainer keeps everything that is engine-independent — the continuation/cursor machinery, the prefix skip-scan,
+ *
+ * <p>The maintainer keeps everything that is engine-independent — the continuation/cursor machinery, the prefix skip-scan,
  * locking, and the translation of results to {@link com.apple.foundationdb.record.IndexEntry index entries}. This
  * interface is deliberately narrow: an engine only knows how to search, insert and delete against a concrete partition
  * {@link Subspace}, returning raw {@link ResultEntry} results the maintainer then wraps. Each engine also owns the
  * parsing and validation of its own index options (via its static {@code fromIndex} and {@code validateChangedOptions})
  * and builds its own read/write listeners so it can attribute the right work to the shared {@link FDBStoreTimer}.
- * <p>
- * The interface is {@code sealed}: the set of engines is closed and known at compile time, which lets
+ *
+ * <p>The interface is {@code sealed}: the set of engines is closed and known at compile time, which lets
  * {@link #fromIndex(Index, Subspace)} exhaustively dispatch on the {@link IndexOptions#VECTOR_ENGINE} option.
  */
 public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVectorIndexEngine {
@@ -154,8 +154,8 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * the maintainer calls it once per partition that has outstanding work. The Guardiann engine runs its queued
      * split/merge/reassign/collapse tasks; an engine that does everything inline (HNSW) never enqueues tasks and is
      * never routed here — being asked to drain is a programming error, so it throws.
-     * <p>
-     * As each task executes, the write listener notifies {@code register}'s {@code onTaskExecuted} callback in the same
+     *
+     * <p>As each task executes, the write listener notifies {@code register}'s {@code onTaskExecuted} callback in the same
      * transaction — e.g. so a task-count register stays in step with the queue as the merge drains it.
      *
      * @param context the record context to drain under; supplies the transaction, executor and timer
@@ -236,8 +236,8 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * index. The engine itself ({@link IndexOptions#VECTOR_ENGINE}) is immutable — an index cannot switch engines — and
      * beyond that each engine decides which of its options are immutable (structural) versus mutable (tuning). Handled
      * options are removed from {@code changedOptions}; whatever remains is left for the caller's default handling.
-     * <p>
-     * The new index having no option specified under more than one of its names is enforced separately by the new
+     *
+     * <p>The new index having no option specified under more than one of its names is enforced separately by the new
      * index's own {@code validate()} (which runs during metadata evolution before this method), so it is not re-checked
      * here.
      *

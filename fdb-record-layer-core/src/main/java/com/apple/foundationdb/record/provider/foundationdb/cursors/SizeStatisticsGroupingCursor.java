@@ -63,18 +63,18 @@ import java.util.concurrent.Executor;
  * actively mutating data set, there are no guarantees that the values it returns were ever actually true for any
  * version in the transaction history. However, as long as the data set is not too volatile, it should produce an
  * approximate answer for the statistics it yields.
- * <p>
- * This class could be used to replace {@link SizeStatisticsCollectorCursor} in the future but for
+ *
+ * <p>This class could be used to replace {@link SizeStatisticsCollectorCursor} in the future but for
  * backwards-compatibility both would remain in the codebase.
- * <p>
- * A note about implementation: This cursor is implemented as a scanner across the entire subspace, adding sizes and
+ *
+ * <p>A note about implementation: This cursor is implemented as a scanner across the entire subspace, adding sizes and
  * grouping as it goes along. This has the advantage of scanning all subspaces regardless of the keys enclosed within.
  * Another implementation could be considered, where specific subspaces are to be scanned, being more efficient, but less
  * flexible, as it would require figuring out which subspaces actually exist. An example of such approach can be made to
  * understand the differences between RECORD and INDEX subspaces when dealing with a Store, to provide a response that
  * knows the semantics of such subspaces.
- * <p>
- * A note about security: scanning subspaces may reveal sensitive information. Specifically, in the case of value
+ *
+ * <p>A note about security: scanning subspaces may reveal sensitive information. Specifically, in the case of value
  * indexes, the constituents of the key may reveal the values indexed by the index. DO NOT use this tool without proper
  * authentication and authorization in place that ensures data integrity.
  */

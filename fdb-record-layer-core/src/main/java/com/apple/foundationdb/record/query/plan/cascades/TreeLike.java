@@ -272,8 +272,8 @@ public interface TreeLike<T extends TreeLike<T>> {
      *        necessary for replacement algorithm to avoid unnecessary allocations.
      * @return potentially a new tree which originates from {@code this} but having its nodes replaced with new ones,
      *         if no changes are made, {@code this} is returned.
-     * <br>
-     * Note: This can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
+     *
+     * <p>Note: This can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
      *       function domain is of the same type because that enables us to perform copy-on-write optimization.
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
@@ -338,8 +338,8 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Calculates the diameter of the tree, incorporating the number of children of each node in the calculation.
-     * <p>
-     * Unlike a standard diameter calculation, this method considers <em>all</em> edges between a node and its children
+     *
+     * <p>Unlike a standard diameter calculation, this method considers <em>all</em> edges between a node and its children
      * when determining the diameter. This means that when calculating the diameter at a node 'n', the edges connecting
      * 'n' to its left and right subtrees are included, as well as the edges *within* those subtrees.  Effectively, this
      * adds the "level" or "depth" of the node to the diameter calculation.
@@ -352,16 +352,16 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Calculates the diameter of the tree, which is the longest path between any two leaves.
-     * <p>
-     * This method provides flexibility in how the root node connects to the heights of its left and right subtrees
+     *
+     * <p>This method provides flexibility in how the root node connects to the heights of its left and right subtrees
      * when computing the overall diameter.  By default, this connection is assumed to be a fixed cost (e.g., the number
      * of edges required to connect the left and right heights through the root).
-     * <p>
-     * However, the {@code customConnectingEdgeFunc} parameter allows for overriding this default behavior.  This is
+     *
+     * <p>However, the {@code customConnectingEdgeFunc} parameter allows for overriding this default behavior.  This is
      * useful for scenarios where the connection cost should be dynamically adjusted based on other factors, such as the
      * tree's width or other relevant properties.
-     * <p>
-     * Using a custom connection function can be beneficial for scoring or evaluating the tree based on criteria beyond
+     *
+     * <p>Using a custom connection function can be beneficial for scoring or evaluating the tree based on criteria beyond
      * the traditional diameter definition.  However, be aware that modifying the connection cost may cause the returned
      * value to deviate from the strictly defined diameter of the tree.
      *

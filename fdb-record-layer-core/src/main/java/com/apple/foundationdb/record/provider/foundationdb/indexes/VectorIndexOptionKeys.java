@@ -34,8 +34,8 @@ import java.util.List;
  * with the legacy {@code HNSW_*} alias, while engine-specific options declare a single {@code HNSW_*} or
  * {@code GUARDIANN_*} name. Readers ({@code parseConfig}) and change validators in the engines derive everything from
  * these keys, so the pairing is never hand-spelled at a call site.
- * <p>
- * Query-time (per-query) options are catalogued separately, on
+ *
+ * <p>Query-time (per-query) options are catalogued separately, on
  * {@link com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions}, but share the same
  * {@link VectorOptionKey} primitive.
  */

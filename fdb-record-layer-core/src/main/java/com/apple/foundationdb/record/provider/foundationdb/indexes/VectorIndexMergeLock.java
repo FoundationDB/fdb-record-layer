@@ -37,21 +37,21 @@ import java.util.function.LongSupplier;
  * rather than racing into the same (expensive) drain and rolling one back. Modeled on the Lucene directory file lock
  * (a committed {@code (ownerId, timestamp)} value with window-based expiry and steal-if-stale), but with no Lucene or
  * {@code AgilityContext} dependency.
- * <p>
- * The lease lives in the index's <em>secondary</em> subspace under {@link VectorIndexSecondarySubspaceKeys#MERGE_LOCK}, keyed by the
+ *
+ * <p>The lease lives in the index's <em>secondary</em> subspace under {@link VectorIndexSecondarySubspaceKeys#MERGE_LOCK}, keyed by the
  * partition prefix (empty for an unpartitioned index), alongside {@link VectorIndexTaskCounts}. It is a coordination
  * hint, not the correctness mechanism: double-drain is still prevented by FDB conflict detection on the task queue.
  * The two operations are deliberately split across transactions — a merge invocation <em>claims</em> a prefix (a cheap
  * blind write) and returns so the claim commits and becomes visible; only a later invocation, after re-reading and
  * confirming it is still the owner, performs the expensive drain. Because a drain requires a pre-committed, re-verified
  * lease, and only one owner id can be the committed value, no two merges drain the same prefix at once.
- * <p>
- * The owner id must be stable across a merge run's re-invocations (each is a fresh transaction and maintainer) so a
+ *
+ * <p>The owner id must be stable across a merge run's re-invocations (each is a fresh transaction and maintainer) so a
  * process recognizes its own lease; it comes from the indexing session (see
  * {@code IndexDeferredMaintenanceControl.getMergeSessionId()}). A crashed holder stops refreshing its lease; once the
  * lease ages past {@code leaseWindowMillis} it reads as free and another process (or a future run) can reclaim it.
- * <p>
- * One correctness concern the lease itself does carry is against a concurrent {@code deleteWhere}: a blind lease
+ *
+ * <p>One correctness concern the lease itself does carry is against a concurrent {@code deleteWhere}: a blind lease
  * {@link #acquire} committing after a {@code deleteWhere} emptied the group would orphan a lease into it. A single,
  * index-wide <em>delete-guard</em> key closes this — {@code acquire} read-conflicts it and
  * {@link #addDeleteWhereConflicts deleteWhere} write-conflicts it (plus clears any lease under the deleted prefix), so
@@ -113,8 +113,8 @@ final class VectorIndexMergeLock {
      * claimants both write cheaply (last-writer-wins) and neither drains, so the loser simply discovers on its next
      * invocation (its re-read no longer matches) that it is not the owner. The caller must have determined via
      * {@link #currentOwner} that the prefix is free/stale or already its own.
-     * <p>
-     * The lease write is deliberately blind — but we additionally register a read-conflict on the single, index-wide
+     *
+     * <p>The lease write is deliberately blind — but we additionally register a read-conflict on the single, index-wide
      * delete-guard key so that this transaction (which, for a fresh claim, otherwise reads only at snapshot isolation
      * and would never conflict with anything) fails if a concurrent {@link #addDeleteWhereConflicts deleteWhere}
      * commits. That is the one thing that must abort a claim: writing a lease into a group a concurrent

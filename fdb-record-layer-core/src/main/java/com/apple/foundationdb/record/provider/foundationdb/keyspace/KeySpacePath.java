@@ -220,12 +220,10 @@ public interface KeySpacePath {
     /**
      * Delete all data from this path. Use with care.
      *
-     * <p>
-     * Note that as it is possible that one or more record stores saved underneath this path
+     * <p>Note that as it is possible that one or more record stores saved underneath this path
      * might have cacheable meta-data, this method will reset the database's
      * {@linkplain FDBRecordContext#getMetaDataVersionStampAsync(com.apple.foundationdb.record.IsolationLevel)}  meta-data version-stamp}.
      * This can result in clients which are caching store state having to invalidate their caches.
-     * </p>
      *
      * @param context the context in which the path is resolved and the delete operation takes place
      * @return a future that will delete all data underneath of this path
@@ -413,8 +411,8 @@ public interface KeySpacePath {
 
     /**
      * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
-     * <p>
-     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path
+     *
+     * <p>This will validate that any data provided in {@code dataToImport} has a path that should be in this path
      * or one of the sub-directories. If not, the future will complete exceptionally with a
      * {@link RecordCoreIllegalImportDataException}.
      * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
@@ -423,7 +421,7 @@ public interface KeySpacePath {
      * than the raw key, meaning that this will work even if the data was exported from a different cluster.
      * Note, this will not correct for any cluster-specific data, other than {@link DirectoryLayerDirectory} data;
      * for example, if you have versionstamps, that data will not align on the destination.
-     * </p>
+     *
      * @param context the transaction context in which to save the data
      * @param dataToImport the data to be saved to the database
      * @return a future to be completed once all data has been important.

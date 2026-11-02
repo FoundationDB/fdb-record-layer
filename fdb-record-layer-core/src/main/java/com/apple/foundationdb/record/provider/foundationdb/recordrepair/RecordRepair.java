@@ -42,17 +42,17 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A class that iterates through all records in a given store and validates (and optionally repairs) them.
- * <p>
- * When records in a store are suspected to be corrupt, this class can be used to bring the store back up to consistent state.
+ *
+ * <p>When records in a store are suspected to be corrupt, this class can be used to bring the store back up to consistent state.
  * The runner will relax many of the record-loading constraints to allow records to be scanned and validated. The current
  * validation capabilities include detecting missing splits (payload and version) and corrupt data that results in records
  * that cannot be deserialized.
- * <p>
- * This runner is expected to run for extended period of time, and therefore makes use of the {@link ThrottledRetryingIterator}
+ *
+ * <p>This runner is expected to run for extended period of time, and therefore makes use of the {@link ThrottledRetryingIterator}
  * to provide transaction resource management. The runner will create transactions and commit them as needed (and so does
  * not have to be run from within an existing transaction).
- * <p>
- * The runner provides two main entry points:
+ *
+ * <p>The runner provides two main entry points:
  * <ul>
  *     <li>{@link RecordRepairStatsRunner#run} that iterates through the store and returns an aggregated
  *     count of all found issues</li>
@@ -62,8 +62,8 @@ import java.util.concurrent.TimeUnit;
  * There is no significant performance difference between the two. The intent is to use the former to get a view of the store
  * status and to verify that a store is fully repaired, and to use the latter to iterate through the store record, one chunk
  * at a time and to perform repairs as needed.
- * <p>
- * There are currently two kinds of validations that can be performed:
+ *
+ * <p>There are currently two kinds of validations that can be performed:
  * <ul>
  *     <li>{@link ValidationKind#RECORD_VALUE} will verify that the record payload is in good shape: The data exists and
  *     the record can be deserialized</li>
@@ -72,11 +72,11 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  * The idea is that stores that are configured to not store version data can avoid the overhead of checking for version
  * existence.
- * <p>
- * A note on repair: Repairing a corrupt data would normally mean deleting the data (without trying to update indexes).
+ *
+ * <p>A note on repair: Repairing a corrupt data would normally mean deleting the data (without trying to update indexes).
  * Repairing missing version would normally mean creating a new version for the record.
- * <p>
- * A note on versions: Some stores may have had their metadata changed to include versions after some records have already
+ *
+ * <p>A note on versions: Some stores may have had their metadata changed to include versions after some records have already
  * been saved. In this case, the version repair operation may attempt to create many versions - for all the older records.
  */
 @API(API.Status.EXPERIMENTAL)

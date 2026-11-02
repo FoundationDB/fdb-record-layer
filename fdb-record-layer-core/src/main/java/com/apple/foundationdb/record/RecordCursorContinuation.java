@@ -29,27 +29,21 @@ import javax.annotation.Nullable;
 /**
  * An interface for types that represent the continuation of a {@link RecordCursor}.
  *
- * <p>
- * A {@code RecordCursorContinuation} represents the current position of a cursor and can be used to restart a cursor
+ * <p>A {@code RecordCursorContinuation} represents the current position of a cursor and can be used to restart a cursor
  * at a point immediately after the record returned with the continuation. As a result, it must include all the state
  * essential to the operation of the cursor tree. The continuation can also be serialized to an opaque byte array that
  * can be passed to a client.
- * </p>
  *
- * <p>
- * For historical reasons, there is a subtle relationship between the {@link #isEnd()} and {@link #toBytes()} methods.
+ * <p>For historical reasons, there is a subtle relationship between the {@link #isEnd()} and {@link #toBytes()} methods.
  * If {@code isEnd()} returns {@code true}, then {@code toBytes()} must return {@code null}. However, the converse need
  * not be true: {@code toBytes()} may return {@code null} even if {@code isEnd()} returns {@code false}. For an example
  * of why this necessary, see {@link RecordCursorStartContinuation} and {@link RecordCursorEndContinuation}.
- * </p>
  *
- * <p>
- * When implementing a {@code RecordCursorContinuation}, great care must be taken to ensure that the continuation does
+ * <p>When implementing a {@code RecordCursorContinuation}, great care must be taken to ensure that the continuation does
  * not share any objects with its cursor that might be changed while the cursor executes. Once initialized, a
  * continuation must remain unchanged and valid even after the cursor has advanced further or even been closed. To see
  * an example of how this can be done, see the implementation of the
  * {@link com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor}'s continuation.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public interface RecordCursorContinuation {

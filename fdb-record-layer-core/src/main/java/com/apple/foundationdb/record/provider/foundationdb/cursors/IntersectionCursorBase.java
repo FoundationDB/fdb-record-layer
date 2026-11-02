@@ -98,11 +98,9 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
      * comparison key and loops until they all have matching values. Extenders of this class may
      * choose an alternative approach depending on the semantics of that cursor.
      *
-     * <p>
-     * To indicate that the intersection cursor should stop, this function should either return
+     * <p>To indicate that the intersection cursor should stop, this function should either return
      * an empty list of states or a list containing at least one state that does not have a next
      * item.
-     * </p>
      *
      * @return the list of states included in the next result
      */

@@ -68,10 +68,8 @@ import java.util.stream.Collectors;
  * includes the work to translate the comparison type into the proper ranges of the index
  * to scan and then combine.
  *
- * <p>
- * <b>NOTE:</b> This API is still a work in progress and might change in a future without notice.
+ * <p><b>NOTE:</b> This API is still a work in progress and might change in a future without notice.
  * This class should not be used outside of the Record Layer project.
- * </p>
  */
 @API(API.Status.INTERNAL)
 public class TextScan implements PlanHashable {

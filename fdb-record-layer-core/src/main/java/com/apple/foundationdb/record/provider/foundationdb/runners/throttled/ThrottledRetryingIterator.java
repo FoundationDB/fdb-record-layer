@@ -57,8 +57,8 @@ import java.util.function.Consumer;
  * This class iterates over an inner cursor, applying resource controls (# of ops per transaction and per time), and
  * retrying failed operations. The iterator will build its own transactions and stores so that it can handle long-running
  * operations.
- * <p>
- * The iterator currently controls Read and Delete operations . If any other use case is required, it can
+ *
+ * <p>The iterator currently controls Read and Delete operations . If any other use case is required, it can
  * be extended by adding additional limits per transaction/second.
  *
  * @param <T> The iterated item type
@@ -124,8 +124,8 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
     /**
      * Iterate over the inner cursor.
-     * <p>
-     * This is the main entry point for the class: This method would return a future that, when complete normally, signifies the
+     *
+     * <p>This is the main entry point for the class: This method would return a future that, when complete normally, signifies the
      * completion of the iteration over the inner cursor. The iteration will create its own transactions for the actual
      * data access, and so this can be done outside the scope of a transaction.
      * @param storeBuilder the store builder to use for the iteration

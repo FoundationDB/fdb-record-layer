@@ -34,15 +34,14 @@ import java.util.concurrent.TimeUnit;
 /**
  * A class that can be used to view {@link PlannerEventStatsMaps} for all {@link PlannerEvent} collected by
  * {@link PlannerEventStatsCollector} during planning in a browser.
- * <p>
- * To view the stats, evaluate the following expression in a debugging session at a breakpoint before the Cascades planner
+ *
+ * <p>To view the stats, evaluate the following expression in a debugging session at a breakpoint before the Cascades planner
  * returns the plan:
  * <pre>
  *     PlannerEventStatsViewer.showStats(PlannerEventStatsCollector.getCollector())
  * </pre>
  *
  * The stats will be displayed in a new window of the system browser.
- * </p>
  */
 @SuppressWarnings("unused")
 final class PlannerEventStatsViewer {

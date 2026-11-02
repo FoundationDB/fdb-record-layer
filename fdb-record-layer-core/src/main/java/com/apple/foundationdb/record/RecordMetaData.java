@@ -604,14 +604,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Serializes the record meta-data to a {@code MetaData} proto message. By default, it includes all of the
      * dependencies except {@code TupleFieldsProto}, {@code RecordMetaDataOptionsProto} and {@code RecordMetaDataProto}.
      *
-     * <p>
-     * Note that if this record meta-data object was created with a
+     * <p>Note that if this record meta-data object was created with a
      * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor},
      * then serializing the meta-data to a proto message is disallowed. This is because setting a local file descriptor
      * can change the meta-data in ways that would change its serialization, but it also will not update the meta-data
      * version. This means that if the meta-data were then saved to disk, existing clients would not be informed that
      * the meta-data had been updated.
-     * </p>
      *
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures

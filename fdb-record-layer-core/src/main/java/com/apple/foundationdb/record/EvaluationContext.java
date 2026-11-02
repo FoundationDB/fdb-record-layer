@@ -30,9 +30,9 @@ import java.util.Map;
 
 /**
  * A context for query evaluation.
- * <p>
- * The primary state of an evaluation context is a set of parameter {@link Bindings}.
- * </p>
+ *
+ * <p>The primary state of an evaluation context is a set of parameter {@link Bindings}.
+ *
  * @see com.apple.foundationdb.record.query.expressions.QueryComponent#eval
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute
  */

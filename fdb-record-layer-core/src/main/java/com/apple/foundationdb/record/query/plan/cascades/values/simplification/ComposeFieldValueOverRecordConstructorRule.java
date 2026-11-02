@@ -43,7 +43,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that composes a field access and an underlying record construction, that is, it simplifies a field
  * access over a record construction by replacing it with the field itself, for example
- * <br>
  * {@code (("Hello" as a, "World" as b).b} is transformed to {@code "World"}.
  */
 @API(API.Status.EXPERIMENTAL)

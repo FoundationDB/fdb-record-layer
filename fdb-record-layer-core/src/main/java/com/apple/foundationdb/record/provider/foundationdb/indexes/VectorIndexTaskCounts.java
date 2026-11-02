@@ -46,16 +46,16 @@ import java.util.concurrent.Executor;
 /**
  * A conflict-free register of how much deferred maintenance work a (Guardiann) vector index has outstanding, so a merge
  * driver can find and gate that work without skip-scanning every partition.
- * <p>
- * The register lives in the index's <em>secondary</em> subspace (separate from the actual vector data structure
+ *
+ * <p>The register lives in the index's <em>secondary</em> subspace (separate from the actual vector data structure
  * data in the primary subspace of the index which is partitioned by grouping prefix), and cleared with the index on
  * rebuild — see {@code FDBRecordStore.clearIndexData}). It is a single per-partition-prefix count under
  * {@link VectorIndexSecondarySubspaceKeys#TASK_COUNTS} — {@code prefix -> outstanding tasks} — whose key
  * is dropped the moment the count returns to zero, so the entries present are exactly the prefixes with work (an
  * unpartitioned index has just the single empty-prefix entry). "Is there any work?" is therefore simply "is that map
  * non-empty?", which needs no separate total counter.
- * <p>
- * The count is maintained with atomic {@link MutationType#ADD} mutations (so concurrent inserts/drains commute and never
+ *
+ * <p>The count is maintained with atomic {@link MutationType#ADD} mutations (so concurrent inserts/drains commute and never
  * conflict on the counter), paired with a {@link MutationType#COMPARE_AND_CLEAR} that removes a key once it hits zero
  * (also conflict-free), in the same transaction as the task enqueue/execute that moved it, and read with a snapshot (so
  * discovery adds no read conflicts). The task queue itself remains the source of truth; the count tracks it exactly

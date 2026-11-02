@@ -47,18 +47,18 @@ import java.util.function.Function;
  * A cursor that repeatedly executes its children until reaching a fix-point. Specifically, it returns the results
  * of an {@code initial} cursor as-is until it finishes, and then it repeatedly execute the other, {@code recursive} cursor
  * until it is done, in a way, it is similar to {@link ConcatCursor} but it is much more involved.
- * <br>
- * The union cursor has two children cursors: the {@code initial} cursor and the {@code recursive} cursor. The {@code initial}
+ *
+ * <p>The union cursor has two children cursors: the {@code initial} cursor and the {@code recursive} cursor. The {@code initial}
  * cursor is used to seed the recursion (base case), while the {@code recursive} cursor is executed repeatedly until it
  * reaches a fix-point.
- * <br>
- * During execution, the cursor reads from a child cursor and writes into a {@link TempTable}, at
+ *
+ * <p>During execution, the cursor reads from a child cursor and writes into a {@link TempTable}, at
  * the end of the recursive step, its swaps that {@link TempTable} with another {@link TempTable} that is used by the
  * recursive scan to set up the <i>next</i> recursive step. The fix-point is reached by checking whether the
  * {@link TempTable}, that the recursive scan is supposed to read, is empty or not, in other words, whether recursive
  * step {@code n-1} produced any results for the current step {@code n}. If not, the recursion stops immediately.
- * <br>
- * The state management of this cursor is mostly handled one level above by the {@link RecordQueryRecursiveLevelUnionPlan}. For example,
+ *
+ * <p>The state management of this cursor is mostly handled one level above by the {@link RecordQueryRecursiveLevelUnionPlan}. For example,
  * the manipulation of the read and write {@link TempTable} is handled there through manipulation of the {@link EvaluationContext}.
  * A {@link RecursiveStateManager} represents all the aspects related to state management, this abstraction offers a well-defined API
  * that enables probing (e.g. for the purpose of creating a {@link Continuation}) and manipulating the recursive state

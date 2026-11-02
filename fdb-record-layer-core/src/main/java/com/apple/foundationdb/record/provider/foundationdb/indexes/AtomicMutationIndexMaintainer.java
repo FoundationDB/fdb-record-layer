@@ -54,10 +54,9 @@ import java.util.function.BiFunction;
 
 /**
  * An index that maintains an aggregate value in a low-contention way.
- * <p>
- * Normally, when two transactions read, modify, and write the same location, they conflict. This makes a straightforward
+ *
+ * <p>Normally, when two transactions read, modify, and write the same location, they conflict. This makes a straightforward
  * implementation of most aggregate indexes inefficient. Ones that use the atomic mutation feature of FDB avoid this problem.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {

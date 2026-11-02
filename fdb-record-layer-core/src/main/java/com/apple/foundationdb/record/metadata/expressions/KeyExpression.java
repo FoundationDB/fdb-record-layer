@@ -248,12 +248,10 @@ public interface KeyExpression extends PlanHashable {
      * methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      *
-     * <p>
-     * This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
+     * <p>This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
      * original purpose was to allow for expansions of key expression into a data flow graphs. The returned graph
      * would then represent an adequate representation of the key expression as composition of relational expressions and operators
      * ({@link RelationalExpression}s). See {@link ExpansionVisitor} for more details.
-     * </p>
      *
      * @param <S> a type that represents the state that {@code visitor} uses
      * @param <R> a type that represents the result the {@code visitor} returns

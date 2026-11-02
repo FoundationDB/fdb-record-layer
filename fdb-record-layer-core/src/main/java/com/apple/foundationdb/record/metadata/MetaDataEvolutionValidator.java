@@ -71,15 +71,13 @@ import java.util.stream.Collectors;
  *     <li>Any changes to existing indexes do not change the on-disk format.</li>
  * </ul>
  *
- * <p>
- * This is a relatively strict set of requirements that aims to allow anything written by a record store built with the old meta-data
+ * <p>This is a relatively strict set of requirements that aims to allow anything written by a record store built with the old meta-data
  * to be readable from record stores built with the new meta-data. Some of the validation rules, however, are stricter
  * than necessary and are instead intended to prevent the user from accidentally changing the meta-data in a way that
  * will require significant work. For example, it is assumed that any change that requires that an existing index be rebuilt
  * is a mistake, but there are legitimate use cases for which this is actually the desired behavior. The user can disable
  * those checks by creating a new validator and allowing laxer standards. For example, one can create a validator that
  * allows format-incompatible changes to existing indexes by calling:
- * </p>
  *
  * <pre>{@code
  *     MetaDataEvolutionValidator.newBuilder()
@@ -87,10 +85,8 @@ import java.util.stream.Collectors;
  *         .build();
  * }</pre>
  *
- * <p>
- * See the <a href="https://foundationdb.github.io/fdb-record-layer/SchemaEvolution.html">Schema Evolution Guidelines</a>
+ * <p>See the <a href="https://foundationdb.github.io/fdb-record-layer/SchemaEvolution.html">Schema Evolution Guidelines</a>
  * in our documentation for more details on what changes may be safely made to the meta-data and why.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class MetaDataEvolutionValidator {
@@ -762,10 +758,8 @@ public class MetaDataEvolutionValidator {
      * are set in only one version and keys in both where the value has changed. It ignores
      * any options that are in the {@code ignoredIndexOptions} set.
      *
-     * <p>
-     * This returns a mutable set. This is important, as it is handed to {@link IndexValidator#validateChangedOptions(Index, Set)},
+     * <p>This returns a mutable set. This is important, as it is handed to {@link IndexValidator#validateChangedOptions(Index, Set)},
      * which requires in its contract that the set it is given is mutable.
-     * </p>
      *
      * @param oldIndex an older version of the index
      * @param newIndex a newer version of the same index
@@ -841,18 +835,14 @@ public class MetaDataEvolutionValidator {
      * {@code true}, then this will allow fields to be renamed, and it will validate that all record primary keys and
      * index root expressions have been updated to use the new names.
      *
-     * <p>
-     * If field renames are allowed, this performs a best-effort validation to ensure that all usages of modified fields have
+     * <p>If field renames are allowed, this performs a best-effort validation to ensure that all usages of modified fields have
      * been updated. Some parts of the meta-data, like user-defined functions and views, cannot be validated at this
      * level as it would require parsing the SQL, so if this option is enabled, there is some onus on the user to
      * update those definitions.
-     * </p>
      *
-     * <p>
-     * Note that this is a strictly more permissive setting than
+     * <p>Note that this is a strictly more permissive setting than
      * {@linkplain #allowsDeprecatedFieldRenames() allowing deprecated field renames}. If this is set to {@code true},
      * then that other setting is effectively ignored.
-     * </p>
      *
      * @return whether this validator allows field names to change
      * @see #allowsDeprecatedFieldRenames()
@@ -873,8 +863,7 @@ public class MetaDataEvolutionValidator {
      * then this also allows deprecated fields to be renamed in the same change in which they are
      * marked as no longer deprecated.
      *
-     * <p>
-     * One reason that a user may want to allow renaming deprecating fields is to support recreating
+     * <p>One reason that a user may want to allow renaming deprecating fields is to support recreating
      * an existing field. For example, there are certain incompatible changes that a user may want
      * to make to a field (e.g., modifying its Protobuf type from {@code sfixed32} to {@code sfixed64}).
      * To accomplish this, the user can deprecate the old field, rename it, and then create a new field
@@ -883,13 +872,10 @@ public class MetaDataEvolutionValidator {
      * any index referencing the field, and they may need to populate the new field with data from the
      * deprecated field), but it may be something that a user wants to do while iterating on a test
      * meta-data. However, this should generally be avoided in production use cases.
-     * </p>
      *
-     * <p>
-     * Note that this is a strictly less permissive setting than more generally
+     * <p>Note that this is a strictly less permissive setting than more generally
      * {@linkplain #allowsFieldRenames() allowing field renames}. If that configuration is set to {@code true}, then
      * this configuration option is effectively ignored.
-     * </p>
      *
      * @return whether this validator allows deprecated fields to be renamed
      * @see #allowsFieldRenames()
@@ -1008,10 +994,8 @@ public class MetaDataEvolutionValidator {
      * bookkeeping purposes, they may need to configure this validator to ignore any changes to
      * those index options.
      *
-     * <p>
-     * This returns an immutable collection. The caller should not attempt to add or remove elements
+     * <p>This returns an immutable collection. The caller should not attempt to add or remove elements
      * from the returned set.
-     * </p>
      *
      * @return the set of index options that this validator ignores any changes to
      * @see IndexValidator#validateChangedOptions(Index, Set)
@@ -1371,10 +1355,8 @@ public class MetaDataEvolutionValidator {
         /**
          * Get the set of index options that are ignored when validating an index's evolution.
          *
-         * <p>
-         * This returns an immutable collection. The caller should not attempt to add or remove elements
+         * <p>This returns an immutable collection. The caller should not attempt to add or remove elements
          * from the returned set.
-         * </p>
          *
          * @return the set of index options that this validator ignores any changes to
          * @see MetaDataEvolutionValidator#getIgnoredIndexOptions()

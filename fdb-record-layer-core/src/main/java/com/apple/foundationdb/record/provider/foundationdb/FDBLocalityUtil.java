@@ -48,10 +48,8 @@ public class FDBLocalityUtil implements FDBLocalityProvider {
     /**
      * Return an estimate of the keys boundaries within the given range.
      *
-     * <p>
-     * The method results in a {@code CloseableAsyncIterator} of keys {@code k} such that
+     * <p>The method results in a {@code CloseableAsyncIterator} of keys {@code k} such that
      * {@code begin <= k < end} and {@code k} is located at the start of a contiguous range stored on a single server.
-     * </p>
      *
      * @param tr the transaction on which to base the query
      * @param begin the inclusive start of the range

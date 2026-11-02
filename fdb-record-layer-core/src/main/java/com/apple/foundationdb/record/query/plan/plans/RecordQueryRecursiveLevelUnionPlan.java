@@ -71,14 +71,14 @@ import java.util.function.Supplier;
  * A physical representation of a recursive union. As with other operators, it delegates the execution to a corresponding
  * {@link RecordCursor}, but unlike most operators, it is heavily involved in orchestrating the execution of the cursor
  * itself due to the recursive nature of the union.
- * <br>
- * The orchestration involves, for example, overriding the {@link EvaluationContext} references to flip the read- and write-
+ *
+ * <p>The orchestration involves, for example, overriding the {@link EvaluationContext} references to flip the read- and write-
  * {@link TempTable}s when moving to a new recursive step.
- * <br>
- * The recursive state is abstracted by the interface {@link RecursiveStateManager} which is implemented internally by
+ *
+ * <p>The recursive state is abstracted by the interface {@link RecursiveStateManager} which is implemented internally by
  * {@link RecursiveStateManagerImpl}.
- * <br>
- * for more information see {@link RecursiveUnionCursor}.
+ *
+ * <p>for more information see {@link RecursiveUnionCursor}.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {

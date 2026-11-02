@@ -243,8 +243,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     /**
      * checks whether {@code this} range encloses another {@link RangeConstraints} under an {@link EvaluationContext}.
-     * <br>
-     * <b>Examples</b>:
+     *
+     * <p><b>Examples</b>:
      * <ul>
      * <li>{@code this = [1, 10), other = (2, 5) => this.encloses(other) = true}</li>
      * <li>{@code this = [1, 10), other = (0, 5) => this.encloses(other) = false}</li>
