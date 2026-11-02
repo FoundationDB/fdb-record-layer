@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryColumnValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
@@ -308,6 +309,20 @@ public abstract class ValueEquivalence {
         @Nonnull
         @Override
         public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+            //
+            // An index entry column is not a quantified value, but it is equal to another one if they read the same
+            // element of an index entry through quantifiers that the alias map maps to each other.
+            //
+            if (left instanceof IndexEntryColumnValue && right instanceof IndexEntryColumnValue) {
+                final var leftColumn = (IndexEntryColumnValue)left;
+                final var rightColumn = (IndexEntryColumnValue)right;
+                if (leftColumn.readsSameElementAs(rightColumn)
+                        && aliasMap.containsMapping(leftColumn.getAlias(), rightColumn.getAlias())) {
+                    return alwaysTrue();
+                }
+                return falseValue();
+            }
+
             //
             // If any of the participants is not a quantified value, left is not equal to right.
             //

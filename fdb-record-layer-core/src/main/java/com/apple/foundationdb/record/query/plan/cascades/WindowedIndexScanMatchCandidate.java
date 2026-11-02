@@ -462,7 +462,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 baseAlias,
                 sourceAlias,
                 targetAlias,
-                indexEntryToLogicalRecord.logicalKeyValues());
+                indexEntryToLogicalRecord.logicalKeyValues(),
+                // No computed columns. A rank index has a rank column that has no position in the index entry. So the
+                // ordinals of the computed columns do not match the entries of this candidate.
+                ImmutableList.of());
     }
 
     @Nonnull
