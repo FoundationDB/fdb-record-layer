@@ -78,11 +78,9 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     /**
      * Initialize the {@code MockedLocalityUtil}'s singleton.
      *
-     * <p>
-     * This is method randomly partitions the sorted list of {@code keys} among {@code rangeCount} servers as if the keys
+     * <p>This is method randomly partitions the sorted list of {@code keys} among {@code rangeCount} servers as if the keys
      * were stored contiguously on those servers. The outcome of this partition is later used by {@link #getBoundaryKeys(Transaction, byte[], byte[])}.
      * Note that {@code getBoundaryKeys} must be called after this method is called, otherwise it will assume no keys exists.
-     * </p>
      *
      * @param keys a sorted list of keys
      * @param rangeCount the number of ranges to return.

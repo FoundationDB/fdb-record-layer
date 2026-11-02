@@ -1544,10 +1544,9 @@ public class LucenePartitioner {
     /**
      * Timing information for {@link #moveDocsFromPartition(LuceneRepartitionPlanner.RepartitioningContext)}, to get a
      * better idea as to what is taking a long time when repartitioning is failing.
-     * <p>
-     *     This currently has a lot of metrics to be conservative, but once there is a bit more usage, we can probably
+     *
+     * <p>This currently has a lot of metrics to be conservative, but once there is a bit more usage, we can probably
      *     remove some of these and focus on the operations that could reasonably take a while.
-     * </p>
      */
     private static class RepartitionTimings {
         long initializationNanos;

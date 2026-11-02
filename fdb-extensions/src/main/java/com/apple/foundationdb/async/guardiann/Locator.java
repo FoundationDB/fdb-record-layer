@@ -52,8 +52,8 @@ public final class Locator {
 
     /**
      * Constructs a new {@code Locator}.
-     * <p>
-     * Initializes the Locator with the storage adapter (built from the given subspace, config and listeners) and
+     *
+     * <p>Initializes the Locator with the storage adapter (built from the given subspace, config and listeners) and
      * the executor used for the Guardiann structure's asynchronous operations. All parameters are mandatory and
      * must not be null.
      *

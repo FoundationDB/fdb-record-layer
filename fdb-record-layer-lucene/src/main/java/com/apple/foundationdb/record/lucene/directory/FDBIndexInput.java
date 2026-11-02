@@ -64,9 +64,8 @@ public final class FDBIndexInput extends IndexInput {
 
     /**
      * Constructor to create an FDBIndexInput from a file referenced in the metadata keyspace.
-     * <p>
-     *     This constructor will begin an asynchronous query (lookahead) to the first block.
-     * </p>
+     *
+     * <p>This constructor will begin an asynchronous query (lookahead) to the first block.
      *
      * @param fileName the name of the file being read
      * @param fdbDirectory FDB directory mapping

@@ -30,8 +30,7 @@ import javax.annotation.Nonnull;
  * distance computed to the query vector. This is the terminal result type produced once a search candidate has
  * survived the staleness check and had its metadata resolved.
  *
- * <p>
- * It is the post-enrichment counterpart to {@link VectorReferenceAndDistance}: the latter pairs a not-yet-enriched
+ * <p>It is the post-enrichment counterpart to {@link VectorReferenceAndDistance}: the latter pairs a not-yet-enriched
  * {@link VectorReference} with a distance while candidates are still being ranked, whereas a {@code VectorRecord}
  * carries the resolved {@link VectorMetadata} (including any covering values) needed to produce a client-facing
  * result.

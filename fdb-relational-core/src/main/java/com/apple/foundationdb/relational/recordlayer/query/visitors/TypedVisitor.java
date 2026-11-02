@@ -47,8 +47,8 @@ import java.util.Set;
 /**
  * This interface specializes the signatures of the auto-generated {@link RelationalParserVisitor} to make
  * it type-safe and make it less error-prune.
- * <br>
- * <b>Note</b> When extending {@link RelationalParser} you should override the generated visitation method with a
+ *
+ * <p><b>Note</b> When extending {@link RelationalParser} you should override the generated visitation method with a
  * proper return type, and provide an implementation of it in the corresponding specialized visitor.
  * See {@link DdlVisitor}, {@link QueryVisitor}, {@link IdentifierVisitor}, {@link MetadataPlanVisitor}, and
  * {@link ExpressionVisitor} for more information.

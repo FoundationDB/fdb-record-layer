@@ -197,12 +197,12 @@ public class Search {
 
     /**
      * Performs a k-nearest neighbors (k-NN) search for a given query vector.
-     * <p>
-     * This method implements the search algorithm for an HNSW graph. The search begins at an entry point in the
+     *
+     * <p>This method implements the search algorithm for an HNSW graph. The search begins at an entry point in the
      * highest layer and greedily traverses down through the layers. In each layer, it finds the node closest to the
      * {@code queryVector}. This node then serves as the entry point for the search in the layer below.
-     * <p>
-     * Once the search reaches the base layer (layer 0), it performs a more exhaustive search starting from the
+     *
+     * <p>Once the search reaches the base layer (layer 0), it performs a more exhaustive search starting from the
      * determined entry point. It explores the graph, maintaining a dynamic list of the best candidates found so far.
      * The size of this candidate list is controlled by the {@code efSearch} parameter. Finally, the method selects
      * the top {@code k} nodes from the search results, sorted by their distance to the query vector.
@@ -319,8 +319,8 @@ public class Search {
 
     /**
      * Performs a greedy search on a single layer of the HNSW graph.
-     * <p>
-     * This method finds the node on the specified layer that is closest to the given query vector,
+     *
+     * <p>This method finds the node on the specified layer that is closest to the given query vector,
      * starting the search from a designated entry point. The search is "greedy" because it aims to find
      * only the single best neighbor.
      *
@@ -469,12 +469,12 @@ public class Search {
 
     /**
      * Searches a single layer of the graph to find the nearest neighbors to a query vector.
-     * <p>
-     * This method implements the search algorithm used in HNSW (Hierarchical Navigable Small World)
+     *
+     * <p>This method implements the search algorithm used in HNSW (Hierarchical Navigable Small World)
      * graphs for a specific layer. It begins with a set of entry points and iteratively explores the graph,
      * always moving towards nodes that are closer to the {@code queryVector}.
-     * <p>
-     * It maintains a priority queue of candidates to visit and a result set of the nearest neighbors found so far.
+     *
+     * <p>It maintains a priority queue of candidates to visit and a result set of the nearest neighbors found so far.
      * The size of the dynamic candidate list is controlled by the {@code efSearch} parameter, which balances
      * search quality and performance. The entire process is asynchronous, leveraging
      * {@link CompletableFuture}
@@ -600,8 +600,8 @@ public class Search {
 
     /**
      * Returns an async iterator that returns results ordered by their distance from a given center vector.
-     * <p>
-     * This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
+     *
+     * <p>This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
      * (k-Nearest Neighbor) or beam search. The results are returned as an {@link AsyncIterator}, with items
      * yielded in increasing order of their distance from the center. The search can be started or resumed from a
      * specific point defined by {@code minimumRadius} and {@code minimumPrimaryKey}, allowing for pagination.

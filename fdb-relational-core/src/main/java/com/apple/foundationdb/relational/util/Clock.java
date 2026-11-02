@@ -25,8 +25,8 @@ package com.apple.foundationdb.relational.util;
  *
  * This is useful whenever you might want to change the behavior of "time" in logical ways (for example,
  * by using a monotonic counter instead of an actual clock) without changing the algorithms that use it.
- * <p>
- * There are a bunch of interfaces like this in our library set, having our own is useful for dependency management,
+ *
+ * <p>There are a bunch of interfaces like this in our library set, having our own is useful for dependency management,
  * otherwise it would just be a waste of text.
  */
 public interface Clock {

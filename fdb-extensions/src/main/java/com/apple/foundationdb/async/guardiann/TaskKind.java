@@ -33,8 +33,7 @@ import java.util.stream.Collectors;
  * used in the task's serialized form and a factory that reconstructs the corresponding {@link AbstractDeferredTask}
  * from its stored key and value tuples.
  *
- * <p>
- * This enum is public only because it appears in the {@link OnWriteListener} callback surface (task-enqueue/execute
+ * <p>This enum is public only because it appears in the {@link OnWriteListener} callback surface (task-enqueue/execute
  * notifications); its own methods are package-private, as it is otherwise an internal detail of the deferred-task
  * machinery.
  */

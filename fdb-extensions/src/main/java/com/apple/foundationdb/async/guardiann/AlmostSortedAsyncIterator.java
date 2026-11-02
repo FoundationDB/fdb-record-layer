@@ -40,8 +40,7 @@ import java.util.concurrent.Executor;
  * element more than the window size away from its fully sorted position cannot be pulled forward; this trades exact
  * ordering for bounded memory, which suits search pipelines that consume a roughly distance-ordered prefix.
  *
- * <p>
- * The first element is the expensive one: before anything can be emitted the buffer is filled to {@code maxQueueSize}
+ * <p>The first element is the expensive one: before anything can be emitted the buffer is filled to {@code maxQueueSize}
  * (or until the input is exhausted), so producing it draws a full window of elements from the input up front.
  * Therefore, its cost scales with {@code maxQueueSize} input pulls — though the wall-clock time is really governed by
  * the input's (unbounded, potentially I/O-bound) per-element cost, not by {@code maxQueueSize} itself. Thereafter each

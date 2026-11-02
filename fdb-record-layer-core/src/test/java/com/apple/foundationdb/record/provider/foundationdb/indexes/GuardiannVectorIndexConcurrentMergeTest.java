@@ -61,13 +61,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * concurrently drains the deferred split/merge backlog. Modeled on Lucene's
  * {@code LuceneIndexMaintenanceTest.chaosMergeAndUpdateTest} (a dedicated inserter thread + a merger thread that both
  * retry on transaction conflicts).
- * <p>
- * The index is configured with tight clusters (so 10k inserts produce a large deferred backlog for the merger) and a
+ *
+ * <p>The index is configured with tight clusters (so 10k inserts produce a large deferred backlog for the merger) and a
  * modest primary-cluster hard cap (so inserters that briefly outrun the merger get back-pressured with
  * {@link VectorIndexClusterTooLargeException} and must retry). Both writers and merger retry FDB conflicts, logging when
  * they do. After the load, the backlog is drained to completion and recall@k is checked against the SIFT ground truth.
- * <p>
- * Several parameters below (cluster sizes, hard cap, thread count, throttle, recall threshold) are calibration knobs; a
+ *
+ * <p>Several parameters below (cluster sizes, hard cap, thread count, throttle, recall threshold) are calibration knobs; a
  * first run against FDB is expected to confirm/adjust them.
  */
 class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {

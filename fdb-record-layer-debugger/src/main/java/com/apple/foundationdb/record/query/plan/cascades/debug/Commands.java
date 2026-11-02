@@ -62,8 +62,8 @@ public class Commands {
      * all actions taken place while the REPL has control. So for instance it may be useful for a command
      * "current" to know the current event, so it can properly print out information depending on the specifics
      * of the event.
-     * <br>
-     * All commands are <em>discovered</em> through a {@link java.util.ServiceLoader}. In order to create the
+     *
+     * <p>All commands are <em>discovered</em> through a {@link java.util.ServiceLoader}. In order to create the
      * correct information in the meta-info of the jar, we use the {@link AutoService} annotation for all
      * discoverable commands.
      *
@@ -93,8 +93,8 @@ public class Commands {
 
     /**
      * Break point command.
-     * <br>
-     * Supports:
+     *
+     * <p>Supports:
      * <ul>
      * <li>{@code break [list]} -- show all currently defined break points</li>
      * <li>{@code break yield <identifier>} -- set a break point when the specified expression is yielded</li>

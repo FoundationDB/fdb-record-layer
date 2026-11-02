@@ -88,7 +88,7 @@ import java.util.stream.Collectors;
  * in the same transaction.
  * <p>Note: Since the manager is transaction-scoped, it will be closed once the transaction commits or closes.
  * (See the commit hook created below achieving this).
- * When the manager is closed, it will also close all the directory wrappers it has created.</p>
+ * When the manager is closed, it will also close all the directory wrappers it has created.
  */
 @API(API.Status.INTERNAL)
 public class FDBDirectoryManager implements AutoCloseable {

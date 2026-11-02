@@ -23,10 +23,8 @@
  * {@code 0xff}. These keys are used by the system to store configuration information as well as to provide endpoints
  * for executing special functions (e.g., locking the database).
  *
- * <p>
- * The contents of this package should generally be considered experimental. There is also a project to expose these
+ * <p>The contents of this package should generally be considered experimental. There is also a project to expose these
  * special keys in a more systematic way. See:
  * <a href="https://github.com/apple/foundationdb/blob/master/design/special-key-space.md">Special key space</a>.
- * </p>
  */
 package com.apple.foundationdb.system;

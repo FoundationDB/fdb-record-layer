@@ -45,11 +45,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * {@code bytes} field the column is declared as. That is the most visible loss rather than the only one: the same
  * {@code FieldOptions} extension also spells the primary key and the index of a column, and sibling extensions carry
  * the record type and the schema options.
- * <p>
- * The keys below are spelled in snake case where {@code vector-metadata.yamsql}'s fixture uses camel case, because both
+ *
+ * <p>The keys below are spelled in snake case where {@code vector-metadata.yamsql}'s fixture uses camel case, because both
  * are forms this class has to read: a printer that writes the declared proto names produces the first, and
  * {@code JsonFormat}'s printer the second.
- * </p>
  */
 class JsonExtensionMergerTest {
     /** Metadata for two record types, each with one {@code bytes} column whose {@code options} the caller supplies. */

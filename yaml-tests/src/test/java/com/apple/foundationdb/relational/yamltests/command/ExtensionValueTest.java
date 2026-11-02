@@ -37,9 +37,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests for the value conversions in {@link JsonExtensionMerger}, over the extensions of {@code extension_tests.proto}.
  * The metadata protos declare only message-valued extensions and none of their value messages is extendable, so a
  * proto2 file of our own is the only way to reach the other conversions or to nest one extension inside another.
- * <p>
- * These merge into a bare {@code FieldOptions} rather than a whole metadata document, which is all the conversions need.
- * </p>
+ *
+ * <p>These merge into a bare {@code FieldOptions} rather than a whole metadata document, which is all the conversions need.
  */
 class ExtensionValueTest {
     private static final String EXT = "com.apple.foundationdb.relational.yamltests.generated.extensiontests.";

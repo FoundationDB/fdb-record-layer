@@ -54,8 +54,7 @@ import java.util.stream.Collectors;
 /**
  * The root expression of a {@code LUCENE} index specifies how select fields of a record are mapped to fields of a Lucene document.
  *
- * <p>
- * The expression tree is made up of the following.<br>
+ * <p>The expression tree is made up of the following.<br>
  * <b>Structure</b><ul>
  * <li>{@link ThenKeyExpression concat} includes multiple subexpressions in the index.
  * Since these are flattened, order does not really matter.</li>
@@ -63,8 +62,7 @@ import java.util.stream.Collectors;
  * By default, the name of the parent field is prepended to the names of descendent fields.</li>
  * </ul>
  *
- * <p>
- * <b>Fields</b><ul>
+ * <p><b>Fields</b><ul>
  * <li>{@link FieldKeyExpression field} is a record field whose value is added to the index.
  * By default, a field is indexed as a scalar value. That is, even a string with whitespace is a single token.
  * </li>
@@ -72,16 +70,14 @@ import java.util.stream.Collectors;
  * <li>{@link LuceneFunctionNames#LUCENE_STORED function(lucene_stored)} annotates a document field as additionally stored in the document so that its value is returned in searches.</li>
  * </ul>
  *
- * <p>
- * <b>Names</b><br>
+ * <p><b>Names</b><br>
  * By default, the name of each field in the hierarchy of nested subrecords is included in the name of flattened fields.
  * {@link LuceneFunctionNames#LUCENE_FIELD_NAME function(lucene_field_name)} overrides this.<ul>
  * <li>{@code value(null)} skips adding any name prefix, introducing the possibility of flattened name collisions.</li>
  * <li>{@code field(key)} allows another field to give the name. This is useful for map-like nested subrecords with well-known keys.</li>
  * </ul>
  *
- * <p>
- * The expression tree can be walked in several different ways, either with an actual record to produce actual fields, or with
+ * <p>The expression tree can be walked in several different ways, either with an actual record to produce actual fields, or with
  * record meta-data to determine what possible fields there are. Specifically,<ul>
  * <li>map a record into a document</li>
  * <li>get a list of document field names</li>

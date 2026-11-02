@@ -693,10 +693,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * to construct certain kinds {@link com.apple.foundationdb.record.query.plan.cascades.Compensation}s to make the
      * plan work, then we may lose coverage (absent other changes to our testing strategy).
      *
-     * <p>
-     * There are several elements of this test that are necessary at time of writing to make it hit the code
+     * <p>There are several elements of this test that are necessary at time of writing to make it hit the code
      * path under test:
-     * </p>
      * <ol>
      *     <li>A nested existential query on a single field</li>
      *     <li>The inner query has an IN predicate on that field</li>

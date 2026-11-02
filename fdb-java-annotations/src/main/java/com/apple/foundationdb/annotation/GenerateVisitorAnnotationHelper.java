@@ -301,11 +301,10 @@ class GenerateVisitorAnnotationHelper {
      * Returns the given element together with every type nested inside it, at any depth. The original implementation
      * only looked at the types directly enclosed by a package, which silently skipped every nested subclass of an
      * annotated root.
-     * <p>
-     * The enclosing type is included alongside its nested types, not replaced by them: a type is routinely both a
+     *
+     * <p>The enclosing type is included alongside its nested types, not replaced by them: a type is routinely both a
      * dispatch target and a container of nested helpers -- almost every {@code Value}, for instance, nests its own
      * {@code Deserializer} -- so descending into a type must not remove the type itself from consideration.
-     * </p>
      *
      * @param element the element to descend into, a package or a type
      *
@@ -340,12 +339,11 @@ class GenerateVisitorAnnotationHelper {
 
     /**
      * The name to use when the generated code needs to refer to the given type.
-     * <p>
-     * A generic type has to be named with a wildcard for each of its type parameters. Using the type as declared would
+     *
+     * <p>A generic type has to be named with a wildcard for each of its type parameters. Using the type as declared would
      * leak its type variables into the visitor interface, where they are out of scope and, if a type parameter happens
      * to be named like the visitor's own result variable, silently capture it instead -- {@code LiteralValue<T>} in a
      * {@code ValueVisitor<T>} reads as "a literal whose type is the visitor's result type", which is not what is meant.
-     * </p>
      *
      * @param typeElement the type to name
      *

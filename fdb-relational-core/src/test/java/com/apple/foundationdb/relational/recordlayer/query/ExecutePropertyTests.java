@@ -51,11 +51,11 @@ public class ExecutePropertyTests {
      * rows. In the current setup, these limits are not strictly enforced by some of the plan execution cursors, for
      * instance see {@link com.apple.foundationdb.record.provider.foundationdb.SplitHelper.KeyValueUnsplitter}. Hence,
      * an execution that has a scanned number of rows limit set can actually end up returning slightly more than that.
-     * <p>
-     * Some of the tests here are based on that fact and hard-code the mapping between prescribed limit and actual
+     *
+     * <p>Some of the tests here are based on that fact and hard-code the mapping between prescribed limit and actual
      * returned number of result.
-     * <p>
-     * TODO (Sanitize ExecutePropertyTest in Relational)
+     *
+     * <p>TODO (Sanitize ExecutePropertyTest in Relational)
      */
 
     private static final String schemaTemplate = "CREATE TABLE FOO(a bigint, name string, PRIMARY KEY(A))";

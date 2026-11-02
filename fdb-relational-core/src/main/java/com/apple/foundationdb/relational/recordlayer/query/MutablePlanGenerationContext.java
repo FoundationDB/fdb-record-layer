@@ -120,12 +120,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     /**
      * Checks if the provided literal argument has already been referenced by a registered {@link OrderedLiteral}.
-     * <br>
-     * If a matching {@link OrderedLiteral} is found, it is returned, and an equality constraint is created
+     *
+     * <p>If a matching {@link OrderedLiteral} is found, it is returned, and an equality constraint is created
      * between it and a constant reference representing the lexical position of the current literal token in the query.
      * Otherwise, an empty {@link Optional} is returned.
-     * <br>
-     * For example, given the query {@code SELECT A + 3 FROM T WHERE B > 3}:
+     *
+     * <p>For example, given the query {@code SELECT A + 3 FROM T WHERE B > 3}:
      * <ul>
      *     <li>When encountering the first {@code 3} literal at lexical position 4, calling
      *     {@code getFirstCovReference(3, 4, Type.Int)} will return an empty {@link Optional} because this is the

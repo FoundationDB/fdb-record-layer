@@ -66,7 +66,7 @@ import java.util.stream.Stream;
  *
  * <p>The {@link InProcessRelationalServer} creates an {@code FRL} instance which registers both the
  * embedded driver (for {@code jdbc:embed:} URLs) and the gRPC service (for {@code jdbc:relational:}
- * URLs). This allows the test to use both connection types against the same backing database.</p>
+ * URLs). This allows the test to use both connection types against the same backing database.
  */
 public class JDBCParameterizedQueryComparisonTest {
 

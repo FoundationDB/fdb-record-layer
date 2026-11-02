@@ -42,17 +42,17 @@ import java.util.function.Consumer;
 /**
  * An implementation of the Hierarchical Navigable Small World (HNSW) algorithm for
  * efficient approximate nearest neighbor (ANN) search.
- * <p>
- * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
+ *
+ * <p>HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
  * The top layers serve as fast entry points to navigate the graph, while the bottom layer
  * contains all the data points. This structure allows for logarithmic-time complexity
  * for search operations, making it suitable for large-scale, high-dimensional datasets.
- * <p>
- * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector, Tuple)})
+ *
+ * <p>This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector, Tuple)})
  * and performing k-NN searches ({@link #kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)}).
  * It is designed to be used with a transactional storage backend, managed via a {@link Subspace}.
- * <p>
- * This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
+ *
+ * <p>This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
  * the respective operations classes which implement the actual algorithms to maintain and to search the structure.
  * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
@@ -84,8 +84,8 @@ public class HNSW {
 
     /**
      * Constructs a new HNSW graph instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     *
+     * <p>This constructor initializes the HNSW graph with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param subspace the {@link Subspace} where the graph data is stored.
@@ -191,8 +191,8 @@ public class HNSW {
     /**
      * Classifies how many nodes currently live on the base layer (layer 0) of the graph as
      * {@link Cardinality#EMPTY}, {@link Cardinality#SINGLE} or {@link Cardinality#MULTIPLE}.
-     * <p>
-     * Since layer 0 holds every node, this doubles as a coarse classification of the whole graph: empty,
+     *
+     * <p>Since layer 0 holds every node, this doubles as a coarse classification of the whole graph: empty,
      * holding exactly one node, or holding two or more nodes. The scan stops after the second node, so the cost
      * is independent of the size of the graph. This is useful for callers that need to make a decision based on
      * whether more than one node exists without paying to count them all — for example, deciding whether a merge
@@ -258,13 +258,13 @@ public class HNSW {
 
     /**
      * Inserts a new vector with its associated primary key into the HNSW graph.
-     * <p>
-     * The method first determines a layer for the new node, called the {@code top layer}.
+     *
+     * <p>The method first determines a layer for the new node, called the {@code top layer}.
      * It then traverses the graph from the entry point downwards, greedily searching for the nearest
      * neighbors to the {@code newVector} at each layer. This search identifies the optimal
      * connection points for the new node.
-     * <p>
-     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
+     *
+     * <p>Once the nearest neighbors are found, the new node is linked into the graph structure at all
      * layers up to its {@code top layer}. Special handling is included for inserting the
      * first-ever node into the graph or when a new node's layer is higher than any existing node,
      * which updates the graph's entry point. All operations are performed asynchronously.
@@ -284,8 +284,8 @@ public class HNSW {
 
     /**
      * Deletes a record using its associated primary key from the HNSW graph.
-     * <p>
-     * This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
+     *
+     * <p>This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
      * graph. The deletion process consists of several key phases:
      * <ul>
      *     <li><b>Layer Determination:</b> First determines the top layer for the node using the same deterministic
@@ -331,8 +331,8 @@ public class HNSW {
 
     /**
      * Returns an async iterator that returns results ordered by their distance from a given center vector.
-     * <p>
-     * This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
+     *
+     * <p>This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
      * (k-Nearest Neighbor) or beam search. The results are returned as an {@link AsyncIterator}, with items
      * yielded in increasing order of their distance from the center. The search can be started or resumed from a
      * specific point defined by {@code minimumRadius} and {@code minimumPrimaryKey}, allowing for pagination.
@@ -384,8 +384,8 @@ public class HNSW {
 
     /**
      * Scans all nodes within a given layer of the database.
-     * <p>
-     * The scan is performed transactionally in batches to avoid loading the entire layer into memory at once. Each
+     *
+     * <p>The scan is performed transactionally in batches to avoid loading the entire layer into memory at once. Each
      * discovered node is passed to the provided {@link Consumer} for processing. The operation continues fetching
      * batches until all nodes in the specified layer have been processed.
      *
@@ -408,8 +408,8 @@ public class HNSW {
 
     /**
      * Gets the appropriate storage adapter for a given layer.
-     * <p>
-     * This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
+     *
+     * <p>This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
      * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
      * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
      *

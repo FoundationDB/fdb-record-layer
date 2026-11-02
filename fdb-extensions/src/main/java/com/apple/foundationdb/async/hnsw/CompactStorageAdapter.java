@@ -48,8 +48,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * The {@code CompactStorageAdapter} class is a concrete implementation of {@link StorageAdapter} for managing HNSW
  * graph data in a compact format.
- * <p>
- * It handles the serialization and deserialization of graph nodes to and from a persistent data store. This
+ *
+ * <p>It handles the serialization and deserialization of graph nodes to and from a persistent data store. This
  * implementation is optimized for space efficiency by storing nodes with their accompanying vector data and by storing
  * just neighbor primary keys. It extends {@link AbstractStorageAdapter} to inherit common storage logic.
  */
@@ -82,8 +82,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Asynchronously fetches a node from the database for a given layer and primary key.
-     * <p>
-     * This internal method constructs a raw byte key from the {@code layer} and {@code primaryKey} within the store's
+     *
+     * <p>This internal method constructs a raw byte key from the {@code layer} and {@code primaryKey} within the store's
      * data subspace. It then uses the provided {@link ReadTransaction} to retrieve the raw value. If a value is found,
      * it is deserialized into a {@link AbstractNode} object using the {@code nodeFromRaw} method.
      *
@@ -114,8 +114,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Deserializes a raw key-value byte array pair into a {@code Node}.
-     * <p>
-     * This method first converts the {@code valueBytes} into a {@link Tuple} and then,
+     *
+     * <p>This method first converts the {@code valueBytes} into a {@link Tuple} and then,
      * along with the {@code primaryKey}, constructs the final {@code Node} object.
      * It also notifies any registered {@link OnReadListener} about the raw key-value
      * read and the resulting node creation.
@@ -143,8 +143,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Constructs a compact {@link AbstractNode} from its representation as stored key and value tuples.
-     * <p>
-     * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
+     *
+     * <p>This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
      * {@link #compactNodeFromTuples(StorageTransform, Tuple, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected
      * to have a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1,
@@ -176,12 +176,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Creates a compact in-memory representation of a graph node from its constituent storage tuples.
-     * <p>
-     * This method deserializes the raw data stored in {@code Tuple} objects into their
+     *
+     * <p>This method deserializes the raw data stored in {@code Tuple} objects into their
      * corresponding in-memory types. It extracts the vector, constructs a list of
      * {@link NodeReference} objects for the neighbors, and then uses a factory to
      * assemble the final {@code Node} object.
-     * </p>
      *
      * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
@@ -273,8 +272,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Constructs the raw database key for a node based on its layer and primary key.
-     * <p>
-     * This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
+     *
+     * <p>This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
      * within the data subspace. The resulting byte array is suitable for use in direct database lookups and preserves
      * the sort order of the components.
      *
@@ -291,8 +290,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Scans a given layer for nodes, returning an iterable over the results.
-     * <p>
-     * This method reads a limited number of nodes from a specific layer in the underlying data store.
+     *
+     * <p>This method reads a limited number of nodes from a specific layer in the underlying data store.
      * The scan can be started from a specific point using the {@code lastPrimaryKey} parameter, which is
      * useful for paginating through the nodes in a large layer.
      *

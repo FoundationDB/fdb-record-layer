@@ -31,10 +31,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Annotation for tests that take more than 5 minutes, and thus are slower than even {@link Tags#Slow}.
- * <p>
- *     It may be appropriate to apply this annotation in the case of a parameterized test that has multiple parameters
+ *
+ * <p>It may be appropriate to apply this annotation in the case of a parameterized test that has multiple parameters
  *     all of which are individually slow, and one is ok with it not running as part of PRB.
- * </p>
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

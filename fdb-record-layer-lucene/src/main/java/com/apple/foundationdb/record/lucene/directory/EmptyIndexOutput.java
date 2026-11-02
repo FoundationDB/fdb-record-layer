@@ -28,10 +28,9 @@ import java.io.IOException;
 
 /**
  * An output that is used to cause file references to exist, but doesn't actually allow writing.
- * <p>
- *     This could just use an {@link FDBIndexOutput} and never actually write anything, but this helps fail earlier in
+ *
+ * <p>This could just use an {@link FDBIndexOutput} and never actually write anything, but this helps fail earlier in
  *     cases where we never expect to write anything.
- * </p>
  */
 public class EmptyIndexOutput extends IndexOutput {
     private final FDBDirectory fdbDirectory;

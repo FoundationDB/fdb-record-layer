@@ -43,9 +43,7 @@ import java.util.concurrent.Executor;
  * static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
  * </pre>
  *
- * <p>
- * The user can then call {@link #getDatabase() dbExtension.getDatabase()} to get an actual FDB handle.
- * </p>
+ * <p>The user can then call {@link #getDatabase() dbExtension.getDatabase()} to get an actual FDB handle.
  */
 public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallback {
     private static final int MIN_API_VERSION = 630;

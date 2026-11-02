@@ -132,8 +132,8 @@ class RelationalArrayFacade implements RelationalArray {
      * specified <code>index</code> and containing up to <code>count</code>
      * successive elements of the SQL array.  This method uses the type map
      * associated with the connection for customizations of the type mappings.
-     * <p>
-     * Note: In Relational, this method will always return an array of Struct types. This is
+     *
+     * <p>Note: In Relational, this method will always return an array of Struct types. This is
      * _technically_ in violation of the SQL spec, but it allows for a user experience which
      * is more consistent w.r.t how metadata is available and handled.
      * @param oneBasedIndex index the array index of the first element to retrieve;

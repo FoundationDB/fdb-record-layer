@@ -58,8 +58,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Phase 2 scenario: forces a {@link ReassignTask} to fire via the
  * {@code underreplicatedPrimaryClusterMax} trigger.
- * <p>
- * That trigger is a safety net the structure normally never reaches on its own through inserts.
+ *
+ * <p>That trigger is a safety net the structure normally never reaches on its own through inserts.
  * Regular {@code Guardiann#insert} writes every new primary copy in the non-underreplicated stat --
  * only {@link SplitMergeTask} and {@link ReassignTask} can mark a primary as under-replicated,
  * by reassigning it to a different cluster than the one it currently lives in. So exercising the

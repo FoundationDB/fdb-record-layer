@@ -31,8 +31,8 @@ import javax.annotation.Nonnull;
  * SIMD implementation of {@link Backend} using the {@link jdk.incubator.vector} API
  * ({@link DoubleVector} with {@link DoubleVector#SPECIES_PREFERRED}). Loaded reflectively by
  * {@code RealVectorPrimitives}; never imported directly from the parent package.
- * <p>
- * Each element-wise method walks the input in {@link VectorSpecies#length() SPECIES.length()}-sized
+ *
+ * <p>Each element-wise method walks the input in {@link VectorSpecies#length() SPECIES.length()}-sized
  * chunks (vectorized loop) and processes the remaining
  * 0–{@link VectorSpecies#length() SPECIES.length()}-1 elements with a scalar tail
  * loop. Reductions (dot, l2SquaredNorm, euclideanSquared) accumulate into a
@@ -54,8 +54,8 @@ public final class SimdBackend implements Backend {
      * {@code accCount * SPECIES.length()} that is {@code <= length}. This is the unrolled-loop
      * analogue of {@link VectorSpecies#loopBound(int)} (which gives the end for a loop advancing a
      * single vector per iteration) for a loop that advances {@code accCount} vectors per iteration.
-     * <p>
-     * Centralizing it keeps the off-by-one in one place: a reduction iterates this many leading
+     *
+     * <p>Centralizing it keeps the off-by-one in one place: a reduction iterates this many leading
      * elements in the unrolled loop, then {@link VectorSpecies#loopBound(int)} elements in a
      * single-vector trailing loop, then the scalar tail. Callers add {@code from} to make the
      * bound absolute.

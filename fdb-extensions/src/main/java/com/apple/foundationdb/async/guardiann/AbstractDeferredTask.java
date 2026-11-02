@@ -51,8 +51,7 @@ import java.util.concurrent.CompletableFuture;
  * Base class for the deferred (background) maintenance tasks Guardiann enqueues to keep its cluster structure
  * healthy: {@link SplitMergeTask}, {@link ReassignTask}, {@link CollapseTask}, and {@link BounceTask}.
  *
- * <p>
- * Each task is persisted in a task queue and carries:
+ * <p>Each task is persisted in a task queue and carries:
  * <ul>
  *   <li>a {@linkplain #getTaskId() task id} under which the task is stored in the queue; the id's high bit encodes
  *       the task's scheduling priority, so high-priority ids sort ahead of normal-priority ones;</li>
@@ -246,8 +245,7 @@ abstract class AbstractDeferredTask {
      * as a last resort effort. For instance, {@link SplitMergeTask} may call this method to probe if vectors can be
      * collapsed (if the split evaluation was yielding invalid partitionings).
      *
-     * <p>
-     * Guardiann keeps identical vectors as separate references until there are enough of them that collapsing them
+     * <p>Guardiann keeps identical vectors as separate references until there are enough of them that collapsing them
      * into a single representative pays off; {@link Config#collapseMinDuplicates()} is that threshold. When the most
      * duplicated content signature in the cluster exceeds it, this schedules two high-priority tasks: a
      * {@link CollapseTask} that performs the collapse, and a {@link BounceTask} that — once the collapse commits —
@@ -502,10 +500,8 @@ abstract class AbstractDeferredTask {
      * clusters in ascending distance order) and a map of running standard deviation updates accumulated
      * from each vector's primary (nearest) cluster assignment.
      *
-     * <p>
-     * The caller is responsible for merging the returned standard deviation updates into its own
+     * <p>The caller is responsible for merging the returned standard deviation updates into its own
      * tracking map via {@link #mergeStandardDeviationUpdates}.
-     * </p>
      *
      * @param estimator distance estimator for the vector space
      * @param vectorReferences vector references to process (only primary copies are considered)
@@ -568,10 +564,8 @@ abstract class AbstractDeferredTask {
      * contain the clusters closest to the target that will be dissolved/repartitioned;
      * the neighboring clusters contain clusters that may receive overflow vectors.
      *
-     * <p>
-     * Handles the rare edge case where the target cluster itself is not found in the HNSW results
+     * <p>Handles the rare edge case where the target cluster itself is not found in the HNSW results
      * by synthesizing it at position 0 of the core clusters.
-     * </p>
      *
      * @param clusterMetadataWithDistances the candidate clusters ordered by ascending distance to the target centroid
      * @param targetClusterMetadata the cluster being repartitioned

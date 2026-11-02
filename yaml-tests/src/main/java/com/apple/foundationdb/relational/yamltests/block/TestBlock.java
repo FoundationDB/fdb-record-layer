@@ -68,8 +68,8 @@ import java.util.stream.IntStream;
  *     <li>tests: the set of queries along with the configurations of how and against what they are tested. Each
  *     test translates to a {@link QueryCommand} with one or more {@link QueryConfig}.</li>
  * </ul>
- * <p>
- * There a couple of {@link TestBlock} options that controls how the tests in the block is executed. This in turn
+ *
+ * <p>There a couple of {@link TestBlock} options that controls how the tests in the block is executed. This in turn
  * determines what is tested in each test and how rigorously. These options are:
  * <ul>
  *     <li>{@code mode}: By far the most important option, mode can be either {@code ordered} or {@code randomized}

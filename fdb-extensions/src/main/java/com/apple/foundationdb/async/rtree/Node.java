@@ -37,8 +37,8 @@ import java.util.stream.Stream;
  * Interface to capture the common aspects of nodes being either {@link LeafNode}s or {@link IntermediateNode}s.
  * All nodes have a node id and slots and can be linked up to a parent. Note that while the root node mostly is an
  * intermediate node it can also be a leaf node if the tree is nearly empty.
- * <br>
- * This interface is then implemented by {@link AbstractNode} in a stronger-typed way. A node for most practical
+ *
+ * <p>This interface is then implemented by {@link AbstractNode} in a stronger-typed way. A node for most practical
  * purposes interacts with e.f. {@link NodeSlot}s, only some specific use-cases including the internals of nodes and
  * node slots themselves need to be aware of the pairing of specific node type and specific belonging node slot type.
  * A {@link Node} hides these private typing details much like a private method is hidden. Other languages have

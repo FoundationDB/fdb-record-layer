@@ -88,10 +88,10 @@ public class LuceneIndexTestValidator {
     /**
      * A broad validation of the lucene index, asserting consistency, and that various operations did what they were
      * supposed to do.
-     * <p>
-     *     This has a lot of validation that could be added, and it would be good to be able to control whether it's
+     *
+     * <p>This has a lot of validation that could be added, and it would be good to be able to control whether it's
      *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
-     * </p>
+     *
      * @param index the index to validate
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
      * @param universalSearch a search that will return all the documents
@@ -105,10 +105,10 @@ public class LuceneIndexTestValidator {
     /**
      * A broad validation of the lucene index, asserting consistency, and that various operations did what they were
      * supposed to do.
-     * <p>
-     *     This has a lot of validation that could be added, and it would be good to be able to control whether it's
+     *
+     * <p>This has a lot of validation that could be added, and it would be good to be able to control whether it's
      *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
-     * </p>
+     *
      * @param index the index to validate
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
      * @param universalSearch a search that will return all the documents

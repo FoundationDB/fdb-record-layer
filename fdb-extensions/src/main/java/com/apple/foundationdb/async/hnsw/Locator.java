@@ -60,8 +60,8 @@ public class Locator {
 
     /**
      * Constructs a new HNSW graph instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     *
+     * <p>This constructor initializes the HNSW graph with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param subspace the {@link Subspace} where the graph data is stored.

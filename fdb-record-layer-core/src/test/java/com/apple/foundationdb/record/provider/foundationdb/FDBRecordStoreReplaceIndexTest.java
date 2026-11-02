@@ -415,7 +415,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * handed to the {@code UserVersionChecker} and was not attempted to be built.
      * When its replacement was also not built (so the original was not disabled by {@code removeReplacedIndexes}),
      * the original index was left marked readable but empty even when the checker asked for it to be disabled,
-     * which was incorrect.</p>
+     * which was incorrect.
      */
     @ParameterizedTest
     @EnumSource(RebuildOption.class)
@@ -830,7 +830,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * <p>To show the build is not merely undone (rather than never attempted): {@code rebuildAllIndexes} builds every
      * index in its set to {@link IndexState#READABLE}, and the {@code removeReplacedIndexes} commit-check that would
      * re-disable a replaced index only runs at commit. So if the replaced index is still {@code DISABLED} in the same
-     * transaction, right after the rebuild completes, it was never built.</p>
+     * transaction, right after the rebuild completes, it was never built.
      */
     @Test
     void buildAllIndexesDoesNotBuildReplacedIndex() {

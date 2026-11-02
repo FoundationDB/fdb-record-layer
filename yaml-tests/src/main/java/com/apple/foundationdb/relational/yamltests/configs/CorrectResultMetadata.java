@@ -27,9 +27,8 @@ import javax.annotation.Nonnull;
 /**
  * A configuration that runs an underlying configuration, but heals {@code resultMetadata} blocks in YAMSQL files
  * where expected and actual column metadata differ.
- * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA}.
- * </p>
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA}.
  */
 public class CorrectResultMetadata extends ConfigWithOptions {
     public CorrectResultMetadata(@Nonnull final YamlTestConfig underlying) {

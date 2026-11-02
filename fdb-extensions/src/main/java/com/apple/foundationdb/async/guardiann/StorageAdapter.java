@@ -122,8 +122,8 @@ class StorageAdapter {
 
     /**
      * Constructs a new {@code StorageAdapter}.
-     * <p>
-     * This constructor initializes the adapter with the necessary configuration and listeners for managing a
+     *
+     * <p>This constructor initializes the adapter with the necessary configuration and listeners for managing a
      * Guardiann structure, and sets up the dedicated subspaces within the provided main subspace.
      *
      * @param config the Guardiann configuration
@@ -437,8 +437,7 @@ class StorageAdapter {
      * at or above {@link Config#replicationPriorityMin()}, and cap the kept count at
      * {@link Config#replicatedClusterTarget()}.
      *
-     * <p>
-     * The score weighs and combines two independently-motivated terms:
+     * <p>The score weighs and combines two independently-motivated terms:
      * <ul>
      *   <li><b>Border ambiguity</b> — the ratio {@code distanceToPrimaryCentroid / distance}, i.e. how far the vector
      *       is from its home centroid relative to the candidate centroid. For a primary vector the home is the nearest
@@ -457,8 +456,7 @@ class StorageAdapter {
      *       near — or past — a neighboring cluster. Weighted by {@link Config#replicationZScoreWeight()}.</li>
      * </ul>
      *
-     * <p>
-     * The tail-ness term is evaluated only when its weight is non-zero and the home cluster holds at least
+     * <p>The tail-ness term is evaluated only when its weight is non-zero and the home cluster holds at least
      * {@link Config#replicationStatsMinSampleSize()} primary vectors (so its {@code mean}/{@code standardDeviation} are
      * trustworthy); otherwise it contributes {@code 0} — which also avoids a {@code 0.0 * NaN} when the standard
      * deviation is undefined. A small epsilon guards both divisions against a zero denominator.
@@ -496,8 +494,7 @@ class StorageAdapter {
      * {@code dist(candidateCentroid, s.centroid) < dist(vector, candidateCentroid)}, where the right-hand distance is
      * the one carried on the candidate as {@link ClusterMetadataWithDistance#distance()}.
      *
-     * <p>
-     * The idea comes from the SPANN paper (<a href="https://arxiv.org/pdf/2111.08566">arXiv:2111.08566</a>), which
+     * <p>The idea comes from the SPANN paper (<a href="https://arxiv.org/pdf/2111.08566">arXiv:2111.08566</a>), which
      * replicates boundary postings into nearby clusters using this relative-neighborhood ("closure") rule — the same
      * pruning HNSW applies during neighbor selection. Without it, the few clusters nearest a vector tend to bunch
      * together in one direction, so replicating into all of them is redundant. If an already-selected cluster lies
