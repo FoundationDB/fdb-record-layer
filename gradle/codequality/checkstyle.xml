@@ -189,6 +189,11 @@
             <property name="forbiddenSummaryFragments" value="^User: .*"/>
         </module>
 
+        <module name="JavadocParagraph">
+            <!-- Require the blank line and "<p>Text" form; see the Google Java Style Guide, section 7.1.2. -->
+            <property name="allowNewlineParagraph" value="false"/>
+        </module>
+
         <module name="AtclauseOrder">
             <property name="tagOrder" value="@param, @return, @throws, @deprecated"/>
             <property name="target" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF, VARIABLE_DEF"/>
