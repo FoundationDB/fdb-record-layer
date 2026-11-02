@@ -232,13 +232,12 @@ public class MessageHelpers {
     /**
      * This method provides a structural deep copy of the {@link Message} passed in. This method was heavily inspired
      * by {@link Message.Builder#mergeFrom(Message)}, however, this method allow to also pass in a descriptor of describing
-     * a compatible/equal message structure. In general, this method should always work (and work better), when
-     * {@code DynamicMessage.parseFrom(targetDescriptor, other.toByteArray()} is well-defined.
+     * a compatible/equal message structure. Fields are matched by position, not by field number, and the target
+     * descriptor may have additional trailing fields.
      * Note that if {@code message.getDescriptorForType()} and {@code targetDescriptor} are incompatible in any way,
      * the behaviour/result of this method is undefined.
      *
-     * @param targetDescriptor a descriptor that describes a structure that is wire-compatible with the {@code message}
-     *        passed in
+     * @param targetDescriptor a descriptor that describes the same structure as the {@code message} passed in
      * @param message a message
      * @return a new message of {@code targetDescriptor} which is a copy of the message passed in
      */
@@ -259,8 +258,12 @@ public class MessageHelpers {
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
-            // find the field on the target side
-            final var targetField = builder.getDescriptorForType().findFieldByNumber(field.getNumber());
+            // find the field on the target side, by position
+            final var targetFields = builder.getDescriptorForType().getFields();
+            Verify.verify(!field.isExtension() && field.getIndex() < targetFields.size(),
+                    "message %s does not fit descriptor %s", message.getDescriptorForType().getFullName(),
+                    builder.getDescriptorForType().getFullName());
+            final var targetField = targetFields.get(field.getIndex());
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
@@ -276,7 +279,7 @@ public class MessageHelpers {
             } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 final var existingValue = (Message)builder.getField(targetField);
                 if (existingValue == existingValue.getDefaultInstanceForType()) {
-                    builder.setField(field, entry.getValue());
+                    builder.setField(targetField, deepCopyMessageIfNeeded(targetField.getMessageType(), (Message)entry.getValue()));
                 } else {
                     final var mergedObject =
                             DynamicMessage.newBuilder(targetField.getMessageType())
@@ -293,54 +296,6 @@ public class MessageHelpers {
             }
         }
         builder.mergeUnknownFields(message.getUnknownFields());
-    }
-
-    /**
-     * Copies a message into a message of the given descriptor, relating the fields of the two descriptors by their
-     * position.
-     *
-     * @param targetDescriptor a descriptor that describes the same structure as the descriptor of {@code message}
-     * @param message a message
-     * @return {@code message} if it is already of {@code targetDescriptor}, a new message of {@code targetDescriptor}
-     *         which is a copy of the message passed in otherwise
-     */
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static Message coerceMessageByIndexIfNeeded(@Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                       @Nonnull final Message message) {
-        final var messageDescriptor = message.getDescriptorForType();
-        if (targetDescriptor == messageDescriptor) {
-            return message;
-        }
-
-        final var targetFields = targetDescriptor.getFields();
-        Verify.verify(messageDescriptor.getFields().size() == targetFields.size(),
-                "descriptors %s and %s do not describe the same structure",
-                messageDescriptor.getFullName(), targetDescriptor.getFullName());
-        final var builder = DynamicMessage.newBuilder(targetDescriptor);
-        for (final var entry : message.getAllFields().entrySet()) {
-            final var field = entry.getKey();
-            final var targetField = targetFields.get(field.getIndex());
-            if (field.isRepeated()) {
-                for (final var element : (List<?>)entry.getValue()) {
-                    builder.addRepeatedField(targetField, coerceFieldValueByIndex(targetField, element));
-                }
-            } else {
-                builder.setField(targetField, coerceFieldValueByIndex(targetField, entry.getValue()));
-            }
-        }
-        return builder.build();
-    }
-
-    @Nonnull
-    private static Object coerceFieldValueByIndex(@Nonnull final Descriptors.FieldDescriptor targetField,
-                                                  @Nonnull final Object value) {
-        return switch (targetField.getJavaType()) {
-            case MESSAGE -> coerceMessageByIndexIfNeeded(targetField.getMessageType(), (Message)value);
-            case ENUM -> Verify.verifyNotNull(targetField.getEnumType()
-                    .findValueByName(((Descriptors.EnumValueDescriptor)value).getName()));
-            default -> value;
-        };
     }
 
     @Nonnull
@@ -456,8 +411,7 @@ public class MessageHelpers {
         if (coercionsTrie == null) {
             if (targetDescriptor != null && current instanceof Message) {
                 Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
-                // like coerceMessage(), relate the fields by position, as the two descriptors may number them differently
-                return coerceMessageByIndexIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
+                return deepCopyMessageIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
             }
 
             // “Re-wrap” `List` values when the target is a nullable ARRAY. Such arrays are stored as a wrapper message

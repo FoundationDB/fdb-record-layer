@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.TestRecordsTransformProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
@@ -40,7 +41,7 @@ import java.util.Optional;
 
 /**
  * Tests for {@link MessageHelpers.TransformationTrieNode} and {@link MessageHelpers.CoercionTrieNode} hashing
- * and equality semantics, and for the coercion of messages between descriptors.
+ * and equality semantics, and for the deep copy of messages between descriptors.
  */
 public class MessageHelperTests {
 
@@ -177,16 +178,31 @@ public class MessageHelperTests {
     }
 
     @Nonnull
+    private static Type.Record.Field field(@Nonnull final Type type, @Nonnull final String name, final int index) {
+        return Type.Record.Field.of(type, Optional.of(name), Optional.of(index));
+    }
+
+    @Nonnull
     private static Type.Record personType(@Nonnull final List<Integer> fieldIndexes,
                                           @Nonnull final List<Integer> addressFieldIndexes) {
-        final var addressType = Type.Record.fromFields(ImmutableList.of(
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("street"), Optional.of(addressFieldIndexes.get(0))),
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("city"), Optional.of(addressFieldIndexes.get(1)))));
+        final var addressType = Type.Record.fromFields(false, ImmutableList.of(
+                field(Type.primitiveType(Type.TypeCode.STRING), "street", addressFieldIndexes.get(0)),
+                field(Type.primitiveType(Type.TypeCode.STRING), "city", addressFieldIndexes.get(1))));
+        final var statusType = Type.Enum.fromValues(true,
+                List.of(Type.Enum.EnumValue.from("ACTIVE", 0), Type.Enum.EnumValue.from("RETIRED", 1)));
         return Type.Record.fromFields(ImmutableList.of(
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("first_name"), Optional.of(fieldIndexes.get(0))),
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("last_name"), Optional.of(fieldIndexes.get(1))),
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("id"), Optional.of(fieldIndexes.get(2))),
-                Type.Record.Field.of(addressType, Optional.of("address"), Optional.of(fieldIndexes.get(3)))));
+                field(Type.primitiveType(Type.TypeCode.STRING), "first_name", fieldIndexes.get(0)),
+                field(Type.primitiveType(Type.TypeCode.STRING), "last_name", fieldIndexes.get(1)),
+                field(Type.primitiveType(Type.TypeCode.LONG), "id", fieldIndexes.get(2)),
+                field(addressType.withNullability(true), "address", fieldIndexes.get(3)),
+                field(statusType, "status", fieldIndexes.get(4)),
+                field(new Type.Array(false, addressType), "addresses", fieldIndexes.get(5)),
+                field(new Type.Array(true, addressType), "past_addresses", fieldIndexes.get(6))));
+    }
+
+    @Nonnull
+    private static Type.Record skippingPersonType() {
+        return personType(ImmutableList.of(1, 3, 4, 5, 6, 8, 9), ImmutableList.of(1, 3));
     }
 
     @Nonnull
@@ -196,51 +212,117 @@ public class MessageHelperTests {
     }
 
     @Nonnull
+    private static Message address(@Nonnull final Descriptors.Descriptor descriptor, @Nonnull final String street,
+                                   @Nonnull final String city) {
+        return DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("street"), street)
+                .setField(descriptor.findFieldByName("city"), city)
+                .build();
+    }
+
+    @Nonnull
+    private static Message person(@Nonnull final Descriptors.Descriptor descriptor) {
+        final var addressDescriptor = descriptor.findFieldByName("address").getMessageType();
+        final var pastAddressesDescriptor = descriptor.findFieldByName("past_addresses").getMessageType();
+        final var pastAddresses = DynamicMessage.newBuilder(pastAddressesDescriptor)
+                .addRepeatedField(pastAddressesDescriptor.findFieldByName("values"), address(addressDescriptor, "1 Old Rd", "Ogdenville"))
+                .build();
+        return DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("first_name"), "Alice")
+                .setField(descriptor.findFieldByName("last_name"), "Smith")
+                .setField(descriptor.findFieldByName("id"), 1L)
+                .setField(descriptor.findFieldByName("address"), address(addressDescriptor, "123 Main St", "Springfield"))
+                .setField(descriptor.findFieldByName("status"),
+                        descriptor.findFieldByName("status").getEnumType().findValueByName("RETIRED"))
+                .addRepeatedField(descriptor.findFieldByName("addresses"), address(addressDescriptor, "456 Oak Ave", "Shelbyville"))
+                .addRepeatedField(descriptor.findFieldByName("addresses"), address(addressDescriptor, "789 Pine Rd", "Capital City"))
+                .setField(descriptor.findFieldByName("past_addresses"), pastAddresses)
+                .build();
+    }
+
+    @Nonnull
     private static Object fieldOf(@Nonnull final Message message, @Nonnull final String fieldName) {
         return message.getField(Objects.requireNonNull(message.getDescriptorForType().findFieldByName(fieldName)));
     }
 
+    private static void assertAddress(@Nonnull final Descriptors.Descriptor expectedDescriptor,
+                                      @Nonnull final String expectedStreet, @Nonnull final String expectedCity,
+                                      @Nonnull final Object actual) {
+        final var actualMessage = (Message)actual;
+        Assertions.assertSame(expectedDescriptor, actualMessage.getDescriptorForType());
+        Assertions.assertEquals(expectedStreet, fieldOf(actualMessage, "street"));
+        Assertions.assertEquals(expectedCity, fieldOf(actualMessage, "city"));
+    }
+
+    /**
+     * Asserts that {@code actual}, a message of {@code descriptor}, carries the values {@link #person} puts into a
+     * message, each of them in the field of the same name.
+     */
+    private static void assertPerson(@Nonnull final Descriptors.Descriptor descriptor, @Nonnull final Message actual) {
+        Assertions.assertSame(descriptor, actual.getDescriptorForType());
+        Assertions.assertEquals("Alice", fieldOf(actual, "first_name"));
+        Assertions.assertEquals("Smith", fieldOf(actual, "last_name"));
+        Assertions.assertEquals(1L, fieldOf(actual, "id"));
+
+        final var addressDescriptor = descriptor.findFieldByName("address").getMessageType();
+        assertAddress(addressDescriptor, "123 Main St", "Springfield", fieldOf(actual, "address"));
+
+        final var status = (Descriptors.EnumValueDescriptor)fieldOf(actual, "status");
+        Assertions.assertSame(descriptor.findFieldByName("status").getEnumType(), status.getType());
+        Assertions.assertEquals("RETIRED", status.getName());
+
+        final var addresses = (List<?>)fieldOf(actual, "addresses");
+        Assertions.assertEquals(2, addresses.size());
+        assertAddress(addressDescriptor, "456 Oak Ave", "Shelbyville", addresses.get(0));
+        assertAddress(addressDescriptor, "789 Pine Rd", "Capital City", addresses.get(1));
+
+        final var pastAddresses = (Message)fieldOf(actual, "past_addresses");
+        Assertions.assertSame(descriptor.findFieldByName("past_addresses").getMessageType(),
+                pastAddresses.getDescriptorForType());
+        final var pastAddressesValues = (List<?>)fieldOf(pastAddresses, "values");
+        Assertions.assertEquals(1, pastAddressesValues.size());
+        assertAddress(addressDescriptor, "1 Old Rd", "Ogdenville", pastAddressesValues.get(0));
+    }
+
     /**
      * Two descriptors of the same structure need not number its fields the same way, e.g. if one of them keeps the
-     * numbers of a proto that skips some. Copying between them has to relate the fields by position, as relating them
-     * by number would put a value into whichever field happens to carry its number on the other side.
+     * numbers of a proto that skips some. A deep copy between them has to relate the fields by position, as relating
+     * them by number would put a value into whichever field happens to carry its number on the other side. This holds
+     * for nested records, records in arrays, and enum values, which are related by name, alike.
      */
     @Test
-    public void testCoerceMessageByIndexRelatesFieldsByPosition() {
-        final var skippingType = personType(ImmutableList.of(1, 3, 4, 5), ImmutableList.of(1, 3));
-        final var sequentialType = personType(ImmutableList.of(1, 2, 3, 4), ImmutableList.of(1, 2));
-        final var skippingDescriptor = descriptorOf(skippingType);
-        final var sequentialDescriptor = descriptorOf(sequentialType);
+    public void testDeepCopyMessageRelatesFieldsByPosition() {
+        final var skippingDescriptor = descriptorOf(skippingPersonType());
+        final var sequentialDescriptor = descriptorOf(personType(ImmutableList.of(1, 2, 3, 4, 5, 6, 7), ImmutableList.of(1, 2)));
         Assertions.assertEquals(3, skippingDescriptor.findFieldByName("last_name").getNumber());
         Assertions.assertEquals(3, sequentialDescriptor.findFieldByName("id").getNumber());
 
-        final var addressDescriptor = skippingDescriptor.findFieldByName("address").getMessageType();
-        final var address = DynamicMessage.newBuilder(addressDescriptor)
-                .setField(addressDescriptor.findFieldByName("street"), "123 Main St")
-                .setField(addressDescriptor.findFieldByName("city"), "Springfield")
-                .build();
-        final var person = DynamicMessage.newBuilder(skippingDescriptor)
-                .setField(skippingDescriptor.findFieldByName("first_name"), "Alice")
-                .setField(skippingDescriptor.findFieldByName("last_name"), "Smith")
-                .setField(skippingDescriptor.findFieldByName("id"), 1L)
-                .setField(skippingDescriptor.findFieldByName("address"), address)
-                .build();
-
-        final var coerced = MessageHelpers.coerceMessageByIndexIfNeeded(sequentialDescriptor, person);
-        Assertions.assertSame(sequentialDescriptor, coerced.getDescriptorForType());
-        Assertions.assertEquals("Alice", fieldOf(coerced, "first_name"));
-        Assertions.assertEquals("Smith", fieldOf(coerced, "last_name"));
-        Assertions.assertEquals(1L, fieldOf(coerced, "id"));
-        final var coercedAddress = (Message)fieldOf(coerced, "address");
-        Assertions.assertEquals("123 Main St", fieldOf(coercedAddress, "street"));
-        Assertions.assertEquals("Springfield", fieldOf(coercedAddress, "city"));
+        final var person = person(skippingDescriptor);
+        final var copied = MessageHelpers.deepCopyMessageIfNeeded(sequentialDescriptor, person);
+        assertPerson(sequentialDescriptor, copied);
 
         // there and back again
-        Assertions.assertEquals(person, MessageHelpers.coerceMessageByIndexIfNeeded(skippingDescriptor, coerced));
-        // a message already of the descriptor is returned as is
-        Assertions.assertSame(person, MessageHelpers.coerceMessageByIndexIfNeeded(skippingDescriptor, person));
-        // a coercion without any promotions relates the fields by position as well
-        Assertions.assertEquals(coerced,
-                MessageHelpers.coerceObject(null, sequentialType, sequentialDescriptor, skippingType, person));
+        Assertions.assertEquals(person, MessageHelpers.deepCopyMessageIfNeeded(skippingDescriptor, copied));
+        // a message that already is of the target descriptor is returned as is
+        Assertions.assertSame(person, MessageHelpers.deepCopyMessageIfNeeded(skippingDescriptor, person));
+    }
+
+    /**
+     * The target descriptor may have fields after the ones of the message, such as the pseudo-fields of a record type.
+     */
+    @Test
+    public void testDeepCopyMessageIntoDescriptorWithPseudoFields() {
+        final var skippingType = skippingPersonType();
+        final var skippingDescriptor = descriptorOf(skippingType);
+        final var withPseudoFieldsType = skippingType.addPseudoFields();
+        final var withPseudoFieldsDescriptor = descriptorOf(withPseudoFieldsType);
+        Assertions.assertEquals(skippingDescriptor.getFields().size() + PseudoField.values().length,
+                withPseudoFieldsDescriptor.getFields().size());
+
+        final var copied = MessageHelpers.deepCopyMessageIfNeeded(withPseudoFieldsDescriptor, person(skippingDescriptor));
+        assertPerson(withPseudoFieldsDescriptor, copied);
+        for (final var pseudoField : PseudoField.values()) {
+            Assertions.assertFalse(copied.hasField(withPseudoFieldsDescriptor.findFieldByName(pseudoField.getFieldName())));
+        }
     }
 }
