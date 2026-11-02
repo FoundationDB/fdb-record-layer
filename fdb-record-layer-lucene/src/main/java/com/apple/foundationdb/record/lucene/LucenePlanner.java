@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.UnsupportedQueryException;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
@@ -552,7 +553,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                                 type = SortField.Type.DOUBLE;
                                 break;
                             default:
-                                throw new RecordCoreException("Unsupported document field type for sorting: " + documentField.getType() + ":" + documentField.getDocumentField());
+                                throw new UnsupportedQueryException("Unsupported document field type for sorting: " + documentField.getType() + ":" + documentField.getDocumentField());
                         }
                         sortField = new SortField(documentField.getDocumentField(), type, sortReverse);
                         break;

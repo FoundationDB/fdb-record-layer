@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -43,10 +44,11 @@ final class IndexPredicates {
     }
 
     /**
-     * The residual conjunction of the select's predicates, normalised to DNF and checked to be one the deserializer
-     * supports. Falls back to the un-normalised conjunction when the DNF cannot be expressed as ranges.
+     * A predicate as it is stored with an index: the residual conjunction of the given predicates, normalised to DNF and
+     * checked to be one the deserializer supports. Falls back to the un-normalised conjunction when the DNF cannot be
+     * expressed as ranges. The predicates have to be over the record type the index is on.
      *
-     * @param predicates the predicates the select carries, at least one
+     * @param predicates the predicates to store, at least one
      *
      * @return the predicate to store
      */
@@ -59,5 +61,14 @@ final class IndexPredicates {
         Assert.thatUnchecked(IndexPredicate.isSupported(normalized), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> String.format(Locale.ROOT, "Unsupported predicate '%s'", normalized));
         return IndexPredicateExpansion.dnfPredicateToRanges(normalized).isEmpty() ? conjunction : normalized;
+    }
+
+    /**
+     * The conjunction of the given predicates.
+     */
+    @Nonnull
+    static QueryPredicate conjoin(@Nonnull final List<? extends QueryPredicate> predicates) {
+        final List<QueryPredicate> conjuncts = ImmutableList.copyOf(predicates);
+        return conjuncts.size() == 1 ? conjuncts.get(0) : AndPredicate.and(conjuncts);
     }
 }

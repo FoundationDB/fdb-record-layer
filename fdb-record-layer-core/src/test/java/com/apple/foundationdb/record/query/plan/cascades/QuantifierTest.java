@@ -171,4 +171,75 @@ class QuantifierTest {
         assertThat(firstOrDefaultPlan).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
         assertThat(firstOrDefaultPlan.isReverse()).isTrue();
     }
+
+    /**
+     * Tests that rebuilding an existential quantifier via {@code toBuilder()} preserves its alias unless a new one is
+     * given.
+     */
+    @Test
+    void testExistential1() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+
+        assertThat(quantifier.toBuilder().build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Existential.class,
+                        rebuilt -> assertThat(rebuilt.getAlias()).isEqualTo(quantifier.getAlias()));
+
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        assertThat(quantifier.toBuilder().withAlias(newAlias).build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Existential.class,
+                        rebuilt -> assertThat(rebuilt.getAlias()).isEqualTo(newAlias));
+    }
+
+    /**
+     * Tests that {@code overNewReference()} on an existential quantifier keeps it existential, and keeps its alias
+     * unless a new one is given.
+     */
+    @Test
+    void testExistential2() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+
+        final Quantifier.Existential moved = quantifier.overNewReference(otherReference);
+        assertThat(moved.getAlias()).isEqualTo(quantifier.getAlias());
+        assertThat(moved.getRangesOver()).isSameAs(otherReference);
+
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        final Quantifier.Existential renamed = quantifier.overNewReference(otherReference, newAlias);
+        assertThat(renamed.getAlias()).isEqualTo(newAlias);
+        assertThat(renamed.getRangesOver()).isSameAs(otherReference);
+    }
+
+    /**
+     * Tests that existential quantifiers over the same reference are semantically equal, but not equal to a for-each
+     * quantifier over the same reference or to an existential quantifier over a different reference.
+     */
+    @Test
+    void testExistential3() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        final Quantifier.Existential sameQuantifier = Quantifier.existential(scanReference);
+        assertThat(quantifier).isEqualTo(sameQuantifier);
+        assertThat(quantifier.semanticHashCode()).isEqualTo(sameQuantifier.semanticHashCode());
+
+        final Quantifier.ForEach forEachQuantifier = Quantifier.forEach(scanReference);
+        assertThat(quantifier).isNotEqualTo(forEachQuantifier);
+        assertThat(forEachQuantifier).isNotEqualTo(quantifier);
+
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+        assertThat(quantifier).isNotEqualTo(Quantifier.existential(otherReference));
+    }
+
+    /**
+     * Tests that an existential quantifier is an {@link Quantifier.AtMostOne}, which flows the nullable variant of the
+     * inner type, whereas a for-each quantifier is not an {@link Quantifier.AtMostOne}.
+     */
+    @Test
+    void testExistential4() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        assertThat(quantifier).isInstanceOf(Quantifier.AtMostOne.class);
+        assertThat(Quantifier.forEach(scanReference)).isNotInstanceOf(Quantifier.AtMostOne.class);
+
+        assertThat(quantifier.getFlowedObjectType().isNullable()).isTrue();
+        assertThat(quantifier.getFlowedObjectType())
+                .isEqualTo(Quantifier.forEach(scanReference).getFlowedObjectType().nullable());
+    }
 }

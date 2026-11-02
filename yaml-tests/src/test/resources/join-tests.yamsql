@@ -654,26 +654,26 @@ test_block:
     -
       # inner join without a join predicate
       - query: select * from ja inner join jb;
-      - supported_version: !current_version
+      - supported_version: 4.17.1.0
       - error: SYNTAX_ERROR
     -
       # inner join without a join predicate
       - query: select * from ja join jb;
-      - supported_version: !current_version
+      - supported_version: 4.17.1.0
       - error: SYNTAX_ERROR
     -
       # JOIN now requires a join predicate; use only CROSS JOIN for a Cartesian product
       - query: select * from ja join jb
-      - supported_version: !current_version
+      - supported_version: 4.17.1.0
       - error: SYNTAX_ERROR
     -
       # INNER JOIN now requires a join predicate
       - query: select ja.c1, ja.c2, jb.c3 from ja inner join jb
-      - supported_version: !current_version
+      - supported_version: 4.17.1.0
       - error: SYNTAX_ERROR
     -
       # a bare JOIN in the middle of a chain is rejected as well
       - query: select * from ja join jb using(c1) join jd
-      - supported_version: !current_version
+      - supported_version: 4.17.1.0
       - error: SYNTAX_ERROR
 ...

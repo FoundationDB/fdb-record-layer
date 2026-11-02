@@ -145,8 +145,8 @@ public class IndexingByIndex extends IndexingBase {
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateSourceOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
-        boolean isIdempotent = maintainer.isIdempotent();
-        final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
+        final boolean snapshotIsolationLevel = canUseSnapshotResolution(store, common.getTargetIndexes());
+        final ScanProperties scanProperties = scanPropertiesWithLimits(snapshotIsolationLevel);
 
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
@@ -165,7 +165,7 @@ public class IndexingByIndex extends IndexingBase {
 
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned, isIdempotent)
+                    lastResult, hasMore, recordsScanned, snapshotIsolationLevel)
                     .thenCompose(ignore -> postIterateRangeOnly(rangeSet, hasMore.get(), lastResult,
                             rangeStart, rangeEnd, scanProperties.isReverse()));
         });
@@ -224,7 +224,7 @@ public class IndexingByIndex extends IndexingBase {
         validateSourceOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE);
+                .setIsolationLevel(canUseSnapshotResolution(store, common.getTargetIndexes()) ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE);
 
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final TupleRange tupleRange = TupleRange.between(cont, null);
@@ -237,10 +237,17 @@ public class IndexingByIndex extends IndexingBase {
 
         return iterateRangeOnly(store, cursor,
                 this::getRecordIfTypeMatch,
-                lastResult, hasMore, recordsScanned, maintainer.isIdempotent()
+                lastResult, hasMore, recordsScanned, canUseSnapshotResolution(store, common.getTargetIndexes())
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getIndexEntry().getKey() :
                                null );
+    }
+
+    @Override
+    protected int trackingTablePrefetchPipelineSize(@Nonnull FDBRecordStore store) {
+        // The source index scan already pipelines the record reads, and its order is the source index order, not the primary
+        // key order of the tracking table.
+        return 1;
     }
 
     private void validateSourceOrThrowEx(boolean isValid, @Nonnull String msg) {

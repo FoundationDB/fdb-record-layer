@@ -215,6 +215,8 @@ interface StorageAdapter<N extends NodeReference> {
      * key of the last item from the prior scan. The number of nodes returned is limited by {@code maxNumRead}.
      *
      * @param readTransaction the transaction to use for the read operation
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param layer the index of the layer to scan
      * @param lastPrimaryKey the primary key of the last node from a previous scan,
      *        or {@code null} to start from the beginning of the layer
@@ -222,7 +224,8 @@ interface StorageAdapter<N extends NodeReference> {
      * @return an {@link AsyncIterable} that provides the nodes found in the specified layer range
      */
     @VisibleForTesting
-    Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
+    Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction,
+                                        @Nonnull StorageTransform storageTransform, int layer,
                                         @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
     @Nonnull

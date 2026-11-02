@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanC
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.codahale.metrics.MetricFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Map;
 
 public class StoredQueriesTest {
 
@@ -586,6 +588,52 @@ public class StoredQueriesTest {
                                 .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void storedQueryWithCurrentTimestampFunction() throws Exception {
+        final var schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY with_current_timestamp AS select current_timestamp() AS ts, id from t1";
+        final String dbUri = "/TEST/STORED_QUERY_WITH_TIMESTAMP";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10), (2, 20)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            Assertions.assertEquals(Long.valueOf(1),
+                    connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement()) {
+                    final RelationalResultSet rs = stmt.executeQuery("select current_timestamp() AS ts, id from t1");
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("ID", 1L);
+
+                    final var firstTimestamp = rs.getLong("TS");
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumns(Map.of("ID",  2L, "TS", firstTimestamp))
+                            .hasNoNextRow();
+                }
+            });
+
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+        }
     }
 
 }

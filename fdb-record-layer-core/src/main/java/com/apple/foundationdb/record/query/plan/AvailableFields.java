@@ -533,9 +533,7 @@ public class AvailableFields {
                                                              @Nonnull final PConditionalUponPathPredicate conditionalUponPredicateProto) {
             final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
             for (int i = 0; i < conditionalUponPredicateProto.getOrdinalPathCount(); i ++) {
-                // This is probably a bug: it adds the loop index rather than the serialized ordinal, so any path other
-                // than [0, 1, ..., n-1] changes on a round trip. See https://github.com/FoundationDB/fdb-record-layer/issues/4791
-                ordinalPathBuilder.add(i);
+                ordinalPathBuilder.add(conditionalUponPredicateProto.getOrdinalPath(i));
             }
             return new ConditionalUponPathPredicate(ordinalPathBuilder.build());
         }

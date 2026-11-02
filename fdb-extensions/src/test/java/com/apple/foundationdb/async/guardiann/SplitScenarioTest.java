@@ -142,7 +142,7 @@ public class SplitScenarioTest implements BaseTest {
 
     private static Database db;
     private Guardiann guardiann;
-    private TestHelpers.TestOnWriteListener onWriteListener;
+    private GuardiannTestHelpers.TestOnWriteListener onWriteListener;
 
     @Nonnull
     @Override
@@ -169,7 +169,7 @@ public class SplitScenarioTest implements BaseTest {
 
     @BeforeEach
     public void setUpGuardiann() {
-        onWriteListener = new TestHelpers.TestOnWriteListener();
+        onWriteListener = new GuardiannTestHelpers.TestOnWriteListener();
         guardiann = guardiannFor(configBuilder().build(128));
     }
 
@@ -197,7 +197,7 @@ public class SplitScenarioTest implements BaseTest {
                 TestExecutors.defaultThreadPool(),
                 config,
                 onWriteListener,
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnReadListener());
     }
 
     /**

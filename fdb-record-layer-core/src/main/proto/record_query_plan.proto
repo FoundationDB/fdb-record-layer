@@ -286,6 +286,7 @@ message PValue {
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
+    PCurrentTimestampValue current_timestamp_value = 65;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -1380,6 +1381,10 @@ message PVariadicFunctionValue {
 
 message PIncarnationValue {
   // No fields needed - this function takes no arguments
+}
+
+message PCurrentTimestampValue {
+  optional PValue child_value = 1;
 }
 
 message PCardinalityValue {
