@@ -189,7 +189,7 @@ public class MessageHelperTests {
                 field(Type.primitiveType(Type.TypeCode.STRING), "street", addressFieldIndexes.get(0)),
                 field(Type.primitiveType(Type.TypeCode.STRING), "city", addressFieldIndexes.get(1))));
         final var statusType = Type.Enum.fromValues(true,
-                List.of(Type.Enum.EnumValue.from("ACTIVE", 0), Type.Enum.EnumValue.from("RETIRED", 1)));
+                ImmutableList.of(Type.Enum.EnumValue.from("ACTIVE", 0), Type.Enum.EnumValue.from("RETIRED", 1)));
         return Type.Record.fromFields(ImmutableList.of(
                 field(Type.primitiveType(Type.TypeCode.STRING), "first_name", fieldIndexes.get(0)),
                 field(Type.primitiveType(Type.TypeCode.STRING), "last_name", fieldIndexes.get(1)),
