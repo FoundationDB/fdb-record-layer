@@ -67,7 +67,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr diff ${{ github.event.pull_request.number }} --name-only | tee changed_files.txt
+          # If `gh pr diff` fails (e.g., HTTP 406 for PRs changing more than 300 files), don't treat that as
+          # "nothing changed": leave changed_files.txt absent. The `affected_subprojects` script will then
+          # run all of the tests if the file is not present.
+          if ! gh pr diff ${{ github.event.pull_request.number }} --name-only > changed_files.txt; then
+            rm -f changed_files.txt
+            echo "::warning::Could not get the list of changed files; all tests will be run"
+          else
+            cat changed_files.txt
+          fi
       - name: Get subproject dependency graph
         uses: ./actions/run-gradle
         with:
