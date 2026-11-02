@@ -34,11 +34,9 @@ import java.util.function.Supplier;
  * This class is used to store and manage instances of {@link PlannerEventListeners.EventListener}
  * which are stored in thread-local storage, which receive {@link PlannerEvent} emitted by the
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} and perform actions.
- * </p>
- * <p>
- * Only a single instance of a class that extends the interface {@link PlannerEventListeners.EventListener}
+ *
+ * <p>Only a single instance of a class that extends the interface {@link PlannerEventListeners.EventListener}
  * can be set as the active listener for that class at any given time.
- * </p>
  *
  */
 public final class PlannerEventListeners {
@@ -123,10 +121,8 @@ public final class PlannerEventListeners {
      * <p>
      * Classes implementing this interface listen to {@link PlannerEvent}s emitted by
      * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} and do some action on them.
-     * </p>
-     * <p>
-     * See {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} and {@link PlannerEventStatsCollector}.
-     * </p>
+     *
+     * <p>See {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} and {@link PlannerEventStatsCollector}.
      */
     public interface EventListener {
         /**

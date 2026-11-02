@@ -33,13 +33,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * This class maintains a delay that should be used when retrying transactional operations that have failed due to
  * something retriable.
- * <p>
- *     The goal here is to avoid making the situation worse when the system is overloaded, by backing off.
- * </p>
- * <p>
- *     While the name is "Exponential", it has a pretty aggressive jitter added so that, if there are two transactions
+ *
+ * <p>The goal here is to avoid making the situation worse when the system is overloaded, by backing off.
+ *
+ * <p>While the name is "Exponential", it has a pretty aggressive jitter added so that, if there are two transactions
  *     conflicting, they won't both keep retrying with the same back off on every retry.
- * </p>
  *
  */
 @API(API.Status.INTERNAL)

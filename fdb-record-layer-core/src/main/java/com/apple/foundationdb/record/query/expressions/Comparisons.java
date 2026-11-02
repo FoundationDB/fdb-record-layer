@@ -3161,10 +3161,8 @@ public class Comparisons {
      * multiple inputs that all map to the same output. For that reason, the predicate {@code f(x) = $val}
      * may sometimes get transformed into {@code x IN f^-1($val)}.
      *
-     * <p>
-     * In most cases, users should not construct this comparison on their own, but
+     * <p>In most cases, users should not construct this comparison on their own, but
      * some planner operations may create this in internal structures.
-     * </p>
      */
     @API(API.Status.INTERNAL)
     public static class InvertedFunctionComparison implements Comparison {
@@ -3354,9 +3352,7 @@ public class Comparisons {
          * original comparison's comparand. So, for example, if the original comparison is {@code = 2} and the function
          * is the exponential function, this will produce a comparison that is equivalent to {@code = log(2)}.
          *
-         * <p>
-         * This comparison currently has the following limitations:
-         * </p>
+         * <p>This comparison currently has the following limitations:
          *
          * <ul>
          *     <li>The function must be a unary function (i.e., it must take single-column inputs and produce

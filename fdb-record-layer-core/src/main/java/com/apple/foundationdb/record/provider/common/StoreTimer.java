@@ -51,8 +51,8 @@ import java.util.stream.Stream;
 
 /**
  * A context-wide accumulator of timing information.
- * <p>
- * A store timer is a thread-safe record of call counts and nanosecond call times for various database operations,
+ *
+ * <p>A store timer is a thread-safe record of call counts and nanosecond call times for various database operations,
  * classified by an {@link Event}.
  * If a context has a store timer, various operations will record timing information in it. It is up to the caller to
  * provide the necessary integration between this information and any system monitoring tools.
@@ -85,11 +85,11 @@ public class StoreTimer {
 
     /**
      * Subtracts counts and times recorded by a snapshot of a timer returning a new timer representing the difference.
-     * <p>
-     * Subtracting a snapshot of a timer from the original timer after subsequent operations have
+     *
+     * <p>Subtracting a snapshot of a timer from the original timer after subsequent operations have
      * been performed and timed can provide useful metrics as to the cost of those subsequent operations.
-     * <p>
-     * The timer must have been previously derived from the snapshot. Moreover,
+     *
+     * <p>The timer must have been previously derived from the snapshot. Moreover,
      * the timer should not have been reset after the snapshot was taken.
      *
      * @param timer timer to subtract the snapshot from

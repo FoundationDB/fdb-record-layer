@@ -40,10 +40,9 @@ import java.util.function.Function;
 /**
  * A cursor that applies an asynchronous function to the elements of another cursor.
  *
- * <p>
- * The cursor is <i>pipelined</i>, that is, it maintains up to a specified number of pending futures ahead of what it has returned,
+ * <p>The cursor is <i>pipelined</i>, that is, it maintains up to a specified number of pending futures ahead of what it has returned,
  * so that work is done in parallel.
- * </p>
+ *
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function and completing the future it returns
  */

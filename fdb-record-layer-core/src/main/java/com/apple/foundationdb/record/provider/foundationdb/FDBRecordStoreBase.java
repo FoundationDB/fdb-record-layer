@@ -99,30 +99,24 @@ import java.util.function.Supplier;
  *     <li>An {@link FDBRecordContext} which wraps a FoundationDB {@link com.apple.foundationdb.Transaction Transaction}</li>
  * </ul>
  *
- * <p>
- * All of the record store's data&mdash;including index data&mdash;are stored durably within the given subspace. Note that
+ * <p>All of the record store's data&mdash;including index data&mdash;are stored durably within the given subspace. Note that
  * the meta-data is <em>not</em> stored by the record store directly. However, information about the store's current meta-data
  * version is persisted with the store to detect when the meta-data have changed and to know if any action needs to be taken
  * to begin using the new meta-data. (For example, new indexes might need to be built and removed indexes deleted.) The same
  * meta-data may be used for multiple record stores, and separating the meta-data from the data makes updating the shared
  * meta-data simpler as it only needs to be updated in one place. The {@link FDBMetaDataStore} may be used if one wishes
  * to persist the meta-data into a FoundationDB cluster.
- * </p>
  *
- * <p>
- * All operations conducted by a record store are conducted within the lifetime single transaction, and no data is persisted
+ * <p>All operations conducted by a record store are conducted within the lifetime single transaction, and no data is persisted
  * to the database until the transaction is committed by calling {@link FDBRecordContext#commit()} or
  * {@link FDBRecordContext#commitAsync()}. Record Layer transactions inherit all of the guarantees and limitations of
  * the transactions exposed by FoundationDB, including their durability and consistency guarantees as well as size and
  * duration limits. See the FoundationDB <a href="https://apple.github.io/foundationdb/known-limitations.html">known limitations</a>
  * for more details.
- * </p>
  *
- * <p>
- * The record store also allows the user to tweak additional parameters such as what the parallelism of pipelined operations
+ * <p>The record store also allows the user to tweak additional parameters such as what the parallelism of pipelined operations
  * should be (through the {@link PipelineSizer}) and what serializer should be used to read and write data to the database.
  * See the {@link BaseBuilder} interface for more details.
- * </p>
  *
  * @param <M> type used to represent stored records
  * @see FDBRecordStore
@@ -202,11 +196,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the current incarnation of the store.
-     * <p>
-     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     *
+     * <p>The incarnation is intended to be incremented when moving data from one cluster to another.
      * By combining the incarnation with version information in indexes, you can maintain proper ordering
      * of modifications even when data is moved between clusters with different versions.
-     * </p>
+     *
      * @return the current incarnation value, or 0 if not set
      */
     @API(API.Status.EXPERIMENTAL)
@@ -214,10 +208,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Update the incarnation of the store.
-     * <p>
-     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     *
+     * <p>The incarnation is intended to be incremented when moving data from one cluster to another.
      * This should typically be called before moving data to ensure proper version ordering across clusters.
-     * </p>
+     *
      * @param updater a function that takes the current incarnation value and returns the new value
      * (must not be less than the current value)
      * @return a future that updates this incarnation
@@ -232,8 +226,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     interface UserVersionChecker {
         /**
          * Check the user version.
-         * <p>
-         * If this store is being created for the first time, the store header will be set to the default instance. In
+         *
+         * <p>If this store is being created for the first time, the store header will be set to the default instance. In
          * particular, the format version will be zero, whereas the format version on all stores that have already been
          * created will be greater than zero.
          *
@@ -252,8 +246,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Check the user version.
-         * <p>
-         * This method is not called on classes that override
+         *
+         * <p>This method is not called on classes that override
          * {@link #checkUserVersion(RecordMetaDataProto.DataStoreInfo, RecordMetaDataProvider)}. Such implementations
          * can just throw an exception from here.
          *
@@ -283,16 +277,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * <a href="https://apple.github.io/foundationdb/known-limitations.html#long-running-transactions">five second
          * FoundationDB transaction time limit</a>.
          *
-         * <p>
-         * By default, this will return {@link IndexState#READABLE} for any indexes on new types (which
+         * <p>By default, this will return {@link IndexState#READABLE} for any indexes on new types (which
          * can be used right away without doing any I/O) or if the number of records in the store is small (below
          * {@link FDBRecordStore#MAX_RECORDS_FOR_REBUILD}). However, if the record store is large, this will return
          * {@link IndexState#DISABLED}, which indicates that the index should not be maintained and that it cannot be
          * used until the index is built by the {@link OnlineIndexer}.
-         * </p>
          *
-         * <p>
-         * For adopters, two utility methods are provided that can be used to make implementing this method easier.
+         * <p>For adopters, two utility methods are provided that can be used to make implementing this method easier.
          * The first is {@link FDBRecordStore#disabledIfTooManyRecordsForRebuild(long, boolean)}, which replicates
          * the default behavior. The second is
          * {@link FDBRecordStore#writeOnlyIfTooManyRecordsForRebuild(long, boolean)}, which is similar to the default
@@ -300,7 +291,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * default prior to Record Layer 3.0. Note that all indexes must be made {@link IndexState#WRITE_ONLY} before
          * they can be built, but the {@link OnlineIndexer} should generally handle that index state transition, and so
          * most adopters should return {@link IndexState#DISABLED} on indexes that cannot be built in-line.
-         * </p>
          *
          * @param index the index that has not been built for this store
          * @param recordCount the number of records already in the store
@@ -319,8 +309,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Determine what to do about an index needing to be rebuilt. For more information about when this method
          * is called and what the return value is used for, see {@link #needRebuildIndex(Index, long, boolean)}.
          *
-         * <p>
-         * This method takes the record count and {@linkplain FDBRecordStore#estimateRecordsSizeAsync() estimated size}
+         * <p>This method takes the record count and {@linkplain FDBRecordStore#estimateRecordsSizeAsync() estimated size}
          * as parameters. Implementors can choose to use either value (or neither) when determining whether an index
          * should be built in-line (i.e., whether to return {@link IndexState#READABLE}) when the meta-data on a store
          * is upgraded. For record types on which an appropriate
@@ -328,19 +317,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * for which scanning the count index would be too much work due to grouping keys (see
          * <a href="https://github.com/foundationDB/fdb-record-layer/issues/7">Issue #7</a>), it may be more efficient
          * to base the indexing decision on the size estimate alone.
-         * </p>
          *
-         * <p>
-         * Both the record count and size estimate parameter are specified via suppliers that will not evaluate the
+         * <p>Both the record count and size estimate parameter are specified via suppliers that will not evaluate the
          * count or size until requested. If a value is requested from either supplier, the returned future should
          * complete after the future returned by the supplier.
-         * </p>
          *
-         * <p>
-         * By default, this will call {@link #needRebuildIndex(Index, long, boolean)} with the record count returned
+         * <p>By default, this will call {@link #needRebuildIndex(Index, long, boolean)} with the record count returned
          * by {@code lazyRecordCount}, so adopters who want to use the record count but not the records size estimate
          * only need to implement that function.
-         * </p>
          *
          * @param index the index that has not been built for this store
          * @param lazyRecordCount a supplier that will return a future with the number of records already in the store
@@ -493,8 +477,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Always save the record with a version. If a null version is provided, then the record store will chose
          * a new version.
          *
-         * <p>
-         * Note: due to <a href="https://github.com/FoundationDB/fdb-record-layer/issues/964">Issue #964</a>, on some
+         * <p>Note: due to <a href="https://github.com/FoundationDB/fdb-record-layer/issues/964">Issue #964</a>, on some
          * older record stores, namely those that were originally created with a {@link FormatVersion} below
          * {@link FormatVersion#SAVE_VERSION_WITH_RECORD}, records written with a
          * version on stores where {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()} is
@@ -502,7 +485,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Users can avoid this by either migrating data to a new store or by setting {@code isStoreRecordVersions()}
          * to {@code true} in the meta-data and then supplying the {@link #NO_VERSION} when saving any records that
          * do not need an associated version.
-         * </p>
          */
         WITH_VERSION,
         /**
@@ -833,17 +815,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * no mutations, the transaction will never be failed with the above exception. Note also that this does not
      * check that a record with this primary key actually exists in the database.
      *
-     * <p>
-     * One use case is that this can be used to promote a read from {@link IsolationLevel#SNAPSHOT} to
+     * <p>One use case is that this can be used to promote a read from {@link IsolationLevel#SNAPSHOT} to
      * {@link IsolationLevel#SERIALIZABLE}. For example, if one performs a query at {@link IsolationLevel#SNAPSHOT} and
      * then uses a subset of the records to determine a few other writes, then one can add conflicts to <em>only</em>
      * the records actually used.
-     * </p>
      *
-     * <p>
-     * This method should be used with care and is advised only for those users who need extra control over conflict
+     * <p>This method should be used with care and is advised only for those users who need extra control over conflict
      * ranges.
-     * </p>
      *
      * @param primaryKey the primary key of the record to add a read conflict on
      * @see com.apple.foundationdb.Transaction#addReadConflictRange(byte[], byte[])
@@ -860,10 +838,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * though it will not induce any disk I/O or cause any {@linkplain com.apple.foundationdb.Transaction#watch(byte[]) watches}
      * on the modified keys to fire.
      *
-     * <p>
-     * This method should be used with care and is advised only for those users who need extra control over conflict
+     * <p>This method should be used with care and is advised only for those users who need extra control over conflict
      * ranges.
-     * </p>
      *
      * @param primaryKey the primary key of the record to add a write conflict on
      * @see com.apple.foundationdb.Transaction#addWriteConflictRange(byte[], byte[])
@@ -1577,8 +1553,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * They will be returned in an order that is grouped by the index value keys that they have in common
      * and will be ordered within the grouping by the primary key.
      *
-     * <p>
-     * Because of how the data are stored, each primary key that is part of a uniqueness violation
+     * <p>Because of how the data are stored, each primary key that is part of a uniqueness violation
      * will appear at most once for each index key that is causing a violation. The associated
      * existing key is going to be one of the other keys, but it might not be the only one.
      * This means that the total number of violations per index key is capped at the number of records in the
@@ -1660,8 +1635,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Delete all the data in the record store.
-     * <p>
-     * Everything except the store header and index state information is cleared from the database.
+     *
+     * <p>Everything except the store header and index state information is cleared from the database.
      * This is an efficient operation as all data are contiguous.
      * This means that any {@linkplain IndexState#DISABLED disabled} or {@linkplain IndexState#WRITE_ONLY write-only}
      * index will remain in its disabled or write-only state after all of the data are cleared. If one also wants
@@ -1670,12 +1645,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * header and all index states), one should call {@link FDBRecordStore#deleteStoreAsync(FDBRecordContext, KeySpacePath)}
      * instead of this method.
      *
-     * <p>
-     * Note that, at the moment, this operation also has the side effect of resetting
+     * <p>Note that, at the moment, this operation also has the side effect of resetting
      * {@link com.apple.foundationdb.record.metadata.IndexTypes#MAX_EVER_TUPLE MAX_EVER} and
      * {@link com.apple.foundationdb.record.metadata.IndexTypes#MIN_EVER_TUPLE MIN_EVER} indexes.
      * See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/398">Issue #398</a>.
-     * </p>
      *
      * @see FDBRecordStore#deleteStoreAsync(FDBRecordContext, KeySpacePath)
      * @see FDBRecordStore#deleteStoreAsync(FDBRecordContext, Subspace)
@@ -1684,8 +1657,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Delete records and associated index entries matching a query filter.
-     * <p>
-     * Throws an exception if the operation cannot be done efficiently in a small number of contiguous range
+     *
+     * <p>Throws an exception if the operation cannot be done efficiently in a small number of contiguous range
      * clears. In practice, this means that the query filter must constrain a prefix of all record types' primary keys
      * and of all indexes' root expressions.
      *
@@ -1697,8 +1670,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Delete records and associated index entries matching a query filter.
-     * <p>
-     * Throws an exception if the operation cannot be done efficiently in a small number of contiguous range
+     *
+     * <p>Throws an exception if the operation cannot be done efficiently in a small number of contiguous range
      * clears. In practice, this means both that all record types must have a record type key prefix and
      * that the query filter must constrain a prefix of all record types' primary keys and of all indexes' root
      * expressions.
@@ -1759,13 +1732,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Compute an estimated size of the store in bytes. The estimate will include all data in the store, including
      * all records and indexes.
      *
-     * <p>
-     * This uses a sample maintained by the database to efficiently compute an estimate for the size of the store
+     * <p>This uses a sample maintained by the database to efficiently compute an estimate for the size of the store
      * without needing to scan all data. Because keys in this data structure are sampled, the value will not be
      * exact. If an exact size is needed, the
      * {@link com.apple.foundationdb.record.provider.foundationdb.cursors.SizeStatisticsCollectorCursor} can
      * be used, though note that that cursor must read the entire store to produce its statistics.
-     * </p>
      *
      * @return a future that will contain an estimate for the size of the store
      */
@@ -1777,9 +1748,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * by the records and excludes all other data maintained by the store. (For example, index data is <em>not</em>
      * included in the returned estimate.)
      *
-     * <p>
-     * This uses the same method for computing the estimate as {@link #estimateStoreSizeAsync()}.
-     * </p>
+     * <p>This uses the same method for computing the estimate as {@link #estimateStoreSizeAsync()}.
      *
      * @return a future that will contain an estimate for the size of all records in the store
      * @see #estimateStoreSizeAsync()
@@ -1794,9 +1763,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * will only include the space used by the records and excludes all other data maintained by the store. (For
      * example, index data is <em>not</em> included in the returned estimate.)
      *
-     * <p>
-     * This uses the same method for computing the estimate as {@link #estimateStoreSizeAsync()}.
-     * </p>
+     * <p>This uses the same method for computing the estimate as {@link #estimateStoreSizeAsync()}.
      *
      * @param range range of records to estimate the size of
      * @return a future that will contain an estimate for the size of all records in the store
@@ -2247,20 +2214,19 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the storage format version for this store.
-         * <p>
-         *     Normally, this should be set to the highest format version supported by all code that may access the
+         *
+         * <p>Normally, this should be set to the highest format version supported by all code that may access the
          *     record store. {@link #open} will set the store's format version to the greater of what is provided here
          *     and the one currently set on the store.
          *     This is to support cases where the target cannot be changed everywhere at once and some instances write
          *     the new version before others know that they are licensed to do so. It is still <em>critically</em>
          *     important that <em>all</em> instances know how to handle the new version before <em>any</em> instance
          *     allows it.
-         * </p>
-         * <p>
-         *     When installing a new version of the record layer library that includes a format change, first install
+         *
+         * <p>When installing a new version of the record layer library that includes a format change, first install
          *     everywhere having arranged for {@link #setFormatVersion} to be called with the <em>old</em> format
          *     version. Then, after that install is complete, change to the newer version.
-         * </p>
+         *
          * @param formatVersion the format version to use
          * @return this builder
          */
@@ -2452,11 +2418,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * lock. This allows opening a store that has been locked with FULL_STORE state, provided the reason matches
          * the reason that was used when setting the lock. This is intended for administrative operations that need to
          * clear or modify the lock state.
-         * <p>
-         * <b>Important:</b> The store will remain in the FULL_STORE locked state after opening unless explicitly
+         *
+         * <p><b>Important:</b> The store will remain in the FULL_STORE locked state after opening unless explicitly
          * cleared using {@link FDBRecordStore#clearStoreLockStateAsync()}. Simply opening with bypass does not
          * remove the lock.
-         * </p>
          *
          * @param reason the reason to use when bypassing the FULL_STORE lock, which must match the reason used when
          *               the store was locked, or {@code null} to disable bypass

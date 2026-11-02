@@ -156,10 +156,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the function used by the online indexer to load the mutable configuration parameters on fly.
      *
-     * <p>
-     * The loader is given the current configuration as input at the beginning of each transaction and
+     * <p>The loader is given the current configuration as input at the beginning of each transaction and
      * should produce the configuration to use in the next transaction.
-     * </p>
+     *
      * @param configLoader the function
      * @return this builder
      */
@@ -454,10 +453,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set the number of successful range builds before re-increasing the number of records to process in a single
      * transaction. The number of records to process in a single transaction will never go above {@link #getLimit()}.
      * By default, this is {@link OnlineIndexOperationConfig#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-     * <p>
-     * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
+     *
+     * <p>Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
-     * </p>
+     *
      * @param increaseLimitAfter the number of successful range builds before increasing the number of records
      * processed in a single transaction
      * @return this builder
@@ -559,13 +558,11 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      *         succeeded. In contrast, the timer count:
      *         {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, includes all records scanned,
      *         regardless of whether the associated transaction was successful or not.
-     *     </p></li>
+     *     </li>
      * </ul>
      *
-     * <p>
-     * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
+     * <p>Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
-     * </p>
      *
      * @param millis the number of milliseconds to wait between successful logs
      * @return this builder
@@ -583,9 +580,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set whether or not to track the index build progress by updating the number of records successfully scanned
      * and processed. The progress is persisted in {@link IndexingSubspaces#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
      * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
-     * <p>
-     * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
-     * </p>
+     *
+     * <p>This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
+     *
      * @param trackProgress track progress if true, otherwise false
      * @return this builder
      */

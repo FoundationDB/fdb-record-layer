@@ -38,10 +38,10 @@ import java.util.concurrent.CompletionException;
 /**
  * A record validator that can handle value deserialization.
  * This validator will ensure that the record pointed to by the primary key has a valid value.
- * <p>
- * Note that an empty record is valid that way.
- * <p>
- * A record that is valid according to this validator has a split set that is legal (either 0 or 1..n) - or is not split -
+ *
+ * <p>Note that an empty record is valid that way.
+ *
+ * <p>A record that is valid according to this validator has a split set that is legal (either 0 or 1..n) - or is not split -
  * and a payload that can be serialized with the store's schema.
  */
 @API(API.Status.INTERNAL)

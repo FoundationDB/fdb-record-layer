@@ -68,8 +68,8 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
      * If created by the heuristic recursive descent planner (the old planner), it is expected that the binding it
      * creates for the evaluation of the inner is participating in the plan hash. Unfortunately, this cannot be
      * done when using the Cascades planner as the planner uses identifiers that are not stable across plannings.
-     * <br>
-     * The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
+     *
+     * <p>The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
      * planner of to {@link Bindings.Internal#CORRELATION} if the object is created by the new planner.
      */
     @Nonnull

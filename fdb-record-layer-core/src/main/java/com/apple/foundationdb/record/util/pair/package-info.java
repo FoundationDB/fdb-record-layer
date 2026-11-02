@@ -23,12 +23,10 @@
  * {@link com.apple.foundationdb.record.util.pair.Pair} interface and a few implementations to
  * support null checks and comparison operations.
  *
- * <p>
- * These classes are {@link com.apple.foundationdb.annotation.API.Status#INTERNAL INTERNAL}
+ * <p>These classes are {@link com.apple.foundationdb.annotation.API.Status#INTERNAL INTERNAL}
  * and should only be used within the Record Layer code base, but they are not intended to be used by
  * consumers. The general advice is also that, in general, code writers should prefer complex
  * classes with named instead of unnamed pairs (or higher order varieties).
- * </p>
  *
  * @see com.apple.foundationdb.record.util.pair.Pair
  */

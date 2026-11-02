@@ -116,8 +116,8 @@ import java.util.Set;
  * consumer of a correlation. Executing these value trees that are obtained by doing this are not really producing
  * anything useful. A derivation helps the planner to statically infer useful properties by understanding what
  * operations happen in what order starting from a base table access.
- * <br>
- * In particular, a {@link Value}-tree that somewhere appears in a plan as part of a {@link QueryPredicate}, or other
+ *
+ * <p>In particular, a {@link Value}-tree that somewhere appears in a plan as part of a {@link QueryPredicate}, or other
  * expression, is guaranteed to be part of a derivation which is not correlated.
  */
 public class DerivationsProperty implements ExpressionProperty<DerivationsProperty.Derivations> {

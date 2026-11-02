@@ -63,10 +63,8 @@ public class FDBStoreTimer extends StoreTimer {
          * FoundationDB cluster can introduce back pressure, and the cluster will favor higher priority
          * transactions over lower priority transactions.
          *
-         * <p>
-         * Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
+         * <p>Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
          * before issuing the request.
-         * </p>
          *
          * @see #GET_READ_VERSION
          * @see #INJECTED_GET_READ_VERSION_LATENCY

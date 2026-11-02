@@ -109,8 +109,7 @@ public class IndexTypes {
      * This can be used to detect if there have been any changes to the record store or to subsections
      * of the record store (if there are grouping columns included in the index definition).
      *
-     * <p>
-     * This index is like {@link #MAX_EVER_TUPLE} except that the expression may contain exactly
+     * <p>This index is like {@link #MAX_EVER_TUPLE} except that the expression may contain exactly
      * one aggregated column that contains a
      * {@link com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression VersionKeyExpression}
      * with one caveat. If a record is written with an incomplete version-stamp, then the aggregate index
@@ -120,7 +119,6 @@ public class IndexTypes {
      * if, for example, one stores a record where the first field has value 2 and has an incomplete
      * version-stamp and then, in a separate transaction, one stores a record with the first field has
      * value 1 and has an incomplete version-stamp.
-     * </p>
      */
     public static final String MAX_EVER_VERSION = FunctionNames.MAX_EVER + "_version";
 

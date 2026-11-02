@@ -62,12 +62,12 @@ import java.util.function.Supplier;
 
 /**
  * This class captures an ordering property.
- * <br>
- * Traditionally, an ordering is a list of ordering parts that define the actual ordering of
+ *
+ * <p>Traditionally, an ordering is a list of ordering parts that define the actual ordering of
  * records that flow at runtime of a plan. Modelling an ordering in the planner using a list of ordering parts,
  * however, turns out to be inadequate.
- * <br>
- * Most plans are ordered in many different ways at the same time:
+ *
+ * <p>Most plans are ordered in many different ways at the same time:
  * <ul>
  *     <li>
  *          A result set satisfying an ordering of {@code a, b, c} is automatically also ordered by {@code a, b} and
@@ -84,8 +84,8 @@ import java.util.function.Supplier;
  *          ordered by {@code a, d, c} (in addition to the orderings above).
  *     </li>
  * </ul>
- * <br>
- * It turns out that an ordering is much more naturally represented by a {@link PartiallyOrderedSet} that can model
+ *
+ * <p>It turns out that an ordering is much more naturally represented by a {@link PartiallyOrderedSet} that can model
  * the different dependencies between the ordering parts. A more formal definition for the dependencies in that
  * partially ordered set is:
  * <ul>
@@ -107,12 +107,12 @@ import java.util.function.Supplier;
  * </ul>
  * Using a partially-ordered set, we can enumerate all traditional orderings by enumerating all topologically-sound
  * permutations of that partially-ordered set.
- * <br>
- * In addition to just using a {@link PartiallyOrderedSet} of {@link Value}s, we also keep a multimap for the domain of
+ *
+ * <p>In addition to just using a {@link PartiallyOrderedSet} of {@link Value}s, we also keep a multimap for the domain of
  * those {@link Value}s to {@link Binding}s. A {@link Binding} indicates if a {@link Value} is ascending, descending,
  * or if it is bound to one or multiple special {@link Value} via a {@link Comparison}.
- * <br>
- * Instances of this class are used to communicate properties of plans.
+ *
+ * <p>Instances of this class are used to communicate properties of plans.
  */
 public class Ordering {
     @Nonnull
@@ -623,8 +623,8 @@ public class Ordering {
 
     /**
      * Method to compute the {@link PartiallyOrderedSet} based on a binding map and a sequence of {@link Value}s.
-     * <br>
-     * The partially ordered set is created in a way that we insert a dependency for each element and it predecessor in
+     *
+     * <p>The partially ordered set is created in a way that we insert a dependency for each element and it predecessor in
      * the ordering sequence that is passed in. For example, passing in {@code [a, b, c]} as ordering sequence without
      * any fixed bindings we create a partially ordered set {@code (a, b, c), (a ← b, b ← c)}.
      *
@@ -670,8 +670,8 @@ public class Ordering {
      *         impossible to see e.g. multiple {@code ASCENDING}s in the binding set.).
      *     </li>
      * </ul>
-     * <br>
-     * Callers that create orderings are supposed to ensure that the binding map is already normalized. This method
+     *
+     * <p>Callers that create orderings are supposed to ensure that the binding map is already normalized. This method
      * just double-checks that that is indeed the case (as part of a sanity check). This method is public and can be
      * called by a client prior to creating an ordering, however, without a proper reason it is discouraged to do so
      * as that may lead to poorly understood conditions in the callers logic.
@@ -902,15 +902,15 @@ public class Ordering {
      * As the merge operation behaves slightly differently between different set operations, the caller needs to pass
      * in a {@link MergeOperator} that implements the behavior that is specific to the particular set-operation
      * we compute the merged ordering for.
-     * <br>
-     * In particular this method always returns a subclass of {@link SetOperationsOrdering}. The merge operator passed
+     *
+     * <p>In particular this method always returns a subclass of {@link SetOperationsOrdering}. The merge operator passed
      * in determines the particular kind that is returned. While it is not permissible for a regular {@link Ordering}
      * to return hold multiple fixed bindings for a {@link Value}, {@link SetOperationsOrdering} do allow exactly that.
      * Depending on the subclass of {@link SetOperationsOrdering} the multitude of these bindings needs to be
      * interpreted differently. For {@link Union}, multiple fixed bindings are thought to be or-ed, while for an
      * {@link Intersection}, multiple fixed bindings are thought to be and-ed.
-     * <br>
-     * {@link SetOperationsOrdering} defines methods that can only be applied to orderings that are produced by a
+     *
+     * <p>{@link SetOperationsOrdering} defines methods that can only be applied to orderings that are produced by a
      * merge operation. For most of these methods, the caller needs to pass in a {@link RequestedOrdering} in order
      * to fix the ambiguities of the {@link SetOperationsOrdering} at hand. Most prominently,
      * {@link SetOperationsOrdering#applyComparisonKey(List)} can take a {@link SetOperationsOrdering},

@@ -34,23 +34,19 @@ import java.util.function.Supplier;
  * That class is created with an instance of this interface as a member, and it should route operations through
  * appropriate methods.
  *
- * <p>
- * This framework is a bit of a work in progress. It currently only offers basic protection for single record
+ * <p>This framework is a bit of a work in progress. It currently only offers basic protection for single record
  * operations. That is, it prevents multiple operations from hitting issues when interleaving reads or writes
  * to the same record, but it does not take any locks to prevent a concurrent read and a range operation like
  * a {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#deleteRecordsWhere(QueryComponent) deleteRecordsWhere()}.
  * Nor will it prevent concurrent writes to the database during a query. As the framework gets refined, this
  * may change. As such, the adopter is still somewhat responsible for managing their concurrent accesses to
  * the record store until some of these shortcomings are addressed.
- * </p>
  *
- * <p>
- * If the lock management causes problems (e.g., if managing the locks takes too many resources or if the
+ * <p>If the lock management causes problems (e.g., if managing the locks takes too many resources or if the
  * introduction of the lock manager results in deadlocks), this can be disabled by invoking
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setDisableConcurrencyManagement(boolean) setDisableConcurrencyManagement(true)}
  * on the store's builder. This will switch the implementation to the {@link NoOpConcurrencyManager}, which
  * runs all operations immediately without waiting for any lock.
- * </p>
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setDisableConcurrencyManagement(boolean)
  * @see FDBRecordStoreConcurrencyManager for the default implementation

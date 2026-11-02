@@ -235,8 +235,8 @@ public class SyntheticRecordPlanner {
      * Determine what stored record types would be need to scanned in order to rebuild a given index.
      *
      * From those scans, queries will be executed to load other record types to complete the synthesis.
-     * <p>
-     * In cases such as full outer join, there is no single record type from which all joins can be produced.
+     *
+     * <p>In cases such as full outer join, there is no single record type from which all joins can be produced.
      * @param recordMetaData meta-data containing the synthetic record type
      * @param index the index that needs to be built
      * @param recordTypes a subset of the index's record types or {@code null} for all
@@ -273,8 +273,8 @@ public class SyntheticRecordPlanner {
      * Determine what stored record types would be need to scanned in order to rebuild a given index.
      *
      * From those scans, queries will be executed to load other record types to complete the synthesis.
-     * <p>
-     * In cases such as full outer join, there is no single record type from which all joins can be produced.
+     *
+     * <p>In cases such as full outer join, there is no single record type from which all joins can be produced.
      * @param index the index that needs to be built
      * @param recordTypes a subset of the index's record types or {@code null} for all
      * @return a set of stored record types that are sufficient to generate the synthesized records for the index

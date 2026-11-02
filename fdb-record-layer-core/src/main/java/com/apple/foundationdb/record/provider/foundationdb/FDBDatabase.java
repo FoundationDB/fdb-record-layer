@@ -69,10 +69,8 @@ import java.util.function.Supplier;
 /**
  * A known FDB {@link Database}, associated with a cluster file location.
  *
- * <p>
- * All reads and writes to the database are transactional: an open {@link FDBRecordContext} is needed.
+ * <p>All reads and writes to the database are transactional: an open {@link FDBRecordContext} is needed.
  * An {@code FDBDatabase} is needed to open an {@code FDBRecordContext}.
- * </p>
  *
  * <pre><code>
  * final FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
@@ -333,11 +331,9 @@ public class FDBDatabase {
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
      *
-     * <p>
-     * If the logger context includes "uuid" as a key, the value associated with that key will be associated
+     * <p>If the logger context includes "uuid" as a key, the value associated with that key will be associated
      * with the returned transaction as its debug identifier. See
      * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
-     * </p>
      *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
@@ -353,11 +349,9 @@ public class FDBDatabase {
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
      *
-     * <p>
-     * If the logger context includes "uuid" as a key, the value associated with that key will be associated
+     * <p>If the logger context includes "uuid" as a key, the value associated with that key will be associated
      * with the returned transaction as its debug identifier. See
      * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
-     * </p>
      *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
@@ -375,11 +369,9 @@ public class FDBDatabase {
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
      *
-     * <p>
-     * If the logger context includes "uuid" as a key, the value associated with that key will be associated
+     * <p>If the logger context includes "uuid" as a key, the value associated with that key will be associated
      * with the returned transaction as its debug identifier. See
      * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
-     * </p>
      *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
@@ -400,13 +392,11 @@ public class FDBDatabase {
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
      *
-     * <p>
-     * If the passed {@code transactionId} is {@code null}, then this method will set the transaction ID
+     * <p>If the passed {@code transactionId} is {@code null}, then this method will set the transaction ID
      * of the given transaction to the value of the "uuid" key in the MDC context if present. The transaction ID
      * should typically consist solely of printable ASCII characters and should not exceed 100 bytes. The ID may
      * be truncated or dropped if the ID will not fit in 100 bytes. See {@link FDBRecordContext#getTransactionId()}
      * for more details.
-     * </p>
      *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
@@ -519,11 +509,9 @@ public class FDBDatabase {
      * requests has increased. If the network thread is busy, this operation may take some amount of time to complete,
      * which is why this operation returns a future.
      *
-     * <p>
-     * If the provided {@link FDBStoreTimer} is not {@code null}, then this will update the {@link FDBStoreTimer.Events#PERFORM_NO_OP}
+     * <p>If the provided {@link FDBStoreTimer} is not {@code null}, then this will update the {@link FDBStoreTimer.Events#PERFORM_NO_OP}
      * operation with related timing information. This can then be monitored to detect instances of client saturation
      * where the performance bottleneck lies in scheduling work to run on the FDB event queue.
-     * </p>
      *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
@@ -892,21 +880,17 @@ public class FDBDatabase {
      * may be applied multiple times successfully if the transaction commit returns
      * a <code>commit_unknown_result</code> error.
      *
-     * <p>
-     * If this <code>FDBDatabase</code> is configured to cache read versions, one
+     * <p>If this <code>FDBDatabase</code> is configured to cache read versions, one
      * can specify that this function should use the cached version by supplying
      * a non-<code>null</code> {@link WeakReadSemantics} object to the
      * <code>weakReadSemantics</code> parameter. Each time that the function is
      * retried, the cached read version is checked again, so each retry
      * might get different read versions.
-     * </p>
      *
-     * <p>
-     * This is a blocking call, and this function will not return until the database
+     * <p>This is a blocking call, and this function will not return until the database
      * has synchronously returned a response as to the success or failure of this
      * operation. If one wishes to achieve the same functionality in a non-blocking
      * manner, see {@link #runAsync(FDBStoreTimer, Map, WeakReadSemantics, Function) runAsync()}.
-     * </p>
      *
      * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
@@ -1025,21 +1009,17 @@ public class FDBDatabase {
      * may be applied multiple times successfully if the transaction commit returns
      * a <code>commit_uknown_result</code> error.
      *
-     * <p>
-     * If this <code>FDBDatabase</code> is configured to cache read versions, one
+     * <p>If this <code>FDBDatabase</code> is configured to cache read versions, one
      * can specify that this function should use the cached version by supplying
      * a non-<code>null</code> {@link WeakReadSemantics} object to the
      * <code>weakReadSemantics</code> parameter. Each time that the function is
      * retried, the cached read version is checked again, so each retry
      * might get different read versions.
-     * </p>
      *
-     * <p>
-     * This is a non-blocking call, and this function will return immediately with
+     * <p>This is a non-blocking call, and this function will return immediately with
      * a future that will not be ready until the database has returned a response as
      * to the success or failure of this operation. If one wishes to achieve the same
      * functionality in a blocking manner, see {@link #run(FDBStoreTimer, Map, WeakReadSemantics, Function) run()}.
-     * </p>
      *
      * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
@@ -1350,22 +1330,16 @@ public class FDBDatabase {
     /**
      * 1. Bounds for stale reads; and 2. indication whether FDB's strict causal consistency guarantee isn't required.
      *
-     * <p>
-     * Stale reads never cause inconsistency <em>within</em> the database. If something had changed beforehand but
+     * <p>Stale reads never cause inconsistency <em>within</em> the database. If something had changed beforehand but
      * was not seen, the commit will conflict, while it would have succeeded if the read has been current.
-     * </p>
      *
-     * <p>
-     * It is still possible to have inconsistency <em>external</em> to the database. For example, if something writes
+     * <p>It is still possible to have inconsistency <em>external</em> to the database. For example, if something writes
      * a record and then sends you the id of that record via some means other than in the same database, you might
      * receive it but then access the database from before it committed and miss what they wanted you to see.
-     * </p>
      *
-     * <p>
-     * Setting the causal read risky flag leads to a lower latency at the cost of weaker semantics in case of failures.
+     * <p>Setting the causal read risky flag leads to a lower latency at the cost of weaker semantics in case of failures.
      * The read version of the transaction will be a committed version, and usually will be the latest committed,
      * but it might be an older version in the event of a fault on network partition.
-     * </p>
      */
     public static class WeakReadSemantics {
         // Minimum version at which the read should be performed (usually the last version seen by the client)

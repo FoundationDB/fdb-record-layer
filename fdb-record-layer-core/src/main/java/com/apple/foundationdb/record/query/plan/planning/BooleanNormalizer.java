@@ -49,20 +49,17 @@ import java.util.stream.Collectors;
 
 /**
  * A normalizer of a tree of {@link QueryComponent} predicates into disjunctive normal form.
- * <p>
- * The full normal form has a single {@code Or} at the root, all of whose children are {@code And}, none of whose
+ *
+ * <p>The full normal form has a single {@code Or} at the root, all of whose children are {@code And}, none of whose
  * children have other Boolean operators. This is abbreviated to exclude parent Boolean nodes with only one child.
  * The intermediate form for the normalizer is a list of lists.
- * </p>
  *
- * <p>
- * The <em>size</em> of a Boolean expression in disjunctive normal form (DNF) is the number of terms in the outermost
+ * <p>The <em>size</em> of a Boolean expression in disjunctive normal form (DNF) is the number of terms in the outermost
  * {@code Or} <a href="http://www.contrib.andrew.cmu.edu/~ryanod/?p=646">[O'Donnell 2014]</a>.
  * The {@code BooleanNormalizer} will not normalize a {@link QueryComponent} if the normalized form would have a size
  * that exceeds the size limit. This limit is useful to avoid wastefully normalizing expressions with a very large DNF.
  * In some cases, such as a large expression in conjunctive normal form (CNF), attempting to normalize such an expression
  * will cause out-of-memory errors.
- * </p>
  */
 @API(API.Status.INTERNAL)
 public class BooleanNormalizer {

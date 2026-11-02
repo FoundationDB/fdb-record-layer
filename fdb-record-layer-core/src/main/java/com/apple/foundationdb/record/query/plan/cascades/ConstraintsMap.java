@@ -43,23 +43,19 @@ import java.util.function.Supplier;
  * incompatible physical attribute. In any case, the planner must explore plan variations once created even though
  * the resulting structures may not get used at all. In essence, we would like to avoid the creation of useless plans
  * if at all possible.
- * </p>
- * <p>
- * A map of interesting constraints is used by a reference to "push down" such a constraint through the data
+ *
+ * <p>A map of interesting constraints is used by a reference to "push down" such a constraint through the data
  * flow graph. The "pushing down" is facilitated by rules that are executed by the {@link CascadesPlanner} much like
  * other rules yielding new {@link RelationalExpression}s or {@link PartialMatch}es. The only, and very important,
  * difference in concept is that the information is passed downwards instead of bubbling up like all the other structures.
- * </p>
- * <p>
- * The planner needs to make sure that expression references are explored, and if necessary, re-explored if new
+ *
+ * <p>The planner needs to make sure that expression references are explored, and if necessary, re-explored if new
  * interesting properties are declared through the execution of other planner tasks.
  * Planner rules ({@link CascadesRuleCall}) can declare to interest in the change of a constraint which then signals to
  * the planner to trigger a re-exploration using that rule if an constraint changes on that reference.
- * </p>
- * <p>
- * The map implementation uses a logical clock and a watermark system to understand if a re-exploration becomes
+ *
+ * <p>The map implementation uses a logical clock and a watermark system to understand if a re-exploration becomes
  * necessary.
- * </p>
  */
 public class ConstraintsMap {
     /**

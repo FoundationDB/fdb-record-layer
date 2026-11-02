@@ -29,8 +29,8 @@ import java.util.Set;
 
 /**
  * Explanatory information about the Record Layer's plan operators and storage objects.
- * <br>
- * Note that it is possible that users of the record layer may want to amend this set of info objects. Therefore, it is
+ *
+ * <p>Note that it is possible that users of the record layer may want to amend this set of info objects. Therefore, it is
  * a class with statics rather than a sealed enumeration.
  */
 public class NodeInfo {

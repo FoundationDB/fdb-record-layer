@@ -95,8 +95,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  *
  * <em>not</em> is one of the cases that can cause this.
- * <br>
- * In general for any possible record {@code  r} the following should hold:
+ *
+ * <p>In general for any possible record {@code  r} the following should hold:
  *
  * <pre>
  * {@code

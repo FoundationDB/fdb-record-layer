@@ -35,8 +35,8 @@ import java.util.Set;
  * expressions which are to be memoized and return a {@link Reference} which may be a new reference that was just
  * created or an already existing reference that was previously memoized by this {@code Memoizer} and that was deemed
  * to be compatible to be reused.
- * <br>
- * There are numerous considerations that determine if a reference can be safely reused. Most of these considerations
+ *
+ * <p>There are numerous considerations that determine if a reference can be safely reused. Most of these considerations
  * can be derived from the individual use case and the context the method is called from. Each individual method
  * declaration in this interface will also indicate (via java doc) if the method can return a reused expression or
  * if the caller can always expect a fresh reference to be returned. Note that the terminology used here is that

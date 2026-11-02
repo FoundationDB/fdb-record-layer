@@ -161,13 +161,11 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * This value is not guaranteed to be {@link Tuple}-encodable. It <em>is</em> guaranteed that the value returned
+     * <p>This value is not guaranteed to be {@link Tuple}-encodable. It <em>is</em> guaranteed that the value returned
      * has implemented {@link Object#equals(Object) equals()} and {@link Object#hashCode() hashCode()} so that the
      * value can be used in hash-based data structures like {@link java.util.HashMap HashMap}s or
      * {@link java.util.HashSet HashSet}s. If the value is needed to construct a {@code Tuple} or {@link com.apple.foundationdb.subspace.Subspace Subspace},
      * one should call {@link #getRecordTypeKeyTuple()}.
-     * </p>
      *
      * @return stable and unique key for the record type
      */
@@ -195,11 +193,9 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      *    Tuple.from(recordType.getRecordTypeKey()).pack()
      * }</pre>
      *
-     * <p>
-     * This function will first convert the record type key into a type that the {@code Tuple} layer can encode
+     * <p>This function will first convert the record type key into a type that the {@code Tuple} layer can encode
      * before returning the {@code Tuple} to the user. This method should therefore be preferred over calling
      * {@link #getRecordTypeKey()} when this key is about to be used to read or write data from the database.
-     * </p>
      *
      * @return a {@link Tuple} containing the {@linkplain #getRecordTypeKey() record type key}
      */

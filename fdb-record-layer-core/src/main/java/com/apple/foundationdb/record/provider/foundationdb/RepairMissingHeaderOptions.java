@@ -45,12 +45,12 @@ public class RepairMissingHeaderOptions {
 
     /**
      * When repairing the header, leave the indexes as readable even though they may be corrupt.
-     * <p>
-     *     As a safety measure, the store will be locked with
+     *
+     * <p>As a safety measure, the store will be locked with
      *     {@link com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
      *     and the provided reason.  It is <em>your</em> responsibility to disable the indexes (and optionally rebuild
      *     them) before clearing the lock.
-     * </p>
+     *
      * @param lockReason the reason for the repair/store lock
      * @return new options for the repair
      */

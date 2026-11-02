@@ -52,11 +52,9 @@ import java.util.function.Function;
  *     </li>
  * </ol>
  *
- * <p>
- * The implementation of {@code RecordCursorResult} guarantees the dichotomy described above using an API that encourages
+ * <p>The implementation of {@code RecordCursorResult} guarantees the dichotomy described above using an API that encourages
  * static correctness (for example, the {@link #withNextValue} and {@link #withoutNextValue} builder methods) and a
  * large number of correctness checks that encourage fast failures instead of subtle contract violations.
- * </p>
  *
  * @param <T> the type of result produced when the result includes a value
  */

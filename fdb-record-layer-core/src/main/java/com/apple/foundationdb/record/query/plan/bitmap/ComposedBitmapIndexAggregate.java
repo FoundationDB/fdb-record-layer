@@ -140,14 +140,14 @@ public class ComposedBitmapIndexAggregate {
 
     /**
      * Try to build a composed bitmap for the given aggregate function and filters.
-     * <p>
-     * The function should use a supported aggregate function (currently {@value BitmapValueIndexMaintainer#AGGREGATE_FUNCTION_NAME})
+     *
+     * <p>The function should use a supported aggregate function (currently {@value BitmapValueIndexMaintainer#AGGREGATE_FUNCTION_NAME})
      * and the bitmap-indexed position field grouped by any common fields.
      * The filter should supply equality conditions to the common fields.
      * The filter can include additional equality conditions on various other fields for which there are appropriate bitmap indexes, in a Boolean
      * expression that will be transformed into a set the corresponding bit operations on the bitmaps.
      * The filter can also include range conditions on the position field.
-     * </p>
+     *
      * @param planner a query planner to use to construct the plans
      * @param recordTypeNames the record types on which the indexes are defined
      * @param indexAggregateFunctionCall the function giving the desired position and grouping

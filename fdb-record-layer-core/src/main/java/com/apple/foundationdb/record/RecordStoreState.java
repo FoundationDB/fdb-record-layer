@@ -40,9 +40,7 @@ import java.util.stream.Collectors;
  * record stores. In particular, it handles the data that might be different between two different record stores
  * that have the same meta-data.
  *
- * <p>
- * At the moment, this class tracks two pieces of store-specific meta-data:
- * </p>
+ * <p>At the moment, this class tracks two pieces of store-specific meta-data:
  * <ul>
  *     <li>
  *         The store header. The header is a Protobuf message including information such as the

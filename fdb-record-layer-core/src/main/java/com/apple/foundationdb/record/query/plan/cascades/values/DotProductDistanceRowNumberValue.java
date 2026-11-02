@@ -34,30 +34,25 @@ import java.util.Objects;
 
 /**
  * A windowed value that assigns unique, sequential row numbers to rows ordered by their dot product distance from a reference point.
- * <p>
- * This class implements a window function similar to SQL's {@code ROW_NUMBER()} but specifically for dot product distance
+ *
+ * <p>This class implements a window function similar to SQL's {@code ROW_NUMBER()} but specifically for dot product distance
  * calculations. It assigns unique sequential numbers (starting from 1) to rows based on their negative dot product from a reference
  * vector, with vectors having larger dot products (more similar) receiving lower numbers. Unlike {@code RANK()}, each row receives
  * a unique number even if multiple rows have equal distances.
- * </p>
- * <p>
- * The dot product distance is defined as the negative dot product, which means that vectors with higher dot products (more aligned)
+ *
+ * <p>The dot product distance is defined as the negative dot product, which means that vectors with higher dot products (more aligned)
  * will have smaller distances and receive lower row numbers. This makes it suitable for similarity searches where higher dot products
  * indicate greater similarity.
- * </p>
- * <p>
- * The numbering can optionally be partitioned by one or more expressions, similar to the {@code PARTITION BY} clause
+ *
+ * <p>The numbering can optionally be partitioned by one or more expressions, similar to the {@code PARTITION BY} clause
  * in SQL window functions. Within each partition, row numbers are computed independently starting from 1.
- * </p>
- * <p>
- * This value is an {@link Value.IndexOnlyValue}, meaning it can only be computed from pre-calculated values stored
+ *
+ * <p>This value is an {@link Value.IndexOnlyValue}, meaning it can only be computed from pre-calculated values stored
  * in an index and cannot be evaluated from base records or computed on-the-fly.
- * </p>
- * <p>
- * <strong>Example:</strong> For vectors [(1,0), (0,1), (0.7,0.7), (0,0)] measured from (1,0),
+ *
+ * <p><strong>Example:</strong> For vectors [(1,0), (0,1), (0.7,0.7), (0,0)] measured from (1,0),
  * the dot products would be [1, 0, 0.7, 0], the distances would be [-1, 0, -0.7, 0], and the row numbers would be
  * [1, 2, 3, 4] where the first vector (most aligned) gets row number 1.
- * </p>
  *
  * @see WindowedValue
  * @see Value.IndexOnlyValue

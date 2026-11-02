@@ -43,11 +43,11 @@ import java.util.stream.Collectors;
  * pairing is declared; readers resolve any name to this key (preferring the canonical) and writers emit only the
  * canonical name, so a value stored long ago under a legacy name is still read while new values are written under the
  * current name.
- * <p>
- * The key bundles both halves of the string round-trip for its value type {@code T}: a {@link Function parser}
+ *
+ * <p>The key bundles both halves of the string round-trip for its value type {@code T}: a {@link Function parser}
  * (string &rarr; {@code T}) used when reading, and a serializer ({@code T} &rarr; string) used when writing.
- * <p>
- * The same key type serves both option surfaces:
+ *
+ * <p>The same key type serves both option surfaces:
  * <ul>
  * <li><b>index-time options</b> — index metadata values are strings, so {@link #read(Index)} resolves the option off an
  *     {@link Index} and parses it to {@code T} using the {@link Function parser} bundled with the key's type;</li>

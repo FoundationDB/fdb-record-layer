@@ -48,11 +48,11 @@ import java.util.function.Function;
 /**
  * An {@link FDBDatabaseRunner} implementation that performs all work in the context of a
  * {@link SynchronizedSession}.
- * <p>
- * For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
+ *
+ * <p>For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
  * is wrapped by calls that check locks and update leases to ensure that two synchronized sessions are not
  * concurrently running at the same time.
- * </p>
+ *
  * @see SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
@@ -65,10 +65,10 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     /**
      * Produces a new runner, wrapping a given runner, which performs all work in the context of a new
      * {@link SynchronizedSession}.
-     * <p>
-     * The returned runner will have acquired and started the lease, so care must be taken to ensure that
+     *
+     * <p>The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
-     * </p>
+     *
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
      * @param runner the underlying runner

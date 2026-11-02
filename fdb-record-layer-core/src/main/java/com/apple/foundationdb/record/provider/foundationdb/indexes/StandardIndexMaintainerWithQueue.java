@@ -46,7 +46,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>This is an abstract base. The serialization helpers are exposed (package-private, static) so that
  * other queue-capable maintainers that cannot extend this class directly can reuse the
- * exact same wire format.</p>
+ * exact same wire format.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMaintainer {

@@ -226,8 +226,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     /**
      * Factory method to create a {@link RecordQueryUpdatePlan}.
-     * <br>
-     * Example:
+     *
+     * <p>Example:
      * <pre>
      * {@code
      *    RecordQueryAbstractDataModificationPlan.forTransformMap(inner,

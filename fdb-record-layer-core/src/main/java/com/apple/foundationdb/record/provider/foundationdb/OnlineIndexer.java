@@ -68,26 +68,22 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  * priorities of its transactions. Additionally, it attempts to limit the amount of work it will
  * do in a fashion that will decrease as the number of failures for a given build attempt increases.
  *
- * <p>
- * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
+ * <p>As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
  * associated with the index being built. This {@link RangeSet} is used to (a) coordinate work between
  * different builders that might be running on different machines to ensure that the same work isn't
  * duplicated and to (b) make sure that non-idempotent indexes (like <code>COUNT</code> or <code>SUM_LONG</code>)
  * don't update themselves (or fail to update themselves) incorrectly.
- * </p>
  *
- * <p>
- * Unlike many other features in the Record Layer core, this has a retry loop.
- * </p>
+ * <p>Unlike many other features in the Record Layer core, this has a retry loop.
  *
- * <p>Build an index immediately in the current transaction:</p>
+ * <p>Build an index immediately in the current transaction:
  * <pre><code>
  * try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
  *     indexBuilder.rebuildIndex(recordStore);
  * }
  * </code></pre>
  *
- * <p>Build an index synchronously in the multiple transactions:</p>
+ * <p>Build an index synchronously in the multiple transactions:
  * <pre><code>
  * try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
  *     indexBuilder.buildIndex();
@@ -555,14 +551,14 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Builds an index across multiple transactions.
-     * <p>
-     * If the indexing session is not mutual, it will stop with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
+     *
+     * <p>If the indexing session is not mutual, it will stop with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
      * if there is another active indexing session on the same index. It first checks and updates index states and
      * clear index data respecting the {@link IndexStatePrecondition} being set. It then builds the index across
      * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
      * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
      * store.
-     * </p>
+     *
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
@@ -857,14 +853,14 @@ public class OnlineIndexer implements AutoCloseable {
          * @return this builder
          *
          * @deprecated use {@link IndexingPolicy.Builder} instead. Example:
-         * <p>
-         *   setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+         *
+         * <p>setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
          *                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
          *                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
-         * </p>
-         * For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
+         *
+         * <p>For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
          * methods: setIfDisabled, setIfWriteOnly, setIfMismatchPrevious, setIfReadable
          */
         @Deprecated
@@ -1729,10 +1725,9 @@ public class OnlineIndexer implements AutoCloseable {
      * and {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED}
      * are sorted in a way so that each option will build the index in more situations than the
      * ones before it.
-     * <p>
-     * Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
+     *
+     * <p>Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
      * current index data is corrupted.
-     * </p>
      */
     public enum IndexStatePrecondition {
         /**
@@ -1751,9 +1746,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Alternatives for this continuation are provided by the options {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED}
          * and {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED}
          *
-         * <p>
-         * Recommended. This should be sufficient if current index data is not corrupted.
-         * </p>
+         * <p>Recommended. This should be sufficient if current index data is not corrupted.
          */
         BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY(IndexingPolicy.DesiredAction.REBUILD, IndexingPolicy.DesiredAction.CONTINUE, IndexingPolicy.DesiredAction.CONTINUE, IndexingPolicy.DesiredAction.CONTINUE),
         /**

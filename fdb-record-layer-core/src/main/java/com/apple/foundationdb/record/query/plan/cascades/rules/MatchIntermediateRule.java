@@ -66,14 +66,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * structure for partial matches that is kept as part of {@link Reference}. It prepares further rules such as
  * other applications of {@link MatchIntermediateRule} and {@link AdjustMatchRule}.
  *
- * <p>
- * As an intermediate expression has children (and the candidate expression also has at least one child) we
+ * <p>As an intermediate expression has children (and the candidate expression also has at least one child) we
  * need to match up the quantifiers of the query expression to the quantifiers of the possible candidate expression
  * in order to determine if the query expression is in fact subsumed by the candidate. The property of subsumption
  * is defined as the ability of replacing the query expression with the candidate expression with the additional
  * application of compensation. Equivalence between expressions is stronger than subsumption in a way that if two
  * expressions are semantically equal, the compensation is considered to be a no op.
- * </p>
  *
  * <h2>Example 1</h2>
  *
@@ -92,8 +90,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  *
- * <p>
- * The matching logic between these two expressions needs to first establish if there is a mapping from
+ * <p>The matching logic between these two expressions needs to first establish if there is a mapping from
  * {@code c1, c2, c3} to {@code c1, cb, cc} such that the query expression can be subsumed by the candidate expression.
  * In the example, we use union expressions that only define subsumption through equivalency. In other words,
  * is there a mapping between the sets of quantifiers the expressions range over such that query expression and candidate
@@ -101,13 +98,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * rule does not yield matches. It can also be that there are multiple such matches in which case we yield more than
  * one partial match back to the planner. The expected "successful" outcome would be for this rule to yield exactly one
  * match.
- * </p>
  *
- * <p>
- * The described problem is referred to as exact matching. To make matters more complicated, it can be that the query
+ * <p>The described problem is referred to as exact matching. To make matters more complicated, it can be that the query
  * expression can be subsumed by the candidate expression even though the sets of quantifiers do not have the same
  * cardinality. This is referred to as non-exact matching.
- * </p>
  *
  * <h2>Example 2</h2>
  *
@@ -126,16 +120,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  *
- * <p>
- * For simplicity let us further assume the subtrees underneath {@code c1} and {@code ca} as well as
+ * <p>For simplicity let us further assume the subtrees underneath {@code c1} and {@code ca} as well as
  * the subtrees underneath {@code c2} and {@code cb} are already determined to be semantically equivalent.
  * In this example we yield two partial matches, one for {@code c1 -> ca} and one for {@code c1 -> ca, c2 -> cb}.
  * That is because the query expression can be replaced by the candidate expression in both cases (albeit with
  * different compensations).
- * </p>
  *
- * <p>
- * Discussion as to why they are matching: for further explanations see {@link RelationalExpression#subsumedBy}. First note
+ * <p>Discussion as to why they are matching: for further explanations see {@link RelationalExpression#subsumedBy}. First note
  * that the quantifier over {@code c2} is existential (of type {@link Existential}. That also means that this quantifier
  * does not ever positively contribute to the cardinality of the select expression. It only filters out the outer if
  * the inner does not produce any records. In some sense it is very similar to a predicate. In fact it is a predicate
@@ -146,7 +137,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * sub query on the query side the quantifier over {@code cb} produces multiple records that now do contribute to the
  * cardinality on the candidate side. That will need to be corrected by distinct-ing the output of the select expression
  * if the match is utilized later on.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpression> {

@@ -47,11 +47,11 @@ import java.util.function.Function;
  * This cursor takes in an <i>inner</i> cursor factory function and a pair of pack/unpack functions. Those are needed as
  * part of the continuation management, as the overall continuation for the cursor needs both the inner cursor continuation
  * and the last found value (so that can can compare it at the beginning of the next iteration).
- * <p>
- * This cursor also assumes that there is always some forward progress made in each iteration (unless the inner record
+ *
+ * <p>This cursor also assumes that there is always some forward progress made in each iteration (unless the inner record
  * is exhausted), so that we will get some inner result during every iteration to feed into the continuation.
- * <p>
- * The cursor assumes that the inner cursor is sorted (the assumption is actually somewhat weaker: that the repeated elements are grouped)
+ *
+ * <p>The cursor assumes that the inner cursor is sorted (the assumption is actually somewhat weaker: that the repeated elements are grouped)
  * such that all the elements of a certain repeated value appear in sequence, hence it can remove all but the first, and
  * the stored state can be kept to a minimum.
  *

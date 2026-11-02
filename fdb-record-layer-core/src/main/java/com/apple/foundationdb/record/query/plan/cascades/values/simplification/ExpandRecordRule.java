@@ -44,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that expands a {@link Value} of type {@link Type.Record} into a record constructor over its constituent parts.
  * It operates as follows:
- * <br>
+ *
  * <pre>
  * {@code
  *     some non rcv value v ==> rcv(FieldValue(v, f1), FieldValue(v, f2), ..., FieldValue(v, fn))) for all fields
