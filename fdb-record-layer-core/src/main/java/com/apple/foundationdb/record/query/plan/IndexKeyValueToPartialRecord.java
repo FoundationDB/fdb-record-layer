@@ -156,6 +156,35 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         return new IndexKeyValueToPartialRecord(copiersBuilder.build(), indexKeyValueToPartialRecordProto.getIsRequired());
     }
 
+    /**
+     * Returns the tuple of an index entry that a column is read from.
+     *
+     * @param indexEntry the index entry
+     * @param source whether the column sits in the key or the value tuple of the entry
+     *
+     * @return the key tuple of {@code indexEntry} if {@code source} is {@link TupleSource#KEY}, and its value tuple
+     *         otherwise
+     */
+    @Nonnull
+    public static Tuple getTuple(@Nonnull final IndexEntry indexEntry, @Nonnull final TupleSource source) {
+        return source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue();
+    }
+
+    /**
+     * Reads a column of an index entry.
+     *
+     * @param indexEntry the index entry
+     * @param source whether the column sits in the key or the value tuple of the entry
+     * @param ordinalPath the position of the column in that tuple, which may descend into nested tuples
+     *
+     * @return the column, or {@code null} if the column or an enclosing element on the path is null
+     */
+    @Nullable
+    public static Object getForOrdinalPath(@Nonnull final IndexEntry indexEntry, @Nonnull final TupleSource source,
+                                           @Nonnull final ImmutableIntArray ordinalPath) {
+        return getForOrdinalPath(getTuple(indexEntry, source), ordinalPath);
+    }
+
     @Nullable
     public static Object getForOrdinalPath(@Nonnull Tuple tuple, @Nonnull final ImmutableIntArray ordinalPath) {
         Object value = tuple;
@@ -276,7 +305,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         @Override
         public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                             @Nonnull IndexEntry kv) {
-            final Tuple tuple = (source == TupleSource.KEY ? kv.getKey() : kv.getValue());
+            final Tuple tuple = getTuple(kv, source);
             if (!copyIfPredicate.test(tuple)) {
                 return false;
             }
