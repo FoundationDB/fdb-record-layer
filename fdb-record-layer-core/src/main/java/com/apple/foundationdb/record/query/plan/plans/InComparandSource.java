@@ -32,10 +32,12 @@ import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -180,7 +182,8 @@ public class InComparandSource extends InSource {
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return Objects.requireNonNull(comparison.getValue()).getDynamicTypes();
+        final Value comparandValue = comparison.getValue();
+        return comparandValue == null ? ImmutableSet.of() : comparandValue.getDynamicTypes();
     }
 
     /**

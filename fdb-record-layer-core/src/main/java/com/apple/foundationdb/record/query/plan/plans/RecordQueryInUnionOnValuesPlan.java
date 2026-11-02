@@ -123,7 +123,10 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
+        return ImmutableSet.<Type>builder()
+                .addAll(super.getDynamicTypes())
+                .addAll(getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).iterator())
+                .build();
     }
 
     @Nonnull
