@@ -279,7 +279,7 @@ public class MessageHelpers {
             } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 final var existingValue = (Message)builder.getField(targetField);
                 if (existingValue == existingValue.getDefaultInstanceForType()) {
-                    builder.setField(targetField, deepCopyMessageIfNeeded(targetField.getMessageType(), (Message)entry.getValue()));
+                    builder.setField(field, entry.getValue());
                 } else {
                     final var mergedObject =
                             DynamicMessage.newBuilder(targetField.getMessageType())
