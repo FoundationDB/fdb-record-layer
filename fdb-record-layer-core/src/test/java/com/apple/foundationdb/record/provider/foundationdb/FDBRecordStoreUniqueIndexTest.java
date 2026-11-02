@@ -553,7 +553,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         private final Index uniqueIndex;
         private final Index nonUniqueIndex;
         private final boolean allowReadableUniquePending;
-        private final IndexState readableUniquePendingState;
         private final RecordMetaData uniqueMetadata;
         private final RecordMetaData nonUniqueMetadata;
 
@@ -563,7 +562,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         private DropUniquenessConstraint(final boolean allowReadableUniquePending, final String indexType, final boolean bumpVersion) {
             this.allowReadableUniquePending = allowReadableUniquePending;
-            readableUniquePendingState = allowReadableUniquePending ? IndexState.READABLE_UNIQUE_PENDING : IndexState.WRITE_ONLY;
             uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), indexType, IndexOptions.UNIQUE_OPTIONS);
             assertTrue(uniqueIndex.isUnique());
             uniqueMetadata = simpleMetaData(metaDataBuilder ->
@@ -667,8 +665,9 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 createOrOpenRecordStore(context, uniqueMetadata);
 
-                assertEquals(readableUniquePendingState, recordStore.getIndexState(uniqueIndex.getName()),
-                        "Index should still be " + readableUniquePendingState.getLogName());
+                // Resolving the last violation marks a READABLE_UNIQUE_PENDING index readable, but not a WRITE_ONLY one
+                final IndexState expectedState = allowReadableUniquePending ? IndexState.READABLE : IndexState.WRITE_ONLY;
+                assertEquals(expectedState, recordStore.getIndexState(uniqueIndex.getName()));
             }
         }
 

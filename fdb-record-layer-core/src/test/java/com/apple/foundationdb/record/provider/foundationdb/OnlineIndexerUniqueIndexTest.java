@@ -512,7 +512,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    void testMarkReadableOrUniquePendingUnchanged() {
+    void testUniquePendingUnchangedUntilViolationsResolved() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
@@ -570,12 +570,10 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // assert change after resolving
+        // resolving the last violation should have marked the index readable
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
-                boolean changed = recordStore.markIndexReadableOrUniquePending(index).join();
-                assertTrue(changed);
+                assertTrue(recordStore.getIndexState(index).isReadable());
             }
             context.commit();
         }
@@ -583,6 +581,50 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // assert validity and readable state
         scrubAndValidate(indexes);
         assertReadable(indexes);
+    }
+
+    @Test
+    void testMarkReadableWhenLastViolationResolved() {
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
+        ).collect(Collectors.toList());
+        final Index index = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext())  {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowUniquePendingState(true))
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // resolve all but the last duplication, one per transaction - the index should remain unique pending
+        for (int i = 5; i < 9; i++) {
+            try (FDBRecordContext context = openContext()) {
+                recordStore.deleteRecord(Tuple.from(i));
+                context.commit();
+            }
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+                assertEquals(2 * (9 - i), (int)recordStore.scanUniquenessViolations(index).getCount().join());
+                context.commit();
+            }
+        }
+
+        // resolve the last duplication - the index should become readable
+        try (FDBRecordContext context = openContext()) {
+            recordStore.deleteRecord(Tuple.from(9));
+            context.commit();
+        }
+        scrubAndValidate(List.of(index));
+        assertReadable(index);
     }
 
     @Test

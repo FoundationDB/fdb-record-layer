@@ -643,6 +643,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return uniquenessViolationEntries.getCount().thenAccept(count -> {
             if (count == 1) {
                 state.context.clear(Range.startsWith(uniqueValueSubspace.pack()));
+                if (state.store.getIndexState(state.index).isReadableUniquePending()) {
+                    state.store.addMarkReadableIfUniquenessResolvedCommitCheck(state.index);
+                }
             }
         });
     }
