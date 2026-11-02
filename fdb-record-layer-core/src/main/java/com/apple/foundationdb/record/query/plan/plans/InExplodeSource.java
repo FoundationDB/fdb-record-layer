@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PInExplodeSource;
 import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -33,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -67,9 +67,9 @@ public class InExplodeSource extends InComparandSource {
 
     protected InExplodeSource(@Nonnull final PlanSerializationContext serializationContext,
                               @Nonnull final PInExplodeSource inExplodeSourceProto) {
-        super(serializationContext, Objects.requireNonNull(inExplodeSourceProto.getSuper()));
-        this.explodeValue = (ExplodeValue)Value.fromValueProto(serializationContext,
-                Objects.requireNonNull(inExplodeSourceProto.getExplodeValue()));
+        this(Objects.requireNonNull(inExplodeSourceProto.getSuper()).getBindingName(),
+                (ExplodeValue)Value.fromValueProto(serializationContext,
+                        Objects.requireNonNull(inExplodeSourceProto.getExplodeValue())));
     }
 
     public InExplodeSource(@Nonnull final String bindingName, @Nonnull final ExplodeValue explodeValue) {
@@ -86,18 +86,6 @@ public class InExplodeSource extends InComparandSource {
     private Value getUnsortedCollectionValue() {
         final Value collectionValue = explodeValue.getCollectionValue();
         return collectionValue instanceof ArraySortValue ? ((ArraySortValue)collectionValue).getChild() : collectionValue;
-    }
-
-    /**
-     * Returns the name of the parameter this source explodes, if it explodes a parameter.
-     * @return the parameter name or {@code null}
-     */
-    @Nullable
-    public String getParameterName() {
-        final Value collectionValue = getUnsortedCollectionValue();
-        return collectionValue instanceof ParameterObjectValue
-                ? ((ParameterObjectValue)collectionValue).getParameterName()
-                : null;
     }
 
     /**
@@ -149,10 +137,25 @@ public class InExplodeSource extends InComparandSource {
                                 .explain().getExplainTokens(), "...").addNested(explainSuffix()));
     }
 
+    @Override
+    protected int size(@Nonnull final EvaluationContext context) {
+        final Object collection = getUnsortedCollectionValue().eval(null, context);
+        return collection == null ? 0 : ((List<?>)collection).size();
+    }
+
+    /**
+     * Returns the structs of the elements of the collection. Creating them needs their type, so the context has to
+     * provide a type repository containing the {@linkplain #getResultType() result type} of this source.
+     * @param context the evaluation context
+     * @return the structs of the elements of the collection
+     */
     @Nonnull
     @Override
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
-        return explodeValue.evalAsList(null, context == null ? EvaluationContext.empty() : context);
+        if (context == null) {
+            throw new RecordCoreException("values of an in-explode source need an evaluation context");
+        }
+        return explodeValue.evalAsList(null, context);
     }
 
     @Nonnull
@@ -194,7 +197,7 @@ public class InExplodeSource extends InComparandSource {
     @Override
     public PInExplodeSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PInExplodeSource.newBuilder()
-                .setSuper(toInComparandSourceProto(serializationContext))
+                .setSuper(toInSourceSuperProto(serializationContext))
                 .setExplodeValue(explodeValue.toValueProto(serializationContext))
                 .build();
     }

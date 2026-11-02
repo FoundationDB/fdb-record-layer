@@ -143,7 +143,7 @@ class ExplodeValueTest {
 
         final var fields = value.getResultType().getFields();
         Assertions.assertEquals(1, fields.size());
-        Assertions.assertEquals(value.getElementType(), fields.get(0).getFieldType());
+        Assertions.assertEquals(((Type.Array)value.getCollectionValue().getResultType()).getElementType(), fields.get(0).getFieldType());
         Assertions.assertEquals("_0", fields.get(0).getFieldName());
         Assertions.assertTrue(value.getDynamicTypes().contains(value.getResultType()));
     }
@@ -155,7 +155,7 @@ class ExplodeValueTest {
 
         final var fields = value.getResultType().getFields();
         Assertions.assertEquals(2, fields.size());
-        Assertions.assertEquals(value.getElementType(), fields.get(0).getFieldType());
+        Assertions.assertEquals(((Type.Array)value.getCollectionValue().getResultType()).getElementType(), fields.get(0).getFieldType());
         Assertions.assertEquals(Type.primitiveType(Type.TypeCode.INT, false), fields.get(1).getFieldType());
         // Both fields are declared anonymous, the way an explode WITH ORDINALITY declares its struct, and are so named
         // by their position.

@@ -47,6 +47,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Union plan that compares using a {@link Value}.
@@ -123,10 +124,9 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return ImmutableSet.<Type>builder()
-                .addAll(super.getDynamicTypes())
-                .addAll(getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).iterator())
-                .build();
+        return Stream.concat(super.getDynamicTypes().stream(),
+                        getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()))
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
