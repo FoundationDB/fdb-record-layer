@@ -428,7 +428,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     /**
      * Private constructor.
      *
-     * Creates a property object that can be passed into a {@link RelationalExpression} visitor to create an
+     * <p>Creates a property object that can be passed into a {@link RelationalExpression} visitor to create an
      * internal planner graph.
      *
      * @param flags for options

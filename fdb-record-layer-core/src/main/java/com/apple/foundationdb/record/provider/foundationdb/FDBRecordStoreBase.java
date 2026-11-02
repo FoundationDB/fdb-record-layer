@@ -90,7 +90,7 @@ import java.util.function.Supplier;
 /**
  * Base interface for typed and untyped record stores.
  *
- * This interface is the main front-end for most operations inserting, modifying, or querying data through
+ * <p>This interface is the main front-end for most operations inserting, modifying, or querying data through
  * the Record Layer. A record store combines:
  *
  * <ul>
@@ -355,7 +355,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * No special action.
          *
-         * This should be used with care, since if the record store already has records, there is
+         * <p>This should be used with care, since if the record store already has records, there is
          * no guarantee that they were written at the current versions (meta-data and format).
          * It is really only appropriate in development when switching from {@code uncheckedOpen}
          * or {@code build} to a checked open.
@@ -378,14 +378,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * error even if there are no records in the store, only data stored internally by the
          * Record Layer.
          *
-         * This corresponds to {@link FDBRecordStore.Builder#createOrOpen}
+         * <p>This corresponds to {@link FDBRecordStore.Builder#createOrOpen}
          */
         ERROR_IF_NO_INFO_AND_NOT_EMPTY,
 
         /**
          * Throw if the record store already exists.
          *
-         * This corresponds to {@link FDBRecordStore.Builder#create}
+         * <p>This corresponds to {@link FDBRecordStore.Builder#create}
          * @see RecordStoreAlreadyExistsException
          */
         ERROR_IF_EXISTS,
@@ -393,7 +393,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Throw if the record store does not already exist.
          *
-         * This corresponds to {@link FDBRecordStore.Builder#open}
+         * <p>This corresponds to {@link FDBRecordStore.Builder#open}
          * @see RecordStoreDoesNotExistException
          */
         ERROR_IF_NOT_EXISTS
@@ -407,14 +407,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * No special action.
          *
-         * This corresponds to {@link FDBRecordStoreBase#saveRecord}
+         * <p>This corresponds to {@link FDBRecordStoreBase#saveRecord}
          */
         NONE,
 
         /**
          * Throw if the record already exists.
          *
-         * This corresponds to {@link FDBRecordStoreBase#insertRecord}
+         * <p>This corresponds to {@link FDBRecordStoreBase#insertRecord}
          * @see RecordAlreadyExistsException
          */
         ERROR_IF_EXISTS,
@@ -436,7 +436,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Throw if the record does not already exist or has a different record type.
          *
-         * This corresponds to {@link FDBRecordStoreBase#updateRecord}
+         * <p>This corresponds to {@link FDBRecordStoreBase#updateRecord}
          * @see RecordDoesNotExistException
          * @see RecordTypeChangedException
          */
@@ -1775,7 +1775,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the number of records in the record store.
      *
-     * There must be a suitable {@code COUNT} type index defined.
+     * <p>There must be a suitable {@code COUNT} type index defined.
      * @return a future that will complete to the number of records in the store
      */
     @Nonnull
@@ -1786,7 +1786,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the number of records in a portion of the record store determined by a group key expression.
      *
-     * There must be a suitably grouped {@code COUNT} type index defined.
+     * <p>There must be a suitably grouped {@code COUNT} type index defined.
      * @param key the grouping key expression
      * @param value the value of {@code key} to match
      * @return a future that will complete to the number of records
@@ -1801,7 +1801,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the number of records in a portion of the record store determined by a group key expression.
      *
-     * There must be a suitably grouped, readable {@code COUNT} type index defined, that is not filtered by
+     * <p>There must be a suitably grouped, readable {@code COUNT} type index defined, that is not filtered by
      * {@code indexQueryabilityFilter}, or a suitable record count key on the metadata.
      * @param key the grouping key expression
      * @param value the value of {@code key} to match
@@ -1816,7 +1816,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the number of records in the record store of the given record type.
      *
-     * The record type must have a {@code COUNT} index defined for it.
+     * <p>The record type must have a {@code COUNT} index defined for it.
      * @param recordTypeName record type for which to count records
      * @return a future that will complete to the number of records
      */
@@ -1830,7 +1830,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the number of records in the record store of the given record type.
      *
-     * The record type must have a readable {@code COUNT} index defined for it, that is not excluded by the
+     * <p>The record type must have a readable {@code COUNT} index defined for it, that is not excluded by the
      * {@code indexQueryabilityFilter}.
      * @param recordTypeName record type for which to count records
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning.
@@ -1935,7 +1935,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.
      *
-     * Before calling {@link #evaluateAggregateFunction(List, IndexAggregateFunction, TupleRange, IsolationLevel)},
+     * <p>Before calling {@link #evaluateAggregateFunction(List, IndexAggregateFunction, TupleRange, IsolationLevel)},
      * this overload adjusts the given range to include any prefix in the function itself.
      * @param evaluationContext evaluation context containing parameter bindings
      * @param recordTypeNames record types for which to find a matching index

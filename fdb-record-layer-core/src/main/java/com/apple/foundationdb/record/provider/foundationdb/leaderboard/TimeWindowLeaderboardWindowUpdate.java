@@ -147,7 +147,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
      * The following ones are spaced <code>startIncrement</code> apart.
      * They are <code>duration</code> wide.
      *
-     * So, for example, to have daily time windows accurate to six hours, and assuming that time units are seconds,
+     * <p>So, for example, to have daily time windows accurate to six hours, and assuming that time units are seconds,
      * <code>new TimeWindowSpec(DAILY, midnight, 6 * 60 * 60, 24 * 60 * 60, 4)</code>
      */
     public static class TimeWindowSpec {

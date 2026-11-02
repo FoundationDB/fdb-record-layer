@@ -65,7 +65,7 @@ import java.util.stream.StreamSupport;
 /**
  * An asynchronous iterator that supports continuations.
  *
- * Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
+ * <p>Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
  * It differs in three primary respects:
  *
  * <ol>
@@ -126,7 +126,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * The limit on the amount of time that a scan can take was reached.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
-         * Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
+         * <p>Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
          * any actual records if a complex scan takes a lot of work to reach the requested records,
          * such as a query that does filtering.
          * @see ExecuteProperties.Builder#setTimeLimit(long)
@@ -138,7 +138,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * The limit on the number of records to scan was reached.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
-         * Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
+         * <p>Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
          * a scan retrieves many records that are discarded, such as by a filter or type filter.
          * @see ExecuteProperties.Builder#setScannedRecordsLimit(int)
          * @see RecordScanLimiter

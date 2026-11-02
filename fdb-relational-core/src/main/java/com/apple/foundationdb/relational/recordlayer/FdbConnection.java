@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
  * Represents a connection to a single FDB cluster. This functionally acts as an equivalent to FDBDatabase,
  * but can be swapped out more cleanly on an as-needed basis.
  *
- * Note that FdbConnections isolate {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase},
+ * <p>Note that FdbConnections isolate {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase},
  * but it is <em>not</em> intended to isolate RecordLayer itself. Instead, it's main usage is to allow flexible
  * implementations of Fdb connections for use <em>by</em> RecordLayer and it's assorted classes.
  */

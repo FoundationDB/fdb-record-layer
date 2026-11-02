@@ -55,7 +55,7 @@ public interface SystemTable {
     /**
      * Adds the definition of the system table to the <i>stateful</i> {@link RecordLayerSchemaTemplate.Builder}.
      *
-     * During bootstrapping, Relational will populate the {@code __SYS/catalog} with information
+     * <p>During bootstrapping, Relational will populate the {@code __SYS/catalog} with information
      * about system tables such as {@link SchemaSystemTable}, during this process a single {@link RecordLayerSchemaTemplate.Builder}
      * instance is used to gather the structure of each of these tables by calling this method and asking each
      * system table to contribute its definition to the typing context. In other words, it resembles a visitor.

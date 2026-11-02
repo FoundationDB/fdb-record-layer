@@ -33,7 +33,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Converts hexadecimal Strings.
  *
- * This is forked from apache-commons-codec as it shouldn't ever change. This should go away once we move to JDK17 which
+ * <p>This is forked from apache-commons-codec as it shouldn't ever change. This should go away once we move to JDK17 which
  * has native support for this.
  */
 @API(API.Status.EXPERIMENTAL)

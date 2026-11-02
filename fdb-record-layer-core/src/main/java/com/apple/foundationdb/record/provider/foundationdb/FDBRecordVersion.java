@@ -38,7 +38,7 @@ import java.util.Arrays;
  * is designed to inter-operate with the {@link Versionstamp} class used to serialize
  * versions within FoundationDB.
  *
- * The version consists of two parts: a global version and a local version. The global version
+ * <p>The version consists of two parts: a global version and a local version. The global version
  * is a {@value GLOBAL_VERSION_LENGTH} byte version that is usually set by the
  * database, and it should be used to impose an ordering between different transactions. The
  * local version should be set by the user instead, and it should be used to impose an order

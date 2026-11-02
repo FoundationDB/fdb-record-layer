@@ -21,7 +21,7 @@
 /**
  * Classes for FoundationDB record storage.
  *
- * Note that at present FoundationDB is the <em>only</em> supported backend.
+ * <p>Note that at present FoundationDB is the <em>only</em> supported backend.
  *
  * <h2>Databases</h2>
  *

@@ -277,7 +277,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * there is exactly one scalar result for this value (namely {@code 3}).*
      * </pre>
      *
-     * Note that if {@code x -> y} and {@code y -> z} then {@code x -> z} should hold. Note that this method attempts
+     * <p>Note that if {@code x -> y} and {@code y -> z} then {@code x -> z} should hold. Note that this method attempts
      * a best effort to establish the functional dependency relationship between the other value and this value. That
      * means that the caller cannot rely on a {@code false} result to deduce that this value is definitely not
      * dependent on {@code otherValue}.

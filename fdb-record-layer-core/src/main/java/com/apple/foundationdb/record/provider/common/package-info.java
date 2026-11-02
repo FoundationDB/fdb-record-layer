@@ -21,7 +21,7 @@
 /**
  * Support classes that do not depend on FoundationDB.
  *
- * Although the Record Layer only works with FoundationDB, a few of its pieces do not actually need the FDB API and might
+ * <p>Although the Record Layer only works with FoundationDB, a few of its pieces do not actually need the FDB API and might
  * conceivably be used with a different backend, if there ever were one.
  *
  * <h2>Serialization</h2>

@@ -42,7 +42,7 @@ import java.util.function.Function;
 /**
  * {@code COLLATE} function.
  *
- * Turns a string into a locale-specific sort key.
+ * <p>Turns a string into a locale-specific sort key.
  *
  * <p>The name of the function is determined by the underlying collation rules chosen.
  * For the Java Platform's own collations, this is {@code collate_jre}.

@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * A builder for {@link RecordType}.
  *
- * A record type consists of:
+ * <p>A record type consists of:
  * <ul>
  * <li>name.</li>
  * <li>Protobuf {@link com.google.protobuf.Descriptors.Descriptor}.</li>

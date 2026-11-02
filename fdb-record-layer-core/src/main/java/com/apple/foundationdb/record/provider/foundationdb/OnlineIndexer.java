@@ -464,7 +464,7 @@ public class OnlineIndexer implements AutoCloseable {
      * do this within a single transaction, and it may fail if there are too many records, so this
      * is only safe to do for small record stores.
      *
-     * Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
+     * <p>Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
      * changing an index to write-only mode while the index is being rebuilt.
      *
      * @param store the record store in which to rebuild the index
@@ -822,7 +822,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Get the explicit set of record types to be indexed.
          *
-         * Normally, all record types associated with the chosen index will be indexed.
+         * <p>Normally, all record types associated with the chosen index will be indexed.
          * @return the record types to be indexed
          */
         @Nullable
@@ -833,7 +833,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the explicit set of record types to be indexed.
          *
-         * Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
+         * <p>Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
          * explicitly is not allowed with multi targets indexing.
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
@@ -1341,7 +1341,7 @@ public class OnlineIndexer implements AutoCloseable {
          * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").build()
          * </code></pre>
          *
-         * Forbid fallback:
+         * <p>Forbid fallback:
          * <pre><code>
          * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").forbidRecordScan().build()
          * </code></pre>

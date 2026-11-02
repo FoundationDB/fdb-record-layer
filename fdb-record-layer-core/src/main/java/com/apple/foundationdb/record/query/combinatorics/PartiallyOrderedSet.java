@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
  *     </li>
  * </ul>
  *
- * This class is closely connected to other classes in this package. See also {@link TopologicalSort} and
+ * <p>This class is closely connected to other classes in this package. See also {@link TopologicalSort} and
  * {@link TransitiveClosure}.
  *
  * @param <T> the type of elements
@@ -341,12 +341,12 @@ public class PartiallyOrderedSet<T> {
      * An <em>eligible</em> element is an element that is smallest with respect to the partial order. In total order,
      * there would only ever be exactly one such element. In a partial order there can be many such elements.
      *
-     * Objects of this class should be initially created by calling {@link #eligibleSet()}. The current set of
+     * <p>Objects of this class should be initially created by calling {@link #eligibleSet()}. The current set of
      * eligible elements can then be retrieved using {@link #eligibleElements()}. In order to advance <em>iteration</em>
      * the caller can remove elements from the set of currently eligible elements, thus creating a new,
      * albeit smaller in cardinality, partial order.
      *
-     * By repeatedly removing elements, a caller can consume the entire partial order in a well-defined way. This
+     * <p>By repeatedly removing elements, a caller can consume the entire partial order in a well-defined way. This
      * concept of iteration is a little more complex than the standard Java {@link java.util.Iterator} approach,
      * as the next step of the iteration is defined by removing a particular subset of elements that is determined
      * by the caller.

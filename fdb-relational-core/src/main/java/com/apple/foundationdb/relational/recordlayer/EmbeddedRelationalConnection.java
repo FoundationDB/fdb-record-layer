@@ -472,7 +472,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
      * transaction irrespective of the state of {@link EmbeddedRelationalConnection#getAutoCommit()}. This method returns
      * a boolean indicative of the fact that a new transaction has been started to fulfill the request.
      *
-     * NOTE: This is an internal API not to be used by holders of the {@link Connection}.
+     * <p>NOTE: This is an internal API not to be used by holders of the {@link Connection}.
      *
      * @return {@code true} if calling this method starts a new transaction, else {@code false}.
      * @throws RelationalException if there is no active transaction and one cannot be started.

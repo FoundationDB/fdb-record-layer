@@ -187,7 +187,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     /**
      * Constructs a {@code NodeReferenceWithVector} from tuples retrieved from storage.
-     * <p>
+     *
      * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
      * @param keyTuple the key tuple from the database, which contains the neighbor's primary key.

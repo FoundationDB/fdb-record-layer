@@ -100,7 +100,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
     /**
      * Lower-level search API.
      *
-     * This is optimized into an attempt to parallelize database access in FDB, for each collector in {@code collectorManager}.
+     * <p>This is optimized into an attempt to parallelize database access in FDB, for each collector in {@code collectorManager}.
      *
      * <p>{@link LeafCollector#collect(int)} is called for every document. <br>
      *

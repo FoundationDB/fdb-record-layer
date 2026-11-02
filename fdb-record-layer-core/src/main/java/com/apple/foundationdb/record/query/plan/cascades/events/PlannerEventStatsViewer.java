@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
  *     PlannerEventStatsViewer.showStats(PlannerEventStatsCollector.getCollector())
  * </pre>
  *
- * The stats will be displayed in a new window of the system browser.
+ * <p>The stats will be displayed in a new window of the system browser.
  */
 @SuppressWarnings("unused")
 final class PlannerEventStatsViewer {

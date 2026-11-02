@@ -31,7 +31,7 @@ public interface EnumeratingIterator<T> extends Iterator<List<T>> {
     /**
      * Instructs the iterator to advance to the next possible ordering using the given zero-indexed level.
      *
-     * Example 1: Consider the last returned ordering of the iterator {@code it} is {@code (e0, e1, e2, e3)}.
+     * <p>Example 1: Consider the last returned ordering of the iterator {@code it} is {@code (e0, e1, e2, e3)}.
      *            If {@code it.skip(1)} is called, the state of the iterator is advanced in a way that it either
      *            <ul>
      *                <li> reaches the end of iteration and a subsequent call to {@code it.hasNext()} returns {@code false} or</li>

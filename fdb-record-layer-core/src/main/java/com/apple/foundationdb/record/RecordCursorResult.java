@@ -31,7 +31,7 @@ import java.util.function.Function;
 /**
  * A result obtained when a {@link RecordCursor} advances.
  *
- * A {@code RecordCursorResult} represents everything that one can learn each time a {@code RecordCursor} advances.
+ * <p>A {@code RecordCursorResult} represents everything that one can learn each time a {@code RecordCursor} advances.
  * This is precisely one of the following:
  * <ol>
  *     <li>

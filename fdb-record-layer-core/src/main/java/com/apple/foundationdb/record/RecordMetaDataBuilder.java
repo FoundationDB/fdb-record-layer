@@ -69,7 +69,7 @@ import java.util.TreeMap;
 /**
  * A builder for {@link RecordMetaData}.
  *
- * Meta-data can be built in two ways.
+ * <p>Meta-data can be built in two ways.
  *
  * <p><b>From compiled .proto</b><br>
  * Simple single field indexes and single field primary keys can be specified in the Protobuf source file using option extensions.
@@ -992,7 +992,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Get the next record type key for a synthetic record type.
      *
-     * These keys are negative, unlike stored record types which are initially positive.
+     * <p>These keys are negative, unlike stored record types which are initially positive.
      * This isn't strictly speaking necessary, but simplifies debugging.
      * @return a new unique record type key
      */
@@ -1376,7 +1376,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Set the index registry used for validation.
      *
-     * If a record store has a custom index maintainer registry, that same registry may need to be used to properly
+     * <p>If a record store has a custom index maintainer registry, that same registry may need to be used to properly
      * validate the meta-data.
      * @param indexMaintainerRegistry the index maintainer registry
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry

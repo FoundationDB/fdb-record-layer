@@ -63,7 +63,6 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
 /**
- * <p>
  * Implementation of a debugger that maintains symbol tables for easier human consumption e.g. in test cases and/or
  * while debugging.
  *

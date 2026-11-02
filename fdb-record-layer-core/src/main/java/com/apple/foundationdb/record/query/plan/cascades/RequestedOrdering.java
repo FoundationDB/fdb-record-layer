@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
  *     </li>
  * </ul>
  *
- * An {@link Ordering} satisfies a {@link RequestedOrdering} iff it adheres to the constraints given in the request.
+ * <p>An {@link Ordering} satisfies a {@link RequestedOrdering} iff it adheres to the constraints given in the request.
  */
 public class RequestedOrdering {
     /**

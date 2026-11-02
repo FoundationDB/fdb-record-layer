@@ -344,7 +344,7 @@ public class FDBStoreTimer extends StoreTimer {
     /**
      * Standard {@link Wait} events.
      *
-     * In a number of cases, a {@code WAIT_XXX} {@code Wait} corresponds to an {@code XXX} {@code Event}.
+     * <p>In a number of cases, a {@code WAIT_XXX} {@code Wait} corresponds to an {@code XXX} {@code Event}.
      * The event measures the time of the operation itself, whereas the wait measures only the time actually waiting for it to complete.
      * Note that not all of these are waited for anywhere in the Record Layer codebase. They are included so that users of the library
      * can make use of them in their own monitoring.

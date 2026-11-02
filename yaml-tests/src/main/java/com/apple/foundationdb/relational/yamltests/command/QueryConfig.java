@@ -83,6 +83,7 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
  *
  * <p>Result directives must appear last (after all non-result directives). See {@code showcasing-tests.yamsql} for
  * examples of each directive.
+ *
  * <p>Note: any queries that validate the plan string exactly ({@code explain}, not {@code explainContains}) will also
  * validate the planner metrics, putting them in two corresponding files, with {@code ".metrics.binpb"} and
  * {@code ".metrics.yaml"} instead of {@code ".yamsql"}. The {@code .binpb} file is used for the actual assertions, and

@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
  * Basic interface for all attributes of {@link AbstractPlannerGraph.AbstractNode}
  * as well as {@link AbstractPlannerGraph.AbstractEdge}.
  *
- * Represents a tag object that annotates an {@link AbstractPlannerGraph.AbstractNode} or an
+ * <p>Represents a tag object that annotates an {@link AbstractPlannerGraph.AbstractNode} or an
  * {@link AbstractPlannerGraph.AbstractEdge}, providing additional information to a {@link GraphExporter}.
  */
 public interface Attribute {

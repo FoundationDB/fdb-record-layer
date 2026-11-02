@@ -53,10 +53,10 @@ public interface RelationalConnection extends java.sql.Connection {
     /**
      * Create a RelationalStatement which can be executed using this DatabaseConnection.
      *
-     * If this connection instance is closed, this RelationalStatement becomes invalid and should be discarded. Using a
+     * <p>If this connection instance is closed, this RelationalStatement becomes invalid and should be discarded. Using a
      * RelationalStatement object after it's backing Connection is closed is a programmer error.
      *
-     * Note that this override specializes the createStatement return to make it a RelationalStatement rather than a
+     * <p>Note that this override specializes the createStatement return to make it a RelationalStatement rather than a
      * plain JDBC Statement. This change is non-additive as are the other methods in this extension to the
      * JDBC Connection Interface; it is a change made to make usage of the API go down easier. The supposition is that
      * the bulk of usage will be concerned with RelationalStatement rather than plain Statement and so we skirt the
@@ -72,8 +72,8 @@ public interface RelationalConnection extends java.sql.Connection {
     /**
      * Creates a {@link RelationalPreparedStatement} object for sending
      * parameterized SQL statements to the database.
-            * <P>
-     * A SQL statement with or without IN parameters can be
+     *
+     * <p>A SQL statement with or without IN parameters can be
      * pre-compiled and stored in a <code>PreparedStatement</code> object. This
      * object can then be used to efficiently execute this statement
      * multiple times.

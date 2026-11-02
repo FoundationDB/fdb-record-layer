@@ -27,7 +27,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * <p>
  * An interface that represents an object that listens to {@link PlannerEvent} emitted by the Cascades planner
  * throughout the planning of a single query, and collects statistics about these emitted events.
  *

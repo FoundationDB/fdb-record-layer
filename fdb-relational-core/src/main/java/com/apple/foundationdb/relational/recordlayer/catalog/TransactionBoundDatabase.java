@@ -58,7 +58,7 @@ import java.net.URI;
  * A {@link RecordStoreAndRecordContextTransaction} object needs to be passed to {@link com.apple.foundationdb.relational.api.catalog.RelationalDatabase#connect(Transaction)}.
  * This object should contain a valid FDBRecordStoreBase and a FDBRecordContext whose scope is larger than the scope of this class.
  *
- * Note: this database doesn't support DDL statements.
+ * <p>Note: this database doesn't support DDL statements.
  * Note: this is only a temporary workaround to finish the first step of integration with customers through direct API.
  */
 @API(API.Status.EXPERIMENTAL)

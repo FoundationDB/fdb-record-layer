@@ -41,7 +41,7 @@ import java.util.List;
 /**
  * Record type meta-data.
  *
- * A record type corresponds to a Protobuf {@link com.google.protobuf.Descriptors.Descriptor} and specifies a primary key expression and any number of secondary {@link Index}es.
+ * <p>A record type corresponds to a Protobuf {@link com.google.protobuf.Descriptors.Descriptor} and specifies a primary key expression and any number of secondary {@link Index}es.
  */
 @API(API.Status.UNSTABLE)
 public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
@@ -228,7 +228,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     /**
      * Get whether this record type represents <i>synthetic</i> records.
      *
-     * A synthetic record is one that is not actually stored, although it can may be indexed.
+     * <p>A synthetic record is one that is not actually stored, although it can may be indexed.
      * @return {@code true} if this record type represents synthetic records, {@code false} if it represents records that are actually stored
      */
     @API(API.Status.EXPERIMENTAL)

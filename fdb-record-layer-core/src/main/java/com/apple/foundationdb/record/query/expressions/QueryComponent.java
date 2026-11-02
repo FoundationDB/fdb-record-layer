@@ -55,11 +55,11 @@ public interface QueryComponent extends PlanHashable {
      * checking whether the value f is greater than 3, it will probably want to return null. Other types of
      * component will naturally handle a value of null, such as isNull.
      *
-     * Excepting for some outer
+     * <p>Excepting for some outer
      * wrapping components (e.g. isNull), a null return value should not be included in results.
      *
      *
-     * Implementations should override {@link #evalMessage} instead of this one, even if they do not deal with
+     * <p>Implementations should override {@link #evalMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
      * @param <M> the type of records
      * @param store the record store from which the record came
@@ -77,11 +77,11 @@ public interface QueryComponent extends PlanHashable {
     /**
      * Return whether or not the given record matches this component.
      *
-     * The message might be the Protobuf form of a record or a piece of that record.
+     * <p>The message might be the Protobuf form of a record or a piece of that record.
      * If the key expression is meaningful against a subrecord, it should evaluate against the message.
      * Otherwise, it should evaluate against the record and ignore what part of that record is being considered.
      *
-     * There should not be any reason to call this method outside of the implementation of another {@code evalMessage}.
+     * <p>There should not be any reason to call this method outside of the implementation of another {@code evalMessage}.
      * Under ordinary circumstances, if {@code record} is {@code null}, then {@code message} will be {@code null}.
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.

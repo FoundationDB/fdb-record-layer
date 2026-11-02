@@ -95,7 +95,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  * as {@code q.b} is a partially populated sub-record as {@code i1} does not contain {@code d}s
  *
- * Example 3: {@code b} is nested, containing {@code c}s and {@code d}s. Index contains both {@code c}s and {@code d}s.
+ * <p>Example 3: {@code b} is nested, containing {@code c}s and {@code d}s. Index contains both {@code c}s and {@code d}s.
  * <pre>
  * {@code
  *   index i2: _.a, _.b.c, _.b.d

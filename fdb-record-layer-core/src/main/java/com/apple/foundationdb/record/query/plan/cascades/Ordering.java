@@ -873,7 +873,7 @@ public class Ordering {
      * }
      * </pre>
      *
-     * If they are compatible, however, it is not clear per se what the resulting comparison key should
+     * <p>If they are compatible, however, it is not clear per se what the resulting comparison key should
      * be, though.
      *
      * <pre>
@@ -884,7 +884,7 @@ public class Ordering {
      * }
      * </pre>
      *
-     * It is unclear as to what the common ordering should be. It could be just
+     * <p>It is unclear as to what the common ordering should be. It could be just
      * <pre>
      * {@code
      *   common ordering: ordering keys: (rec_id) fixed bindings: ∅

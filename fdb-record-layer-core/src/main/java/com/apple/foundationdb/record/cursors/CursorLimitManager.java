@@ -44,7 +44,7 @@ import java.util.Optional;
  * 1) Can the cursor advance without exceeding the limit?
  * 2) What limit has been exceeded?
  *
- * This class also tracks whether or not the base cursor has produced any records. Except when reaching a limit throws
+ * <p>This class also tracks whether or not the base cursor has produced any records. Except when reaching a limit throws
  * an exception, a base cursor is always permitted to load at least one record before it is stopped by an out-of-band
  * limit. This contract ensures that cursors with multiple child cursors (such as {@link UnionCursor}
  * and {@link IntersectionCursor}) can always make progress. This "free initial pass" is provided per cursor, not per

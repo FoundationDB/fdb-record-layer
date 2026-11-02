@@ -53,7 +53,7 @@ import java.util.stream.StreamSupport;
  * an {@link IndexAggregateFunction} which itself is bound to an index and represents its group-by columns as a list of
  * {@link KeyExpression} that match the order imposed by bound index rather than a set.
  *
- * There are two use cases for this class:
+ * <p>There are two use cases for this class:
  * <ol>
  * <li> regular aggregation functions that need the enumeration of permutation of the grouping expressions in order to
  *      bind the call to a {@link IndexAggregateFunction}. The logic implementing this use case calls
@@ -68,7 +68,7 @@ import java.util.stream.StreamSupport;
  * </li>
  * </ol>
  *
- * Note that if a client of this class intends to use an aggregate function call for regular aggregation functions and
+ * <p>Note that if a client of this class intends to use an aggregate function call for regular aggregation functions and
  * intends to call methods such as {@link #enumerateIndexAggregateFunctionCandidates(String)}, the following must hold
  * in order to yield meaningful results:
  *
@@ -76,7 +76,7 @@ import java.util.stream.StreamSupport;
  * {@code groupingKeyExpression = concat(groupingExpressions, groupedExpression).group(groupedExpression.getColumnSize())}
  * </pre>
  *
- * which ideally is true, but may be violated in the presence of repeated structures.
+ * <p>which ideally is true, but may be violated in the presence of repeated structures.
  */
 @SuppressWarnings("unused")
 @API(API.Status.INTERNAL)
@@ -91,17 +91,17 @@ public class IndexAggregateFunctionCall {
      * Grouping key expression that holds information over both the grouping and the grouped part of the expression
      * this function call ranges over.
      *
-     * In the normal use case this expression is computed by reconstructing a {@link GroupingKeyExpression} using
+     * <p>In the normal use case this expression is computed by reconstructing a {@link GroupingKeyExpression} using
      * the iterable of grouping expressions and the grouped expression that is handed in (to certain overloaded
      * constructors).
      *
-     * If required, the client can use {@link #IndexAggregateFunctionCall(String, GroupingKeyExpression)} in order
+     * <p>If required, the client can use {@link #IndexAggregateFunctionCall(String, GroupingKeyExpression)} in order
      * to invert that logic in which case the grouping key expressions and the grouped expression is computed
      * from the {@link GroupingKeyExpression} passed in to the respective constructor. Additionally, this field
      * holds the original grouping key expression handed in thus preserving the intricate structure of nested repeated
      * fields, etc.
      *
-     * See {@link #toIndexAggregateFunction(String)} which uses this field directly.
+     * <p>See {@link #toIndexAggregateFunction(String)} which uses this field directly.
      */
     @Nonnull
     private final GroupingKeyExpression groupingKeyExpression;

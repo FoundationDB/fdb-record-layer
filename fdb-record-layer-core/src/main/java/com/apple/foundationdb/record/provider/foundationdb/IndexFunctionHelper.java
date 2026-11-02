@@ -318,7 +318,7 @@ public class IndexFunctionHelper {
      * (Public) method to bind an {@link IndexAggregateFunctionCall} to an index resulting in an
      * {@link IndexAggregateFunction} if successful.
      *
-     * See {@link #bindIndexForPermutableAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List, IndexQueryabilityFilter)} for details.
+     * <p>See {@link #bindIndexForPermutableAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List, IndexQueryabilityFilter)} for details.
      *
      * @param store the store containing the record types
      * @param functionCall an {@link IndexAggregateFunctionCall}
@@ -427,7 +427,7 @@ public class IndexFunctionHelper {
     /**
      * Get the index entry for use by the given index to evaluate the given record function.
      *
-     * In most cases, this is the same as {@link KeyExpression#evaluateSingleton}. But if {@code recordFunction} is
+     * <p>In most cases, this is the same as {@link KeyExpression#evaluateSingleton}. But if {@code recordFunction} is
      * the result of {@link #recordFunctionWithSubrecordCondition}, a matching entry will be found.
      * @param store store against which function will be evaluated
      * @param index index for which to evaluate

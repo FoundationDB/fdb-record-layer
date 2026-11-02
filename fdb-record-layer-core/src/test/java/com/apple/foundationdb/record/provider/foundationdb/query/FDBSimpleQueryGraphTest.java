@@ -549,7 +549,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *                           └── ƒ ── FullUnorderedScanExpression(RestaurantRecord)
      * }</pre>
      *
-     * Because the outer {@code Select} has a predicate that rejects null, {@code EliminateNullOnEmptyRule} is able
+     * <p>Because the outer {@code Select} has a predicate that rejects null, {@code EliminateNullOnEmptyRule} is able
      * to replace {@code q1} with a normal for-each quantifier.
      *
      * @see #testSubselectHasNullOnEmptyAndIsNullPredicate()
@@ -637,7 +637,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *                     └── …
      * }</pre>
      *
-     * Because the outer predicate accepts the null tuple that the {@code nullOnEmpty} quantifier potentially injects
+     * <p>Because the outer predicate accepts the null tuple that the {@code nullOnEmpty} quantifier potentially injects
      * on an empty inner result, {@code EliminateNullOnEmptyRule} cannot simplify the null-on-empty quantifier here.
      *
      * @see #testSubselectHasNullOnEmpty()

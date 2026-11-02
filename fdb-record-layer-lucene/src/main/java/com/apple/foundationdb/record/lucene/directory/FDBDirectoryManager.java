@@ -86,6 +86,7 @@ import java.util.stream.Collectors;
  * objects should be created through this manager. This allows for cached data (like the block cache or file
  * list cache) for a single directory to persist across different operations (e.g., different queries) conducted
  * in the same transaction.
+ *
  * <p>Note: Since the manager is transaction-scoped, it will be closed once the transaction commits or closes.
  * (See the commit hook created below achieving this).
  * When the manager is closed, it will also close all the directory wrappers it has created.

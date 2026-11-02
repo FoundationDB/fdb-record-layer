@@ -105,7 +105,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
  * Directory implementation backed by FDB which attempts to
  * model a file system on top of FoundationDB.
  *
- * A few interesting details:
+ * <p>A few interesting details:
  *
  * <ul>
  *     <li>Each segment written in Lucene once flushed is <b>immutable</b>.</li>

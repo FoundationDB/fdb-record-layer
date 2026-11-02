@@ -49,10 +49,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Object responsible for translating record saves and deletes into updates to a secondary index.
  *
- * This class is essentially an interface, implementing only the storage of an {@link IndexMaintainerState}.
+ * <p>This class is essentially an interface, implementing only the storage of an {@link IndexMaintainerState}.
  * A functional base class is provided by {@link com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer}.
  *
- * An {@code IndexMaintainer} instance is associated with a particular record store and index meta-data.
+ * <p>An {@code IndexMaintainer} instance is associated with a particular record store and index meta-data.
  * Implementers should assume that the same maintainer might be used to perform multiple record updates,
  * even though this never happens today.
  *
@@ -247,7 +247,7 @@ public abstract class IndexMaintainer {
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
      * the implementation of the index.
      *
-     * It is not responsible for metadata validation, which is defined in
+     * <p>It is not responsible for metadata validation, which is defined in
      * {@link com.apple.foundationdb.record.metadata.IndexValidator}.
      *
      * @param continuation any continuation from a previous validation invocation

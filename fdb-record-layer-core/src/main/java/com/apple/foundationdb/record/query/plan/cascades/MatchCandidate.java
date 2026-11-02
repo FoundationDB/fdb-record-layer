@@ -56,7 +56,7 @@ import java.util.Set;
  * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link Traversal} to allow for navigation of references within the candidate.
  *
- * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
+ * <p>Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
  * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
  */

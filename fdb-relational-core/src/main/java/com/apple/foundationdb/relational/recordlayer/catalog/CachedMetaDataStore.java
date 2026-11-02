@@ -39,7 +39,7 @@ import java.util.Map;
  * A local cache of RecordMetaData objects, intended to be held by a single Database at a time (and thus holding
  * only a small number of MetaData fields).
  *
- * This is intended to be scoped to a single connection space, and so it is _not_ thread safe.
+ * <p>This is intended to be scoped to a single connection space, and so it is _not_ thread safe.
  */
 @NotThreadSafe
 @API(API.Status.EXPERIMENTAL)

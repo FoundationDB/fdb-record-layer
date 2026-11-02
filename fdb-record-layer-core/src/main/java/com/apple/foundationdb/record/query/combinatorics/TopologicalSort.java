@@ -48,10 +48,10 @@ import java.util.function.Supplier;
 /**
  * Utility class to provide helpers related to topological sorts.
  *
- * The main purpose on this class is to provide a specific iterable that can efficiently traverse
+ * <p>The main purpose on this class is to provide a specific iterable that can efficiently traverse
  * all possible permutations of the input set that do not violate the given dependency constraints.
  *
- * The iterable {@link EnumeratingIterable} adheres to the following requirements:
+ * <p>The iterable {@link EnumeratingIterable} adheres to the following requirements:
  * <ol>
  * <li>it does not violate the given constraints</li>
  * <li>it produces all possible orderings under the given constraints</li>
@@ -68,7 +68,7 @@ import java.util.function.Supplier;
  * }
  * </pre>
  *
- * Possible orderings are
+ * <p>Possible orderings are
  * <pre>
  * {@code
  * (a, b, c, d)
@@ -82,7 +82,7 @@ import java.util.function.Supplier;
  * }
  * </pre>
  *
- * Frequently we test for a certain property or perform a particular operation given one possible ordering but it is clear
+ * <p>Frequently we test for a certain property or perform a particular operation given one possible ordering but it is clear
  * that it is not necessary to consider more such orderings that share a common prefix. In the example, it may be
  * beneficial to skip the rest of the {@code (b, a, ...)} orderings after the first one was returned
  * ({@code (b, a, c, d}). In this case we would like to instruct the iterator to skip all such orderings and continue

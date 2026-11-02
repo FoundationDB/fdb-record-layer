@@ -48,7 +48,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
     /**
      * A constituent type within a joined record type.
      *
-     * A constituent is a record type with an associated correlation name. The correlation name must be unique.
+     * <p>A constituent is a record type with an associated correlation name. The correlation name must be unique.
      * The same record type can appear more than once with different correlation names (for implementing self-joins).
      */
     public static class Constituent {

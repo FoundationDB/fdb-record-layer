@@ -69,7 +69,7 @@ import java.util.function.UnaryOperator;
  *      });
  * }</pre>
  *
- * The usage with the {@code acquire} methods is more straight-forward as it returns a {@link CompletableFuture} of the
+ * <p>The usage with the {@code acquire} methods is more straight-forward as it returns a {@link CompletableFuture} of the
  * held lock which gets completed after the lock has been granted. This could then be chained to perform required
  * operations and lock management. The thing to take note here, the ownership of the 'granted' lock is returned to the
  * caller, who should most likely keep hold of it for the duration of the operation and ultimately 'releases' it when
@@ -85,7 +85,7 @@ import java.util.function.UnaryOperator;
  *      })
  * }</pre>
  *
- * Note that when the task is completed, whether normally or with an exception, the lock is explicitly released.
+ * <p>Note that when the task is completed, whether normally or with an exception, the lock is explicitly released.
  */
 @API(API.Status.EXPERIMENTAL)
 public class LockRegistry {

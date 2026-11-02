@@ -29,7 +29,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * <p>
  * A default implementation of {@link PlannerEventStatsCollector} which can be used to listen to {@link PlannerEvent}
  * emitted by the {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}
  * throughout the planning of a single query, and collects statistics about these emitted events.

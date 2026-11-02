@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Randomized concurrency tests for {@link PendingWritesQueue}.
  *
- *  A storm of worker threads issues mixed enqueue / size-read / cursor-scan / drain
+ * <p>A storm of worker threads issues mixed enqueue / size-read / cursor-scan / drain
  *  operations. Enqueues are conflict-free by construction; size reads use a snapshot;
  *  cursor scans are read-only; drain workers clear a batch and record the cleared
  *  payloads into a shared result set. After the storm we drain whatever is left into the

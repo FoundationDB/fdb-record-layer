@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * <p>
  * Aggregated statistics for a single {@link PlannerEvent} class across the planning of a single query.
  *
  * <p>An instance of this class should be used to track a single {@link PlannerEvent} class.
@@ -68,7 +67,6 @@ public class PlannerEventStats {
     }
 
     /**
-     * <p>
      * Returns the total time spent executing instances of the {@link PlannerEvent} class this instance of
      * {@link PlannerEventStats} tracks, measured from {@link PlannerEvent.Location#BEGIN} to
      * {@link PlannerEvent.Location#END}. This includes time spent in any nested planner events that occurred within the
@@ -84,7 +82,6 @@ public class PlannerEventStats {
     }
 
     /**
-     * <p>
      * Returns the total time spent executing instances of the {@link PlannerEvent} class this instance of
      * {@link PlannerEventStats} tracks, which excludes time spent in any nested planner events that occurred within the
      * execution of this event type. This represents the time directly attributable to this event type's processing.

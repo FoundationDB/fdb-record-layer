@@ -21,7 +21,7 @@
 /**
  * Relational JDBC Driver
  *
- * The Relational JDBC URL starts with <code>jdbc:relational://</code>. We use the same JDBC URL format as mysql/postgres
+ * <p>The Relational JDBC URL starts with <code>jdbc:relational://</code>. We use the same JDBC URL format as mysql/postgres
  * JDBC drivers; i.e. <code>jdbc:relational://HOST[:PORT]</code> to specify the remote server and port. If no HOST+PORT
  * specified, then the URL refers to an `inprocess` server; i.e.. a server running in the current process which is
  * accessed directly without RPC and without serializations. The URL path can specifes the database to connect to. The
@@ -47,9 +47,11 @@
  * but it may also be just a flat {@link java.sql.SQLException} if the type is not publicly accessible to the grpc
  * module managing the transforms (fdb-relational-api is NOT a dependency of fdb-relational-grpc currently so the likes of
  * ContextualSQLException are not available to the transform code; we could change this if wanted).
+ *
  * <p>The client-side * manifestation currently has no markings to indicate it a reflection of a server-side throw; its
  * presumed server-side is the origin. We could fix this easy enough; e.g. server-side originating exceptions show in
  * the client as a ServerSideOriginatingSQLException (or any other such marker).
+ *
  * <p>Do we want client-side SQLException to include <code>cause</code> if present (currently it does)? Do we want
  * the client-side to include server-side stack trace (probably not)?
  * <h3>StatusRuntimeException</h3>

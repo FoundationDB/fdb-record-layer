@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * A record associated with the corresponding meta-data.
  *
- * Adds information about the primary key and record type.
+ * <p>Adds information about the primary key and record type.
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)

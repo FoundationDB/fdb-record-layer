@@ -31,7 +31,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
      * the results of the scan.
      *
-     * This can be used to scan contiguous rows on a table based on a certain PK range.
+     * <p>This can be used to scan contiguous rows on a table based on a certain PK range.
      * The range should be provided via a key prefix.
      *
      * <pre>

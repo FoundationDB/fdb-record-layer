@@ -32,7 +32,7 @@
  *
  * <h3>Index Representation</h3>
  *
- * The expected index keys are <code>group_fields..., score, timestamp, more_fields...</code>.
+ * <p>The expected index keys are <code>group_fields..., score, timestamp, more_fields...</code>.
  * A single B-tree in the <em>primary</em> index subspace stores these once for all time windows.
  *
  * <p>The ideal root expression is therefore <code>field(scores_field, fanOut).nest(concat(score, timestamp, context))</code>.
@@ -63,7 +63,7 @@
  *
  * <b>Updating Time Windows</b>
  *
- * The client is also responsible for keeping a current set of time windows active.
+ * <p>The client is also responsible for keeping a current set of time windows active.
  * This is done with {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardWindowUpdate}.
  * The caller specifies:<ul>
  * <li>Whether high scores are better or low scores for determining the best score in a given window</li>
@@ -76,7 +76,7 @@
  *
  * <h3>Scanning</h3>
  *
- * The leaderboard index can be scanned <code>BY_VALUE</code>, like an ordinary index, provided the all-time time window
+ * <p>The leaderboard index can be scanned <code>BY_VALUE</code>, like an ordinary index, provided the all-time time window
  * is maintained. This means by score ranges, or score matches for time ranges.
  *
  * <p>Scanning <code>BY_RANK</code> means a range of ranks rather than scores, as with a rankset index.
@@ -92,7 +92,7 @@
  *
  * <h3>Querying</h3>
  *
- * The index can be used to match predicates / sorting for <code>Query.rank(expr)</code>.
+ * <p>The index can be used to match predicates / sorting for <code>Query.rank(expr)</code>.
  * Again, the <code>ALL_TIME_LEADERBOARD_TYPE</code> time window is used.
  *
  * <p>It can also match <code>Query.timeWindowRank(leaderboardType, leaderboardTimestamp, expr)</code>.

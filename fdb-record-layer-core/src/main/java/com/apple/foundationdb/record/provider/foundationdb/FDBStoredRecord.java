@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * A record stored in the database.
  *
- * Adds information about storage sizes from saving or retrieving.
+ * <p>Adds information about storage sizes from saving or retrieving.
  * @param <M> type used to represent stored records
  * @see FDBRecordStoreBase#saveRecord
  * @see FDBRecordStoreBase#loadRecord
@@ -171,7 +171,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     /**
      * Get this record with an updated version after committing.
      *
-     * If this record has an incomplete version, it is completed with the given version stamp.
+     * <p>If this record has an incomplete version, it is completed with the given version stamp.
      * If the version is already complete or this record does not have a version, this record is returned.
      * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a stored record with the given version

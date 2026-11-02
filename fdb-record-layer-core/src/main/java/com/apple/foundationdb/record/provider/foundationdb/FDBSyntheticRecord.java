@@ -39,7 +39,7 @@ import java.util.Objects;
 /**
  * A record synthesized from stored records.
  *
- * A {@code FDBSyntheticRecord} is {@link FDBIndexableRecord}, so that indexes can be defined on synthetic records,
+ * <p>A {@code FDBSyntheticRecord} is {@link FDBIndexableRecord}, so that indexes can be defined on synthetic records,
  * but not {@link FDBStoredRecord}, since it is not stored separately.
  *
  */

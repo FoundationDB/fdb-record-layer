@@ -44,15 +44,15 @@ public final class OrderQuality {
     }
 
     /**
-     * Scores how well unique-ID list s maps into unique-ID list u near a known start index x,
-     * given these guarantees:
+     * Scores how well unique-ID list s maps into unique-ID list u near a known start index x.
+     * This assumes the following guarantees:
      *  - u has no duplicates
      *  - s has no duplicates
      *  - every element in s appears in u
      *
-     * The mapping is deterministic: p[i] = position of s[i] in u.
+     * <p>The mapping is deterministic: p[i] = position of s[i] in u.
      *
-     * Metrics computed:
+     * <p>Metrics computed:
      *  - Locality vs known x: e[i] = p[i] - (x+i)
      *    * medianShift (robust global offset)
      *    * pctWithinWindow (raw) and pctWithinWindowAfterShift (shift-compensated)

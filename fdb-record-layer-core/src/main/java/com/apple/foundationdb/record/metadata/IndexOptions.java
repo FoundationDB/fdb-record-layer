@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  * The standard options for use with {@link Index}.
  *
- * An option key is just a string, so that new ones can be defined outside the Record Layer core.
+ * <p>An option key is just a string, so that new ones can be defined outside the Record Layer core.
  *
  * @see Index#getOptions
  */
@@ -41,7 +41,7 @@ public class IndexOptions {
     /**
      * No options.
      *
-     * The default for a new {@link Index}.
+     * <p>The default for a new {@link Index}.
      */
     public static final Map<String, String> EMPTY_OPTIONS = Collections.emptyMap();
 
@@ -134,42 +134,42 @@ public class IndexOptions {
     /**
      * If {@code "true"}, a {@link IndexTypes#TEXT} index will not store position numbers for tokens.
      *
-     * It will only be possible to determine that an indexed field contains the token someplace.
+     * <p>It will only be possible to determine that an indexed field contains the token someplace.
      */
     public static final String TEXT_OMIT_POSITIONS_OPTION = "textOmitPositions";
 
     /**
      * The number of levels in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
+     * <p>The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
      */
     public static final String RANK_NLEVELS = "rankNLevels";
 
     /**
      * The hash function to use in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
+     * <p>The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
      */
     public static final String RANK_HASH_FUNCTION = "rankHashFunction";
 
     /**
      * Whether duplicate keys count separtely in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@code false}.
+     * <p>The default is {@code false}.
      */
     public static final String RANK_COUNT_DUPLICATES = "rankCountDuplicates";
 
     /**
      * Size of each position bitmap for {@link IndexTypes#BITMAP_VALUE} indexes.
      *
-     * The default is {@code 10,000}.
+     * <p>The default is {@code 10,000}.
      */
     public static final String BITMAP_VALUE_ENTRY_SIZE_OPTION = "bitmapValueEntrySize";
 
     /**
      * Whether to remove index entry for {@link IndexTypes#COUNT} type indexes when they decrement to zero.
      *
-     * This makes the existence of zero-valued entries in the index in the face of updates and deletes
+     * <p>This makes the existence of zero-valued entries in the index in the face of updates and deletes
      * closer to what it would be if the index were rebuilt, but still not always the same.
      * In particular,<ul>
      *   <li>A {@code SUM} index will not have entries for groups all of whose indexed values are zero.</li>

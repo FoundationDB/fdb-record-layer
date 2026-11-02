@@ -83,7 +83,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *          variables</li>
  * </ol>
  *
- * Note that this rule currently also attempts the best effort on predicates in non-normal forms (i.e. as written in the
+ * <p>Note that this rule currently also attempts the best effort on predicates in non-normal forms (i.e. as written in the
  * query), but the outcome may not be exhaustive. This is important if the CNF is too complex.
  *
  * <p>Let's first assume the CNF is simple, i.e. the number of conjuncts is within the limit given by

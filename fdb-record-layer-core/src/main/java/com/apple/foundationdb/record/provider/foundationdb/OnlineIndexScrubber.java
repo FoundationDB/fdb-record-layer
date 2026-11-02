@@ -316,7 +316,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         /**
          * Set the explicit set of record types to be scrubbed.
          *
-         * Normally, record types are inferred from {@link #setIndex}.
+         * <p>Normally, record types are inferred from {@link #setIndex}.
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */

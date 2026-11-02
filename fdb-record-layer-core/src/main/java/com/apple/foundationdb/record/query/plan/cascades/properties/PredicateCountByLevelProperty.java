@@ -40,7 +40,6 @@ import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 /**
- * <p>
  * This property traverses a {@link RelationalExpression} to find the total number of
  * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s associated with
  * {@link RelationalExpressionWithPredicates} implementations at each level of the expression tree.
@@ -95,7 +94,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
     }
 
     /**
-     * <p>
      * An object that contains information about the number of query predicates at each level
      * of a {@link RelationalExpression} tree. Level numbers in instances of this class
      * start from 0 for leaf nodes and increase towards the root, with the root node having the highest
@@ -127,7 +125,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
         }
 
         /**
-         * <p>
          * Get a view of the query predicate count at each level as a {@link SortedMap}.
          *
          * <p>Level heights, which are the keys of the returned {@link SortedMap}, start from 0 for leaf nodes in the
@@ -152,7 +149,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
         }
 
         /**
-         * <p>
          * Compares two {@link PredicateCountByLevelInfo} instances level by level.
          *
          * <p>This comparison is done by comparing the number of
