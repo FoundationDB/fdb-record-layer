@@ -312,6 +312,53 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final QueryPredicate candidatePredicate,
                                                                      @Nonnull final EvaluationContext evaluationContext) {
+        final var mappingOptional =
+                impliesCandidatePredicateAsWrittenMaybe(valueEquivalence, originalQueryPredicate, candidatePredicate,
+                        evaluationContext);
+        if (mappingOptional.isPresent() ||
+                !(candidatePredicate instanceof PredicateWithValueAndRanges) ||
+                candidatePredicate instanceof Placeholder) {
+            return mappingOptional;
+        }
+        //
+        // An equality between two values reads the same either way round, but it is keyed by whichever value it was
+        // written with first, on the query side as on the candidate side: `a = b` is a sargable on `a`, `b = a` one
+        // on `b`. A candidate restricting the other value is implied all the same, by the equality turned around.
+        //
+        return flippedValueEqualityMaybe().flatMap(flipped ->
+                flipped.impliesCandidatePredicateAsWrittenMaybe(valueEquivalence, originalQueryPredicate,
+                        candidatePredicate, evaluationContext));
+    }
+
+    /**
+     * The same predicate with its value and comparand swapped, if it is a single equality between two values.
+     *
+     * @return {@code b = a} if {@code this} is {@code a = b}, where {@code b} is a {@link Value}, empty otherwise
+     */
+    @Nonnull
+    private Optional<PredicateWithValueAndRanges> flippedValueEqualityMaybe() {
+        if (ranges.size() != 1) {
+            return Optional.empty();
+        }
+        final var comparisons = Iterables.getOnlyElement(ranges).getComparisons();
+        if (comparisons.size() != 1 ||
+                !(comparisons.get(0) instanceof final Comparisons.ValueComparison valueComparison) ||
+                valueComparison.getType() != Comparisons.Type.EQUALS) {
+            return Optional.empty();
+        }
+        final var flippedRangeBuilder = RangeConstraints.newBuilder();
+        if (!flippedRangeBuilder.addComparisonMaybe(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, value))) {
+            return Optional.empty();
+        }
+        return flippedRangeBuilder.build()
+                .map(flippedRange -> sargable(valueComparison.getComparandValue(), flippedRange));
+    }
+
+    @Nonnull
+    private Optional<PredicateMapping> impliesCandidatePredicateAsWrittenMaybe(@Nonnull final ValueEquivalence valueEquivalence,
+                                                                               @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                               @Nonnull final QueryPredicate candidatePredicate,
+                                                                               @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate.isContradiction()) {
             return Optional.empty();
         }
