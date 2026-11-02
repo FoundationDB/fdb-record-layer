@@ -733,7 +733,7 @@ public class FDBStoreTimer extends StoreTimer {
         MUTATIONS("mutations", false, null, true),
         /** JNI Calls.*/
         JNI_CALLS("jni calls", false),
-        /**Bytes read.*/
+        /** Bytes read. */
         BYTES_FETCHED("bytes fetched", false),
         /** Number of network fetches performed.*/
         RANGE_FETCHES("range fetches", false),
