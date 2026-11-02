@@ -36,10 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisit
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +64,8 @@ final class QuantifierValues {
 
     /**
      * The stored table behind each type-filter quantifier, by the correlation it is bound to: the storage name of its
-     * record type, and the expression it is a quantifier of.
+     * record type, and the expression it is a quantifier of. In the order the traversal found them, which is the same
+     * for the same definition, so that the definition always numbers a joined table's constituents the same way.
      */
     @Nonnull
     private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents;
@@ -77,7 +78,7 @@ final class QuantifierValues {
                              final boolean hasOuterJoin) {
         this.valuesByQuantifier = valuesByQuantifier;
         this.explodes = explodes;
-        this.constituents = Map.copyOf(constituents);
+        this.constituents = ImmutableMap.copyOf(constituents);
         this.hasOuterJoin = hasOuterJoin;
     }
 
@@ -178,7 +179,7 @@ final class QuantifierValues {
         private final List<FieldValue> explodes = new ArrayList<>();
 
         @Nonnull
-        private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents = new HashMap<>();
+        private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents = new LinkedHashMap<>();
 
         private boolean hasOuterJoin;
 
