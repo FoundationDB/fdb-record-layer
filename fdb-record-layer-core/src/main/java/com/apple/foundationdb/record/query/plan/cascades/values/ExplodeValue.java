@@ -84,51 +84,26 @@ import java.util.stream.IntStream;
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Explode-Value");
 
-    /**
-     * The name of the field of the struct an explode produces that holds the element.
-     */
     @Nonnull
     public static final String ELEMENT_FIELD_NAME = "_0";
 
-    /**
-     * The type of the ordinal.
-     */
     @Nonnull
     private static final Type ORDINAL_TYPE = Type.primitiveType(Type.TypeCode.INT, false);
 
-    /**
-     * The collection value. Must evaluate to an array type.
-     */
     @Nonnull
     private final Value collectionValue;
 
-    /**
-     * The element type of the collection.
-     */
     @Nonnull
     private final Type elementType;
 
-    /**
-     * Whether the struct this explode produces carries the ordinal of the element.
-     */
     private final boolean withOrdinality;
 
-    /**
-     * The alias the element being produced is bound to while its struct is evaluated.
-     */
     @Nonnull
     private final CorrelationIdentifier elementAlias;
 
-    /**
-     * The alias the ordinal of the element being produced is bound to while its struct is evaluated. Unused if this
-     * explode is not with ordinality.
-     */
     @Nonnull
     private final CorrelationIdentifier ordinalAlias;
 
-    /**
-     * The struct produced per element: a record constructor of the element and, if with ordinality, its ordinal.
-     */
     @Nonnull
     private final RecordConstructorValue structValue;
 
@@ -169,35 +144,6 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     @Nonnull
     public ExplodeValue withCollectionValue(@Nonnull final Value newCollectionValue) {
         return new ExplodeValue(newCollectionValue, withOrdinality);
-    }
-
-    @Nonnull
-    public Type getElementType() {
-        return elementType;
-    }
-
-    /**
-     * Returns the element of a struct produced by an explode.
-     *
-     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode, typically the
-     *        flowed object value of a quantifier ranging over the explode
-     * @return the element the struct carries
-     */
-    @Nonnull
-    public static Value elementValue(@Nonnull final Value explodedValue) {
-        return FieldValue.ofOrdinalNumberAndFuseIfPossible(explodedValue, 0);
-    }
-
-    /**
-     * Returns the 0-based ordinal of a struct produced by an explode {@linkplain #hasOrdinality() with ordinality}.
-     *
-     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode with ordinality,
-     *        typically the flowed object value of a quantifier ranging over the explode
-     * @return the ordinal the struct carries
-     */
-    @Nonnull
-    public static Value ordinalValue(@Nonnull final Value explodedValue) {
-        return FieldValue.ofOrdinalNumberAndFuseIfPossible(explodedValue, 1);
     }
 
     @Nonnull
@@ -265,7 +211,6 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
      */
     @Nonnull
     private Object coerceElement(@Nonnull final TypeRepository typeRepository, @Nonnull final Object element) {
-        final Type elementType = structValue.getResultType().getField(0).getFieldType();
         if (elementType instanceof Type.Enum) {
             if (element instanceof ProtocolMessageEnum) {
                 return ((ProtocolMessageEnum)element).getValueDescriptor();
@@ -405,23 +350,20 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     /**
-     * A cursor over the elements of an array, producing a struct of each element and its ordinal. A struct is only
-     * created once the cursor reaches its element. The continuation records the position of the next element.
+     * A cursor over the elements of an array, producing a struct of each element and its ordinal. The continuation
+     * records the position of the next element.
      */
-    public static class Cursor implements RecordCursor<QueryResult> {
+    static class Cursor implements RecordCursor<QueryResult> {
         @Nonnull
         private final Executor executor;
 
         @Nonnull
         private final List<?> elements;
 
-        /**
-         * Creates the struct of the element at an ordinal of the array, and that ordinal.
-         */
         @Nonnull
         private final BiFunction<List<?>, Integer, Object> structCreator;
 
-        private int nextPosition; // position of the next element to return
+        private int nextPosition;
 
         private boolean closed = false;
 
@@ -494,9 +436,6 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
 
             @Override
             public boolean isEnd() {
-                // A continuation returned alongside a value must not be an end continuation, per the contract of
-                // RecordCursorResult, even if the cursor knows there is nothing after that value. Exhaustion is
-                // signalled by the exhausted result, which carries the end continuation.
                 return false;
             }
 

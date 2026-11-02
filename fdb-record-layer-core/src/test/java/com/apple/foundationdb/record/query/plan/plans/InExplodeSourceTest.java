@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
@@ -82,6 +85,27 @@ class InExplodeSourceTest {
     @MethodSource("sources")
     void producesTheElementsOfTheExplode(@Nonnull final InExplodeSource source, @Nonnull final List<Object> expected) {
         Assertions.assertEquals(expected, elementsOf(source));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sources")
+    void sizeCountsTheElementsWithoutTheirType(@Nonnull final InExplodeSource source, @Nonnull final List<Object> expected) {
+        // the empty context has no type repository, so creating any struct would fail
+        Assertions.assertEquals(expected.size(), source.size(EvaluationContext.EMPTY));
+    }
+
+    @Test
+    void sizeOfANullCollectionIsZero() {
+        final var source = new InExplodeSource("in",
+                new ExplodeValue(ParameterObjectValue.of("p", new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)))));
+        Assertions.assertEquals(0, source.size(EvaluationContext.EMPTY.withBinding("p", null)));
+        Assertions.assertEquals(2, source.size(EvaluationContext.EMPTY.withBinding("p", List.of(1L, 2L))));
+    }
+
+    @Test
+    void valuesNeedAnEvaluationContext() {
+        final var source = new InExplodeSource("in", new ExplodeValue(elements()));
+        Assertions.assertThrows(RecordCoreException.class, source::getValues);
     }
 
     @ParameterizedTest

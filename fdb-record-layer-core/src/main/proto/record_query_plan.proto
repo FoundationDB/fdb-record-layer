@@ -2107,7 +2107,8 @@ message PSortedInValuesSource {
 }
 
 message PInExplodeSource {
-  optional PInComparandSource super = 1;
+  // the comparison of the source is derived from the explode, so it is not serialized
+  optional PInSource.Super super = 1;
   optional PValue explode_value = 2;
 }
 
