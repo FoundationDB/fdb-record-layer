@@ -50,6 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -72,8 +73,8 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
  * {@code WHERE} predicate while the query graph is built.
  *
  * <p>Constituents are named {@code joined_0}, {@code joined_1}, ... rather than after the plan's correlations, which
- * are generated per run and so cannot be persisted. Which table gets which ordinal is arbitrary, so the assertions
- * below look a constituent's alias up by its table rather than naming it outright.
+ * are generated per run and so cannot be persisted. The ordinals follow the order the definition names its tables in,
+ * which is the same every time it is compiled, so the assertions below name each constituent's alias outright.
  */
 public class JoinedSyntheticTableIndexTest {
 
@@ -150,70 +151,40 @@ public class JoinedSyntheticTableIndexTest {
         return joinedTable;
     }
 
+    /** The alias of the constituent the definition names {@code ordinal}-th, counting from zero. */
+    @Nonnull
+    private static String joined(final int ordinal) {
+        return "joined_" + ordinal;
+    }
+
     /**
-     * The alias the constituent for {@code tableName} is registered under. Looked up rather than derived from a
-     * position, since the order constituents are named in is arbitrary.
+     * Asserts the constituents, in order: the {@code n}-th is registered under {@code joined_n} and joins the
+     * {@code n}-th of {@code tableNames}.
      */
-    @Nonnull
-    private static String aliasOf(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable,
-                                  @Nonnull final String tableName) {
-        final var aliases = joinedTable.getConstituents().stream()
-                .filter(constituent -> constituent.tableName().equals(tableName))
-                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::alias)
+    private static void assertConstituents(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable,
+                                           @Nonnull final String... tableNames) {
+        final var expected = IntStream.range(0, tableNames.length)
+                .mapToObj(ordinal -> List.of(joined(ordinal), tableNames[ordinal]))
                 .collect(Collectors.toList());
-        assertThat(aliases.size()).isEqualTo(1);
-        return aliases.get(0);
-    }
-
-    /** The tables joined, sorted, so that the assertion does not depend on the order they were named in. */
-    @Nonnull
-    private static List<String> sortedTableNames(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable) {
-        return joinedTable.getConstituents().stream()
-                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName)
-                .sorted()
-                .collect(Collectors.toList());
-    }
-
-    /** Every constituent is named from the {@code joined_0 … joined_n-1} family, one alias each. */
-    private static void assertConstituentAliases(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable) {
-        final var expected = IntStream.range(0, joinedTable.getConstituents().size())
-                .mapToObj(ordinal -> "joined_" + ordinal)
-                .collect(Collectors.toSet());
         assertThat(joinedTable.getConstituents().stream()
-                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::alias)
-                .collect(Collectors.toSet())).isEqualTo(expected);
+                .map(constituent -> List.of(constituent.alias(), constituent.tableName()))
+                .collect(Collectors.toList())).isEqualTo(expected);
     }
 
-    /** The aliases a join condition relates, as a set, since which side is which follows the predicate. */
+    /** A join condition relating {@code leftColumn} of one constituent to {@code rightColumn} of another. */
     @Nonnull
-    private static Set<String> relatedAliases(@Nonnull final RecordLayerJoinedSyntheticTable.JoinCondition condition) {
-        return Set.of(condition.leftAlias(), condition.rightAlias());
+    private static RecordLayerJoinedSyntheticTable.JoinCondition joinCondition(@Nonnull final String leftAlias,
+                                                                             @Nonnull final String leftColumn,
+                                                                             @Nonnull final String rightAlias,
+                                                                             @Nonnull final String rightColumn) {
+        return new RecordLayerJoinedSyntheticTable.JoinCondition(leftAlias, Key.Expressions.field(leftColumn),
+                rightAlias, Key.Expressions.field(rightColumn));
     }
 
     /** The key expression a constituent's column contributes: {@code field(alias).nest(column)}, no fan-out. */
     @Nonnull
-    private static KeyExpression constituentColumn(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable,
-                                                   @Nonnull final String tableName, @Nonnull final String column) {
-        return aliasColumn(aliasOf(joinedTable, tableName), column);
-    }
-
-    /**
-     * The same, for a constituent identified by its alias rather than by its table: what a self-join needs, both of
-     * whose constituents are the same table.
-     */
-    @Nonnull
     private static KeyExpression aliasColumn(@Nonnull final String alias, @Nonnull final String column) {
         return Key.Expressions.field(alias, KeyExpression.FanType.None).nest(column);
-    }
-
-    /** The table the constituent registered under {@code alias} joins. */
-    @Nonnull
-    private static String tableOf(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable,
-                                  @Nonnull final String alias) {
-        return joinedTable.getConstituents().stream()
-                .filter(constituent -> constituent.alias().equals(alias))
-                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName)
-                .findFirst().orElseThrow();
     }
 
     /** A filter as stored with an index: a column of the constituent registered under {@code alias}, compared. */
@@ -245,22 +216,20 @@ public class JoinedSyntheticTableIndexTest {
     }
 
     private static void assertTwoTableJoin(@Nonnull final SchemaTemplate template,
-                                           @Nonnull final String indexName) {
+                                           @Nonnull final String indexName,
+                                           @Nonnull final List<String> tablesInOrder,
+                                           @Nonnull final String leftTable) {
         final var joinedTable = soleJoinedTable(template, indexName);
 
-        // One constituent per joined table.
-        final var constituents = joinedTable.getConstituents();
-        assertThat(constituents.size()).isEqualTo(2);
-        assertThat(sortedTableNames(joinedTable)).isEqualTo(List.of("T1", "T2"));
-        assertConstituentAliases(joinedTable);
+        // One constituent per joined table, numbered in the order the definition names them.
+        assertConstituents(joinedTable, tablesInOrder.toArray(new String[0]));
+        final var t1 = joined(tablesInOrder.indexOf("T1"));
+        final var t2 = joined(tablesInOrder.indexOf("T2"));
 
-        // The WHERE/ON equality became the join condition, one side per constituent.
-        assertThat(joinedTable.getJoinConditions().size()).isEqualTo(1);
-        final var joinCondition = joinedTable.getJoinConditions().get(0);
-        assertThat(relatedAliases(joinCondition))
-                .isEqualTo(Set.of(aliasOf(joinedTable, "T1"), aliasOf(joinedTable, "T2")));
-        assertThat(joinCondition.leftExpression()).isEqualTo(Key.Expressions.field("k"));
-        assertThat(joinCondition.rightExpression()).isEqualTo(Key.Expressions.field("k"));
+        // The WHERE/ON equality became the join condition, its sides as the equality is written.
+        assertThat(joinedTable.getJoinConditions()).isEqualTo(List.of(leftTable.equals("T1")
+                                                                      ? joinCondition(t1, "k", t2, "k")
+                                                                      : joinCondition(t2, "k", t1, "k")));
 
         assertThat(joinedTable.getIndexes().size()).isEqualTo(1);
         final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
@@ -270,8 +239,8 @@ public class JoinedSyntheticTableIndexTest {
         // No index predicate: the equality is the join, not a filter.
         assertThat(index.getPredicate()).isNull();
         assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.concat(
-                constituentColumn(joinedTable, "T1", "x"),
-                constituentColumn(joinedTable, "T2", "y")));
+                aliasColumn(t1, "x"),
+                aliasColumn(t2, "y")));
 
         // Writes to either joined table maintain the index, so it is attributed to both.
         final var tableIndexMapping = Assertions.assertDoesNotThrow(template::getTableIndexMapping);
@@ -284,27 +253,26 @@ public class JoinedSyntheticTableIndexTest {
     @Nonnull
     private static Stream<Arguments> twoTableSpellings() {
         return Stream.of(
-                Arguments.of(COMMA_JOIN, "mv1",
+                Arguments.of(COMMA_JOIN, "mv1", List.of("T1", "T2"), "T1",
                         "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
                                 + "order by a.x, b.y "),
-                Arguments.of(INNER_JOIN, "mv1",
+                Arguments.of(INNER_JOIN, "mv1", List.of("T1", "T2"), "T1",
                         "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b ON a.k = b.k "
                                 + "order by a.x, b.y "),
-                // Which constituent a table becomes is not fixed, so naming the tables the other way round has to
-                // satisfy the same, order-independent assertions.
-                Arguments.of(REVERSED_COMMA_JOIN, "mv1",
+                // Naming the tables the other way round numbers them the other way round.
+                Arguments.of(REVERSED_COMMA_JOIN, "mv1", List.of("T2", "T1"), "T2",
                         "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T2 AS b, T1 AS a WHERE b.k = a.k "
                                 + "order by a.x, b.y "),
-                Arguments.of(USING_JOIN, "mv1",
+                Arguments.of(USING_JOIN, "mv1", List.of("T1", "T2"), "T1",
                         "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b USING (k) "
                                 + "order by a.x, b.y "),
-                Arguments.of(VIEW_COMMA_JOIN, "i1",
+                Arguments.of(VIEW_COMMA_JOIN, "i1", List.of("T1", "T2"), "T1",
                         "CREATE VIEW mv1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
                                 + "CREATE INDEX i1 on mv1(x, y)"),
-                Arguments.of(VIEW_INNER_JOIN, "i1",
+                Arguments.of(VIEW_INNER_JOIN, "i1", List.of("T1", "T2"), "T1",
                         "CREATE VIEW mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b ON a.k = b.k "
                                 + "CREATE INDEX i1 on mv1(x, y)"),
-                Arguments.of(VIEW_USING_JOIN, "i1",
+                Arguments.of(VIEW_USING_JOIN, "i1", List.of("T1", "T2"), "T1",
                         "CREATE VIEW mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b USING (k) "
                                 + "CREATE INDEX i1 on mv1(x, y)"));
     }
@@ -312,9 +280,10 @@ public class JoinedSyntheticTableIndexTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("twoTableSpellings")
     void createIndexOnTwoTableJoin(@Nonnull final String spelling, @Nonnull final String indexName,
+                                   @Nonnull final List<String> tablesInOrder, @Nonnull final String leftTable,
                                    @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl,
-                assertingFactory(template -> assertTwoTableJoin(template, indexName)));
+                assertingFactory(template -> assertTwoTableJoin(template, indexName, tablesInOrder, leftTable)));
     }
 
     /**
@@ -327,11 +296,12 @@ public class JoinedSyntheticTableIndexTest {
                                                      @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
+            assertConstituents(joinedTable, "T1", "T2");
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
             assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.concat(
-                    constituentColumn(joinedTable, "T1", "x"),
-                    constituentColumn(joinedTable, "T2", "y"),
-                    constituentColumn(joinedTable, "T1", "k")));
+                    aliasColumn(joined(0), "x"),
+                    aliasColumn(joined(1), "y"),
+                    aliasColumn(joined(0), "k")));
         }));
     }
 
@@ -352,20 +322,16 @@ public class JoinedSyntheticTableIndexTest {
                 + "WHERE a.k = b.k AND b.k = c.k order by a.x, b.y, c.z ";
         shouldWorkWithInjectedFactory(THREE_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
-            assertThat(sortedTableNames(joinedTable)).isEqualTo(List.of("T1", "T2", "T3"));
-            assertConstituentAliases(joinedTable);
+            assertConstituents(joinedTable, "T1", "T2", "T3");
             // Two equalities, each relating a different pair of constituents.
-            final var joinConditions = joinedTable.getJoinConditions();
-            assertThat(joinConditions.size()).isEqualTo(2);
-            assertThat(Set.of(relatedAliases(joinConditions.get(0)), relatedAliases(joinConditions.get(1))))
-                    .isEqualTo(Set.of(
-                            Set.of(aliasOf(joinedTable, "T1"), aliasOf(joinedTable, "T2")),
-                            Set.of(aliasOf(joinedTable, "T2"), aliasOf(joinedTable, "T3"))));
+            assertThat(joinedTable.getJoinConditions()).isEqualTo(List.of(
+                    joinCondition(joined(0), "k", joined(1), "k"),
+                    joinCondition(joined(1), "k", joined(2), "k")));
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
             assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.concat(
-                    constituentColumn(joinedTable, "T1", "x"),
-                    constituentColumn(joinedTable, "T2", "y"),
-                    constituentColumn(joinedTable, "T3", "z")));
+                    aliasColumn(joined(0), "x"),
+                    aliasColumn(joined(1), "y"),
+                    aliasColumn(joined(2), "z")));
         }));
     }
 
@@ -376,24 +342,17 @@ public class JoinedSyntheticTableIndexTest {
                 + "order by a.x, c.x ";
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
-            final var constituents = joinedTable.getConstituents();
-            assertThat(sortedTableNames(joinedTable)).isEqualTo(List.of("T1", "T1"));
-            // Same table, distinct aliases — otherwise the two sides could not be told apart.
-            assertConstituentAliases(joinedTable);
-            final var joinCondition = joinedTable.getJoinConditions().get(0);
-            assertThat(relatedAliases(joinCondition)).isEqualTo(constituents.stream()
-                    .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::alias)
-                    .collect(Collectors.toSet()));
-            // Which side is which follows the predicate `a.k = c.x`, not the order the constituents were named in:
-            // the side compared on `k` is `a`, the side compared on `x` is `c`.
-            assertThat(joinCondition.leftExpression()).isEqualTo(Key.Expressions.field("k"));
-            assertThat(joinCondition.rightExpression()).isEqualTo(Key.Expressions.field("x"));
+            // Same table, distinct aliases — otherwise the two sides could not be told apart: `a` is named first, so
+            // it is `joined_0`, and `c` is `joined_1`.
+            assertConstituents(joinedTable, "T1", "T1");
+            // The side compared on `k` is `a`, the side compared on `x` is `c`.
+            assertThat(joinedTable.getJoinConditions()).isEqualTo(List.of(joinCondition(joined(0), "k", joined(1), "x")));
 
-            // So the key is `a.x, c.x` even though neither constituent can be told apart by its table name.
+            // So the key is `a.x, c.x`, even though neither constituent can be told apart by its table name.
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
             assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.concat(
-                    aliasColumn(joinCondition.leftAlias(), "x"),
-                    aliasColumn(joinCondition.rightAlias(), "x")));
+                    aliasColumn(joined(0), "x"),
+                    aliasColumn(joined(1), "x")));
         }));
     }
 
@@ -407,28 +366,37 @@ public class JoinedSyntheticTableIndexTest {
                 + "WHERE a.k = c.x AND c.k = b.k order by a.x, c.x, b.y ";
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
-            assertThat(sortedTableNames(joinedTable)).isEqualTo(List.of("T1", "T1", "T2"));
-            assertConstituentAliases(joinedTable);
-            final var joinConditions = joinedTable.getJoinConditions();
-            assertThat(joinConditions.size()).isEqualTo(2);
-            // `a.k = c.x` relates the two copies of T1: `a` is the side compared on `k`, `c` the side compared on `x`.
-            final var selfCondition = joinConditions.stream()
-                    .filter(condition -> tableOf(joinedTable, condition.leftAlias()).equals("T1")
-                            && tableOf(joinedTable, condition.rightAlias()).equals("T1"))
-                    .findFirst().orElseThrow();
-            assertThat(selfCondition.leftExpression()).isEqualTo(Key.Expressions.field("k"));
-            assertThat(selfCondition.rightExpression()).isEqualTo(Key.Expressions.field("x"));
-            final var a = selfCondition.leftAlias();
-            final var c = selfCondition.rightAlias();
-            final var b = aliasOf(joinedTable, "T2");
-            // `c.k = b.k` relates `c`, not `a`, to T2.
-            final var otherCondition = joinConditions.stream()
-                    .filter(condition -> condition != selfCondition).findFirst().orElseThrow();
-            assertThat(relatedAliases(otherCondition)).isEqualTo(Set.of(c, b));
+            // `a`, `c` and `b` are `joined_0`, `joined_1` and `joined_2`, in the order the definition names them.
+            assertConstituents(joinedTable, "T1", "T1", "T2");
+            // `a.k = c.x` relates the two copies of T1, and `c.k = b.k` relates `c`, not `a`, to T2.
+            assertThat(joinedTable.getJoinConditions()).isEqualTo(List.of(
+                    joinCondition(joined(0), "k", joined(1), "x"),
+                    joinCondition(joined(1), "k", joined(2), "k")));
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
             assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.concat(
-                    aliasColumn(a, "x"), aliasColumn(c, "x"), aliasColumn(b, "y")));
+                    aliasColumn(joined(0), "x"), aliasColumn(joined(1), "x"), aliasColumn(joined(2), "y")));
         }));
+    }
+
+    /**
+     * The same definition, compiled again, numbers its constituents the same way. The plan's correlations differ every
+     * time the definition is compiled, so an order taken from them would not be stable; the order the definition names
+     * its tables in is.
+     */
+    @Test
+    void sameDefinitionNumbersItsConstituentsTheSameWay() throws Exception {
+        final String indexDdl = "CREATE INDEX mv1 AS SELECT a.x, c.x, b.y FROM T1 AS a, T1 AS c, T2 AS b "
+                + "WHERE a.k = c.x AND c.k = b.k order by a.x, c.x, b.y ";
+        final var compiled = new ArrayList<RecordLayerJoinedSyntheticTable>();
+        for (int i = 0; i < 10; i++) {
+            shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl,
+                    assertingFactory(template -> compiled.add(soleJoinedTable(template, "mv1"))));
+        }
+        assertThat(compiled.size()).isEqualTo(10);
+        for (final var joinedTable : compiled) {
+            assertConstituents(joinedTable, "T1", "T1", "T2");
+            assertThat(joinedTable).isEqualTo(compiled.get(0));
+        }
     }
 
     /** A filter on one copy of a self-joined table is rooted at that copy's constituent, not the other's. */
@@ -438,12 +406,11 @@ public class JoinedSyntheticTableIndexTest {
                 + "WHERE a.k = c.x AND c.x > 5 order by a.x, c.x ";
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
-            final var joinCondition = Iterables.getOnlyElement(joinedTable.getJoinConditions());
-            // the side compared on `x` is `c`
-            assertThat(joinCondition.rightExpression()).isEqualTo(Key.Expressions.field("x"));
-            final var c = joinCondition.rightAlias();
+            assertConstituents(joinedTable, "T1", "T1");
+            assertThat(joinedTable.getJoinConditions()).isEqualTo(List.of(joinCondition(joined(0), "k", joined(1), "x")));
+            // the filter reads `c`, which is `joined_1`
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
-            assertPredicate(index, filter(c, "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L));
+            assertPredicate(index, filter(joined(1), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L));
         }));
     }
 
@@ -461,8 +428,8 @@ public class JoinedSyntheticTableIndexTest {
             assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
             assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.keyWithValue(
                     Key.Expressions.concat(
-                            constituentColumn(joinedTable, "T1", "x"),
-                            constituentColumn(joinedTable, "T2", "y")),
+                            aliasColumn(joined(0), "x"),
+                            aliasColumn(joined(1), "y")),
                     1));
         }));
     }
@@ -582,10 +549,10 @@ public class JoinedSyntheticTableIndexTest {
             // The filter is stored with the index, rooted at the constituent it reads from.
             Assertions.assertNotNull(index.getPredicate(),
                     () -> "expected the residual filter to be stored as the index predicate");
-            assertPredicate(index, filter(aliasOf(joinedTable, "T1"), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L));
+            assertPredicate(index, filter(joined(0), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L));
             assertThat(index.getKeyExpression()).isEqualTo(Key.Expressions.concat(
-                    constituentColumn(joinedTable, "T1", "x"),
-                    constituentColumn(joinedTable, "T2", "y")));
+                    aliasColumn(joined(0), "x"),
+                    aliasColumn(joined(1), "y")));
         }));
     }
 
@@ -602,8 +569,8 @@ public class JoinedSyntheticTableIndexTest {
             assertThat(joinedTable.getJoinConditions().size()).isEqualTo(1);
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
             assertPredicate(index, new IndexPredicate.AndPredicate(List.of(
-                    filter(aliasOf(joinedTable, "T1"), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L),
-                    filter(aliasOf(joinedTable, "T2"), "y", IndexComparison.SimpleComparison.ComparisonType.LESS_THAN, 3L))));
+                    filter(joined(0), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L),
+                    filter(joined(1), "y", IndexComparison.SimpleComparison.ComparisonType.LESS_THAN, 3L))));
         }));
     }
 
@@ -620,8 +587,8 @@ public class JoinedSyntheticTableIndexTest {
             assertThat(joinedTable.getJoinConditions().size()).isEqualTo(1);
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
             assertPredicate(index, new IndexPredicate.OrPredicate(List.of(
-                    filter(aliasOf(joinedTable, "T1"), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L),
-                    filter(aliasOf(joinedTable, "T2"), "y", IndexComparison.SimpleComparison.ComparisonType.LESS_THAN, 3L))));
+                    filter(joined(0), "x", IndexComparison.SimpleComparison.ComparisonType.GREATER_THAN, 5L),
+                    filter(joined(1), "y", IndexComparison.SimpleComparison.ComparisonType.LESS_THAN, 3L))));
         }));
     }
 
@@ -633,20 +600,9 @@ public class JoinedSyntheticTableIndexTest {
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
             final var joinConditions = joinedTable.getJoinConditions();
-            assertThat(joinConditions.size()).isEqualTo(2);
-            // each condition with T1's side on the left, whichever side the plan put it on
-            final var t1 = aliasOf(joinedTable, "T1");
-            final var t2 = aliasOf(joinedTable, "T2");
-            assertThat(joinConditions.stream()
-                    .map(condition -> condition.leftAlias().equals(t1) ? condition
-                                      : new RecordLayerJoinedSyntheticTable.JoinCondition(condition.rightAlias(),
-                                              condition.rightExpression(), condition.leftAlias(), condition.leftExpression()))
-                    .collect(Collectors.toSet()))
-                    .isEqualTo(Set.of(
-                            new RecordLayerJoinedSyntheticTable.JoinCondition(t1, Key.Expressions.field("k"),
-                                    t2, Key.Expressions.field("k")),
-                            new RecordLayerJoinedSyntheticTable.JoinCondition(t1, Key.Expressions.field("x"),
-                                    t2, Key.Expressions.field("y"))));
+            assertThat(joinConditions).isEqualTo(List.of(
+                    joinCondition(joined(0), "k", joined(1), "k"),
+                    joinCondition(joined(0), "x", joined(1), "y")));
             assertThat(joinedTable.getIndexes().stream().findFirst().orElseThrow().getPredicate()).isNull();
         }));
     }
@@ -663,7 +619,7 @@ public class JoinedSyntheticTableIndexTest {
             final var joinedTable = soleJoinedTable(template, "mv1");
             assertThat(joinedTable.getJoinConditions().size()).isEqualTo(1);
             final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
-            assertPredicate(index, filter(aliasOf(joinedTable, "T2"), "y", IndexComparison.SimpleComparison.ComparisonType.EQUALS, 3L));
+            assertPredicate(index, filter(joined(1), "y", IndexComparison.SimpleComparison.ComparisonType.EQUALS, 3L));
         }));
     }
 
@@ -685,7 +641,7 @@ public class JoinedSyntheticTableIndexTest {
             for (final var joinedTable : joinedTables) {
                 final var index = Iterables.getOnlyElement(joinedTable.getIndexes());
                 assertThat("__joined_" + index.getName()).isEqualTo(joinedTable.getName());
-                assertThat(sortedTableNames(joinedTable)).isEqualTo(List.of("T1", "T2"));
+                assertConstituents(joinedTable, "T1", "T2");
             }
 
             final var recordMetaData = Assertions.assertDoesNotThrow(recordLayerTemplate::toRecordMetadata);
