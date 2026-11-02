@@ -47,7 +47,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * <p>
  *   Helper class that operates on a list of {@link ComparisonRange}s. This class is used by the heuristic planner
  *   to match index key expressions to filters. While the purpose of this class is similar to {@link ScanComparisons}
  *   which is used to describe the physical aspects of a scan (more precisely a scan of exactly one range),

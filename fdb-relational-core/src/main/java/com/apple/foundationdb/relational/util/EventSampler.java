@@ -31,13 +31,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>This sampler will compute whether an item can be sampled based on a number of events,
  * rather than as a function of time, so the long-term throughput is measured in samples/event.
  *
- * Event sampling is useful when you have a consistent steady-state of incoming events, and you just want to
+ * <p>Event sampling is useful when you have a consistent steady-state of incoming events, and you just want to
  * take a limited sample of those events, but don't care about shaping those events at all (e.g. you don't want
  * to allow bursty traffic or anything like that). This is mainly because the way EventSampling tracks time is by
  * the passage of events, so it will only ever allow through samples as a fraction of events, no matter how
  * irregular in time those events may be.
  *
- * If you are interested in a sampling method that captures time-irregular traffic patterns, then you should be
+ * <p>If you are interested in a sampling method that captures time-irregular traffic patterns, then you should be
  * sampling according to time-rates, rather than even rates.
  */
 @API(API.Status.EXPERIMENTAL)

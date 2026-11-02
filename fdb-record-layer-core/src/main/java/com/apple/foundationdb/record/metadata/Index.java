@@ -606,7 +606,7 @@ public class Index {
     /**
      * Get the version at which the index was changed.
      *
-     * Any record store older than this will need to have the index rebuilt.
+     * <p>Any record store older than this will need to have the index rebuilt.
      * @return the last modified version
      */
     public int getLastModifiedVersion() {

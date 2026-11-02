@@ -160,7 +160,7 @@ import java.util.stream.Collectors;
 /**
  * A multi-type record store.
  *
- * By default, this uses Protobuf dynamic messages to process records. However, one can specify a custom {@link RecordSerializer}
+ * <p>By default, this uses Protobuf dynamic messages to process records. However, one can specify a custom {@link RecordSerializer}
  * such as a {@link com.apple.foundationdb.record.provider.common.MessageBuilderRecordSerializer MessageBuilderRecordSerializer}
  * or a {@link com.apple.foundationdb.record.provider.common.TransformedRecordSerializer TransformedRecordSerializer} to use
  * as an alternative. Unlike the serializers used by an {@link FDBTypedRecordStore} which only need to be able to process records
@@ -373,9 +373,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Get the storage format version currently in use for this record store.
      *
-     * After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format stored in the store's info header.
+     * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format stored in the store's info header.
      *
-     * Index maintainers can use this to determine what format to expect / produce.
+     * <p>Index maintainers can use this to determine what format to expect / produce.
      * @return the storage format version
      */
     @Deprecated(forRemoval = true)
@@ -399,9 +399,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Get the user version currently in use for this record store.
      *
-     * After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the value stored in the store's info header.
+     * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the value stored in the store's info header.
      *
-     * This version is returned from {@link UserVersionChecker#checkUserVersion} and does not have any meaning within the Record Layer core.
+     * <p>This version is returned from {@link UserVersionChecker#checkUserVersion} and does not have any meaning within the Record Layer core.
      * @return the user format version
      */
     public int getUserVersion() {
@@ -2695,13 +2695,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * mark the new indexes as write-only. It is then up to the client to start online index
      * build jobs to build those indexes.
      *
-     * This will also apply the passed {@link UserVersionChecker} instance to check the user-defined
+     * <p>This will also apply the passed {@link UserVersionChecker} instance to check the user-defined
      * version. The result of this check will be handled the same as with meta-data version changes, i.e.,
      * if the user version is newer than the stored version, then version is updated. If the user
      * version is older than the stored version, it will throw an exception about the stale user
      * version. If the two versions are the same, it will do nothing.
      *
-     * This will return a future that will either complete exceptionally (in the case of a stale
+     * <p>This will return a future that will either complete exceptionally (in the case of a stale
      * user or meta-data) or will complete with <code>true</code> if the version was changed
      * because the record store had an old version or <code>false</code> if no change to the
      * store was done.
@@ -5798,7 +5798,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * A builder for {@link FDBRecordStore}.
      *
-     * Methods for getting a record store from the builder:
+     * <p>Methods for getting a record store from the builder:
      * <ul>
      * <li>{@link #createOrOpen}: open an existing record store or create it the first time.</li>
      * <li>{@link #open}: open an existing record store or throw an exception if it has never been created.</li>

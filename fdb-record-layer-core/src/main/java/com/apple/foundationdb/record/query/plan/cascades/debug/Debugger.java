@@ -37,7 +37,6 @@ import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 
 /**
- * <p>
  * This interface functions as a stub providing hooks which can be called from the planner logic during planning.
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton) via {@link PlannerEventListeners}.

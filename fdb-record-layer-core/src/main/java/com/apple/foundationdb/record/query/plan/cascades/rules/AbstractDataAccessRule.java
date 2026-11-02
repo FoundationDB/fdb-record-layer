@@ -105,7 +105,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
- * The logic that this rules delegates to and actually creates the expressions can be found in
+ * <p>The logic that this rules delegates to and actually creates the expressions can be found in
  * {@link MatchCandidate#toEquivalentPlan(PartialMatch, PlanContext, Memoizer, boolean)}.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -244,7 +244,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * </li>
      * </ul>
      *
-     * The work described above is semantically correct in a sense that it creates a search space that can be explored
+     * <p>The work described above is semantically correct in a sense that it creates a search space that can be explored
      * and pruned in suitable ways that will eventually converge into an optimal data access plan.
      *
      * <p>We can choose to create an index scan for every index that is available regardless what the coverage

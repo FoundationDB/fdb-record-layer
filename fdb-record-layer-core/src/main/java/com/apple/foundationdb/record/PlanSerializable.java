@@ -99,7 +99,7 @@ import javax.annotation.Nonnull;
  * }
  * </pre>
  *
- * PValue is a protobuf message that only ever holds exactly one actual implementing P-message. We could now provide
+ * <p>PValue is a protobuf message that only ever holds exactly one actual implementing P-message. We could now provide
  * a {@code fromProto(...)} in Value to create the correct object of the right implementing class. That, however, is
  * just boilerplate and quite tedious to maintain. We are effectively doing the dynamic dispatch we get for free on
  * the {@code toProto(...)} path by hand. If there is no help at this point we were forced to write this code:

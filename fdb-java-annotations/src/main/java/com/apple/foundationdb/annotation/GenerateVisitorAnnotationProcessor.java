@@ -32,7 +32,6 @@ import javax.lang.model.element.TypeElement;
 import java.util.Set;
 
 /**
- * <p>
  * Annotation processor to automatically generate a visitor class for the entire class hierarchy underneath the annotated
  * root class or all implementors of an annotated interface within the unit of compilation. In that sense the
  * annotation views the class/interface hierarchy as a sealed trait.

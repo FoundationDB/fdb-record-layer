@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * A continuation representing the start of a cursor's execution.
  *
- * This continuation is not perfectly well behaved, for historical reasons. Specifically, its binary serialization is
+ * <p>This continuation is not perfectly well behaved, for historical reasons. Specifically, its binary serialization is
  * {@code null}, which is the same as the binary serialization of {@link RecordCursorEndContinuation}. As a result,
  * the two are distinguishable only through the result of {@link #isEnd()}. Because a start continuation is only used
  * internally and a continuation can be obtained only with a {@link RecordCursorResult}---at which point the cursor is

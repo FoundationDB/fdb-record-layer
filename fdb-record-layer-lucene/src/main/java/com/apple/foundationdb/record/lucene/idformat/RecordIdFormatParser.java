@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  *      {@code [<format element>, ...]}
  * </pre>
  *
- * For example, the following are string representations of valid formats:
+ * <p>For example, the following are string representations of valid formats:
  * <pre>
  *     {@code [INT8]}
  *     {@code [INT8, INT64]}

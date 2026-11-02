@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 /**
  * This represents query parsing information.
  *
- * TODO(yhatem) this should be made serializable.
+ * <p>TODO(yhatem) this should be made serializable.
  * TODO(yhatem) check whether we want to present more query structure to customer such as AST.
  * TODO(yhatem) getting an implementation of this should be done on an API level, i.e. in the API module of Relational
  *              this raises more design questions about internal structures, parsing capabilities, and serializability

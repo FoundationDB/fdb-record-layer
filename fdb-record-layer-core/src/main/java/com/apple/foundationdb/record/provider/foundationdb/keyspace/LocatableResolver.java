@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
  * and {@link #readReverse(FDBRecordContext, Long)} operations. See {@link ScopedDirectoryLayer}
  * for an implementation that leverages the FDB directory layer.
  *
- * When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
+ * <p>When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
  * within the write transaction what the correct {@link LocatableResolver} scope is for the write.
  */
 @API(API.Status.UNSTABLE)

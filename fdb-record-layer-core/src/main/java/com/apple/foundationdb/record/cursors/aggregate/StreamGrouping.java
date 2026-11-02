@@ -42,6 +42,7 @@ import java.util.Objects;
  * StreamGrouping breaks streams of records into groups, based on grouping criteria.
  * For each record (provided through {@link #apply}) the class would decide whether this record is part
  * of the current group or of the next group.
+ *
  * <p>Note: If there are no grouping criteria provided, (the 'zero case'), then all records are placed in one group.
  * For example, given the grouping criteria <pre>{'a', 'b'}</pre> and the records
  * <pre>

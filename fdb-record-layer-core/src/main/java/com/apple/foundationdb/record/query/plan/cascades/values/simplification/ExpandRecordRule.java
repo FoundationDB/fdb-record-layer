@@ -51,7 +51,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *                              f1, ..., fn in the type produced by v
  * }
  * </pre>
- * <br>
+ *
  * <p>The rule is restricted to non-nullable values. A value whose result type is nullable can evaluate to
  * {@code null} at runtime, in which case the expansion is unsound: The original yields {@code null}, while the expanded
  * {@link RecordConstructorValue} would always yield a non-null record whose fields each happen to be {@code null}.

@@ -39,7 +39,7 @@ import java.util.Objects;
 /**
  * The logical form of a query.
  *
- * A query mainly consists of:
+ * <p>A query mainly consists of:
  * <ul>
  * <li>The names of the record type(s) to query.</li>
  * <li>A {@link QueryComponent} filter.</li>

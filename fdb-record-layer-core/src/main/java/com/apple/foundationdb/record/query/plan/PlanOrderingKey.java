@@ -53,12 +53,12 @@ import java.util.stream.Collectors;
 /**
  * The keys that order the results from a plan.
  *
- * Given a record type with primary key <code>k1, k2</code> and an index on <code>k1, v1, v2</code>,
+ * <p>Given a record type with primary key <code>k1, k2</code> and an index on <code>k1, v1, v2</code>,
  * the index entries are <code>k1, v1, v2, k2</code>.
  *
- * Given a scan on this index for <code>k1 = ? AND v1 = ?</code>, the results are dictionary ordered by <code>v2, k2</code>.
+ * <p>Given a scan on this index for <code>k1 = ? AND v1 = ?</code>, the results are dictionary ordered by <code>v2, k2</code>.
  *
- * Up to <code>prefixSize</code>, <code>2</code> in this case, the ordering is trivial: all records have the same value.
+ * <p>Up to <code>prefixSize</code>, <code>2</code> in this case, the ordering is trivial: all records have the same value.
  * <code>primaryKeyStart</code> is the earlier position for part of the primary key; in this case, <code>0</code>.
  * <code>primaryKeyTail</code> is the position after which only primary key fields appear; in this case, <code>3</code>.
  */

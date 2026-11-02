@@ -401,7 +401,7 @@ public class KeySpaceDirectory {
      * used for <code>"dir2"</code>. To prevent this, the <code>DirectoryLayerDirectory</code> must override this method
      * to block any peer that isn't also a <code>DirectorylayerDirectory</code>.
      *
-     * If this directory is being added to <code>parent</code>, then <code>dir</code> is the existing
+     * <p>If this directory is being added to <code>parent</code>, then <code>dir</code> is the existing
      * peer that has the same storage data type but a different constant value.  If this directory already exists
      * in <code>parent</code>, then <code>dir</code> is a new peer that is being added that has the same data type
      * but a different constant value.

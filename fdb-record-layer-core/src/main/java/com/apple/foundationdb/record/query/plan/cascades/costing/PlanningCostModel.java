@@ -154,7 +154,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
      *     <li>we have an index scan that is constraining the records to one type (good) but needs a fetch (bad)</li>
      * </ul>
      *
-     * The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
+     * <p>The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
      * scan plan and the second parameter is assumed to be the index scan. We verify the assumption and return
      * {@code OptionalInt.empty()} if it does not hold true. This method is meant to be called using
      * {@link #flipFlop(Supplier, Supplier)} meaning that we will discover if the opposite holds true.

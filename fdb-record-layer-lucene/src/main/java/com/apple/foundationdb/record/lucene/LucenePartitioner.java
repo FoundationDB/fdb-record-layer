@@ -209,7 +209,7 @@ public class LucenePartitioner {
      * is sorted by the partitioning field in ascending order, in which case the
      * oldest partition is returned.
      *
-     * If the query contains a top level partitioning field predicate in conjunction
+     * <p>If the query contains a top level partitioning field predicate in conjunction
      * with the rest of the predicates, and the predicate can be used to determine
      * a specific starting partition, that partition will be computed and returned.
      *
@@ -842,7 +842,7 @@ public class LucenePartitioner {
     /**
      * Re-balance the first partition in a given grouping key by moving documents out of it.
      *
-     * Note that in order to finish the task within the bounds of a single transaction, only the first
+     * <p>Note that in order to finish the task within the bounds of a single transaction, only the first
      * partition needing re-balancing will be processed. If there are other partitions that need re-balancing,
      * they will be processed during subsequent calls.
      *

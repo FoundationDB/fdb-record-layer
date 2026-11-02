@@ -48,6 +48,7 @@ import java.util.function.Function;
  * application called "library", under which lives data for a set of books in the library stored under the
  * title of the book ("book_title"), again represented as a <code>LONG</code> value by mapping the book title via
  * the FDB directory layer.
+ *
  * <p>When creating a path through a directory layer directory, you may either specify the string name that
  * you wish to place in the directory, like so:
  * <pre>

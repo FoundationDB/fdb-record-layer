@@ -99,7 +99,7 @@ import java.util.concurrent.CompletableFuture;
  *       migrations to evolve the payload safely.</li>
  * </ul>
  *
- * Note: The queue does <i>NOT</i> guarantee that an enqueue will fail with a conflict when a previously committed
+ * <p>Note: The queue does <i>NOT</i> guarantee that an enqueue will fail with a conflict when a previously committed
  * transaction called {@link #isQueueEmpty(FDBRecordContext)}. The caller should ensure that happens via an external flag.
  *
  * <p>Callers supply two ready-made subspaces: one for the queue entries and one for the size
@@ -227,6 +227,7 @@ public class PendingWritesQueue<T extends Message> {
      * <p>The entry's key tuple must already have been resolved to a complete versionstamp,
      * which is the case for any entry returned by {@link #getQueueCursor} (since the read sees
      * only committed entries).
+     *
      * <p>The {@link #clearEntry(FDBRecordContext, PendingWritesQueueEntry)} method installs a read conflict on the
      * range of keys that will be cleared. This is done to prevent cases of concurrent clearing of the same queue
      * elements that would then cause the queue size counter to drift. All but one of the concurrent clearing of the

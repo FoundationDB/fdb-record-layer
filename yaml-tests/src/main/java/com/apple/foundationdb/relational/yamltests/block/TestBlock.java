@@ -182,7 +182,7 @@ public final class TestBlock extends ConnectedBlock {
      *     {@link ConnectionLifecycle}.</li>
      * </ul>
      *
-     * The {@link TestBlockOptions} can be set in three ways:
+     * <p>The {@link TestBlockOptions} can be set in three ways:
      * <ul>
      *     <li>Using a preset config. See {@link TestBlockOptions#setWithPreset}</li>
      *     <li>Using an Options map. See {@link TestBlockOptions#setWithOptionsMap}</li>

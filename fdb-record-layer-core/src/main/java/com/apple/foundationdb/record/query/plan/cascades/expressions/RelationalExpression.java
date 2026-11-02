@@ -104,7 +104,7 @@ import java.util.stream.StreamSupport;
  *     <li>Should the planner memoize (and therefore optimize) this field separately from its parent?</li>
  * </ol>
  *
- * For example, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} has only regular fields, including the
+ * <p>For example, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} has only regular fields, including the
  * index name and the comparisons to use when scanning it.
  * Applying the first rule, it wouldn't really make sense to match the index name or the comparisons being performed on
  * their own: they're what define an index scan, after all!

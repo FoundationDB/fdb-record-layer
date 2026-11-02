@@ -44,13 +44,13 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     /**
      * Get the Schemas for the specified schema pattern within this database, as a ResultSet.
      *
-     * Equivalent to calling {@code getSchemas(currentDatabase(),null)}.
+     * <p>Equivalent to calling {@code getSchemas(currentDatabase(),null)}.
      *
-     * The returned columns are:
+     * <p>The returned columns are:
      * 1. <em>TABLE_SCHEM</em> String -- schema name
      * 2. <em>TABLE_CATALOG</em> String -- The path of the database.
      *
-     * Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
+     * <p>Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
      *
      * @return a list of schemas contained in the currently connected database.
      * @throws SQLException if something goes wrong.
@@ -62,14 +62,14 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     /**
      * Get the Schemas for the specified schema pattern within the specified database, as a ResultSet.
      *
-     * For the moment, the only valid schemaPattern is {@code null} (TODO). Any other patterns will be
+     * <p>For the moment, the only valid schemaPattern is {@code null} (TODO). Any other patterns will be
      * ignored.
      *
-     * The returned columns are:
+     * <p>The returned columns are:
      * 1. <em>TABLE_SCHEM</em> String -- schema name
      * 2. <em>TABLE_CATALOG</em> String -- The path of the database.
      *
-     * Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
+     * <p>Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
      *
      * @param catalog the database path to get schemas for.
      * @param schemaPattern the schema pattern to use in searching. Currently ignored
@@ -82,7 +82,7 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     /**
      * Get the tables for the specified schema within this database, as a ResultSet.
      *
-     * The returned resultset has the following fields:
+     * <p>The returned resultset has the following fields:
      * <ol>
      *   <li> TABLE_CAT = the full path of the database</li>
      *   <li> TABLE_SCHEM = the name of the schema</li>
@@ -90,7 +90,7 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      *   <li> TABLE_VERSION = the version of the Schema Template where this table was created </li>
      * </ol>
      *
-     * Note that the {@code TABLE_VERSION} field is not always known (due to data pre-existing the creation of Relational);
+     * <p>Note that the {@code TABLE_VERSION} field is not always known (due to data pre-existing the creation of Relational);
      * in these cases NULL will be returned
      *
      * @param catalog the name of the database to search.
@@ -112,7 +112,7 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     /**
      * Get the columns for the specified table within the specified schema, as a ResultSet.
      *
-     * The returned resultset has the following fields:
+     * <p>The returned resultset has the following fields:
      * <ol>
      *  <li> TABLE_CAT = the name of the database</li>
      *  <li> TABLE_SCHEM = the name of the schema</li>

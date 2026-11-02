@@ -83,10 +83,10 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
     /**
      * Get a optional filter to eliminate false positives from the spatial join.
      *
-     * The filter will have access only to the {@link SpatialObject} for the join and the {@link GeophileRecordImpl} for
+     * <p>The filter will have access only to the {@link SpatialObject} for the join and the {@link GeophileRecordImpl} for
      * the index entry. If the index is covering, {@link GeophileRecordImpl#spatialObject} will then be available.
      *
-     * If there is no filter, or the filter is not entirely effective, some {@link com.apple.foundationdb.record.query.expressions.QueryComponent}
+     * <p>If there is no filter, or the filter is not entirely effective, some {@link com.apple.foundationdb.record.query.expressions.QueryComponent}
      * form of the original predicate will almost certainly be needed downstream of the {@code SpatialObjectQueryPlan}.
      * @param context query context containing parameter bindings
      * @return a spatial join filter or {@code null} if none is possible
@@ -100,7 +100,7 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
     /**
      * Get the function to use for mapping {@link IndexEntry} to {@link GeophileRecordImpl}.
      *
-     * If the index is covering, the indexed {@link SpatialObject} may be recoverable from the value part of the index entry.
+     * <p>If the index is covering, the indexed {@link SpatialObject} may be recoverable from the value part of the index entry.
      * @return a function that creates new {@code GeophileRecordImpl} instances
      */
     protected BiFunction<IndexEntry, Tuple, GeophileRecordImpl> getRecordFunction() {

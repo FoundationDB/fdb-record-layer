@@ -67,12 +67,12 @@ import java.util.stream.Collectors;
  * Transform a tree of Boolean expressions into a tree of bitwise operations on streams of bitmaps from multiple
  * {@link IndexTypes#BITMAP_VALUE} indexes with common group and position keys.
  *
- * So, {@code AND} turns into {@code BITAND} and {@code OR} into {@code BITOR}, with the leaves of the streams
+ * <p>So, {@code AND} turns into {@code BITAND} and {@code OR} into {@code BITOR}, with the leaves of the streams
  * being scans of a {@code BITMAP_VALUE} index keyed by the leaf condition.
  *
- * Optional additional grouping predicates for all indexes are also preserved.
+ * <p>Optional additional grouping predicates for all indexes are also preserved.
  *
- * This means dividing a set of conditions into three categories:
+ * <p>This means dividing a set of conditions into three categories:
  * <ol>
  * <li>group predicates common to all indexes</li>
  * <li>group predicates for a single bitmap index</li>

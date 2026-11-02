@@ -135,7 +135,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Field
 /**
  * The query planner.
  *
- * Query planning means converting a {@link RecordQuery} to a {@link RecordQueryPlan}.
+ * <p>Query planning means converting a {@link RecordQuery} to a {@link RecordQueryPlan}.
  * The plan can use secondary indexes defined in a {@link RecordMetaData} to execute the query efficiently.
  */
 @API(API.Status.UNSTABLE)

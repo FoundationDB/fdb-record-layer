@@ -75,15 +75,19 @@ import java.util.concurrent.CompletableFuture;
  * </ul>
  *
  * <p>Each queue is scoped to a specific partition (groupingKey + partitionId).
+ *
  * <p>The queueSubspace parameter should already include the grouping key and partition ID. The structure of the subspace
  * most generically looks like:
  * <pre>
  * &lt;indexSubspace&gt; / &lt;groupingKey&gt; / &lt;partitionId&gt; / PARTITION_DATA_SUBSPACE(1) / PENDING_WRITE_QUEUE_SUBSPACE(8)
  * </pre>
+ *
  * <p>Although, non-grouped or non-partitioned indexes would not include all of these components.
+ *
  * <p>The key of each K/V queue entry will be a versionStamp to ensure uniqueness and ordering of the queue entries, which
  * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of
  * LucenePendingWriteQueueProto.PendingWriteItem.
+ *
  * <p>The queue maintains a counter (in a separate subspace) for the number of entries it contains. The counter starts as
  * uninitialized and is atomically mutated upon enqueues and clear operations. The queue can (optionally) reject enqueues
  * if the number of entries is larger than (configurable) limit.

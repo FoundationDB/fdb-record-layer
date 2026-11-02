@@ -73,7 +73,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  *
- * is transformed to
+ * <p>is transformed to
  *
  * <pre>
  * {@code
@@ -84,7 +84,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  *
  *
- * The transformation cannot be done for a class of predicates that contain an IN within incompatible
+ * <p>The transformation cannot be done for a class of predicates that contain an IN within incompatible
  * constructs such as {@link NotPredicate} as the
  * transformed expression.
  *
@@ -104,7 +104,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  *
- * or in other words
+ * <p>or in other words
  *
  * <pre>
  * {@code
@@ -112,7 +112,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  *
- * In the <em>not</em> case:
+ * <p>In the <em>not</em> case:
  *
  * <pre>
  * {@code

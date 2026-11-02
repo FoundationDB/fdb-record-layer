@@ -176,7 +176,7 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * </blockquote>
      *
-     * Then the float-point result equals the value of the mathematical expression
+     * <p>Then the float-point result equals the value of the mathematical expression
      * <i>s</i>&middot;<i>m</i>&middot;2<sup><i>e</i>-25</sup>.
      *
      * <p>Note that this method may not be able to return a {@code Half} NaN with exactly same bit pattern as the
@@ -492,7 +492,7 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * </blockquote>
      *
-     * where <i>Sign</i>, <i>FloatingPointLiteral</i>, <i>HexNumeral</i>, <i>HexDigits</i>, <i>SignedInteger</i> and
+     * <p>where <i>Sign</i>, <i>FloatingPointLiteral</i>, <i>HexNumeral</i>, <i>HexDigits</i>, <i>SignedInteger</i> and
      * <i>FloatTypeSuffix</i> are as defined in the lexical structure sections of <cite>The Java Language
      * Specification</cite>, except that underscores are not accepted between digits. If {@code s} does not have the
      * form of a <i>FloatValue</i>, then a {@code NumberFormatException} is thrown. Otherwise, {@code s} is regarded as
@@ -501,13 +501,13 @@ public final class Half extends Number implements Comparable<Half> {
      * then rounded to type {@code half} by the usual round-to-nearest rule of IEEE 754 floating-point arithmetic, which
      * includes preserving the sign of a zero value.
      *
-     * Note that the round-to-nearest rule also implies overflow and underflow behaviour; if the exact value of
+     * <p>Note that the round-to-nearest rule also implies overflow and underflow behaviour; if the exact value of
      * {@code s} is large enough in magnitude (greater than or equal to ({@link #MAX_VALUE} +
      * {@link HalfMath#ulp(Half half) HalfMath.ulp(MAX_VALUE)}/2), rounding to {@code float} will result in an infinity
      * and if the exact value of {@code s} is small enough in magnitude (less than or equal to {@link #MIN_VALUE}/2),
      * rounding to float will result in a zero.
      *
-     * Finally, after rounding a {@code Half} object is returned.
+     * <p>Finally, after rounding a {@code Half} object is returned.
      *
      * <p>To interpret localized string representations of a floating-point value, use subclasses of
      * {@link java.text.NumberFormat}.

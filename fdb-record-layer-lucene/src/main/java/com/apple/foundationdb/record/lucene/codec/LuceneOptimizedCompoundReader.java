@@ -44,7 +44,7 @@ import java.util.Set;
  * This class implements a directory, but is limited to only read operations.
  * Directory methods that would normally modify data throw an exception.
  *
- * Borrowed from Lucene to remove checksum from end of file.
+ * <p>Borrowed from Lucene to remove checksum from end of file.
  * This implementation skips the reading and validation of checksum, which could have quite big data size sometimes.
  */
 public final class LuceneOptimizedCompoundReader extends CompoundDirectory {

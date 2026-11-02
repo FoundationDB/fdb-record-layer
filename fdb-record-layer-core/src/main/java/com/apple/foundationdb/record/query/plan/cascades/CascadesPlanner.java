@@ -174,7 +174,7 @@ import java.util.function.Supplier;
  *         {@link OptimizeGroup} for all ranged over groups
  * </pre>
  *
- * Note: Pushed tasks are executed in typical stack machine order, that is LIFO.
+ * <p>Note: Pushed tasks are executed in typical stack machine order, that is LIFO.
  *
  * <p>There are three different kinds of transformations:
  * <ul>

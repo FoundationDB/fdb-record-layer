@@ -356,7 +356,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * method will throw a {@link RecordCoreException}. As a result, the user is encouraged to call
      * {@link #getTransactionId()} before calling this method.
      *
-     * NOTE: It is generally better to enable logging at open time via the {@link FDBRecordContextConfig}.
+     * <p>NOTE: It is generally better to enable logging at open time via the {@link FDBRecordContextConfig}.
      *
      * @see #getTransactionId()
      * @see FDBDatabaseFactory#setTrace(String, String)
@@ -703,7 +703,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         /**
          * Complete the check.
          *
-         * This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
+         * <p>This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
          * it can be called while processing the transaction.
          * @return a future that will be complete (exceptionally if the check fails) when the check has been performed
          */
@@ -738,7 +738,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     /**
      * A synchronous {@link CommitCheckAsync}.
      *
-     * At some point, this class will be deprecated.
+     * <p>At some point, this class will be deprecated.
      * Please implement {@link CommitCheckAsync} directly or call {@link #addCommitCheck(CompletableFuture)} instead.
      */
     public interface CommitCheck extends CommitCheckAsync {
@@ -752,7 +752,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         /**
          * Complete the check.
          *
-         * This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
+         * <p>This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
          * it can be called while processing the transaction.
          *
          * <p>This method should not block or {@link #commitAsync} will block. It is therefore much
@@ -823,7 +823,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     /**
      * Add a {@link CommitCheckAsync} to be performed before {@link #commit} finishes.
      *
-     * This method is suitable for checks that cannot be started until just before commit.
+     * <p>This method is suitable for checks that cannot be started until just before commit.
      * For checks that can be started before {@code addCommitCheck} time, {@link #addCommitCheck(CompletableFuture)}
      * may be more convenient.
      *

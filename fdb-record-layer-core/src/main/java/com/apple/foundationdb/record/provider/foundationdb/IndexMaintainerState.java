@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
 /**
  * Common state for an {@link IndexMaintainer}.
  *
- * In particular, this includes the record store and index meta-data for the maintainer.
+ * <p>In particular, this includes the record store and index meta-data for the maintainer.
  *
  */
 @API(API.Status.UNSTABLE)

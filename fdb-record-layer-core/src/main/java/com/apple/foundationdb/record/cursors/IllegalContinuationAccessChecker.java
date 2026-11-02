@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.RecordCoreException;
  *
  * {@code getContinuation} is only legal after {@code hasNext} has returned {@code false} or after {@code next}.
  *
- * The check can be enabled / disabled globally.
+ * <p>The check can be enabled / disabled globally.
  */
 @API(API.Status.EXPERIMENTAL)
 public class IllegalContinuationAccessChecker {

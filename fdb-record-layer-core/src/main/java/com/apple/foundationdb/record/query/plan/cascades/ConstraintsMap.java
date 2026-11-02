@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * <p>
  * A map to keep track of constraining attributes for an expression reference. References ({@link Reference})
  * are a central part of the memoization effort within the {@link CascadesPlanner}. Member expressions contained in
  * a reference all yield the same final result not taking into account physical properties such as sorted-ness,

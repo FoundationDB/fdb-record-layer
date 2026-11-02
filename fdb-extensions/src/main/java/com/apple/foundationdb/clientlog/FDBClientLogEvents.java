@@ -866,7 +866,7 @@ public class FDBClientLogEvents {
         /**
          * Get the last key fully processed.
          *
-         * This is not the last key passed to {@link #accept(KeyValue)}, since an early part of a split entry is buffered.
+         * <p>This is not the last key passed to {@link #accept(KeyValue)}, since an early part of a split entry is buffered.
          * This is the key from which to resume in a new transaction.
          * @return the processed key
          */

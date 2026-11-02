@@ -39,7 +39,7 @@ import javax.annotation.Nonnull;
 /**
  * Something like a query plan for joining spatial indexes.
  *
- * This is not a real {@code RecordQueryPlan} because the signature of the cursor can't match
+ * <p>This is not a real {@code RecordQueryPlan} because the signature of the cursor can't match
  * until queries support actual joins.
  */
 @API(API.Status.EXPERIMENTAL)

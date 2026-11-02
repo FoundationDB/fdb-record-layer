@@ -21,7 +21,7 @@
 /**
  * A simple in-memory implementation of a Relational subsystem.
  *
- * This system is not intended to be a fully-fledged implementation of relational, but it provides some basic
+ * <p>This system is not intended to be a fully-fledged implementation of relational, but it provides some basic
  * support of different structures (particularly in the Direct Scan API) which can be handy when trying to test
  * logic.
  */

@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.util;
 /**
  * A simple interface for representing a Clock logically.
  *
- * This is useful whenever you might want to change the behavior of "time" in logical ways (for example,
+ * <p>This is useful whenever you might want to change the behavior of "time" in logical ways (for example,
  * by using a monotonic counter instead of an actual clock) without changing the algorithms that use it.
  *
  * <p>There are a bunch of interfaces like this in our library set, having our own is useful for dependency management,

@@ -195,7 +195,7 @@ public class FDBDatabase {
     /**
      * Function for mapping an underlying exception to a synchronous failure.
      *
-     * It is possible for this function to be called with the result of calling it previously.
+     * <p>It is possible for this function to be called with the result of calling it previously.
      * Therefore, if wrapping exceptions with some application-specific exception class, it is best
      * to check for being passed an {@code ex} that is already of that class and in that case just return it.
      * @see #setAsyncToSyncExceptionMapper
@@ -832,7 +832,7 @@ public class FDBDatabase {
     /**
      * Runs a transactional function against this <code>FDBDatabase</code> with retry logic.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param retriable the database operation to run transactionally
@@ -850,7 +850,7 @@ public class FDBDatabase {
     /**
      * Runs a transactional function against this <code>FDBDatabase</code> with retry logic.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param timer the timer to use for instrumentation
@@ -892,7 +892,7 @@ public class FDBDatabase {
      * operation. If one wishes to achieve the same functionality in a non-blocking
      * manner, see {@link #runAsync(FDBStoreTimer, Map, WeakReadSemantics, Function) runAsync()}.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param timer the timer to use for instrumentation
@@ -914,7 +914,7 @@ public class FDBDatabase {
     /**
      * Runs a transactional function asynchronously against this <code>FDBDatabase</code> with retry logic.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param retriable the database operation to run transactionally
@@ -932,7 +932,7 @@ public class FDBDatabase {
     /**
      * Runs a transactional function asynchronously against this <code>FDBDatabase</code> with retry logic.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param retriable the database operation to run transactionally
@@ -954,7 +954,7 @@ public class FDBDatabase {
     /**
      * Runs a transactional function asynchronously against this <code>FDBDatabase</code> with retry logic.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param timer the timer to use for instrumentation
@@ -975,7 +975,7 @@ public class FDBDatabase {
     /**
      * Runs a transactional function asynchronously against this <code>FDBDatabase</code> with retry logic.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param timer the timer to use for instrumentation
@@ -1021,7 +1021,7 @@ public class FDBDatabase {
      * to the success or failure of this operation. If one wishes to achieve the same
      * functionality in a blocking manner, see {@link #run(FDBStoreTimer, Map, WeakReadSemantics, Function) run()}.
      *
-     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * <p>This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
      * @param timer the timer to use for instrumentation

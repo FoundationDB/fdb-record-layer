@@ -34,7 +34,7 @@ public interface DirectScannable {
     /**
      * Validate that this Scannable is able to satisfy the query options that are presented to it.
      *
-     * This is present so that high level operations can fail quickly with different types of Unsupported errors,
+     * <p>This is present so that high level operations can fail quickly with different types of Unsupported errors,
      * rather than throwing something which is not as useful.
      *
      * @param scanOptions the options for the scan/get.

@@ -393,7 +393,7 @@ public class StoreTimer {
      * is not the time. It is also different from {@link Count} since along with the size of the event in concern, it
      * also records the number of times the event has occurred.
      *
-     * Since {@link SizeEvent} tracks count and size together, it is easier for the consumer than having two {@link Count}
+     * <p>Since {@link SizeEvent} tracks count and size together, it is easier for the consumer than having two {@link Count}
      * events that track them separately. In essence, the consumer benefits from recording only a single event to capture
      * both pieces of information and also from the fact that the link between count and size is more obvious when
      * reading metrics.

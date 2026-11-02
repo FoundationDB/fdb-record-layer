@@ -42,7 +42,7 @@ import java.util.function.BiFunction;
 /**
  * A cursor that can iterate over a cursor across transactions.
  *
- * It is provided a generator that produces a cursor (referred to as <i>underlying cursor</i>). The <i>underlying
+ * <p>It is provided a generator that produces a cursor (referred to as <i>underlying cursor</i>). The <i>underlying
  * cursor</i> is iterated over until it is either exhausted or until one of the scan limits is reached:
  * <ul>
  *     <li>

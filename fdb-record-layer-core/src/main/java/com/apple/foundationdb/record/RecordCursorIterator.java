@@ -112,11 +112,11 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
     /**
      * Get a byte string that can be used to continue a query after the last record returned.
      *
-     * Returns {@code null} if the underlying source is completely exhausted, independent of any limit passed to the
+     * <p>Returns {@code null} if the underlying source is completely exhausted, independent of any limit passed to the
      * cursor creator. Since such creators generally accept {@code null} to mean no continuation, that is, start from
      * the beginning, one must check for {@code null} from {@code getContinuation()} to keep from starting over.
      *
-     * Result is not always defined if called before the {@link #onHasNext()} has been called, before the returned
+     * <p>Result is not always defined if called before the {@link #onHasNext()} has been called, before the returned
      * future has completed, or after it has completed to {@code true} but before {@link #next()} has been called.
      * That is, a continuation is only guaranteed when called "between" records from a {@code while (hasNext) next} loop
      * or after its end. If configured to do so, an {@link IllegalContinuationAccessChecker} will be used to throw

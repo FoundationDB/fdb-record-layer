@@ -49,7 +49,7 @@ import java.util.List;
 /**
  * A factory for {@link AtomicMutationIndexMaintainer} indexes.
  *
- * Implements the following index types:
+ * <p>Implements the following index types:
  * <ul>
  *     <li>{@link IndexTypes#COUNT COUNT}</li>
  *     <li>{@link IndexTypes#COUNT_UPDATES COUNT_UPDATES}</li>
