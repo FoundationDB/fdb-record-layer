@@ -255,14 +255,15 @@ public class MessageHelpers {
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static void deepCopyMessage(@Nonnull final Message.Builder builder, @Nonnull final Message message) {
+        final var targetDescriptor = builder.getDescriptorForType();
+        final var targetFields = targetDescriptor.getFields();
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
             // find the field on the target side, by position
-            final var targetFields = builder.getDescriptorForType().getFields();
             Verify.verify(!field.isExtension() && field.getIndex() < targetFields.size(),
                     "message %s does not fit descriptor %s", message.getDescriptorForType().getFullName(),
-                    builder.getDescriptorForType().getFullName());
+                    targetDescriptor.getFullName());
             final var targetField = targetFields.get(field.getIndex());
 
             if (field.isRepeated()) {
