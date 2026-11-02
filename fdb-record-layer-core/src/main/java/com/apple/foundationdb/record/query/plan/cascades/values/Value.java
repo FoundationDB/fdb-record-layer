@@ -168,6 +168,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
+     * Checks whether this {@link Value} references constants in the {@link EvaluationContext}.
+     *
+     * @return {@code true} if {@link Value} references any constants, otherwise {@code false}.
+     */
+    default boolean hasConstantObjectValues() {
+        return preOrderStream().anyMatch(ConstantObjectValue.class::isInstance);
+    }
+
+    /**
      * Checks whether this {@link Value} or any of its child values in the expression tree is an
      * {@link IndexOnlyValue}.
      * <p>

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
@@ -33,7 +34,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -213,9 +213,17 @@ class Delete {
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Quantizer quantizer = primitives.quantizer(accessInfo);
 
-                    return deleteFromLayers(transaction, storageTransform, quantizer, random, primaryKey, topLayer)
+                    //
+                    // Only a delete of the entry node has to find a replacement for it, so only such a delete has the
+                    // layers choose one, which may read extra nodes. Every other delete skips that.
+                    //
+                    final boolean isDeletingEntryNode =
+                            entryNodeReference != null && primaryKey.equals(entryNodeReference.getPrimaryKey());
+
+                    return deleteFromLayers(transaction, storageTransform, quantizer, random, primaryKey, topLayer,
+                            isDeletingEntryNode)
                             .thenCompose(potentialEntryNodeReferences -> {
-                                if (entryNodeReference != null && primaryKey.equals(entryNodeReference.getPrimaryKey())) {
+                                if (isDeletingEntryNode) {
                                     // find (and store) a new entry reference
                                     for (int i = potentialEntryNodeReferences.size() - 1; i >= 0; i --) {
                                         final EntryNodeReference potentialEntyNodeReference =
@@ -246,9 +254,11 @@ class Delete {
      * @param quantizer the quantizer to be used for this insert
      * @param primaryKey the primary key of the new node being inserted
      * @param topLayer the top layer for the node.
+     * @param needNewEntryNode whether the node being deleted is the entry node, so that each layer has to offer a
+     *        replacement for it; if not, every layer offers {@code null}
      *
-     * @return a {@link CompletableFuture} that completes when the new node has been successfully inserted into all
-     *         its designated layers and contains an existing neighboring entry node reference on that layer.
+     * @return a {@link CompletableFuture} of what each layer offers as a replacement entry node, one element per layer
+     *         in layer order, each {@code null} if that layer offers none or {@code needNewEntryNode} is {@code false}
      */
     @Nonnull
     private CompletableFuture<List<EntryNodeReference>> deleteFromLayers(@Nonnull final Transaction transaction,
@@ -256,12 +266,13 @@ class Delete {
                                                                          @Nonnull final Quantizer quantizer,
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final Tuple primaryKey,
-                                                                         final int topLayer) {
+                                                                         final int topLayer,
+                                                                         final boolean needNewEntryNode) {
         // delete the node from all layers in parallel (inside layer in [0, topLayer])
         return RandomHelpers.forEach(random, () -> IntStream.rangeClosed(0, topLayer).iterator(),
                 (layer, nestedRandom) ->
                         deleteFromLayer(primitives().storageAdapterForLayer(layer), transaction, storageTransform,
-                                quantizer, nestedRandom, layer, primaryKey),
+                                quantizer, nestedRandom, layer, primaryKey, needNewEntryNode),
                 getConfig().maxNumConcurrentDeleteFromLayer(),
                 getExecutor());
     }
@@ -278,8 +289,10 @@ class Delete {
      * @param quantizer the quantizer for this insert
      * @param layer the layer number to insert the new node into
      * @param toBeDeletedPrimaryKey the primary key of the new node to be inserted
+     * @param needNewEntryNode whether the node being deleted is the entry node, so that this layer has to offer a
+     *        replacement for it; if not, this layer offers {@code null}
      *
-     * @return a {@code CompletableFuture} that completes with a {@code null}
+     * @return a {@code CompletableFuture} of the node this layer offers as a replacement entry node, or of {@code null}
      */
     @Nonnull
     private <N extends NodeReference> CompletableFuture<EntryNodeReference>
@@ -289,7 +302,8 @@ class Delete {
                             @Nonnull final Quantizer quantizer,
                             @Nonnull final SplittableRandom random,
                             final int layer,
-                            @Nonnull final Tuple toBeDeletedPrimaryKey) {
+                            @Nonnull final Tuple toBeDeletedPrimaryKey,
+                            final boolean needNewEntryNode) {
         if (logger.isTraceEnabled()) {
             logger.trace("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
         }
@@ -397,7 +411,7 @@ class Delete {
                                                     getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                                     .thenApply(ignored -> candidateReferencesMap);
                                         })
-                                        .thenApply(candidateReferencesMap -> {
+                                        .thenCompose(candidateReferencesMap -> {
                                             //
                                             // Every repair and the pruning have completed, so each change set now
                                             // reflects the neighbor list as it will be persisted. This is therefore the
@@ -423,18 +437,29 @@ class Delete {
                                                 }
                                             }
 
+                                            if (!needNewEntryNode) {
+                                                //
+                                                // If the caller does not need a new entry node, we can just return
+                                                // a future producing null here.
+                                                //
+                                                return CompletableFuture.completedFuture(null);
+                                            }
+
                                             //
-                                            // Return the first item in the candidates reference map as a potential new
-                                            // entry node reference in order to avoid a costly search for a new global
-                                            // entry point. This reference is guaranteed to exist.
+                                            // Hand the promotion a node on this layer that can actually be traversed
+                                            // through. The neighbors of the node being deleted are preferred, since
+                                            // their vectors are already in hand, but one of them is only useful if it
+                                            // still has an outgoing edge; otherwise promoting it would leave every
+                                            // search returning it alone. On a compact layer a null here therefore
+                                            // means the layer holds no node at all. Layer 0 is always compact, which
+                                            // is what makes the decision further up -- to discard the access info when
+                                            // no layer offers anything -- correct rather than merely inferred. An
+                                            // inlining layer is not scanned, so it can offer nothing while still
+                                            // holding nodes, and the promotion then takes a lower layer's offer.
                                             //
-                                            final Tuple firstPrimaryKey =
-                                                    Iterables.getFirst(candidateReferencesMap.keySet(), null);
-                                            return firstPrimaryKey == null
-                                                    ? null
-                                                    : new EntryNodeReference(firstPrimaryKey,
-                                                     Objects.requireNonNull(candidateReferencesMap.get(firstPrimaryKey)).getVector(),
-                                                     layer);
+                                            return chooseEntryNodeCandidate(storageAdapter, transaction,
+                                                    storageTransform, layer, candidateReferencesMap,
+                                                    candidateChangeSetMap);
                                         });
                             });
                 }).thenApply(result -> {
@@ -443,6 +468,116 @@ class Delete {
                     }
                     return result;
                 });
+    }
+
+    /**
+     * Chooses the node this layer offers the promotion as a replacement entry node, or {@code null} if the layer holds
+     * no node at all. It is only called for a delete of the entry node, the only delete whose offers are used.
+     * <p>
+     * A node is only useful as an entry node if it has an outgoing edge, since a search starting at a node with none
+     * returns that node and nothing else. Of the nodes that have one, the one with the most is offered: a search first
+     * evaluates the entry node's neighbors, so more of them give it more nodes to continue from. The neighbors of the
+     * node being deleted are considered first because their vectors are already in hand and their pending neighbor
+     * lists are already known, so that check costs nothing. Only when none of them can be traversed through does this
+     * read further nodes of the layer, bounded by {@link Config#replacementEntryNodeScanLimit()}.
+     * <p>
+     * On a compact layer this returns {@code null} only when the layer is empty, because at least one node is always
+     * read. Layer 0 is always compact, which is what lets the caller treat "no layer offered anything" as "the
+     * structure is empty" rather than inferring it. An inlining layer is not scanned, so for one this also returns
+     * {@code null} when the node being deleted had no neighbor left there.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param storageAdapter the storage adapter for the layer
+     * @param transaction the transaction
+     * @param storageTransform an affine vector transformation operator that is used to transform the vectors of the
+     *        nodes this reads into the storage space that is currently being used, the space the access info holds the
+     *        entry node in
+     * @param layer the layer
+     * @param candidateReferencesMap the candidates with their vectors, keyed by primary key
+     * @param candidateChangeSetMap the change sets as they will be persisted, for the out-degree check
+     * @return a future of the node to offer the promotion, or of {@code null} if this layer holds no node or is an
+     *         inlining layer on which the node being deleted had no neighbor left
+     */
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<EntryNodeReference>
+            chooseEntryNodeCandidate(@Nonnull final StorageAdapter<N> storageAdapter,
+                                     @Nonnull final Transaction transaction,
+                                     @Nonnull final StorageTransform storageTransform,
+                                     final int layer,
+                                     @Nonnull final Map<Tuple, NodeReferenceWithVector> candidateReferencesMap,
+                                     @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
+        NodeReferenceWithVector mostConnectedCandidate = null;
+        int mostConnectedCandidateNumNeighbors = 0;
+        NodeReferenceWithVector anyCandidate = null;
+        for (final Map.Entry<Tuple, NodeReferenceWithVector> entry : candidateReferencesMap.entrySet()) {
+            if (anyCandidate == null) {
+                anyCandidate = entry.getValue();
+            }
+            final NeighborsChangeSet<N> changeSet = candidateChangeSetMap.get(entry.getKey());
+            final int numNeighbors = changeSet == null ? 0 : changeSet.size();
+            if (numNeighbors > mostConnectedCandidateNumNeighbors) {
+                mostConnectedCandidate = entry.getValue();
+                mostConnectedCandidateNumNeighbors = numNeighbors;
+            }
+        }
+        if (mostConnectedCandidate != null) {
+            return CompletableFuture.completedFuture(entryNodeReferenceOrNull(mostConnectedCandidate, layer));
+        }
+
+        //
+        // No neighbor of the deleted node can be traversed through on this layer, so read a bounded number of its
+        // other nodes looking for one that can. An inlining layer is not read: a node there consists only of its edge
+        // records and holds no vector of its own, and InliningStorageAdapter.scanLayer reads synchronously, so it
+        // cannot be called here. On such a layer the offer is therefore a candidate that cannot be traversed through,
+        // or nothing if the deleted node had no neighbor left there. If it is nothing, the promotion takes a lower
+        // layer's offer, and the entry node ends up below the highest layer that still holds nodes. Layer 0 is always
+        // compact, so the promotion always finds a node there while the structure holds one.
+        //
+        if (storageAdapter.isInliningStorageAdapter()) {
+            return CompletableFuture.completedFuture(entryNodeReferenceOrNull(anyCandidate, layer));
+        }
+
+        final NodeReferenceWithVector anyCandidateFinal = anyCandidate;
+        final AsyncIterable<AbstractNode<N>> layerNodes =
+                (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(transaction, storageTransform, layer, null,
+                        getConfig().replacementEntryNodeScanLimit());
+        return AsyncUtil.collect(layerNodes, getExecutor())
+                .thenApply(nodes -> {
+                    AbstractNode<N> mostConnectedNode = null;
+                    for (final AbstractNode<N> node : nodes) {
+                        if (node.getNeighbors().size() >
+                                (mostConnectedNode == null ? 0 : mostConnectedNode.getNeighbors().size())) {
+                            mostConnectedNode = node;
+                        }
+                    }
+                    if (mostConnectedNode != null) {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("offering scanned key={} as a replacement entry node on layer={}",
+                                    mostConnectedNode.getPrimaryKey(), layer);
+                        }
+                        return new EntryNodeReference(mostConnectedNode.getPrimaryKey(),
+                                mostConnectedNode.asCompactNode().getVector(), layer);
+                    }
+                    if (anyCandidateFinal != null) {
+                        return entryNodeReferenceOrNull(anyCandidateFinal, layer);
+                    }
+                    //
+                    // Nothing read on this layer can be traversed through. Offering one of them anyway is still better
+                    // than offering nothing, which the caller would read as the structure being empty.
+                    //
+                    return nodes.isEmpty()
+                            ? null
+                            : new EntryNodeReference(nodes.get(0).getPrimaryKey(),
+                                    nodes.get(0).asCompactNode().getVector(), layer);
+                });
+    }
+
+    @Nullable
+    private static EntryNodeReference entryNodeReferenceOrNull(@Nullable final NodeReferenceWithVector reference,
+                                                               final int layer) {
+        return reference == null
+                ? null
+                : new EntryNodeReference(reference.getPrimaryKey(), reference.getVector(), layer);
     }
 
     /**

@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.recordlayer.query.QueryEvaluationConstants;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
@@ -83,7 +84,8 @@ public interface RoutineParser {
                                boolean isCaseSensitive) {
             final var parsed = parse.apply(query);
             final var planGenerationContext = new MutablePlanGenerationContext(preparedParams,
-                    PlanHashable.PlanHashMode.VC0, query, query, 0);
+                    PlanHashable.PlanHashMode.VC0, query, query, 0,
+                    QueryEvaluationConstants.empty());
             if (scope != null) {
                 planGenerationContext.getLiteralsBuilder().setScope(scope);
             }

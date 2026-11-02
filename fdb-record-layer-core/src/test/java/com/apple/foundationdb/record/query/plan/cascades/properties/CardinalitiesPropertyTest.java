@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinalities;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
@@ -249,5 +250,41 @@ class CardinalitiesPropertyTest {
         // (0, 0) × (5, 5) = (0, 0); floor by preserved.min = 0 → (0, 0).
         assertThat(result.getMinCardinality().getCardinality()).isEqualTo(0L);
         assertThat(result.getMaxCardinality().getCardinality()).isEqualTo(0L);
+    }
+
+    // ---- `AtMostOne` quantifiers ----
+
+    /**
+     * Tests that an existential quantifier contributes exactly one item to the cardinality of a {@code SELECT}, no
+     * matter how many items the sub-graph it ranges over produces.
+     */
+    @Test
+    void selectWithExistentialQuantifierFlowsExactlyOneItem() {
+        final Quantifier.ForEach forEach = rangeQuantifier(3L);
+        final Quantifier.Existential existential =
+                Quantifier.existential(unknownCardinalityQuantifier().getRangesOver());
+        final SelectExpression select = new SelectExpression(forEach.getFlowedObjectValue(),
+                ImmutableList.of(forEach, existential), ImmutableList.of());
+
+        final Cardinalities result = cardinalities().evaluate(select);
+
+        // (3, 3) × (1, 1) = (3, 3), even though the existential ranges over a sub-graph with unknown cardinality.
+        assertThat(result.getMinCardinality().getCardinality()).isEqualTo(3L);
+        assertThat(result.getMaxCardinality().getCardinality()).isEqualTo(3L);
+    }
+
+    /**
+     * Tests that, in contrast to an existential quantifier, a for-each quantifier over the same sub-graph leaves the
+     * cardinality of a {@code SELECT} unknown.
+     */
+    @Test
+    void selectWithForEachQuantifierOverUnknownCardinalityIsUnknown() {
+        final Quantifier.ForEach forEach = rangeQuantifier(3L);
+        final SelectExpression select = new SelectExpression(forEach.getFlowedObjectValue(),
+                ImmutableList.of(forEach, unknownCardinalityQuantifier()), ImmutableList.of());
+
+        final Cardinalities result = cardinalities().evaluate(select);
+
+        assertThat(result.getMaxCardinality().isUnknown()).isTrue();
     }
 }

@@ -26,16 +26,20 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,10 +62,39 @@ final class QuantifierValues {
     @Nonnull
     private final List<FieldValue> explodes;
 
+    /**
+     * The stored table behind each type-filter quantifier, by the correlation it is bound to: the storage name of its
+     * record type, and the expression it is a quantifier of.
+     */
+    @Nonnull
+    private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents;
+
+    private final boolean hasOuterJoin;
+
     private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
-                             @Nonnull final List<FieldValue> explodes) {
+                             @Nonnull final List<FieldValue> explodes,
+                             @Nonnull final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents,
+                             final boolean hasOuterJoin) {
         this.valuesByQuantifier = valuesByQuantifier;
         this.explodes = explodes;
+        this.constituents = Map.copyOf(constituents);
+        this.hasOuterJoin = hasOuterJoin;
+    }
+
+
+    /**
+     * {@return the tables this expression sources from, by correlation}
+     */
+    @Nonnull
+    public Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> getConstituents() {
+        return constituents;
+    }
+
+    /**
+     * {@return whether any of the joins (if any) is an outer join}
+     */
+    public boolean hasOuterJoin() {
+        return hasOuterJoin;
     }
 
     /**
@@ -84,7 +117,8 @@ final class QuantifierValues {
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
         final var collector = new Collector();
-        return new QuantifierValues(collector.visit(expression), collector.explodes);
+        return new QuantifierValues(collector.visit(expression), collector.explodes,
+                collector.constituents, collector.hasOuterJoin);
     }
 
     /**
@@ -119,6 +153,11 @@ final class QuantifierValues {
         @Nonnull
         @Override
         public Value visitQuantifiedObjectValue(@Nonnull final QuantifiedObjectValue element) {
+            // A column of a join has to keep which of the tables it is read from, so it stops at that table's
+            // correlation; a single table's resolves down to its record, as for any other quantifier.
+            if (constituents.size() > 1 && constituents.containsKey(element.getAlias())) {
+                return element;
+            }
             // what a quantifier stands for may reference another
             return visit(Assert.notNullUnchecked(valuesByQuantifier.get(element.getAlias())));
         }
@@ -139,12 +178,27 @@ final class QuantifierValues {
         private final List<FieldValue> explodes = new ArrayList<>();
 
         @Nonnull
+        private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents = new HashMap<>();
+
+        private boolean hasOuterJoin;
+
+        @Nonnull
         @Override
         public Map<CorrelationIdentifier, Value> evaluateAtExpression(@Nonnull final RelationalExpression expression,
                                                                       @Nonnull final List<Map<CorrelationIdentifier, Value>> childResults) {
             final var merged = merge(childResults);
+            if (expression instanceof OuterJoinExpression) {
+                hasOuterJoin = true;
+            }
             for (final var quantifier : expression.getQuantifiers()) {
                 final var rangesOver = quantifier.getRangesOver().get();
+                if (rangesOver instanceof LogicalTypeFilterExpression typeFilter) {
+                    final var recordTypes = typeFilter.getRecordTypes();
+                    if (recordTypes.size() == 1) {
+                        constituents.putIfAbsent(quantifier.getAlias(),
+                                NonnullPair.of(recordTypes.iterator().next(), expression));
+                    }
+                }
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
                 merged.put(quantifier.getAlias(), rangesOver instanceof ExplodeExpression
                                                   ? unnestedCollectionValue((ExplodeExpression)rangesOver)

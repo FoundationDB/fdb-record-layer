@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
@@ -44,8 +45,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
-
-import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 
 public final class CommonTestHelpers {
     /**
@@ -112,10 +111,62 @@ public final class CommonTestHelpers {
         final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfVectors; i ++) {
             final Tuple primaryKey = createPrimaryKey(i);
-            final HalfRealVector dataVector = createRandomHalfVector(random, numDimensions);
+            final HalfRealVector dataVector = randomSignedHalfVector(random, numDimensions);
             resultBuilder.add(new PrimaryKeyAndVector(primaryKey, dataVector));
         }
         return resultBuilder.build();
+    }
+
+    /**
+     * A random half-precision vector whose components are uniform in {@code [0, 1)}.
+     *
+     * @param random the source of the components (one {@code nextFloat()} per component)
+     * @param numDimensions the number of dimensions
+     *
+     * @return a fresh random vector
+     */
+    @Nonnull
+    public static HalfRealVector randomHalfVector(@Nonnull final Random random, final int numDimensions) {
+        final Half[] componentData = new Half[numDimensions];
+        for (int i = 0; i < componentData.length; i++) {
+            componentData[i] = Half.valueOf(random.nextFloat());
+        }
+        return new HalfRealVector(componentData);
+    }
+
+    /**
+     * A random half-precision vector whose components are uniform in {@code (-1, 1)}.
+     *
+     * @param random the source of the components (one {@code nextDouble()} and one {@code nextBoolean()} per
+     *        component)
+     * @param numDimensions the number of dimensions
+     *
+     * @return a fresh random vector
+     */
+    @Nonnull
+    public static HalfRealVector randomSignedHalfVector(@Nonnull final Random random, final int numDimensions) {
+        final double[] components = new double[numDimensions];
+        for (int d = 0; d < numDimensions; d++) {
+            components[d] = random.nextDouble() * (random.nextBoolean() ? -1 : 1);
+        }
+        return new HalfRealVector(components);
+    }
+
+    /**
+     * A half-precision vector whose components all equal {@code value}.
+     *
+     * @param value the value of every component
+     * @param numDimensions the number of dimensions
+     *
+     * @return a fresh constant vector
+     */
+    @Nonnull
+    public static HalfRealVector constantHalfVector(final float value, final int numDimensions) {
+        final Half[] componentData = new Half[numDimensions];
+        for (int i = 0; i < componentData.length; i++) {
+            componentData[i] = Half.valueOf(value);
+        }
+        return new HalfRealVector(componentData);
     }
 
     @Nonnull

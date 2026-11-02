@@ -232,7 +232,7 @@ subprojects {
     // (notably `auto-service` › `auto-common`) would otherwise pull in older, potentially vulnerable versions.
     configurations.configureEach { configuration ->
         if (configuration.canBeDeclared) {
-            project.dependencies.constraints.add(configuration.name, "com.google.guava:guava:${libs.versions.guava.get()}") {
+            project.dependencies.constraints.add(configuration.name, "com.google.guava:guava:${rootProject.libs.versions.guava.get()}") {
                 because 'Raise Guava to the version in `libs.versions.toml`'
             }
         }

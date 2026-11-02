@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb.indexing;
 
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.ReadTransactionContext;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
@@ -85,13 +87,42 @@ public class IndexingRangeSet {
      * @return a future that will either be {@code true} or {@code false} depending on
      * whether a range containing the key has been inserted
      *
-     * @see RangeSet#contains(TransactionContext, byte[])
+     * @see RangeSet#contains(ReadTransactionContext, byte[])
      */
     @Nonnull
     public CompletableFuture<Boolean> containsAsync(@Nonnull byte[] key) {
         long startTime = System.nanoTime();
         return context.instrument(FDBStoreTimer.Events.RANGE_SET_CONTAINS,
                 rangeSet.contains(context.ensureActive(), key), startTime);
+    }
+
+    /**
+     * Determine if a key is in a range that has been inserted into the range set, without adding a read conflict. If the
+     * result matters, the conflict should be added explicitly.
+     *
+     * @param key the key search for in the set
+     *
+     * @return a future that will either be {@code true} or {@code false} depending on
+     * whether a range containing the key has been inserted
+     *
+     * @see RangeSet#contains(ReadTransactionContext, byte[])
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> containsSnapshotAsync(@Nonnull byte[] key) {
+        long startTime = System.nanoTime();
+        return context.instrument(FDBStoreTimer.Events.RANGE_SET_CONTAINS,
+                rangeSet.contains(context.ensureActive().snapshot(), key), startTime);
+    }
+
+    /**
+     * Add the read conflict of {@link #containsAsync(byte[])} for a key that was checked by {@link #containsSnapshotAsync(byte[])}.
+     *
+     * @param key the key that was checked
+     *
+     * @see RangeSet#addReadConflictKey(Transaction, byte[])
+     */
+    public void addReadConflictKey(@Nonnull byte[] key) {
+        rangeSet.addReadConflictKey(context.ensureActive(), key);
     }
 
     /**

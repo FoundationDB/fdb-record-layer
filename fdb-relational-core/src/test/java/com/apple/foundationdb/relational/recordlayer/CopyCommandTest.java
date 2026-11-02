@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.recordlayer.query.QueryEvaluationConstants;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -189,7 +190,8 @@ public class CopyCommandTest {
     private static MutablePlanGenerationContext getMutablePlanGenerationContext(final String sql, final List<byte[]> exportedData) {
         final PreparedParams preparedParams = PreparedParams.of(Map.of(1, exportedData), Map.of());
         final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
-                PlanHashable.PlanHashMode.VC1, sql, sql, 0);
+                PlanHashable.PlanHashMode.VC1, sql, sql,
+                0, QueryEvaluationConstants.empty());
         context.processUnnamedPreparedParam(1);
         return context;
     }

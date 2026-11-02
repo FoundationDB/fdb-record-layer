@@ -53,6 +53,7 @@ class ConfigTest {
         final int maxNumConcurrentDeleteFromLayer = Config.DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER + 1;
 
         final int replacementEdgeMaxOutDegree = Config.DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE + 1;
+        final int replacementEntryNodeScanLimit = Config.DEFAULT_REPLACEMENT_ENTRY_NODE_SCAN_LIMIT + 1;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.useInlining()).isNotEqualTo(useInlining);
@@ -76,6 +77,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.maxNumConcurrentDeleteFromLayer()).isNotEqualTo(maxNumConcurrentDeleteFromLayer);
 
         Assertions.assertThat(defaultConfig.replacementEdgeMaxOutDegree()).isNotEqualTo(replacementEdgeMaxOutDegree);
+        Assertions.assertThat(defaultConfig.replacementEntryNodeScanLimit()).isNotEqualTo(replacementEntryNodeScanLimit);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -97,6 +99,7 @@ class ConfigTest {
                         .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
                         .setMaxNumConcurrentDeleteFromLayer(maxNumConcurrentDeleteFromLayer)
                         .setReplacementEdgeMaxOutDegree(replacementEdgeMaxOutDegree)
+                        .setReplacementEntryNodeScanLimit(replacementEntryNodeScanLimit)
                         .build(768);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -121,6 +124,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.maxNumConcurrentDeleteFromLayer()).isEqualTo(maxNumConcurrentDeleteFromLayer);
 
         Assertions.assertThat(newConfig.replacementEdgeMaxOutDegree()).isEqualTo(replacementEdgeMaxOutDegree);
+        Assertions.assertThat(newConfig.replacementEntryNodeScanLimit()).isEqualTo(replacementEntryNodeScanLimit);
     }
 
     @Test
@@ -135,5 +139,19 @@ class ConfigTest {
 
         Assertions.assertThat(config1.toString()).isEqualTo(config2.toString());
         Assertions.assertThat(config1.toString()).isNotEqualTo(config3.toString());
+    }
+
+    /**
+     * A delete of the entry node always reads at least one node of a compact layer, so that a layer that still holds a
+     * node never offers nothing to the entry-node promotion, which would read that as the structure being empty.
+     */
+    @Test
+    void testReplacementEntryNodeScanLimitOfZeroIsRejected() {
+        final Config.ConfigBuilder configBuilder = HNSW.newConfigBuilder().setReplacementEntryNodeScanLimit(0);
+        Assertions.assertThatThrownBy(() -> configBuilder.build(768))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("replacementEntryNodeScanLimit");
+        Assertions.assertThat(HNSW.newConfigBuilder().setReplacementEntryNodeScanLimit(1).build(768)
+                .replacementEntryNodeScanLimit()).isEqualTo(1);
     }
 }

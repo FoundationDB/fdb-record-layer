@@ -758,6 +758,9 @@ public class TypeConversion {
                             throw new SQLException("Unknown vector index engine preference");
                     }
                     break;
+                case FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS:
+                    builder.setFixedEpochTimestampMillisForCurrentDatetimeFunctions(((Long)entry.getValue()).toString());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -911,6 +914,9 @@ public class TypeConversion {
                     throw new SQLException("Unknown isolation level");
             }
             builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot);
+        }
+        if (!protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions().isEmpty()) {
+            builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, Long.valueOf(protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions()));
         }
         return builder.build();
     }

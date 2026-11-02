@@ -135,12 +135,12 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
                 .setReplicatedClusterTarget(40)
                 .setReplicatedClusterMaxWrites(200)
                 .build(128);
-        final TestHelpers.TestOnWriteListener onWriteListener = new TestHelpers.TestOnWriteListener();
+        final GuardiannTestHelpers.TestOnWriteListener onWriteListener = new GuardiannTestHelpers.TestOnWriteListener();
         final Guardiann guardiann = new Guardiann(runSubspace,
                 TestExecutors.defaultThreadPool(),
                 config,
                 onWriteListener,
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnReadListener());
 
         // ---- Phase 1: insert near-duplicates; the oversized cluster splits into bordered sub-clusters. ----
         onWriteListener.pushFrame();

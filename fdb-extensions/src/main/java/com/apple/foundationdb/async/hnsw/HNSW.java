@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.common.ResultEntry;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -392,7 +393,7 @@ public class HNSW {
      * @param layer the specific layer index to scan.
      * @param batchSize the number of nodes to retrieve and process in each batch.
      * @param nodeConsumer the non-null {@link Consumer} that will accept each {@link AbstractNode}
-     * found in the layer.
+     * found in the layer. The nodes' vectors are decoded without the storage transform.
      */
     @VisibleForTesting
     static void scanLayerInternal(@Nonnull final Config config,
@@ -401,7 +402,8 @@ public class HNSW {
                                   final int layer,
                                   final int batchSize,
                                   @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
-        Primitives.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
+        Primitives.scanLayerInternal(config, subspace, db, layer, batchSize, StorageTransform.identity(),
+                nodeConsumer);
     }
 
     /**
