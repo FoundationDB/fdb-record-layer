@@ -1,0 +1,463 @@
+joined-record-type-indexes:
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name", "o"."amount"
+    ref: joined-record-type-indexes.yamsql:116
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 370
+    task_total_time_ms: 210
+    transform_count: 140
+    transform_time_ms: 136
+    transform_yield_count: 36
+    insert_time_ms: 3
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no"
+    ref: joined-record-type-indexes.yamsql:126
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 524
+    task_total_time_ms: 124
+    transform_count: 170
+    transform_time_ms: 48
+    transform_yield_count: 48
+    insert_time_ms: 8
+    insert_new_count: 53
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "c"."name" FROM "customer" AS "c", "orders" AS "o" WHERE
+        "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name"
+    ref: joined-record-type-indexes.yamsql:137
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name)'
+    task_count: 408
+    task_total_time_ms: 75
+    transform_count: 149
+    transform_time_ms: 36
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c" INNER JOIN
+        "orders" AS "o" ON "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name", "o"."amount"
+    ref: joined-record-type-indexes.yamsql:147
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 370
+    task_total_time_ms: 59
+    transform_count: 140
+    transform_time_ms: 28
+    transform_yield_count: 36
+    insert_time_ms: 1
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "o"."cust_no" = "c"."cust_no" ORDER BY "c"."name", "o"."amount"
+    ref: joined-record-type-indexes.yamsql:158
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 370
+    task_total_time_ms: 210
+    transform_count: 140
+    transform_time_ms: 130
+    transform_yield_count: 36
+    insert_time_ms: 3
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "orders" AS "o", "customer"
+        AS "c" WHERE "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name", "o"."amount"
+    ref: joined-record-type-indexes.yamsql:169
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 370
+    task_total_time_ms: 64
+    transform_count: 140
+    transform_time_ms: 30
+    transform_yield_count: 36
+    insert_time_ms: 1
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" = 'Alice'
+    ref: joined-record-type-indexes.yamsql:179
+    explain: 'COVERING(mv_order_customer [EQUALS promote(@c29 AS STRING)] -> [joined_0:
+        [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no:
+        KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)'
+    task_count: 625
+    task_total_time_ms: 279
+    transform_count: 201
+    transform_time_ms: 138
+    transform_yield_count: 55
+    insert_time_ms: 12
+    insert_new_count: 68
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT "c"."name", "c"."city", "o"."amount" FROM "customer" AS
+        "c", "orders" AS "o" WHERE "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name",
+        "o"."amount"
+    ref: joined-record-type-indexes.yamsql:189
+    explain: ISCAN(mv_order_customer <,>) | MAP (_.joined_0.name AS name, _.joined_0.city
+        AS city, _.joined_1.amount AS amount)
+    task_count: 342
+    task_total_time_ms: 40
+    transform_count: 136
+    transform_time_ms: 21
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" AND "c"."city" = 'LA'
+    ref: joined-record-type-indexes.yamsql:199
+    explain: ISCAN(mv_order_customer <,>) | FILTER _.joined_0.city EQUALS promote(@c29
+        AS STRING) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)
+    task_count: 617
+    task_total_time_ms: 156
+    transform_count: 200
+    transform_time_ms: 58
+    transform_yield_count: 54
+    insert_time_ms: 6
+    insert_new_count: 68
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT "c"."name" FROM "customer" AS "c"
+    ref: joined-record-type-indexes.yamsql:206
+    explain: SCAN([IS customer]) | MAP (_.name AS name)
+    task_count: 144
+    task_total_time_ms: 23
+    transform_count: 40
+    transform_time_ms: 8
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 12
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."order_no"
+    ref: joined-record-type-indexes.yamsql:216
+    explain: SCAN([IS orders]) | FLATMAP q0 -> { SCAN([IS customer, EQUALS q0.order_no])
+        AS q1 RETURN (q1.name AS name, q0.amount AS amount) }
+    task_count: 425
+    task_total_time_ms: 110
+    transform_count: 142
+    transform_time_ms: 45
+    transform_yield_count: 40
+    insert_time_ms: 3
+    insert_new_count: 42
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."name" = 'Carol'
+    ref: joined-record-type-indexes.yamsql:223
+    explain: SCAN([IS customer]) | FILTER _.name EQUALS promote(@c21 AS STRING) |
+        FLATMAP q0 -> { SCAN([IS orders]) AS q1 RETURN (q0.name AS name, q1.amount
+        AS amount) }
+    task_count: 345
+    task_total_time_ms: 95
+    transform_count: 111
+    transform_time_ms: 40
+    transform_yield_count: 35
+    insert_time_ms: 3
+    insert_new_count: 39
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT "v"."name", "s"."weight" FROM "vendor" AS "v", "shipment"
+        AS "s" WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 30 ORDER
+        BY "v"."name", "s"."weight"
+    ref: joined-record-type-indexes.yamsql:235
+    explain: 'COVERING(mv_heavy_shipments <,> -> [joined_0: [name: KEY:[0], vendor_no:
+        KEY:[3, 1]], joined_1: [ship_no: KEY:[4, 1], weight: KEY:[1]]]) | FILTER _.joined_1.weight
+        GREATER_THAN promote(@c29 AS LONG) | MAP (_.joined_0.name AS name, _.joined_1.weight
+        AS weight)'
+    task_count: 454
+    task_total_time_ms: 218
+    transform_count: 164
+    transform_time_ms: 128
+    transform_yield_count: 40
+    insert_time_ms: 4
+    insert_new_count: 35
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "v"."name", "s"."weight" FROM "vendor" AS "v", "shipment"
+        AS "s" WHERE "v"."vendor_no" = "s"."vendor_no"
+    ref: joined-record-type-indexes.yamsql:244
+    explain: SCAN([IS shipment]) | FLATMAP q0 -> { SCAN([IS vendor, EQUALS q0.vendor_no])
+        AS q1 RETURN (q1.name AS name, q0.weight AS weight) }
+    task_count: 425
+    task_total_time_ms: 89
+    transform_count: 142
+    transform_time_ms: 34
+    transform_yield_count: 40
+    insert_time_ms: 2
+    insert_new_count: 42
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "v"."name", "s"."weight" FROM "vendor" AS "v", "shipment"
+        AS "s" WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 38 ORDER
+        BY "v"."name", "s"."weight"
+    ref: joined-record-type-indexes.yamsql:257
+    explain: 'COVERING(mv_heavy_shipments <,> -> [joined_0: [name: KEY:[0], vendor_no:
+        KEY:[3, 1]], joined_1: [ship_no: KEY:[4, 1], weight: KEY:[1]]]) | FILTER _.joined_1.weight
+        GREATER_THAN promote(@c29 AS LONG) | MAP (_.joined_0.name AS name, _.joined_1.weight
+        AS weight)'
+    task_count: 454
+    task_total_time_ms: 218
+    transform_count: 164
+    transform_time_ms: 128
+    transform_yield_count: 40
+    insert_time_ms: 4
+    insert_new_count: 35
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "v"."name", "s"."weight" FROM "vendor" AS "v", "shipment"
+        AS "s" WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 8
+    ref: joined-record-type-indexes.yamsql:265
+    explain: SCAN([IS shipment]) | FILTER _.weight GREATER_THAN promote(@c29 AS LONG)
+        | FLATMAP q0 -> { SCAN([IS vendor, EQUALS q0.vendor_no]) AS q1 RETURN (q1.name
+        AS name, q0.weight AS weight) }
+    task_count: 499
+    task_total_time_ms: 234
+    transform_count: 165
+    transform_time_ms: 146
+    transform_yield_count: 44
+    insert_time_ms: 5
+    insert_new_count: 49
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT "e"."name" AS "emp", "m"."name" AS "mgr" FROM "employee"
+        AS "e", "employee" AS "m" WHERE "e"."manager_no" = "m"."emp_no" ORDER BY "e"."name",
+        "m"."name"
+    ref: joined-record-type-indexes.yamsql:276
+    explain: 'COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_0.name
+        AS emp, _.joined_1.name AS mgr)'
+    task_count: 288
+    task_total_time_ms: 69
+    transform_count: 102
+    transform_time_ms: 30
+    transform_yield_count: 28
+    insert_time_ms: 2
+    insert_new_count: 22
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "e"."name" AS "emp", "m"."name" AS "mgr" FROM "employee"
+        AS "m", "employee" AS "e" WHERE "m"."emp_no" = "e"."manager_no"
+    ref: joined-record-type-indexes.yamsql:287
+    explain: 'COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_0.name
+        AS emp, _.joined_1.name AS mgr)'
+    task_count: 366
+    task_total_time_ms: 75
+    transform_count: 121
+    transform_time_ms: 34
+    transform_yield_count: 34
+    insert_time_ms: 2
+    insert_new_count: 39
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT "e"."name" AS "emp", "m"."name" AS "mgr" FROM "employee"
+        AS "e", "employee" AS "m" WHERE "m"."manager_no" = "e"."emp_no"
+    ref: joined-record-type-indexes.yamsql:298
+    explain: 'COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_1.name
+        AS emp, _.joined_0.name AS mgr)'
+    task_count: 366
+    task_total_time_ms: 221
+    transform_count: 121
+    transform_time_ms: 137
+    transform_yield_count: 34
+    insert_time_ms: 5
+    insert_new_count: 39
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" > 'Alice'
+    ref: joined-record-type-indexes.yamsql:308
+    explain: 'COVERING(mv_order_customer [[GREATER_THAN promote(@c29 AS STRING)]]
+        -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1],
+        order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount
+        AS amount)'
+    task_count: 625
+    task_total_time_ms: 98
+    transform_count: 200
+    transform_time_ms: 37
+    transform_yield_count: 55
+    insert_time_ms: 4
+    insert_new_count: 68
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" = 'Alice' AND "o"."amount"
+        > 30
+    ref: joined-record-type-indexes.yamsql:316
+    explain: 'COVERING(mv_order_customer [EQUALS promote(@c29 AS STRING), [GREATER_THAN
+        promote(@c35 AS LONG)]] -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]],
+        joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 699
+    task_total_time_ms: 153
+    transform_count: 224
+    transform_time_ms: 56
+    transform_yield_count: 59
+    insert_time_ms: 5
+    insert_new_count: 75
+    insert_reused_count: 7
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name" DESC, "o"."amount"
+        DESC
+    ref: joined-record-type-indexes.yamsql:325
+    explain: 'COVERING(mv_order_customer <,> REVERSE -> [joined_0: [cust_no: KEY:[3,
+        1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) |
+        MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)'
+    task_count: 370
+    task_total_time_ms: 65
+    transform_count: 140
+    transform_time_ms: 29
+    transform_yield_count: 36
+    insert_time_ms: 1
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" IN ('Alice', 'Bob')
+    ref: joined-record-type-indexes.yamsql:335
+    explain: '[IN arrayDistinct(@c29)] | INJOIN q0 -> { COVERING(mv_order_customer
+        [EQUALS q0] -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1:
+        [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name,
+        _.joined_1.amount AS amount) }'
+    task_count: 2770
+    task_total_time_ms: 396
+    transform_count: 1051
+    transform_time_ms: 130
+    transform_yield_count: 172
+    insert_time_ms: 26
+    insert_new_count: 349
+    insert_reused_count: 49
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" AND "o"."cust_no" = 1
+    ref: joined-record-type-indexes.yamsql:345
+    explain: ISCAN(mv_order_customer <,>) | FILTER _.joined_1.cust_no EQUALS promote(@c29
+        AS LONG) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)
+    task_count: 590
+    task_total_time_ms: 121
+    transform_count: 193
+    transform_time_ms: 46
+    transform_yield_count: 51
+    insert_time_ms: 3
+    insert_new_count: 60
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT "c"."name", "o"."amount", "l"."qty" FROM "customer" AS "c",
+        "orders" AS "o", "line_item" AS "l" WHERE "c"."cust_no" = "o"."cust_no" AND
+        "o"."order_no" = "l"."order_no" ORDER BY "c"."name", "l"."qty"
+    ref: joined-record-type-indexes.yamsql:355
+    explain: 'COVERING(mv_customer_items <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: VALUE:[0], order_no: KEY:[4, 1]], joined_2: [item_no:
+        KEY:[5, 1], qty: KEY:[1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount
+        AS amount, _.joined_2.qty AS qty)'
+    task_count: 1208
+    task_total_time_ms: 321
+    transform_count: 572
+    transform_time_ms: 167
+    transform_yield_count: 96
+    insert_time_ms: 14
+    insert_new_count: 83
+    insert_reused_count: 20
+-   query: EXPLAIN SELECT "c"."name", "o"."amount", "l"."qty" FROM "line_item" AS
+        "l", "customer" AS "c", "orders" AS "o" WHERE "l"."order_no" = "o"."order_no"
+        AND "o"."cust_no" = "c"."cust_no" ORDER BY "c"."name", "l"."qty"
+    ref: joined-record-type-indexes.yamsql:366
+    explain: 'COVERING(mv_customer_items <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: VALUE:[0], order_no: KEY:[4, 1]], joined_2: [item_no:
+        KEY:[5, 1], qty: KEY:[1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount
+        AS amount, _.joined_2.qty AS qty)'
+    task_count: 1253
+    task_total_time_ms: 350
+    transform_count: 602
+    transform_time_ms: 193
+    transform_yield_count: 96
+    insert_time_ms: 15
+    insert_new_count: 86
+    insert_reused_count: 20
+-   query: EXPLAIN SELECT "o"."order_no", "l"."qty" FROM "orders" AS "o", "line_item"
+        AS "l" WHERE "o"."order_no" = "l"."order_no"
+    ref: joined-record-type-indexes.yamsql:376
+    explain: SCAN([IS line_item]) | FLATMAP q0 -> { SCAN([IS orders, EQUALS q0.order_no])
+        AS q1 RETURN (q1.order_no AS order_no, q0.qty AS qty) }
+    task_count: 413
+    task_total_time_ms: 102
+    transform_count: 137
+    transform_time_ms: 35
+    transform_yield_count: 34
+    insert_time_ms: 3
+    insert_new_count: 42
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "c"."name", "o"."amount", "ci"."state" FROM "customer" AS
+        "c", "orders" AS "o", "city_info" AS "ci" WHERE "c"."cust_no" = "o"."cust_no"
+        AND "c"."city" = "ci"."city"
+    ref: joined-record-type-indexes.yamsql:387
+    explain: SCAN([IS city_info]) | FLATMAP q0 -> { ISCAN(mv_order_customer <,>) |
+        FILTER _.joined_0.city EQUALS q0.city | MAP (_.joined_0 AS _0, _.joined_1
+        AS _1) AS q1 RETURN (q1._0.name AS name, q1._1.amount AS amount, q0.state
+        AS state) }
+    task_count: 1461
+    task_total_time_ms: 202
+    transform_count: 586
+    transform_time_ms: 70
+    transform_yield_count: 102
+    insert_time_ms: 10
+    insert_new_count: 168
+    insert_reused_count: 32
+-   query: EXPLAIN SELECT "c"."name", "l"."qty", "ci"."state" FROM "customer" AS "c",
+        "orders" AS "o", "line_item" AS "l", "city_info" AS "ci" WHERE "c"."cust_no"
+        = "o"."cust_no" AND "o"."order_no" = "l"."order_no" AND "c"."city" = "ci"."city"
+    ref: joined-record-type-indexes.yamsql:397
+    explain: SCAN([IS city_info]) | FLATMAP q0 -> { ISCAN(mv_customer_items <,>) |
+        FILTER _.joined_0.city EQUALS q0.city | MAP (_.joined_0 AS _0, _.joined_2
+        AS _1) AS q1 RETURN (q1._0.name AS name, q1._1.qty AS qty, q0.state AS state)
+        }
+    task_count: 7842
+    task_total_time_ms: 1241
+    transform_count: 3654
+    transform_time_ms: 354
+    transform_yield_count: 443
+    insert_time_ms: 132
+    insert_new_count: 1089
+    insert_reused_count: 247
+joined-record-type-indexes-after-updates:
+-   query: EXPLAIN SELECT "c"."name", "o"."amount" FROM "customer" AS "c", "orders"
+        AS "o" WHERE "c"."cust_no" = "o"."cust_no" ORDER BY "c"."name", "o"."amount"
+    ref: joined-record-type-indexes.yamsql:420
+    explain: 'COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name
+        AS name, _.joined_1.amount AS amount)'
+    task_count: 370
+    task_total_time_ms: 210
+    transform_count: 140
+    transform_time_ms: 136
+    transform_yield_count: 36
+    insert_time_ms: 3
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "c"."name", "o"."amount", "l"."qty" FROM "customer" AS "c",
+        "orders" AS "o", "line_item" AS "l" WHERE "c"."cust_no" = "o"."cust_no" AND
+        "o"."order_no" = "l"."order_no" ORDER BY "c"."name", "l"."qty"
+    ref: joined-record-type-indexes.yamsql:430
+    explain: 'COVERING(mv_customer_items <,> -> [joined_0: [cust_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [amount: VALUE:[0], order_no: KEY:[4, 1]], joined_2: [item_no:
+        KEY:[5, 1], qty: KEY:[1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount
+        AS amount, _.joined_2.qty AS qty)'
+    task_count: 1208
+    task_total_time_ms: 321
+    transform_count: 572
+    transform_time_ms: 167
+    transform_yield_count: 96
+    insert_time_ms: 14
+    insert_new_count: 83
+    insert_reused_count: 20
+-   query: EXPLAIN SELECT "e"."name" AS "emp", "m"."name" AS "mgr" FROM "employee"
+        AS "e", "employee" AS "m" WHERE "e"."manager_no" = "m"."emp_no" ORDER BY "e"."name",
+        "m"."name"
+    ref: joined-record-type-indexes.yamsql:440
+    explain: 'COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name:
+        KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_0.name
+        AS emp, _.joined_1.name AS mgr)'
+    task_count: 288
+    task_total_time_ms: 69
+    transform_count: 102
+    transform_time_ms: 30
+    transform_yield_count: 28
+    insert_time_ms: 2
+    insert_new_count: 22
+    insert_reused_count: 1
