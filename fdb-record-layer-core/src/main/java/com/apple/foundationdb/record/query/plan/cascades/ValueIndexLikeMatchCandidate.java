@@ -45,7 +45,7 @@ import java.util.Objects;
  */
 public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
-     This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
+     * This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
      * passed in. Using a list of parameter ids, each {@link MatchedOrderingPart} links together the
      * (1) normalized key expression that originally produced the key (from index, or common primary key)
      * (2) a comparison range for this parameter which is contained in the already existent partial match

@@ -102,7 +102,7 @@ public class LockRegistry {
     /**
      * Attempts to get access for performing read operations on the resource represented by the id and returns a
      * {@link CompletableFuture} of the lock after the access has been granted.
-
+     *
      * @param id the {@link LockIdentifier} for the resource.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
@@ -136,7 +136,7 @@ public class LockRegistry {
     /**
      * Attempts to get access for read access on the resource represented by the id to perform an atomic operation. It
      * leaves the lock after the operation is completed.
-
+     *
      * @param <T> type of the value returned from the future of operation.
      * @param id the {@link LockIdentifier} for the resource.
      * @param operation to be called after the access is granted.
@@ -150,7 +150,7 @@ public class LockRegistry {
     /**
      * Attempts to get access for write access on the resource represented by the id to perform an atomic operation. It
      * leaves the lock after the operation is completed.
-
+     *
      * @param <T> type of the value returned from the future of operation.
      * @param id the {@link LockIdentifier} for the resource.
      * @param operation to be called after the access is granted.

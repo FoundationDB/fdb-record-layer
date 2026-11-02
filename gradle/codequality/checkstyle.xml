@@ -189,6 +189,7 @@
             <property name="forbiddenSummaryFragments" value="^User: .*"/>
         </module>
 
+        <module name="JavadocMissingLeadingAsterisk"/>
         <module name="JavadocParagraph">
             <property name="allowNewlineParagraph" value="false"/>
         </module>
