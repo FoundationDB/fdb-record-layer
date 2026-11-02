@@ -1,0 +1,109 @@
+#
+# joined-record-type-indexes-in-larger-joins.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+# `mv_customer_items` is defined on the joined synthetic record type of three tables, related by two joins. The other
+# tables are joined by no index, and the queries below join them to the index's tables.
+schema_template:
+  CREATE TABLE "customer" ("cust_no" BIGINT, "name" STRING, "city" STRING, PRIMARY KEY ("cust_no"))
+  CREATE TABLE "orders" ("order_no" BIGINT, "cust_no" BIGINT, "amount" BIGINT, PRIMARY KEY ("order_no"))
+  CREATE TABLE "line_item" ("item_no" BIGINT, "order_no" BIGINT, "qty" BIGINT, PRIMARY KEY ("item_no"))
+  CREATE INDEX "mv_customer_items" AS
+    SELECT "c"."name", "o"."amount", "l"."qty"
+      FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l"
+     WHERE "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no"
+     ORDER BY "c"."name", "l"."qty"
+
+  CREATE TABLE "city_info" ("city" STRING, "state" STRING, PRIMARY KEY ("city"))
+  CREATE TABLE "state_info" ("state" STRING, "region" STRING, PRIMARY KEY ("state"))
+  CREATE TABLE "order_note" ("note_no" BIGINT, "order_no" BIGINT, "note" STRING, PRIMARY KEY ("note_no"))
+  CREATE TABLE "qty_band" ("qty" BIGINT, "band" STRING, PRIMARY KEY ("qty"))
+---
+setup:
+  steps:
+    - query: INSERT INTO "customer"
+             VALUES (1, 'Alice', 'SF'),
+                    (2, 'Bob', 'LA'),
+                    (3, 'Carol', 'SF')
+    - query: INSERT INTO "orders"
+             VALUES (10, 1, 50),
+                    (11, 1, 20),
+                    (12, 2, 70),
+                    (13, 4, 99)
+    - query: INSERT INTO "line_item"
+             VALUES (1000, 10, 2),
+                    (1001, 10, 5),
+                    (1002, 12, 1),
+                    (1003, 99, 7)
+    - query: INSERT INTO "city_info"
+             VALUES ('SF', 'CA'),
+                    ('LA', 'CA'),
+                    ('NY', 'NY')
+    - query: INSERT INTO "state_info"
+             VALUES ('CA', 'West'),
+                    ('NY', 'East')
+    - query: INSERT INTO "order_note"
+             VALUES (1, 10, 'gift'),
+                    (2, 12, 'rush'),
+                    (3, 11, 'late')
+    - query: INSERT INTO "qty_band"
+             VALUES (1, 'small'),
+                    (2, 'small'),
+                    (5, 'large')
+---
+# Seven tables are too many to enumerate every way of splitting their join, so joins are planned right-deep. The
+# planner still splits the join, one table at a time, which reaches the part the index covers.
+test_block:
+  name: joined-record-type-indexes-in-larger-joins
+  options:
+    connection_options:
+      PLAN_RIGHT_DEEP: true
+  tests:
+    -
+      # Six joins, two of which the three-way index covers; the other four hang off each of its three tables. The
+      # index's part of the join can be answered from it, but here a plan of primary key lookups is cheaper: the index
+      # would sit inside the join, scanned in full, as none of the columns joined to it is in its key.
+      - query: SELECT "c"."name", "o"."amount", "l"."qty", "si"."region", "n"."note", "qb"."band"
+                 FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l", "city_info" AS "ci",
+                      "state_info" AS "si", "order_note" AS "n", "qty_band" AS "qb"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no"
+                  AND "c"."city" = "ci"."city" AND "ci"."state" = "si"."state"
+                  AND "o"."order_no" = "n"."order_no" AND "l"."qty" = "qb"."qty"
+      - explain: "SCAN([IS line_item]) | FLATMAP q0 -> { SCAN([IS state_info]) | FLATMAP q1 -> { SCAN([IS qty_band]) | FILTER q0.qty EQUALS _.qty | FLATMAP q2 -> { SCAN([IS order_note]) | FLATMAP q3 -> { SCAN([IS orders, EQUALS q0.order_no]) | FILTER _.order_no EQUALS q3.order_no | FLATMAP q4 -> { SCAN([IS customer, EQUALS q4.cust_no]) | FLATMAP q5 -> { SCAN([IS city_info]) | FILTER q5.city EQUALS _.city AND _.state EQUALS q1.state AS q6 RETURN q5 } AS q5 RETURN (q5 AS _0, q4 AS _1) } AS q8 RETURN (q8._0 AS _0, q8._1 AS _1, q3 AS _2) } AS q9 RETURN (q9._0 AS _0, q9._1 AS _1, q9._2 AS _2, q2 AS _3) } AS q10 RETURN (q10._0 AS _0, q10._1 AS _1, q1 AS _2, q10._2 AS _3, q10._3 AS _4) } AS q11 RETURN (q11._0.name AS name, q11._1.amount AS amount, q0.qty AS qty, q11._2.region AS region, q11._3.note AS note, q11._4.band AS band) }"
+      - unorderedResult: [
+          {name: 'Alice', amount: 50, qty: 2, region: 'West', note: 'gift', band: 'small'},
+          {name: 'Alice', amount: 50, qty: 5, region: 'West', note: 'gift', band: 'large'},
+          {name: 'Bob', amount: 70, qty: 1, region: 'West', note: 'rush', band: 'small'}]
+    -
+      # The six joins with the tables and the conditions in another order, and a filter on a table the index does not
+      # cover. The filter makes the index's part of the join worth answering from it.
+      - query: SELECT "c"."name", "l"."qty", "qb"."band"
+                 FROM "qty_band" AS "qb", "order_note" AS "n", "line_item" AS "l", "state_info" AS "si",
+                      "orders" AS "o", "city_info" AS "ci", "customer" AS "c"
+                WHERE "qb"."qty" = "l"."qty" AND "si"."state" = "ci"."state" AND "n"."order_no" = "o"."order_no"
+                  AND "l"."order_no" = "o"."order_no" AND "ci"."city" = "c"."city" AND "o"."cust_no" = "c"."cust_no"
+                  AND "n"."note" = 'gift'
+      - explain: "SCAN([IS city_info]) | FLATMAP q0 -> { SCAN([IS state_info, EQUALS q0.state]) | FLATMAP q1 -> { SCAN([IS order_note]) | FILTER _.note EQUALS promote(@c93 AS STRING) | FLATMAP q2 -> { SCAN([IS qty_band]) | FLATMAP q3 -> { ISCAN(mv_customer_items <,>) | FILTER q3.qty EQUALS _.joined_2.qty AND q2.order_no EQUALS _.joined_1.order_no AND q0.city EQUALS _.joined_0.city | MAP (_.joined_2 AS _0, _.joined_0 AS _1) AS q4 RETURN (q3 AS _0, q4._0 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0 AS _0, q5._1 AS _1, q5._2 AS _2) } AS q6 RETURN (q6._0 AS _0, q6._1 AS _1, q6._2 AS _2) } AS q7 RETURN (q7._2.name AS name, q7._1.qty AS qty, q7._0.band AS band) }"
+      - unorderedResult: [
+          {name: 'Alice', qty: 2, band: 'small'},
+          {name: 'Alice', qty: 5, band: 'large'}]
+...

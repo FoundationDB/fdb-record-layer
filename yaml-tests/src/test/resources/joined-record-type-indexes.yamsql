@@ -1,0 +1,446 @@
+#
+# joined-record-type-indexes.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+# `mv_order_customer` is defined on a joined synthetic record type: its key reads `customer`'s `name` and `orders`'
+# `amount`, which no index on either stored table can hold.
+schema_template:
+  CREATE TABLE "customer" ("cust_no" BIGINT, "name" STRING, "city" STRING, PRIMARY KEY ("cust_no"))
+  CREATE TABLE "orders" ("order_no" BIGINT, "cust_no" BIGINT, "amount" BIGINT, PRIMARY KEY ("order_no"))
+  CREATE INDEX "mv_order_customer" AS
+    SELECT "c"."name", "o"."amount"
+      FROM "customer" AS "c", "orders" AS "o"
+     WHERE "c"."cust_no" = "o"."cust_no"
+     ORDER BY "c"."name", "o"."amount"
+
+  CREATE TABLE "vendor" ("vendor_no" BIGINT, "name" STRING, PRIMARY KEY ("vendor_no"))
+  CREATE TABLE "shipment" ("ship_no" BIGINT, "vendor_no" BIGINT, "weight" BIGINT, PRIMARY KEY ("ship_no"))
+  CREATE INDEX "mv_heavy_shipments" AS
+    SELECT "v"."name", "s"."weight"
+      FROM "vendor" AS "v", "shipment" AS "s"
+     WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 30
+     ORDER BY "v"."name", "s"."weight"
+
+  CREATE TABLE "employee" ("emp_no" BIGINT, "manager_no" BIGINT, "name" STRING, PRIMARY KEY ("emp_no"))
+  CREATE INDEX "mv_reports_to" AS
+    SELECT "e"."name" AS "emp", "m"."name" AS "mgr"
+      FROM "employee" AS "e", "employee" AS "m"
+     WHERE "e"."manager_no" = "m"."emp_no"
+     ORDER BY "e"."name", "m"."name"
+
+  CREATE TABLE "line_item" ("item_no" BIGINT, "order_no" BIGINT, "qty" BIGINT, PRIMARY KEY ("item_no"))
+  CREATE INDEX "mv_customer_items" AS
+    SELECT "c"."name", "o"."amount", "l"."qty"
+      FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l"
+     WHERE "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no"
+     ORDER BY "c"."name", "l"."qty"
+
+  CREATE TABLE "city_info" ("city" STRING, "state" STRING, PRIMARY KEY ("city"))
+  CREATE TABLE "state_info" ("state" STRING, "region" STRING, PRIMARY KEY ("state"))
+  CREATE TABLE "order_note" ("note_no" BIGINT, "order_no" BIGINT, "note" STRING, PRIMARY KEY ("note_no"))
+  CREATE TABLE "qty_band" ("qty" BIGINT, "band" STRING, PRIMARY KEY ("qty"))
+---
+setup:
+  steps:
+    - query: INSERT INTO "customer"
+             VALUES (1, 'Alice', 'SF'),
+                    (2, 'Bob', 'LA'),
+                    (3, 'Carol', 'SF')
+    - query: INSERT INTO "orders"
+             VALUES (10, 1, 50),
+                    (11, 1, 20),
+                    (12, 2, 70),
+                    (13, 4, 99)
+    - query: INSERT INTO "vendor"
+             VALUES (1, 'Acme'),
+                    (2, 'Bolt')
+    - query: INSERT INTO "shipment"
+             VALUES (100, 1, 10),
+                    (101, 1, 40),
+                    (102, 2, 35),
+                    (103, 2, 5)
+    - query: INSERT INTO "employee"
+             VALUES (1, 0, 'Ann'),
+                    (2, 1, 'Ben'),
+                    (3, 1, 'Cid'),
+                    (4, 2, 'Dee')
+    - query: INSERT INTO "line_item"
+             VALUES (1000, 10, 2),
+                    (1001, 10, 5),
+                    (1002, 12, 1),
+                    (1003, 99, 7)
+    - query: INSERT INTO "city_info"
+             VALUES ('SF', 'CA'),
+                    ('LA', 'CA'),
+                    ('NY', 'NY')
+    - query: INSERT INTO "state_info"
+             VALUES ('CA', 'West'),
+                    ('NY', 'East')
+    - query: INSERT INTO "order_note"
+             VALUES (1, 10, 'gift'),
+                    (2, 12, 'rush'),
+                    (3, 11, 'late')
+    - query: INSERT INTO "qty_band"
+             VALUES (1, 'small'),
+                    (2, 'small'),
+                    (5, 'large')
+---
+test_block:
+  name: joined-record-type-indexes
+  tests:
+    -
+      # The query the index was defined for.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name", "o"."amount"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50},
+          {name: 'Bob', amount: 70}]
+    -
+      # The same join without the ORDER BY.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - unorderedResult: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50},
+          {name: 'Bob', amount: 70}]
+    -
+      # A prefix of the key.
+      - query: SELECT "c"."name"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name)"
+      - result: [
+          {name: 'Alice'},
+          {name: 'Alice'},
+          {name: 'Bob'}]
+    -
+      # The join spelled with INNER JOIN ... ON.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c" INNER JOIN "orders" AS "o" ON "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name", "o"."amount"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50},
+          {name: 'Bob', amount: 70}]
+    -
+      # The join's equality written the other way round.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "o"."cust_no" = "c"."cust_no"
+                ORDER BY "c"."name", "o"."amount"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50},
+          {name: 'Bob', amount: 70}]
+    -
+      # The tables named the other way round.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "orders" AS "o", "customer" AS "c"
+                WHERE "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name", "o"."amount"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50},
+          {name: 'Bob', amount: 70}]
+    -
+      # An equality on the leading key column binds the scan.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" = 'Alice'
+      - explain: "COVERING(mv_order_customer [EQUALS promote(@c29 AS STRING)] -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - unorderedResult: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50}]
+    -
+      # A column the index does not hold, so the joined record has to be fetched from its constituents.
+      - query: SELECT "c"."name", "c"."city", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name", "o"."amount"
+      - explain: "ISCAN(mv_order_customer <,>) | MAP (_.joined_0.name AS name, _.joined_0.city AS city, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Alice', city: 'SF', amount: 20},
+          {name: 'Alice', city: 'SF', amount: 50},
+          {name: 'Bob', city: 'LA', amount: 70}]
+    -
+      # A filter on a column the index does not hold is applied on top of the fetched joined records.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "c"."city" = 'LA'
+      - explain: "ISCAN(mv_order_customer <,>) | FILTER _.joined_0.city EQUALS promote(@c29 AS STRING) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Bob', amount: 70}]
+    -
+      # One table alone must not be answered from the joined index: a customer without orders, Carol, has no joined
+      # record.
+      - query: SELECT "c"."name" FROM "customer" AS "c"
+      - explain: "SCAN([IS customer]) | MAP (_.name AS name)"
+      - unorderedResult: [
+          {name: 'Alice'},
+          {name: 'Bob'},
+          {name: 'Carol'}]
+    -
+      # A different join condition relates other rows, so the index must not answer it.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."order_no"
+      - explain: "SCAN([IS orders]) | FLATMAP q0 -> { SCAN([IS customer, EQUALS q0.order_no]) AS q1 RETURN (q1.name AS name, q0.amount AS amount) }"
+      - unorderedResult: []
+    -
+      # Without any join condition every pair of rows qualifies, which the index does not hold.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."name" = 'Carol'
+      - explain: "SCAN([IS customer]) | FILTER _.name EQUALS promote(@c21 AS STRING) | FLATMAP q0 -> { SCAN([IS orders]) AS q1 RETURN (q0.name AS name, q1.amount AS amount) }"
+      - unorderedResult: [
+          {name: 'Carol', amount: 20},
+          {name: 'Carol', amount: 50},
+          {name: 'Carol', amount: 70},
+          {name: 'Carol', amount: 99}]
+    -
+      # The index filtered by a residual predicate answers a query applying the same filter.
+      - query: SELECT "v"."name", "s"."weight"
+                 FROM "vendor" AS "v", "shipment" AS "s"
+                WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 30
+                ORDER BY "v"."name", "s"."weight"
+      - explain: "COVERING(mv_heavy_shipments <,> -> [joined_0: [name: KEY:[0], vendor_no: KEY:[3, 1]], joined_1: [ship_no: KEY:[4, 1], weight: KEY:[1]]]) | FILTER _.joined_1.weight GREATER_THAN promote(@c29 AS LONG) | MAP (_.joined_0.name AS name, _.joined_1.weight AS weight)"
+      - result: [
+          {name: 'Acme', weight: 40},
+          {name: 'Bolt', weight: 35}]
+    -
+      # ...but not a query without the filter, whose rows it does not all hold.
+      - query: SELECT "v"."name", "s"."weight"
+                 FROM "vendor" AS "v", "shipment" AS "s"
+                WHERE "v"."vendor_no" = "s"."vendor_no"
+      - explain: "SCAN([IS shipment]) | FLATMAP q0 -> { SCAN([IS vendor, EQUALS q0.vendor_no]) AS q1 RETURN (q1.name AS name, q0.weight AS weight) }"
+      - unorderedResult: [
+          {name: 'Acme', weight: 10},
+          {name: 'Acme', weight: 40},
+          {name: 'Bolt', weight: 5},
+          {name: 'Bolt', weight: 35}]
+    -
+      # A stricter filter than the index's is implied by it: the index holds every row the query asks for, and the
+      # query's own filter is applied on top.
+      - query: SELECT "v"."name", "s"."weight"
+                 FROM "vendor" AS "v", "shipment" AS "s"
+                WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 38
+                ORDER BY "v"."name", "s"."weight"
+      - explain: "COVERING(mv_heavy_shipments <,> -> [joined_0: [name: KEY:[0], vendor_no: KEY:[3, 1]], joined_1: [ship_no: KEY:[4, 1], weight: KEY:[1]]]) | FILTER _.joined_1.weight GREATER_THAN promote(@c29 AS LONG) | MAP (_.joined_0.name AS name, _.joined_1.weight AS weight)"
+      - result: [
+          {name: 'Acme', weight: 40}]
+    -
+      # A weaker filter than the index's asks for rows the index does not hold, so it must not be used.
+      - query: SELECT "v"."name", "s"."weight"
+                 FROM "vendor" AS "v", "shipment" AS "s"
+                WHERE "v"."vendor_no" = "s"."vendor_no" AND "s"."weight" > 8
+      - explain: "SCAN([IS shipment]) | FILTER _.weight GREATER_THAN promote(@c29 AS LONG) | FLATMAP q0 -> { SCAN([IS vendor, EQUALS q0.vendor_no]) AS q1 RETURN (q1.name AS name, q0.weight AS weight) }"
+      - unorderedResult: [
+          {name: 'Acme', weight: 10},
+          {name: 'Acme', weight: 40},
+          {name: 'Bolt', weight: 35}]
+    -
+      # A self-join: the same table under two constituents, told apart by the join condition.
+      - query: SELECT "e"."name" AS "emp", "m"."name" AS "mgr"
+                 FROM "employee" AS "e", "employee" AS "m"
+                WHERE "e"."manager_no" = "m"."emp_no"
+                ORDER BY "e"."name", "m"."name"
+      - explain: "COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name: KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_0.name AS emp, _.joined_1.name AS mgr)"
+      - result: [
+          {emp: 'Ben', mgr: 'Ann'},
+          {emp: 'Cid', mgr: 'Ann'},
+          {emp: 'Dee', mgr: 'Ben'}]
+    -
+      # The self-join with the roles of the two copies swapped in the query: the index still holds these pairs, with
+      # each copy bound to the constituent its role in the join condition gives it.
+      - query: SELECT "e"."name" AS "emp", "m"."name" AS "mgr"
+                 FROM "employee" AS "m", "employee" AS "e"
+                WHERE "m"."emp_no" = "e"."manager_no"
+      - explain: "COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name: KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_0.name AS emp, _.joined_1.name AS mgr)"
+      - unorderedResult: [
+          {emp: 'Ben', mgr: 'Ann'},
+          {emp: 'Cid', mgr: 'Ann'},
+          {emp: 'Dee', mgr: 'Ben'}]
+    -
+      # The join condition with the copies' roles reversed relates the same pairs, read the other way round: each copy is
+      # bound to the other constituent, so the index answers it with its columns swapped.
+      - query: SELECT "e"."name" AS "emp", "m"."name" AS "mgr"
+                 FROM "employee" AS "e", "employee" AS "m"
+                WHERE "m"."manager_no" = "e"."emp_no"
+      - explain: "COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name: KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_1.name AS emp, _.joined_0.name AS mgr)"
+      - unorderedResult: [
+          {emp: 'Ann', mgr: 'Ben'},
+          {emp: 'Ann', mgr: 'Cid'},
+          {emp: 'Ben', mgr: 'Dee'}]
+    -
+      # A range on the leading key column.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" > 'Alice'
+      - explain: "COVERING(mv_order_customer [[GREATER_THAN promote(@c29 AS STRING)]] -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - unorderedResult: [
+          {name: 'Bob', amount: 70}]
+    -
+      # An equality on the leading key column and a range on the next, which reads a different constituent.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" = 'Alice' AND "o"."amount" > 30
+      - explain: "COVERING(mv_order_customer [EQUALS promote(@c29 AS STRING), [GREATER_THAN promote(@c35 AS LONG)]] -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - unorderedResult: [
+          {name: 'Alice', amount: 50}]
+    -
+      # The key order reversed is a reverse scan of the index.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name" DESC, "o"."amount" DESC
+      - explain: "COVERING(mv_order_customer <,> REVERSE -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Bob', amount: 70},
+          {name: 'Alice', amount: 50},
+          {name: 'Alice', amount: 20}]
+    -
+      # An IN-list on the leading key column.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "c"."name" IN ('Alice', 'Bob')
+      - explain: "[IN arrayDistinct(@c29)] | INJOIN q0 -> { COVERING(mv_order_customer [EQUALS q0] -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount) }"
+      - unorderedResult: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50},
+          {name: 'Bob', amount: 70}]
+    -
+      # A condition beyond the join, on a column the index holds as part of a constituent's primary key.
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "o"."cust_no" = 1
+      - explain: "ISCAN(mv_order_customer <,>) | FILTER _.joined_1.cust_no EQUALS promote(@c29 AS LONG) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - unorderedResult: [
+          {name: 'Alice', amount: 20},
+          {name: 'Alice', amount: 50}]
+    -
+      # A three-way join, answered from the index on the three-way joined synthetic table.
+      - query: SELECT "c"."name", "o"."amount", "l"."qty"
+                 FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no"
+                ORDER BY "c"."name", "l"."qty"
+      - explain: "COVERING(mv_customer_items <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: VALUE:[0], order_no: KEY:[4, 1]], joined_2: [item_no: KEY:[5, 1], qty: KEY:[1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount, _.joined_2.qty AS qty)"
+      - result: [
+          {name: 'Alice', amount: 50, qty: 2},
+          {name: 'Alice', amount: 50, qty: 5},
+          {name: 'Bob', amount: 70, qty: 1}]
+    -
+      # The three-way join with its tables and its conditions in another order, and each equality reversed.
+      - query: SELECT "c"."name", "o"."amount", "l"."qty"
+                 FROM "line_item" AS "l", "customer" AS "c", "orders" AS "o"
+                WHERE "l"."order_no" = "o"."order_no" AND "o"."cust_no" = "c"."cust_no"
+                ORDER BY "c"."name", "l"."qty"
+      - explain: "COVERING(mv_customer_items <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: VALUE:[0], order_no: KEY:[4, 1]], joined_2: [item_no: KEY:[5, 1], qty: KEY:[1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount, _.joined_2.qty AS qty)"
+      - result: [
+          {name: 'Alice', amount: 50, qty: 2},
+          {name: 'Alice', amount: 50, qty: 5},
+          {name: 'Bob', amount: 70, qty: 1}]
+    -
+      # A two-way join of the three-way index's tables must not be answered from it: order 11 has no line item.
+      - query: SELECT "o"."order_no", "l"."qty"
+                 FROM "orders" AS "o", "line_item" AS "l"
+                WHERE "o"."order_no" = "l"."order_no"
+      - explain: "SCAN([IS line_item]) | FLATMAP q0 -> { SCAN([IS orders, EQUALS q0.order_no]) AS q1 RETURN (q1.order_no AS order_no, q0.qty AS qty) }"
+      - unorderedResult: [
+          {order_no: 10, qty: 2},
+          {order_no: 10, qty: 5},
+          {order_no: 12, qty: 1}]
+    -
+      # A join with one more table than the two-way index covers: the index answers the part of the join it holds,
+      # and the remaining table is joined to it.
+      - query: SELECT "c"."name", "o"."amount", "ci"."state"
+                 FROM "customer" AS "c", "orders" AS "o", "city_info" AS "ci"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "c"."city" = "ci"."city"
+      - explain: "SCAN([IS city_info]) | FLATMAP q0 -> { ISCAN(mv_order_customer <,>) | FILTER _.joined_0.city EQUALS q0.city | MAP (_.joined_0 AS _0, _.joined_1 AS _1) AS q1 RETURN (q1._0.name AS name, q1._1.amount AS amount, q0.state AS state) }"
+      - unorderedResult: [
+          {name: 'Alice', amount: 20, state: 'CA'},
+          {name: 'Alice', amount: 50, state: 'CA'},
+          {name: 'Bob', amount: 70, state: 'CA'}]
+    -
+      # Three joins, two of which the three-way index covers.
+      - query: SELECT "c"."name", "l"."qty", "ci"."state"
+                 FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l", "city_info" AS "ci"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no" AND "c"."city" = "ci"."city"
+      - explain: "SCAN([IS city_info]) | FLATMAP q0 -> { ISCAN(mv_customer_items <,>) | FILTER _.joined_0.city EQUALS q0.city | MAP (_.joined_0 AS _0, _.joined_2 AS _1) AS q1 RETURN (q1._0.name AS name, q1._1.qty AS qty, q0.state AS state) }"
+      - unorderedResult: [
+          {name: 'Alice', qty: 2, state: 'CA'},
+          {name: 'Alice', qty: 5, state: 'CA'},
+          {name: 'Bob', qty: 1, state: 'CA'}]
+---
+# The indexes are maintained as the rows they join change: a new order joins Carol, a deleted order leaves Alice, a
+# renamed customer moves within the key, and a new employee joins the manager it names.
+setup:
+  steps:
+    - query: INSERT INTO "orders" VALUES (14, 3, 30)
+    - query: DELETE FROM "orders" WHERE "order_no" = 11
+    - query: UPDATE "customer" SET "name" = 'Bobby' WHERE "cust_no" = 2
+    - query: INSERT INTO "employee" VALUES (5, 3, 'Eve')
+---
+test_block:
+  name: joined-record-type-indexes-after-updates
+  tests:
+    -
+      - query: SELECT "c"."name", "o"."amount"
+                 FROM "customer" AS "c", "orders" AS "o"
+                WHERE "c"."cust_no" = "o"."cust_no"
+                ORDER BY "c"."name", "o"."amount"
+      - explain: "COVERING(mv_order_customer <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: KEY:[1], order_no: KEY:[4, 1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount)"
+      - result: [
+          {name: 'Alice', amount: 50},
+          {name: 'Bobby', amount: 70},
+          {name: 'Carol', amount: 30}]
+    -
+      - query: SELECT "c"."name", "o"."amount", "l"."qty"
+                 FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l"
+                WHERE "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no"
+                ORDER BY "c"."name", "l"."qty"
+      - explain: "COVERING(mv_customer_items <,> -> [joined_0: [cust_no: KEY:[3, 1], name: KEY:[0]], joined_1: [amount: VALUE:[0], order_no: KEY:[4, 1]], joined_2: [item_no: KEY:[5, 1], qty: KEY:[1]]]) | MAP (_.joined_0.name AS name, _.joined_1.amount AS amount, _.joined_2.qty AS qty)"
+      - result: [
+          {name: 'Alice', amount: 50, qty: 2},
+          {name: 'Alice', amount: 50, qty: 5},
+          {name: 'Bobby', amount: 70, qty: 1}]
+    -
+      - query: SELECT "e"."name" AS "emp", "m"."name" AS "mgr"
+                 FROM "employee" AS "e", "employee" AS "m"
+                WHERE "e"."manager_no" = "m"."emp_no"
+                ORDER BY "e"."name", "m"."name"
+      - explain: "COVERING(mv_reports_to <,> -> [joined_0: [emp_no: KEY:[3, 1], name: KEY:[0]], joined_1: [emp_no: KEY:[4, 1], name: KEY:[1]]]) | MAP (_.joined_0.name AS emp, _.joined_1.name AS mgr)"
+      - result: [
+          {emp: 'Ben', mgr: 'Ann'},
+          {emp: 'Cid', mgr: 'Ann'},
+          {emp: 'Dee', mgr: 'Ben'},
+          {emp: 'Eve', mgr: 'Cid'}]
+...
