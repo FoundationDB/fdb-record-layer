@@ -34,7 +34,7 @@
  * which is executed by asynchronously streaming the results of child plan elements into the parent processor.
  *
  * <p>For example,
-  * <ul>
+ * <ul>
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} evaluates a boolean predicate expression against upstream records, only letting through those that satisfy it.</li>
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan} merges two or more compatibly-ordered streams of records into one, eliminating duplicates.</li>
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan} merges two or more compatibly-ordered streams of records into one, keeping only those that appear in all streams.</li>
