@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PComparableObject;
 import com.apple.foundationdb.record.planprotos.PLiteralValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -46,6 +47,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -118,11 +120,29 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> {
                     final LiteralValue<?> that = (LiteralValue<?>)other;
-                    if (value == null && that.value == null) {
-                        return true;
-                    }
-                    return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value));
+                    return literalsEqual(value, that.value);
                 });
+    }
+
+    private static boolean literalsEqual(@Nullable final Object value, @Nullable final Object otherValue) {
+        if (value == null && otherValue == null) {
+            return true;
+        }
+        if (value instanceof List<?> && otherValue instanceof List<?>) {
+            // compare element-wise, so that elements that do not round-trip as themselves, e.g. enums, still compare
+            final List<?> elements = (List<?>)value;
+            final List<?> otherElements = (List<?>)otherValue;
+            if (elements.size() != otherElements.size()) {
+                return false;
+            }
+            for (int i = 0; i < elements.size(); i++) {
+                if (!literalsEqual(elements.get(i), otherElements.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, otherValue));
     }
 
     @Override
@@ -147,7 +167,14 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         final var builder = PLiteralValue.newBuilder();
         // TODO there should be no punishment if the type is serialized alongside with the value
         final var resultTypeProto = resultType.isVector() ? resultType.toTypeProto(serializationContext) : null;
-        builder.setValue(PlanSerialization.valueObjectToProto(value, resultTypeProto));
+        if (value instanceof List<?>) {
+            builder.setIsList(true);
+            for (final Object element : (List<?>)value) {
+                builder.addListElements(PlanSerialization.valueObjectToProto(element));
+            }
+        } else {
+            builder.setValue(PlanSerialization.valueObjectToProto(value, resultTypeProto));
+        }
         builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
@@ -165,8 +192,17 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     @Nonnull
     public static <T> LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PLiteralValue literalValueProto) {
-        return new LiteralValue<>(Type.fromTypeProto(serializationContext, literalValueProto.getResultType()),
-                (T)PlanSerialization.protoToValueObject(literalValueProto.getValue()));
+        final Object value;
+        if (literalValueProto.getIsList()) {
+            final List<Object> elements = new ArrayList<>(literalValueProto.getListElementsCount());
+            for (final PComparableObject elementProto : literalValueProto.getListElementsList()) {
+                elements.add(PlanSerialization.protoToValueObject(elementProto));
+            }
+            value = elements;
+        } else {
+            value = PlanSerialization.protoToValueObject(literalValueProto.getValue());
+        }
+        return new LiteralValue<>(Type.fromTypeProto(serializationContext, literalValueProto.getResultType()), (T)value);
     }
 
     @Nonnull
