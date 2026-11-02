@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -176,14 +175,15 @@ public class InComparandSource extends InSource {
     @Nonnull
     @Override
     public Type getResultType() {
-        return Objects.requireNonNull(comparison.getValue()).getResultType();
+        final Value comparandValue = comparison.getValue();
+        return comparandValue == null ? super.getResultType() : comparandValue.getResultType();
     }
 
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         final Value comparandValue = comparison.getValue();
-        return comparandValue == null ? ImmutableSet.of() : comparandValue.getDynamicTypes();
+        return comparandValue == null ? super.getDynamicTypes() : comparandValue.getDynamicTypes();
     }
 
     /**

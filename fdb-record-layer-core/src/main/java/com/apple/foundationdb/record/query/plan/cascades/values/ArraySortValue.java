@@ -64,9 +64,23 @@ public class ArraySortValue extends AbstractValue implements ValueWithChild {
     private final boolean reverse;
 
     public ArraySortValue(@Nonnull final Value childValue, final boolean reverse) {
-        Verify.verify(Objects.requireNonNull(childValue.getResultType()).isArray());
+        final Type childType = Objects.requireNonNull(childValue.getResultType());
+        Verify.verify(childType.isArray());
+        final Type elementType = ((Type.Array)childType).getElementType();
+        Verify.verify(elementType == null || isSortable(elementType), "cannot sort elements of type %s", elementType);
         this.childValue = childValue;
         this.reverse = reverse;
+    }
+
+    /**
+     * Whether elements of a type can be sorted, which needs their representation to be {@link Comparable}.
+     */
+    private static boolean isSortable(@Nonnull final Type elementType) {
+        if (elementType.isEnum()) {
+            return true;
+        }
+        return elementType.isPrimitive() &&
+                elementType.getTypeCode() != Type.TypeCode.BYTES && elementType.getTypeCode() != Type.TypeCode.VECTOR;
     }
 
     public boolean isReverse() {

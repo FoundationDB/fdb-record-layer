@@ -163,12 +163,6 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    /**
-     * Evaluates this explode eagerly, producing the structs {@link #evalAsStream} would stream.
-     * @param store the record store, may be {@code null} if the collection does not need one
-     * @param context the evaluation context
-     * @return the structs of the elements of the collection, in the order of the collection
-     */
     @Nonnull
     public List<Object> evalAsList(@Nullable final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context) {
         final List<?> elements = elementsOf(store, context);

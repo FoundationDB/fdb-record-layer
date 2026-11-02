@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +43,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -135,6 +137,15 @@ class InExplodeSourceTest {
         Assertions.assertInstanceOf(ArraySortValue.class, deserialized);
         Assertions.assertEquals(collectionValue, deserialized);
         Assertions.assertEquals(source.isReverse(), ((ArraySortValue)deserialized).isReverse());
+    }
+
+    @Test
+    void arraySortValueRejectsElementsThatCannotBeSorted() {
+        final var records = new LiteralValue<>(new Type.Array(Type.Record.fromFields(List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"))))), List.of());
+        Assertions.assertThrows(VerifyException.class, () -> new ArraySortValue(records, false));
+        final var bytes = new LiteralValue<>(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false)), List.of());
+        Assertions.assertThrows(VerifyException.class, () -> new ArraySortValue(bytes, false));
     }
 
     @Test

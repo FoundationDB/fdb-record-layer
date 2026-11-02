@@ -144,8 +144,7 @@ public class InExplodeSource extends InComparandSource {
     }
 
     /**
-     * Returns the structs of the elements of the collection. Creating them needs their type, so the context has to
-     * provide a type repository containing the {@linkplain #getResultType() result type} of this source.
+     * Returns the structs of the elements of the collection.
      * @param context the evaluation context
      * @return the structs of the elements of the collection
      */
