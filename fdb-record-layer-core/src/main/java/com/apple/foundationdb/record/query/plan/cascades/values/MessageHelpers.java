@@ -295,6 +295,54 @@ public class MessageHelpers {
         builder.mergeUnknownFields(message.getUnknownFields());
     }
 
+    /**
+     * Copies a message into a message of the given descriptor, relating the fields of the two descriptors by their
+     * position.
+     *
+     * @param targetDescriptor a descriptor that describes the same structure as the descriptor of {@code message}
+     * @param message a message
+     * @return {@code message} if it is already of {@code targetDescriptor}, a new message of {@code targetDescriptor}
+     *         which is a copy of the message passed in otherwise
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static Message coerceMessageByIndexIfNeeded(@Nonnull final Descriptors.Descriptor targetDescriptor,
+                                                       @Nonnull final Message message) {
+        final var messageDescriptor = message.getDescriptorForType();
+        if (targetDescriptor == messageDescriptor) {
+            return message;
+        }
+
+        final var targetFields = targetDescriptor.getFields();
+        Verify.verify(messageDescriptor.getFields().size() == targetFields.size(),
+                "descriptors %s and %s do not describe the same structure",
+                messageDescriptor.getFullName(), targetDescriptor.getFullName());
+        final var builder = DynamicMessage.newBuilder(targetDescriptor);
+        for (final var entry : message.getAllFields().entrySet()) {
+            final var field = entry.getKey();
+            final var targetField = targetFields.get(field.getIndex());
+            if (field.isRepeated()) {
+                for (final var element : (List<?>)entry.getValue()) {
+                    builder.addRepeatedField(targetField, coerceFieldValueByIndex(targetField, element));
+                }
+            } else {
+                builder.setField(targetField, coerceFieldValueByIndex(targetField, entry.getValue()));
+            }
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    private static Object coerceFieldValueByIndex(@Nonnull final Descriptors.FieldDescriptor targetField,
+                                                  @Nonnull final Object value) {
+        return switch (targetField.getJavaType()) {
+            case MESSAGE -> coerceMessageByIndexIfNeeded(targetField.getMessageType(), (Message)value);
+            case ENUM -> Verify.verifyNotNull(targetField.getEnumType()
+                    .findValueByName(((Descriptors.EnumValueDescriptor)value).getName()));
+            default -> value;
+        };
+    }
+
     @Nonnull
     @SuppressWarnings("unchecked")
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
@@ -408,7 +456,8 @@ public class MessageHelpers {
         if (coercionsTrie == null) {
             if (targetDescriptor != null && current instanceof Message) {
                 Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
-                return deepCopyMessageIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
+                // like coerceMessage(), relate the fields by position, as the two descriptors may number them differently
+                return coerceMessageByIndexIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
             }
 
             // “Re-wrap” `List` values when the target is a nullable ARRAY. Such arrays are stored as a wrapper message
