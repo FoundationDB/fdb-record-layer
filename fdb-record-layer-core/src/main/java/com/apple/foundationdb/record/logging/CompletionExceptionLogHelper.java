@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * Helper class for helping with logging of {@link java.util.concurrent.CompletionException}s.
  *
- * The {@code CompletionException} has a stack trace that indicates the call to a wait point, such as
+ * <p>The {@code CompletionException} has a stack trace that indicates the call to a wait point, such as
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext#asyncToSync}, which may
  * be the only indication of what the caller was actually doing.
  * But the cause of this exception is the one to analyze and wrap
@@ -50,7 +50,7 @@ public class CompletionExceptionLogHelper {
     /**
      * Change whether {@link Throwable#addSuppressed} is used.
      *
-     * When enabled, the exception graph will have a circularity. This can cause problems for some logging frameworks
+     * <p>When enabled, the exception graph will have a circularity. This can cause problems for some logging frameworks
      * and so may need to be disabled if using one of them.
      * @param addSuppressed {@code true} to use {@code addSuppressed} to give more information in logs
      */
@@ -62,7 +62,7 @@ public class CompletionExceptionLogHelper {
      * Change the maximum number of suppressed exceptions to add to any given exception, if this maximum has not already
      * been set. Return whether or not the maximum was changed.
      *
-     * This method only changes behavior when {@link #addSuppressed} is {@code true}.
+     * <p>This method only changes behavior when {@link #addSuppressed} is {@code true}.
      * @param count the new maximum count
      * @return {@code true} if the count was changed and {@code false} if it was not
      */

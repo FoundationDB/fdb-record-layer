@@ -36,8 +36,8 @@ import java.util.stream.Stream;
  * A binding matcher is an object that can be matched against a complex object tree, while binding certain
  * references in the tree to matcher objects. The bindings can be retrieved from the {@link PlannerBindings} once one
  * or more bindings are established.
- * <br>
- * Extreme care should be taken when implementing binding matchers, since it can be very delicate.
+ *
+ * <p>Extreme care should be taken when implementing binding matchers, since it can be very delicate.
  * In particular, binding matchers may (or may not) be reused between successive rule calls and should be stateless.
  * Additionally, implementors must use the (default) reference equals for any binding matcher as the
  * class {@link PlannerBindings} keeps an association between a matcher and the matched object(s) in a

@@ -439,6 +439,21 @@ class TestMainEndToEnd(unittest.TestCase):
             result = json.load(f)
         self.assertTrue(result['run_all'])
 
+    def test_main_missing_changed_files_file_fails_safe(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from affected_subprojects import main
+
+        with patch('sys.stdout', new_callable=StringIO):
+            main([self.deps_file.name,
+                  '--changed-files-file', 'nonexistent/path/changed_files.txt',
+                  '--output', self.output_file.name])
+
+        with open(self.output_file.name, encoding='utf-8') as f:
+            result = json.load(f)
+        self.assertTrue(result['run_all'])
+
     def test_main_with_matrix_candidates(self):
         from io import StringIO
         from unittest.mock import patch

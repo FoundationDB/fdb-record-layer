@@ -68,7 +68,7 @@ public interface StructMetaData extends Wrapper {
     /**
      * Get the Metadata for a nested struct type.
      *
-     * If the column is not a struct type, this will throw an error.
+     * <p>If the column is not a struct type, this will throw an error.
      *
      * @param oneBasedColumn the position of the column, indexed at 1
      * @return the metadata for the struct at column {@code oneBasedColumn}
@@ -79,7 +79,7 @@ public interface StructMetaData extends Wrapper {
     /**
      * Get the Metadata for an array type.
      *
-     * If the column is not an array type, this will throw an error.
+     * <p>If the column is not an array type, this will throw an error.
      *
      * @param oneBasedColumn the position of the column, indexed at 1
      * @return the metadata for the array at column {@code oneBasedColumn}

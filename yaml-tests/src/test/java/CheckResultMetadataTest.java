@@ -44,10 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests that {@code resultMetadata} checks fail correctly when the expected metadata does not match
  * the actual result-set metadata, and pass when it does.
- * <p>
- *     Negative (shouldFail) tests are the most important: if a mismatch silently passes we would
+ *
+ * <p>Negative (shouldFail) tests are the most important: if a mismatch silently passes we would
  *     have false confidence in the coverage.
- * </p>
  */
 public class CheckResultMetadataTest {
 

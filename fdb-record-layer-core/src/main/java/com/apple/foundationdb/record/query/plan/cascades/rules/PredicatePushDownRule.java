@@ -95,11 +95,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *        ...                   ...
  * }</pre>
  * 
- * <p>
- * In the top most select box, there are two predicates, one on just the {@code q1} quantifier and another on the
+ * <p>In the top most select box, there are two predicates, one on just the {@code q1} quantifier and another on the
  * both {@code q1} and {@code q2}. It will attempt to push down the {@code q1} predicate while leaving the other
  * (multi-quantifier) predicate as is. This will produce a new expression like:
- * </p>
  *
  * <pre>{@code
  *        +-----------------------+
@@ -118,20 +116,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *        ...
  * }</pre>
  *
- * <p>
- * Retaining the join-predicate in the top-most box is important for join enumeration, as we may want to push
+ * <p>Retaining the join-predicate in the top-most box is important for join enumeration, as we may want to push
  * the predicate to either the left-hand side or the right-hand side when constructing the physical
  * plan.
- * </p>
  * 
- * <p>
- * The predicate may be pushed down in one or more different ways. If the child expression is a type that
+ * <p>The predicate may be pushed down in one or more different ways. If the child expression is a type that
  * can directly absorb predicates (like a {@link LogicalFilterExpression} another {@link SelectExpression}),
  * then the immediate child will be rewritten with the additional predicates added. If the child expression
  * does not admit predicates but allows for the predicate to be pushed through (like a {@link LogicalUnionExpression}
  * or a {@link LogicalSortExpression}), then a new select box will be introduced below the child expression.
  * For example, something like:
- * </p>
  *
  * <pre>{@code
  *    +-----------------------+
@@ -152,9 +146,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *             ...
  * }</pre>
  *
- * <p>
- * Will be rewritten as:
- * </p>
+ * <p>Will be rewritten as:
  *
  * <pre>{@code
  *    +-----------------------+
@@ -179,10 +171,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *             ...
  * }</pre>
  *
- * <p>
- * In this case, the predicate on {@code a} (which has been rewritten from referencing {@code q1} to referencing
+ * <p>In this case, the predicate on {@code a} (which has been rewritten from referencing {@code q1} to referencing
  * {@code q2}) can be further pushed down into {@code q2}, but that is done by further invocations of this rule.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

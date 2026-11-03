@@ -611,7 +611,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * it will cause a later attempt to make the index readable to fail.
      *
      * <p>This will remove the last uniqueness violation entry when removing the second
-     * last entry that contains the value key.</p>
+     * last entry that contains the value key.
      * @param valueKey the indexed key that is (apparently) not unique
      * @param primaryKey the primary key of one record that is causing a violation
      * @return a future that is complete when the uniqueness violation is removed

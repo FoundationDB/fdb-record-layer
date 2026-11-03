@@ -62,7 +62,7 @@ public class KeySpaceTreeResolver {
     /**
      * The resolved interpretation of the node value.
      *
-     * Extend this for application-specific node resolution.
+     * <p>Extend this for application-specific node resolution.
      */
     public abstract static class Resolved {
         @Nullable
@@ -641,7 +641,7 @@ public class KeySpaceTreeResolver {
     /**
      * Determine whether this leaf of the {@link KeySpaceDirectory} tree is the root of a {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore}.
      *
-     * Override this if whether a leaf directory can be determined from the {@link Resolved}; for example, because they
+     * <p>Override this if whether a leaf directory can be determined from the {@link Resolved}; for example, because they
      * use a specific {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathWrapper} class.
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
@@ -654,7 +654,7 @@ public class KeySpaceTreeResolver {
     /**
      * Given a key space path for which {@link #isRecordStoreLeaf} is {@code true}, get the record store's meta-data.
      *
-     * Override this method if the meta-data can be determined from the {@link Resolved} tree.
+     * <p>Override this method if the meta-data can be determined from the {@link Resolved} tree.
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return a future that completes to the record store's meta-data or {@code null}

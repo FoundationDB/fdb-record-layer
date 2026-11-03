@@ -67,14 +67,14 @@ public class GuardiannStructureAsserts {
     /**
      * Drains all pending deferred tasks from {@code guardiann} by repeatedly fetching one task
      * and executing it in its own transaction until the tasks subspace is empty.
-     * <p>
-     * Insertions and deletions piggy-back deferred-task execution onto themselves (one task per
+     *
+     * <p>Insertions and deletions piggy-back deferred-task execution onto themselves (one task per
      * op, via {@link Primitives#executeDeferredTasks}). Once those producer ops stop, pending
      * tasks remain in the tasks subspace until something pulls them out — this method is that
      * something. Tests typically call it before checking post-condition invariants so the
      * structure is observed at a quiescent state.
-     * <p>
-     * Note that {@link BounceTask} is a state machine: each invocation executes one of its
+     *
+     * <p>Note that {@link BounceTask} is a state machine: each invocation executes one of its
      * dependent tasks and then either re-enqueues a new BounceTask with the remaining
      * dependents OR fires the final task once the last dependent has run. Draining therefore
      * takes roughly N+1 iterations per BounceTask (N dependents + the final task), and
@@ -132,8 +132,8 @@ public class GuardiannStructureAsserts {
     /**
      * Snapshots the current Guardiann cluster topology via {@link Search#snapshotStructure}. Returns
      * {@code null} if the structure is empty (no clusters yet — common before the first insert).
-     * <p>
-     * Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own internal
+     *
+     * <p>Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own internal
      * transactions), then in one follow-up read transaction delegate to {@link Search#snapshotStructure}, which
      * fetches every cluster's metadata and vector references and assembles the snapshot.
      */
@@ -289,8 +289,8 @@ public class GuardiannStructureAsserts {
     /**
      * Summarizes the structure for a checkpoint log line: cluster sizes and how they sit relative to their merge
      * thresholds (from the snapshot itself), plus the orphaned-reference share (which needs a database read).
-     * <p>
-     * The two halves answer different questions. {@code wantMerge} staying high while {@code clusters} does not fall
+     *
+     * <p>The two halves answer different questions. {@code wantMerge} staying high while {@code clusters} does not fall
      * would mean merges are being triggered but not landing; {@code wantMerge} at zero means no merge is due, and the
      * threshold statistics say why. The orphan share is what the search's candidate pool pays for, so it explains any
      * {@code Insufficient data to form result set} warnings.
@@ -363,14 +363,14 @@ public class GuardiannStructureAsserts {
      * Needs a database read rather than just a {@link StructureSnapshot}, since liveness lives in the per-vector
      * metadata subspace which the snapshot does not carry; the purely structural questions (cluster sizes, merge
      * thresholds, pending states) are answered by the snapshot itself.
-     * <p>
-     * This is the quantity the search path pays for: {@code Search.enrichResults} builds a candidate pool of
+     *
+     * <p>This is the quantity the search path pays for: {@code Search.enrichResults} builds a candidate pool of
      * {@code candidatePoolFactor * k} references and then discards those whose metadata has disappeared, so an orphan
      * share above the pool's headroom is what makes a k-nearest-neighbour query return fewer than {@code k} results.
      * It is a lower bound on what the search discards — the search additionally drops references whose metadata
      * exists but carries a different UUID (the vector was replaced), which this census cannot see from keys alone.
-     * <p>
-     * Collapsed representatives are excluded: they are keyed by content signature rather than by primary key and
+     *
+     * <p>Collapsed representatives are excluded: they are keyed by content signature rather than by primary key and
      * never have a per-vector metadata record, so counting them would report 100% orphaned regardless of health.
      *
      * @param db the database to read from
@@ -638,8 +638,8 @@ public class GuardiannStructureAsserts {
      * <em>without deletes</em> (inserts, repartitions, reassigns, etc.). Runs the deferred-task
      * queue to quiescence, verifies nothing remains pending, then snapshots and validates every
      * structural invariant — <em>including</em> {@link #assertReplicasReferenceLivePrimaries}.
-     * <p>
-     * Equivalent to the explicit sequence:
+     *
+     * <p>Equivalent to the explicit sequence:
      * <pre>{@code
      * runToQuiescence(db, guardiann);
      * assertQuiescence(db, guardiann);
@@ -648,8 +648,8 @@ public class GuardiannStructureAsserts {
      * assertReplicasReferenceLivePrimaries(s);
      * }</pre>
      * but bundled into one call so scenario tests don't have to repeat the boilerplate.
-     * <p>
-     * <b>Do not use this after deletes.</b> Deleting a primary can legitimately leave dangling
+     *
+     * <p><b>Do not use this after deletes.</b> Deleting a primary can legitimately leave dangling
      * replica vectors behind (replicas are not necessarily reaped), so
      * {@link #assertReplicasReferenceLivePrimaries} would spuriously fail. Delete-involving tests
      * should call {@link #assertGuardiannInvariantsAfterDeletes} instead. Tests that want finer

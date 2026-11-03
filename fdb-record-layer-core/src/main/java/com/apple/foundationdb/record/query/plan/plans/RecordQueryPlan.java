@@ -59,10 +59,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Refer
 
 /**
  * An executable query plan for producing records.
- * <br>
- * A query plan is run against a record store to produce a stream of matching records.
- * <br>
- * A query plan of any complexity will have child plans and execute by altering or combining the children's streams in some way.
+ *
+ * <p>A query plan is run against a record store to produce a stream of matching records.
+ *
+ * <p>A query plan of any complexity will have child plans and execute by altering or combining the children's streams in some way.
  *
  * @see com.apple.foundationdb.record.query.RecordQuery
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(com.apple.foundationdb.record.query.RecordQuery)
@@ -141,13 +141,11 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     /**
      * Returns the (zero or more) {@code RecordQueryPlan} children of this plan.
      *
-     * <p>
-     * <b>Warning</b>: This part of the API is undergoing active development. At some point in the future,
+     * <p><b>Warning</b>: This part of the API is undergoing active development. At some point in the future,
      * the return type of this method will change to allow it to return a list of generic {@link QueryPlan}s.
      * At current, every {@code RecordQueryPlan} can only have other {@code RecordQueryPlan}s as children.
      * However, this is not guaranteed to be the case in the future. This method has been marked as
      * {@link API.Status#UNSTABLE} as of version 2.5.
-     * </p>
      *
      * @return the child plans
      */

@@ -31,8 +31,7 @@ import java.util.UUID;
  * the record; the UUID is assigned once, when the vector is inserted, and is then carried unchanged through every
  * later write.
  *
- * <p>
- * The UUID exists so stale copies can be <em>detected and filtered</em> rather than hunted down. A single vector lives
+ * <p>The UUID exists so stale copies can be <em>detected and filtered</em> rather than hunted down. A single vector lives
  * in several physical places at once — a primary copy in its home cluster plus replicated copies scattered across
  * neighboring clusters — and every copy belonging to one generation carries that generation's UUID. Maintenance
  * (moving a primary to a nearer cluster, adding or pruning replicas during split/merge/reassign) always carries the
@@ -41,8 +40,7 @@ import java.util.UUID;
  * key: updating a record re-inserts its vector under a new UUID and overwrites the authoritative per-record
  * {@link VectorMetadata} (keyed by primary key) to point at that new generation.
  *
- * <p>
- * The previous generation's copies ought to be deleted, but nothing keeps an exhaustive index of where a vector's
+ * <p>The previous generation's copies ought to be deleted, but nothing keeps an exhaustive index of where a vector's
  * replicas landed, and delete only probes a bounded number of nearest clusters (see
  * {@link Config#deleteMaxCandidateClusters()}) — both replication and delete are approximate — so earlier-generation
  * copies might generally linger. Correctness does not hinge on removing them: because {@link VectorMetadata} records
@@ -50,8 +48,7 @@ import java.util.UUID;
  * dropped, both at search time and during the reassign/split/merge clean-up path. The primary key alone cannot serve
  * this role, since every generation of the record shares it.
  *
- * <p>
- * {@code VectorId} implements {@link Comparable} only to give the distance- and replication-priority comparators used
+ * <p>{@code VectorId} implements {@link Comparable} only to give the distance- and replication-priority comparators used
  * across this package a total, deterministic tie-breaker (they sort by their real key, then fall back to the id).
  * Ordering by UUID is otherwise arbitrary and carries no semantic meaning; it exists so those sorts come out total and
  * reproducible.

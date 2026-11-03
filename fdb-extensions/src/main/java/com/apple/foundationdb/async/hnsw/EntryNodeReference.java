@@ -29,8 +29,8 @@ import java.util.Objects;
 
 /**
  * Represents an entry reference to a node within a hierarchical graph structure.
- * <p>
- * This class extends {@link NodeReferenceWithVector} by adding a {@code layer}
+ *
+ * <p>This class extends {@link NodeReferenceWithVector} by adding a {@code layer}
  * attribute. It is used to encapsulate all the necessary information for an
  * entry point into a specific layer of the graph, including its unique identifier
  * (primary key), its vector representation, and its hierarchical level.
@@ -40,8 +40,8 @@ class EntryNodeReference extends NodeReferenceWithVector {
 
     /**
      * Constructs a new reference to an entry node.
-     * <p>
-     * This constructor initializes the node with its primary key, its associated vector,
+     *
+     * <p>This constructor initializes the node with its primary key, its associated vector,
      * and the specific layer it belongs to within a hierarchical graph structure. It calls the
      * superclass constructor to set the {@code primaryKey} and {@code vector}.
      *
@@ -70,8 +70,8 @@ class EntryNodeReference extends NodeReferenceWithVector {
 
     /**
      * Compares this {@code EntryNodeReference} to the specified object for equality.
-     * <p>
-     * The result is {@code true} if and only if the argument is an instance of {@code EntryNodeReference}, the
+     *
+     * <p>The result is {@code true} if and only if the argument is an instance of {@code EntryNodeReference}, the
      * superclass's {@link #equals(Object)} method returns {@code true}, and the {@code layer} fields of both objects
      * are equal.
      * @param o the object to compare this {@code EntryNodeReference} against.
@@ -87,8 +87,8 @@ class EntryNodeReference extends NodeReferenceWithVector {
 
     /**
      * Generates a hash code for this object.
-     * <p>
-     * The hash code is computed by combining the hash code of the superclass with the hash code of the {@code layer}
+     *
+     * <p>The hash code is computed by combining the hash code of the superclass with the hash code of the {@code layer}
      * field. This implementation is consistent with the contract of {@link Object#hashCode()}.
      * @return a hash code value for this object.
      */

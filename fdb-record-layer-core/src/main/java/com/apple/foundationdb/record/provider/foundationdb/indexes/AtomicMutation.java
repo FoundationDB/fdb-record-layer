@@ -75,7 +75,7 @@ public interface AtomicMutation {
     /**
      * Determine whether this type aggregates values (as opposed to something like counting records).
      *
-     * The values are specified in the grouped part of the {@link com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression}.
+     * <p>The values are specified in the grouped part of the {@link com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression}.
      * @return {@code true} if values are allowed
      */
     boolean hasValues();
@@ -95,7 +95,7 @@ public interface AtomicMutation {
     /**
      * Determine whether this type allows negative values.
      *
-     * If negative values are not allowed, an exception is thrown when a record is saved that contains a negative
+     * <p>If negative values are not allowed, an exception is thrown when a record is saved that contains a negative
      * value in the indexed field.
      * @return {@code true} if negative values are allowed
      */

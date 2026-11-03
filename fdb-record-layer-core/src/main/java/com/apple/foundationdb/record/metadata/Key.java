@@ -103,8 +103,7 @@ public class Key {
          * If fanType is Concatenate or None, this expression will only create 1 index entry. If it is FanOut it will
          * create 1 index entry per value of the field.
          *
-         * <p>
-         * This also takes a {@link Evaluated.NullStandin} value to describe the field's behavior when it encounters an
+         * <p>This also takes a {@link Evaluated.NullStandin} value to describe the field's behavior when it encounters an
          * unset field. If the value is {@link Evaluated.NullStandin#NOT_NULL NOT_NULL}, it will use the field's default
          * value instead of {@code null}. If the value is {@link Evaluated.NullStandin#NULL NULL}, it will return the
          * value {@code null} and disable any uniqueness checks (if the index is a {@linkplain IndexOptions#UNIQUE_OPTION unique}
@@ -115,7 +114,6 @@ public class Key {
          * whether a field can be {@code null} or not. For this reason, there are plans to move this expression from
          * the field to meta-data on the {@link RecordType}. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/677">Issue #677</a>
          * for more details.
-         * </p>
          *
          * @param name the name of the field to evaluate
          * @param fanType the way that repeated fields should be handled
@@ -213,7 +211,7 @@ public class Key {
         /**
          * Index key and value from a {@code map}.
          *
-         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
          * @param name name of the map field
          * @return a new expression which evaluates to the key and value pairs of the given {@code map} field.
@@ -226,7 +224,7 @@ public class Key {
         /**
          * Index key from a {@code map}.
          *
-         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
          * @param name name of the map field
          * @return a new expression which evaluates to the values of the given {@code map} field.
@@ -239,7 +237,7 @@ public class Key {
         /**
          * Index value from a {@code map}.
          *
-         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
          * @param name name of the map field
          * @return a new expression which evaluates to the values of the given {@code map} field.
@@ -252,10 +250,10 @@ public class Key {
         /**
          * Index value and key from a {@code map}.
          *
-         * Like {@link #mapKeyValues}, but with the key and value field order reversed. This allows queries
+         * <p>Like {@link #mapKeyValues}, but with the key and value field order reversed. This allows queries
          * such as equality on the value and inequality on the key or equality on the value ordered by the key.
          *
-         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
          * @param name name of the map field
          * @return a new expression which evaluates to the value and key pairs of the given {@code map} field.

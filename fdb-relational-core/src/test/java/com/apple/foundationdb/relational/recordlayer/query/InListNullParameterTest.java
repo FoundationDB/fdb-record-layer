@@ -35,8 +35,8 @@ import java.sql.Types;
 /**
  * An IN list holding a named parameter that is bound to NULL. This is the shape a client sends, since a client binds
  * values rather than writing literals, so it matters more in practice than a NULL written into the query text.
- * <br>
- * A list holding a parameter is not an all-constant list — the grammar lists a prepared parameter as its own
+ *
+ * <p>A list holding a parameter is not an all-constant list — the grammar lists a prepared parameter as its own
  * expression atom — so it is built by the array constructor at run time rather than coalesced into one array literal.
  * The element only turns out to be null while the query runs, which used to reach an {@code ImmutableList} and come
  * back as a bare {@code NullPointerException}.

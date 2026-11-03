@@ -44,7 +44,7 @@ import java.util.function.Function;
  * This class encapsulates mappings between {@link CorrelationIdentifier}s and helpers to create and maintain
  * these mappings.
  *
- * While various operations or in general algorithms traverse the query graph(s) it is important to keep track of
+ * <p>While various operations or in general algorithms traverse the query graph(s) it is important to keep track of
  * what alias (of a quantifier) should be considered to what other alias (of another quantifier). A quantifier
  * ({@link Quantifier} is referred to via {@link CorrelationIdentifier}. In this way there are no direct pointers
  * to objects which is desirable while the graph is mutated through transformations. At various points during
@@ -52,13 +52,13 @@ import java.util.function.Function;
  * sub-graph. Similarly, we may want to determine whether a sub-graph is already properly memoized or not. In general,
  * we need to determine if and how two sub-graphs are related to each other (usually equality but also subsumption, etc.)
  *
- * All of that is rather straightforward if both sub-graphs are completely uncorrelated and therefore independent of
+ * <p>All of that is rather straightforward if both sub-graphs are completely uncorrelated and therefore independent of
  * each other, or if they are correlated to a mutually external parameter. In these cases the {@code AliasMap} implemented
  * here would effectively be trivial, i.e. the map would be conceptually mapping identifiers to themselves.
  *
- * There are cases, however, that need some care to establish more complex relationships such as those mentioned above.
+ * <p>There are cases, however, that need some care to establish more complex relationships such as those mentioned above.
  *
- * Example 1:
+ * <p>Example 1:
  *    sub graph 1
  *    <pre>
  *    {@code
@@ -66,14 +66,14 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *    sub graph 2
+ * <p>sub graph 2
  *    <pre>
  *    {@code
  *        SELECT T.* FROM T WHERE T.x = c2
  *    }
  *    </pre>
  *
- *    We wold like to establish, if these graphs are equal or not. Both of them are not complete; that is, we wouldn't
+ * <p>We wold like to establish, if these graphs are equal or not. Both of them are not complete; that is, we wouldn't
  *    be able to execute them as-is. The graphs can only be equal with respect to a particular relationship between
  *    {@code c1} and {@code c2}.
  *
@@ -83,14 +83,14 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *    is the same as
+ * <p>is the same as
  *    <pre>
  *    {@code
  *            SELECT * FROM R AS c2, (SELECT T.* FROM T WHERE T.x = c2)
  *    }
  *    </pre>
  *
- *    whereas
+ * <p>whereas
  *
  *    <pre>
  *    {@code
@@ -98,7 +98,7 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *        is definitely not the same as
+ * <p>is definitely not the same as
  *
  *    <pre>
  *    {@code
@@ -106,12 +106,12 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *    In short, a sub-graph can only be considered equal to another sub-graph if we assume an equality over their
+ * <p>In short, a sub-graph can only be considered equal to another sub-graph if we assume an equality over their
  *    correlated references. If we view a correlated expression as a function of its correlations, then two sub-graph
  *    are equivalent if and only if they are identically equal (i.e., equal on their entire domain) when viewed as
  *    functions.
  *
- * Example 2:
+ * <p>Example 2:
  *    sub graph 1
  *    <pre>
  *    {@code
@@ -119,14 +119,14 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *    sub graph 2
+ * <p>sub graph 2
  *    <pre>
  *    {@code
  *        SELECT T.* FROM T WHERE T.x = c2 AND T.y = c1
  *    }
  *    </pre>
  *
- *    This scenario is somewhat more complicated as it offers more degrees of freedom.
+ * <p>This scenario is somewhat more complicated as it offers more degrees of freedom.
  *
  *    <pre>
  *    {@code
@@ -134,7 +134,7 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *        is the same as
+ * <p>is the same as
  *
  *    <pre>
  *    {@code
@@ -142,7 +142,7 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- *    This observation is identical to the one in example 1. Due to the commutative nature we also would like to
+ * <p>This observation is identical to the one in example 1. Due to the commutative nature we also would like to
  *    be able to realize that even this is the same:
  *
  *    <pre>
@@ -151,14 +151,14 @@ import java.util.function.Function;
  *    }
  *    </pre>
  *
- * In any case we need to keep track of what's currently considered bound and equal while we traverse the query graph.
+ * <p>In any case we need to keep track of what's currently considered bound and equal while we traverse the query graph.
  * When we descend into correlated sub-graphs during an algorithm while we e.g. compute a function like
  * {@link Correlated#semanticEquals} we need to have all outside references bound and mapped in some way: should we treat
  * {@code c1} on the left as {@code c2} on the right or the other way around? It is the job of an object of this class
  * to facilitate the construction and the lookup of these mappings. Algorithms walking the graph make use of this map,
  * construct and reconstruct assumed equality while traversing variation (such as permutations) of possible mappings.
  *
- * This class is immutable, all perceived "mutations" cause a new object to be created.
+ * <p>This class is immutable, all perceived "mutations" cause a new object to be created.
  *
  */
 public class AliasMap {

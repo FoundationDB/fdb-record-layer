@@ -160,15 +160,14 @@ import java.util.stream.Collectors;
 /**
  * A multi-type record store.
  *
- * By default, this uses Protobuf dynamic messages to process records. However, one can specify a custom {@link RecordSerializer}
+ * <p>By default, this uses Protobuf dynamic messages to process records. However, one can specify a custom {@link RecordSerializer}
  * such as a {@link com.apple.foundationdb.record.provider.common.MessageBuilderRecordSerializer MessageBuilderRecordSerializer}
  * or a {@link com.apple.foundationdb.record.provider.common.TransformedRecordSerializer TransformedRecordSerializer} to use
  * as an alternative. Unlike the serializers used by an {@link FDBTypedRecordStore} which only need to be able to process records
  * of the appropriate record type, the provided serializer must be able to serialize and deseralize all record types specified by
  * the record store's {@link RecordMetaData}.
  *
- * <p>
- * <b>Warning</b>: It is unsafe to create and use two {@code FDBRecordStore}s concurrently over the same {@link Subspace}
+ * <p><b>Warning</b>: It is unsafe to create and use two {@code FDBRecordStore}s concurrently over the same {@link Subspace}
  * within the context of a single transaction, i.e., with the same {@link FDBRecordContext}. This is because the {@code FDBRecordStore}
  * object maintains state about certain uncommitted operations, and concurrent access through two objects will not see
  * changes to this in-memory state. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>
@@ -176,7 +175,6 @@ import java.util.stream.Collectors;
  * {@link #getUntypedRecordStore()} will share an {@code FDBRecordStore} with the record store on which they are called,
  * so it <em>is</em> safe to have a typed- and untyped-record store open over the same {@code Subspace} within the context
  * of the same transaction if one uses one of those methods.
- * </p>
  *
  * @see FDBRecordStoreBase
  */
@@ -375,9 +373,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Get the storage format version currently in use for this record store.
      *
-     * After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format stored in the store's info header.
+     * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format stored in the store's info header.
      *
-     * Index maintainers can use this to determine what format to expect / produce.
+     * <p>Index maintainers can use this to determine what format to expect / produce.
      * @return the storage format version
      */
     @Deprecated(forRemoval = true)
@@ -387,10 +385,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Get the {@link FormatVersion} currently in use for this record store.
-     * <p>
-     *     After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format
+     *
+     * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format
      *     stored in the store's info header.
-     * </p>
+     *
      * @return the {@link FormatVersion} currently in use for this record store.
      */
     @API(API.Status.INTERNAL)
@@ -401,9 +399,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Get the user version currently in use for this record store.
      *
-     * After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the value stored in the store's info header.
+     * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the value stored in the store's info header.
      *
-     * This version is returned from {@link UserVersionChecker#checkUserVersion} and does not have any meaning within the Record Layer core.
+     * <p>This version is returned from {@link UserVersionChecker#checkUserVersion} and does not have any meaning within the Record Layer core.
      * @return the user format version
      */
     public int getUserVersion() {
@@ -1932,14 +1930,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * data this will delete the store's header and therefore will remove any evidence that
      * the store existed.
      *
-     * <p>
-     * This method does not read the underlying record store, so it does not validate
+     * <p>This method does not read the underlying record store, so it does not validate
      * that a record store exists in the given subspace. As it might be the case that
      * this record store has a cacheable store state (see {@link #setStateCacheability(boolean)}),
      * this method resets the database's
      * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data version-stamp}.
      * As a result, calling this method may cause other clients to invalidate their caches needlessly.
-     * </p>
      *
      * @param context the transactional context in which to delete the record store
      * @param subspace the subspace containing the record store
@@ -1974,8 +1970,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * data this will delete the store's header and therefore will remove any evidence that
      * the store existed.
      *
-     * <p>
-     * This method reads only the record store's header key (see {@link #STORE_INFO_KEY}) in
+     * <p>This method reads only the record store's header key (see {@link #STORE_INFO_KEY}) in
      * order to decide whether it needs to invalidate cached state. If a header is present and
      * marks the store as {@linkplain #setStateCacheability(boolean) cacheable}, the database's
      * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data
@@ -1983,7 +1978,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * missing (store doesn't exist) or marks the store as non-cacheable, the version-stamp is
      * not touched. This means callers who only ever operate on non-cacheable stores do not
      * contend on the single meta-data version-stamp key.
-     * </p>
      *
      * @param context the transactional context in which to delete the record store
      * @param subspace the subspace containing the record store
@@ -2701,13 +2695,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * mark the new indexes as write-only. It is then up to the client to start online index
      * build jobs to build those indexes.
      *
-     * This will also apply the passed {@link UserVersionChecker} instance to check the user-defined
+     * <p>This will also apply the passed {@link UserVersionChecker} instance to check the user-defined
      * version. The result of this check will be handled the same as with meta-data version changes, i.e.,
      * if the user version is newer than the stored version, then version is updated. If the user
      * version is older than the stored version, it will throw an exception about the stale user
      * version. If the two versions are the same, it will do nothing.
      *
-     * This will return a future that will either complete exceptionally (in the case of a stale
+     * <p>This will return a future that will either complete exceptionally (in the case of a stale
      * user or meta-data) or will complete with <code>true</code> if the version was changed
      * because the record store had an old version or <code>false</code> if no change to the
      * store was done.
@@ -3330,15 +3324,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * explicit call to {@link #checkVersion(UserVersionChecker, StoreExistenceCheck)} or during
      * {@link Builder#createOrOpen()} or its variants).
      *
-     * <p>
-     * Note that some care must be taken when changing this value. In particular, if there are multiple
+     * <p>Note that some care must be taken when changing this value. In particular, if there are multiple
      * processes trying to concurrently access the same stores, and some are configured with {@link #CACHEABLE}
      * while others are configured with {@link #NOT_CACHEABLE}, then different instances can end up stepping
      * on each other, switching the value of the flag every time. It is therefore advised that to switch between
      * {@link #NOT_CACHEABLE} and {@link #CACHEABLE} (unless one can take an outage in order to change this value
      * in one deployment) to first roll out a change from {@link #NOT_CACHEABLE} to {@link #DEFAULT}, and then to
      * roll out a second change from {@link #DEFAULT} to {@link #CACHEABLE}.
-     * </p>
      *
      * @see #setStateCacheabilityAsync(boolean)
      * @see com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCache
@@ -3467,13 +3459,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * information from the header does not require any additional communication with database assuming that
      * the record store has already been initialized. As a result, this is not a blocking call.
      *
-     * <p>
-     * Using this feature also requires that the record store be on format version {@link #HEADER_USER_FIELDS_FORMAT_VERSION}
+     * <p>Using this feature also requires that the record store be on format version {@link #HEADER_USER_FIELDS_FORMAT_VERSION}
      * or higher. There is no change to the on-disk format version from the previous format version except that
      * extra fields in the store header were added. No data migration is necessary to upgrade to that version if
      * an existing store is on the previous format version, but the new version is used to prevent the user from serializing
      * data and then not being able to read it from instances running an older version of the Record Layer.
-     * </p>
      *
      * @param userField the name of the user-settable field to read
      * @return the value of that field in the header or {@code null} if it is unset
@@ -3509,9 +3499,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * to migrate from one record type to another, the user might include a field with a value that indicates whether
      * that migration has completed.
      *
-     * <p>
-     * Note that there are a few potential pitfalls that adopters of this API should be aware of:
-     * </p>
+     * <p>Note that there are a few potential pitfalls that adopters of this API should be aware of:
      * <ul>
      *     <li>
      *         Because all operations to a single record store must read the store header, every time the
@@ -3526,31 +3514,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *     </li>
      * </ul>
      *
-     * <p>
-     * The value of these fields are simple byte arrays, so the user is free to choose their own serialization
+     * <p>The value of these fields are simple byte arrays, so the user is free to choose their own serialization
      * format for the value included in this field. One recommended strategy is for the user to use Protobuf to
      * serialize a message with possibly multiple keys and values, each with meaning to the user, and then to
      * write it to a single user field (or a small number if appropriate). This decreases the total size of
      * the user fields when compared to something like storing one user-field for each field (as the Protobuf
      * serialization format is more compact), and it allows the user to follow standard Protobuf evolution
      * guidelines as these fields evolve.
-     * </p>
      *
-     * <p>
-     * Once set, the value of these fields can be retrieved by calling {@link #getHeaderUserField(String)}. They
+     * <p>Once set, the value of these fields can be retrieved by calling {@link #getHeaderUserField(String)}. They
      * can be cleared by calling {@link #clearHeaderUserFieldAsync(String)}. Within a given transaction, updates
      * to the header fields should be visible through {@code getHeaderUserField()} (that is, the header user fields
      * support read-your-writes within a transaction), but the context associated with this store must be committed
      * for other transactions to see the update.
-     * </p>
      *
-     * <p>
-     * Using this feature also requires that the record store be on format version {@link #HEADER_USER_FIELDS_FORMAT_VERSION}
+     * <p>Using this feature also requires that the record store be on format version {@link #HEADER_USER_FIELDS_FORMAT_VERSION}
      * or higher. There is no change to the on-disk format version from the previous format version except that
      * extra fields in the store header were added. No data migration is necessary to upgrade to that version if
      * an existing store is on the previous format version, but the new version is used to prevent the user from serializing
      * data and then not being able to read it from instances running an older version of the Record Layer.
-     * </p>
      *
      * @param userField the name of the user-settable field to write
      * @param value the value to set the field to
@@ -3662,14 +3644,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Update the RecordCount to have a new state.
-     * <p>
-     *     The state can go from {@code READABLE} to {@code WRITE_ONLY}, which is mostly useful to validate that if you
+     *
+     * <p>The state can go from {@code READABLE} to {@code WRITE_ONLY}, which is mostly useful to validate that if you
      *     drop the {@link RecordMetaData#getRecordCountKey() recordCountKey} from the metadata, it won't have adverse
      *     affects.
      *     The state can always be set to {@code DISABLED}, at which point there is no way to any other state. This
      *     limitation exists, in large part, because there is not a way to rebuild the count across indexes, and since
      *     it is long deprecated, investing in that doesn't make sense.
-     * </p>
+     *
      * @param newState the new state to update it to.
      * @return a future once that completes once the state is updated, and the data is cleared.
      */
@@ -4942,13 +4924,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * successful completion, the index is marked as {@linkplain IndexState#READABLE readable} and can
      * be used to satisfy queries.
      *
-     * <p>
-     * Because the operations all occur within a single transaction, for larger record stores,
+     * <p>Because the operations all occur within a single transaction, for larger record stores,
      * this operation can run into transaction size and time limits. (See:
      * <a href="https://apple.github.io/foundationdb/known-limitations.html">FoundationDB Known Limitations</a>.)
      * To build an index on such a record store, the user should use the {@link OnlineIndexer}, which
      * breaks up work across multiple transactions to avoid those limits.
-     * </p>
      *
      * @param index the index to rebuild
      * @return a future that will complete when the index build has finished
@@ -5584,14 +5564,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * rebuilding the index for records in certain primary key ranges) more evenly so that they can be executed in a
      * parallel fashion efficiently. The returned boundaries are an estimate from FDB's locality API and may not
      * represent the exact boundary locations at any database version.
-     * <p>
-     * The boundaries are returned as a cursor which is sorted and does not contain any duplicates. The first element of
+     *
+     * <p>The boundaries are returned as a cursor which is sorted and does not contain any duplicates. The first element of
      * the list is greater than or equal to <code>low</code>, and the last element is less than or equal to
      * <code>high</code>.
-     * <p>
-     * This implementation may not work when there are too many shard boundaries to complete in a single transaction.
-     * <p>
-     * Note: the returned cursor is blocking and must not be used in an asynchronous context
+     *
+     * <p>This implementation may not work when there are too many shard boundaries to complete in a single transaction.
+     *
+     * <p>Note: the returned cursor is blocking and must not be used in an asynchronous context
      *
      * @param low low endpoint of primary key range (inclusive)
      * @param high high endpoint of primary key range (exclusive)
@@ -5818,7 +5798,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * A builder for {@link FDBRecordStore}.
      *
-     * Methods for getting a record store from the builder:
+     * <p>Methods for getting a record store from the builder:
      * <ul>
      * <li>{@link #createOrOpen}: open an existing record store or create it the first time.</li>
      * <li>{@link #open}: open an existing record store or throw an exception if it has never been created.</li>
@@ -6263,13 +6243,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         /**
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
          * the store, and fill in the missing header.
-         * <p>
-         * If it is possible that multiple different instances have a different idea of any of the versions
+         *
+         * <p>If it is possible that multiple different instances have a different idea of any of the versions
          * ({@linkplain #setFormatVersion format version}, {@linkplain RecordMetaData#getVersion() metaData version}, or
          * {@linkplain #getUserVersion() user version}), ensure that this builder is created with the maximal option for each.
-         * </p>
-         * <p>
-         *     In addition to setting the formatVersion, userVersion and metaDataVersion, this will:
+         *
+         * <p>In addition to setting the formatVersion, userVersion and metaDataVersion, this will:
          *     <ul>
          *         <li>
          *             Disable all indexes, since we cannot universally determine whether they have been added or
@@ -6307,7 +6286,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             and then update it to at least that value. Once that is complete the store can be unlocked.
          *         </li>
          *     </ul>
-         * </p>
          *
          * @param userVersion the user version to set in the store header
          * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly

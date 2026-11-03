@@ -85,10 +85,9 @@ public class LuceneIndexTestDataModel {
     final Function<FDBRecordContext, FDBRecordStore> schemaSetup;
     /**
      * A mapping from groupingKey to primary key to the partitioning key.
-     * <p>
-     *     The reason that the value of the inner map is the partitioning key is so that we can order them and then
+     *
+     * <p>The reason that the value of the inner map is the partitioning key is so that we can order them and then
      *     slice to get the expected partitioning.
-     * </p>
      */
     final ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey;
     private final ConcurrentMap<Tuple, RecordUnderTest> recordsUnderTest;
@@ -532,11 +531,11 @@ public class LuceneIndexTestDataModel {
 
         /**
          * Create a new {@link LuceneIndexTestDataModel} as per the settings here.
-         * <p>
-         *     If this is called multiple times, without calling any setters in-between, it will use the same
+         *
+         * <p>If this is called multiple times, without calling any setters in-between, it will use the same
          *     {@link RecordMetaData}, but use a new path.
          *     The new data model will have it's own records that it is tracking.
-         * </p>
+         *
          * @return a new {@link LuceneIndexTestDataModel}
          */
         public LuceneIndexTestDataModel build() {

@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 /**
  * Functional equivalent of {@code InterruptedException}.
  *
- * NOTE: When catching an {@code InterruptedException} and rethrowing as this wrapping exception, Java best practice
+ * <p>NOTE: When catching an {@code InterruptedException} and rethrowing as this wrapping exception, Java best practice
  * is to call {@code Thread.currentThread().interrupt()} so that the interrupt is not lost.
  */
 @API(API.Status.UNSTABLE)

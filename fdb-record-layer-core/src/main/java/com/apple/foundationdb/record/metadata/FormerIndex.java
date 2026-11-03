@@ -37,7 +37,7 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
 /**
  * The location where a deleted index used to live.
  *
- * Nothing is remembered about the index other than this, so that the now-unused range can be deleted when an older record store is upgraded to newer meta-data.
+ * <p>Nothing is remembered about the index other than this, so that the now-unused range can be deleted when an older record store is upgraded to newer meta-data.
  */
 @API(API.Status.UNSTABLE)
 public class FormerIndex {
@@ -70,7 +70,7 @@ public class FormerIndex {
     /**
      * Get the subspace key formerly occupied by the index.
      *
-     * This subspace will be cleared for record stores old enough to have seen the index.
+     * <p>This subspace will be cleared for record stores old enough to have seen the index.
      * @return the index subspace key
      */
     @Nonnull

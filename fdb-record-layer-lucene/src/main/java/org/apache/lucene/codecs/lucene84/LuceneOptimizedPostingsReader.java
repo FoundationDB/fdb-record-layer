@@ -56,7 +56,7 @@ import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_S
  * Concrete class that reads docId(maybe frq,pos,offset,payloads) list
  * with postings format.
  *
- * Borrowed from Lucene.
+ * <p>Borrowed from Lucene.
  * This implementation skips the reading and validation of checksums to limit the data required to be read to process a
  * query.
  *

@@ -40,19 +40,15 @@ import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 /**
- * <p>
  * This property traverses a {@link RelationalExpression} to find the total number of
  * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s associated with
  * {@link RelationalExpressionWithPredicates} implementations at each level of the expression tree.
- * </p>
- * <p>
- * Information about the number of predicates at each level of the tree is encoded in instances of
+ *
+ * <p>Information about the number of predicates at each level of the tree is encoded in instances of
  * {@link PredicateCountByLevelInfo}, which can be compared using the method {@link PredicateCountByLevelInfo#compare}
  * to determine which expression trees contain more predicates at a deeper level.
- * </p>
- * <p>
- * See also {@link PredicatePushDownRule}.
- * </p>
+ *
+ * <p>See also {@link PredicatePushDownRule}.
  */
 public class PredicateCountByLevelProperty implements ExpressionProperty<PredicateCountByLevelProperty.PredicateCountByLevelInfo> {
     @Nonnull
@@ -98,16 +94,13 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
     }
 
     /**
-     * <p>
      * An object that contains information about the number of query predicates at each level
      * of a {@link RelationalExpression} tree. Level numbers in instances of this class
      * start from 0 for leaf nodes and increase towards the root, with the root node having the highest
      * level number, which can be retrieved via {@link #getHighestLevel()}.
-     * </p>
-     * <p>
-     * Instances of this class are can be created for a {@link RelationalExpression} using the method
+     *
+     * <p>Instances of this class are can be created for a {@link RelationalExpression} using the method
      * {@link PredicateCountByLevelProperty#evaluate(RelationalExpression)}.
-     * </p>
      */
     public static final class PredicateCountByLevelInfo {
         private final ImmutableSortedMap<Integer, Integer> levelToPredicateCount;
@@ -132,14 +125,11 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
         }
 
         /**
-         * <p>
          * Get a view of the query predicate count at each level as a {@link SortedMap}.
-         * </p>
-         * <p>
-         * Level heights, which are the keys of the returned {@link SortedMap}, start from 0 for leaf nodes in the
+         *
+         * <p>Level heights, which are the keys of the returned {@link SortedMap}, start from 0 for leaf nodes in the
          * {@link RelationalExpression} used to create this instance, and increase towards the root, with the root node
          * having the highest level number.
-         * </p>
          *
          * @return a {@link SortedMap} of level heights to the count of query predicates at that level.
          */
@@ -159,18 +149,16 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
         }
 
         /**
-         * <p>
          * Compares two {@link PredicateCountByLevelInfo} instances level by level.
-         * </p>
-         * <p>
-         * This comparison is done by comparing the number of
+         *
+         * <p>This comparison is done by comparing the number of
          * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s at each level recorded
          * within the provided {@link PredicateCountByLevelInfo} instances, starting from the deepest level (representing
          * the leaf nodes of the {@link RelationalExpression} tree used to create those instances) to the highest level
          * (representing the root node) and returns the integer comparison between the first non-equal query predicate
          * counts. If the number of query predicates is equal at each level, the integer comparison between the highest
          * level in each {@link PredicateCountByLevelInfo} instance is returned instead.
-         * </p>
+         *
          * @param a the first {@link PredicateCountByLevelInfo} to compare
          * @param b the second {@link PredicateCountByLevelInfo} to compare
          *

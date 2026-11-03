@@ -53,7 +53,7 @@ import java.util.Set;
  * A relational planner expression that represents an unimplemented sort on the records produced by its inner
  * relational planner expression.
  *
- * TODO BEGIN
+ * <p>TODO BEGIN
  * This class is somewhat flawed. There is a cousin of this class {@link LogicalSortExpression} which serves a similar
  * purpose conceptually but is still technically quite different. {@link LogicalSortExpression} serves as the logical
  * precursor to a physical implementation of a sort (which we do not (yet) have). So in order for the planner to produce
@@ -63,7 +63,7 @@ import java.util.Set;
  * simple question of how to express the thing(s) to sort on in general and what to do with nested repeated value in
  * particular.
  *
- * What should we be able to express when we express order? One thing we definitely want to sort by is a scalar
+ * <p>What should we be able to express when we express order? One thing we definitely want to sort by is a scalar
  * value that can be computed from the record or an index key that flows into the operator. On the contrary we should
  * not be able to sort by something like {@code field("a", FanOut)} as it really does not make sense
  * in this context. What does make sense is to say that you want the stream to be ordered by {@code field("a", FanOut)},
@@ -74,7 +74,7 @@ import java.util.Set;
  * how it flows and what operations have been applied to it since it was generated. There are other places where exactly
  * this is a problem as well. Specifically, for the sort expression, however, this problem manifests itself as:
  *
- * (1) Either the sort is expressed by using {@link KeyExpression}s. In that case, expressing a nested repeated value
+ * <p>(1) Either the sort is expressed by using {@link KeyExpression}s. In that case, expressing a nested repeated value
  *     in the sort expression itself does not make sense. Again, we should model such a case as a sort over an value
  *     that has been pre-produced by a cardinality-changing operator such as a physical variant of explode or by
  *     explicitly referring to and modelling the index keys that can flow along with the fetched record. Note that this
@@ -86,12 +86,12 @@ import java.util.Set;
  *     plan: {@code Sort(IndexScan(index), a [5, 10]), indexkey.a)}
  *     </pre>
  *
- *     i.e. we want to sort by the index key. We do not want to model that plan like
+ * <p>i.e. we want to sort by the index key. We do not want to model that plan like
  *     <pre>
  *     plan: {@code Sort(IndexScan(index), a [5, 10]), record.field("a", FanOut))}
  *     </pre>
  *
- *     where the sort expression (even only if conceptually) extracts the {@code a}s from the base records as the base
+ * <p>where the sort expression (even only if conceptually) extracts the {@code a}s from the base records as the base
  *     record at that moment already may contain duplicates of the base record due to using that index in the underlying
  *     scan.
  * (2) Alternatively, we can express the sort by using explicit index scan-provided values. You simply cannot sort by
@@ -102,7 +102,7 @@ import java.util.Set;
  *     base record. This also removes the requirement of the base record to be fetched and present at the the time the
  *     sort happens (conceptually) and allows for deferred-fetch optimizations.
  *
- * As a direct result of this we now have two different logical sort expressions. One, {@link LogicalSortExpression}
+ * <p>As a direct result of this we now have two different logical sort expressions. One, {@link LogicalSortExpression}
  * which expresses order by using {@link KeyExpression}s and which has the problems layed out in (1), and  one
  * {@link MatchableSortExpression} which expresses order by explicitly naming the constituent parts of an index.
  * In the future, we should strive to unify these two classes to one logical sort expression. For now, we have
@@ -110,7 +110,7 @@ import java.util.Set;
  * ({@link MatchableSortExpression}) on the match candidate side.
  * TODO END
  *
- * When it comes to matching this class does not (yet) subsume a {@link LogicalSortExpression} although it probably
+ * <p>When it comes to matching this class does not (yet) subsume a {@link LogicalSortExpression} although it probably
  * should be able to just for orthogonality of how rules can be applied and the search space for transformations
  * and matching is explored. As an expression of this class never transforms into a physical sort (even if
  * we had one, this expression would not be transformed into a a physical operator). In a sense this expression

@@ -83,7 +83,7 @@ public interface Table extends DirectScannable, AutoCloseable {
      * Directly validate that this table is suitable for the operations desired, using the specified
      * control options.
      *
-     * If this table is not valid for the options specified, a {@link RelationalException} is thrown.
+     * <p>If this table is not valid for the options specified, a {@link RelationalException} is thrown.
      *
      * @param options the options to use.
      * @throws RelationalException if the table is invalid for these options.

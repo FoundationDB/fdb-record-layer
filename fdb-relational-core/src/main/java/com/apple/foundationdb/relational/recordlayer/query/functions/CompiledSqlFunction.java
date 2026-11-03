@@ -55,8 +55,8 @@ import java.util.Optional;
  * This represents a compilable SQL function. If the function is a table function, it is modeled as a join between
  * the function body as defined by the user, and a constant row representing the list of arguments as given in the
  * call site.
- * <br>
- * Note that a SQL function is only compiled once, upon invocation, the call site is created representing the compiled
+ *
+ * <p>Note that a SQL function is only compiled once, upon invocation, the call site is created representing the compiled
  * function plan as a leg of a binary join, where
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

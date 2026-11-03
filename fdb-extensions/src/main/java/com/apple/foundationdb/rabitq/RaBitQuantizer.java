@@ -34,14 +34,14 @@ import java.util.PriorityQueue;
 /**
  * Implements the RaBit quantization scheme, a technique for compressing high-dimensional vectors into a compact
  * integer-based representation.
- * <p>
- * This class provides the logic to encode a {@link RealVector} into an {@link EncodedRealVector}.
+ *
+ * <p>This class provides the logic to encode a {@link RealVector} into an {@link EncodedRealVector}.
  * The encoding process involves finding an optimal scaling factor, quantizing the vector's components,
  * and pre-calculating values that facilitate efficient distance estimation in the quantized space.
  * It is configured with a specific {@link Metric} and a number of "extra bits" ({@code numExBits})
  * which control the precision of the quantization.
- * <p>
- * Note that this implementation largely follows this <a href="https://arxiv.org/pdf/2409.09913">paper</a>
+ *
+ * <p>Note that this implementation largely follows this <a href="https://arxiv.org/pdf/2409.09913">paper</a>
  * by Jianyang Gao et al. It also mirrors algorithmic similarity, terms, and variable/method naming-conventions of the
  * C++ implementation that can be found <a href="https://github.com/VectorDB-NTU/RaBitQ-Library">here</a>.
  *
@@ -65,8 +65,8 @@ public final class RaBitQuantizer implements Quantizer {
 
     /**
      * Constructs a new {@code RaBitQuantizer} instance.
-     * <p>
-     * This constructor initializes the quantizer with a specific metric and the number of
+     *
+     * <p>This constructor initializes the quantizer with a specific metric and the number of
      * extra bits to be used in the quantization process.
      *
      * @param metric the {@link Metric} to be used for quantization; must not be null.
@@ -86,8 +86,8 @@ public final class RaBitQuantizer implements Quantizer {
 
     /**
      * Creates and returns a new {@link RaBitDistanceEstimator} instance.
-     * <p>
-     * This method acts as a factory, constructing the estimator based on the
+     *
+     * <p>This method acts as a factory, constructing the estimator based on the
      * {@code metric} and {@code numExBits} configuration of this object.
      * The {@code @Override} annotation indicates that this is an implementation
      * of a method from a superclass or interface.
@@ -102,8 +102,8 @@ public final class RaBitQuantizer implements Quantizer {
 
     /**
      * Encodes a given {@link RealVector} into its corresponding encoded representation.
-     * <p>
-     * This method overrides the parent's {@code encode} method. It delegates the
+     *
+     * <p>This method overrides the parent's {@code encode} method. It delegates the
      * core encoding logic to an internal helper method and returns the final
      * {@link EncodedRealVector}.
      *
@@ -122,8 +122,8 @@ public final class RaBitQuantizer implements Quantizer {
 
     /**
      * Encodes a real-valued vector into a quantized representation.
-     * <p>
-     * This is an internal method that performs the core encoding logic. It first
+     *
+     * <p>This is an internal method that performs the core encoding logic. It first
      * generates a base code using {@link #exBitsCode(RealVector)}, then incorporates
      * sign information to create the final code. It precomputes various geometric
      * properties (norms, dot products) of the original vector and its quantized
@@ -273,14 +273,14 @@ public final class RaBitQuantizer implements Quantizer {
 
     /**
      * Calculates the best rescaling factor {@code t} for a given vector of absolute values.
-     * <p>
-     * This method implements an efficient algorithm to find a scaling factor {@code t}
+     *
+     * <p>This method implements an efficient algorithm to find a scaling factor {@code t}
      * that maximizes an objective function related to the quantization of the input vector.
      * The objective function being maximized is effectively
      * {@code sum(u_i * o_i) / sqrt(sum(u_i^2 + u_i))}, where {@code u_i = floor(t * o_i)}
      * and {@code o_i} are the components of the input vector {@code oAbs}.
-     * <p>
-     * The algorithm performs a sweep over the scaling factor {@code t}. It uses a
+     *
+     * <p>The algorithm performs a sweep over the scaling factor {@code t}. It uses a
      * min-priority queue to efficiently jump between critical values of {@code t} where
      * the floor of {@code t * o_i} changes for some coordinate {@code i}. The search is
      * bounded within a pre-calculated "tight" range {@code [tStart, tEnd]} to ensure
@@ -373,8 +373,8 @@ public final class RaBitQuantizer implements Quantizer {
 
     /**
      * Computes a new vector containing the element-wise absolute values of the L2-normalized input vector.
-     * <p>
-     * This operation is equivalent to first normalizing the vector {@code x} by its L2 norm,
+     *
+     * <p>This operation is equivalent to first normalizing the vector {@code x} by its L2 norm,
      * and then taking the absolute value of each resulting component. If the L2 norm of {@code x}
      * is zero or not finite (e.g., {@link Double#POSITIVE_INFINITY}), a new zero vector of the
      * same dimension is returned.

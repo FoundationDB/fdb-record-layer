@@ -40,8 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pins the RaBitQ wire format to a golden, machine-independent byte string, proving that encoding
  * does not depend on which vector backend ({@link com.apple.foundationdb.linear.Backend}, i.e.
  * scalar vs SIMD) happens to be active.
- * <p>
- * This is the end-to-end guard behind the {@code …Exact} reductions in {@link RaBitQuantizer}: the
+ *
+ * <p>This is the end-to-end guard behind the {@code …Exact} reductions in {@link RaBitQuantizer}: the
  * three calibration constants ({@code fAddEx}/{@code fRescaleEx}/{@code fErrorEx}) and the
  * per-dimension quantized codes are serialized verbatim and hashed into a content signature used
  * for duplicate detection. If any of the underlying reductions leaked through the ambient SIMD
@@ -49,8 +49,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@link Tag @Tag}({@link Tags#DualScalarSIMD}) runs this class under both the SIMD {@code test}
  * task and the scalar {@code scalarFallbackTest} task, both runs must reproduce the <em>same</em>
  * golden — which is exactly the cross-backend invariant we want.
- * <p>
- * The golden hexes were captured once from an encoder run; the exact reductions use plain IEEE-754
+ *
+ * <p>The golden hexes were captured once from an encoder run; the exact reductions use plain IEEE-754
  * arithmetic with a fixed accumulation order, so they are stable across CPUs and JVMs. If a
  * deliberate change to the encoding algorithm breaks these, re-capture the expected value from the
  * assertion failure's reported {@code actual} hex — but a break that appears only under one backend

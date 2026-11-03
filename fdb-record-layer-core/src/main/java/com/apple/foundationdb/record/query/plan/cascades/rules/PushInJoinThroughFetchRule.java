@@ -46,8 +46,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that pushes a {@link RecordQueryInJoinPlan} through a {@link RecordQueryFetchFromPartialRecordPlan}.
- * <br>
- * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
+ *
+ * <p>This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for
  * details.
  * <pre>

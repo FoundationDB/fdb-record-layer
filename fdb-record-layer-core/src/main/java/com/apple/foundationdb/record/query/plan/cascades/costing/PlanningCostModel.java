@@ -146,15 +146,15 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
     /**
      * Method to break a tie between a plan using singular index scan and one using a singular primary scan.
-     * <br>
-     * The problematic case this method tries to resolve is that:
+     *
+     * <p>The problematic case this method tries to resolve is that:
      *
      * <ul>
      *     <li>we have a scan plan that is not constraining the types of records (bad) but naturally does not need a fetch (good)</li>
      *     <li>we have an index scan that is constraining the records to one type (good) but needs a fetch (bad)</li>
      * </ul>
      *
-     * The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
+     * <p>The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
      * scan plan and the second parameter is assumed to be the index scan. We verify the assumption and return
      * {@code OptionalInt.empty()} if it does not hold true. This method is meant to be called using
      * {@link #flipFlop(Supplier, Supplier)} meaning that we will discover if the opposite holds true.

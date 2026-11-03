@@ -60,10 +60,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *     final FDBDatabaseExtension = new FDBDatabaseExtension();
  * }</pre>
  *
- * <p>
- * Because this extension creates a fresh {@link FDBDatabaseFactory} and a fresh {@link FDBDatabase} with each run,
+ * <p>Because this extension creates a fresh {@link FDBDatabaseFactory} and a fresh {@link FDBDatabase} with each run,
  * tests that use this extension are free to modify what would otherwise be global state on the factory or database.
- * </p>
  */
 public class FDBDatabaseExtension implements AfterEachCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseExtension.class);

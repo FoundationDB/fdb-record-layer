@@ -65,7 +65,7 @@ import java.util.stream.StreamSupport;
 /**
  * An asynchronous iterator that supports continuations.
  *
- * Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
+ * <p>Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
  * It differs in three primary respects:
  *
  * <ol>
@@ -90,13 +90,11 @@ import java.util.stream.StreamSupport;
  * </li>
  * </ol>
  *
- * <p>
- * When a cursor stops producing values, it can report why using a {@link NoNextReason}. This is returned as part of the
+ * <p>When a cursor stops producing values, it can report why using a {@link NoNextReason}. This is returned as part of the
  * final {@link RecordCursorResult}. No-next-reasons are fundamentally distinguished between those that are due to the data
  * itself (in-band) and those that are due to the environment / context (out-of-band). For example, running out of data
  * or having returned the maximum number of records requested are in-band, while reaching a limit on the number of
  * key-value pairs scanned by the transaction or the time that a transaction has been open are out-of-band.
- * </p>
  *
  * @param <T> the type of elements of the cursor
  */
@@ -128,7 +126,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * The limit on the amount of time that a scan can take was reached.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
-         * Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
+         * <p>Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
          * any actual records if a complex scan takes a lot of work to reach the requested records,
          * such as a query that does filtering.
          * @see ExecuteProperties.Builder#setTimeLimit(long)
@@ -140,7 +138,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * The limit on the number of records to scan was reached.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
-         * Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
+         * <p>Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
          * a scan retrieves many records that are discarded, such as by a filter or type filter.
          * @see ExecuteProperties.Builder#setScannedRecordsLimit(int)
          * @see RecordScanLimiter
@@ -398,13 +396,11 @@ public interface RecordCursor<T> extends AutoCloseable {
      * {@link ContinuationConvertor#wrapContinuation(RecordCursorContinuation) wrapContinuation}
      * method to each result.
      *
-     * <p>
-     * One common use case for this function is to allow the user to attach additional context to the
+     * <p>One common use case for this function is to allow the user to attach additional context to the
      * to the continuation that might come from the cursor execution environment. So the final cursor's
      * continuation might be a serialized data structure containing that context plus the original cursor's
      * continuation. The {@link ContinuationConvertor#unwrapContinuation(byte[])} should then be able to
      * extract the original cursor's continuation and use it to resume a copy of the original cursor.
-     * </p>
      *
      * @param cursorFunction a function that constructs a cursor based on the unwrapped continuation
      * @param convertor a convertor that can transform continuations
@@ -592,8 +588,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * resulting cursor can be resumed with the given continuation or started from the beginning if the continuation is
      * {@code null}.
      *
-     * <p>
-     * The {@code checker} function, if specified, allows the cursor to determine if the outer cursor has been resumed
+     * <p>The {@code checker} function, if specified, allows the cursor to determine if the outer cursor has been resumed
      * from a continuation to the same place where it left off the last time, and it is intended as a safety guarantee.
      * When computing the continuation, this is called on the current outer record and the result, if not <code>null</code>,
      * becomes part of the continuation. When this continuation is used, the function (presumably the same one) is called
@@ -603,7 +598,6 @@ public interface RecordCursor<T> extends AutoCloseable {
      * or a new record being inserted right before it (do full inner cursor, not partial based on previous).
      * If a null {@code checker} function is passed in, this check is skipped, and the cursor assumes the outer
      * cursor is correctly positioned.
-     * </p>
      *
      * @param outerFunc a function that takes the outer continuation and returns the outer cursor
      * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
@@ -914,13 +908,11 @@ public interface RecordCursor<T> extends AutoCloseable {
      * that is not guaranteed to have anyone wait on. For that reason, this should generally be preferred
      * to {@link #fromFuture(Executor, CompletableFuture, byte[])}.
      *
-     * <p>
-     * <em>Warning:</em> Using a {@link FutureCursor} here may lead to incorrect results if the underlying
+     * <p><em>Warning:</em> Using a {@link FutureCursor} here may lead to incorrect results if the underlying
      * future is backed by something that has some kind of state that should be included in the continuation.
      * For example, if the future is backed by a cursor that may stop for an out-of-band {@link NoNextReason},
      * it may be desirable to include the progress included in the underlying cursor in the final continuation.
      * That is not done by this class, so something more bespoke may be required.
-     * </p>
      *
      * @param executor an executor for executing the future
      * @param futureSupplier a supplier of a future that completes to the only element of the cursor

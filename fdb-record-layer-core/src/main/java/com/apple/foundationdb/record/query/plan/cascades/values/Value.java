@@ -116,8 +116,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * Iterates over the entire expression tree collecting a set of all dynamically-generated types.
      * A {@link Type} could be generated dynamically by a {@link Value} that e.g. encapsulates children {@link Type}s
      * into a single structured type such as a {@link Type.Record}.
-     * <br>
-     * For more information, check implementations of {@link CreatesDynamicTypesValue} interface.
+     *
+     * <p>For more information, check implementations of {@link CreatesDynamicTypesValue} interface.
      *
      * @return A set of dynamically-generated {@link Type} by this {@link Value} and all of its children.
      */
@@ -179,11 +179,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     /**
      * Checks whether this {@link Value} or any of its child values in the expression tree is an
      * {@link IndexOnlyValue}.
-     * <p>
-     * An index-only value is a scalar value that can only be fetched from an index and cannot be fetched from
+     *
+     * <p>An index-only value is a scalar value that can only be fetched from an index and cannot be fetched from
      * the base record nor computed on-the-fly. This method performs a pre-order traversal of the value expression
      * tree to determine if any node is marked as index-only.
-     * </p>
      *
      * @return {@code true} if this value or any of its children is an {@link IndexOnlyValue}, {@code false} otherwise.
      * @see IndexOnlyValue
@@ -278,7 +277,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * there is exactly one scalar result for this value (namely {@code 3}).*
      * </pre>
      *
-     * Note that if {@code x -> y} and {@code y -> z} then {@code x -> z} should hold. Note that this method attempts
+     * <p>Note that if {@code x -> y} and {@code y -> z} then {@code x -> z} should hold. Note that this method attempts
      * a best effort to establish the functional dependency relationship between the other value and this value. That
      * means that the caller cannot rely on a {@code false} result to deduce that this value is definitely not
      * dependent on {@code otherValue}.
@@ -298,21 +297,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     /**
      * Attempts to transform a comparison predicate involving this value into a specialized predicate that may
      * enable more efficient query execution through the use of specialized indexes or execution strategies.
-     * <p>
-     * This method provides a hook for {@link Value} implementations to participate in comparison transformation
+     *
+     * <p>This method provides a hook for {@link Value} implementations to participate in comparison transformation
      * during query planning. When a comparison predicate (e.g., {@code value <= constant}) is encountered, this
      * method can pattern-match the structure and potentially transform it into a more specialized form that the
      * query planner can optimize.
-     * </p>
-     * <p>
-     * <strong>Current Implementation:</strong><br>
+     *
+     * <p><strong>Current Implementation:</strong><br>
      * As of now, only {@link RowNumberValue} provides a non-trivial implementation of this method. It transforms
      * comparisons involving {@code ROW_NUMBER()} window functions ordered by distance metrics into specialized
      * {@link Comparisons.DistanceRankValueComparison} predicates that can leverage vector similarity indexes
      * (such as HNSW indexes) for efficient K-nearest neighbor searches.
-     * </p>
-     * <p>
-     * This transformation mechanism is somewhat nuanced and operates at the {@link Value} level rather than as
+     *
+     * <p>This transformation mechanism is somewhat nuanced and operates at the {@link Value} level rather than as
      * part of the systematic rewriting optimizer framework. While this approach provides immediate utility for
      * specific use cases (like HNSW-backed semantic search), it creates a fragmented transformation model:
      * <ul>
@@ -322,7 +319,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *   <li>There is no declarative specification of the transformation patterns</li>
      *   <li>Testing and debugging transformations requires examining individual {@link Value} classes</li>
      * </ul>
-     * </p>
+     *
      * @param comparisonType the type of comparison being performed (e.g., {@code EQUALS}, {@code LESS_THAN},
      *                       {@code LESS_THAN_OR_EQUALS}, etc.)
      * @param comparand the value being compared against (the right-hand side of the comparison)
@@ -708,8 +705,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * imposes if uses in an ordering context. In the process the simplification will also apply all regular
      * simplification rules in {@link DefaultValueSimplificationRuleSet}.
      * The idea is to also compute the simplified ordering information of this value.
-     * <br>
-     * Example 1:
+     *
+     * <p>Example 1:
      * <pre>
      *     {@code
      *         this: to_ordered_bytes(fieldValue(qov(q), a), "↓")
@@ -723,8 +720,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *         derived ordering part: fieldValue(qov(q), a)↑
      *     }
      * </pre>
-     * <br>
-     * By convention, but also depending on the callers use case, we treat the sort order of {@code this} or in
+     *
+     * <p>By convention, but also depending on the callers use case, we treat the sort order of {@code this} or in
      * other words the default or a sort order to be stemming from a forward scan of an index, that is, by convention
      * {@code fieldValue(qov(q), a)} has a sort order of {@code ↑}.
      * @param evaluationContext the evaluation context
@@ -873,33 +870,28 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     /**
      * A higher-order value representing a function that returns another function, enabling support for
      * second-order functions in SQL and the query planner.
-     * <p>
-     * This interface extends {@link CompileTimeOnlyValue} because higher-order functions are resolved and
+     *
+     * <p>This interface extends {@link CompileTimeOnlyValue} because higher-order functions are resolved and
      * applied during query compilation rather than at runtime. The resolution mechanism allows for flexible
      * function invocation patterns where functions can be partially applied or configured before being
      * invoked with their final arguments.
-     * </p>
-     * <p>
-     * Higher-order values have a result type of {@link Type#FUNCTION}, indicating that evaluating this value
+     *
+     * <p>Higher-order values have a result type of {@link Type#FUNCTION}, indicating that evaluating this value
      * produces another function rather than a scalar value. This allows for function composition and
      * partial application patterns commonly found in functional programming.
-     * </p>
-     * <p>
-     * When evaluated at compile-time using {@link #evalWithoutStore(EvaluationContext)}, a higher-order value
+     *
+     * <p>When evaluated at compile-time using {@link #evalWithoutStore(EvaluationContext)}, a higher-order value
      * returns a {@link BuiltInFunction} that can then be invoked with additional arguments.
-     * </p>
-     * <p>
-     * This interface is primarily used to support window functions like {@code ROW_NUMBER()} that can be
+     *
+     * <p>This interface is primarily used to support window functions like {@code ROW_NUMBER()} that can be
      * configured with runtime options before being applied to data. The higher-order nature allows these
      * functions to accept optional named parameters for configuration while maintaining SQL compatibility.
-     * </p>
-     * <p>
-     * The function resolver employs a fallback mechanism (similar to C++ SFINAE) when resolving higher-order
+     *
+     * <p>The function resolver employs a fallback mechanism (similar to C++ SFINAE) when resolving higher-order
      * functions. It attempts direct resolution first, and if that fails, it tries resolving the function
      * as a higher-order value and then applying additional arguments to the returned function. This
      * enables flexible syntax where {@code f(args)} and {@code f()(args)} can both work depending on
      * the function's definition.
-     * </p>
      *
      * @see CompileTimeOnlyValue for the compile-time evaluation constraint
      * @see BuiltInFunction for the function type returned by evaluation

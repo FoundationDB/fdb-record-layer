@@ -36,7 +36,7 @@ import java.util.Set;
 /**
  * A plan for deriving synthetic records from a given record.
  *
- * Like {@link SyntheticRecordPlan}, but with the additional {@code execute}-time parameter of a seed record.
+ * <p>Like {@link SyntheticRecordPlan}, but with the additional {@code execute}-time parameter of a seed record.
  * While the former is used to generate all records to rebuild an index, this plan is used to generate affected
  * records for a changed record to update just for those changes.
  *
@@ -46,7 +46,7 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
     /**
      * Get the possible record types for the stored record to which this plan can be applied.
      *
-     * If given a record whose type is not in this set, the plan may return an empty cursor or throw an exception.
+     * <p>If given a record whose type is not in this set, the plan may return an empty cursor or throw an exception.
      * @return the set of record type names
      */
     @Nonnull

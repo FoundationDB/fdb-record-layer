@@ -28,8 +28,8 @@ import java.util.List;
 
 /**
  * An abstract base class implementing the {@link Node} interface.
- * <p>
- * This class provides the fundamental structure for a node within the HNSW graph,
+ *
+ * <p>This class provides the fundamental structure for a node within the HNSW graph,
  * managing a unique {@link Tuple} primary key and an immutable list of its neighbors.
  * Subclasses are expected to provide concrete implementations, potentially adding
  * more state or behavior.
@@ -67,8 +67,8 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Gets the list of neighbors connected to this node.
-     * <p>
-     * This method returns a direct reference to the internal list which is
+     *
+     * <p>This method returns a direct reference to the internal list which is
      * immutable.
      * @return a non-null, possibly empty, list of neighbors.
      */
@@ -86,8 +86,8 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Converts this node into its {@link CompactNode} representation.
-     * <p>
-     * A {@code CompactNode} is a space-efficient implementation {@code Node}. This method provides the
+     *
+     * <p>A {@code CompactNode} is a space-efficient implementation {@code Node}. This method provides the
      * conversion logic to transform the current object into that compact form.
      *
      * @return a non-null {@link CompactNode} representing the current node.

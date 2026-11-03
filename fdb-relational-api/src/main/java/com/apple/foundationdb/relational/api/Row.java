@@ -25,12 +25,12 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
 /**
  * Represents a row within the store.
- * <p>
- * The individual fields of the row can themselves be NestableTuples(representing nested
+ *
+ * <p>The individual fields of the row can themselves be NestableTuples(representing nested
  * data structures). There can also be repeated fields, which is a bit of an extension on
  * standard SQL types.
- * <p>
- * The intent of this class is to represent a single result in a set of results in a generic form.
+ *
+ * <p>The intent of this class is to represent a single result in a set of results in a generic form.
  */
 public interface Row {
 

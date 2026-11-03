@@ -34,7 +34,7 @@ import java.util.Optional;
 /**
  * Main interface for defining a built-in function that can be evaluated against a number of arguments.
  *
- * A function could have a fixed number of arguments such as <code>Value Add(Value, Value)</code>, or a
+ * <p>A function could have a fixed number of arguments such as <code>Value Add(Value, Value)</code>, or a
  * variable number of arguments, such as <code>Value TEXT_CONTAINS_ALL_PREFIXES(Value, Value, Value, Value, ...)</code>.
  *
  * @param <T> The resulting type of the function.

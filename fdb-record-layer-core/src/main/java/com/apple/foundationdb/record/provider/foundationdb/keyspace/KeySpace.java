@@ -81,8 +81,7 @@ import java.util.concurrent.CompletableFuture;
  *     </li>
  * </ul>
  *
- * <p>
- * Such a directory structure would be constructed as:
+ * <p>Such a directory structure would be constructed as:
  * <pre>
  *  KeySpace keySpace = new KeySpace(
  *          new KeySpaceDirectory("state", KeyType.STRING)
@@ -96,8 +95,7 @@ import java.util.concurrent.CompletableFuture;
  *                      .addSubdirectory(new KeySpaceDirectory( "layaways", KeyType.NULL)))));
  * </pre>
  *
- * <p>
- * Once defined, a <code>KeySpace</code> provides a convenient mechanism for constructing tuples that may then
+ * <p>Once defined, a <code>KeySpace</code> provides a convenient mechanism for constructing tuples that may then
  * be used to form an FDB row key.  For example:
  * <pre>
  *     Tuple transactionKey = keySpace.path("state", "CA")
@@ -186,10 +184,10 @@ public class KeySpace {
     /**
      * Given a tuple from an FDB key, attempts to determine what path through this directory the tuple
      * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
-     * <p>
-     *     If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()} can be
+     *
+     * <p>If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()} can be
      *     used to fetch the remaining portion.
-     * </p>
+     *
      * @param context context used, if needed, for any database operations
      * @param key the tuple to be decoded
      * @return a path entry representing the leaf directory entry that corresponds to a value in the

@@ -36,7 +36,7 @@ import java.util.stream.Stream;
  * A boolean component is a component representing an operation in the boolean algebra, e.g. and, or, not.
  * This class is more of a tag interface from that perspective.
  *
- * Within the {@link QueryComponent} hierarchy, the query components are structured into islands of functionally
+ * <p>Within the {@link QueryComponent} hierarchy, the query components are structured into islands of functionally
  * evaluated boolean components as well as structural components that e.g. span a new level of nesting, represent
  * something that itself can evaluated to to a boolean (e.g. a comparison). This class contains helpers for navigation
  * within and for the collection of useful information from an arbitrary query component tree.

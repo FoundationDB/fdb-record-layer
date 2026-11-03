@@ -30,7 +30,7 @@ import java.util.List;
  * {@code CREATE [OR REPLACE]? TEMPORARY FUNCTION ...} declarations that must be installed
  * before the SELECT is planned.
  *
- * <p>The SELECT body and each temp-function declaration are kept as their original verbatim source.</p>
+ * <p>The SELECT body and each temp-function declaration are kept as their original verbatim source.
  */
 public final class StoredQuery {
     @Nonnull

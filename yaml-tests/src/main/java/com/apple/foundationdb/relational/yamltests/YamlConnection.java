@@ -86,9 +86,9 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Return the ordered list of versions that this will test against.
-     * <p>
-     *     This does not reset as {@link #createStatement}/{@link #prepareStatement}, etc. are called.
-     * </p>
+     *
+     * <p>This does not reset as {@link #createStatement}/{@link #prepareStatement}, etc. are called.
+     *
      * @return the ordered list of versions
      */
     @Nonnull

@@ -37,8 +37,8 @@ import javax.annotation.Nonnull;
 /**
  * Implementation of Schema template catalog that ignores CRUD operations on templates. This is essentially used
  * to instantiate a store catalog object that ends up not caring about the schema template in the Schema.
- * <p>
- * Overview of operations:
+ *
+ * <p>Overview of operations:
  * <ul>
  *   <li> Membership check always return {@code true} </li>
  *   <li> List templates return empty {@link RelationalResultSet} </li>

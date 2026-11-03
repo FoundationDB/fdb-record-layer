@@ -45,7 +45,7 @@ import java.util.function.Supplier;
  * The planner graph class. Objects of this class are produced by {@link PlannerGraphVisitor},
  * i.e., they get computed by walking a {@link RelationalExpression} DAG.
  *
- * Once computed, the property is immutable.
+ * <p>Once computed, the property is immutable.
  *
  * @param <N> node type
  * @param <E> edge type

@@ -30,8 +30,8 @@ import java.util.UUID;
 
 /**
  * An immutable snapshot of a {@link StoreTimer}.
- * <p>
- * Subtracting a snapshot of a timer from the original timer after subsequent operations have
+ *
+ * <p>Subtracting a snapshot of a timer from the original timer after subsequent operations have
  * been performed and timed can provide useful metrics as to the cost of those subsequent operations.
  * See {@link StoreTimer#getDifference(StoreTimer, StoreTimerSnapshot)}.
  */
@@ -173,8 +173,8 @@ public final class StoreTimerSnapshot {
 
     /**
      * An immutable snapshot of a {@link StoreTimer.Counter}.
-     * <p>
-     * Contains the number of occurrences and cummulative time spent on an associated event.
+     *
+     * <p>Contains the number of occurrences and cummulative time spent on an associated event.
      */
     public static class CounterSnapshot {
         private final long cumulativeValue;

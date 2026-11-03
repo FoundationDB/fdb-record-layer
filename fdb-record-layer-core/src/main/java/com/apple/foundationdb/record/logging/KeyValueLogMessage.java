@@ -33,7 +33,7 @@ import java.util.TreeMap;
 /**
  * A formatter for log messages.
  *
- * A {@code KeyValueLogMessage} has an associated set of key-value pairs, which are output after the static portion of the message in {@code key=value} form.
+ * <p>A {@code KeyValueLogMessage} has an associated set of key-value pairs, which are output after the static portion of the message in {@code key=value} form.
  */
 @API(API.Status.UNSTABLE)
 public class KeyValueLogMessage {

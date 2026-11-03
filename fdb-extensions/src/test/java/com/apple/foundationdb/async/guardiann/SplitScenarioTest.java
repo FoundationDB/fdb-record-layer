@@ -203,8 +203,8 @@ public class SplitScenarioTest implements BaseTest {
     /**
      * A repartitioning reports the references it discards as stale, so an operator can tell a cluster whose recorded
      * count has drifted from one that is genuinely oversized.
-     * <p>
-     * Deleting a vector normally removes its reference too, so the drift this measures only arises when a delete fails
+     *
+     * <p>Deleting a vector normally removes its reference too, so the drift this measures only arises when a delete fails
      * to find the reference — rare, and not something the suite produces on its own. It is staged here instead:
      * removing a vector's {@link VectorMetadata} while leaving its reference in place is exactly the state such a
      * delete leaves behind, and it is the state {@code cleanUpVectorReferences} exists to tolerate. The cluster's
@@ -295,13 +295,13 @@ public class SplitScenarioTest implements BaseTest {
     /**
      * A split that cannot satisfy {@link Config#minChildFraction()} reports which cluster it was repartitioning, what
      * the bound was, and what each candidate actually achieved.
-     * <p>
-     * Worth covering because nothing else reaches it: {@code minChildFraction} is the only gate that makes a candidate
+     *
+     * <p>Worth covering because nothing else reaches it: {@code minChildFraction} is the only gate that makes a candidate
      * unusable rather than merely unattractive, so this is the one path on which a split has nothing left to choose.
      * It is also the path whose failure is hardest to read without the message — the raw symptom is a deferred task
      * dying inside a merge.
-     * <p>
-     * Provoked by arithmetic rather than by luck. At a floor just under one half, a 3-way candidate is impossible
+     *
+     * <p>Provoked by arithmetic rather than by luck. At a floor just under one half, a 3-way candidate is impossible
      * outright (three children cannot each hold more than a third), and a 2-way candidate is impossible whenever the
      * population is odd: the most even split of {@code n} gives the smaller child {@code (n-1)/2}, whose share is
      * {@code 0.5 - 0.5/n}, below the floor for any {@code n} under 500. The population is therefore forced odd before
@@ -342,8 +342,8 @@ public class SplitScenarioTest implements BaseTest {
     /**
      * A split whose population has a lopsided natural partitioning has no admissible candidate when its balancing
      * ladder holds no strength above zero.
-     * <p>
-     * This is the failure the ladder exists to prevent, and the baseline that
+     *
+     * <p>This is the failure the ladder exists to prevent, and the baseline that
      * {@code theBalancingLadderGivesALopsidedSplitAnAdmissibleCandidate} measures it against: the same vectors, the
      * same seeds and the same floor, with only the ladder differing. With no strength to escalate to, the fit at zero
      * is final. Every one of its k-means runs cuts between the two clouds (smallest child about 0.15, see
@@ -377,8 +377,8 @@ public class SplitScenarioTest implements BaseTest {
      * A split whose fit at the first strength of the ladder is rejected is re-fitted with the next one, and the
      * balanced partitioning that produces is persisted: two children, each holding at least
      * {@link #LADDER_CHILD_FRACTION} of the population, with no vector lost.
-     * <p>
-     * The ladder is the default one. {@code lopsidedSplitHasNoAdmissibleCandidateWithoutBalancing} shows that the fit
+     *
+     * <p>The ladder is the default one. {@code lopsidedSplitHasNoAdmissibleCandidateWithoutBalancing} shows that the fit
      * at zero is rejected on exactly these vectors, so the split can only succeed here on a re-fit with a stronger
      * strength, and the first one, 0.016, already suffices. That strength is relative: the absolute one is
      * {@code 0.016 * s}, where {@code s}, the population's per-vector single-cluster objective, is about 33 — almost
@@ -386,8 +386,8 @@ public class SplitScenarioTest implements BaseTest {
      * between the clouds. The penalty only steers where the centroids settle: the children are populated by assigning
      * each vector to its nearest fitted centroid, which is also what the floor is checked on, and the smaller one holds
      * about 0.29 of the vectors, well above the floor.
-     * <p>
-     * The population is larger than the other tests' for two reasons. A fit makes several k-means runs and keeps the
+     *
+     * <p>The population is larger than the other tests' for two reasons. A fit makes several k-means runs and keeps the
      * best one that clears the floor, so the baseline needs every unbalanced run to cut between the clouds; with fewer
      * vectors per dimension, cuts through the perturbation alone compete with the gap, and a run settling on one would
      * rescue the split without any balancing. And the penalty, normalized by the even size, grows with the population
@@ -465,8 +465,8 @@ public class SplitScenarioTest implements BaseTest {
      * Inserts the population of the balancing-ladder tests, without draining so that its split stays pending:
      * {@link #NUM_MAJOR_CLOUD} perturbed copies of a SIFT vector and {@link #NUM_MINOR_CLOUD} of the same vector
      * shifted by {@link #MINOR_CLOUD_OFFSET} along one component.
-     * <p>
-     * Unbalanced, a 2-way fit of these vectors cuts between the clouds: separating them removes
+     *
+     * <p>Unbalanced, a 2-way fit of these vectors cuts between the clouds: separating them removes
      * {@code (270/1800) * (1530/1800) * 3^2 ≈ 1.15} per vector of the objective, which at this population outweighs
      * what a cut through the perturbation alone can gain. The cut is not exactly at the smaller cloud — the noise blurs
      * its edge — but the smallest child stays near 0.15. A balanced fit is not tied to the gap: see

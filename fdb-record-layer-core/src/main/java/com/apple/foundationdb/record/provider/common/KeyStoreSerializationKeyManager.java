@@ -38,8 +38,8 @@ import java.util.Random;
 
 /**
  * A {@link SerializationKeyManager} that uses a {@link KeyStore}.
- * <p>
- * Key numbers are mapped to and from key names, which are looked up in the store.
+ *
+ * <p>Key numbers are mapped to and from key names, which are looked up in the store.
  */
 @API(API.Status.EXPERIMENTAL)
 public class KeyStoreSerializationKeyManager implements SerializationKeyManager {

@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  * The standard options for use with {@link Index}.
  *
- * An option key is just a string, so that new ones can be defined outside the Record Layer core.
+ * <p>An option key is just a string, so that new ones can be defined outside the Record Layer core.
  *
  * @see Index#getOptions
  */
@@ -41,21 +41,20 @@ public class IndexOptions {
     /**
      * No options.
      *
-     * The default for a new {@link Index}.
+     * <p>The default for a new {@link Index}.
      */
     public static final Map<String, String> EMPTY_OPTIONS = Collections.emptyMap();
 
     /**
      * If {@code "true"}, index throws {@link com.apple.foundationdb.record.RecordIndexUniquenessViolation} on attempts
      * to store duplicate values.
-     * <p>
-     *     Unlike most index modifications, it is safe to change this option from {@code true} to {@code false}
+     *
+     * <p>Unlike most index modifications, it is safe to change this option from {@code true} to {@code false}
      *     without rebuilding the index, and thus you can change this without changing the {@code lastModifiedVersion}.
      *     Changing this from {@code false} to {@code true} requires increasing the {@code lastModifiedVersion}.
      *     If you do change the {@code lastModifiedVersion} it will require a rebuild of the index. This functionality
      *     is only usable by indexes maintained by {@link IndexMaintainer}s that have a proper implementation of
      *     {@link IndexMaintainer#clearUniquenessViolations()}.
-     * </p>
      */
     public static final String UNIQUE_OPTION = "unique";
     /**
@@ -82,15 +81,12 @@ public class IndexOptions {
      * specified has been built, then the index with this option will have its data deleted and will be marked as
      * {@linkplain com.apple.foundationdb.record.IndexState#DISABLED disabled}.
      *
-     * <p>
-     * Every index in the list should point to another index in the meta-data. Additionally, the graph of replacement
+     * <p>Every index in the list should point to another index in the meta-data. Additionally, the graph of replacement
      * indexes should be acyclic, i.e., indexes cannot be marked as replacing themselves either directly or
      * transitively. If either requirement is not met, then the index will fail {@linkplain MetaDataValidator
      * meta-data validation}
-     * </p>
      *
-     * <p>
-     * This option is useful as it allows the user to replace one index with another without needing to remove the
+     * <p>This option is useful as it allows the user to replace one index with another without needing to remove the
      * older index until the newer index has fully rolled out. For example, suppose there is an index {@code a} that
      * is defined on a single field, but the administrator realizes that as all queries have predicates on at least two,
      * and so wants to replace the index with two indexes, {@code a,b} and {@code a,c}. However, until those new indexes
@@ -98,23 +94,17 @@ public class IndexOptions {
      * full record store scan. So the options {@code {"replacedBy1": "a,b", "replacedBy2": "a,c"}} can be set on the
      * index. Until both indexes have been built, queries can continue to use index {@code a}. Once both have been
      * built, though, the old index will be automatically deleted, freeing up space.
-     * </p>
      *
-     * <p>
-     * Note that different record stores with identical
+     * <p>Note that different record stores with identical
      * {@link com.apple.foundationdb.record.RecordMetaData RecordMetaData} values may have different index states, i.e.,
      * an index may be built for some record stores but not others. Setting this option will disable the index only on
      * each store that meets the necessary criteria.
-     * </p>
      *
-     * <p>
-     * The replacement must be {@link com.apple.foundationdb.record.IndexState#READABLE}, if the replacement is
+     * <p>The replacement must be {@link com.apple.foundationdb.record.IndexState#READABLE}, if the replacement is
      * {@link com.apple.foundationdb.record.IndexState#READABLE_UNIQUE_PENDING}, the original will remain readable.
-     * </p>
-     * <p>
-     * Building indexes that have replacements will only be attempted if explicitly requested, even if the
+     *
+     * <p>Building indexes that have replacements will only be attempted if explicitly requested, even if the
      * replacements are not readable and not being built at the same time.
-     * </p>
      *
      * @see Index#getReplacedByIndexNames()
      */
@@ -144,42 +134,42 @@ public class IndexOptions {
     /**
      * If {@code "true"}, a {@link IndexTypes#TEXT} index will not store position numbers for tokens.
      *
-     * It will only be possible to determine that an indexed field contains the token someplace.
+     * <p>It will only be possible to determine that an indexed field contains the token someplace.
      */
     public static final String TEXT_OMIT_POSITIONS_OPTION = "textOmitPositions";
 
     /**
      * The number of levels in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
+     * <p>The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
      */
     public static final String RANK_NLEVELS = "rankNLevels";
 
     /**
      * The hash function to use in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
+     * <p>The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
      */
     public static final String RANK_HASH_FUNCTION = "rankHashFunction";
 
     /**
      * Whether duplicate keys count separtely in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@code false}.
+     * <p>The default is {@code false}.
      */
     public static final String RANK_COUNT_DUPLICATES = "rankCountDuplicates";
 
     /**
      * Size of each position bitmap for {@link IndexTypes#BITMAP_VALUE} indexes.
      *
-     * The default is {@code 10,000}.
+     * <p>The default is {@code 10,000}.
      */
     public static final String BITMAP_VALUE_ENTRY_SIZE_OPTION = "bitmapValueEntrySize";
 
     /**
      * Whether to remove index entry for {@link IndexTypes#COUNT} type indexes when they decrement to zero.
      *
-     * This makes the existence of zero-valued entries in the index in the face of updates and deletes
+     * <p>This makes the existence of zero-valued entries in the index in the face of updates and deletes
      * closer to what it would be if the index were rebuilt, but still not always the same.
      * In particular,<ul>
      *   <li>A {@code SUM} index will not have entries for groups all of whose indexed values are zero.</li>

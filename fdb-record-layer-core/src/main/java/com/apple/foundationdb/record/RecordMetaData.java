@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
 /**
  * Meta-data for Record Layer record stores.
  *
- * Records are represented using Protobuf {@link com.google.protobuf.Message}s.
+ * <p>Records are represented using Protobuf {@link com.google.protobuf.Message}s.
  * Each message {@link com.google.protobuf.Descriptors.Descriptor} corresponds to a {@link RecordType}.
  * All message types in the database come from a single {@link com.google.protobuf.Descriptors.FileDescriptor}.
  * The Protobuf file must also define a union message type (conventionally named {@code RecordTypeUnion}) with fields for
@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
  * When serializing, the record is put in the corresponding field and the whole saved as a byte string.
  * Then when deserializing, the returned record can be of any of the allowed types.
  *
- * Meta-data can also define any number of secondary {@link Index}es for record types.
+ * <p>Meta-data can also define any number of secondary {@link Index}es for record types.
  *
  * @see RecordMetaDataBuilder
  */
@@ -505,7 +505,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Determine whether every record type in this meta-data has {@link RecordType#primaryKeyHasRecordTypePrefix}.
      *
-     * If so, records are strictly partitioned by record type.
+     * <p>If so, records are strictly partitioned by record type.
      * @return {@code true} if every record type has a record type prefix on the primary key
      */
     public boolean primaryKeyHasRecordTypePrefix() {
@@ -604,14 +604,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Serializes the record meta-data to a {@code MetaData} proto message. By default, it includes all of the
      * dependencies except {@code TupleFieldsProto}, {@code RecordMetaDataOptionsProto} and {@code RecordMetaDataProto}.
      *
-     * <p>
-     * Note that if this record meta-data object was created with a
+     * <p>Note that if this record meta-data object was created with a
      * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor},
      * then serializing the meta-data to a proto message is disallowed. This is because setting a local file descriptor
      * can change the meta-data in ways that would change its serialization, but it also will not update the meta-data
      * version. This means that if the meta-data were then saved to disk, existing clients would not be informed that
      * the meta-data had been updated.
-     * </p>
      *
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures

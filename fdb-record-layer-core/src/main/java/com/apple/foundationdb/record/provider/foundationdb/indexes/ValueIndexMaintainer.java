@@ -49,7 +49,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An index maintainer for an ordinary index by value, implementing ordered enumeration of records within a range of indexed values.
  *
- * When more than one field is indexed, records are ordered lexicographically.
+ * <p>When more than one field is indexed, records are ordered lexicographically.
  */
 @API(API.Status.UNSTABLE)
 public class ValueIndexMaintainer extends StandardIndexMaintainer {

@@ -40,11 +40,10 @@ import java.util.TreeMap;
 /**
  * Exception handler which log information from test exceptions. This will ensure that we print out any relevant
  * information contained in the log message keys.
- * <p>
- *     This is automatically added to all tests in fdb-relational-core because we have
+ *
+ * <p>This is automatically added to all tests in fdb-relational-core because we have
  *     {@code testAnnotationProcessor(libs.autoService)} in the gradle dependencies, and
  *     {@code junit.jupiter.extensions.autodetection.enabled} set to {@code true} for our testing tasks.
- * </p>
  */
 @AutoService(Extension.class)
 public class ExceptionLoggingDetailsExtension implements TestExecutionExceptionHandler {

@@ -21,24 +21,18 @@
 /**
  * A package for planner properties (in the sense that Cascades uses them).
  *
- * <p>
- * In Cascades, a property is an attribute of {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}
+ * <p>In Cascades, a property is an attribute of {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}
  * that cannot be described from the structure of the expression tree alone. For example, the set of record types that
  * a relational planner expression produces is a property, but whether or not it has a filter that contains an AND
  * clause is not a property. Properties generally need to be evaluated against an expression, instead of arising from
  * the structural features of a planner expression (which could be matched using an
  * {@link com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher}.
- * </p>
  *
- * <p>
- * In the Record Layer, properties are implemented as hierarchical visitors on the {@code PlannerExpression} tree; this
+ * <p>In the Record Layer, properties are implemented as hierarchical visitors on the {@code PlannerExpression} tree; this
  * approach prevents the accumulation of many methods on the {@code PlannerExpression} interface. Furthermore, some
  * properties (such as the set of possible record types returned) cannot be determined from the {@code PlannerExpression}
  * alone; they also need access to the {@link com.apple.foundationdb.record.query.plan.cascades.PlanContext}.
- * </p>
  *
- * <p>
- * This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty}.
- * </p>
+ * <p>This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty}.
  */
 package com.apple.foundationdb.record.query.plan.cascades.properties;

@@ -154,7 +154,7 @@ public abstract class IndexPredicate {
      * wrapping a {@link RowNumberValue} with a field ordering and a constant size comparison into
      * a {@link RowNumberWindowPredicate}.
      *
-     * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.</p>
+     * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.
      *
      * @param valuePredicate the value predicate to inspect
      * @return a {@link RowNumberWindowPredicate} if the pattern matches, or {@code null} otherwise
@@ -610,7 +610,7 @@ public abstract class IndexPredicate {
      * Syntax: {@code QualifyRowNumber(fieldPath, direction) <= size}.
      *
      * <p>For example, {@code QualifyRowNumber(score, DESC) <= 100} keeps the 100 records with
-     * the highest {@code score} values in the index.</p>
+     * the highest {@code score} values in the index.
      *
      * <ul>
      *     <li>{@code ASC}: keeps the smallest values (lowest row numbers in ascending order)</li>

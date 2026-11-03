@@ -175,18 +175,16 @@ public sealed interface CallSiteArguments {
     /**
      * A typed key for a single option that may be supplied at a function call site, e.g. the {@code ef_search} of
      * {@code row_number() OVER (... OPTIONS ef_search = 100)}.
-     * <p>
-     * Options are <em>not</em> a global namespace: a function declares the options it understands through
+     *
+     * <p>Options are <em>not</em> a global namespace: a function declares the options it understands through
      * {@link CatalogedFunction#getSupportedOptions()}, and the keys it declares are the only authority on an option's
      * name and value type. Two unrelated functions are therefore free to declare an option of the same name with
      * different value types, because an option is only ever resolved against the declared options of the function
      * actually being called.
-     * </p>
-     * <p>
-     * Keys are value-typed on their {@link #getName() name}: two keys are equal iff their names are equal. Names must
+     *
+     * <p>Keys are value-typed on their {@link #getName() name}: two keys are equal iff their names are equal. Names must
      * therefore be unique within one function's declared option set. Instances are meant to be declared once as
      * {@code static final} constants next to the function that accepts them.
-     * </p>
      *
      * @param <T> the value type of the option
      */
@@ -227,9 +225,9 @@ public sealed interface CallSiteArguments {
          * option's type is returned as-is; otherwise the option's type-specific conversion is applied, which accepts
          * the neighbouring representations a front end may produce (e.g. a {@code Long} literal for an
          * {@link #ofInteger} option) as long as the value is exactly representable.
-         * <p>
-         * The conversion is idempotent, so it is safe to apply on every read as well as once up front.
-         * </p>
+         *
+         * <p>The conversion is idempotent, so it is safe to apply on every read as well as once up front.
+         *
          * @param rawValue the raw value supplied at the call site
          * @return the value converted to this option's type
          */
@@ -424,13 +422,12 @@ public sealed interface CallSiteArguments {
      * front end that only has a name and a literal at parse time, under a name through
      * {@link Builder#putRaw(String, Object)}) and come out through an {@link Option}, so no caller performs an
      * unchecked cast.
-     * <p>
-     * Options are held by name and resolved against the called function's declared options when the call is
+     *
+     * <p>Options are held by name and resolved against the called function's declared options when the call is
      * encapsulated (see {@link CatalogedFunction#getSupportedOptions()}). Holding them by name rather than by key is
      * what keeps options decentralized: a front end builds a call site's options before the function has even been
      * looked up, so resolving a name to a key at that point would require a global registry of every option that every
      * function might accept.
-     * </p>
      */
     final class Options {
         private static final Options EMPTY_OPTIONS = new Options(ImmutableMap.of());
@@ -660,10 +657,9 @@ public sealed interface CallSiteArguments {
      * which pair each ordering value with its sort direction). Carrying these here lets a windowed function receive
      * its partitioning and ordering columns directly, rather than encoded positionally as an array of arrays. Use
      * {@link #NONE} for non-windowed call sites.
-     * <p>
-     * A {@code WindowFrameSpecification} component is intentionally omitted for now and can be added later without
+     *
+     * <p>A {@code WindowFrameSpecification} component is intentionally omitted for now and can be added later without
      * disturbing existing call sites.
-     * </p>
      *
      * @param partitioningValues the {@code PARTITION BY} columns
      * @param orderingParts the {@code ORDER BY} columns paired with their sort directions

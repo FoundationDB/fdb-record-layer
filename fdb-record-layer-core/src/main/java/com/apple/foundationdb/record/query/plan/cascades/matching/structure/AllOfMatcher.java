@@ -37,14 +37,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A matcher that only matches anything if all of its downstream matchers produce bindings. This matcher is
  * intended to be used to express a logical <em>and</em> between matchers on an object.
- * <br>
- * As an example
- * <br>
- * {@code
- * matchingAllOf(greaterThan(0), divisibleBy(2)).matches(2))
- * }
  *
- * produces a stream of one binding which binds to {@code 2}.
+ * <p>As an example, {@code matchingAllOf(greaterThan(0), divisibleBy(2)).matches(2))} produces a stream of one binding
+ * which binds to {@code 2}.
  *
  * @param <T> the type that this matcher binds to
  */

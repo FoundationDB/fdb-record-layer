@@ -31,7 +31,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
      * the results of the scan.
      *
-     * This can be used to scan contiguous rows on a table based on a certain PK range.
+     * <p>This can be used to scan contiguous rows on a table based on a certain PK range.
      * The range should be provided via a key prefix.
      *
      * <pre>
@@ -60,8 +60,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * executeScan("FOO", new KeySet().setKeyColumn("B", 1), Options.NONE)
      * </pre>
      *
-     * <p>
-     * The caller can specify some execution-level options, which can be used to control the execution path
+     * <p>The caller can specify some execution-level options, which can be used to control the execution path
      * that the execution. Specifically, the following options are honored:
      * <ul>
      *     <li>use.index: the name of a specific index to use during scan</li>
@@ -79,8 +78,8 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
 
     /**
      * Get a single record from the system by key.
-     * <p>
-     * This constructs a primary key from the specified KeySet according to the table definition, and then performs
+     *
+     * <p>This constructs a primary key from the specified KeySet according to the table definition, and then performs
      * a single-row lookup. This is equivalent to executing a scan on the range bounds, but can potentially be
      * more efficiently executed.
      *
@@ -144,10 +143,9 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
 
     /**
      * Delete one or more records from the specified table, specified by key, if such records exist.
-     * <p>
-     * equivalent to {@link #executeDelete(String, Iterator)}, but with a marginally nicer user experience
+     *
+     * <p>equivalent to {@link #executeDelete(String, Iterator)}, but with a marginally nicer user experience
      * of not needing to call {@code .iterator()}
-     * </p>
      *
      * @param tableName the name of the table to delete from
      * @param keys      the keys to delete

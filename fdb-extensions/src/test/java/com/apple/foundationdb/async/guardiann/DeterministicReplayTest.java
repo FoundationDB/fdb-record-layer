@@ -67,24 +67,24 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies guardiann's deterministic-replay contract: with {@link Config#deterministicRandomness()} enabled,
  * replaying the <em>same</em> ordered sequence of inserts and deletes against a fresh store — and draining every
  * deferred task (split/merge, reassign, collapse, bounce) — must produce identical resulting state.
- * <p>
- * The test is parameterized over random seeds (see {@link RandomizedTestUtils#randomSeeds}); the seed governs the
+ *
+ * <p>The test is parameterized over random seeds (see {@link RandomizedTestUtils#randomSeeds}); the seed governs the
  * generated workload (which SIFT base each vector is perturbed from, and the perturbation noise), so each iteration
  * exercises a differently-shaped cluster structure. Within a single iteration both runs replay the <em>identical</em>
  * generated op sequence into two sibling subspaces.
- * <p>
- * Because every UUID (vector ids, cluster ids, collapsed-reference ids, sampled-vector keys, and deferred-task ids)
+ *
+ * <p>Because every UUID (vector ids, cluster ids, collapsed-reference ids, sampled-vector keys, and deferred-task ids)
  * is now derived from a {@link SplittableRandom} seeded only from stable inputs — the record's primary key or the
  * task's id — rather than from a process-global counter, the two runs produce the same cluster ids, the same
  * vector-to-cluster assignments, and the same encoded bytes. Under the old global {@code SequentialUUID} counter
  * this test would fail: the second run's counter continued from where the first left off, so its cluster ids — and
  * therefore its keys — diverged.
- * <p>
- * Inserting more vectors than fit in one cluster forces splits (and border replication / reassign); deleting a
+ *
+ * <p>Inserting more vectors than fit in one cluster forces splits (and border replication / reassign); deleting a
  * fraction of them reorganizes the structure via merges / reassigns / bounces, but keeps each base's close
  * sub-clusters — and therefore their border replicas — alive, so the replicated structure survives to the end.
- * <p>
- * Tagged {@link Tags#RequiresScalar} so it runs only under the {@code scalarFallbackTest} task (which sets
+ *
+ * <p>Tagged {@link Tags#RequiresScalar} so it runs only under the {@code scalarFallbackTest} task (which sets
  * {@code fdb.vector.simd=scalar}), not the default SIMD test task. The replay assertions compare byte-identical
  * stored state, which depends on bit-exact, reproducible floating-point results; SIMD lane-wise reductions sum in
  * a different order than scalar accumulation, so that bit-exactness is only guaranteed on the scalar backend.

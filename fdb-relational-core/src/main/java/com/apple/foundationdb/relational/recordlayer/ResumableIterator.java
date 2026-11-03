@@ -34,7 +34,7 @@ public interface ResumableIterator<T> extends Iterator<T>, AutoCloseable {
     /**
      * Returns a {@code Continuation} that can be used to resume the iteration.
      *
-     * A {@code Continuation} always points to the element <i>next</i> to the current
+     * <p>A {@code Continuation} always points to the element <i>next</i> to the current
      * {@code Iterator} element with the following caveats:
      *   <ul>
      *       <li>

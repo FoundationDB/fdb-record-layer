@@ -248,8 +248,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Attempt to compile-time evaluate {@code this} predicate as a constant {@link QueryPredicate}.
-     * <br/>
-     * <b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
+     *
+     * <p><b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
      * and explicit phase that does compactions, simplifications, and compile-time evaluations as an explicit
      * preprocessing step.
      *

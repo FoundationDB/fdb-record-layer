@@ -135,7 +135,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Field
 /**
  * The query planner.
  *
- * Query planning means converting a {@link RecordQuery} to a {@link RecordQueryPlan}.
+ * <p>Query planning means converting a {@link RecordQuery} to a {@link RecordQueryPlan}.
  * The plan can use secondary indexes defined in a {@link RecordMetaData} to execute the query efficiently.
  */
 @API(API.Status.UNSTABLE)
@@ -649,12 +649,10 @@ public class RecordQueryPlanner implements QueryPlanner {
      * should then used the returned {@link InExtractor} to wrap the returned plan in an
      * appropriate IN-join or IN-union plan.
      *
-     * <p>
-     * The {@code maxNumReplansConfig} parameter should be taken from the {@link RecordQueryPlannerConfiguration}.
+     * <p>The {@code maxNumReplansConfig} parameter should be taken from the {@link RecordQueryPlannerConfiguration}.
      * Separate configuration values exist for IN-joins and IN-unions, mainly for plan stability
      * reasons (they were introduced at different times, though they serve the same purpose). See
      * the javadoc on the relevant configuration parameters for more details.
-     * </p>
      *
      * @param planContext the base plan context for the query
      * @param inExtractor the original {@link InExtractor} for the query
@@ -1786,8 +1784,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      * {@link com.apple.foundationdb.record.metadata.SyntheticRecordType}s have constituent parts which need to
      * be separately fetched, while index scans over regular record types just need to fetch the base record
      * using the entire primary key in the index.
-     * <br>
-     * Note that the method on how to fetch the base record(s) has to be statically resolved during planning time as
+     *
+     * <p>Note that the method on how to fetch the base record(s) has to be statically resolved during planning time as
      * the index entry itself does not contain any information to help us resolve that question on a per-record
      * basis.
      * 
@@ -2512,11 +2510,9 @@ public class RecordQueryPlanner implements QueryPlanner {
      * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
      * them into a single scan, as well as validating that the sort is matched correctly.
      *
-     * <p>
-     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * <p>In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
      * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
      * cases end up having more-or-less the same logic as the multi-field cases.
-     * </p>
      */
     private abstract class AbstractAndWithThenPlanner {
         /**
@@ -2747,11 +2743,9 @@ public class RecordQueryPlanner implements QueryPlanner {
      * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
      * them into a single scan, as well as validating that the sort is matched correctly.
      *
-     * <p>
-     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * <p>In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
      * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
      * cases end up having more-or-less the same logic as the multi-field cases.
-     * </p>
      */
     private class AndWithThenPlanner extends AbstractAndWithThenPlanner {
         /**
@@ -2956,17 +2950,15 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Mini-planner for handling the way that queries with multiple filters ("ands") on multidimensional indexes with
      * multiple components ("thens"). This handles things like matching comparisons to the different columns of the
      * index and then combining them into a single scan.
-     * <p>
-     * In particular, this specific mini planner matches filters to sub expressions in the index not considering
+     *
+     * <p>In particular, this specific mini planner matches filters to sub expressions in the index not considering
      * matches of preceding index sub expressions, i.e. this planner matches a filter to a sub expression independently
      * of any other match between a filter and a sub expression of the index. This allows for free permutation of
      * dimension columns for multidimensional indexes.
-     * </p>
-     * <p>
-     * If an index scan over a multidimensional index can be planned, we will still just plan a regular by-value
+     *
+     * <p>If an index scan over a multidimensional index can be planned, we will still just plan a regular by-value
      * prefix scan of that index here but leave all necessary bread crumbs to create a multi-dimensional index scan
      * plan in {@link #matchToPlan(CandidateScan, ScoredMatch)}.
-     * </p>
      */
     private class MultidimensionalAndWithThenPlanner extends AbstractAndWithThenPlanner {
         /**

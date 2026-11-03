@@ -89,8 +89,7 @@ public interface RecordSerializer<M extends Message> {
      * <li>If this serializer is inherently bound to its type parameter, throw an exception.</li>
      * </ul>
      *
-     * <p>
-     * If a {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore} is created without calling
+     * <p>If a {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore} is created without calling
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore.Builder#setUntypedSerializer}, then
      * in order to make the untyped record store that is paired with the typed store (used, for instance, to rebuild indexes),
      * the given typed serializer will be widened by calling this method.

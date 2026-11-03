@@ -28,14 +28,14 @@ import com.apple.foundationdb.annotation.API;
  * indistinguishable — most notably when the same field carries both an
  * {@link com.apple.foundationdb.async.hnsw.HNSW HNSW}-backed and a
  * {@link com.apple.foundationdb.async.guardiann.Guardiann Guardiann}-backed index with the same metric.
- * <p>
- * This is a stated preference, not a cost estimate. There is nothing that would let the planner judge one engine's
+ *
+ * <p>This is a stated preference, not a cost estimate. There is nothing that would let the planner judge one engine's
  * search to be cheaper or more accurate than another's, so without a preference the choice falls to the cost model's
  * tie-break, which is stable across replannings but keys on the index name and is therefore arbitrary. Expressing the
  * choice here instead keeps it visible and reversible: it takes no metadata change and no index rebuild to move queries
  * from one engine to the other and back.
- * <p>
- * Possible values are:
+ *
+ * <p>Possible values are:
  * <UL>
  * <LI>{@link #NO_PREFERENCE} leave the choice to the cost model, i.e. the behavior from before this option existed.
  * This is the default, so that merely creating an index of the other engine cannot silently move existing queries onto
@@ -43,8 +43,8 @@ import com.apple.foundationdb.annotation.API;
  * <LI>{@link #PREFER_HNSW} favor a vector index plan over an HNSW-backed index.</LI>
  * <LI>{@link #PREFER_GUARDIANN} favor a vector index plan over a Guardiann-backed index.</LI>
  * </UL>
- * <p>
- * A preference is never a requirement: a query whose only candidate is an index of the non-preferred engine still
+ *
+ * <p>A preference is never a requirement: a query whose only candidate is an index of the non-preferred engine still
  * plans, and a query with no vector index candidate at all is unaffected.
  */
 @API(API.Status.EXPERIMENTAL)

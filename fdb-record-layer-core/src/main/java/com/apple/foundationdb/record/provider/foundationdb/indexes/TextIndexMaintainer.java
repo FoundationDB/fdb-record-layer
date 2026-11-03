@@ -93,8 +93,7 @@ import java.util.function.Function;
  *     <li>All records containing at least one token that begins with <em>each</em> of a set of prefixes: {@code Query.field(fieldName).text().containsAllPrefixes(prefixes)}</li>
  * </ul>
  *
- * <p>
- * One can specify a tokenizer to use by setting the {@value IndexOptions#TEXT_TOKENIZER_NAME_OPTION} and
+ * <p>One can specify a tokenizer to use by setting the {@value IndexOptions#TEXT_TOKENIZER_NAME_OPTION} and
  * {@value IndexOptions#TEXT_TOKENIZER_VERSION_OPTION} options on the index. If no tokenizer is given,
  * it will use a {@link com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer DefaultTextTokenizer},
  * and if no version is specified, it will assume version {@value TextTokenizer#GLOBAL_MIN_VERSION}.
@@ -107,10 +106,8 @@ import java.util.function.Function;
  * version is used when inserting it and when deleting it. If one wants to re-tokenize a record following
  * a tokenizer version change, then if one takes an existing record (tokenized with an older version) and saves
  * the record again, then that record will be re-indexed using the newer version.
- * </p>
  *
- * <p>
- * Because each update will add a conflict range for each token included in each indexed text field per record,
+ * <p>Because each update will add a conflict range for each token included in each indexed text field per record,
  * index updates can be particularly taxing on the resolver process within the FoundationDB cluster. Some use cases
  * can therefore benefit from having fewer, larger conflict ranges per transaction to lessen the work done. The
  * trade-off is that there is now potentially less parallelism in that there is a larger change of conflicts
@@ -120,16 +117,13 @@ import java.util.function.Function;
  * conflict ranges over larger areas, set the {@value IndexOptions#TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION} option
  * to {@code true}. <b>Warning:</b> This feature is currently experimental, and may change at any moment without prior notice.
  * <!-- TODO: Remove the above disclaimer if/when we are happy with this feature staying in.-->
- * </p>
  *
- * <p>
- * <b>Note:</b> At the moment, this index is under active development and should be considered
+ * <p><b>Note:</b> At the moment, this index is under active development and should be considered
  * experimental. At the current time, this index will be correctly updated on insert and removal
  * and can be manually scanned, but it will only be selected by the query planner in limited circumstances
  * to satisfy full text queries. For example, the query planner will not select this index if there
  * are sorts involved in the query or if the filter involves using the position list to determine the
  * relative positions of tokens within a document.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class TextIndexMaintainer extends StandardIndexMaintainer {

@@ -25,10 +25,8 @@ import javax.annotation.Nonnull;
 /**
  * An {@code Index} metadata that contains information an underlying index data structure of a {@link Table}.
  *
- * <p>
- * This currently targets only table-specific indexes and not universal indexes. However, it can be
+ * <p>This currently targets only table-specific indexes and not universal indexes. However, it can be
  * extended to cover universal indexes if need be.
- * </p>
  */
 public interface Index extends Metadata {
 

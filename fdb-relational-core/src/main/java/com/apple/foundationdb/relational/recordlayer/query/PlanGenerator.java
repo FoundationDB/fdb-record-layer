@@ -528,8 +528,8 @@ public final class PlanGenerator {
      * currently supported, so those cases are rejected rather than silently ignored. Note that when the option is
      * attached to a sub-select feeding an {@code INSERT}, the enclosing statement is flagged as an INSERT, so this
      * check also rejects that case.
-     * <p>
-     * {@code EXECUTE CONTINUATION} is also permitted here. The option is per-execution and is not carried in the
+     *
+     * <p>{@code EXECUTE CONTINUATION} is also permitted here. The option is per-execution and is not carried in the
      * continuation, so it must be repeated on each {@code EXECUTE CONTINUATION} to avoid silently reverting to
      * serializable. Note that a continuation does not necessarily continue a {@code SELECT}: {@code COPY} for example
      * also produces (and resumes) continuations. The narrower check that the continuation actually carries a
@@ -602,7 +602,7 @@ public final class PlanGenerator {
      * <p>Internally builds a {@link PlanContext} from the schema template and store state, with
      * no-op DDL factories and a placeholder {@code embed:offline} URI.
      * The default {@link IndexMaintainerFactoryRegistryImpl} singleton is used &mdash; the same
-     * registry production paths use.</p>
+     * registry production paths use.
      *
      * @param cache             optional plan cache
      * @param schemaTemplate    schema template; {@link RecordMetaData} is derived via

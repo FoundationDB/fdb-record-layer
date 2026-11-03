@@ -57,16 +57,16 @@ import java.util.function.Function;
  * {@link #yieldExploratoryExpression(RelationalExpression)}, {@link #yieldFinalExpression(RelationalExpression)},
  * and {@link #yieldPartialMatch}) which modify the query graph if needed, and (if necessary) queue up those newly
  * yielded objects for further exploration by the planner.
- * <br>
- * Specifically, for {@link RelationalExpression}s and {@link Reference}s, the rule call implementation also implements
+ *
+ * <p>Specifically, for {@link RelationalExpression}s and {@link Reference}s, the rule call implementation also implements
  * {@link Memoizer} which interfaces directly with {@link CascadesPlanner}s memoization structures. This allows rules
  * to also directly memoize (or reuse memoized) references directly that are not yielded themselves.
- * <br>
- * Among other things, each object of this class maintains a reference to a {@link PlannerPhase} and a reference to the
+ *
+ * <p>Among other things, each object of this class maintains a reference to a {@link PlannerPhase} and a reference to the
  * rule we are executing. Note that the planner phase that the rule is implemented for is the same as this planner
  * stage.
- * <br>
- * Note that this class implements a number of interfaces that were carefully constructed to partition the set of
+ *
+ * <p>Note that this class implements a number of interfaces that were carefully constructed to partition the set of
  * methods by whether this rule call is targeted for an exploration rule or an implementation rule. Please take a look
  * at {@link ExplorationCascadesRule} and {@link ImplementationCascadesRule} for the definition of these rules. There
  * are two corresponding rule calls (i.e. {@link ExplorationCascadesRuleCall} and

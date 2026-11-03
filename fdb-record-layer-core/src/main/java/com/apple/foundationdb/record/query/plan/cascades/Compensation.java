@@ -62,12 +62,9 @@ import java.util.function.Supplier;
  * may produce also extraneous records. Compensation corrects for that problem by applying certain post-operations
  * such as filtering, distinct-ing or resorting.
  *
- * <p>
- * Example in SQL terms:
- * </p>
+ * <p>Example in SQL terms:
  *
- * <p>
- * Query:
+ * <p>Query:
  * <pre>
  * {@code
  *   SELECT *
@@ -76,8 +73,7 @@ import java.util.function.Supplier;
  * }
  * </pre>
  *
- * <p>
- * Index:
+ * <p>Index:
  * <pre>
  * {@code
  *   SELECT *
@@ -87,8 +83,7 @@ import java.util.function.Supplier;
  * }
  * </pre>
  *
- * <p>
- * A match for the two graphs created for both query and index side is:
+ * <p>A match for the two graphs created for both query and index side is:
  * <pre>
  * {@code
  *   SELECT *
@@ -108,13 +103,13 @@ import java.util.function.Supplier;
  * </pre>
  * The query fragment that needs to be inserted to correct for extra records the index scan produces, that is
  * the {@code WHERE x = 5} is compensation.
- * <br>
- * Compensation is computed either during the matching process or is computed after a complete match has been found
+ *
+ * <p>Compensation is computed either during the matching process or is computed after a complete match has been found
  * utilizing helper structures such as {@link PartialMatch} and {@link MatchInfo}, which are themselves
  * built during matching. Logic in the data access rules computes and applies compensation as needed when a complete
  * index match has been found.
- * <br>
- * A query sub graph can have multiple matches that could be utilized. In the example above, another index on {@code b}
+ *
+ * <p>A query sub graph can have multiple matches that could be utilized. In the example above, another index on {@code b}
  * would also match but use {@code b} for the index scan and a predicate {@code WHERE a = 3}. Both match the query,
  * and in fact both indexes can be utilized together by intersecting the index scans. For those cases, it becomes
  * important to be able to intersect compensations as well such that only the minimally required combined
@@ -173,8 +168,8 @@ public interface Compensation {
     /**
      * Identity element for the intersection monoid defined by {@link #intersect(Compensation)}.
      * Example for the usage pattern for that monoid:
-     * <br>
-     * Let {@code compensations} be a {@link Collection} of {@link Compensation}.
+     *
+     * <p>Let {@code compensations} be a {@link Collection} of {@link Compensation}.
      * You can use {@link java.util.stream.Stream#reduce} to create an intersection of
      * all compensations in that collection.
      * <pre>

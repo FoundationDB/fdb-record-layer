@@ -94,8 +94,8 @@ record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters,
     /**
      * Returns how many clusters currently hold fewer primaries than their own
      * {@link ClusterMetadata#mergeThreshold(Config)}, i.e. how many want to be merged away.
-     * <p>
-     * This is what separates "no merge is due" from "merges are due but are not completing": if this stays high while
+     *
+     * <p>This is what separates "no merge is due" from "merges are due but are not completing": if this stays high while
      * {@link #numClusters()} does not fall, the trigger is firing and the tasks are not landing.
      *
      * @param config the configuration supplying the merge threshold

@@ -350,8 +350,8 @@ public class OnlineIndexOperationConfig {
 
         /**
          * Set the maximum number of times to retry a single range rebuild.
-         * <p>
-         * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
+         *
+         * <p>The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
          *
          * @param maxRetries the maximum number of times to retry a single range rebuild
          *
@@ -376,8 +376,8 @@ public class OnlineIndexOperationConfig {
 
         /**
          * Set the maximum number of records to process in a single second.
-         * <p>
-         * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
+         *
+         * <p>The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
          *
          * @param recordsPerSecond the maximum number of records to process in a single second
          *
@@ -404,8 +404,8 @@ public class OnlineIndexOperationConfig {
          * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value,
          * the indexer waits for this many milliseconds between transactions, bypassing the records-per-second
          * based throttling. A non-positive value disables the enforced delay.
-         * <p>
-         * The default value is {@link #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
+         *
+         * <p>The default value is {@link #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
          *
          * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
          *

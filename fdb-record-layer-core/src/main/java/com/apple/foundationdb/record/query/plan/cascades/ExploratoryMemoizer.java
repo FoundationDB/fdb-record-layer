@@ -36,11 +36,9 @@ public interface ExploratoryMemoizer {
      * expression is returned allowing the planner to reuse that reference. If no such previously memoized expression is
      * found, a new reference is created and returned to the caller.
      *
-     * <p>
-     * The expression that is passed in must be an exploratory expression of the current planner phase. If this method
+     * <p>The expression that is passed in must be an exploratory expression of the current planner phase. If this method
      * is used in an incompatible context and a reused reference is returned, the effects of mutating such a reference
      * through other planner logic are undefined and should be avoided.
-     * </p>
      *
      * @param expression exploratory expression to memoize
      *
@@ -54,10 +52,8 @@ public interface ExploratoryMemoizer {
      * is found that contains all of the given expressions, then this will return the existing reference. Otherwise,
      * this will add all of the expressions to the memoization structure and return a new reference.
      *
-     * <p>
-     * Like with {@link #memoizeExploratoryExpression(RelationalExpression)}, all of the passed in expressions must
+     * <p>Like with {@link #memoizeExploratoryExpression(RelationalExpression)}, all of the passed in expressions must
      * be exploratory expressions of the current planner phase. See that method for details.
-     * </p>
      *
      * @param expressions the collection of exploratory expressions to memoize
      * @return a new or reused reference

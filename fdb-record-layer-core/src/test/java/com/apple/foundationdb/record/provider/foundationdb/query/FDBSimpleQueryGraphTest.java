@@ -549,7 +549,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *                           └── ƒ ── FullUnorderedScanExpression(RestaurantRecord)
      * }</pre>
      *
-     * Because the outer {@code Select} has a predicate that rejects null, {@code EliminateNullOnEmptyRule} is able
+     * <p>Because the outer {@code Select} has a predicate that rejects null, {@code EliminateNullOnEmptyRule} is able
      * to replace {@code q1} with a normal for-each quantifier.
      *
      * @see #testSubselectHasNullOnEmptyAndIsNullPredicate()
@@ -637,7 +637,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *                     └── …
      * }</pre>
      *
-     * Because the outer predicate accepts the null tuple that the {@code nullOnEmpty} quantifier potentially injects
+     * <p>Because the outer predicate accepts the null tuple that the {@code nullOnEmpty} quantifier potentially injects
      * on an empty inner result, {@code EliminateNullOnEmptyRule} cannot simplify the null-on-empty quantifier here.
      *
      * @see #testSubselectHasNullOnEmpty()
@@ -693,10 +693,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * to construct certain kinds {@link com.apple.foundationdb.record.query.plan.cascades.Compensation}s to make the
      * plan work, then we may lose coverage (absent other changes to our testing strategy).
      *
-     * <p>
-     * There are several elements of this test that are necessary at time of writing to make it hit the code
+     * <p>There are several elements of this test that are necessary at time of writing to make it hit the code
      * path under test:
-     * </p>
      * <ol>
      *     <li>A nested existential query on a single field</li>
      *     <li>The inner query has an IN predicate on that field</li>

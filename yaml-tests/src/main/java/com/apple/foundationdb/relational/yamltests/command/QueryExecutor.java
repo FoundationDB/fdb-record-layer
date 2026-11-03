@@ -108,8 +108,8 @@ public class QueryExecutor {
 
     /**
      * Executes the query and verifies the outcome against {@code config}, with an optional inline metadata check.
-     * <p>
-     * When {@code inlineMetadataConfig} is non-null, column metadata is read from the result set before any rows
+     *
+     * <p>When {@code inlineMetadataConfig} is non-null, column metadata is read from the result set before any rows
      * are consumed and validated via {@link CheckResultMetadataConfig#checkInline}. The result set is then passed
      * to {@code config} intact for row validation. This is used when a {@code resultMetadata} config appears on a
      * continuation page and the query cannot be re-executed from scratch.

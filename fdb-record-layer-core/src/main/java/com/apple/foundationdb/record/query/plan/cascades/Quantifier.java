@@ -53,26 +53,20 @@ import java.util.stream.Collectors;
 /**
  * Models the concept of quantification.
  * 
- * <p>
- * A quantifier describes the data flow between the output of one {@link RelationalExpression} {@code R} and the
+ * <p>A quantifier describes the data flow between the output of one {@link RelationalExpression} {@code R} and the
  * consumption of that data by another {@code RelationalExpression} {@code S}. {@code S} is said to own the quantifier,
  * while the quantifier is said to range over {@code R}. Quantifiers come in very few but very distinct flavors.
  * All flavors are implemented by static inner final classes in order to emulate a sealed trait.
- * </p>
  *
- * <p>
- * Quantifiers separate what it means to be producing versus consuming items. The expression a quantifier ranges over
+ * <p>Quantifiers separate what it means to be producing versus consuming items. The expression a quantifier ranges over
  * produces records, the quantifier flows information (in a manner determined by the flavor) that is consumed by the expression
  * containing or owning the quantifier. That expression can consume the data in a way independent of how the data was
  * produced in the first place.
- * </p>
  *
- * <p>
- * A quantifier works closely with the expression that owns it. Depending on the semantics of the owning expression
+ * <p>A quantifier works closely with the expression that owns it. Depending on the semantics of the owning expression
  * it becomes possible to model correlations. For example, in a logical join expression the quantifier can provide a binding
  * of the item being currently consumed by the join's outer to other (inner) parts of the data flow that are also rooted
  * at the owning (join) expression.
- * </p>
  */
 @SuppressWarnings("unused")
 @API(API.Status.EXPERIMENTAL)

@@ -53,41 +53,33 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  * <code>RankedSet</code> supports the efficient retrieval of elements by their rank as
  * defined by lexicographic order.
  *
- * <p>
- * Elements are added or removed from the set as byte-array keys.
- * </p>
+ * <p>Elements are added or removed from the set as byte-array keys.
  *
- * <p>
- * The fundamental operations are:
- * </p>
+ * <p>The fundamental operations are:
  * <ul>
  * <li><b>rank</b>: the ordinal position of an element of the set ({@link #rank}).</li>
  * <li><b>select</b>: the element at a given ordinal position in the set ({@link #getNth}).</li>
  * </ul>
  *
- * <p>
- * The set is implemented as a skip-list with a specified number of levels. Level zero has one entry for each element.
+ * <p>The set is implemented as a skip-list with a specified number of levels. Level zero has one entry for each element.
  * Coarser levels have a sampling of values, determined by bits the hash code of their key.
- * </p>
  *
- * <p>
- * The skip-list is stored as key-value pairs within a given subspace, where the key is a tuple of the form <code>[<i>level</i>, <i>key</i>]</code>
+ * <p>The skip-list is stored as key-value pairs within a given subspace, where the key is a tuple of the form <code>[<i>level</i>, <i>key</i>]</code>
  * and the value is the number of elements between this key and the previous key at the same level, encoded as a little-endian long.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class RankedSet {
     /**
      * Hash using the JDK's default byte array hash.
      *
-     * This hash does not have great distribution for certain values with low entropy.
+     * <p>This hash does not have great distribution for certain values with low entropy.
      */
     public static final HashFunction JDK_ARRAY_HASH = Arrays::hashCode;
 
     /**
      * Hash using 32-bit CRC.
      *
-     * Although not designed for hashing, this does often give better distribution than {@link #JDK_ARRAY_HASH}.
+     * <p>Although not designed for hashing, this does often give better distribution than {@link #JDK_ARRAY_HASH}.
      */
     public static final HashFunction CRC_HASH = key -> {
         final CRC32 crc = new CRC32();
@@ -98,14 +90,14 @@ public class RankedSet {
     /**
      * Hash using a random number.
      *
-     * The result is actually independent of the key.
+     * <p>The result is actually independent of the key.
      */
     public static final HashFunction RANDOM_HASH = kignore -> ThreadLocalRandom.current().nextInt();
 
     /**
      * The default hash function to use.
      *
-     * For reasons of compatibility with existing data, this defaults to the JDK's array hash.
+     * <p>For reasons of compatibility with existing data, this defaults to the JDK's array hash.
      */
     public static final HashFunction DEFAULT_HASH_FUNCTION = JDK_ARRAY_HASH;
 
@@ -140,7 +132,7 @@ public class RankedSet {
     /**
      * Function to compute the hash used to determine which levels a key value splits on.
      *
-     * Changing the hash function used for an existing {@code RankedSet} will tend to misbalance it but will not break
+     * <p>Changing the hash function used for an existing {@code RankedSet} will tend to misbalance it but will not break
      * it, in that existing entries can be counted and removed.
      */
     @FunctionalInterface
@@ -223,7 +215,7 @@ public class RankedSet {
         /**
          * Set the hash function to use.
          *
-         * It is possible to change the hash function of an existing ranked set, although this is not recommended since the distribution in the skip list may
+         * <p>It is possible to change the hash function of an existing ranked set, although this is not recommended since the distribution in the skip list may
          * become uneven as a result.
          * @param hashFunction the hash function to use
          * @return this builder
@@ -240,7 +232,7 @@ public class RankedSet {
         /**
          * Set the hash function to use.
          *
-         * It is not currently possible to change the number of levels for an existing ranked set.
+         * <p>It is not currently possible to change the number of levels for an existing ranked set.
          * @param nlevels the number of levels to use
          * @return this builder
          */
@@ -259,7 +251,7 @@ public class RankedSet {
         /**
          * Set whether to count duplicate keys separately.
          *
-         * If duplicate keys are counted separately, ranks after them are increased by the number of duplicates.
+         * <p>If duplicate keys are counted separately, ranks after them are increased by the number of duplicates.
          * @param countDuplicates whether to count duplicates
          * @return this builder
          */
@@ -297,7 +289,7 @@ public class RankedSet {
     /**
      * Initialize a new ranked set.
      *
-     * Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
+     * <p>Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
      * may be superior in new code.
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
@@ -311,7 +303,7 @@ public class RankedSet {
     /**
      * Initialize a new ranked set.
      *
-     * Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
+     * <p>Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
      * may be superior in new code.
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
@@ -370,7 +362,7 @@ public class RankedSet {
     /**
      * Add a key to the set.
      *
-     * If {@link Config#isCountDuplicates} is {@code false} and {@code key} is already present, the return value is {@code false}.
+     * <p>If {@link Config#isCountDuplicates} is {@code false} and {@code key} is already present, the return value is {@code false}.
      * If {@link Config#isCountDuplicates} is {@code true}, the return value is never {@code false} and a duplicate will
      * cause all {@link #rank}s below it to increase by one.
      * @param tc the transaction to use to access the database

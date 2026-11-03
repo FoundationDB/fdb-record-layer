@@ -101,7 +101,7 @@ public class TupleKeyCountTree {
     /**
      * Add the given tuple to the tree.
      *
-     * Each element is added to the next deeper level in the tree, incrementing the count as it goes.
+     * <p>Each element is added to the next deeper level in the tree, incrementing the count as it goes.
      * @param tuple the tuple to add
      */
     public void add(@Nonnull Tuple tuple) {

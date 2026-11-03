@@ -53,7 +53,7 @@ public class TupleHelpers {
     /**
      * Compare two tuples lexicographically, that is, the same way they would sort when used as keys.
      *
-     * Note that this is currently WAY more efficient than calling {@link Tuple#equals},
+     * <p>Note that this is currently WAY more efficient than calling {@link Tuple#equals},
      * and slightly more efficient than calling {@link Tuple#compareTo}.
      * @param t1 the first {@link Tuple} to compare
      * @param t2 the second {@link Tuple} to compare

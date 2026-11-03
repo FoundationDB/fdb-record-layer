@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 /**
  * Helper class for extracting grouping keys from an {@link IndexAggregateFunction} given query conditions.
  *
- * To implement an aggregate function <code>XXX(value BY group)</code> using an index, the group needs to be fixed,
+ * <p>To implement an aggregate function <code>XXX(value BY group)</code> using an index, the group needs to be fixed,
  * which will be true when the query has a {@link com.apple.foundationdb.record.query.RecordQuery#getFilter filter} on <code>group</code> (equivalent to SQL <code>WHERE group = ?</code>).
  */
 @API(API.Status.EXPERIMENTAL)

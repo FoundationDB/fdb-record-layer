@@ -41,12 +41,11 @@ import java.util.concurrent.Executor;
  * replication state) to support incremental maintenance.
  *
  * <h2>Architecture</h2>
- * <p>
- * Vectors are partitioned into clusters. Each cluster stores a set of <em>primary</em> vector
+ *
+ * <p>Vectors are partitioned into clusters. Each cluster stores a set of <em>primary</em> vector
  * references (the authoritative copies) and <em>replicated</em> references (copies from neighboring
  * clusters kept for improved search recall). Cluster centroids are indexed in an HNSW graph so that
  * the nearest clusters to a query vector can be found efficiently.
- * </p>
  *
  * <h2>Operations</h2>
  * <ul>
@@ -61,10 +60,9 @@ import java.util.concurrent.Executor;
  * </ul>
  *
  * <h2>Maintenance</h2>
- * <p>
- * Structural maintenance is performed lazily via deferred tasks that are executed piggy-backed on
+ *
+ * <p>Structural maintenance is performed lazily via deferred tasks that are executed piggy-backed on
  * insert and delete operations:
- * </p>
  * <ul>
  *   <li><b>Split/Merge</b> — when a cluster grows beyond {@link Config#primaryClusterMax()} or shrinks
  *       below {@link Config#primaryClusterMin()}, a {@link SplitMergeTask} repartitions the affected
@@ -78,12 +76,11 @@ import java.util.concurrent.Executor;
  * </ul>
  *
  * <h2>Usage</h2>
- * <p>
- * This class is the primary entry point for interacting with the Guardiann vector structure. It
+ *
+ * <p>This class is the primary entry point for interacting with the Guardiann vector structure. It
  * delegates to specialized operation classes ({@link Insert}, {@link Search}, {@link Delete}) which
  * implement the respective algorithms. All operations are asynchronous and designed for use within
  * FoundationDB transactions.
- * </p>
  *
  * @see Config
  * @see Search
@@ -117,8 +114,8 @@ public class Guardiann {
 
     /**
      * Constructs a new Guardiann vector structure instance.
-     * <p>
-     * Initializes the structure with the necessary components for storage, execution, configuration,
+     *
+     * <p>Initializes the structure with the necessary components for storage, execution, configuration,
      * and event handling. All parameters are mandatory and must not be null.
      *
      * @param subspace the {@link Subspace} where the vector structure data is stored
@@ -262,8 +259,8 @@ public class Guardiann {
 
     /**
      * Inserts a new vector with its associated primary key into the vector structure.
-     * <p>
-     * Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, then writes a
+     *
+     * <p>Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, then writes a
      * primary vector reference to the nearest cluster and replicated references to neighboring clusters
      * based on replication priority scoring. Updates cluster metadata and enqueues deferred maintenance
      * tasks (split, merge, reassign) if cluster size invariants are violated.
@@ -285,8 +282,8 @@ public class Guardiann {
 
     /**
      * Deletes a vector identified by its primary key from the Guardiann index.
-     * <p>
-     * Removes the vector's references from all clusters it belongs to (primary and replicated),
+     *
+     * <p>Removes the vector's references from all clusters it belongs to (primary and replicated),
      * updates cluster metadata, and enqueues maintenance tasks if needed. The caller must provide
      * the vector data to locate which clusters contain the vector.
      *

@@ -33,7 +33,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Converts hexadecimal Strings.
  *
- * This is forked from apache-commons-codec as it shouldn't ever change. This should go away once we move to JDK17 which
+ * <p>This is forked from apache-commons-codec as it shouldn't ever change. This should go away once we move to JDK17 which
  * has native support for this.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -369,10 +369,9 @@ public class Hex {
      * Converts an array of bytes into an array of bytes for the characters representing the hexadecimal values of each
      * byte in order. The returned array will be double the length of the passed array, as it takes two characters to
      * represent any given byte.
-     * <p>
-     * The conversion from hexadecimal characters to the returned bytes is performed with the charset named by
+     *
+     * <p>The conversion from hexadecimal characters to the returned bytes is performed with the charset named by
      * {@link #getCharset()}.
-     * </p>
      *
      * @param array
      *            a byte[] to convert to Hex characters
@@ -387,10 +386,9 @@ public class Hex {
      * Converts byte buffer into an array of bytes for the characters representing the hexadecimal values of each
      * byte in order. The returned array will be double the length of the passed array, as it takes two characters to
      * represent any given byte.
-     * <p>
-     * The conversion from hexadecimal characters to the returned bytes is performed with the charset named by
+     *
+     * <p>The conversion from hexadecimal characters to the returned bytes is performed with the charset named by
      * {@link #getCharset()}.
-     * </p>
      *
      * @param array
      *            a byte buffer to convert to Hex characters

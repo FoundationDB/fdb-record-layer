@@ -88,14 +88,14 @@ import java.util.stream.StreamSupport;
  * and various logical relational expressions (not yet introduced), which represent an abstract stream of records but can't
  * be executed directly (such as an unimplemented sort). Other planner expressions such as {@link com.apple.foundationdb.record.query.expressions.QueryComponent}
  * and {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression} do not represent streams of records.
- * <br>
- * The basic type that represents a part of the planner expression tree. An expression is generally an immutable
+ *
+ * <p>The basic type that represents a part of the planner expression tree. An expression is generally an immutable
  * object with two different kinds of fields: regular Java fields and reference fields. The regular fields represent
  * "node information", which pertains only to this specific node in the tree. In contrast, the reference fields represent
  * this expression's children in the tree, such as its inputs and filter/sort expressions, and are always hidden behind
  * an {@link Reference}.
- * <br>
- * Deciding whether certain fields constitute "node information" (and should therefore be a regular field) or
+ *
+ * <p>Deciding whether certain fields constitute "node information" (and should therefore be a regular field) or
  * "hierarchical information" (and therefore should not be) is subtle and more of an art than a science. There are two
  * reasonable tests that can help make this decision:
  * <ol>
@@ -104,13 +104,13 @@ import java.util.stream.StreamSupport;
  *     <li>Should the planner memoize (and therefore optimize) this field separately from its parent?</li>
  * </ol>
  *
- * For example, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} has only regular fields, including the
+ * <p>For example, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} has only regular fields, including the
  * index name and the comparisons to use when scanning it.
  * Applying the first rule, it wouldn't really make sense to match the index name or the comparisons being performed on
  * their own: they're what define an index scan, after all!
  * Applying the second rule, they're relatively small immutable objects that don't need to be memoized.
- * <br>
- * In contrast, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} has no regular fields.
+ *
+ * <p>In contrast, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} has no regular fields.
  * A filter plan has two important fields: the <code>Query.Component</code> used for the filter and a child plan that
  * provides input. Both of these might be matched by rules directly, in order to optimize them without regard for the
  * fact that there's a filter. Similarly, they should both be memoized separately, since there might be many possible
@@ -231,18 +231,18 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * </ol>
      * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
      * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
-     * <p>
-     * For instance, a {@link LogicalUnionExpression}
+     *
+     * <p>For instance, a {@link LogicalUnionExpression}
      * cannot correlate (this method returns {@code false}) because it is not meaningful to bind a record from one child
      * of the union while providing bound values to another.
-     * <p>
-     * In another example, a logical select expression can correlate which means that one child of the SELECT expression
+     *
+     * <p>In another example, a logical select expression can correlate which means that one child of the SELECT expression
      * can be evaluated and the resulting records can bound individually one after another. For each bound record
      * flowing along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
      * more correlation values to be bound, etc. These concepts follow closely to the mechanics of what SQL calls a query
      * block.
-     * <p>
-     * The existence of a correlation between source, anchor, and dependents may adversely affect planning because
+     *
+     * <p>The existence of a correlation between source, anchor, and dependents may adversely affect planning because
      * a correlation always imposes order between the evaluated of children of an expression. This may or may
      * not tie the hands of the planner to produce an optimal plan. In certain cases, queries written in a correlated
      * way can be <em>de-correlated</em> to allow for better optimization techniques.
@@ -396,8 +396,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
      * graph) to produce matches of some kind.
-     * <br>
-     * This overload matches over all quantifiers owned by this expression respectively the {@code otherExpression}.
+     *
+     * <p>This overload matches over all quantifiers owned by this expression respectively the {@code otherExpression}.
      * See {@link #match(RelationalExpression, AliasMap, List, List, Function, MatchFunction, CombineFunction)} for
      * more information about the matching process.
      * @param otherExpression the expression to match this expression with
@@ -431,15 +431,15 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
      * graph) to produce matches of some kind.
-     * <br>
-     * Two relational expressions can only match if the sub-graphs of the quantifiers they range over match
+     *
+     * <p>Two relational expressions can only match if the sub-graphs of the quantifiers they range over match
      * themselves under a bijective association (mapping between the quantifiers of this expression and
      * the quantifier of the candidate expression). To this end, the {@code matchFunction} passed in to this method is
      * used to determine the matches between two quantifiers: one from this graph and one from the candidate graph.
      * The {@code matchFunction} can produce zero, one or many matches which are returned as an {@link Iterable} of type
      * {@code M}.
-     * <br>
-     * This method attempts to find that bijective mapping between the quantifiers contained by their respective
+     *
+     * <p>This method attempts to find that bijective mapping between the quantifiers contained by their respective
      * expressions. Naturally, if the expressions that are being matched own a different number of quantifiers we cannot
      * ever find a bijective mapping. In that case, the two expressions do not match at all. If, on the other hand the
      * expressions that are being matched do have the same number of quantifiers, we need to enumerate all possible
@@ -452,8 +452,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * depends on {@code q1}, denoted by {@code q1 -> q2}.
      * This implies that every enumerated mapping must contain {@code q1} before {@code q2} which therefore decreases
      * the number of all mappings that need to be enumerated.
-     * <br>
-     * One complicating factor are correlations to parts of the graph that are not contained in the sub-graphs
+     *
+     * <p>One complicating factor are correlations to parts of the graph that are not contained in the sub-graphs
      * underneath {@code this} respectively the candidate expression. These correlations are enumerated and bound
      * prior to matching the quantifiers.
      * @param otherExpression the expression to match this expression with
@@ -531,23 +531,23 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * A functional interface to combine the matches computed over pairs of quantifiers during matching into a
      * result (for the bound correlatedTo set handed into {@link #combine}).
-     * <br>
-     * Let's assume we have multiple bindings during matching on the deep correlations (.getCorrelatedTo() of this).
+     *
+     * <p>Let's assume we have multiple bindings during matching on the deep correlations (.getCorrelatedTo() of this).
      * Let's call that the sets of outer bindings. We also attempt to match the quantifiers owned by this to the
      * quantifiers of {@code other}.
-     * <br>
-     * For each set of outer bindings we enumerate bindings among the owned quantifiers of the respective expressions.
+     *
+     * <p>For each set of outer bindings we enumerate bindings among the owned quantifiers of the respective expressions.
      * Let's call those sets the inner bindings. For each set out outer bindings there are many sets of inner bindings.
-     * <br>
-     * At the end of matching we want to establish a match between this expression and some other expression and the
+     *
+     * <p>At the end of matching we want to establish a match between this expression and some other expression and the
      * quantifiers owned by the respective expressions and their bindings among each other do not matter anymore in
      * terms of matching logic. Those bindings only matter for the result of the match under a set of outer bindings.
-     * <br>
-     * The matching algorithm returns an iterable of some type {@code S} which is computed by a lambda passed in by
+     *
+     * <p>The matching algorithm returns an iterable of some type {@code S} which is computed by a lambda passed in by
      * the caller. It is up to the caller what to do with the outer and inner bindings and how to compute a useful
      * result out of it. The signature of that lambda is defined by this interface.
-     * <br>
-     * During matching the matching logic calls {@link #combine} for each set of outer bindings with and {@link Iterable}
+     *
+     * <p>During matching the matching logic calls {@link #combine} for each set of outer bindings with and {@link Iterable}
      * over sets of inner bindings (and their match results).
      * @param <R> type of the match result computed while matching quantifiers
      * @param <S> type of combined match result
@@ -568,8 +568,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Method to enumerate all bindings of unbound correlations of this and some other expression.
-     * <br>
-     * Example:
+     *
+     * <p>Example:
      * <pre>
      * {@code
      *

@@ -49,10 +49,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Object responsible for translating record saves and deletes into updates to a secondary index.
  *
- * This class is essentially an interface, implementing only the storage of an {@link IndexMaintainerState}.
+ * <p>This class is essentially an interface, implementing only the storage of an {@link IndexMaintainerState}.
  * A functional base class is provided by {@link com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer}.
  *
- * An {@code IndexMaintainer} instance is associated with a particular record store and index meta-data.
+ * <p>An {@code IndexMaintainer} instance is associated with a particular record store and index meta-data.
  * Implementers should assume that the same maintainer might be used to perform multiple record updates,
  * even though this never happens today.
  *
@@ -167,8 +167,8 @@ public abstract class IndexMaintainer {
     /**
      * Serialize the old/new record pair into an {@link com.google.protobuf.Any}-packed message describing the deferred
      * index update. The data will be later provided to {@link #updateFromQueue(Any)} to implement the index update.
-     * <p>
-     * This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
+     *
+     * <p>This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
      * caller is responsible for checking that before invoking this method.
      *
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
@@ -199,17 +199,16 @@ public abstract class IndexMaintainer {
 
     /**
      * Scans through the list of uniqueness violations within the database.
-     * <p>
-     *     It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
+     *
+     * <p>It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
      *     return the primary key of the record causing a problem and {@link IndexEntry#getValue() getValue()} will
      *     return the index value that is being duplicated.
-     * </p>
-     * <p>
-     *     Implementors <em>should</em> store all relevant data, and nothing else in
+     *
+     * <p>Implementors <em>should</em> store all relevant data, and nothing else in
      *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, but this requirement was not
      *     clearly stated, so it's possible there are implementations that store information about uniqueness violations
      *     in another range.
-     * </p>
+     *
      * @param range range of tuples to read
      * @param continuation any continuation from a previous invocation
      * @param scanProperties row limit and other scan properties
@@ -220,15 +219,14 @@ public abstract class IndexMaintainer {
 
     /**
      * Clear the list of uniqueness violations.
-     * <p>
-     *     This should only be called when the index is no longer unique, and implementations should throw a
+     *
+     * <p>This should only be called when the index is no longer unique, and implementations should throw a
      *     {@link com.apple.foundationdb.record.RecordCoreException} if the index is unique.
-     * </p>
-     * <p>
-     *     This should be as simple as clearing the
+     *
+     * <p>This should be as simple as clearing the
      *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, as that should be where all data
      *     about the violations should be stored.
-     * </p>
+     *
      * @return a future that will complete when the violations have been cleared
      */
     public CompletableFuture<Void> clearUniquenessViolations() {
@@ -249,7 +247,7 @@ public abstract class IndexMaintainer {
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
      * the implementation of the index.
      *
-     * It is not responsible for metadata validation, which is defined in
+     * <p>It is not responsible for metadata validation, which is defined in
      * {@link com.apple.foundationdb.record.metadata.IndexValidator}.
      *
      * @param continuation any continuation from a previous validation invocation

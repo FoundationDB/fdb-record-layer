@@ -44,8 +44,8 @@ import java.util.Set;
 /**
  * Class to manage properties for expressions of some type {@code E} that extends {@link RelationalExpression}.
  * A properties map is part of an expression reference ({@link Reference}).
- * <br>
- * Properties for expressions managed by this map are computed lazily when a caller attempts to retrieve the value of a
+ *
+ * <p>Properties for expressions managed by this map are computed lazily when a caller attempts to retrieve the value of a
  * property. The reason for that is twofold. First, we want to avoid unnecessary computation of a property if it is not
  * retrieved at a later point in time. Second, the basic planner
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} uses a simplified way of creating a dag of

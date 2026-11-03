@@ -28,17 +28,17 @@ import javax.annotation.Nonnull;
  * Per-component vector arithmetic primitives on {@code double[]} arrays. Implementations may be a
  * pure-Java scalar loop or a SIMD-using variant; {@link RealVectorPrimitives} dispatches to the
  * implementation it picks at static-init time.
- * <p>
- * Implementations live in {@link com.apple.foundationdb.linear} (scalar) and
+ *
+ * <p>Implementations live in {@link com.apple.foundationdb.linear} (scalar) and
  * {@code com.apple.foundationdb.linear.simd} (SIMD). The interface is {@code public} only because
  * the SIMD implementation in the sub-package has to be able to {@code implements} it; this is not
  * a stable extension point for external callers.
- * <p>
- * All array-mutating methods are permitted to write to an output array that aliases an input
+ *
+ * <p>All array-mutating methods are permitted to write to an output array that aliases an input
  * (e.g. {@code add(a, b, a)}) — the operations are per-element and have no cross-element data
  * dependencies. Reduction methods return a scalar and do not mutate inputs.
- * <p>
- * Callers must ensure array length consistency before invoking these methods; implementations may
+ *
+ * <p>Callers must ensure array length consistency before invoking these methods; implementations may
  * assume {@code a.length == b.length == out.length} and skip length checks for speed.
  */
 @API(API.Status.INTERNAL)
@@ -55,8 +55,8 @@ public interface Backend {
 
     /**
      * Computes the element-wise sum {@code out[i] = a[i] + b[i]} for every {@code i}.
-     * <p>
-     * {@code out} may alias {@code a} or {@code b} — each lane is loaded from its source positions
+     *
+     * <p>{@code out} may alias {@code a} or {@code b} — each lane is loaded from its source positions
      * before any value is written back, so in-place updates such as {@code addInto(x, y, x)} are
      * supported.
      *
@@ -69,8 +69,8 @@ public interface Backend {
 
     /**
      * Computes the broadcast sum {@code out[i] = a[i] + scalar} for every {@code i}.
-     * <p>
-     * {@code out} may alias {@code a}.
+     *
+     * <p>{@code out} may alias {@code a}.
      *
      * @param a left operand
      * @param scalar value broadcast across every component of {@code a}
@@ -81,8 +81,8 @@ public interface Backend {
 
     /**
      * Computes the element-wise difference {@code out[i] = a[i] - b[i]} for every {@code i}.
-     * <p>
-     * {@code out} may alias {@code a} or {@code b}.
+     *
+     * <p>{@code out} may alias {@code a} or {@code b}.
      *
      * @param a minuend
      * @param b subtrahend
@@ -93,8 +93,8 @@ public interface Backend {
 
     /**
      * Computes the broadcast difference {@code out[i] = a[i] - scalar} for every {@code i}.
-     * <p>
-     * {@code out} may alias {@code a}.
+     *
+     * <p>{@code out} may alias {@code a}.
      *
      * @param a minuend
      * @param scalar value broadcast across every component of {@code a}
@@ -107,8 +107,8 @@ public interface Backend {
      * Computes the broadcast product {@code out[i] = a[i] * scalar} for every {@code i}. Used
      * indirectly by {@link RealVectorPrimitives#normalizeInto} to scale a vector by
      * {@code 1 / l2Norm}.
-     * <p>
-     * {@code out} may alias {@code a}.
+     *
+     * <p>{@code out} may alias {@code a}.
      *
      * @param a operand
      * @param scalar value broadcast across every component of {@code a}
@@ -120,21 +120,21 @@ public interface Backend {
     /**
      * Computes the AXPY-shaped fused multiply-add {@code out[i] = scalar * x[i] + y[i]} for every
      * {@code i} in {@code [from, from+length)}. Indices outside the slice are not touched.
-     * <p>
-     * AXPY ({@code A · X Plus Y}) is the BLAS Level 1 building block of most accumulator-style
+     *
+     * <p>AXPY ({@code A · X Plus Y}) is the BLAS Level 1 building block of most accumulator-style
      * inner loops in linear algebra — Householder QR, Gram-Schmidt, conjugate-gradient updates,
      * gradient steps. Standard BLAS {@code daxpy(n, α, x, incx, y, incy)} is the in-place form
      * {@code y := α·x + y}; this method is the more general 3-operand form {@code out := α·x + y},
      * which collapses to the in-place case when {@code out} aliases {@code y}. The parameter
      * order matches BLAS (scalar first, multiplied source next, addend next, then destination).
-     * <p>
-     * The backend exposes only this most general form; the convenience in-place wrapper lives in
+     *
+     * <p>The backend exposes only this most general form; the convenience in-place wrapper lives in
      * {@link RealVectorPrimitives#multiplyAddInto(double, double[], double[], int, int)} and
      * just calls this method with {@code out == y}. Implementations fuse the multiply-add into a
      * single hardware FMA where supported (load {@code y}, FMA against scalar-broadcast and
      * {@code x}, store into {@code out}).
-     * <p>
-     * Aliasing: {@code out} may alias either {@code x} or {@code y}; the per-lane loads happen
+     *
+     * <p>Aliasing: {@code out} may alias either {@code x} or {@code y}; the per-lane loads happen
      * before the store, so in-place updates are well-defined. {@code x} and {@code y} should not
      * alias each other unless the caller actually wants {@code (1 + scalar) · x}.
      *
@@ -150,8 +150,8 @@ public interface Backend {
 
     /**
      * Returns the dot product {@code Σ a[i] * b[i]} as a single {@code double}.
-     * <p>
-     * SIMD implementations typically use fused multiply-add and may sum partial lanes in a
+     *
+     * <p>SIMD implementations typically use fused multiply-add and may sum partial lanes in a
      * different order than a strict left-to-right scalar accumulation, so the low-order bits of
      * the result can differ from a scalar reference by a few ULPs. Callers that depend on
      * bit-exact reproducibility should force the scalar backend via
@@ -167,8 +167,8 @@ public interface Backend {
      * Returns the dot product {@code Σ_{i ∈ [from, from+length)} a[i] * b[i]} over a contiguous
      * slice of two arrays. Used by routines (Householder QR, partial reductions) that operate on
      * sub-arrays without materializing copies.
-     * <p>
-     * Same reduction-order caveat as {@link #dot(double[], double[])}.
+     *
+     * <p>Same reduction-order caveat as {@link #dot(double[], double[])}.
      *
      * @param a left operand
      * @param b right operand; must overlap the slice {@code [from, from+length)} with {@code a}
@@ -183,8 +183,8 @@ public interface Backend {
      * Returns the squared L2 norm {@code Σ a[i] * a[i]} as a single {@code double}. Equivalent
      * to {@code dot(a, a)} but typically faster because it requires only one array load per
      * lane.
-     * <p>
-     * Same reduction-order caveat as {@link #dot(double[], double[])}.
+     *
+     * <p>Same reduction-order caveat as {@link #dot(double[], double[])}.
      *
      * @param a vector to take the norm of
      * @return the squared L2 norm of {@code a}
@@ -208,8 +208,8 @@ public interface Backend {
      * Returns the squared Euclidean distance {@code Σ (a[i] - b[i])^2} as a single {@code double}.
      * Equivalent to {@code dot(a - b, a - b)} but fused into a single pass that avoids
      * materializing the difference vector.
-     * <p>
-     * Same reduction-order caveat as {@link #dot(double[], double[])}.
+     *
+     * <p>Same reduction-order caveat as {@link #dot(double[], double[])}.
      *
      * @param a left operand
      * @param b right operand; must have the same length as {@code a}

@@ -28,10 +28,9 @@ import javax.annotation.Nonnull;
 
 /**
  * Interface for configuring how to run a {@code .yamsql} file.
- * <p>
- *     Primarily this is concerned with global configuration that allows us to run <em>all</em> tests with a different
+ *
+ * <p>Primarily this is concerned with global configuration that allows us to run <em>all</em> tests with a different
  *     configuration, such as a different server, or mixed-mode.
- * </p>
  */
 public interface YamlTestConfig {
 

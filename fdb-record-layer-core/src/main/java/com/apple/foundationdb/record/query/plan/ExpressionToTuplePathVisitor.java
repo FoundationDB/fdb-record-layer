@@ -46,12 +46,12 @@ import java.util.Deque;
 
 /**
  * Visitor to find mappings of {@link KeyExpression}s to tuple access paths that are encoded as {@link FieldData}.
- * <br>
- * This visitor is exclusively used by {@link AvailableFields} to compute the mappings from a key expression
+ *
+ * <p>This visitor is exclusively used by {@link AvailableFields} to compute the mappings from a key expression
  * which is expressed based on a record to an ordinal path (a dewey id) that encodes the access path to the same data
  * but held in e.g. a primary key of an index.
- * <br>
- * Example: A record {@code (a: 10, (b: 30, c: 40), d: 50, x: (y: (e: 60, f: 70), g: 80), h: 90)} can be encoded as
+ *
+ * <p>Example: A record {@code (a: 10, (b: 30, c: 40), d: 50, x: (y: (e: 60, f: 70), g: 80), h: 90)} can be encoded as
  * a tuple {@code (10, (30, 40), 50, ((60, 70), 80), 90)} which can be addressed by ordinals. For instance,
  * {@code x.y.f can be mapped to the path {@code 3.0.1}}.
  */

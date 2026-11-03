@@ -66,7 +66,7 @@ import java.util.function.Function;
 /**
  * Performance tests for {@link FDBRecordStore}.
  *
- * Run as a standalone command-line program.
+ * <p>Run as a standalone command-line program.
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)

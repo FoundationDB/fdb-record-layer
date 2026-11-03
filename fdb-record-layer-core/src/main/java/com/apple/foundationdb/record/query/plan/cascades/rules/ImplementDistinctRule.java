@@ -51,14 +51,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * if necessary. In particular, it will only add that wrapping expression if the underlying plan itself might
  * produce duplicate results.
  *
- * <p>
- * This rule is somewhat suspect. In particular, if the inner plan that it matches against does not produce duplicates,
+ * <p>This rule is somewhat suspect. In particular, if the inner plan that it matches against does not produce duplicates,
  * this rule will then return that plan. This is fine unless the plan is later modified in such a way that it then
  * <em>can</em> produce duplicates. At the moment, none of the rules modify a {@link RecordQueryPlan} once it has
  * been produced, but a future rule that does so may cause errors where plans erroneously produce duplicate records.
  * To address that, the plan is to add a mechanism for enforcing properties (e.g., distinctness or sort order)
  * on the plans produced by the planner. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/635">Issue #653</a>.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

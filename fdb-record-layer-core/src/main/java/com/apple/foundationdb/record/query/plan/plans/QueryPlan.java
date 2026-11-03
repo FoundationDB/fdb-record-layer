@@ -183,12 +183,10 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * Returns the (zero or more) child {@code QueryPlan}s of this plan. These children may or may not
      * return elements of the same type as their parent plan.
      *
-     * <p>
-     * <b>Warning</b>: This part of the API is currently undergoing active development. At some point in
+     * <p><b>Warning</b>: This part of the API is currently undergoing active development. At some point in
      * the future, this will be renamed {@code getChildren()}. This cannot be done at current, however,
      * as it would require an incompatible change to {@link RecordQueryPlan#getChildren()}. That method
      * has been marked {@link API.Status#UNSTABLE} as of version 2.5.
-     * </p>
      *
      * @return the child plans of this plan
      */

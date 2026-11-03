@@ -210,8 +210,8 @@ public class MoreAsyncUtil {
      * elements all satisfy {@code whilePredicate}: it yields every leading element that matches and stops as soon as
      * one does not (that first failing element is not returned). For example, taking-while {@code isEven} over
      * {@code [2, 4, 3, 6, 5]} yields {@code [2, 4]}.
-     * <p>
-     * <b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
+     *
+     * <p><b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
      * stop requires actually pulling the first non-matching element ({@code iterator.next()}) in order to test it —
      * that element is then dropped rather than returned. A caller that retains a reference to the source
      * {@code iterator} will therefore find it positioned <em>past</em> the first failure: in the example above,
@@ -962,12 +962,10 @@ public class MoreAsyncUtil {
      * in an efficient way by {@link #delayedFuture(long, TimeUnit)}. Adopters can provide their
      * own {@link ScheduledExecutorService} by using the overloaded method.
      *
-     * <p>
-     * By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
+     * <p>By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
      * with a single thread used for executing delayed tasks. In practice, with a future chain,
      * this should be quick asynchronous callbacks, and blocking in such a callback can
      * block the task thread.
-     * </p>
      *
      * @return an executor service that allows for tasks to be efficiently scheduled for later
      * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
@@ -1157,10 +1155,10 @@ public class MoreAsyncUtil {
 
     /**
      * Combine the results of two futures, but fail fast if either future fails.
-     * <p>
-     *     This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
+     *
+     * <p>This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
      *     wait for the other one to complete before completing the result with the failure.
-     * </p>
+     *
      * @param future1 one future
      * @param future2 another future
      * @param combiner a function to combine the results of both {@code future1} and {@code future2} into a single result.

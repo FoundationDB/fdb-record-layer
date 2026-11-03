@@ -50,18 +50,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The lifecycle methods under test are
  * {@link FDBRecordStore#clearAndMarkIndexWriteOnly(Index)} (which routes through
  * {@code clearIndexData}), {@link FDBRecordStore#removeFormerIndex(FormerIndex)}, and
- * {@link FDBRecordStore#rebuildAllIndexes()}.</p>
+ * {@link FDBRecordStore#rebuildAllIndexes()}.
  *
  * <p>Each test is parameterized over the relevant per-index keyspace and writes a sentinel
  * key under the per-index path before invoking the lifecycle method, then asserts that the
  * sentinel is gone. {@link #keyspaceIsCategorized} fails by design if a future enum value
  * isn't categorized in {@link #NON_PER_INDEX_KEYSPACES} or
  * {@link #CLEARED_BY_CLEAR_INDEX_DATA}, forcing the author to decide which lifecycle methods
- * need updating.</p>
+ * need updating.
  *
  * <p>This complements the focused regression test for {@code INDEX_SLIDING_WINDOW_SPACE} in
  * {@code SlidingWindowIndexTest} by ensuring future per-index keyspaces don't quietly slip
- * past the same lifecycle gaps.</p>
+ * past the same lifecycle gaps.
  */
 @Tag(Tags.RequiresFDB)
 class FDBRecordStoreClearIndexDataTest extends FDBRecordStoreTestBase {
@@ -91,7 +91,7 @@ class FDBRecordStoreClearIndexDataTest extends FDBRecordStoreTestBase {
      * 2L = type-version, 3L–6L = scrub ranges, 7L = heartbeats), preserving the lock subspace
      * at sub-key 0L. The sentinel here is placed under sub-key 1L, which is cleared. The
      * lock-preservation contract is verified separately by
-     * {@link #clearAndMarkPreservesIndexBuildLock()}.</p>
+     * {@link #clearAndMarkPreservesIndexBuildLock()}.
      */
     private static final Map<FDBRecordStoreKeyspace, Tuple> CLEARED_BY_CLEAR_INDEX_DATA = ImmutableMap.<FDBRecordStoreKeyspace, Tuple>builder()
             .put(FDBRecordStoreKeyspace.INDEX, Tuple.from("test-sentinel"))

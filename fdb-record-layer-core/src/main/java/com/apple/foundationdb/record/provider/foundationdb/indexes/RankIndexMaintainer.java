@@ -64,61 +64,46 @@ import java.util.function.Function;
 /**
  * An index maintainer for keeping a {@link RankedSet} of record field values.
  *
- * <p>
- * A <i>ranked-set</i> is a persistent skip-list that efficiently implements two complementary functions:
- * </p>
+ * <p>A <i>ranked-set</i> is a persistent skip-list that efficiently implements two complementary functions:
  * <ul>
  * <li><b>rank</b>: Given a value, where would this value be in an ordered enumeration of all values in the set?</li>
  * <li><b>select</b>: Given an ordinal position in the ordered enumeration of values, what is the specific value at that position?</li>
  * </ul>
  *
- * <p>
- * Any number of fields in a {@code RANK} index can optionally separate records into non-overlapping <i>groups</i>.
+ * <p>Any number of fields in a {@code RANK} index can optionally separate records into non-overlapping <i>groups</i>.
  * Each group, determined by the values of those fields, has separate ranking and therefore a separate ranked-set.
- * </p>
  *
- * <p>
- * <b>Physical layout</b>: a {@code RANK} index maintains two subspaces in the database:
- * </p>
+ * <p><b>Physical layout</b>: a {@code RANK} index maintains two subspaces in the database:
  * <ul>
  * <li><b>primary subspace</b>: an ordinary B-tree index on <code>[<i>group</i>, ..., <i>score</i>, ...]</code>.</li>
  * <li><b>secondary subspace</b>: a ranked-set per group, that is, with any group key as a prefix.</li>
  * </ul>
- * <p>
- * The <b>overhead</b> of the secondary subspace is one key-value pair for each value at the finest level (0) of the ranked-set skip-list,
- * plus additional key-value pairs at coarser levels, with a probability of {@code 1/16ⁿ} for level <i>n</i>.
- * </p>
  *
- * <p>
- * <b>Store operations</b>: The basic <b>rank</b> and <b>select</b> functions are exposed by the index as <i>aggregate</i> functions,
+ * <p>The <b>overhead</b> of the secondary subspace is one key-value pair for each value at the finest level (0) of the ranked-set skip-list,
+ * plus additional key-value pairs at coarser levels, with a probability of {@code 1/16ⁿ} for level <i>n</i>.
+ *
+ * <p><b>Store operations</b>: The basic <b>rank</b> and <b>select</b> functions are exposed by the index as <i>aggregate</i> functions,
  * that is, as operations on the whole record store rather than specific records.
- * </p>
  * <ul>
  * <li>{@link FunctionNames#RANK_FOR_SCORE}: the <b>rank</b> operation; given a tuple of group keys and score values, return the ordinal position of that score</li>
  * <li>{@link FunctionNames#SCORE_FOR_RANK}: the <b>select</b> operation; given a tuple of group keys and a rank ordinal, return the score at that position or an error if out of range</li>
  * <li>{@link FunctionNames#SCORE_FOR_RANK_ELSE_SKIP}: similarly, given a tuple of group keys and a rank ordinal, return the score at that position, or a special value if out of range</li>
  * </ul>
- * <p>
- * Because the ranked-set skip-list keeps a count of entries, the index can also perform the {@link FunctionNames#COUNT_DISTINCT} aggregate function,
- * and, equivalently when the index does not permit ties, that is, when the index is declared <i>unique</i>, the more basic {@link FunctionNames#COUNT} aggregate function.
- * </p>
  *
- * <p>
- * <b>Record operations</b>: Given a record, {@link FunctionNames#RANK} record function returns the rank of that record according to the index.
+ * <p>Because the ranked-set skip-list keeps a count of entries, the index can also perform the {@link FunctionNames#COUNT_DISTINCT} aggregate function,
+ * and, equivalently when the index does not permit ties, that is, when the index is declared <i>unique</i>, the more basic {@link FunctionNames#COUNT} aggregate function.
+ *
+ * <p><b>Record operations</b>: Given a record, {@link FunctionNames#RANK} record function returns the rank of that record according to the index.
  * This is done by evaluating the same key expressions used by index maintenance against the record to determine any group keys
  * and score values. These are then given to the ranked-set's <b>rank</b> function.
- * </p>
  *
- * <p>
- * <b>Scan operations</b>: The index can be used to return a range of records within a group in rank order.
- * </p>
+ * <p><b>Scan operations</b>: The index can be used to return a range of records within a group in rank order.
  * <ul>
  * <li>{@link IndexScanType#BY_VALUE}: The primary B-tree is used just like a {@link com.apple.foundationdb.record.metadata.IndexTypes#VALUE} index.</li>
  * <li>{@link IndexScanType#BY_RANK}: Given a range of ranks, return those records.</li>
  * </ul>
- * <p>
- * This is done as follows:
- * </p>
+ *
+ * <p>This is done as follows:
  * <ol>
  * <li>Take the group keys from the common prefix of the range endpoints to determine which ranked-set to use.</li>
  * <li>Convert each of the rank endpoints of the range into score endpoints using <b>select</b>.</li>

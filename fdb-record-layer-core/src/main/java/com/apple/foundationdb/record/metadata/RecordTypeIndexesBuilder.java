@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * A base builder for {@link RecordType}.
  *
- * Contains:
+ * <p>Contains:
  * <ul>
  * <li>name.</li>
  * <li>optional secondary indexes.</li>

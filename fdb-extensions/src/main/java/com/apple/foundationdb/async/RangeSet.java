@@ -44,11 +44,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * RangeSet supports efficient adding of ranges of keys into the database to support marking
  * work done elsewhere as completed as well as checking if specific keys are already completed.
  *
- * <p>
- * This is useful if one is going to be doing work that will carve out pieces from another
+ * <p>This is useful if one is going to be doing work that will carve out pieces from another
  * subspace and work on those separately. The methods in here will allow for a (more-or-less)
  * append only set that can be used to keep track of the progress that that job is making.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class RangeSet {
@@ -122,11 +120,9 @@ public class RangeSet {
      * before this won't conflict unless they actually change whether this key is contained within
      * the range set.
      *
-     * <p>
-     * If the provided {@link ReadTransactionContext} is a {@linkplain Transaction#snapshot() snapshot transaction},
+     * <p>If the provided {@link ReadTransactionContext} is a {@linkplain Transaction#snapshot() snapshot transaction},
      * then the read conflict is omitted entirely. The read conflict can be applied later by
      * calling {@link #addReadConflictKey(Transaction, byte[])}.
-     * </p>
      *
      * @param rtc transaction or database in which to run operation
      * @param key the key to check presence in set
@@ -224,8 +220,7 @@ public class RangeSet {
      * (corresponding to adding an empty range). If <code>null</code> is set for either endpoint, this will insert
      * a range all the way to the end of the total range.
      *
-     * <p>
-     * In terms of isolation, this method will add both read- and write-conflict ranges. It adds a read-conflict range
+     * <p>In terms of isolation, this method will add both read- and write-conflict ranges. It adds a read-conflict range
      * corresponding to the range being added, i.e., for the keys within the range from <code>begin</code> to <code>end</code>.
      * This is so that if this range is modified concurrently by another writer, this transaction will fail (as the exact
      * writes done depend on these keys not being modified.) It will also a write-conflict ranges corresponding
@@ -235,7 +230,6 @@ public class RangeSet {
      * and finds that it is not, this write will then cause that transaction to fail if it is committed after this
      * one. If the range is not empty initially, write conflict ranges are added for all of the "gaps" that have
      * to be added. (So, if the range is already full, then no write conflict ranges are added at all.)
-     * </p>
      *
      * @param tc the transaction or database in which to operate
      * @param begin the (inclusive) beginning of the range to add

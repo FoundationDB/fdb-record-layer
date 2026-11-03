@@ -30,7 +30,7 @@ public class GeophileSpatialFunctionNames {
     /**
      * Index a geospatial point.
      *
-     * Arguments are double fields latitude, longitude.
+     * <p>Arguments are double fields latitude, longitude.
      */
     public static final String GEOPHILE_POINT_Z = "geophile_point_z";
 

@@ -59,8 +59,8 @@ public interface RealVector {
      * its direction is considered undefined for metrics that depend on it, principally cosine
      * similarity. Used by {@link #isNearlyZeroNorm()}, which compares the squared L2 norm
      * against {@code EPS * EPS} to avoid a {@code sqrt}.
-     * <p>
-     * The value is sized to sit well above the floating-point noise of typical double-precision
+     *
+     * <p>The value is sized to sit well above the floating-point noise of typical double-precision
      * accumulations and well below any norm a meaningful vector would have in practice. Callers
      * generally shouldn't need to consult this constant directly; prefer {@link #isNearlyZeroNorm()}.
      */
@@ -81,8 +81,8 @@ public interface RealVector {
 
     /**
      * Gets the component of this object at the specified dimension.
-     * <p>
-     * The dimension is a zero-based index. For a 3D vector, for example, dimension 0 might correspond to the
+     *
+     * <p>The dimension is a zero-based index. For a 3D vector, for example, dimension 0 might correspond to the
      * x-component, 1 to the y-component, and 2 to the z-component. This method provides direct access to the
      * underlying data element.
      * @param dimension the zero-based index of the component to retrieve.
@@ -94,8 +94,8 @@ public interface RealVector {
 
     /**
      * Returns the underlying data array.
-     * <p>
-     * The returned array is guaranteed to be non-null. Note that this method
+     *
+     * <p>The returned array is guaranteed to be non-null. Note that this method
      * returns a direct reference to the internal array, not a copy.
      * @return the data array of type {@code R[]}, never {@code null}.
      */
@@ -116,8 +116,8 @@ public interface RealVector {
 
     /**
      * Gets the raw byte data representation of this object.
-     * <p>
-     * This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
+     *
+     * <p>This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
      * implementation-specific and should be documented by the concrete class that implements this method.
      * @return a non-null byte array containing the raw data.
      */
@@ -126,8 +126,8 @@ public interface RealVector {
 
     /**
      * Converts this object into a {@code RealVector} of {@link Half} precision floating-point numbers.
-     * <p>
-     * As this is an abstract method, implementing classes are responsible for defining the specific conversion logic
+     *
+     * <p>As this is an abstract method, implementing classes are responsible for defining the specific conversion logic
      * from their internal representation to a {@code RealVector} using {@link Half} objects to serialize and
      * deserialize the vector. If this object already is a {@code HalfRealVector} this method should return {@code this}.
      * @return a non-null {@link HalfRealVector} containing the {@link Half} precision floating-point representation of
@@ -138,8 +138,8 @@ public interface RealVector {
 
     /**
      * Converts this object into a {@code RealVector} of single precision floating-point numbers.
-     * <p>
-     * As this is an abstract method, implementing classes are responsible for defining the specific conversion logic
+     *
+     * <p>As this is an abstract method, implementing classes are responsible for defining the specific conversion logic
      * from their internal representation to a {@code RealVector} using floating point numbers to serialize and
      * deserialize the vector. If this object already is a {@code FloatRealVector} this method should return
      * {@code this}.
@@ -151,8 +151,8 @@ public interface RealVector {
 
     /**
      * Converts this vector into a {@link DoubleRealVector}.
-     * <p>
-     * This method provides a way to obtain a double-precision floating-point representation of the vector. If the
+     *
+     * <p>This method provides a way to obtain a double-precision floating-point representation of the vector. If the
      * vector is already an instance of {@code DoubleRealVector}, this method may return the instance itself. Otherwise,
      * it will create a new {@code DoubleRealVector} containing the same elements, which may involve a conversion of the
      * underlying data type.
@@ -402,8 +402,8 @@ public interface RealVector {
 
     /**
      * Creates a {@link RealVector} from a byte array.
-     * <p>
-     * This method interprets the input byte array by interpreting the first byte of the array as the type of vector.
+     *
+     * <p>This method interprets the input byte array by interpreting the first byte of the array as the type of vector.
      * It then delegates to {@link #fromBytes(VectorType, byte[])} to do the actual deserialization.
      *
      * @param vectorBytes the non-null byte array to convert.
@@ -417,8 +417,8 @@ public interface RealVector {
 
     /**
      * Creates a {@link RealVector} from a byte array.
-     * <p>
-     * This implementation dispatches to the actual logic that deserialize a byte array to a vector which is located in
+     *
+     * <p>This implementation dispatches to the actual logic that deserialize a byte array to a vector which is located in
      * the respective implementations of {@link RealVector}.
      * @param vectorType the vector type of the serialized vector
      * @param vectorBytes the non-null byte array to convert.

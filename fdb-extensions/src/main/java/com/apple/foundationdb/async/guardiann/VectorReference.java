@@ -36,8 +36,7 @@ import java.util.UUID;
  * its role in that cluster. Each cluster holds references both for the vectors it owns (primary copies) and for copies
  * of neighboring clusters' vectors kept to improve search recall (replicated copies).
  *
- * <p>
- * This is a sealed sum type with one variant per role, so the dependencies between a reference's role and its
+ * <p>This is a sealed sum type with one variant per role, so the dependencies between a reference's role and its
  * other state hold by construction:
  * <ul>
  *   <li>{@link PrimaryCopy} — this cluster is the authoritative owner of the vector. A primary may additionally be
@@ -49,8 +48,7 @@ import java.util.UUID;
  *       priority component.</li>
  * </ul>
  *
- * <p>
- * {@link #isCollapsed() Collapsed} is deliberately <em>not</em> a variant. A collapsed reference is a representative
+ * <p>{@link #isCollapsed() Collapsed} is deliberately <em>not</em> a variant. A collapsed reference is a representative
  * standing in for many identical vectors that share one content signature, and a collapse can sit on top of either a
  * primary or a replica (preserving its role and, for a replica, its priority). Because it is orthogonal to the role it
  * stays a boolean carried by both variants rather than multiplying the hierarchy; folding it into the sum type would

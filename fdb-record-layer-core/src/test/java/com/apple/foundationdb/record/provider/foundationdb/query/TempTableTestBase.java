@@ -600,8 +600,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
         /**
          * Calculates all descendants of a given vertex in the specified traversal order.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -648,8 +648,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Calculates all descendants of a given vertex in level-order (breadth-first) traversal.
          * This method visits all nodes at depth 0, then all nodes at depth 1, then all nodes at depth 2, etc.
          * Uses a queue-based iterative approach for breadth-first traversal.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -686,8 +686,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Helper method for pre-order (depth-first) traversal of descendants.
          * This method visits the current vertex first, then recursively visits all of its children from left to right.
          * Uses a recursive approach for depth-first traversal.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -717,8 +717,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Helper method for post-order (depth-first) traversal of descendants.
          * This method recursively visits all of its children from left to right first, then visits the current vertex.
          * Uses a recursive approach for depth-first traversal where children are processed before their parent.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1

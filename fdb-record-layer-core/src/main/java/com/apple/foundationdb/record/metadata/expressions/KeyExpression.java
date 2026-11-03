@@ -54,7 +54,7 @@ public interface KeyExpression extends PlanHashable {
      * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
      * fields within the record according to the rules of each implementing class.
      *
-     * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
+     * <p>Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
      * @param <M> the type of record
      * @param record the record
@@ -86,7 +86,7 @@ public interface KeyExpression extends PlanHashable {
      * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
      * fields within the record according to the rules of each implementing class.
      *
-     * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
+     * <p>Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
      * @param <M> the type of record
      * @param record the record
@@ -107,11 +107,11 @@ public interface KeyExpression extends PlanHashable {
     /**
      * Evaluate this expression against a record or a Protobuf message.
      *
-     * The message might be the Protobuf form of a record or a piece of that record.
+     * <p>The message might be the Protobuf form of a record or a piece of that record.
      * If the key expression is meaningful against a subrecord, it should evaluate against the message.
      * Otherwise, it should evaluate against the record and ignore what part of that record is being considered.
      *
-     * There should not be any reason to call this method outside of the implementation of another {@code evaluateMessage}.
+     * <p>There should not be any reason to call this method outside of the implementation of another {@code evaluateMessage}.
      * Under ordinary circumstances, if {@code record} is {@code null}, then {@code message} will be {@code null}.
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
@@ -248,12 +248,10 @@ public interface KeyExpression extends PlanHashable {
      * methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      *
-     * <p>
-     * This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
+     * <p>This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
      * original purpose was to allow for expansions of key expression into a data flow graphs. The returned graph
      * would then represent an adequate representation of the key expression as composition of relational expressions and operators
      * ({@link RelationalExpression}s). See {@link ExpansionVisitor} for more details.
-     * </p>
      *
      * @param <S> a type that represents the state that {@code visitor} uses
      * @param <R> a type that represents the result the {@code visitor} returns

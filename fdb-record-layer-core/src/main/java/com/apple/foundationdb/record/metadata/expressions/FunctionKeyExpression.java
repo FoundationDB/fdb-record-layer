@@ -61,7 +61,7 @@ import java.util.function.BiFunction;
  *     function("subsstr", concat(field("firstname"), value(0), value(2)))
  * </pre>
  *
- * Which would prevent duplicate records in which the first two characters of the <code>firstname</code> are identical.
+ * <p>Which would prevent duplicate records in which the first two characters of the <code>firstname</code> are identical.
  *
  * <p>Similarly, the function can be made to apply in a fan-out fashion, simply by providing an argument an expression
  * that itself fans out into a set of arguments to <code>substr</code>.  For example, given message definitions
@@ -79,14 +79,14 @@ import java.util.function.BiFunction;
  * }
  * </pre>
  *
- * In which we want to have the arguments to <code>substr</code> driven by data stored in the records themselves,
+ * <p>In which we want to have the arguments to <code>substr</code> driven by data stored in the records themselves,
  * you could define the index key expression as:
  *
  * <pre>
  *     function("substr", field("substrings", FanType.FanOut).nest(concatenateFields("content", "start", "end")))
  * </pre>
  *
- * This would produce the result of performing <code>substr(content, start, end)</code> for each <code>SubString</code>value
+ * <p>This would produce the result of performing <code>substr(content, start, end)</code> for each <code>SubString</code>value
  * in substrings.
  *
  * <p>Actual implementations of <code>FunctionKeyExpressions</code> are discovered by polling all available
@@ -184,13 +184,12 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * the function's argument expression is evaluated and is expected to produce a set of arguments. This method
      * is invoked once for each of these and, itself, may produce a set of <code>Key.Evaluated</code> values that
      * produce the final set of keys.
-     * <p>
-     * Note that the <code>record</code> parameter might be <code>null</code>. Function implementors should treat
+     *
+     * <p>Note that the <code>record</code> parameter might be <code>null</code>. Function implementors should treat
      * this case the same way that they would treat a non-<code>null</code> record that has all of its non-repeated
      * fields unset and all of its repeated fields empty. If the function result depends only on the
      * value of <code>arguments</code> and not <code>record</code> directly, then the implementor can ignore
      * the nullity of <code>record</code>.
-     * </p>
      *
      * @param <M> the type of the records
      * @param record the record against which this function will produce a key

@@ -79,7 +79,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the runner that will be used to call into the database.
      *
-     * Normally the runner is gotten from {@link #setDatabase} or {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally the runner is gotten from {@link #setDatabase} or {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
      * @param runner the runner that connects to the target database
      * @return this builder
      */
@@ -95,7 +95,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the database in which to run the indexing.
      *
-     * Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
      * @param database the target database
      * @return this builder
      */
@@ -156,10 +156,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the function used by the online indexer to load the mutable configuration parameters on fly.
      *
-     * <p>
-     * The loader is given the current configuration as input at the beginning of each transaction and
+     * <p>The loader is given the current configuration as input at the beginning of each transaction and
      * should produce the configuration to use in the next transaction.
-     * </p>
+     *
      * @param configLoader the function
      * @return this builder
      */
@@ -180,7 +179,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the maximum number of records to process in one transaction.
      *
-     * The default limit is {@link OnlineIndexOperationConfig#DEFAULT_LIMIT} = {@value OnlineIndexOperationConfig#DEFAULT_LIMIT}.
+     * <p>The default limit is {@link OnlineIndexOperationConfig#DEFAULT_LIMIT} = {@value OnlineIndexOperationConfig#DEFAULT_LIMIT}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
      * @param limit the maximum number of records to process in one transaction
@@ -244,7 +243,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
      * codes, such as {@code transaction_too_large}.
      *
-     * The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES} = {@value OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES}.
+     * <p>The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES} = {@value OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
      * @param maxRetries the maximum number of times to retry a single range rebuild
@@ -267,7 +266,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the maximum number of records to process in a single second.
      *
-     * The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND}.
+     * <p>The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
      * @param recordsPerSecond the maximum number of records to process in a single second.
@@ -454,10 +453,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set the number of successful range builds before re-increasing the number of records to process in a single
      * transaction. The number of records to process in a single transaction will never go above {@link #getLimit()}.
      * By default, this is {@link OnlineIndexOperationConfig#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-     * <p>
-     * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
+     *
+     * <p>Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
-     * </p>
+     *
      * @param increaseLimitAfter the number of successful range builds before increasing the number of records
      * processed in a single transaction
      * @return this builder
@@ -559,13 +558,11 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      *         succeeded. In contrast, the timer count:
      *         {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, includes all records scanned,
      *         regardless of whether the associated transaction was successful or not.
-     *     </p></li>
+     *     </li>
      * </ul>
      *
-     * <p>
-     * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
+     * <p>Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
-     * </p>
      *
      * @param millis the number of milliseconds to wait between successful logs
      * @return this builder
@@ -583,9 +580,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set whether or not to track the index build progress by updating the number of records successfully scanned
      * and processed. The progress is persisted in {@link IndexingSubspaces#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
      * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
-     * <p>
-     * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
-     * </p>
+     *
+     * <p>This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
+     *
      * @param trackProgress track progress if true, otherwise false
      * @return this builder
      */
@@ -597,7 +594,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the {@link IndexMaintenanceFilter} to use while building the index.
      *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
      * @param indexMaintenanceFilter the index filter to use
      * @return this builder
      */
@@ -612,7 +609,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the {@link RecordSerializer} to use while building the index.
      *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
      * @param serializer the serializer to use
      * @return this builder
      */
@@ -733,7 +730,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * b) The indexing sessions will conflict each other until one of the indexers will give up. While this is
      * not optimal, the generated index will be valid.
      *
-     * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
+     * <p>Set the use of a synchronized session during the index operation. Synchronized sessions help performing
      * the multiple transactions operations in a resource efficient way.
      * Normally this should be {@code true}.
      *

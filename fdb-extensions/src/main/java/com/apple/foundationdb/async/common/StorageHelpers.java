@@ -181,8 +181,8 @@ public final class StorageHelpers {
 
     /**
      * Converts a {@link RealVector} into a {@link Tuple}.
-     * <p>
-     * This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
+     *
+     * <p>This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
      * method. It then creates a {@link Tuple} from the resulting byte array.
      * @param vector the {@link RealVector} to convert. Cannot be null.
      * @return a new, non-null {@code Tuple} instance representing the contents of the vector.
@@ -207,8 +207,8 @@ public final class StorageHelpers {
 
     /**
      * Creates a {@link RealVector} from a given {@link Tuple}.
-     * <p>
-     * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
+     *
+     * <p>This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
      * extracts this byte array and then delegates to the {@link #vectorFromBytes(VectorEncodingConfig, byte[])} method for the
      * actual conversion.
      * @param config an HNSW configuration
@@ -223,8 +223,8 @@ public final class StorageHelpers {
 
     /**
      * Creates a {@link RealVector} from a byte array.
-     * <p>
-     * This method reads the leading vector-type byte and, based on it, delegates to the appropriate decoder:
+     *
+     * <p>This method reads the leading vector-type byte and, based on it, delegates to the appropriate decoder:
      * {@link EncodedRealVector} for RaBitQ-encoded vectors, otherwise {@link RealVector#fromBytes(byte[])}.
      * @param config a vector-encoding configuration
      * @param vectorBytes the non-null byte array to convert.

@@ -50,8 +50,8 @@ public class PartitionEvaluator {
     /**
      * Evaluates a candidate partitioning against the current one and returns whether to accept,
      * keep, or reject it.
-     * <p>
-     * The decision is made by computing a panel of quality statistics for both partitionings (see
+     *
+     * <p>The decision is made by computing a panel of quality statistics for both partitionings (see
      * {@link PartitionStats}) and combining them into a composite score:
      * <pre>{@code
      * scoreGain = alphaSseGain * relativeSseGain
@@ -64,8 +64,8 @@ public class PartitionEvaluator {
      * {@code minRelativeSseGain}/{@code minScoreGain} floors); only if all of those pass is the
      * candidate accepted. Of these, only {@code minChildFraction} yields
      * {@link Decision#INVALID_CANDIDATE}; the rest yield {@link Decision#KEEP_CURRENT}.
-     * <p>
-     * Symmetric handling: separation and low-margin rate are undefined when {@code k < 2}; this
+     *
+     * <p>Symmetric handling: separation and low-margin rate are undefined when {@code k < 2}; this
      * method treats them as {@code 0} in the score formula and skips the corresponding hard
      * rejects when {@code candidate.k() < 2}, so the same logic correctly handles splits, merges
      * (including merges to a single cluster), and same-{@code k} re-partitionings.
@@ -292,8 +292,8 @@ public class PartitionEvaluator {
      * margin summaries are derived from those accumulators. Inter-centroid separation,
      * median/p10 margin, and low-margin rate are computed only when {@code k >= 2} and reported
      * as {@link Double#NaN} (or {@code 0.0} for {@code lowMarginRate}) otherwise.
-     * <p>
-     * The 95th-percentile assigned distance is only needed when the metric is Euclidean AND no
+     *
+     * <p>The 95th-percentile assigned distance is only needed when the metric is Euclidean AND no
      * explicit {@link Parameters#lowMarginThreshold()} override is set — in every other case,
      * {@link #computeLowMarginThreshold} ignores it. We compute that condition upfront and skip
      * the heap maintenance in {@code accumulate} when it's not needed.
@@ -381,11 +381,11 @@ public class PartitionEvaluator {
     /**
      * Single pass over the input that accumulates SSE, per-cluster sizes and radii, per-vector
      * margins, and (optionally) the approximate 95th-percentile assigned distance.
-     * <p>
-     * Margins are only computed when {@code k >= 2}; otherwise the returned {@code margins} list
+     *
+     * <p>Margins are only computed when {@code k >= 2}; otherwise the returned {@code margins} list
      * is empty.
-     * <p>
-     * The {@code overallP95} computation is opt-in via {@code computeOverallP95} because most
+     *
+     * <p>The {@code overallP95} computation is opt-in via {@code computeOverallP95} because most
      * paths through {@link #computeLowMarginThreshold} don't read it (cosine uses a fixed
      * constant; Euclidean with an explicit override doesn't need it either). When requested, we
      * maintain a min-heap of size {@code m = ceil(0.05 * n)} containing the largest {@code m}
@@ -622,8 +622,8 @@ public class PartitionEvaluator {
     /**
      * Resolves the threshold below which an assignment margin counts as "low" (used to compute
      * {@link PartitionStats#lowMarginRate()}).
-     * <p>
-     * If {@link Parameters#lowMarginThreshold()} is positive, that explicit value is used. Otherwise, the threshold is
+     *
+     * <p>If {@link Parameters#lowMarginThreshold()} is positive, that explicit value is used. Otherwise, the threshold is
      * derived metric-dependently: a fixed {@code 0.02} for cosine, or {@code 5%} of the 95th-percentile assigned
      * distance for Euclidean (a scale-relative cutoff suitable for arbitrary L2 magnitudes).
      *
@@ -845,13 +845,13 @@ public class PartitionEvaluator {
         /**
          * Returns {@link #imbalance()} rescaled to {@code [0, 1]} so that partitionings with different {@code k} are
          * directly comparable.
-         * <p>
-         * {@code imbalance} is {@code Σ(fᵢ − 1/k)²}, the summed squared deviation of each cluster's share from its
+         *
+         * <p>{@code imbalance} is {@code Σ(fᵢ − 1/k)²}, the summed squared deviation of each cluster's share from its
          * fair share. Its maximum is not 1 but {@code (k−1)/k} — attained when one cluster holds everything — so the
          * raw value silently means different things at different {@code k}. Dividing by that maximum yields 0 for a
          * perfectly even partitioning and 1 for a fully degenerate one, whatever {@code k} is.
-         * <p>
-         * A single-cluster partitioning is perfectly balanced by definition, so this is {@code 0} for {@code k == 1}
+         *
+         * <p>A single-cluster partitioning is perfectly balanced by definition, so this is {@code 0} for {@code k == 1}
          * rather than the {@code 0/0} the formula would otherwise produce. That is what lets a merge-to-one candidate
          * pass any balance gate.
          *
@@ -884,15 +884,15 @@ public class PartitionEvaluator {
     /**
      * Tuning parameters that control when a candidate repartitioning is accepted or rejected, and
      * how the composite quality score is computed.
-     * <p>
-     * Balance is policed by two thresholds that deliberately measure different things.
+     *
+     * <p>Balance is policed by two thresholds that deliberately measure different things.
      * {@code minChildFraction} is a plain fraction because it stands in for an absolute vector count — "do not
      * produce a cluster too small to be worth having" — and the population being partitioned does not depend on
      * {@code k}. {@code maxRelativeImbalance} is normalized by {@code k} because spread does: the worst achievable
      * {@link PartitionStats#imbalance()} is {@code (k−1)/k}, so only the rescaled
      * {@link PartitionStats#relativeImbalance()} means the same thing at every {@code k}.
-     * <p>
-     * Both are safe for a single-cluster candidate without special-casing by the caller: {@code smallestFrac} is
+     *
+     * <p>Both are safe for a single-cluster candidate without special-casing by the caller: {@code smallestFrac} is
      * {@code 1.0} and {@code relativeImbalance()} is {@code 0}, so a merge to one cluster passes any setting of
      * either. That is what makes a fallback merge structurally immune to the balance gates.
      *

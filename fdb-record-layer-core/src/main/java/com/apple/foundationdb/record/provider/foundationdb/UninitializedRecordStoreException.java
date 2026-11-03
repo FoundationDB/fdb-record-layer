@@ -36,12 +36,10 @@ import javax.annotation.Nullable;
  * manually. If a record store is accessed without calling one of those methods, then the record store can
  * end up in a corrupt state.
  *
- * <p>
- * If one encounters this error, it is generally a sign that they are doing something unsafe. To prevent
+ * <p>If one encounters this error, it is generally a sign that they are doing something unsafe. To prevent
  * this error, the user may wish to audit the code for instances of calls to {@link FDBRecordStore.Builder#build()}
  * and {@link FDBRecordStore.Builder#uncheckedOpen()}, either of which may cause the user to make use of an
  * initialized record store.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class UninitializedRecordStoreException extends RecordCoreException {

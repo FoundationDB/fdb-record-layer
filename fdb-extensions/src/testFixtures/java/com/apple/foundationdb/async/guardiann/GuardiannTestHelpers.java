@@ -176,8 +176,8 @@ public class GuardiannTestHelpers {
      * {@code recordsToDelete} from {@code guardiann} inside a single transaction, with the same
      * bail-out-on-deferred-task semantics: if a deferred maintenance task executes mid-batch, the
      * loop stops and the caller is expected to re-invoke with the un-deleted tail.
-     * <p>
-     * Returns the records that were actually issued for deletion (i.e. the prefix of
+     *
+     * <p>Returns the records that were actually issued for deletion (i.e. the prefix of
      * {@code recordsToDelete} processed before any bail-out). The caller is responsible for
      * advancing past those records on the next call. This mirrors the contract of
      * {@link #basicInsertBatch}.
@@ -302,8 +302,8 @@ public class GuardiannTestHelpers {
      * Streams the file once; resident memory is bounded at roughly {@code (sizeA + sizeB) * 1KB} regardless of how
      * big the source file is. The two returned lists are guaranteed disjoint by primary key (since each PK is the
      * original index in the stream).
-     * <p>
-     * The whole sampling process is deterministic given {@code (baseFile, seed)}: same inputs → same two lists,
+     *
+     * <p>The whole sampling process is deterministic given {@code (baseFile, seed)}: same inputs → same two lists,
      * in the same order. The order within each list is a fresh deterministic shuffle of the
      * combined reservoir before splitting, so callers get a reasonable insertion/deletion order
      * for free without having to reshuffle.
@@ -498,8 +498,8 @@ public class GuardiannTestHelpers {
      * Asserts that the mean set-based recall@k across the given queries meets or exceeds
      * {@code minMeanRecall}. Queries whose ground-truth set is empty (e.g. when {@code maxIndex}
      * excluded every truth index for that query) are skipped.
-     * <p>
-     * Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
+     *
+     * <p>Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
      * with ground truth.
      *
      * @param db the database
@@ -569,8 +569,8 @@ public class GuardiannTestHelpers {
      * {@code active} map of {@code (primaryKey, vector)} entries — i.e. brute-force top-{@code k}
      * under {@code metric} per query. Useful when the active set is a moving subset of the original
      * universe (insert/delete churn) so the static {@code .ivecs} ground truth no longer applies.
-     * <p>
-     * Implementation note: for a Euclidean index pass {@link Metric#EUCLIDEAN_SQUARE_METRIC} — the
+     *
+     * <p>Implementation note: for a Euclidean index pass {@link Metric#EUCLIDEAN_SQUARE_METRIC} — the
      * monotonic-square shortcut to skip a {@code sqrt} that would not change the ordering. Results
      * are compared with the kNN search via {@link #singleQueryRecall} (deduplicated set
      * intersection) so the threshold is comparable to the static-truth helper.
@@ -681,8 +681,8 @@ public class GuardiannTestHelpers {
      * cap are all set to {@code indexSize}), so a flawless result is every live vector returned in
      * {@code (distance, primaryKey)} order. Each list is scored in {@code [0, 1]} by
      * {@link #orderedByDistanceQuality}.
-     * <p>
-     * The whole check self-skips (returning {@link Double#NaN}, asserting nothing) when {@code indexSize} exceeds
+     *
+     * <p>The whole check self-skips (returning {@link Double#NaN}, asserting nothing) when {@code indexSize} exceeds
      * {@link #MAX_ORDERED_BY_DISTANCE_INDEX_SIZE}, so it is safe to call unconditionally — including from
      * {@code @SuperSlow} workloads, where it begins running once their active set has drained under the limit.
      * The observed mean is logged so the bar can be calibrated from a real run.
@@ -792,8 +792,8 @@ public class GuardiannTestHelpers {
      * Brute-force top-{@code k} primary-key indices in {@code active} by {@code metric} distance
      * to {@code query}. Maintains a max-heap of size {@code k} so the per-query work is
      * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the distances).
-     * <p>
-     * Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
+     *
+     * <p>Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
      * convention used by {@link #singleQueryRecall} so the two are directly comparable.
      */
     @Nonnull

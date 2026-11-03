@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
  * and {@link #readReverse(FDBRecordContext, Long)} operations. See {@link ScopedDirectoryLayer}
  * for an implementation that leverages the FDB directory layer.
  *
- * When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
+ * <p>When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
  * within the write transaction what the correct {@link LocatableResolver} scope is for the write.
  */
 @API(API.Status.UNSTABLE)
@@ -177,9 +177,7 @@ public abstract class LocatableResolver {
      * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
      * Will return the value that's persisted in FDB or create it if it does not exist.
      *
-     * <p>
-     * For an instrumented version of this method, see {@link #resolve(FDBStoreTimer, String)}.
-     * </p>
+     * <p>For an instrumented version of this method, see {@link #resolve(FDBStoreTimer, String)}.
      *
      * @param name the value to resolve
      * @return a future for the resolved Long value
@@ -210,9 +208,7 @@ public abstract class LocatableResolver {
      * {@linkplain FDBRecordContext#getReadVersion() read version} as the provided transaction, so it should not
      * incur all of the overhead of starting a new transaction.
      *
-     * <p>
-     * This method is {@link API.Status#UNSTABLE} for the same reasons as {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)}.
-     * </p>
+     * <p>This method is {@link API.Status#UNSTABLE} for the same reasons as {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)}.
      *
      * @param context the base context used to
      * @param name the value to resolve
@@ -228,9 +224,7 @@ public abstract class LocatableResolver {
      * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
      * Will return the value that's persisted in FDB or create it if it does not exist.
      *
-     * <p>
-     * For an instrumented version of this method, see {@link #resolve(FDBStoreTimer, String, ResolverCreateHooks)}
-     * </p>
+     * <p>For an instrumented version of this method, see {@link #resolve(FDBStoreTimer, String, ResolverCreateHooks)}
      *
      * @param name the value to resolve
      * @param hooks {@link ResolverCreateHooks} to run on create
@@ -267,9 +261,7 @@ public abstract class LocatableResolver {
      * {@linkplain FDBRecordContext#getReadVersion() read version} as the provided transaction, so it should not
      * incur all of the overhead of starting a new transaction.
      *
-     * <p>
-     * This method is {@link API.Status#UNSTABLE} for the same reasons as {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)}.
-     * </p>
+     * <p>This method is {@link API.Status#UNSTABLE} for the same reasons as {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)}.
      *
      * @param context the {@link FDBRecordContext} used to base possible child transactions on
      * @param name the value to resolve
@@ -292,9 +284,7 @@ public abstract class LocatableResolver {
      * {@link ResolverResult#getMetadata()} on the returned result.
      * Will return the value that's persisted in FDB or create it if it does not exist.
      * 
-     * <p>
-     * For an instrumented version of this method, see {@link #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)}.
-     * </p>
+     * <p>For an instrumented version of this method, see {@link #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)}.
      *
      * @param name the value to resolve
      * @param hooks {@link ResolverCreateHooks} to run on create
@@ -347,12 +337,10 @@ public abstract class LocatableResolver {
      * {@linkplain FDBRecordContext#getReadVersion() read version} as the given context, so it should not incur
      * all of the overhead of starting a new transaction.
      *
-     * <p>
-     * This method is currently {@link API.Status#UNSTABLE}. The reason is that the thinking on the exact
+     * <p>This method is currently {@link API.Status#UNSTABLE}. The reason is that the thinking on the exact
      * semantics of this method is currently in flux, and this method may be changed in the future to
      * use the same transaction as the one provided. This is a more straightforward API, but it complicates
      * the way that values from this function are cached, as it must be careful not to cache uncommitted results.
-     * </p>
      *
      * @param context the {@link FDBRecordContext} used to base possible child transactions on
      * @param name the value to resolve

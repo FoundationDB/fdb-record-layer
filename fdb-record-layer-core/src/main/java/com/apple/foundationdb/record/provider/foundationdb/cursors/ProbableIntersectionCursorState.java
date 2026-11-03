@@ -48,12 +48,10 @@ import java.util.function.Function;
  * last resumed from its continuation, but this set is <em>not</em> included in the continuation and only serves to
  * lessen the number of false positives.
  *
- * <p>
- * This currently uses the Guava {@link BloomFilter} implementation internally. This could be changed in the future,
+ * <p>This currently uses the Guava {@link BloomFilter} implementation internally. This could be changed in the future,
  * but if it is, care should be taken to make sure the serialized continuation is either compatible with that
  * implementation's serialization logic or is versioned in some way to prevent unpredictable behavior during
  * upgrades.
- * </p>
  *
  * @param <T> the type of elements returned by the wrapping cursor
  */

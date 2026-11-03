@@ -34,8 +34,8 @@ import java.util.stream.Collectors;
 
 /**
  * Object representing a version of the Record Layer.
- * <p>
- *     This is inspired by the following three version specifications:
+ *
+ * <p>This is inspired by the following three version specifications:
  *     <ul>
  *         <li><a href="https://semver.org">semver.org</a>
  *         <li><a href="https://docs.gradle.org/current/userguide/dependency_versions.html#sec:version-ordering">gradle's version ordering</a>
@@ -49,12 +49,9 @@ import java.util.stream.Collectors;
  *     at the end. Each version component is compared as integers, and versions with a different number of components
  *     are not comparable. A version with {@code -SNAPSHOT} version added to a version the less than the same set of
  *     numbers without {@code -SNAPSHOT} (e.g. {@code 3.4.5.1-SNAPSHOT < 3.4.5.1}).
- *</p>
  *
- * <p>
- * In addition, there are a set of "special" versions included that are not based on the version numbers. They
+ * <p>In addition, there are a set of "special" versions included that are not based on the version numbers. They
  * stand in for special versions that are not encompassed by the normal version space. They are:
- * </p>
  * <ul>
  *     <li>
  *         {@link #min()}: The minimum possible version. This is useful for specifying the endpoint of open version
@@ -96,16 +93,12 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      * }
      * }</pre>
      *
-     * <p>
-     * The {@code versionNumbers} and {@code preRelease} are only really relevant
+     * <p>The {@code versionNumbers} and {@code preRelease} are only really relevant
      * for the {@link #NORMAL} case. The other three cases are all singletons and do not
      * contain any state themselves.
-     * </p>
      *
-     * <p>
-     * The order here is important. Versions are ordered first by their type, and then
+     * <p>The order here is important. Versions are ordered first by their type, and then
      * by their other data (if appropriate).
-     * </p>
      */
     public enum SemanticVersionType {
         MIN("!min_version", true),
@@ -155,8 +148,8 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
 
     /**
      * The main version components.
-     * <p>
-     *     For the current record layer versioning, this would be {@code List.of(major, minor, build, patch)}, but this
+     *
+     * <p>For the current record layer versioning, this would be {@code List.of(major, minor, build, patch)}, but this
      *     class supports any number of version components.
      *     When comparing, these are compared in order.
      */
@@ -164,8 +157,8 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
     private final List<Integer> versionNumbers;
     /**
      * The prerelease metadata, but only {@code SNAPSHOT} is supported.
-     * <p>
-     *     We only support {@code List.of("SNAPSHOT")} or {@code List.of()}, because that's the only one we use,
+     *
+     * <p>We only support {@code List.of("SNAPSHOT")} or {@code List.of()}, because that's the only one we use,
      *     and gradle and maven have complicated comparison that disagrees. A version that has the same value
      *     {@link #versionNumbers} but an empty {@code prerelease} is greater than one with a non-empty {@code prerelease}.
      */

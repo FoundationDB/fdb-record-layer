@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * An exception thrown when there is an attempt to store a duplicate value in a unique index.
  *
- * This exception is not necessarily thrown by the specific {@code saveRecord} that caused the violation,
+ * <p>This exception is not necessarily thrown by the specific {@code saveRecord} that caused the violation,
  * but it will always be thrown before {@code commit} would have completed successfully. When this is thrown,
  * {@code commit} <em>will not</em> complete successfully, whether it was thrown earlier or from {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext#commit}
  * itself.

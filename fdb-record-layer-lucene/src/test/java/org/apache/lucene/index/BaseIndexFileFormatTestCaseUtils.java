@@ -90,14 +90,12 @@ public final class BaseIndexFileFormatTestCaseUtils {
      * This is a direct copy of the {@link BaseIndexFileFormatTestCase#testMultiClose()}, except in that version it
      * always creates a {@link org.apache.lucene.store.FSDirectory}, whereas here, if testing against FDB we use the
      * directory under test.
-     * <p>
-     *     You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
-     * </p>
-     * <p>
-     *     Every extension of {@link BaseIndexFileFormatTestCase} needs to override this in the same way, so this has
+     *
+     * <p>You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
+     *
+     * <p>Every extension of {@link BaseIndexFileFormatTestCase} needs to override this in the same way, so this has
      *     been extracted into a utils method. In order to do this, methods have been changed to refer to the
      *     {@code testCase} parameter, or to the relevant class if it's a static method
-     * </p>
      *
      * @throws IOException if there's issues
      */

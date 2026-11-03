@@ -69,18 +69,15 @@ import java.util.TreeMap;
 /**
  * A builder for {@link RecordMetaData}.
  *
- * Meta-data can be built in two ways.
+ * <p>Meta-data can be built in two ways.
  *
- * <p>
- * <b>From compiled .proto</b><br>
+ * <p><b>From compiled .proto</b><br>
  * Simple single field indexes and single field primary keys can be specified in the Protobuf source file using option extensions.
  * Additional indexes or more complicated primary keys need to be specified with code using this builder.
  * The {@link #setRecords(Descriptors.FileDescriptor, boolean)} method loads the meta-data information from the Protobuf source file. Indexes and other
  * properties such as version are not accessible before calling {@code setRecords}.
- * </p>
  *
- * <p>
- * <b>From a {@link RecordMetaDataProto.MetaData} Protobuf message</b><br>
+ * <p><b>From a {@link RecordMetaDataProto.MetaData} Protobuf message</b><br>
  * The Protobuf form can store the complete meta-data. The {@link #setRecords(RecordMetaDataProto.MetaData, boolean)} method loads
  * the Protobuf message. Similar to loading the meta-data directly from a Protobuf file descriptor, indexes and other
  * properties are not accessible before calling {@code setRecords}.
@@ -90,7 +87,6 @@ import java.util.TreeMap;
  * {@link #addDependency(Descriptors.FileDescriptor)} or {@link #addDependencies(Descriptors.FileDescriptor[])}.
  * The {@code addDependency} or {@code addDependencies}
  * methods can also be used to override the embedded dependencies.
- * </p>
  *
  * @see RecordMetaData#toProto
  */
@@ -446,15 +442,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Update the records descriptor of the record meta-data.
      *
-     * <p>
-     * This involves adding new record types and updating descriptors for the existing record types and union fields.
+     * <p>This involves adding new record types and updating descriptors for the existing record types and union fields.
      * By contract, the extension options will be processed for all of the new record types and will not be processed
      * for any of the old record types. Also, it is not allowed to call this method when the local file descriptor is set.
-     * </p>
      *
-     * <p>
-     * See {@link #updateRecords(Descriptors.FileDescriptor, boolean)} for more information.
-     * </p>
+     * <p>See {@link #updateRecords(Descriptors.FileDescriptor, boolean)} for more information.
      *
      * @param recordsDescriptor the new record descriptor
      */
@@ -465,20 +457,16 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Update the records descriptor of the record meta-data.
      *
-     * <p>
-     * This adds any new record types and updates the descriptors for existing record types.
+     * <p>This adds any new record types and updates the descriptors for existing record types.
      * By contract, the extension options will not be processed for the old record types. If {@code processExtensionOptions}
      * is set, extension options will be processed only for the new record types. Also, this method may not be called
      * when {@code localFileDescriptor} is set. This method bumps the meta-data version and sets the {@linkplain RecordType#getSinceVersion() since version}
      * for the new record types (and their indexes).
-     * </p>
      *
-     * <p>
-     * To avoid accidental changes, this method only updates the record types (i.e., updates the message
+     * <p>To avoid accidental changes, this method only updates the record types (i.e., updates the message
      * descriptors of the old record types and adds new record types with their primary keys and indexes). This method
      * does not process schema options. To update the schema options, use {@link #setSplitLongRecords(boolean)} and
      * {@link #setStoreRecordVersions(boolean)}.
-     * </p>
      *
      * @param newRecordsDescriptor the new record descriptor
      * @param processExtensionOptions whether to add primary keys and indexes using the extensions in the protobuf (only for the new record types)
@@ -505,31 +493,25 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Sets the local file descriptor. A local meta-data file descriptor may contain newer versions of record types or indexes.
      *
-     * <p>
-     * This method is handy when two versions of the record meta-data are compatible (i.e., they follow the
+     * <p>This method is handy when two versions of the record meta-data are compatible (i.e., they follow the
      * <a href="https://foundationdb.github.io/fdb-record-layer/SchemaEvolution.html">Record Layer guidelines on schema evolution</a>),
      * but their descriptors are not equal, e.g., a statically-generated proto and its serialized version stored
      * in a meta-data store (i.e., {@link com.apple.foundationdb.record.provider.foundationdb.FDBMetaDataStore}). A
      * record store created using the meta-data store may not be able to store a record created
      * by the statically-generated proto file because the meta-data and record have mismatched descriptors. Using this method,
      * the meta-data can use the same version of the descriptor as the record.
-     * </p>
      *
-     * <p>
-     * This should only be used when the records descriptor is set through a meta-data Protobuf message (i.e, it is followed by a call
+     * <p>This should only be used when the records descriptor is set through a meta-data Protobuf message (i.e, it is followed by a call
      * to {@link #setRecords(RecordMetaDataProto.MetaData)} or {@link #setRecords(RecordMetaDataProto.MetaData, boolean)}).
      * This will not work if the records are set using a file descriptor. Note also that once the local file descriptor is
      * set, the {@link RecordMetaData} object that is produced from this builder may differ from the original Protobuf definition
      * in ways that make serializing the meta-data back to Protobuf unsafe. As a result, calling {@link RecordMetaData#toProto() toProto()}
      * on the produced {@code RecordMetaData} is disallowed.
-     * </p>
      *
-     * <p>
-     * To verify that the file descriptor supplied here and the file descriptor included in the meta-data proto are
+     * <p>To verify that the file descriptor supplied here and the file descriptor included in the meta-data proto are
      * compatible, the two descriptors are compared using a {@link MetaDataEvolutionValidator}. The user may provide
      * their own validator by calling {@link #setEvolutionValidator(MetaDataEvolutionValidator)}. By default, this
      * will use that class's {@linkplain MetaDataEvolutionValidator#getDefaultInstance() default instance}.
-     * </p>
      *
      * @param localFileDescriptor a file descriptor that contains updated record types
      * @return this builder
@@ -1010,7 +992,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Get the next record type key for a synthetic record type.
      *
-     * These keys are negative, unlike stored record types which are initially positive.
+     * <p>These keys are negative, unlike stored record types which are initially positive.
      * This isn't strictly speaking necessary, but simplifies debugging.
      * @return a new unique record type key
      */
@@ -1307,18 +1289,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Enable counter-based subspace keys assignment.
      *
-     * <p>
-     * If enabled, index subspace keys will be set using a counter instead of defaulting to the indexes' names. This
+     * <p>If enabled, index subspace keys will be set using a counter instead of defaulting to the indexes' names. This
      * must be called prior to setting the records descriptor (for example {@link #setRecords(Descriptors.FileDescriptor)}).
-     * </p>
      *
-     * <p>
-     * Existing clients should be careful about enabling this feature. The name of an index is the default
+     * <p>Existing clients should be careful about enabling this feature. The name of an index is the default
      * value of its subspace key when counter-based subspace keys are disabled. If a subspace key was not set
      * explicitly before, enabling the counter-based scheme will change the index's subspace key. Note that
      * it is important that the subspace key of an index that has data does not change.
      * See {@link Index#setSubspaceKey(Object)} for more details.
-     * </p>
      *
      * @return this builder
      */
@@ -1353,10 +1331,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * subspace keys using a counter, but their indexes already have subspace keys that may conflict with the
      * counter-based assignment.
      *
-     * <p>
-     * Note that the new counter must be greater than the current value. Also, users must first enable this feature by
+     * <p>Note that the new counter must be greater than the current value. Also, users must first enable this feature by
      * calling {@link #enableCounterBasedSubspaceKeys()} before updating the counter value.
-     * </p>
      *
      * @param subspaceKeyCounter the new value
      * @return this builder
@@ -1400,7 +1376,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Set the index registry used for validation.
      *
-     * If a record store has a custom index maintainer registry, that same registry may need to be used to properly
+     * <p>If a record store has a custom index maintainer registry, that same registry may need to be used to properly
      * validate the meta-data.
      * @param indexMaintainerRegistry the index maintainer registry
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry

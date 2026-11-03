@@ -40,8 +40,8 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * {@code false} or {@code true} under the assumption that a verifiable
      * {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint} is satisfied before the plan is executed
      * and/or re-executed.
-     * <br>
-     * Note that this method must be reflexive ({@code a R a}), and it must be strongly symmetric using a slightly
+     *
+     * <p>Note that this method must be reflexive ({@code a R a}), and it must be strongly symmetric using a slightly
      * altered notion of symmetry:
      * <pre>
      * {@code

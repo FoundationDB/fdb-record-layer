@@ -92,18 +92,17 @@ public class ParameterRelationshipGraph {
     /**
      * Derive a relationship graph from a {@link RecordQuery} and a set of pre-bound parameters in handing in
      * as a {@link Bindings} object.
-     * <p>
-     * Note that we do not derive additional relationships (yet). So for instance a query
-     * </p>
-     * <p>
-     * {@code
+     *
+     * <p>Note that we do not derive additional relationships (yet). So for instance a query
+     *
+     * <p>{@code
      * ...
      * WHERE x < $p1 AND x = $p2 AND y < $p2 AND y = $p3
      * }
-     * </p>
-     * with pre-bindings {@code p1 -> 10, p2 -> 10, p3 -> 10} would result in a graph containing
-     * <p>
-     * {@code
+     *
+     * <p>with pre-bindings {@code p1 -> 10, p2 -> 10, p3 -> 10} would result in a graph containing
+     *
+     * <p>{@code
      * p1 EQUALS p1
      * p1 EQUALS p2
      * p2 EQUALS p1
@@ -112,14 +111,14 @@ public class ParameterRelationshipGraph {
      * p3 EQUALS p2
      * p3 EQUALS p3
      * }
-     * </p>
-     * but it would not contain
-     * <p>
-     * {@code
+     *
+     * <p>but it would not contain
+     *
+     * <p>{@code
      * p1 EQUALS p3
      * p3 EQUALS p1
      * }
-     * </p>
+     *
      * @param recordQuery query
      * @param preBoundParameterBindings parameter bindings already known at planning time
      * @return a new {@link ParameterRelationshipGraph}

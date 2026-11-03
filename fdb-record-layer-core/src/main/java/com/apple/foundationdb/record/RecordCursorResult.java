@@ -31,7 +31,7 @@ import java.util.function.Function;
 /**
  * A result obtained when a {@link RecordCursor} advances.
  *
- * A {@code RecordCursorResult} represents everything that one can learn each time a {@code RecordCursor} advances.
+ * <p>A {@code RecordCursorResult} represents everything that one can learn each time a {@code RecordCursor} advances.
  * This is precisely one of the following:
  * <ol>
  *     <li>
@@ -52,11 +52,9 @@ import java.util.function.Function;
  *     </li>
  * </ol>
  *
- * <p>
- * The implementation of {@code RecordCursorResult} guarantees the dichotomy described above using an API that encourages
+ * <p>The implementation of {@code RecordCursorResult} guarantees the dichotomy described above using an API that encourages
  * static correctness (for example, the {@link #withNextValue} and {@link #withoutNextValue} builder methods) and a
  * large number of correctness checks that encourage fast failures instead of subtle contract violations.
- * </p>
  *
  * @param <T> the type of result produced when the result includes a value
  */

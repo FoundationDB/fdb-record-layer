@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * tree (e.g. {@code KeySpaceCountTree}) loses the ability to label keys by their owning
  * index. {@link #resolverHandlesPerIndexKeyspace} catches that gap; the
  * {@link #keyspaceIsCategorized} guard fails the build outright if a future enum value
- * isn't categorized in the test, forcing the author to consider it.</p>
+ * isn't categorized in the test, forcing the author to consider it.
  */
 class KeySpaceTreeResolverTest {
 

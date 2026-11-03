@@ -616,8 +616,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Tests composability of inserts and updates in an operation normally dubbed an upsert.
-     * <br>
-     * This plans, executes, and verifies the equivalent of these SQL queries
+     *
+     * <p>This plans, executes, and verifies the equivalent of these SQL queries
      * <pre>
      * {@code
      *   INSERT INTO Restaurants(rec_no, name)

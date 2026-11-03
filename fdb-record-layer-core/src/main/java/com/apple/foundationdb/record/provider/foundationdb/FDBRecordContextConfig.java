@@ -440,11 +440,9 @@ public class FDBRecordContextConfig {
          * {@code null}, which indicates that the transaction should look at the "uuid" key of the
          * MDC context (if set) to set the transaction ID.
          *
-         * <p>
-         * The transaction ID should typically be set to a string of entirely ASCII characters, and
+         * <p>The transaction ID should typically be set to a string of entirely ASCII characters, and
          * it should not exceed 100 bytes in length. If the string is longer than 100 bytes, then the
          * ID may be truncated or dropped. See {@link FDBRecordContext#getTransactionId()}.
-         * </p>
          *
          * @param transactionId the ID to use for the transaction in FDB logs
          * @return this builder

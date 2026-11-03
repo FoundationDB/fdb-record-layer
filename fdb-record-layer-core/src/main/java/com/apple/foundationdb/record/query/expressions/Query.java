@@ -185,7 +185,7 @@ public class Query {
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window and the score entry that determined that rank.
      *
-     * The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
+     * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
      * @param timeWindow the time window for which to get the rank
      * @param operand the argument to rank
@@ -199,7 +199,7 @@ public class Query {
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window and the score entry that determined that rank.
      *
-     * The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
+     * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
      * @param type the type of time window
      * @param timestamp the target timestamp
@@ -216,7 +216,7 @@ public class Query {
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window and the score entry that determined that rank.
      *
-     * The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
+     * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
      * @param type the type of time window
      * @param timestamp the target timestamp
@@ -231,7 +231,7 @@ public class Query {
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window and the score entry that determined that rank.
      *
-     * The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
+     * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
      * @param typeParameter the name of the time window type parameter
      * @param timestampParameter the name of the timestamp parameter

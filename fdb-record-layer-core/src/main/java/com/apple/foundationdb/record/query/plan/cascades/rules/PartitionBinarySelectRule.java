@@ -48,9 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * be moved towards {@code q1} and {@code q2} (as tolerated by the existing correlations). The newly created binary
  * {@link SelectExpression} does not have any predicates anymore.
  *
- * <p>
- * There are three cases that are worth considering here:
- * </p>
+ * <p>There are three cases that are worth considering here:
  *
  * <ul>
  *     <li>
@@ -70,21 +68,17 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *     </li>
  * </ul>
  *
- * <p>
- * When this rule executes, it matches one quantifier as the {@code left} and one as the {@code right}. The
+ * <p>When this rule executes, it matches one quantifier as the {@code left} and one as the {@code right}. The
  * rule will push predicates as if the left is going to be planned as the outer (so all join predicates go
  * to the right). In the first case, this is only valid when the correlated-to side is the left; in the other
  * two cases, the rule will be executed twice, once for each assignment of quantifiers to the {@code left} and
  * {@code right}. In the third case, we will generally end up producing the same expression (unless there are
  * predicates uncorrelated to both sides).
- * </p>
  *
- * <p>
- * Current thinking on future extensions: At first glance, leaving the resulting {@link SelectExpression} without any
+ * <p>Current thinking on future extensions: At first glance, leaving the resulting {@link SelectExpression} without any
  * predicates, but potentially correlating one side to the other seems to only be beneficial for nested-loop joins.
  * However, the pre-transformation {@link SelectExpression} does contain all those predicates, which therefore can
  * still be utilized to e.g. implement a hash join.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

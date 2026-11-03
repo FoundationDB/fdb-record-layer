@@ -49,8 +49,8 @@ import java.util.function.ToDoubleBiFunction;
 public final class CommonTestHelpers {
     /**
      * Time budget for a single logical database operation in a test, including any retries.
-     * <p>
-     * A test must never block indefinitely. {@link CompletableFuture#join()} is uninterruptible, so JUnit's
+     *
+     * <p>A test must never block indefinitely. {@link CompletableFuture#join()} is uninterruptible, so JUnit's
      * default per-test timeout ({@code junit.jupiter.execution.timeout.default}, see
      * {@code gradle/testing.gradle}) cannot stop a test that blocks on it: the interrupt JUnit sends is
      * swallowed, and the timeout failure is only reported once the test finishes on its own. Waiting with a
@@ -64,8 +64,8 @@ public final class CommonTestHelpers {
 
     /**
      * Blocks until {@code future} completes, failing after {@link #ASYNC_TO_SYNC_TIMEOUT_MINUTES} minutes.
-     * <p>
-     * This module sits below {@code fdb-record-layer-core}, so the record layer's {@code asyncToSync} is not
+     *
+     * <p>This module sits below {@code fdb-record-layer-core}, so the record layer's {@code asyncToSync} is not
      * reachable from here; this is the stand-in for it.
      *
      * @param future the future to wait for
@@ -85,8 +85,8 @@ public final class CommonTestHelpers {
     /**
      * Runs {@code retryable} in a transaction and blocks for its result, bounding the wait as described in
      * {@link #asyncToSync(CompletableFuture)}.
-     * <p>
-     * Prefer this over {@code db.run(tr -> something(tr).join())}: the time budget covers the entire
+     *
+     * <p>Prefer this over {@code db.run(tr -> something(tr).join())}: the time budget covers the entire
      * {@link Database#runAsync(Function)} retry loop, which is otherwise unbounded.
      *
      * @param db the database to run against

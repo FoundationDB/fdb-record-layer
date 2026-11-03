@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
  * The Relational Keyspace.
  * "__SYS" in its current form, is a system schema that will house all the system tables.
  *
- *    / (root)
+ * <p>/ (root)
  *        |- __SYS (null)
  *        |
  *  [currently, we allow for the domains very naively for our use-cases like cli, testing, demo etc.]

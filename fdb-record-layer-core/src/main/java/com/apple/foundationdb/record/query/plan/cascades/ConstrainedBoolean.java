@@ -31,8 +31,8 @@ import java.util.function.Predicate;
 
 /**
  * A boolean container that can if the boolean is true carry a {@link QueryPlanConstraint}.
- * <br>
- * The meaning of an object of this class is:
+ *
+ * <p>The meaning of an object of this class is:
  * <ul>
  *     <li>The boolean is {@code false} (there is no constraint).</li>
  *     <li>
@@ -44,8 +44,8 @@ import java.util.function.Predicate;
  * boolean is effectively unconditionally true. {@link QueryPlanConstraint}s are usually proven to be true for this
  * invocation of the planner but refer to an external environment that may change if a plan were to be re-executed in
  * a different environment.
- * <br>
- * This class is a monad which conceptually wraps around a boolean and a {@link QueryPlanConstraint}. There are two
+ *
+ * <p>This class is a monad which conceptually wraps around a boolean and a {@link QueryPlanConstraint}. There are two
  * combinators {@link #composeWithOther(ConstrainedBoolean)} and {@link #filter(Predicate)}.
  */
 public class ConstrainedBoolean implements Constrained<Boolean> {

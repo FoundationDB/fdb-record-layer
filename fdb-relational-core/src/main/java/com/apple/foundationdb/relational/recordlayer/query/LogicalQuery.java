@@ -30,7 +30,7 @@ import java.util.Objects;
 /**
  * An immutable representation of a Query.
  *
- * This is primarily used as a partial key in the plan cache, so it needs to be immutable _and_ a representation
+ * <p>This is primarily used as a partial key in the plan cache, so it needs to be immutable _and_ a representation
  * of the logical structure of a plan.
  */
 @API(API.Status.EXPERIMENTAL)
