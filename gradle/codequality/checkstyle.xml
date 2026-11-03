@@ -190,6 +190,7 @@
         </module>
 
         <module name="JavadocLeadingAsteriskAlign"/>
+        <module name="JavadocBlockTagLocation"/>
         <module name="JavadocParagraph">
             <property name="allowNewlineParagraph" value="false"/>
         </module>
