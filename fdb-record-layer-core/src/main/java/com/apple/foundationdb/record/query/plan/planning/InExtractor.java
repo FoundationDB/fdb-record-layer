@@ -204,7 +204,7 @@ public class InExtractor {
      * Adjust plan ordering for the result of handling these {@code IN} clauses.
      * @param ordering the base plan ordering
      * @param asPrefix {@code true} if the {@code IN} conditions become part of an equality prefix (because the elements are merged in order),
-      * {@code false} if a separate ordering beforehand (because the elements are concatenated in turn)
+     * {@code false} if a separate ordering beforehand (because the elements are concatenated in turn)
      * @return a new plan ordering
      */
     @Nullable

@@ -189,6 +189,7 @@
             <property name="forbiddenSummaryFragments" value="^User: .*"/>
         </module>
 
+        <module name="JavadocLeadingAsteriskAlign"/>
         <module name="JavadocMissingLeadingAsterisk"/>
         <module name="JavadocBlockTagLocation"/>
         <module name="JavadocParagraph">

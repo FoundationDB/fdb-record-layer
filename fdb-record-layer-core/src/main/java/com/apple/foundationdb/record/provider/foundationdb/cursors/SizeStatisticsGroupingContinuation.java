@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     /**
      * A continuation for the case where we have one last result to send, after which the cursor would be done.
-      */
+     */
     public static final SizeStatisticsGroupingContinuation LAST_RESULT_CONTINUATION = new SizeStatisticsGroupingContinuation();
 
     /** Whether the continuation is a marker for the last result being sent before the cursor is done. */

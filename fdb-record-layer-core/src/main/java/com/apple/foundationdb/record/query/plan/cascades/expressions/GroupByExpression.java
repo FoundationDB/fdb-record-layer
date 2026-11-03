@@ -643,7 +643,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
      * @param explicitlyMatchedCandidateGroupingValuesSet the set of match candidate's grouping values which matched the
      *                                                    query's explicit grouping values.
      * @param implicitlyMatchedCandidateGroupingValuesSet the set of match candidate's grouping values which matched the
-*      *                                                  query's implicit grouping values.
+     *                                                  query's implicit grouping values.
      * @return An {@link Optional} with a list of {@link Value}s which constitute the longest prefix in the candidate
      *         grouping values that subsumes the query's explicit grouping values and potentially the query's implicit
      *         grouping values, or an empty {@link Optional} if no such prefix exists.
