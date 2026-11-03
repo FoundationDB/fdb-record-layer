@@ -130,7 +130,6 @@ public class InExplodeSource extends InComparandSource {
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
-        // explain the unsorted collection, the suffix tells whether it is sorted
         return ExplainTokensWithPrecedence.of(
                 new ExplainTokens().addNested(ExplainLevel.ALL_DETAILS,
                         new Comparisons.ValueComparison(Comparisons.Type.IN, getUnsortedCollectionValue())
