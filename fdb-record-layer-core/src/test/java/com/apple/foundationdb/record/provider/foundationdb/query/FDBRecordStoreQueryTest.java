@@ -872,7 +872,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             }
 
             assertEquals(Arrays.asList(800L, 1776L),
-                    recordStore.executeQuery(plan)
+                    plan.execute(recordStore, withUsedTypes(plan, EvaluationContext.empty()))
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join());
@@ -903,7 +903,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                         unorderedPrimaryKeyDistinctPlan(
                                 indexPlan().where(indexName("onetwo$element")).and(scanComparisons(range("([A],>")))));
             }
-            assertThat(recordStore.executeQuery(plan)
+            assertThat(plan.execute(recordStore, withUsedTypes(plan, EvaluationContext.empty()))
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join(),
