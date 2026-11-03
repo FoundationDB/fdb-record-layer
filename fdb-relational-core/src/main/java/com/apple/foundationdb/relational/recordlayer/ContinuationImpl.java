@@ -138,8 +138,7 @@ public final class ContinuationImpl implements Continuation {
 
     /**
      * Return the compiled statement proto if a package is contained inside the continuation.
-
-import com.apple.foundationdb.annotation.API;
+     *
      * @return the {@link CompiledStatement}.
      */
     @Nullable
