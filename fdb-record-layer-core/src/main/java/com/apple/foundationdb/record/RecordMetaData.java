@@ -801,11 +801,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return plannerType;
     }
 
+    /**
+     * The type the planner sees for records of any of the record types with the given names. The names are resolved
+     * with {@link #getRecordType(String)}, which only resolves stored record types.
+     *
+     * @param recordTypeNames the names of stored record types
+     * @return the planner's type for records of any of those record types
+     * @throws MetaDataException if there is no stored record type with one of those names
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
+        if (recordTypeNames.size() == 1) {
+            return getPlannerType(Iterables.getOnlyElement(recordTypeNames));
+        }
         return getPlannerTypeForRecordTypes(recordTypeNames.stream()
                 .map(this::getRecordType)
-                .collect(Collectors.toList()));
+                .toList());
     }
 
     /**
