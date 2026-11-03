@@ -80,7 +80,7 @@ class RelationalStructFacade implements RelationalStruct {
 
     /**
      * Struct data as protobuf.
-
+     *
      */
     private final Struct delegate;
 

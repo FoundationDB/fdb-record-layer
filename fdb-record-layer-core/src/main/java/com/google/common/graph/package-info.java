@@ -21,5 +21,5 @@
 /**
  * contains implementation of graph network that have stable iteration order over the edges.
  *
-*/
+ */
 package com.google.common.graph;

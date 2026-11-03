@@ -3,10 +3,10 @@ unnamed-2:
     ref: in-predicate.yamsql:72
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS
         ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 91
+    task_count: 943
+    task_total_time_ms: 98
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -15,10 +15,10 @@ unnamed-2:
     ref: in-predicate.yamsql:77
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS
         ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 91
+    task_count: 943
+    task_total_time_ms: 98
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -27,10 +27,10 @@ unnamed-2:
     ref: in-predicate.yamsql:86
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS
         ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 91
+    task_count: 943
+    task_total_time_ms: 98
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -40,10 +40,10 @@ unnamed-2:
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10
         + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS
         q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 86
+    task_count: 943
+    task_total_time_ms: 96
     transform_count: 289
-    transform_time_ms: 24
+    transform_time_ms: 27
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -52,10 +52,10 @@ unnamed-2:
     ref: in-predicate.yamsql:96
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS
         ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 91
+    task_count: 943
+    task_total_time_ms: 98
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -64,10 +64,10 @@ unnamed-2:
     ref: in-predicate.yamsql:105
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS
         ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 91
+    task_count: 943
+    task_total_time_ms: 98
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 26
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -77,12 +77,12 @@ unnamed-2:
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10
         + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG))) | FILTER q0.B
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 74
+    task_count: 943
+    task_total_time_ms: 115
     transform_count: 289
-    transform_time_ms: 19
+    transform_time_ms: 30
     transform_yield_count: 67
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 118
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)
@@ -90,46 +90,46 @@ unnamed-2:
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10
         + @c12, @c12 + @c10) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN
         (q0.A AS A, q0.B AS B) }
-    task_count: 939
-    task_total_time_ms: 80
+    task_count: 943
+    task_total_time_ms: 111
     transform_count: 289
-    transform_time_ms: 18
+    transform_time_ms: 38
     transform_yield_count: 67
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 118
     insert_reused_count: 7
 -   query: EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)
     ref: in-predicate.yamsql:168
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }
-    task_count: 939
-    task_total_time_ms: 88
+    task_count: 943
+    task_total_time_ms: 109
     transform_count: 289
-    transform_time_ms: 21
+    transform_time_ms: 29
     transform_yield_count: 67
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 118
     insert_reused_count: 7
 -   query: EXPLAIN select a, c from ta where c in (9.01)
     ref: in-predicate.yamsql:173
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }
-    task_count: 939
-    task_total_time_ms: 88
+    task_count: 943
+    task_total_time_ms: 109
     transform_count: 289
-    transform_time_ms: 21
+    transform_time_ms: 29
     transform_yield_count: 67
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 118
     insert_reused_count: 7
 -   query: EXPLAIN select a, c from ta where c in (3.01 + 6)
     ref: in-predicate.yamsql:178
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12))
         | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }
-    task_count: 939
-    task_total_time_ms: 95
+    task_count: 943
+    task_total_time_ms: 105
     transform_count: 289
-    transform_time_ms: 21
+    transform_time_ms: 29
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -138,10 +138,10 @@ unnamed-2:
     ref: in-predicate.yamsql:183
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }
-    task_count: 939
-    task_total_time_ms: 93
+    task_count: 943
+    task_total_time_ms: 53
     transform_count: 289
-    transform_time_ms: 21
+    transform_time_ms: 20
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -150,10 +150,10 @@ unnamed-2:
     ref: in-predicate.yamsql:189
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }
-    task_count: 939
-    task_total_time_ms: 93
+    task_count: 943
+    task_total_time_ms: 53
     transform_count: 289
-    transform_time_ms: 21
+    transform_time_ms: 20
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -162,22 +162,22 @@ unnamed-2:
     ref: in-predicate.yamsql:194
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 lt @c12))
         | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }
-    task_count: 939
-    task_total_time_ms: 76
+    task_count: 943
+    task_total_time_ms: 116
     transform_count: 289
-    transform_time_ms: 17
+    transform_time_ms: 29
     transform_yield_count: 67
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 118
     insert_reused_count: 7
 -   query: EXPLAIN select a, e from ta where e in ('bar', 'doe')
     ref: in-predicate.yamsql:199
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }
-    task_count: 939
-    task_total_time_ms: 90
+    task_count: 943
+    task_total_time_ms: 76
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 22
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -186,10 +186,10 @@ unnamed-2:
     ref: in-predicate.yamsql:204
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E
         EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }
-    task_count: 939
-    task_total_time_ms: 90
+    task_count: 943
+    task_total_time_ms: 76
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 22
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 118
@@ -199,22 +199,22 @@ unnamed-2:
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12
         + @c14, @c16)) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E)
         }
-    task_count: 939
-    task_total_time_ms: 82
+    task_count: 943
+    task_total_time_ms: 111
     transform_count: 289
-    transform_time_ms: 20
+    transform_time_ms: 30
     transform_yield_count: 67
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 118
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))
     ref: in-predicate.yamsql:214
     explain: ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17
         AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)
-    task_count: 1122
-    task_total_time_ms: 87
+    task_count: 1124
+    task_total_time_ms: 70
     transform_count: 316
-    transform_time_ms: 26
+    transform_time_ms: 18
     transform_yield_count: 73
     insert_time_ms: 2
     insert_new_count: 144
@@ -224,12 +224,12 @@ unnamed-2:
     explain: EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19
         AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS
         promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }
-    task_count: 1009
-    task_total_time_ms: 99
+    task_count: 1011
+    task_total_time_ms: 123
     transform_count: 295
-    transform_time_ms: 27
+    transform_time_ms: 34
     transform_yield_count: 68
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 126
     insert_reused_count: 8
 -   query: EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L),
@@ -239,10 +239,10 @@ unnamed-2:
         AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1))) | FLATMAP q0
         -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)])
         AS q1 RETURN (q1.A AS A, q1.B AS B) }
-    task_count: 1009
-    task_total_time_ms: 92
+    task_count: 1011
+    task_total_time_ms: 79
     transform_count: 295
-    transform_time_ms: 28
+    transform_time_ms: 30
     transform_yield_count: 68
     insert_time_ms: 2
     insert_new_count: 126
@@ -263,12 +263,12 @@ unnamed-2:
     ref: in-predicate.yamsql:250
     explain: EXPLODE arrayDistinct(@c9) | FILTER @c7 EQUALS _ | FLATMAP q0 -> { ISCAN(F1
         <,>) AS q1 RETURN (q1.A AS A, q1.E AS E) }
-    task_count: 941
-    task_total_time_ms: 67
+    task_count: 945
+    task_total_time_ms: 107
     transform_count: 260
-    transform_time_ms: 18
+    transform_time_ms: 24
     transform_yield_count: 62
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 118
     insert_reused_count: 6
 -   query: EXPLAIN select a from ta where 1 in (1, 2, 3)
@@ -276,10 +276,10 @@ unnamed-2:
     explain: 'EXPLODE arrayDistinct(@c7) | FLATMAP q0 -> { COVERING(F1 <,> -> [A:
         KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER @c5 EQUALS q0 | MAP (_.A
         AS A) AS q1 RETURN q1 }'
-    task_count: 993
-    task_total_time_ms: 75
+    task_count: 997
+    task_total_time_ms: 81
     transform_count: 265
-    transform_time_ms: 15
+    transform_time_ms: 19
     transform_yield_count: 65
     insert_time_ms: 2
     insert_new_count: 128
@@ -451,12 +451,12 @@ unnamed-2:
         AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME
         EQUALS q0.ID AND _.NUM EQUALS q2 } | FILTER @c34 EQUALS q1 AS q3 RETURN q3
         } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }
-    task_count: 9358
-    task_total_time_ms: 983
+    task_count: 9396
+    task_total_time_ms: 1204
     transform_count: 4099
-    transform_time_ms: 247
+    transform_time_ms: 297
     transform_yield_count: 514
-    insert_time_ms: 167
+    insert_time_ms: 205
     insert_new_count: 1394
     insert_reused_count: 287
 -   query: EXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN
@@ -465,10 +465,10 @@ unnamed-2:
     explain: EXPLODE arrayDistinct(promote(@c19 AS ARRAY(LONG))) | FLATMAP q0 -> {
         SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS | FILTER _ EQUALS
         q0 AS q2 RETURN (q1.ID AS ID, q2 AS N) } AS q3 RETURN q3 }
-    task_count: 1060
-    task_total_time_ms: 71
+    task_count: 1063
+    task_total_time_ms: 83
     transform_count: 424
-    transform_time_ms: 13
+    transform_time_ms: 19
     transform_yield_count: 54
     insert_time_ms: 3
     insert_new_count: 115
@@ -492,10 +492,10 @@ unnamed-2:
         SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY
         | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS
         IDX) } AS q3 RETURN q3 }
-    task_count: 1060
-    task_total_time_ms: 82
+    task_count: 1063
+    task_total_time_ms: 93
     transform_count: 423
-    transform_time_ms: 18
+    transform_time_ms: 23
     transform_yield_count: 54
     insert_time_ms: 3
     insert_new_count: 115
@@ -507,12 +507,12 @@ unnamed-2:
         | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._1 + 1 EQUALS
         q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN
         q3 }
-    task_count: 1049
-    task_total_time_ms: 71
+    task_count: 1052
+    task_total_time_ms: 111
     transform_count: 422
-    transform_time_ms: 22
+    transform_time_ms: 25
     transform_yield_count: 53
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 114
     insert_reused_count: 6
 -   query: EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
@@ -521,10 +521,10 @@ unnamed-2:
     explain: '[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY
         AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }'
-    task_count: 1166
-    task_total_time_ms: 104
+    task_count: 1171
+    task_total_time_ms: 131
     transform_count: 454
-    transform_time_ms: 29
+    transform_time_ms: 38
     transform_yield_count: 70
     insert_time_ms: 3
     insert_new_count: 140
@@ -536,11 +536,11 @@ unnamed-2:
         | FLATMAP q1 -> { EXPLODE q1.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q0
         AS q2 RETURN (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3
         }
-    task_count: 1060
-    task_total_time_ms: 78
+    task_count: 1063
+    task_total_time_ms: 122
     transform_count: 423
-    transform_time_ms: 16
+    transform_time_ms: 27
     transform_yield_count: 54
-    insert_time_ms: 2
+    insert_time_ms: 4
     insert_new_count: 115
     insert_reused_count: 6

@@ -64,7 +64,6 @@ import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -258,7 +257,7 @@ class TypeTest {
                     Arguments.of(LiteralValue.ofScalar(42.2f), Type.primitiveType(Type.TypeCode.FLOAT, false)),
                     Arguments.of(LiteralValue.ofScalar(43L), Type.primitiveType(Type.TypeCode.LONG, false)),
                     Arguments.of(LiteralValue.ofScalar("foo"), Type.primitiveType(Type.TypeCode.STRING, false)),
-                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())), Type.primitiveType(Type.TypeCode.BYTES, false)),
+                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFromUtf8("bar")), Type.primitiveType(Type.TypeCode.BYTES, false)),
 
 
                     // Primitives
@@ -269,7 +268,7 @@ class TypeTest {
                     Arguments.of(42.2f, Type.primitiveType(Type.TypeCode.FLOAT, false)),
                     Arguments.of(43L, Type.primitiveType(Type.TypeCode.LONG, false)),
                     Arguments.of("foo", Type.primitiveType(Type.TypeCode.STRING, false)),
-                    Arguments.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()), Type.primitiveType(Type.TypeCode.BYTES, false)),
+                    Arguments.of(ByteString.copyFromUtf8("bar"), Type.primitiveType(Type.TypeCode.BYTES, false)),
 
                     // UUID
                     Arguments.of(UUID.fromString("eebee473-690b-48c1-beb0-07c3aca77768"), Type.uuidType(false)),
@@ -283,7 +282,7 @@ class TypeTest {
                     Arguments.of(List.of(42.2f), new Type.Array(Type.primitiveType(Type.TypeCode.FLOAT, false))),
                     Arguments.of(List.of(43L), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false))),
                     Arguments.of(List.of("foo"), new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false))),
-                    Arguments.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())), new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))),
+                    Arguments.of(List.of(ByteString.copyFromUtf8("bar")), new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))),
 
 
                     // Arrays of arrays
@@ -295,8 +294,8 @@ class TypeTest {
                     Arguments.of(List.of(List.of(42.2f), List.of(42.2f)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.FLOAT, false)))),
                     Arguments.of(List.of(List.of(43L), List.of(43L)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)))),
                     Arguments.of(List.of(List.of("foo"), List.of("foo")), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false)))),
-                    Arguments.of(List.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
-                            List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))), false),
+                    Arguments.of(List.of(List.of(ByteString.copyFromUtf8("bar")),
+                            List.of(ByteString.copyFromUtf8("bar"))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))), false),
 
                     // DynamicMessage
                     Arguments.of(actualMessage, Type.Record.fromFields(false, List.of(
