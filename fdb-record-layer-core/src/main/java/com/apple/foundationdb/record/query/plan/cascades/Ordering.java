@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -51,6 +52,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +61,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class captures an ordering property.
@@ -115,9 +118,15 @@ import java.util.function.Supplier;
  * <p>Instances of this class are used to communicate properties of plans.
  */
 public class Ordering {
+    /// @see #empty(boolean)
     @Nonnull
     private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(),
-            false, (b, o) -> { } );
+            false, (b, o) -> { });
+
+    /// @see #empty(boolean)
+    @Nonnull
+    private static final Ordering EMPTY_DISTINCT = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(),
+            true, (b, o) -> { });
 
     /**
      * Union merge operator to be used to obtain the resulting order of a distinct ordered union operation,
@@ -182,13 +191,7 @@ public class Ordering {
     @Nonnull
     private final PartiallyOrderedSet<Value> orderingSet;
 
-    /**
-     * Indicator if the records flowed are to be considered distinct, thus producing a strict order. This field
-     * should get deprecated as it is not correct to assign this property to all enumerated orderings. For instance,
-     * an ordering that produces {@code a, b, c} is also ordered by {@code a, b}. While the former one might be strict,
-     * the latter one may not. I think for now we should just interpret this indicator in a way that only enumerated
-     * orderings that contain all values of the ordering are strict if this indicator is {@code true}.
-     */
+    /// @see #isDistinct()
     private final boolean isDistinct;
 
     @Nonnull
@@ -238,6 +241,21 @@ public class Ordering {
         return orderingSet;
     }
 
+    /**
+     * Indicates whether the records flowed are to be considered <em>distinct</em>, i.e., whether this is a strict
+     * ordering of the records. Under a strict ordering, any two records can be told apart by the values of the
+     * ordering (in their entirety), so that the order of the records is fully determined and there are no ties.
+     *
+     * <p>Example: If two records can have the same {@code a}, then the ordering by {@code a} is not strict, as it
+     * cannot determine which of the two comes first. However, if we know that {@code b} is unique, then the ordering by
+     * {@code (a, b)} is strict, even though two records can have the same {@code a}. Column {@code c}, which is not
+     * part of the ordering, does not matter.
+     *
+     * <p>Note that strictness is a property of the ordering as a whole, not of its prefixes. For instance, an
+     * ordering that produces {@code a, b, c} is also ordered by {@code a, b}. While the former one might be strict,
+     * the latter one may not. Thus, only enumerated orderings that contain <i>all</i> values of this ordering are
+     * distinct if this indicator is {@code true}.
+     */
     public boolean isDistinct() {
         return isDistinct;
     }
@@ -292,6 +310,62 @@ public class Ordering {
     }
 
     /**
+     * Computes the leading parts of a given requested ordering that have to be verified explicitly to establish that
+     * this ordering satisfies the request. The remaining parts (if any) are satisfied automatically and can be
+     * disregarded. This is a helper for {@link #satisfies} and {@link #enumerateCompatibleRequestedOrderings}.
+     *
+     * <p>If this ordering is not {@link #isDistinct() distinct}, <i>every</i> part has to be verified. If it is
+     * distinct, however, we can disregard any {@link #isSingularFixedValue singular fixed} values, and therefore drop
+     * any remaining requested parts as soon as the other values are all covered. We don’t need to verify the
+     * remaining singular fixed values because they are the same for all records, and the distinct property guarantees
+     * that any two records differ in at least one value of the ordering (though not necessarily in the same one for
+     * every pair), so in at least one value that is not singular fixed. So once we’ve verified that this ordering
+     * satisfies all the preceding parts, no two records can be tied on all of them, and their order is fully
+     * determined. If <i>all</i> values are singular fixed, there is at most one record, and none of the parts have to
+     * be verified.
+     *
+     * <p>Example: A distinct ordering with {@code a = 5} (singular fixed) and {@code b} (sorted ascending), such as
+     * from a scan of a unique index over {@code (a, b)}. Here {@code b} is the only value that is not singular fixed.
+     * <ul>
+     * <li>For the requested ordering {@code [b, c]} this method yields {@code [b]}. And indeed, the ordering satisfies
+     * {@code [b]}. With that, we know it also satisfies the entire request {@code [b, c]} (no need to further verify),
+     * as the distinctness guarantees that no two records have the same {@code b}.
+     * <li>For {@code [c, b]} this method yields {@code [c, b]}. Here the {@code b} from the ordering is only covered by
+     * the last requested part, so nothing can be disregarded (and the {@code [c, b]} request is not satisfied).
+     * <li>For {@code [c]} this method yields {@code [c]}. {@code b} is not covered by any part, so there is nothing to
+     * stop at (and again, this ordering does not satisfy {@code [c]}).
+     * </ul>
+     *
+     * @param requestedParts the parts of the requested ordering
+     * @return the leading parts of the requested ordering that have to be verified explicitly
+     */
+    @Nonnull
+    private List<RequestedOrderingPart> computeRelevantRequestedOrderingParts(
+            @Nonnull final List<RequestedOrderingPart> requestedParts) {
+        // If the ordering is not distinct, every part matters.
+        if (!isDistinct) {
+            return requestedParts;
+        }
+
+        // If _all_ values are singular fixed, the distinctness tells us that there is at most one record.
+        // All requested parts are automatically satisfied.
+        final Set<Value> nonSingularFixedValues = collectNonSingularFixedValues();
+        if (nonSingularFixedValues.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        // Go through the requested parts until all non-singular-fixed values are covered, and disregard any parts
+        // thereafter.
+        // If we hit the end, some value remains uncovered, so every requested part matters.
+        for (int i = 0; i < requestedParts.size() - 1; i++) {
+            if (nonSingularFixedValues.remove(requestedParts.get(i).getValue()) && nonSingularFixedValues.isEmpty()) {
+                return requestedParts.subList(0, i + 1);
+            }
+        }
+        return requestedParts;
+    }
+
+    /**
      * Method to verify that a given {@link RequestedOrdering} can be used to construct an ordering sequence that is
      * supported by the current ordering from the list of {@link Value}s that composes the {@link RequestedOrdering}.
      * This method is similar to {@link Ordering#satisfiesGroupingValues(Set)} in the sense that they both check for
@@ -328,29 +402,42 @@ public class Ordering {
      * @return the result of satisfiability of set of values in the ordering
      */
     public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
-        if (requestedOrdering.isDistinct() && !isDistinct()) {
+        // A requested distinct ordering can only be satisfied by a distinct ordering.
+        if (requestedOrdering.isDistinct() && !isDistinct) {
             return false;
         }
 
-        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
-            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+        // Only the relevant parts need to be considered. If there aren’t any, the request is automatically satisfied.
+        final List<RequestedOrderingPart> requestedParts = requestedOrdering.getOrderingParts();
+        final List<RequestedOrderingPart> relevantParts = computeRelevantRequestedOrderingParts(requestedParts);
+        if (relevantParts.isEmpty()) {
+            return true;
+        }
+
+        // For each relevant part there needs to be a binding that is compatible with the requested order.
+        for (final RequestedOrderingPart requestedOrderingPart : relevantParts) {
+            final Set<Binding> bindings = bindingMap.get(requestedOrderingPart.getValue());
+            if (bindings.isEmpty()) {
                 return false;
             }
-            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
             final var sortOrder = sortOrder(bindings);
             if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return false;
             }
         }
-        final var requestedValuesSet =
-                ImmutableSet.copyOf(requestedOrdering.getOrderingValues());
 
+        // Finally, the ordering set must permit a sequence that begins with the relevant values, in the requested
+        // order.
+        final List<Value> relevantValues = relevantParts.stream()
+                .map(OrderingPart::getValue)
+                .collect(ImmutableList.toImmutableList());
+        final Set<Value> requestedValuesSet = ImmutableSet.copyOf(relevantValues);
         return !Iterables.isEmpty(
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet().filterElements(requestedValuesSet::contains),
-                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
+                        relevantValues,
                         Function.identity(),
-                        permutation -> requestedOrdering.getOrderingParts().size()));
+                        permutation -> relevantParts.size()));
     }
 
     /**
@@ -382,37 +469,88 @@ public class Ordering {
      */
     @Nonnull
     public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
-        if (requestedOrdering.isDistinct() && !isDistinct()) {
+        // A requested distinct ordering can only be satisfied by a distinct ordering.
+        if (requestedOrdering.isDistinct() && !isDistinct) {
             return ImmutableList.of();
         }
 
-        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
-            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+        // Determine the prefix of the parts that matters. The remaining “irrelevant” parts are singular fixed
+        // and therefore satisfied automatically; so we can loosen their requested sort order to ANY.
+        final List<RequestedOrderingPart> requestedParts = requestedOrdering.getOrderingParts();
+        final List<RequestedOrderingPart> relevantParts = computeRelevantRequestedOrderingParts(requestedParts);
+        final List<RequestedOrderingPart> irrelevantParts =
+                requestedParts.subList(relevantParts.size(), requestedParts.size())
+                        .stream()
+                        .map(part -> withAnySortOrder(part.getValue()))
+                        .collect(ImmutableList.toImmutableList());
+        // If a non-empty request has no relevant parts, this ordering is distinct and all of its values are
+        // singular fixed. That means there is at most one record, so there is a single compatible ordering.
+        if (relevantParts.isEmpty() && !requestedParts.isEmpty()) {
+            return ImmutableList.of(irrelevantParts);
+        }
+
+        // For each relevant part there needs to be a binding that is compatible with the requested order.
+        for (final RequestedOrderingPart requestedOrderingPart : relevantParts) {
+            final Set<Binding> bindings = bindingMap.get(requestedOrderingPart.getValue());
+            if (bindings.isEmpty()) {
                 return ImmutableList.of();
             }
-            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
             final var sortOrder = sortOrder(bindings);
             if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
         }
 
+        // Enumerate all sequences of the ordering set that begin with the relevant values in the requested order.
+        final List<Value> relevantValues = relevantParts.stream()
+                .map(OrderingPart::getValue)
+                .collect(ImmutableList.toImmutableList());
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet(),
-                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
+                        relevantValues,
                         Function.identity(),
-                        permutation -> requestedOrdering.getOrderingParts().size());
+                        permutation -> relevantParts.size());
+
+        // Turn each sequence into requested parts with the provided sort order (fixed values accept any sort order),
+        // and append the irrelevant parts. A sequence already contains all values of the ordering set, so we append
+        // only the irrelevant parts for values that this ordering does not know. The requested part of a value is the
+        // same in every sequence, so we compute them all just once, and only if there is a sequence at all.
+        final List<RequestedOrderingPart> unknownIrrelevantParts = irrelevantParts.stream()
+                .filter(part -> !orderingSet.getSet().contains(part.getValue()))
+                .collect(ImmutableList.toImmutableList());
+        final Supplier<Map<Value, RequestedOrderingPart>> compatibleRequestedParts =
+                Suppliers.memoize(() -> Maps.toMap(orderingSet.getSet(), this::toCompatibleRequestedPart));
         return Iterables.transform(satisfyingValuePermutations,
-                permutation -> permutation.stream()
-                        .map(value -> {
-                            final var bindings = bindingMap.get(value);
-                            if (areAllBindingsFixed(bindings)) {
-                                return new RequestedOrderingPart(value, RequestedSortOrder.ANY);
-                            }
-                            return new RequestedOrderingPart(value, sortOrder(bindings).toRequestedSortOrder());
-                        })
-                        .collect(ImmutableList.toImmutableList()));
+                permutation -> ImmutableList.<RequestedOrderingPart>builder()
+                        .addAll(Lists.transform(permutation, compatibleRequestedParts.get()::get))
+                        .addAll(unknownIrrelevantParts)
+                        .build());
+    }
+
+    /**
+     * Creates the requested ordering part that is compatible with the way this ordering provides a value: the same
+     * direction if the value is sorted, and any direction if the value is fixed (as a fixed value is the same for all
+     * records, it is sorted in any direction).
+     * @param value a value of this ordering
+     * @return a requested ordering part for the value
+     */
+    @Nonnull
+    private RequestedOrderingPart toCompatibleRequestedPart(@Nonnull final Value value) {
+        final var bindings = bindingMap.get(value);
+        return areAllBindingsFixed(bindings)
+                ? withAnySortOrder(value)
+                : new RequestedOrderingPart(value, sortOrder(bindings).toRequestedSortOrder());
+    }
+
+    /**
+     * Creates the requested ordering part for a value that accepts any sort order.
+     * @param value a value
+     * @return a requested ordering part for the value with sort order {@link RequestedSortOrder#ANY}
+     */
+    @Nonnull
+    private static RequestedOrderingPart withAnySortOrder(@Nonnull final Value value) {
+        return new RequestedOrderingPart(value, RequestedSortOrder.ANY);
     }
 
     /**
@@ -444,6 +582,12 @@ public class Ordering {
             return true;
         }
 
+        // If this ordering is distinct, the values that are not singular fixed identify a single
+        // record. If all of them are grouped by, every group consists of one record, whatever else is grouped by.
+        if (isDistinct && requestedGroupingValues.containsAll(collectNonSingularFixedValues())) {
+            return true;
+        }
+
         if (orderingSet.size() < requestedGroupingValues.size()) {
             return false;
         }
@@ -471,6 +615,25 @@ public class Ordering {
         return false;
     }
 
+    /**
+     * Pulls this ordering up through a value, i.e. translates it from the values that the value is computed from into
+     * the values that it produces. This is needed, for example, to derive the ordering of a map plan from the ordering
+     * of its child.
+     *
+     * <p>Only the ordering values that are used by the given value can be pulled up. All other ordering values are
+     * dropped, together with their bindings. The ordering of the remaining values is preserved.
+     *
+     * <p>If an ordering value is dropped, the records can no longer be told apart by it. Thus, the resulting ordering
+     * is only distinct if this ordering is distinct, and every ordering value that is dropped is
+     * {@link #isSingularFixedValue singular fixed}.
+     *
+     * @param value the value to pull this ordering up through, e.g. the result value of a map plan
+     * @param evaluationContext the evaluation context
+     * @param aliasMap the alias map that maps the alias that the ordering values are expressed in to the current
+     *        quantifier
+     * @param constantAliases the aliases that are constant for the purpose of pulling up
+     * @return the ordering in terms of the values that the given value produces
+     */
     @Nonnull
     public Ordering pullUp(@Nonnull final Value value, @Nonnull EvaluationContext evaluationContext,
                            @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
@@ -502,9 +665,34 @@ public class Ordering {
             }
         }
 
-        return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
+        // The ordering is only distinct as long as every value that could not be pulled up is singular fixed, as
+        // otherwise there can be records that are only told apart by a value that is no longer visible.
+        final var isStillDistinct =
+                isDistinct() &&
+                        getOrderingSet().getSet()
+                                .stream()
+                                .filter(orderingValue -> !pulledUpValuesMultimap.containsKey(orderingValue))
+                                .allMatch(this::isSingularFixedValue);
+        return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isStillDistinct);
     }
 
+    /**
+     * Pushes this ordering down through a value, i.e. translates it from the values that the value produces into the
+     * values that it is computed from. This is the inverse of {@link #pullUp}. It is needed, for example, to turn
+     * an ordering that is expressed in terms of the result of an operator into one that is expressed in terms of its
+     * input.
+     *
+     * <p>Unlike {@link #pullUp}, this translates every ordering value into the values it is computed from (a value that
+     * cannot be translated is an error), so none gets dropped. Thus, the records, and in particular their
+     * distinctness, are the same before and after.
+     *
+     * @param value the value to push this ordering down through
+     * @param evaluationContext the evaluation context
+     * @param aliasMap the alias map that maps the alias that the ordering values are expressed in to the current
+     *        quantifier
+     * @param constantAliases the aliases that are constant for the purpose of pushing down
+     * @return the ordering in terms of the values that the given value is computed from
+     */
     @Nonnull
     public Ordering pushDown(@Nonnull final Value value, @Nonnull final EvaluationContext evaluationContext,
                              @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
@@ -571,19 +759,38 @@ public class Ordering {
     }
 
     public boolean isSingularNonFixedValue(@Nonnull final Value value) {
-        Verify.verify(bindingMap.containsKey(value));
-        final var bindings = bindingMap.get(value);
+        final Set<Binding> bindings = bindingMap.get(value);
+        Verify.verify(!bindings.isEmpty());
         if (isSingularNonFixedBinding(bindings)) {
             return true;
         }
-        Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindingMap.get(value))));
+        Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindings)));
         return false;
     }
 
+    /**
+     * Indicates whether a value of this ordering is <em>singular fixed</em>, i.e., bound by exactly one equality, which
+     * means that it has the same value for all records. A value that is bound by several equalities (e.g., after a
+     * union) does not qualify.
+     *
+     * @param value a value of this ordering
+     * @return {@code true} if the value is singular fixed
+     */
     public boolean isSingularFixedValue(@Nonnull final Value value) {
-        Verify.verify(bindingMap.containsKey(value));
-        final var bindings = bindingMap.get(value);
+        final Set<Binding> bindings = bindingMap.get(value);
+        Verify.verify(!bindings.isEmpty());
         return areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings);
+    }
+
+    /**
+     * Computes the values of this ordering that are not {@link #isSingularFixedValue singular fixed}, i.e., the values
+     * that tell records apart.
+     */
+    @Nonnull
+    private Set<Value> collectNonSingularFixedValues() {
+        return orderingSet.getSet().stream()
+                .filter(value -> !isSingularFixedValue(value))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     @Nonnull
@@ -1176,9 +1383,35 @@ public class Ordering {
         return Ordering.ofOrderingSet(combinedBindingMapBuilder.build(), concatenatedOrderingSet, rightOrdering.isDistinct());
     }
 
+    /**
+     * Shorthand for {@code empty(false)}, the non-distinct empty ordering.
+     *
+     * @see #empty(boolean)
+     */
     @Nonnull
     public static Ordering empty() {
-        return EMPTY;
+        return empty(false);
+    }
+
+    /**
+     * Returns an “empty” ordering, i.e., an ordering whose ordering set contains no values.
+     *
+     * <p>The <i>non-distinct</i> empty ordering {@code empty(false)} is used to express that nothing is known or
+     * guaranteed about the records; they are neither ordered by any value nor distinct. Thus, it satisfies only
+     * a requested ordering that has no parts and does not require distinctness.
+     *
+     * <p>The <i>distinct</i> empty ordering {@code empty(true)} essentially describes a result that is known to have
+     * at most one record. Being empty, the ordering has no values by which it can tell two records apart; yet, its
+     * distinct indicator guarantees that any two records are indeed different. This can only be true for a result of
+     * 0 or 1 records. A distinct empty ordering satisfies <i>any</i> requested ordering. (Intuitively, we can consider
+     * a single record to be ordered by anything.)
+     *
+     * @param isDistinct {@code true} if the ordering is distinct
+     * @return the empty ordering
+     */
+    @Nonnull
+    public static Ordering empty(final boolean isDistinct) {
+        return isDistinct ? EMPTY_DISTINCT : EMPTY;
     }
 
     @Nonnull

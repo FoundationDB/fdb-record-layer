@@ -54,7 +54,7 @@ _
 }Д
 {
 versions-queriesgEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is null;Д
-Ъ†НІ­ Яѕ»(90м±`8Q@wISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), IS_NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)¬digraph G {
+ЪҐсќ¬ љ­њ(90м±`8Q@wISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), IS_NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -80,7 +80,8 @@ _
 }ц
 Ќ
 versions-queriesyEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is not distinct from null;г
-ЪЄие­ Ѕф€(90ы›88Q@†ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), NOT_DISTINCT_FROM NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)»digraph G {
+ЪЉЬП¬ ЦЃ°
+(90ы›88Q@†ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), NOT_DISTINCT_FROM NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

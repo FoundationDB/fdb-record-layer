@@ -127,7 +127,7 @@ V
 }Œ
 _
 not-distinct-from-testsDEXPLAIN select count(*) from t1 WHERE null is not distinct from nullÍ
-»ºœäŒ Öô‘	(<0°ñ[8]@ôAISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Ødigraph G {
+Ê∂¬∂” ´œº(>0°ñ[8`@ôAISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -145,7 +145,7 @@ _
 }«
 [
 not-distinct-from-tests@EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10Á
-»˜áêŒ ¨êú(<0”•È8]@óAISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)≠digraph G {
+Ê∑«∏” ÑÒµ(>0”•È8`@óAISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

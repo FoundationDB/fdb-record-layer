@@ -341,4 +341,23 @@ test_block:
       - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.17.2.0
       - error: UNABLE_TO_PLAN
+---
+test_block:
+  name: group-by-single-record
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      # Tests that an aggregate without GROUP BY can be ordered. It always produces exactly one record, so no sort is
+      # needed. The scan of index I1 only supplies the records to count.
+      - query: SELECT COUNT(*) AS n FROM t1 ORDER BY n
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS N)"
+      - result: [{!l 13}]
+    -
+      # Tests that the result of such an aggregate can be grouped again. The inner aggregate produces one record, so the
+      # outer aggregation needs no sorted input.
+      - query: SELECT n, COUNT(*) FROM (SELECT COUNT(*) AS n FROM t1) AS s GROUP BY n
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP ((coalesce_long(_._0._0, 0l) AS N) AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.N AS _0) | MAP (_._0._0 AS N, _._1._0 AS _1)"
+      - result: [{!l 13, !l 1}]
 ...
