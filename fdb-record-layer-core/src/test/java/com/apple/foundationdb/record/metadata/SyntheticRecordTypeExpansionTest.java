@@ -1,5 +1,5 @@
 /*
- * UnnestedRecordTypeExpansionTest.java
+ * SyntheticRecordTypeExpansionTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
+import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
 import com.apple.foundationdb.record.TestRecordsNestedChainProto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -37,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -54,6 +57,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -61,14 +65,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests of {@link UnnestedRecordType#expand(AccessHint)} and of the planner types the expansion is built from. All of
- * this is metadata-to-graph work, so none of these tests needs a record store.
+ * Tests of {@link UnnestedRecordType#expand(AccessHint)}, of {@link JoinedRecordType#expand(AccessHint)}, and of the
+ * planner types the expansion is built from. All of this is metadata-to-graph work, so none of these tests needs a
+ * record store.
  */
-class UnnestedRecordTypeExpansionTest {
+class SyntheticRecordTypeExpansionTest {
     @Nonnull
     private static final String OUTER = "OuterRecord";
-    @Nonnull
-    private static final String OTHER = "OtherRecord";
     @Nonnull
     private static final String PARENT = "parent";
     @Nonnull
@@ -82,7 +85,7 @@ class UnnestedRecordTypeExpansionTest {
     @Nonnull
     private static final String ESCAPED_NAMES = "EscapedNames";
     @Nonnull
-    private static final String OUTER_OTHER_JOINED = "OuterOtherJoined";
+    private static final String JOINED = "Joined";
     @Nonnull
     private static final Descriptors.Descriptor INNER_DESCRIPTOR =
             TestRecordsNestedChainProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor();
@@ -241,18 +244,152 @@ class UnnestedRecordTypeExpansionTest {
     }
 
     @Test
-    void expandOnAJoinedRecordTypeIsUnsupported() {
+    void expandScansEachJoinedConstituentAndJoinsThemOnEquality() {
         final RecordMetaData metaData = mapMetaData(metaDataBuilder -> {
-            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(OUTER_OTHER_JOINED);
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
             typeBuilder.addConstituent("outer", OUTER);
-            typeBuilder.addConstituent("other", OTHER);
+            typeBuilder.addConstituent("other", "OtherRecord");
             typeBuilder.addJoin("outer", field("other_id"), "other", field("other_id"));
         });
-        final SyntheticRecordType<?> type = metaData.getSyntheticRecordType(OUTER_OTHER_JOINED);
 
+        final GraphExpansion expansion = joinedType(metaData).expand(ACCESS_HINT);
+        assertThat(columnNames(expansion), contains("outer", "other"));
+        assertEquals(2, expansion.getQuantifiers().size());
+
+        // Each constituent is a scan of its stored type, flowed whole as the constituent's column and typed as the
+        // planner sees that stored type.
+        final Quantifier outerQuantifier = expansion.getQuantifiers().get(0);
+        final Quantifier otherQuantifier = expansion.getQuantifiers().get(1);
+        final LogicalTypeFilterExpression outerTypeFilter = assertTypeFilter(outerQuantifier, OUTER);
+        assertTypeFilter(otherQuantifier, "OtherRecord");
+        assertEquals(metaData.getPlannerType(OUTER), outerTypeFilter.getResultValue().getResultType());
+        final FullUnorderedScanExpression scan = (FullUnorderedScanExpression)Iterables.getOnlyElement(
+                outerTypeFilter.getQuantifiers()).getRangesOver().get();
+        assertThat(scan.getAccessHints().getAccessHintSet(), contains(ACCESS_HINT));
+        assertEquals(outerQuantifier.getFlowedObjectValue(), columnValue(expansion, "outer"));
+        assertEquals(otherQuantifier.getFlowedObjectValue(), columnValue(expansion, "other"));
+
+        // The join is an equality between a column of each constituent.
+        assertThat(expansion.getPredicates(), contains(
+                equality(FieldValue.ofFieldName(outerQuantifier.getFlowedObjectValue(), "other_id"),
+                        FieldValue.ofFieldName(otherQuantifier.getFlowedObjectValue(), "other_id"))));
+    }
+
+    @Test
+    void expandScansASelfJoinedTypeOncePerConstituent() {
+        final RecordMetaData metaData = joinIndexMetaData(metaDataBuilder -> {
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
+            typeBuilder.addConstituent("simple1", "MySimpleRecord");
+            typeBuilder.addConstituent("simple2", "MySimpleRecord");
+            typeBuilder.addJoin("simple1", "other_rec_no", "simple2", "rec_no");
+        });
+
+        final GraphExpansion expansion = joinedType(metaData).expand(ACCESS_HINT);
+        assertThat(columnNames(expansion), contains("simple1", "simple2"));
+
+        // Both copies scan the same stored type, but each through its own quantifier, so that they range
+        // independently and the join can relate one copy to the other.
+        final Quantifier firstQuantifier = expansion.getQuantifiers().get(0);
+        final Quantifier secondQuantifier = expansion.getQuantifiers().get(1);
+        assertTypeFilter(firstQuantifier, "MySimpleRecord");
+        assertTypeFilter(secondQuantifier, "MySimpleRecord");
+        assertNotEquals(firstQuantifier.getAlias(), secondQuantifier.getAlias());
+        assertThat(expansion.getPredicates(), contains(
+                equality(FieldValue.ofFieldName(firstQuantifier.getFlowedObjectValue(), "other_rec_no"),
+                        FieldValue.ofFieldName(secondQuantifier.getFlowedObjectValue(), "rec_no"))));
+    }
+
+    @Test
+    void expandAddsOneEqualityPerJoin() {
+        final RecordMetaData metaData = joinIndexMetaData(metaDataBuilder -> {
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
+            typeBuilder.addConstituent("a", "TypeA");
+            typeBuilder.addConstituent("b", "TypeB");
+            typeBuilder.addConstituent("c", "TypeC");
+            typeBuilder.addJoin("a", "type_b_rec_no", "b", "rec_no");
+            typeBuilder.addJoin("b", "type_c_rec_no", "c", "rec_no");
+            typeBuilder.addJoin("c", "type_a_rec_no", "a", "rec_no");
+        });
+
+        final GraphExpansion expansion = joinedType(metaData).expand(ACCESS_HINT);
+        assertThat(columnNames(expansion), contains("a", "b", "c"));
+        final Value a = expansion.getQuantifiers().get(0).getFlowedObjectValue();
+        final Value b = expansion.getQuantifiers().get(1).getFlowedObjectValue();
+        final Value c = expansion.getQuantifiers().get(2).getFlowedObjectValue();
+
+        // Every join is kept, including the one closing the cycle, even though it is not needed to connect the three.
+        assertThat(expansion.getPredicates(), contains(
+                equality(FieldValue.ofFieldName(a, "type_b_rec_no"), FieldValue.ofFieldName(b, "rec_no")),
+                equality(FieldValue.ofFieldName(b, "type_c_rec_no"), FieldValue.ofFieldName(c, "rec_no")),
+                equality(FieldValue.ofFieldName(c, "type_a_rec_no"), FieldValue.ofFieldName(a, "rec_no"))));
+    }
+
+    @Test
+    void expandReadsEachSideOfAJoinFromItsOwnConstituent() {
+        final RecordMetaData metaData = joinIndexMetaData(metaDataBuilder -> {
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
+            typeBuilder.addConstituent("simple", "MySimpleRecord");
+            typeBuilder.addConstituent("other", "MyOtherRecord");
+            // The join names the constituents in the opposite order from the one they were added in.
+            typeBuilder.addJoin("other", "rec_no", "simple", "other_rec_no");
+        });
+
+        final GraphExpansion expansion = joinedType(metaData).expand(ACCESS_HINT);
+        // The columns follow the constituents, ...
+        assertThat(columnNames(expansion), contains("simple", "other"));
+        // ... while the equality follows the join.
+        assertThat(expansion.getPredicates(), contains(
+                equality(FieldValue.ofFieldName(expansion.getQuantifiers().get(1).getFlowedObjectValue(), "rec_no"),
+                        FieldValue.ofFieldName(expansion.getQuantifiers().get(0).getFlowedObjectValue(),
+                                "other_rec_no"))));
+    }
+
+    @Test
+    void expandJoinsOnANestedField() {
+        final RecordMetaData metaData = joinIndexMetaData(metaDataBuilder -> {
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
+            typeBuilder.addConstituent("customer", "CustomerWithHeader");
+            typeBuilder.addConstituent("order", "OrderWithHeader");
+            typeBuilder.addJoin("order", field("custRef").nest("string_value"), "customer", field("name"));
+        });
+
+        final GraphExpansion expansion = joinedType(metaData).expand(ACCESS_HINT);
+        final Value customer = expansion.getQuantifiers().get(0).getFlowedObjectValue();
+        final Value order = expansion.getQuantifiers().get(1).getFlowedObjectValue();
+        assertThat(expansion.getPredicates(), contains(
+                equality(FieldValue.ofFieldNames(order, List.of("custRef", "string_value")),
+                        FieldValue.ofFieldName(customer, "name"))));
+    }
+
+    @Test
+    void expandWithoutJoinsHasNoPredicates() {
+        final RecordMetaData metaData = joinIndexMetaData(metaDataBuilder -> {
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
+            typeBuilder.addConstituent("simple", "MySimpleRecord");
+            typeBuilder.addConstituent("other", "MyOtherRecord");
+        });
+
+        // Without a join, every pair of constituent records is a joined record.
+        final GraphExpansion expansion = joinedType(metaData).expand(ACCESS_HINT);
+        assertThat(columnNames(expansion), contains("simple", "other"));
+        assertEquals(2, expansion.getQuantifiers().size());
+        assertThat(expansion.getPredicates(), empty());
+    }
+
+    @Test
+    void expandOnAnOuterJoinedConstituentIsUnsupported() {
+        final RecordMetaData metaData = mapMetaData(metaDataBuilder -> {
+            final JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED);
+            typeBuilder.addConstituent("outer", metaDataBuilder.getRecordType(OUTER));
+            typeBuilder.addConstituent("other", metaDataBuilder.getRecordType("OtherRecord"), true);
+            typeBuilder.addJoin("outer", field("other_id"), "other", field("other_id"));
+        });
+
+        // An outer join keeps a record without a partner, which an equality between the two scans would drop.
+        final JoinedRecordType type = joinedType(metaData);
         final UnsupportedOperationException exception =
                 assertThrows(UnsupportedOperationException.class, () -> type.expand(ACCESS_HINT));
-        assertEquals("cannot expand an index defined on a JoinedRecordType", exception.getMessage());
+        assertEquals("cannot expand an outer-joined constituent of a JoinedRecordType", exception.getMessage());
     }
 
     @Nonnull
@@ -275,6 +412,14 @@ class UnnestedRecordTypeExpansionTest {
     private static RecordMetaData wrapperMetaData(@Nonnull Consumer<RecordMetaDataBuilder> hook) {
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords4WrapperProto.getDescriptor());
+        hook.accept(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private static RecordMetaData joinIndexMetaData(@Nonnull Consumer<RecordMetaDataBuilder> hook) {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsJoinIndexProto.getDescriptor());
         hook.accept(metaDataBuilder);
         return metaDataBuilder.build();
     }
@@ -318,6 +463,18 @@ class UnnestedRecordTypeExpansionTest {
         final SyntheticRecordType<?> syntheticRecordType = metaData.getSyntheticRecordType(typeName);
         assertThat(syntheticRecordType, instanceOf(UnnestedRecordType.class));
         return (UnnestedRecordType)syntheticRecordType;
+    }
+
+    @Nonnull
+    private static JoinedRecordType joinedType(@Nonnull RecordMetaData metaData) {
+        final SyntheticRecordType<?> syntheticRecordType = metaData.getSyntheticRecordType(JOINED);
+        assertThat(syntheticRecordType, instanceOf(JoinedRecordType.class));
+        return (JoinedRecordType)syntheticRecordType;
+    }
+
+    @Nonnull
+    private static ValuePredicate equality(@Nonnull Value left, @Nonnull Value right) {
+        return new ValuePredicate(left, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, right));
     }
 
     @Nonnull
