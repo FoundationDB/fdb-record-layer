@@ -773,14 +773,21 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
     }
 
+    /**
+     * The type the planner sees for the records of the record type with the given name. The name is resolved with
+     * {@link #getRecordType(String)}, which only resolves stored record types.
+     *
+     * @param recordTypeName the name of a stored record type
+     * @return the planner's type for the records of that record type
+     * @throws MetaDataException if there is no stored record type with that name
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
         return getPlannerTypeForRecordType(getRecordType(recordTypeName));
     }
 
     /**
-     * The type the planner sees for the records of a record type. Unlike {@link #getPlannerType(String)}, this also
-     * describes a synthetic record type, whose name {@link #getRecordType(String)} does not resolve.
+     * The type the planner sees for the records of a record type.
      *
      * @param recordType the record type to describe
      * @return the planner's type for the records of {@code recordType}
@@ -803,8 +810,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * The type the planner sees for records of any of several record types: the type of the one record type, or the
-     * union of the fields of all of them. Unlike {@link #getPlannerType(Collection)}, this also describes synthetic
-     * record types, whose names {@link #getRecordType(String)} does not resolve.
+     * union of the fields of all of them.
      *
      * @param recordTypes the record types to describe
      * @return the planner's type for records of any of {@code recordTypes}
