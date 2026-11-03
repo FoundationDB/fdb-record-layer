@@ -92,48 +92,9 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                                                                   @Nonnull EvaluationContext context,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties) {
-//        final Set<Type> explodeTypes = explodeTypes(this);
-//        final EvaluationContext typedContext = explodeTypes.stream().allMatch(context.getTypeRepository()::containsType)
-//                ? context
-//                : EvaluationContext.forBindingsAndTypeRepository(context.getBindings(),
-//                        TypeRepository.newBuilder().addAllTypes(explodeTypes).build());
         return executePlan(store, context, continuation, executeProperties)
                 .map(QueryResult::getQueriedRecord);
     }
-
-//    /**
-//     * Collects the types of the structs the explodes of a plan produce, which an evaluation needs in its type
-//     * repository. Only these are supplied, as supplying the type of, e.g., a scan would make it copy the records it
-//     * produces into messages of that type.
-//     *
-//     * @param plan the plan
-//     * @return the types of the structs of the explodes of the plan and of its children
-//     */
-//    @Nonnull
-//    private static Set<Type> explodeTypes(@Nonnull final RecordQueryPlan plan) {
-//        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
-//        if (plan instanceof RecordQueryTableFunctionPlan &&
-//                ((RecordQueryTableFunctionPlan)plan).getValue() instanceof ExplodeValue) {
-//            resultBuilder.add(((RecordQueryTableFunctionPlan)plan).getValue().getResultType());
-//        }
-//        final List<? extends InSource> inSources;
-//        if (plan instanceof RecordQueryInJoinPlan) {
-//            inSources = ImmutableList.of(((RecordQueryInJoinPlan)plan).getInSource());
-//        } else if (plan instanceof RecordQueryInUnionPlan) {
-//            inSources = ((RecordQueryInUnionPlan)plan).getInSources();
-//        } else {
-//            inSources = ImmutableList.of();
-//        }
-//        for (final InSource inSource : inSources) {
-//            if (inSource instanceof InExplodeSource) {
-//                resultBuilder.add(((InExplodeSource)inSource).getResultType());
-//            }
-//        }
-//        for (final RecordQueryPlan child : plan.getChildren()) {
-//            resultBuilder.addAll(explodeTypes(child));
-//        }
-//        return resultBuilder.build();
-//    }
 
     @Nonnull
     @Override
