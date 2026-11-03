@@ -611,12 +611,12 @@ versions-queries:
     explain: EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> {
         ISCAN(T4_COL3_VERSION [EQUALS q0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION,
         q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }
-    task_count: 1397
-    task_total_time_ms: 150
+    task_count: 1403
+    task_total_time_ms: 151
     transform_count: 394
-    transform_time_ms: 40
+    transform_time_ms: 44
     transform_yield_count: 104
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 187
     insert_reused_count: 8
 -   query: EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1,
@@ -625,10 +625,10 @@ versions-queries:
     explain: '[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION,
         _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }'
-    task_count: 811
-    task_total_time_ms: 91
+    task_count: 813
+    task_total_time_ms: 117
     transform_count: 257
-    transform_time_ms: 32
+    transform_time_ms: 38
     transform_yield_count: 70
     insert_time_ms: 1
     insert_new_count: 85
@@ -639,10 +639,10 @@ versions-queries:
     explain: '[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS
         __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }'
-    task_count: 477
-    task_total_time_ms: 67
+    task_count: 479
+    task_total_time_ms: 76
     transform_count: 187
-    transform_time_ms: 33
+    transform_time_ms: 41
     transform_yield_count: 53
     insert_time_ms: 0
     insert_new_count: 34
