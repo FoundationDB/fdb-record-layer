@@ -137,7 +137,7 @@ public final class IndexExpansionInfo {
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
         @Nonnull
-        final Type.Record baseType = metaData.getPlannerType(indexedRecordTypeNames);
+        final Type.Record baseType = metaData.getPlannerTypeForRecordTypes(indexedRecordTypes);
         @Nullable
         final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
 
