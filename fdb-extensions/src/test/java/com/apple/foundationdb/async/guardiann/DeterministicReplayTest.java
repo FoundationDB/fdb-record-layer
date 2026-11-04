@@ -101,8 +101,10 @@ public class DeterministicReplayTest implements BaseTest {
     private static final int NUM_BASES = 2;
     /** Total vectors to insert. Spread over {@link #NUM_BASES} bases, each group (~120) overflows {@link #CLUSTER_MAX}. */
     private static final int NUM_INSERTS = 240;
-    /** Survivors after the delete phase. Kept high enough per base (~80) that the sub-cluster borders — and thus
-     * the replicas — survive the merges/reassigns the deletes trigger. */
+    /**
+     * Survivors after the delete phase. Kept high enough per base (~80) that the sub-cluster borders — and thus
+     * the replicas — survive the merges/reassigns the deletes trigger.
+     */
     private static final int REMAINING_AFTER_DELETE = 160;
     /** Per-component Gaussian sigma for the perturbation. Small relative to SIFT's ~[0, 200] range. */
     private static final double PERTURBATION_SIGMA = 0.5d;
