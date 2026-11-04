@@ -28,14 +28,19 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -149,6 +154,33 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                                           @Nonnull final EvaluationContext evaluationContext) {
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
+        }
+
+        //
+        // An explode that does not preserve its order is subsumed by an explode of the same collection that does,
+        // such as the one an index on an unnested record type is expanded with. Both flow the same
+        // (element, ordinal) struct, one per element of the collection, and the query does not observe its ordinals,
+        // so the candidate produces everything the query may produce. The explodes do not compare equal, so
+        // exactlySubsumedBy() would reject the match. A sorted query explode is left to exactlySubsumedBy(), as the
+        // candidate does not produce its elements in the order the query asks for.
+        //
+        if (value instanceof ExplodeValue queryExplodeValue
+                && !queryExplodeValue.preservesOrder()
+                && !queryExplodeValue.isSorted()
+                && candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression
+                && candidateTableFunctionExpression.getValue() instanceof ExplodeValue candidateExplodeValue
+                && candidateExplodeValue.preservesOrder()) {
+            if (!queryExplodeValue.getCollectionValue()
+                    .semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)) {
+                return ImmutableList.of();
+            }
+            final var maxMatchMap =
+                    MaxMatchMap.compute(getResultValue(), candidateExpression.getResultValue(),
+                            Quantifiers.aliases(candidateExpression.getQuantifiers()),
+                            ValueEquivalence.fromAliasMap(bindingAliasMap));
+            return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
         }
 
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
