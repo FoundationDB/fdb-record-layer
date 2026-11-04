@@ -254,7 +254,7 @@ public class DelegatingVisitorTest {
         testSimple("(param_a BIGINT, param_b STRING NOT NULL)",
                 RelationalParser::storedQueryParameterList,
                 DelegatingVisitor::visitStoredQueryParameterList,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryParameterList(RelationalParser.StoredQueryParameterListContext ctx) {
@@ -269,7 +269,7 @@ public class DelegatingVisitorTest {
         testSimple("param_a BIGINT NOT NULL",
                 RelationalParser::storedQueryParameter,
                 DelegatingVisitor::visitStoredQueryParameter,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryParameter(RelationalParser.StoredQueryParameterContext ctx) {
@@ -284,7 +284,7 @@ public class DelegatingVisitorTest {
         testSimple("PREPARE FOR (param_a IS NULL), (param_a IS NOT NULL)",
                 RelationalParser::storedQueryPreparedCases,
                 DelegatingVisitor::visitStoredQueryPreparedCases,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryPreparedCases(RelationalParser.StoredQueryPreparedCasesContext ctx) {
@@ -299,7 +299,7 @@ public class DelegatingVisitorTest {
         testSimple("(param_a IS NOT NULL, param_b = TRUE)",
                 RelationalParser::storedQueryPreparedCase,
                 DelegatingVisitor::visitStoredQueryPreparedCase,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryPreparedCase(RelationalParser.StoredQueryPreparedCaseContext ctx) {
@@ -314,7 +314,7 @@ public class DelegatingVisitorTest {
         testSimple("param_a IS NOT NULL",
                 RelationalParser::storedQueryParameterState,
                 DelegatingVisitor::visitStoredQueryParameterState,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryParameterState(RelationalParser.StoredQueryParameterStateContext ctx) {
