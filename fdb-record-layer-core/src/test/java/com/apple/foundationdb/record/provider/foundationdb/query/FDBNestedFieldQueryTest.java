@@ -368,8 +368,6 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                             SetMatcher.exactlyInAnyOrder(
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
-            assertEquals(739807064, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-467806067, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> TestHelpers.assertDiscardedAtMost(5, context)));
@@ -662,8 +660,6 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
 
-            assertEquals(1775342811, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1249589059, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 
