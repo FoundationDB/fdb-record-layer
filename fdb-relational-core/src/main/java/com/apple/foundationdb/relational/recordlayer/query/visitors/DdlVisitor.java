@@ -1153,12 +1153,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * reference is left alone: a declared parameter has no qualifier, so {@code t.x} is a column even when a parameter
      * named {@code x} exists.
      *
-     * <p>
-     * Matched on {@code fullColumnName} itself rather than on the expression atom that wraps it, because an
+     * <p>Matched on {@code fullColumnName} itself rather than on the expression atom that wraps it, because an
      * {@code IN} list names an array through its own {@code fullColumnName} alternative, which is not an expression.
      * Inside a query every {@code fullColumnName} is a reference — an alias is a plain {@code uid} and a table name a
      * {@code fullId} — so there is nothing here that must not be rewritten.
-     * </p>
      */
     private void collectParameterReferences(@Nonnull final ParseTree tree,
                                             @Nonnull final Set<String> declaredNames,
