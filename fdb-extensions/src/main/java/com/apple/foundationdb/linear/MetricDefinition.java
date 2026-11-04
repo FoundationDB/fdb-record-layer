@@ -48,6 +48,7 @@ interface MetricDefinition {
 
     /**
      * Method to be implemented by the specific metric.
+     *
      * @return {@code true} iff for all {@link RealVector}s {@code x, y} holds that
      *         {@code distance(x, y) == distance(y, x)}
      */
@@ -57,6 +58,7 @@ interface MetricDefinition {
 
     /**
      * Method to be implemented by the specific metric.
+     *
      * @return {@code true} iff for all {@link RealVector}s {@code x, y, z} holds that
      *         {@code distance(x, y) + distance(y, z) >= distance(x, z)}
      */
@@ -66,6 +68,7 @@ interface MetricDefinition {
 
     /**
      * Method to be implemented by the specific metric.
+     *
      * @return {@code true} iff for all {@link RealVector}s {@code x, y} and all translations T holds that
      *         {@code distance(x, y) == distance(T(x), T(y))}
      */
@@ -106,6 +109,7 @@ interface MetricDefinition {
 
     /**
      * A helper method to validate that vectors can be compared.
+     *
      * @param vector1 The first vector.
      * @param vector2 The second vector.
      */
@@ -184,6 +188,7 @@ interface MetricDefinition {
      * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
      * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}. Note that the zero
      * vector cannot be compared to any vector. We define the distance here to be {@link Double#NaN}.
+     *
      * @see MetricDefinition.CosineMetric
      */
     final class CosineMetric implements MetricDefinition {

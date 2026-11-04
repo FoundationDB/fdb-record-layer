@@ -130,6 +130,7 @@ public class LuceneIndexOptions {
 
     /**
      * Parse an option's value to a key-value map.
+     *
      * @param optionValue the raw string for option's value
      * @return the map
      */
@@ -147,6 +148,7 @@ public class LuceneIndexOptions {
 
     /**
      * Parse an option's value to a set of strings.
+     *
      * @param optionValue the raw string for option's value
      * @return map
      */
@@ -161,6 +163,7 @@ public class LuceneIndexOptions {
 
     /**
      * Validate the raw string for an option's value has valid format for a key-value map.
+     *
      * @param optionValue the raw string for option's value
      * @param exceptionToThrow the exception to throw if it is invalid
      */
@@ -183,6 +186,7 @@ public class LuceneIndexOptions {
 
     /**
      * Validate the raw string for an option's value has valid format for multiple-elements.
+     *
      * @param optionValue the raw string for option's value
      * @param exceptionToThrow the exception to throw if it is invalid
      */

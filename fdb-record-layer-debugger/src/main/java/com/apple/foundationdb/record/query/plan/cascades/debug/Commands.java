@@ -73,6 +73,7 @@ public class Commands {
         /**
          * Method that is called from the REPL when a command is interpreted that starts with the string that
          * {@link #getCommandToken()} returns.
+         *
          * @param plannerRepl the REPL
          * @param event the current event
          * @param parsedLine the tokenized input string

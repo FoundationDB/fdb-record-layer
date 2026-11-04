@@ -226,6 +226,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get the record type that uses the given record type key.
+     *
      * @param recordTypeKey the key used as a prefix for some record type
      * @return the record type
      * @throws MetaDataException if the given key does not correspond to any record type
@@ -271,6 +272,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name as used in an index.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -287,6 +289,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name as used in a query.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -321,6 +324,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get the index that uses the given subspace key.
+     *
      * @param subspaceKey the key used as a prefix for some index
      * @return the index
      * @throws MetaDataException if the given key does not correspond to any index
@@ -371,6 +375,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get value of the counter used for index subspace keys if the counter-based assignment is used.
+     *
      * @return the value of the counter
      * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
      */
@@ -380,6 +385,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Checks if counter-based subspace key assignment is used.
+     *
      * @return {@code true} if the subspace key counter is used
      * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
      */
@@ -506,6 +512,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Determine whether every record type in this meta-data has {@link RecordType#primaryKeyHasRecordTypePrefix}.
      *
      * <p>If so, records are strictly partitioned by record type.
+     *
      * @return {@code true} if every record type has a record type prefix on the primary key
      */
     public boolean primaryKeyHasRecordTypePrefix() {
@@ -540,6 +547,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Calculate and return the length common to all the PKs of the given types. The common PK length is calculated by
      * ensuring ALL PKs for the given types have the same length (number of fields). If there is no common length, -1 is
      * returned.
+     *
      * @param recordTypes the (non-null) collection of record types to calculate the common PK length for
      * @return the common length for all given types, -1 if not found
      */
@@ -574,6 +582,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Factory method to deserialize a record meta-data proto. It assumes that the proto contains all of the dependencies
      * and does not process extension options.
+     *
      * @param proto the serialized proto message of the {@code RecordMetaData}
      * @return the {@code RecordMetaData} object
      */

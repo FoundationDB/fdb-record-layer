@@ -80,6 +80,7 @@ public interface IndexScrubbingTools<T> {
      * Note 2: instead of using a filtered cursor, skip irrelevant items in {@link #handleOneItem}. The scrubber
      *  uses number of items processed by {@link #handleOneItem} to adjust the limit, so filtering inside this
      *  cursor would negatively affect the limit control.
+     *
      * @param range range to iterate on.
      * @param store record store
      * @param limit max items to iterate (used for throttling)
@@ -90,6 +91,7 @@ public interface IndexScrubbingTools<T> {
     /**
      * Return a key for a given result. This key is used as continuation when determining the scrubbed range, and
      * may become a low value in a future range to scrub, in a future call to {@link #getCursor}
+     *
      * @param result a result that was returned by a cursor provided by {@link #getCursor}
      * @return continuation tuple
      */
@@ -98,6 +100,7 @@ public interface IndexScrubbingTools<T> {
     /**
      * Check the validity of a given a specific cursor item. If applicable, return an {@link Issue} to report
      * a problem.
+     *
      * @param store record store
      * @param result an item that was returned by a cursor provided by {@link #getCursor}
      * @return null if the result valid, an {@link Issue} if not.
@@ -107,6 +110,7 @@ public interface IndexScrubbingTools<T> {
     /**
      * This function should be called prior to any other operation to set common parameters. For a given scrubbing tool
      * implementation, any un-needed parameter may be ignored.
+     *
      * @param index the index to operate
      * @param allowRepair true if repair is allowed
      * @param isSynthetic true if this is on a synthetic record type

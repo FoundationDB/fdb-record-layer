@@ -121,6 +121,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Get the local meta-data file descriptor.
      * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
+     *
      * @return the local meta-data file descriptor
      * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
@@ -225,6 +226,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Load current meta-data from store and set for <code>getRecordMetaData</code>.
+     *
      * @param checkCache {@code true} if the cache should be checked first
      * @param currentVersion the version to load
      * @return a future that completes with the Protobuf form of the meta-data
@@ -356,6 +358,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Build meta-data to use from Protobuf and save.
+     *
      * @param metaDataProto the Protobuf form of the meta-data to save
      * @return a future that completes when the save is done
      */
@@ -450,6 +453,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Prepare a meta-data store for use by loading any existing {@link RecordMetaData} or storing an initial
      * seed from the given provider.
+     *
      * @param metaDataProvider a provider for a seed meta-data to be used when this store is empty
      * @return a future that is complete when this store is ready for use
      */
@@ -591,6 +595,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param fieldName the field to be indexed
@@ -601,6 +606,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the index
@@ -611,6 +617,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data.
+     *
      * @param recordType the name of the record type
      * @param index the new index to be added
      */
@@ -620,6 +627,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data asynchronously.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param fieldName the field to be indexed
@@ -632,6 +640,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data asynchronously.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the index
@@ -645,6 +654,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data asynchronously.
+     *
      * @param recordType the name of the record type
      * @param index the index to be added
      * @return a future that completes when the index is added
@@ -662,6 +672,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Add a new index to the record meta-data that contains multiple record types.
      * If the list is null or empty, the resulting index will include all record types.
      * If the list has one element it will just be a normal single record type index.
+     *
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      */
@@ -673,6 +684,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Add a new index to the record meta-data that contains multiple record types asynchronously.
      * If the list is null or empty, the resulting index will include all record types.
      * If the list has one element it will just be a normal single record type index.
+     *
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      * @return a future that completes when the index is added
@@ -702,6 +714,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index on all record types.
+     *
      * @param index the index to be added
      * @return a future that completes when the index is added
      */
@@ -724,6 +737,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Remove the given index from the record meta-data asynchronously.
+     *
      * @param indexName the name of the index to be removed
      * @return a future that is complete when the index is dropped
      */

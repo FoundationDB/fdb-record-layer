@@ -85,6 +85,7 @@ public interface QueryableKeyExpression extends KeyExpression {
     /**
      * Get a function to be applied to the comparison operand before comparing it with the application of the key expression
      * to the record.
+     *
      * @return a conversion function or {@code null} for no conversion
      */
     @Nullable 

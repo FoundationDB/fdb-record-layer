@@ -159,6 +159,7 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
 
     /**
      * Create a planner graph for better visualization.
+     *
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
      *         temporary table insert expression node.
      */

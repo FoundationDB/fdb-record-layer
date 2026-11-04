@@ -82,6 +82,7 @@ public final class UserDefinedFunctionBuilder {
     public interface SignatureStepBuilder {
         /**
          * Sets the name of the function.
+         *
          * @param name the function name.
          * @return this builder, for chaining.
          */
@@ -116,6 +117,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Sets an explicit return type for the function; passing {@code null} leaves the return type to be inferred
          * from the function body.
+         *
          * @param returnType the explicit return type, or {@code null} to infer it from the body.
          * @return this builder, for chaining.
          */
@@ -135,6 +137,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Returns a quantifier ranging over the function parameters, so the caller can use it to reference the
          * parameters while parsing the function body.
+         *
          * @return a quantifier over the parameters, or {@link Optional#empty()} if the function has none.
          */
         Optional<Quantifier> getParametersCorrelation();
@@ -142,6 +145,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Supplies a {@link RelationalExpression} as the function body, which returns a {@link FinalStepBuilder} that
          * eventually instantiates a {@link CompiledSqlFunction}.
+         *
          * @param bodyExpression the relational expression the function evaluates to.
          * @return the final step, which builds a {@link CompiledSqlFunction}.
          */
@@ -150,6 +154,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Supplies a {@link Value} as the function body, which returns a {@link FinalStepBuilder} that
          * eventually instantiates a {@link UserDefinedMacroFunction}.
+         *
          * @param bodyValue the value the function evaluates to.
          * @return the final step, which builds a {@link UserDefinedMacroFunction}.
          */
@@ -162,6 +167,7 @@ public final class UserDefinedFunctionBuilder {
     public interface FinalStepBuilder {
         /**
          * Attaches the auxiliary literals gathered while parsing the body.
+         *
          * @param literals the literals to attach.
          * @return this builder, for chaining.
          */

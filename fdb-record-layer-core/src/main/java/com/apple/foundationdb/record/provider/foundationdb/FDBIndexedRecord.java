@@ -80,6 +80,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     /**
      * When scanning for orphaned index entries, this method must be used to determine whether or not a record exists
      * before calling <code>getStoredRecord()</code>.
+     *
      * @return {@code true} if this record has an {@link FDBStoredRecord}
      */
     public boolean hasStoredRecord() {

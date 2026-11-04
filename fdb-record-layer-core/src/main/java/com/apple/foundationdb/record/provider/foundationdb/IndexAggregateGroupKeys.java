@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 public abstract class IndexAggregateGroupKeys {
     /**
      * Get the grouping key (GROUP BY) for the index aggregate from the given context. 
+     *
      * @param store the record store for the query
      * @param context context in which to evaluate keys
      * @return the grouping key
@@ -58,6 +59,7 @@ public abstract class IndexAggregateGroupKeys {
     /**
      * Get the size of the prefix of the index aggregate that is returned.
      * That is, the size of {#link #getGroupKeys}.
+     *
      * @return number of items in the grouping key
      */
     public abstract int getColumnSize();

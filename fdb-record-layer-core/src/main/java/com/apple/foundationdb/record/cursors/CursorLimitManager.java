@@ -108,6 +108,7 @@ public class CursorLimitManager {
     /**
      * Report a single reason associated with a limit that has been exceeded. If more than one limit has been exceeded,
      * return the more important one. If no limit has been exceeded, return <code>Optional.emtpy()</code>.
+     *
      * @return a reason for a limit that has been exceeded or <code>Optional.empty()</code> if no limit has been exceeded
      */
     public Optional<RecordCursor.NoNextReason> getStoppedReason() {

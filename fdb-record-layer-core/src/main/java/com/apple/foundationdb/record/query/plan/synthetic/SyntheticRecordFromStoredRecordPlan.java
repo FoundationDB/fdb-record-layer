@@ -47,6 +47,7 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
      * Get the possible record types for the stored record to which this plan can be applied.
      *
      * <p>If given a record whose type is not in this set, the plan may return an empty cursor or throw an exception.
+     *
      * @return the set of record type names
      */
     @Nonnull
@@ -62,6 +63,7 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
 
     /**
      * Execute this plan.
+     *
      * @param store record store against which to execute
      * @param record the stored record from which to derive synthetic records, such as by join queries
      * @param continuation continuation from a previous execution of this same plan
@@ -77,6 +79,7 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
 
     /**
      * Execute this plan.
+     *
      * @param store record store against which to execute
      * @param record the stored record from which to derive synthetic records, such as by join queries
      * @param <M> type of raw record

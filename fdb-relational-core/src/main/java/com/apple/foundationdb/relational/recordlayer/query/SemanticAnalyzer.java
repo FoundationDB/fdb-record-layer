@@ -262,6 +262,7 @@ public class SemanticAnalyzer {
 
     /**
      * Checks whether a string is properly quoted (same quote markers at the beginning and at the end).
+     *
      * @param str The input string.
      * @param quotationMark The quotation mark to look for
      * @return <code>true</code> is the string is quoted, otherwise <code>false</code>.
@@ -272,6 +273,7 @@ public class SemanticAnalyzer {
 
     /**
      * Looks up a common table expression (CTE) in a chain of {@link LogicalPlanFragment}.
+     *
      * @param identifier The name of the CTE.
      * @param logicalPlanFragment The plan fragments chain.
      * @return Optional with {@link LogicalOperator} whose name matches the given identifier, if found.
@@ -947,6 +949,7 @@ public class SemanticAnalyzer {
      *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
      *     words, their maximum type is well-defined.
      * </ul>
+     *
      * @param unionLegs The logical operators representing the legs of the union.
      * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
      * representing the maximum type of each column calculated pairwise.

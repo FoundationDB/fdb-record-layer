@@ -147,6 +147,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *              250
      * }
      * </pre>
+     *
      * @return a sample hierarchy represented by a list of {@code child -> parent} edges.
      */
     @Nonnull
@@ -218,6 +219,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *         250
      * }
      * </pre>
+     *
      * @return a sample forest represented by a list of {@code child -> parent} edges.
      */
     @Nonnull
@@ -247,6 +249,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *     5 -> 6
      * }
      * </pre>
+     *
      * @return a sample forest represented by a list of {@code child -> parent} edges.
      */
     @Nonnull
@@ -269,6 +272,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *     56 -> 28
      * }
      * </pre>
+     *
      * @return a sample forest represented by a list of {@code child -> parent} edges.
      */
     @Nonnull

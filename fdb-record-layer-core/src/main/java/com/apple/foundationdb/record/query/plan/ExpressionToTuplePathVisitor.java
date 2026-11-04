@@ -106,6 +106,7 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
 
     /**
      * Functional pop to facilitate a more fluent way of interacting with the states.
+     *
      * @param <T> a type parameter
      * @param t some value of type {@code T}
      * @return {@code t}
@@ -117,6 +118,7 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
 
     /**
      * Specific implementation of the fall-back visitation method.
+     *
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
      */

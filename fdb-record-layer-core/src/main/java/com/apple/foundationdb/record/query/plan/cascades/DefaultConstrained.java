@@ -66,6 +66,7 @@ public class DefaultConstrained<T> implements Constrained<T> {
     /**
      * Method to compose this boolean with a {@link QueryPlanConstraint}. It is assumed that the caller just wants to
      * strengthen the constraint already recorded in {@code this}.
+     *
      * @param constraint a {@link QueryPlanConstraint}
      * @return a new {@link DefaultConstrained} that is {@code false} if {@code this} is false,
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
@@ -79,6 +80,7 @@ public class DefaultConstrained<T> implements Constrained<T> {
 
     /**
      * Helper method to create an unconstrained wrapper.
+     *
      * @param object object to wrap
      * @return a new unconditional {@link DefaultConstrained}
      */
@@ -89,6 +91,7 @@ public class DefaultConstrained<T> implements Constrained<T> {
 
     /**
      * Helper method to create a constrained wrapper.
+     *
      * @param object object to wrap
      * @param queryPlanConstraint the query plan constraint
      * @return a new unconditional {@link Constrained}

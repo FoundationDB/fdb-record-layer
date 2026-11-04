@@ -52,6 +52,7 @@ import java.util.List;
  *
  * <p>If the record type key appears at the start of every primary key, the record extent is divided by type,
  * as in other database systems.
+ *
  * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
  * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix
  */

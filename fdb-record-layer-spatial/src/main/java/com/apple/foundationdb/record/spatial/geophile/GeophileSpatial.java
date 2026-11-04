@@ -226,6 +226,7 @@ class GeophileSpatial {
      * Convert long/lat to lat/long.
      *
      * <p>Many JTS serialized forms are the former and the default space is the latter.
+     *
      * @param geometry the geometry to be transformed
      * @return the transformed geometry
      */

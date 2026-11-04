@@ -46,6 +46,7 @@ import java.util.stream.StreamSupport;
 public class Values {
     /**
      * Expand a record value into its field values.
+     *
      * @param recordValue the record value
      * @return a list of field values
      */
@@ -91,6 +92,7 @@ public class Values {
      * method uses this type information to construct a list of accessors that retrieve the primitive data elements of
      * that flowed record, i.e, this method would return {@code {_.x.a, _.x,b, _.y}}.
      * <br>
+     *
      * @param type the type used to construct accessors for
      * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
      * @return a list of {@link Value}s consisting of the accessors to primitive elements of the given type.

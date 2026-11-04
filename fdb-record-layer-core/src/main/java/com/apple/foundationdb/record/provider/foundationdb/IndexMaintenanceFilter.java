@@ -65,6 +65,7 @@ public interface IndexMaintenanceFilter {
     /**
      * Get whether a specific index entry should be maintained.
      * Only called if <code>SOME</code> was returned from {@link #maintainIndex}.
+     *
      * @param index index to check
      * @param record record that led to the index entry
      * @param indexEntry potential entry in the index

@@ -612,6 +612,7 @@ public class FDBClientLogEvents {
 
     /**
      * Apply a callback to parsed events.
+     *
      * @param buffer the transaction's client trace entry
      * @param callback an asynchronous function to apply to each entry
      * @return a future that completes when all items have been processed
@@ -819,6 +820,7 @@ public class FDBClientLogEvents {
 
         /**
          * Process next key-value pair by calling callback or appending to pending buffer.
+         *
          * @param keyValue a key-value pair with client trace events
          * @return a future which completes when the key-value pair has been processed
          */
@@ -868,6 +870,7 @@ public class FDBClientLogEvents {
          *
          * <p>This is not the last key passed to {@link #accept(KeyValue)}, since an early part of a split entry is buffered.
          * This is the key from which to resume in a new transaction.
+         *
          * @return the processed key
          */
         @Nullable
@@ -879,6 +882,7 @@ public class FDBClientLogEvents {
 
     /**
      * Invoke a callback on each event in a range of the key-value store.
+     *
      * @param range the range from which to parse events
      * @param callback the callback to invoke
      * @return a future which completes when all (whole) events in the range have been processed
@@ -894,6 +898,7 @@ public class FDBClientLogEvents {
 
     /**
      * Get the key at which a particular commit version would be recorded.
+     *
      * @param version the version, in the same extent as, e.g., {@link com.apple.foundationdb.Transaction#getReadVersion()}
      * @return the encoded key
      */

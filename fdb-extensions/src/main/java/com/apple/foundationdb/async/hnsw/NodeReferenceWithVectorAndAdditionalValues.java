@@ -66,6 +66,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
      *
      * <p>The result is {@code true} if and only if the superclass's {@link #equals(Object)} method returns
      * {@code true} and the {@code additionalValues} of both objects are equal.
+     *
      * @param o the object to compare this reference against.
      * @return {@code true} if the given object is equal to this one; {@code false} otherwise.
      */
@@ -84,6 +85,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
      * <p>The hash code is computed by combining the hash code of the superclass with the hash code of the
      * {@code additionalValues} field. This implementation is consistent with the contract of
      * {@link Object#hashCode()}.
+     *
      * @return a hash code value for this object.
      */
     @Override

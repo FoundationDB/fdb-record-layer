@@ -99,6 +99,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     /**
      * The Indexes that this record type is on that also contain other record types.
      * This does not include indexes that cover all record types
+     *
      * @return a list of all indexes that include this record type along with other types.
      */
     @Override
@@ -114,6 +115,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      * <li>multi-type indexes including this type</li>
      * <li>universal indexes</li>
      * </ul>
+     *
      * @return the list of indexes for this type
      * @see #getIndexes
      * @see #getMultiTypeIndexes
@@ -143,6 +145,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     /**
      * Get whether this record type sets an explicit value for {@link #getRecordTypeKey}.
      * If there is no explicit value, then {@code #getRecordTypeKey} will use the union message field number.
+     *
      * @return {@code} true if there is an explicit record type key value
      */
     public boolean hasExplicitRecordTypeKey() {
@@ -229,6 +232,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      * Get whether this record type represents <i>synthetic</i> records.
      *
      * <p>A synthetic record is one that is not actually stored, although it can may be indexed.
+     *
      * @return {@code true} if this record type represents synthetic records, {@code false} if it represents records that are actually stored
      */
     @API(API.Status.EXPERIMENTAL)

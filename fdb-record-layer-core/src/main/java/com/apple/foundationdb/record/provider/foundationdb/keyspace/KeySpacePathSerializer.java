@@ -58,6 +58,7 @@ public class KeySpacePathSerializer {
 
     /**
      * Serialize the given data relative to the root.
+     *
      * @param data a piece of data that is contained within the root
      * @return the data serialized relative to the root
      * @throws RecordCoreArgumentException if the given data is not contained within the root

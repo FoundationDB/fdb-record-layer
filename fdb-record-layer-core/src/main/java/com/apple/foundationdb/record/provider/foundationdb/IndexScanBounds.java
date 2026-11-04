@@ -28,6 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * The bounds for an index scan.
  * This does not assume any data shape or implementation. That is all implied by the {@link IndexScanType} and understood by index maintainers that support the relevant type(s).
+ *
  * @see IndexMaintainer#scan
  */
 @API(API.Status.UNSTABLE)

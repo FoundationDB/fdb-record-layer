@@ -56,6 +56,7 @@ public interface LucenePrimaryKeySegmentIndex {
 
     /**
      * Check whether the index has an entry for the given primary key.
+     *
      * @param primaryKey the document's record's primary key
      * @return a future that completes with {@code true} if an entry was found for the primary key
      */
@@ -64,6 +65,7 @@ public interface LucenePrimaryKeySegmentIndex {
 
     /**
      * Add or delete the primary key/segment/docId from the index.
+     *
      * @param primaryKey the primary ey of the record
      * @param segmentId the id of the segment (see {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory#primaryKeySegmentId})
      * @param docId the document id within the segment
@@ -74,6 +76,7 @@ public interface LucenePrimaryKeySegmentIndex {
 
     /**
      * Clears all the primary key entries for a given segment name.
+     *
      * @param segmentName the name of the segment to clear out
      * @throws IOException if the primary keys cannot be parsed from stored fields
      */

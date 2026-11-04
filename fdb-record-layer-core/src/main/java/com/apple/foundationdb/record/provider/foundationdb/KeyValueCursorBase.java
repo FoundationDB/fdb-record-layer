@@ -244,6 +244,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
     /**
      * A builder for {@link KeyValueCursorBase}.
+     *
      * @param <T> the type of the concrete subclass of the builder
      * This follows a pattern for nested builder class, hence is generic, so that subclasses can pass in their type (and
      * implement {@link #self()}) to return the subclass builder correct type.
@@ -420,6 +421,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         /**
          * Calculate the key prefix length for the returned values. This will be used to derive the primary key used in
          * the calculated continuation.
+         *
          * @return the length of the key prefix
          */
         protected int calculatePrefixLength() {
@@ -492,6 +494,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
          * {@code Self} pattern is used to return the appropriate THIS for the builder {@code set*} methods. In order to
          * be able to string set methods together where some are implemented by a superclass, the self() method returns
          * this with the subclass type.
+         *
          * @return this object from the subclass
          */
         protected abstract T self();

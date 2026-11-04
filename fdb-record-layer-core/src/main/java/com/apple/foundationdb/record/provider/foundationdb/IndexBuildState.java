@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
  *     <li> Records in total uses the number of all records in the store. In some cases, the real number of records
  *     that need to be scanned is less than this.</li>
  * </ul>
+ *
  * @see #loadIndexBuildStateAsync(FDBRecordStoreBase, Index)
  */
 @API(API.Status.UNSTABLE)
@@ -60,6 +61,7 @@ public class IndexBuildState {
 
     /**
      * Load the build progress ({@link IndexBuildState}) of the given index in the given record store asynchronously.
+     *
      * @param store the record store containing the index
      * @param index the index needed to be checked
      * @return a future that completes to the index build state

@@ -109,6 +109,7 @@ public class RequestedOrdering {
     /**
      * When expressing a requirement (see also {@link RequestedOrderingConstraint}), the requirement may be to preserve
      * the order of records that are being encountered. This is represented by a special value here.
+     *
      * @return {@code true} if the ordering needs to be preserved
      */
     public boolean isPreserve() {
@@ -128,6 +129,7 @@ public class RequestedOrdering {
     /**
      * Returns a map from {@link Value} to {@link RequestedSortOrder}. It is meant for quick lookups of the
      * sort order of a given value.
+     *
      * @return a map from {@link Value} to {@link RequestedSortOrder}. It is lazily computed and memoized. Subsequent
      *         calls return instantaneously.
      */
@@ -189,6 +191,7 @@ public class RequestedOrdering {
      *     result: requested ordering [_.x, _.y]
      *     }
      * </pre>
+     *
      * @param value the value this requested value should be pushed down through
      * @param lowerBaseAlias the alias that the new values should be referring to
      * @param evaluationContext the evaluation context

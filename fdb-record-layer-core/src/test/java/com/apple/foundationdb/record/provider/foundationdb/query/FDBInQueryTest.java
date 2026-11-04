@@ -1213,6 +1213,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN query with a sort can be implemented as an ordered union of compound indexes that can satisfy
      * the sort once the equality predicates from the IN have been pushed onto the indexes.
+     *
      * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
      */
     @DualPlannerTest
@@ -1295,6 +1296,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN query with a sort and range predicate can be implemented as an ordered union of compound indexes
      * that can satisfy the sort once the equality predicates from the IN have been pushed onto the indexes.
+     *
      * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
      */
     @DualPlannerTest

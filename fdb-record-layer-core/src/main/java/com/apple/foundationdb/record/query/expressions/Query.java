@@ -49,6 +49,7 @@ public class Query {
     /**
      * Creates a new Field context. This has a variety of methods for asserting about the value of the associated field.
      * Usable for any type field.
+     *
      * @param name the name of the field
      * @return a new Field ready for matching
      */
@@ -59,6 +60,7 @@ public class Query {
 
     /**
      * Check that a set of components all evaluate to true for a given record.
+     *
      * @param first the first assertion
      * @param second the second assertion
      * @param operands any other assertions
@@ -72,6 +74,7 @@ public class Query {
 
     /**
      * Check that a set of components all evaluate to true for a given record.
+     *
      * @param operands assertions
      * @return a new component that will return the record if all the children match
      */
@@ -83,6 +86,7 @@ public class Query {
 
     /**
      * Check that any of a set of components evaluate to true for a given record.
+     *
      * @param first the first assertion
      * @param second the second assertion
      * @param operands any other assertions
@@ -95,6 +99,7 @@ public class Query {
 
     /**
      * Check that a set of components all evaluate to true for a given record.
+     *
      * @param operands assertions
      * @return a new component that will return the record if any of the children match
      */
@@ -105,6 +110,7 @@ public class Query {
 
     /**
      * Negate a component test.
+     *
      * @param operand assertion to be negated
      * @return a new component that will return the record if the child does not match
      */
@@ -115,6 +121,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine or compare the rank value for a record.
+     *
      * @param operand the argument to rank
      * @return a record function that evaluates the rank of the operand
      */
@@ -125,6 +132,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine or compare the rank value for a record.
+     *
      * @param fieldName the argument to rank
      * @return a record function that evaluates the rank of the operand
      */
@@ -135,6 +143,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window.
+     *
      * @param timeWindow the time window for which to get the rank
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
@@ -146,6 +155,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window.
+     *
      * @param type the type of time window
      * @param timestamp the target timestamp
      * @param typeParameter the name of the time window type parameter if it is a parameter
@@ -160,6 +170,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window.
+     *
      * @param type the type of time window
      * @param timestamp the target timestamp
      * @param operand the argument to rank
@@ -172,6 +183,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine or compare the rank value for a record for a time window.
+     *
      * @param typeParameter the name of the time window type parameter
      * @param timestampParameter the name of the timestamp parameter
      * @param operand the argument to rank
@@ -187,6 +199,7 @@ public class Query {
      *
      * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
+     *
      * @param timeWindow the time window for which to get the rank
      * @param operand the argument to rank
      * @return a record function that evaluates to a {@code Tuple} of the rank and the corresponding entry
@@ -201,6 +214,7 @@ public class Query {
      *
      * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
+     *
      * @param type the type of time window
      * @param timestamp the target timestamp
      * @param typeParameter the name of the time window type parameter if it is a parameter
@@ -218,6 +232,7 @@ public class Query {
      *
      * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
+     *
      * @param type the type of time window
      * @param timestamp the target timestamp
      * @param operand the argument to rank
@@ -233,6 +248,7 @@ public class Query {
      *
      * <p>The result of evaluation will be {@code null} if the record has no entry within the specified time window or else a {@code Tuple}
      * of rank, value, timestamp, and any other values in the specified operand's items.
+     *
      * @param typeParameter the name of the time window type parameter
      * @param timestampParameter the name of the timestamp parameter
      * @param operand the argument to rank
@@ -254,6 +270,7 @@ public class Query {
 
     /**
      * Build query components using a key expression.
+     *
      * @param keyExpression the key expression to compare with values
      * @return a {@code QueryKeyExpression} for matching
      */

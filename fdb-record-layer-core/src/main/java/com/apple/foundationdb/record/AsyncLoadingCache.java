@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 
 /**
  * A cache for retaining the result of some asynchronous operation up until some expiration time.
+ *
  * @param <K> key type for the cache
  * @param <V> value type for the cache
  */

@@ -78,6 +78,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
      */
@@ -87,6 +88,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      */
@@ -97,6 +99,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>. Sets the <code>createHook</code> to
      * {@link ResolverCreateHooks} their default values.
+     *
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
@@ -110,6 +113,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
      * @param scopeGenerator A function which will be called with the context of a {@link KeySpacePath} which contains this
@@ -129,6 +133,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}

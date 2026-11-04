@@ -44,6 +44,7 @@ public interface MatchAccumulator<M, R> {
      * Compute and return a result based on the internal state of the instance. After calling this method, clients
      * should not call {@link #accumulate} again. Clients should discard this object after this method has been called.
      * Multiple calls to this method, however, must return the same stable result.
+     *
      * @return the result
      */
     R finish();

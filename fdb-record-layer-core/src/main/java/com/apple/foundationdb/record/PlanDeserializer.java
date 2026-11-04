@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Interface that needs to be implemented separately for every class that is {@link PlanSerializable}.
+ *
  * @param <M> the message that serializes {@code T}
  * @param <T> the object that is serialized by an instance of {@code M}
  */
@@ -40,6 +41,7 @@ public interface PlanDeserializer<M extends Message, T> {
 
     /**
      * Dispatch method to transform from {@code M} to {@code T}.
+     *
      * @param serializationContext the serialization context (and by extension the
      *        {@link com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry}) that is being
      *        used.

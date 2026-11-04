@@ -91,6 +91,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
 
     /**
      * Test with an index that has the first part of the key (path) as part of the index.
+     *
      * @param indexFetchMethod the fetch type
      * @throws Exception in case of error
      */

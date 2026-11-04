@@ -65,6 +65,7 @@ public class IndexDeferredMaintenanceControl {
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
      * caller, to check which index maintainer requested a deferred merge.
+     *
      * @return set of indexes to be merged, null if no merge was requested.
      */
     public synchronized Set<Index> getMergeRequiredIndexes() {
@@ -95,6 +96,7 @@ public class IndexDeferredMaintenanceControl {
      * The default is false, so the user is responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
      * function with the set of indexes returned by {@link #getMergeRequiredIndexes()} as target indexes.
      * If set to true, the index maintenance operation will be done inline during the commit.
+     *
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
@@ -236,6 +238,7 @@ public class IndexDeferredMaintenanceControl {
      * unset. Set by the merge driver ({@code IndexingMerger}) from the indexing session so an index maintainer can
      * recognize and hold a per-partition lease across the driver's re-invocations — each of which is a fresh
      * transaction with a fresh maintainer instance, so there is otherwise no stable owner identity to key a lease on.
+     *
      * @return the merge session id, or {@code null} if unset
      */
     @Nullable
@@ -257,6 +260,7 @@ public class IndexDeferredMaintenanceControl {
      * Positive num: use this count
      * Zero: use default count, and set it in this controller
      * Negative num : skip repartitioning
+     *
      * @return number of documents to move
      */
     public int getRepartitionDocumentCount() {

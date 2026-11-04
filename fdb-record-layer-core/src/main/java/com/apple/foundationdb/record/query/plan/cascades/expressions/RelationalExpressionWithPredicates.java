@@ -91,6 +91,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
 
     /**
      * Return all {@link FieldValue}s contained in the predicates handed in.
+     *
      * @param predicates a collection of predicates
      * @return a set of {@link FieldValue}s
      */
@@ -101,6 +102,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
 
     /**
      * Return all {@link FieldValue}s contained in the predicates handed in.
+     *
      * @param predicates a collection of predicates
      * @param filteringPredicate an actual predicate performing additional filtering for the kinds of
      *        {@link PredicateWithValue}s the caller is interested in

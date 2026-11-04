@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 /**
  * Abstract base class to define common attributed and to provide common implementations of
  * {@link LeafNode} and {@link IntermediateNode}.
+ *
  * @param <S> slot type class
  * @param <N> node type class. This is also called the self type.
  */
@@ -62,6 +63,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
      * Method that returns {@code this}. This method needs to be overridden in each leaf class (leaf as in final).
      * The reason this method exists is to trick the Java compiler in treating {@code this} to be of type {@code N}
      * instead of {@code AbstractNode<>}.
+     *
      * @return {@code this}
      */
     protected abstract N getThis();
@@ -117,6 +119,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     /**
      * Return the (optional) change set associated with this node as a {@link AbstractChangeSet} instead of
      * a {@link com.apple.foundationdb.async.rtree.Node.ChangeSet}. Note that the result type is covariant.
+     *
      * @return the change set associated with this node
      */
     @Nullable
@@ -127,6 +130,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
 
     /**
      * Returns the slot handed in as a slot of type {@code S}. Needs to be implemented in a leaf (final) class.
+     *
      * @param slot a slot
      * @return the same slot that was passed in, but of type {@code S}
      */
@@ -215,6 +219,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     /**
      * Method to return a new node of the same {@link NodeKind} as this node. This method's result type is
      * covariant to return a node of type {@code N}.
+     *
      * @param nodeId node id for the new node
      * @return a new node of type {@code N}
      */

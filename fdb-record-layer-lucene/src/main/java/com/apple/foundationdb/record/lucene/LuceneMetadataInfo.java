@@ -129,6 +129,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         /**
          * The detailed file info from the directory.
          * (Optional) - if the request did not specify that this is needed, this would be null.
+         *
          * @return the list of fileInfos in the directory
          */
         @Nullable
@@ -139,6 +140,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         /**
          * The size of the pending writes queue for this partition.
          * A value of {@code 0} means the queue is empty or has never been initialised.
+         *
          * @return the number of entries currently in the pending writes queue
          */
         public long getPendingWritesQueueSize() {

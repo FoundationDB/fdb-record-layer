@@ -97,6 +97,7 @@ public class PartialMatchMatchers {
      * {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} that is backed by data structure that
      * understands the concept of a primary key. Those match candidates are primary scan candidates, value indexes,
      * and windowed indexes.
+     *
      * @return a matcher matching a {@link PartialMatch} whose
      *         {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} implements
      *         {@link WithPrimaryKeyMatchCandidate}.
@@ -117,6 +118,7 @@ public class PartialMatchMatchers {
 
     /**
      * Matches any {@link PartialMatch} that is a match with an {@link AggregateIndexMatchCandidate}.
+     *
      * @return a matcher matching any partial match whose
      *         {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} is of type
      *         {@link AggregateIndexMatchCandidate}.

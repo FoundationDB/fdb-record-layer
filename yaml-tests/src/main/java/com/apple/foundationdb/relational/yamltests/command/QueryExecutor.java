@@ -78,6 +78,7 @@ public class QueryExecutor {
 
     /**
      * Constructor.
+     *
      * @param query the query to execute
      * @param reference the {@link YamlReference} from the test script
      * @param parameters the parameters to bind
@@ -92,6 +93,7 @@ public class QueryExecutor {
 
     /**
      * Execute the query.
+     *
      * @param connection the connection to use
      * @param continuation the continuation to use. Null is none.
      * @param config the query config relevant for the execution
@@ -135,6 +137,7 @@ public class QueryExecutor {
 
     /**
      * Execute a statement with (or without) cache-checking logic.
+     *
      * @param s the statement to execute
      * @param statementHasQuery whether the statement already has a query (e.g. prepared statement) or not (e.g. regular statement)
      * @param connection the connection to use

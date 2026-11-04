@@ -50,6 +50,7 @@ public class ExpressionPartition<E extends RelationalExpression> {
     /**
      * Constructor. Note that we do not defensively copy here as it is dependent on the use case if we need a copy or
      * not. The caller needs to ensure that the maps being passed in are either immutable or owned.
+     *
      * @param partitionPropertiesMap property map common to the entire partition
      * @param nonPartitioningPropertiesMap expression property map for expression-specific properties
      */

@@ -34,6 +34,7 @@ import java.util.Set;
  * A sub interface of {@link KeyExpressionVisitor} that fixes the return type to be a {@link GraphExpansion} and
  * adds an API to cause the expansion of a metadata-based data access structure to a data flow graph that can then
  * be used for matching.
+ *
  * @param <S> the type of the state object whose actual type depends on the implementation of the concrete visitor
  */
 @SuppressWarnings("java:S3252")

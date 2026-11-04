@@ -29,6 +29,7 @@ import java.util.List;
 /**
  * This is a mixin of numerical operations. Please note that this does not support any kind of SQL-like implicit casting at
  * the moment.
+ *
  * @param <N> The type of the function.
  */
 @Immutable

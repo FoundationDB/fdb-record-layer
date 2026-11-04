@@ -257,6 +257,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Plan for a query approximating
      * {@code SELECT GET_VERSIONSTAMP_INCARNATION() AS incarnation, MySimpleRecord.rec_no FROM MySimpleRecord}.
+     *
      * @return plan that uses IncarnationValue
      */
     @Nonnull
@@ -289,6 +290,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Creates a select quantifier for the given type with all proper fields (excluding pseudo fields).
+     *
      * @param typeName the name of the record type
      * @return a select quantifier containing all proper fields
      */

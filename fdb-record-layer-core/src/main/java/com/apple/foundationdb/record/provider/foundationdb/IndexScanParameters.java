@@ -58,6 +58,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      * An {@code IndexScanParameters} can contain parameter references that must be resolved against a context bindings
      * to get the actual scan bounds. Scan types that use forms other than {@link IndexScanComparisons} can also resolve
      * similar information from the store.
+     *
      * @param store store against which the scan will be performed
      * @param index index to be scanned
      * @param context query parameters for the scan
@@ -68,6 +69,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
 
     /**
      * Get whether this scan is fully restricted, so that it can only output one or zero entries.
+     *
      * @param index the index against which the scan will be conducted
      * @return {@code true} if this scan is unique
      */
@@ -82,6 +84,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
 
     /**
      * Get details for graph visualization, including the scan type.
+     *
      * @param detailsBuilder builder into which to put details
      * @param attributeMapBuilder builder into which to put attributes
      */

@@ -72,6 +72,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
 
     /**
      * Constructs a new instance of {@link LikeOperatorValue}.
+     *
      * @param srcChild the string
      * @param patternChild the pattern
      */

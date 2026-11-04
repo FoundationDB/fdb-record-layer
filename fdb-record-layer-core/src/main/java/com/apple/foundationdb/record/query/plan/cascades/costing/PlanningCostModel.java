@@ -243,6 +243,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
      * or that this plan and the other plan are comparable. It never returns that the in-plan should be preferable.
      * The reasoning behind this is to avoid plans that were generated out of an IN-transformation that wasn't able
      * to translate the rewritten equality into an index search argument (SARG).
+     *
      * @param leftExpression this expression
      * @param rightExpression other expression
      * @return {@code OptionalInt.empty()} if the comparator is unable to compare the two expressions handed in. That

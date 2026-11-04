@@ -155,6 +155,7 @@ public class TempTable implements ProtoSerializable {
 
     /**
      * Deserializes a {@link PTempTable} message to a corresponding {@link TempTable}.
+     *
      * @param tempTableProto The serialized temporary table message.
      * @param descriptor An optional descriptor of the temporary table elements.
      * @return A deserialized {@link TempTable}.

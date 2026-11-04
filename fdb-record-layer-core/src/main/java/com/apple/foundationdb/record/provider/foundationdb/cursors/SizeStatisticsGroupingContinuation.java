@@ -73,6 +73,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
 
     /**
      * Whether the given protobuf is the same as the "LAST_RESULT_CONTINUATION".
+     *
      * @param statsContinuation the incoming protobuf
      * @return TRUE if the protobuf marks a continuation with last result
      */
@@ -118,6 +119,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     /**
      * Whether this continuation is the end of the stream.
      * This is always false, since the {@link RecordCursorEndContinuation#END} would be used once the cursor is exhausted.
+     *
      * @return TRUE if the cursor is exhausted
      */
     @Override

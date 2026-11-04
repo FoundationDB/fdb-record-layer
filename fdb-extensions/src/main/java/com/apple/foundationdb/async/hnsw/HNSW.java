@@ -54,6 +54,7 @@ import java.util.function.Consumer;
  *
  * <p>This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
  * the respective operations classes which implement the actual algorithms to maintain and to search the structure.
+ *
  * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -64,6 +65,7 @@ public class HNSW {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link HNSW}
      * @see Config.ConfigBuilder#build
      */
@@ -73,6 +75,7 @@ public class HNSW {
 
     /**
      * Returns a default {@link Config}.
+     *
      * @param numDimensions number of dimensions
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
@@ -174,6 +177,7 @@ public class HNSW {
 
     /**
      * Fetch a node and return its values as a {@link ResultEntry}.
+     *
      * @param readTransaction the transaction to use for reading from the database
      * @param primaryKey the primary key of the record
      * @return a new {@link ResultEntry} where {@link ResultEntry#distance()} returns {@code 0.0d} and

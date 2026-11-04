@@ -446,6 +446,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * will be compressed before they are encrypted. By default,
          * records are not compressed. The compression level
          * can be specified with {@link #setCompressionLevel(int)}.
+         *
          * @param compressWhenSerializing <code>true</code> if records should be compressed and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
@@ -464,6 +465,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * set here is {@value DEFAULT_COMPRESSION_LEVEL}. Setting
          * this does <i>not</i> automatically enable compression when
          * serializing.
+         *
          * @param level the compression level (0-9)
          * @return this <code>Builder</code>
          * @see Deflater
@@ -483,6 +485,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * But subclasses such as {@link TransformedRecordSerializerJCE} do support it.
          * When using those builders and enabling encryption, the user must also call appropriate methods
          * to specify the encryption key.
+         *
          * @param encryptWhenSerializing <code>true</code> if records should be encrypted and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
@@ -542,6 +545,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         /**
          * The number of times to reattempt deserialization when decryption or decompression fails.
          * Defaults to {@code 0} (no retries). Setting this to a positive value enables retries.
+         *
          * @param deserializeReattemptCount the maximum number of retry attempts
          * @return this <code>Builder</code>
          */
@@ -556,6 +560,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
          * with an {@link RecordCoreArgumentException}.
+         *
          * @return a {@link TransformedRecordSerializer} from this <code>Builder</code>
          * @throws RecordCoreArgumentException if encryption is enabled when serializing but no encryption is specified
          */

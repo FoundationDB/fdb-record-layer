@@ -95,6 +95,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
     /**
      * Functional pop to facilitate a more fluent way of interacting with the states.
+     *
      * @param <T> a type parameter
      * @param t some value of type {@code T}
      * @return {@code t}
@@ -108,6 +109,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      * Specific implementation of the fall-back visitation method. Subclasses of this class do not tolerate visits
      * from unknown subclasses of {@link KeyExpression}. Implementors of new subclasses of {@link KeyExpression}
      * should also add a new visitation method in {@link KeyExpressionVisitor}.
+     *
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
      */
@@ -447,6 +449,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
     /**
      * Creates a new parameter alias.
+     *
      * @return unique alias based on a UUID if there is no installed
      *         {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger},
      *         a unique alias based on an increasing number that is human-readable otherwise.

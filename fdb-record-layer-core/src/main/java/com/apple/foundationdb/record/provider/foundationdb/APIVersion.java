@@ -103,6 +103,7 @@ public enum APIVersion {
 
     /**
      * Get the {@code APIVersion} enum from the version number.
+     *
      * @param versionNumber the FDB API version number
      * @return the corresponding enum value
      */

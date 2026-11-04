@@ -125,6 +125,7 @@ public class FDBRawRecord implements FDBStoredSizes {
     /**
      * Get the version associated with this record. This might be
      * <code>null</code>.
+     *
      * @return the version associated with this record
      */
     @Nullable

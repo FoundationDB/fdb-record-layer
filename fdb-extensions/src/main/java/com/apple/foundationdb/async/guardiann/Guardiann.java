@@ -94,6 +94,7 @@ public class Guardiann {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link Guardiann}
      * @see Config.ConfigBuilder#build
      */
@@ -103,6 +104,7 @@ public class Guardiann {
 
     /**
      * Returns a default {@link Config}.
+     *
      * @param numDimensions number of dimensions
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build

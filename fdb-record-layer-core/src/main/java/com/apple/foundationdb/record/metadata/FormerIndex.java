@@ -71,6 +71,7 @@ public class FormerIndex {
      * Get the subspace key formerly occupied by the index.
      *
      * <p>This subspace will be cleared for record stores old enough to have seen the index.
+     *
      * @return the index subspace key
      */
     @Nonnull

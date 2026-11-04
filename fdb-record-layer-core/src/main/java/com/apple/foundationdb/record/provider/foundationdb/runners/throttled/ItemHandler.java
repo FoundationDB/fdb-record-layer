@@ -41,6 +41,7 @@ public interface ItemHandler<T> {
      * change the state via {@link ThrottledRetryingIterator.QuotaManager#deleteCountAdd(int)},
      * {@link ThrottledRetryingIterator.QuotaManager#deleteCountInc()} and
      * {@link ThrottledRetryingIterator.QuotaManager#markExhausted()}.
+     *
      * @param store the record store to use
      * @param lastResult the result to process
      * @param quotaManager the current quota manager state

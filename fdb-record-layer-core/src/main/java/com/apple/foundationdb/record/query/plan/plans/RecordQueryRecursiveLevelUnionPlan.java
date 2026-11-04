@@ -379,6 +379,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
         /**
          * Creates a new instance of the {@link RecursiveStateManagerImpl}.
+         *
          * @param initialCursorCreator a creator of the {@code initial} state cursor.
          * @param recursiveCursorCreator a creator of the {@code recursive} state cursor.
          * @param baseContext the initial {@link EvaluationContext} used to execute the plan.
@@ -456,6 +457,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * legs, and the scan {@link TempTable} that is used by the underlying {@link TempTableScanPlan} and is
          * maintained by the recursive union plan itself. Flipping the buffers is done everytime an underlying union
          * cursor stops producing new results.
+         *
          * @param evaluationContext The evaluation context used to as basis for a nested {@link EvaluationContext} with
          * reversed references to {@link TempTable}s participating in the recursive execution.
          * @return A nested {@link EvaluationContext} with reversed referenced to {@link TempTable}s participating in
@@ -489,6 +491,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         /**
          * Creates a nested {@link EvaluationContext} that has a mapping between a {@code key} and a {@code TempTable}
          * value.
+         *
          * @param context The {@link EvaluationContext} to override.
          * @param key The key used to reference the {@link TempTable}.
          * @param value The {@link TempTable} value.
@@ -504,6 +507,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
         /**
          * Creates a nested {@link EvaluationContext} that has a mapping between a {@code key} and an empty {@link TempTable}.
+         *
          * @param context The context to add the new binding to.
          * @param key The temp table reference.
          * @param tempTableFactory a {@link TempTable} factory.

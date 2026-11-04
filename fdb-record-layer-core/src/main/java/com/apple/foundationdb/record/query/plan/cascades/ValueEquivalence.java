@@ -85,6 +85,7 @@ public abstract class ValueEquivalence {
      * Method that returns the inverse of this value equivalence. Note that the inverse may not exist due to
      * ambiguous left sides that are equal to one right side. This does not happen currently, but it is possible
      * it may happen in the future, thus the inverse may or may not be defined.
+     *
      * @return the inverse if it exists, {@code Optional.empty()} otherwise.
      */
     @Nonnull

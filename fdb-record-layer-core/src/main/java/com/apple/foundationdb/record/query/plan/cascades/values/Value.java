@@ -206,6 +206,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * Method to create a {@link QueryPredicate} that is based on this value and a
      * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} that is passed in by the
      * caller.
+     *
      * @param comparison comparison to relate this value to
      * @return a new {@link ValuePredicate} using the passed in {@code comparison}
      */
@@ -217,6 +218,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     /**
      * Method to create a {@link PredicateWithValueAndRanges} placeholder that is based on this value. A placeholder is also a {@link QueryPredicate}
      * that is used solely for matching query predicates against.
+     *
      * @param parameterAlias alias to uniquely identify the parameter in the
      *        {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} this placeholder will be a part of.
      * @return a new {@link PredicateWithValueAndRanges} that has {@code parameterAlias} alias.
@@ -379,6 +381,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     /**
      * Method to compute the hash code of this value without considering the children of this {@link TreeLike}.
+     *
      * @return a hash code that similar to the regular {@link Object#hashCode()} computes a hash code, but does not
      *         incorporate the children of this value
      */
@@ -406,6 +409,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     /**
      * Overriding method of {@link UsesValueEquivalence#semanticEquals(Object, ValueEquivalence)} that attempts to
      * assert equivalence of {@code this} and {@code other} using the {@link ValueEquivalence} that was passed in.
+     *
      * @param other the other object to compare this object to
      * @param valueEquivalence the value equivalence
      * @return a boolean monad {@link ConstrainedBoolean} that is either effectively {@code false} or {@code true}
@@ -509,6 +513,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     /**
      * Method to simplify this value using a rule set passed in.
+     *
      * @param ruleSet a rule set
      * @param evaluationContext the evaluation context
      * @param aliasMap and alias map of equalities
@@ -526,6 +531,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     /**
      * Method to simplify this value using the default simplification rule set.
+     *
      * @param evaluationContext the evaluation context
      * @param aliasMap and alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
@@ -540,6 +546,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     /**
      * Method to simplify this value using the default simplification rule set.
+     *
      * @param evaluationContext the evaluation context
      * @param aliasMap and alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
@@ -562,6 +569,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * for some value {@code _.x} on {@code this} value {@code (_.x as a, _.y as b)}, the result is {@code _.a}.
      * This method supports to pull up as list of values together, as pulling up many values at once is more efficient
      * than to separately pulling up the individual elements of the list.
+     *
      * @param toBePulledUpValues a list of {@link Value}s to be pulled up through {@code this}
      * @param evaluationContext the evaluation context
      * @param aliasMap an alias map of equalities
@@ -601,6 +609,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * called for some value {@code _.a} on {@code this} value {@code (_.x as a, _.y as b)}, the result is {@code _.x}.
      * This method supports to push down as list of values together, as pushing down many values at once is more efficient
      * than to separately pushing down the individual elements of the list.
+     *
      * @param toBePushedDownValues a list of {@link Value}s to be pushed down through {@code this}
      * @param simplificationRuleSet a rule set to be used for simplification while pushing down values
      * @param evaluationContext the evaluation context
@@ -721,6 +730,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * <p>By convention, but also depending on the callers use case, we treat the sort order of {@code this} or in
      * other words the default or a sort order to be stemming from a forward scan of an index, that is, by convention
      * {@code fieldValue(qov(q), a)} has a sort order of {@code ↑}.
+     *
      * @param evaluationContext the evaluation context
      * @param aliasMap an alias map
      * @param constantAliases a set of aliases that considered to be constant
@@ -759,6 +769,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *         (also note that the less than is now a greater than)
      *     }
      * </pre>
+     *
      * @param candidateValue candidate value
      * @param valueEquivalence a value equivalence
      * @return an optional, if not empty, containing a {@link ComparisonCompensation} that can be used to transform
@@ -793,6 +804,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     /**
      * Apply the given visitor to this value and its children. Returns {@code null} if
      * {@link SimpleValueVisitor#shouldVisit(Value)} called on this value returns {@code false}.
+     *
      * @param simpleValueVisitor a {@link ValueVisitor} to evaluate
      * @param <U> the type of the evaluated property
      * @return the result of evaluating the property on the subtree rooted at this expression
@@ -911,6 +923,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * that implement this interface merely declare that an inverse exists. If an implementation of an inverse
      * {@link Value} is available, it provides a way to inject an instance of the inverse on top of a given, compatible
      * child value.
+     *
      * @param <V> type parameter of the kind of inverse value of this value.
      */
     @API(API.Status.EXPERIMENTAL)
@@ -920,6 +933,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
          * by knowing that a function is bijective and surjective, but it might also be hard to efficiently compute it.
          * Also, there might just be no implementation for it. In these cases, this method is allowed to return
          * {@code Optional.empty()}.
+         *
          * @param newChildValue the child value to compute the inverse over
          * @return an optional containing the inverse value over the child value handed in, empty, if it cannot be
          *         constructed.

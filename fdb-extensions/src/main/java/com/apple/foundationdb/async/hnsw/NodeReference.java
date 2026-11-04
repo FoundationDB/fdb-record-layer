@@ -65,6 +65,7 @@ public class NodeReference {
      *
      * <p>This method is intended to be used on subclasses that actually represent a node reference with a vector. For this
      * base class or specific implementation, it is not a valid operation.
+     *
      * @return this instance cast as a {@code NodeReferenceWithVector}
      * @throws IllegalStateException always, to indicate that this object cannot be
      *         represented as a {@link NodeReferenceWithVector}.
@@ -118,6 +119,7 @@ public class NodeReference {
 
     /**
      * Helper to extract the primary keys from a given collection of node references.
+     *
      * @param neighbors an iterable of {@link NodeReference} objects from which to extract primary keys.
      * @return a lazily-evaluated {@code Iterable} of {@link Tuple}s, representing the primary keys of the input nodes.
      */

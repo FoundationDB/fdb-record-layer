@@ -74,6 +74,7 @@ public class DedupCursor<T> implements RecordCursor<T> {
 
     /**
      * Constructor.
+     *
      * @param innerCursorFactory factory method to create an inner cursor given a continuation
      * @param unpackValue a method that can unpack a value from byte array (used to deserialize from a continuation)
      * @param packValue a method that can pack a value into a byte array (used to serialize to a continuation). Note that

@@ -99,6 +99,7 @@ public @interface GenerateVisitor {
 
     /**
      * .
+     *
      * @return prefix we should attempt to remove from every discovered subclass when creating the name for the
      *         specific visitation method
      */

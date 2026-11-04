@@ -403,6 +403,7 @@ class RelationalStructFacade implements RelationalStruct {
          * struct instance. Also return offset at where to insert field data.
          * Checks for overwrite: if overwrite, returns original insert offset; else return end-of-the-list offset to
          * insert at.
+         *
          * @param columnMetadata Metadata for the column data we are about to insert.
          * @return Zero-based offset at where to add <code>fieldName</code>.
          */
@@ -420,6 +421,7 @@ class RelationalStructFacade implements RelationalStruct {
 
         /**
          * Returns field offset or -1 if field not (yet) present.
+         *
          * @param fieldName Name of field whose presence we are to check for.
          * @return Zero-based offset at where <code>fieldName</code> was inserted else -1 if unknown field.
          */
@@ -442,6 +444,7 @@ class RelationalStructFacade implements RelationalStruct {
         /**
          * Like {@link #getZeroBasedOffset(String)} only it throws an exception if field not found (rather than just
          * return -1).
+         *
          * @param fieldName Name of field whose presence we are to check for.
          * @return Zero-based offset at where <code>fieldName</code> was inserted else throws exception.
          * @throws SQLException Thrown if <code>fieldName</code> unknown.

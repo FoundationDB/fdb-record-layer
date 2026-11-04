@@ -63,6 +63,7 @@ public interface Node {
      * Return if this node does not hold any slots. Note that a node can ony be temporarily empty, for instance when
      * slots are moved out of a node before other slots get moved in. Such a node must not be persisted as it violates
      * the invariants of ancR-tree.
+     *
      * @return {@code true} if the node currently does not hold any node slots.
      */
     boolean isEmpty();
@@ -70,6 +71,7 @@ public interface Node {
     /**
      * Return an iterable of all node slots. Note that the slots are returned as an {@link Iterable} of
      * {@code ? extends NodeSlot} rather than the particular actual node slot type.
+     *
      * @return an {@link Iterable} of node slots.
      */
     @Nonnull
@@ -78,6 +80,7 @@ public interface Node {
     /**
      * Return an iterable of a sub range of node slots. Note that the slots are returned as an {@link Iterable} of
      * {@code ? extends NodeSlot} rather than the particular actual node slot type.
+     *
      * @param startIndexInclusive start index (inclusive)
      * @param endIndexExclusive end index (exclusive)
      * @return an {@link Iterable} of node slots.
@@ -87,6 +90,7 @@ public interface Node {
 
     /**
      * Return the {@link NodeSlot} at the position indicated by {@code index}.
+     *
      * @param index the index
      * @return a {@link NodeSlot} at position {@code index}
      */
@@ -96,6 +100,7 @@ public interface Node {
     /**
      * Return a stream of node slots. Note that the slots are returned as a {@link Stream} of
      * {@code ? extends NodeSlot} rather than the particular actual node slot type.
+     *
      * @return a {@link Stream} of node slots
      */
     @Nonnull
@@ -113,6 +118,7 @@ public interface Node {
      * from the semantics of {@link #insertSlot(StorageAdapter, int, int, NodeSlot)} as it does not update the node slot
      * index as the node slots were part of another node before and are assumed to have been persisted in that index
      * before. This method represents the counterpart of {@link #moveOutAllSlots(StorageAdapter)}.
+     *
      * @param storageAdapter the storage adapter in use
      * @param slots an iterable of slots to be moved in
      * @return this node
@@ -125,6 +131,7 @@ public interface Node {
      * Move all slots out of this node. This operation differs from the semantics of
      * {@link #deleteAllSlots(StorageAdapter, int)} as it does not update the node slot
      * index. It is the counterpart of {@link #moveInSlots(StorageAdapter, Iterable)}.
+     *
      * @param storageAdapter the storage adapter in use
      * @return this node
      */
@@ -134,6 +141,7 @@ public interface Node {
 
     /**
      * Insert a new slot into the node.
+     *
      * @param storageAdapter storage adapter in use
      * @param level level (for use in the node slot index)
      * @param slotIndex ordinal position where {@code slot} is inserted
@@ -146,6 +154,7 @@ public interface Node {
 
     /**
      * Update an existing slot of this node.
+     *
      * @param storageAdapter storage adapter in use
      * @param level level (for use in the node slot index)
      * @param slotIndex ordinal position of the slot to be updated
@@ -158,6 +167,7 @@ public interface Node {
 
     /**
      * Delete a slot from the node.
+     *
      * @param storageAdapter storage adapter in use
      * @param level level (for use in the node slot index)
      * @param slotIndex ordinal position where {@code slot} is inserted
@@ -169,6 +179,7 @@ public interface Node {
 
     /**
      * Delete all slots from the node.
+     *
      * @param storageAdapter storage adapter in use
      * @param level level (for use in the node slot index)
      * @return this node
@@ -180,6 +191,7 @@ public interface Node {
     /**
      * Returns if this node is the root node. Note that a node is considered the root node if its node id is
      * equal to {@link RTree#rootId}
+     *
      * @return {@code true} if this node is the root node, {@code false} otherwise
      */
     default boolean isRoot() {
@@ -195,6 +207,7 @@ public interface Node {
 
     /**
      * Return the parent of this node.
+     *
      * @return the parent of this node. Note that a result of {@code null} does not imply that this node is the
      *         rooot node. It simply means that the parent node linked up to this node yet. Usually that means
      *         that the actual parent node has not yet been fetched from the database.
@@ -208,6 +221,7 @@ public interface Node {
      * Return the {@link ChildSlot} of this node in this node's parent node. Note that this method returns {@code null}
      * if the parent node has not been linked up yet. Also, the invariant
      * {@code (parent node == null) <=> (slot in parent == null)} holds.
+     *
      * @return the {@link ChildSlot} corresponding to this node in the parent node or {@code null} if the parent node
      *         has not been linked up yet or this node is the root node
      */
@@ -225,6 +239,7 @@ public interface Node {
     /**
      * Link this node to its parent node. This sets upwards references allowing a bottom-up traversal of the levels of
      * the tree.
+     *
      * @param parentNode the parent node to link up to
      * @param slotInParent the slot index indicating the {@link ChildSlot} in the parent node that corresponds to this
      *        node
@@ -233,6 +248,7 @@ public interface Node {
 
     /**
      * Create a new node that is of the same {@link NodeKind} as this node.
+     *
      * @param nodeId node id for the new node
      * @return a new empty node using the unique node id passed in
      */
@@ -275,6 +291,7 @@ public interface Node {
     /**
      * Method to validate the invariants of the relationships of this node and this node's parent's {@link ChildSlot}
      * corresponding to this node.
+     *
      * @param parentNode a parent node if it exists
      * @param childSlotInParentNode the {@link ChildSlot} in the parent node handed in that corresponds to this node
      */
@@ -322,6 +339,7 @@ public interface Node {
         /**
          * Apply all mutations for the change set. These happen transactionally using the {@link Transaction}
          * provided.
+         *
          * @param transaction transaction to use when making all modifications
          */
         void apply(@Nonnull Transaction transaction);

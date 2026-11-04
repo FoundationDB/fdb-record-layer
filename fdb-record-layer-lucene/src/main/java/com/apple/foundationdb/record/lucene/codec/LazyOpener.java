@@ -73,6 +73,7 @@ public class LazyOpener<T> {
 
     /**
      * Get the object returned by the {@code opener}.
+     *
      * @return the object returned by the {@code opener}
      * @throws IOException if calling {@link Opener#open()} threw an {@link IOException}
      */
@@ -95,6 +96,7 @@ public class LazyOpener<T> {
     /**
      * Get the object returned by the {@code opener}, throwing {@link UncheckedIOException} if the {@link Opener#open()}
      * method threw {@link IOException}.
+     *
      * @return the object returned by the {@code opener}
      */
     @SuppressWarnings("PMD.PreserveStackTrace")

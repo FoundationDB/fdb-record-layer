@@ -657,6 +657,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * </pre>
          * Starting from vertex 1, this method would return: [1, 10, 20, 40, 50, 70, 100, 210, 250]
          * <br>
+         *
          * @param vertex The starting vertex to find descendants from. Must be >= ROOT.
          * @return A list of all descendants (including the starting vertex) in level-order traversal.
          */
@@ -695,6 +696,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * </pre>
          * Starting from vertex 1, this method would visit nodes in this order: [1, 10, 40, 50, 250, 70, 20, 100, 210]
          * <br>
+         *
          * @param vertex The current vertex being visited.
          * @param result The builder to accumulate the traversal results.
          */
@@ -726,6 +728,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * </pre>
          * Starting from vertex 1, this method would visit nodes in this order: [40, 250, 50, 70, 10, 100, 210, 20, 1]
          * <br>
+         *
          * @param vertex The current vertex being visited.
          * @param result The builder to accumulate the traversal results.
          */

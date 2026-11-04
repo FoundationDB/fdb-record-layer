@@ -65,6 +65,7 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     /**
      * Sole constructor.
+     *
      * @param directory the underlying directory
      * @param si the segment
      * @param context context in which this is being read

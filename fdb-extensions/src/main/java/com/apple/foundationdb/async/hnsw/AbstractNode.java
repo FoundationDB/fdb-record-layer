@@ -70,6 +70,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      *
      * <p>This method returns a direct reference to the internal list which is
      * immutable.
+     *
      * @return a non-null, possibly empty, list of neighbors.
      */
     @Nonnull
@@ -103,6 +104,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Converts this node into its {@link InliningNode} representation.
+     *
      * @return this object cast to an {@link InliningNode}; never {@code null}.
      * @throws ClassCastException if this object is not actually an instance of
      * {@link InliningNode}.

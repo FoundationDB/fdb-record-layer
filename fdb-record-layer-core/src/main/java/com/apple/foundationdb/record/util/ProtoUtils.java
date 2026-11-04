@@ -90,6 +90,7 @@ public class ProtoUtils {
 
     /**
      * Generates a JVM-wide unique correlation name with a prefix.
+     *
      * @param prefix the type name prefix.
      * @return a unique type name prefixed with {@code prefix}.
      */

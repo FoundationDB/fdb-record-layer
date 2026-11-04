@@ -420,6 +420,7 @@ public class PendingWriteQueue {
      * This would increment/decrement the queue size counter by the given amount. If the queue counter is not initialized
      * (key does not exist), FDB's ADD mutation treats it as 0, so the counter will be initialized to the given amount.
      * This is standard FDB behavior: ADD mutation on a non-existent key treats the original value as 0.
+     *
      * @param context the context to use
      * @param amount the amount by which to mutate the counter
      */
@@ -430,6 +431,7 @@ public class PendingWriteQueue {
     /**
      * Return TRUE if the queue has no room for new entries.
      * This method uses the queue size counter to get the queue size, defaulting to FALSE when the counter does not exist.
+     *
      * @param context the context to use to read the counter
      * @param maxQueueSize the size to check
      * @return {@code true} is the queue size is larger than or equals the given size, {@code false} if smaller or not initialized

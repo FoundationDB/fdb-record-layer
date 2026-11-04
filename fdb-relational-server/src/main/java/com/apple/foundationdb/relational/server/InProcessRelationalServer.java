@@ -40,6 +40,7 @@ import java.time.Instant;
  * Each in-process server is identified by 'name'.
  * Like {@link RelationalServer} only in-process and only runs the Relational GRPC Service and no other (no HealthCheck
  * Service, etc.).
+ *
  * @see RelationalServer
  */
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})

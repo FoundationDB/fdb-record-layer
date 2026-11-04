@@ -51,6 +51,7 @@ public class PlannerBindings {
 
     /**
      * Checks whether there is an object bound to {@code key}.
+     *
      * @param key a matcher
      * @return whether there is an object bound to {@code key}
      */
@@ -62,6 +63,7 @@ public class PlannerBindings {
      * Retrieve the single bindable bound to {@code key}. This method is meant to be a convenient shortcut for the case
      * where the developer is certain that precisely one bindable could be bound to this key. If no bindable is bound to
      * this key, or if there are multiple objects bound to this key, this throws a {@link NoSuchElementException}.
+     *
      * @param key a matcher
      * @param <T> the type of objects that was bound to {@code key}
      * @return the bindable object bound to key
@@ -85,6 +87,7 @@ public class PlannerBindings {
      * Retrieve all objects bound to {@code key} if there is at least one such bindable. The bindables in the returned
      * list appear in same order as they appear in the list of children of the {@link RelationalExpression}
      * that produced this set of bindings. If no bindable is bound to this key, throw a {@link NoSuchElementException}.
+     *
      * @param key a matcher
      * @param <T> the type of objects that was bound to {@code key}
      * @return a list of bindable objects bound to the key
@@ -103,6 +106,7 @@ public class PlannerBindings {
      * same key, the resulting set of bindings will contain the <em>concatenation</em> of the bindables from this set
      * of bindings and the bindables from the given set of bindings, in that order, providing a predictable ordering
      * of bindings for planner rules that might need it.
+     *
      * @param other a set of bindings, which may share keys with this set of bindings
      * @return a new set of bindings that contains the bindings from both both sets of bindings
      */
@@ -118,6 +122,7 @@ public class PlannerBindings {
      * Return the bindings as multimap for callers that need reason about all bindings in a generic manner, e.g. this
      * can be used by implementations of {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} to
      * show the contents of all bindings without the knowledge of the existence of particular matchers.
+     *
      * @return the backing immutable multi map
      */
     @Nonnull
@@ -132,6 +137,7 @@ public class PlannerBindings {
 
     /**
      * Build a new set of bindings containing a single binding from the given key to the given bindable.
+     *
      * @param key an expression matcher
      * @param object an object
      * @param <T> type of object

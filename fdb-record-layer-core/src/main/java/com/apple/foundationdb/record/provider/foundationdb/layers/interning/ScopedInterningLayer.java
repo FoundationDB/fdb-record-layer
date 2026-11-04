@@ -57,6 +57,7 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
+     *
      * @param context context used to resolve the provided <code>path</code>. This context
      *   is only used during the construction of this class and at no other point
      * @param path the {@link KeySpacePath} where this resolver is rooted
@@ -70,6 +71,7 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
+     *
      * @param database database that will be used when resolving values
      * @param path the {@link ResolvedKeySpacePath} where this resolver is rooted
      */
@@ -97,6 +99,7 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a default instance of the scoped interning layer.
+     *
      * @param database the {@link FDBDatabase} for this resolver
      * @return the global <code>ScopedInterningLayer</code> for this database
      */

@@ -49,6 +49,7 @@ public class CrossProduct {
     /**
      * A complex iterable implementing {@link EnumeratingIterable} that is used for sets of cardinality greater
      * than 1 (i.e., the regular case).
+     *
      * @param <T> type
      */
     private static class ComplexIterable<T> implements EnumeratingIterable<T> {
@@ -238,6 +239,7 @@ public class CrossProduct {
     /**
      * Create a {@link EnumeratingIterable} based on a set and a function describing
      * the depends-on relationships between items in the given set.
+     *
      * @param sources the list of collections to create the iterable over
      * @param <T> type
      * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in

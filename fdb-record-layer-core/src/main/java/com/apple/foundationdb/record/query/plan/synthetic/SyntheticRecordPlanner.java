@@ -72,6 +72,7 @@ public class SyntheticRecordPlanner {
 
     /**
      * Initialize a new planner.
+     *
      * @param store the record store to plan against
      * @param planner query planner to use when constructing plans to resolve join partners
      */
@@ -94,6 +95,7 @@ public class SyntheticRecordPlanner {
      * Construct a plan for generating all synthetic records of a given type.
      *
      * <p>The generated records will derive from some stored record in a record store.
+     *
      * @param syntheticRecordType the synthetic record type
      * @return a plan that can be applied to a record store to generate synthetic records
      */
@@ -109,6 +111,7 @@ public class SyntheticRecordPlanner {
      * Construct a plan for generating all synthetic records of a given type.
      *
      * <p>The generated records will derive from some stored record in a record store.
+     *
      * @param syntheticRecordType the synthetic record type
      * @return a plan that can be applied to a record store to generate synthetic records
      */
@@ -131,6 +134,7 @@ public class SyntheticRecordPlanner {
      * Construct a plan for generating all joined records of a given type.
      *
      * <p>The generated records will derive from stored records in a record store.
+     *
      * @param joinedRecordType the joined record type
      * @return a plan that can be applied to a record store to generate joined records
      */
@@ -169,6 +173,7 @@ public class SyntheticRecordPlanner {
      * <p>The generated records will derive from the stored record.
      *
      * <p>Used when the record is updated to find synthetic records whose indexes need to be updated.
+     *
      * @param storedRecordType the stored record type
      * @param onlyIfIndexed only include synthetic types on which indexes are defined
      * @return a plan that can be applied to a record of the given type to generate synthetic records or {@code null} if
@@ -237,6 +242,7 @@ public class SyntheticRecordPlanner {
      * <p>From those scans, queries will be executed to load other record types to complete the synthesis.
      *
      * <p>In cases such as full outer join, there is no single record type from which all joins can be produced.
+     *
      * @param recordMetaData meta-data containing the synthetic record type
      * @param index the index that needs to be built
      * @param recordTypes a subset of the index's record types or {@code null} for all
@@ -275,6 +281,7 @@ public class SyntheticRecordPlanner {
      * <p>From those scans, queries will be executed to load other record types to complete the synthesis.
      *
      * <p>In cases such as full outer join, there is no single record type from which all joins can be produced.
+     *
      * @param index the index that needs to be built
      * @param recordTypes a subset of the index's record types or {@code null} for all
      * @return a set of stored record types that are sufficient to generate the synthesized records for the index
@@ -290,6 +297,7 @@ public class SyntheticRecordPlanner {
      * <p>The generated records will be of indexed record types.
      *
      * <p>Used by the {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer} to build from a full scan of stored records.
+     *
      * @param index an index on synthetic record types
      * @return a plan that can be applied to scanned records to generate synthetic records
      */
@@ -325,6 +333,7 @@ public class SyntheticRecordPlanner {
      * Construct a plan for generating synthetic records from a constituent of a joined record type.
      *
      * <p>The generated records will start the joins from this constituent.
+     *
      * @param joinedRecordType the joined record type
      * @param joinConstituent the constituent type
      * @return a plan that can be applied to a record of the given type to generate synthetic records

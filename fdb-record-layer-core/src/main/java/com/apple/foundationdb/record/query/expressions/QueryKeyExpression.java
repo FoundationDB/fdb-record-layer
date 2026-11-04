@@ -58,6 +58,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression has a value equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -68,6 +69,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression has a value not equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -78,6 +80,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression has a value greater than the given comparand.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -88,6 +91,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression has a value greater than or equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -98,6 +102,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression has a value less than the given comparand.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -109,6 +114,7 @@ public class QueryKeyExpression {
     /**
      * Checks if the key expression has a value less than or equal to the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -119,6 +125,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression starts with the given string.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -147,6 +154,7 @@ public class QueryKeyExpression {
 
     /**
      * Checks if the key expression has a value equal to the given parameter.
+     *
      * @param param the name of the parameter
      * @return a new component for doing the actual evaluation
      */

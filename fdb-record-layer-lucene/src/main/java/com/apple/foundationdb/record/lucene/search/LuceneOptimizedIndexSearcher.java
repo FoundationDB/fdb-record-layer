@@ -186,6 +186,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
 
     /**
      * An optimized version that performs the search on parallel.
+     *
      * @param executor The task executor.
      * @param weight Weight of the query.
      * @param leaves List of leaves reader contexts.

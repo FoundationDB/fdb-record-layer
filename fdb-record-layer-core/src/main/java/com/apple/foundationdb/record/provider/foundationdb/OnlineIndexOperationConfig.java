@@ -196,6 +196,7 @@ public class OnlineIndexOperationConfig {
      * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
      * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
      * throw an exception if they another active indexing session is detected.
+     *
      * @return always true;
      */
     @API(API.Status.DEPRECATED)
@@ -507,6 +508,7 @@ public class OnlineIndexOperationConfig {
          * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
          * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
          * throw an exception if they another active indexing session is detected.
+         *
          * @param useSynchronizedSession ignored.
          * @return this builder
          */
@@ -521,6 +523,7 @@ public class OnlineIndexOperationConfig {
          * The default value is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
          * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
          * throw an exception if they another active indexing session is detected.
+         *
          * @param leaseLengthMillis length between last access and lease's end time in milliseconds
          * @return this builder
          */

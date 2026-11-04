@@ -102,6 +102,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
     /**
      * The canonical wire name. Alias of {@link #getCanonicalName()} kept for the scan-option surface, whose callers
      * historically read an option's serialized name via {@code getOptionName()}.
+     *
      * @return the canonical name
      */
     @Nonnull
@@ -121,6 +122,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
     /**
      * All wire names for this option — the canonical name first, then any legacy aliases. Used to register every name
      * that must resolve to this key and to enumerate the names to inspect when validating option changes.
+     *
      * @return the canonical name followed by the aliases
      */
     @Nonnull

@@ -197,6 +197,7 @@ public class Ordering {
 
     /**
      * Primary constructor. Protected from the outside world.
+     *
      * @param bindingMap a multimap of bindings
      * @param orderingSet a {@link PartiallyOrderedSet} of {@link Value}s
      * @param isDistinct an indicator if this ordering is strict
@@ -274,6 +275,7 @@ public class Ordering {
      * Method to derive {@link RequestedOrdering}s from this {@link Ordering}. This logic is needed when a set operation
      * uses the provided ordering of one leg of the set operation to find compatible orderings among the other legs of
      * that operation.
+     *
      * @param requestedOrdering the {@link RequestedOrdering} of the set operation itself
      * @return a set of {@link RequestedOrdering}s that can be pushed down the legs of the set operation
      */
@@ -324,6 +326,7 @@ public class Ordering {
      *         e↑, a↑, c↑
      *     }
      * </pre>
+     *
      * @param requestedOrdering the set of values which needs to match a prefix of a valid sequence
      * @return the result of satisfiability of set of values in the ordering
      */
@@ -377,6 +380,7 @@ public class Ordering {
      *         a↑, x↕, b↓, c↑
      *     }
      * </pre>
+     *
      * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
      * @return boolean result of the compatibility check.
      */
@@ -435,6 +439,7 @@ public class Ordering {
      *     It should be possible to satisfy {a, c, e} as a and e are independent and c depends on a.
      *     }
      * </pre>
+     *
      * @param requestedGroupingValues the set of values which needs to match a prefix of a valid sequence
      * @return the result of satisfiability of set of values in the ordering
      */
@@ -675,6 +680,7 @@ public class Ordering {
      * just double-checks that that is indeed the case (as part of a sanity check). This method is public and can be
      * called by a client prior to creating an ordering, however, without a proper reason it is discouraged to do so
      * as that may lead to poorly understood conditions in the callers logic.
+     *
      * @param bindingMap a binding map that is potentially not normalized.
      * @return a normalized binding map which may just be the copy of the binding map passed in if that binding had
      *         already been normalized
@@ -747,6 +753,7 @@ public class Ordering {
      * dependencies from or to a particular element contained in the set if that element is also has a binding that is
      * fixed. If an element is fixed, that is, it is constant for all practical purposes, it is in also independent with
      * respect to all other elements in the set.
+     *
      * @param bindingMap a multimap relating values and equality comparisons
      * @param orderingSet a partially ordered set representing the ordering set of an ordering
      * @return a new (normalized) partially ordered set representing the dependencies between elements in an ordering
@@ -1018,6 +1025,7 @@ public class Ordering {
     /**
      * Union the bindings of a {@link Value} common to two orderings.  This method implements a merge
      * operator's {@link MergeOperator#combineBindings(Set, Set)}.
+     *
      * @param leftBindings set of bindings of the left ordering
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
@@ -1057,6 +1065,7 @@ public class Ordering {
     /**
      * Intersect the bindings of a {@link Value} common to two orderings. This method implements a merge
      * operator's {@link MergeOperator#combineBindings(Set, Set)}.
+     *
      * @param leftBindings set of bindings of the left ordering
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
@@ -1106,6 +1115,7 @@ public class Ordering {
 
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
+     *
      * @param orderings a collection of orderings
      * @return a new ordering representing a concatenation of the given left and right ordering
      */
@@ -1119,6 +1129,7 @@ public class Ordering {
 
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
+     *
      * @param leftOrdering an {@link Ordering}
      * @param rightOrdering another {@link Ordering} to be concatenated to {@code leftOrdering}
      * @return a new {@link Ordering}
@@ -1450,6 +1461,7 @@ public class Ordering {
         /**
          * Method that reduces this set-operation ordering to only directional ordering parts by using a
          * comparison key, a {@link RequestedOrdering} and a default.
+         *
          * @param comparisonKeyValues list of {@link Value}s representing the comparison key
          * @param requestedOrdering a requested ordering
          * @param defaultProvidedSortOrder a default sort order to be applied if the requested ordering does not
@@ -1468,6 +1480,7 @@ public class Ordering {
         /**
          * Method that reduces this set-operation ordering to only directional ordering parts by using a
          * comparison key, a {@link RequestedOrdering} and a default.
+         *
          * @param comparisonKeyValues list of {@link Value}s representing the comparison key
          * @param valueRequestedSortOrderMap a requested ordering as map
          * @param defaultProvidedSortOrder a default sort order to be applied if the requested ordering does not

@@ -71,6 +71,7 @@ import java.util.Objects;
  * {@code someNewOperator.transform(oldTransformed.getUnderlyingVector()} as the result would be a transformed vector
  * that is in fact transformed a second time. Note that this can make sense in some cases, however, in the described
  * use case it mostly does not.
+ *
  * @param <V> the wrapped kind of {@link RealVector}
  */
 public final class Transformed<V extends RealVector> {
@@ -120,6 +121,7 @@ public final class Transformed<V extends RealVector> {
     /**
      * Lens to access the underlying vector of a transformed vector in logic that can be called for containers of
      * both vectors and transformed vectors.
+     *
      * @param <V> type parameter for vector class
      */
     public static class UnderlyingLens<V extends RealVector> implements Lens<Transformed<V>, V> {

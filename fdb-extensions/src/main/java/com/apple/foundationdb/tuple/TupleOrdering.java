@@ -87,6 +87,7 @@ public class TupleOrdering {
          * Get whether values are ordered ascending.
          * This is the opposite of {@link #isInverted()}, viewed from the name of the enum, as opposed to what encoding
          * would need to do.
+         *
          * @return {@code true} if greater values from first
          */
         public boolean isAscending() {
@@ -97,6 +98,7 @@ public class TupleOrdering {
          * Get whether values are ordered descending.
          * This is the same as {@link #isInverted()}, viewed from the name of the enum, as opposed to what encoding
          * would need to do.
+         *
          * @return {@code true} if greater values from first
          */
         public boolean isDescending() {
@@ -106,6 +108,7 @@ public class TupleOrdering {
         /**
          * Get whether null values come earlier.
          * This corresponds to the second part of the enum name.
+         *
          * @return {@code true} if nulls values come before non-null values
          */
         public boolean isNullsFirst() {
@@ -115,6 +118,7 @@ public class TupleOrdering {
         /**
          * Get whether null values come later.
          * This corresponds to the second part of the enum name.
+         *
          * @return {@code true} if nulls values come after non-null values
          */
         public boolean isNullsLast() {
@@ -143,6 +147,7 @@ public class TupleOrdering {
 
     /**
      * Encode the given tuple in a way that unordered byte comparison respects the given direction.
+     *
      * @param tuple tuple to encode
      * @param direction direction of desired ordering
      * @return a byte string that compares properly
@@ -155,6 +160,7 @@ public class TupleOrdering {
 
     /**
      * Decode the result of {@link #pack}, recovering the original tuple.
+     *
      * @param packed comparable byte string encoding
      * @param direction direction used by encoding
      * @return tuple that would encode that way
@@ -219,6 +225,7 @@ public class TupleOrdering {
      * are greater, since they have more padding.
      * Since this encoding is, in fact, only currently used to encode an even number of bytes, it would also work to always
      * have the final byte be the same, such as {@code 80} or {@code FF}.
+     *
      * @param bytes byte array to be inverted
      * @return a byte array that compared in the reverse direction
      */

@@ -374,6 +374,7 @@ public final class YamlExecutionContext {
      * Return the value of an additional option, or a default value.
      * Additional options are options set by the test execution environment that can control the test execution, in additional
      * to the "core" set of options defined in this class.
+     *
      * @param option the option to get value for
      * @param defaultValue the default value (if option is undefined)
      * @return the defined value of the option, or the default value, if undefined

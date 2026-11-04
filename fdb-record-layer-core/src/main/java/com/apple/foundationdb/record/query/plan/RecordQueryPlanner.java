@@ -201,6 +201,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     /**
      * Get whether {@link RecordQueryIndexPlan} is preferred over {@link RecordQueryScanPlan} even when it does not
      * satisfy any additional conditions.
+     *
      * @return whether to prefer index scan over record scan
      */
     @Nonnull
@@ -217,6 +218,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * If a {@link RecordQueryPlannerConfiguration} is already set using
      * {@link #setConfiguration(RecordQueryPlannerConfiguration)} (RecordQueryPlannerConfiguration)} it will be retained,
      * but the {@code IndexScanPreference} for the configuration will be replaced with the given preference.
+     *
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     @Override
@@ -517,6 +519,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     /**
      * Plan the given filter, which can be the whole query or a branch of an {@code OR}.
+     *
      * @param planContext the plan context for the query
      * @param filter the filter to plan
      * @param needOrdering whether to populate {@link ScoredPlan#planOrderingKey} to facilitate combining sub-plans

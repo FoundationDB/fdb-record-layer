@@ -50,6 +50,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Creates a statement (see {@link RelationalConnection#createStatement()}).
+     *
      * @return a new statement
      * @throws SQLException if something goes wrong
      */
@@ -57,6 +58,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Creates a prepared statement (see {@link RelationalConnection#prepareStatement(String)}).
+     *
      * @param sql the query
      * @return a new prepared statement
      * @throws SQLException if something goes wrong
@@ -112,6 +114,7 @@ public interface YamlConnection extends AutoCloseable {
     /**
      * The Cluster File that this connection is connected to, so that other connections can point to the same
      * FDB instance.
+     *
      * @return the cluster file for the underlying FDB cluster
      */
     String getClusterFile();

@@ -54,6 +54,7 @@ public final class IndexingTrackingTable {
 
     /**
      * Get the tracking table of an index build.
+     *
      * @param store the record store associated with the index build
      * @param index the index being built
      * @return the tracking table of the index
@@ -73,6 +74,7 @@ public final class IndexingTrackingTable {
 
     /**
      * Check if a record was marked as indexed by user io. This read adds a conflict.
+     *
      * @param primaryKey the record's primary key
      * @return a future that is true if the record is tracked
      */
@@ -83,6 +85,7 @@ public final class IndexingTrackingTable {
 
     /**
      * Check if a record was marked as indexed by user io. This is a snapshot read, it adds no conflict.
+     *
      * @param primaryKey the record's primary key
      * @return a future that is true if the record is tracked
      */

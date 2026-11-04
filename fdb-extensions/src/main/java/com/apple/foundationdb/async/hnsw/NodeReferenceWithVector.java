@@ -89,6 +89,7 @@ public class NodeReferenceWithVector extends NodeReference {
 
     /**
      * Compares this {@code NodeReferenceWithVector} to the specified object for equality.
+     *
      * @param o the object to compare with this {@code NodeReferenceWithVector}.
      * @return {@code true} if the objects are equal; {@code false} otherwise.
      */

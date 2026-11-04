@@ -1157,6 +1157,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that the same index can be matched for multiple legs of an OR query, even if there are (compatible) ordering
      * constraints.
+     *
      * @throws Exception from test set up
      */
     @DualPlannerTest

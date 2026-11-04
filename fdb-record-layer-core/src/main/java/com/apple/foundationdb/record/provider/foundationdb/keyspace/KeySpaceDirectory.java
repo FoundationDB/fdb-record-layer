@@ -127,6 +127,7 @@ public class KeySpaceDirectory {
      * The wrapper is useful if you want to
      * decorate the path with additional functionality, such as the ability to retrieve a child path
      * element via an explicit function name rather than a string constant (e.g. <code>getEmployeePath(int id)</code>).
+     *
      * @param name the name of the directory
      * @param keyType the data type of the values that may be contained within the directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
@@ -138,6 +139,7 @@ public class KeySpaceDirectory {
 
     /**
      * Creates a directory that can hold any value of a given type.
+     *
      * @param name the name of the directory
      * @param keyType the data type of the values that may be contained within the directory
      */
@@ -165,6 +167,7 @@ public class KeySpaceDirectory {
     /**
      * Called during creation to validate that the constant value provided is of a valid type for this
      * directory.
+     *
      * @param value constant value to validate
      */
     protected void validateConstant(@Nullable Object value) {
@@ -276,6 +279,7 @@ public class KeySpaceDirectory {
 
     /**
      * Iterates over the subdirectories of this directory looking for one that is compatible with the given value.
+     *
      * @param context the database context
      * @param parent the parent path element
      * @param value the child value to be resolved
@@ -295,6 +299,7 @@ public class KeySpaceDirectory {
      * <code>key</code> tuple, starting at position <code>keyIndex</code>.
      * If the key size is less than the actual key length, the path remainder will reflect
      * the left over key elements.
+     *
      * @param context the database context
      * @param parent the parent path element
      * @param key the tuple being parsed
@@ -337,6 +342,7 @@ public class KeySpaceDirectory {
 
     /**
      * Adds a subdirectory within the directory.
+     *
      * @param subdirectory the subdirectory to add
      * @return this directory
      * @throws RecordCoreArgumentException if a subdirectory of the same name already exists, or a subdirectory of the
@@ -429,6 +435,7 @@ public class KeySpaceDirectory {
 
     /**
      * Retrieves a subdirectory.
+     *
      * @param name the name of the subdirectory to return
      * @return the subdirectory with the specified <code>name</code>
      * @throws NoSuchDirectoryException if the directory does not exist
@@ -648,6 +655,7 @@ public class KeySpaceDirectory {
      * Asks the directory implementation to "resolve" a tuple value. The meaning of resolve can vary amongst different
      * types of directorys but, for example, the <code>DirectoryLayerDirectory</code> would be expecting the value to be
      * a <code>String</code> and would use the directory layer to then convert it into a <code>Long</code>.
+     *
      * @param context the context in which to perform the resolution
      * @param value the value to be resolved
      * @return a future containing the resolved value
@@ -727,6 +735,7 @@ public class KeySpaceDirectory {
     /**
      * When displaying the name of this directory in the tree output from {@link #toString()} allows the
      * directory implementation to ornament the name in any fashion it sees fit.
+     *
      * @return the display name of the directory in the tree output
      */
     @Nonnull
@@ -747,6 +756,7 @@ public class KeySpaceDirectory {
      * A return value of {@link #ANY_VALUE} indicates
      * that this directory may contain any value of the type indicated by {@link #getKeyType()}
      * (see also {@link #isConstant()}.
+     *
      * @return the constant value that this directory stores
      */
     @Nullable
@@ -861,6 +871,7 @@ public class KeySpaceDirectory {
 
     /**
      * Sends the keyspace as an ascii-art tree to an output stream.
+     *
      * @param out the print destination
      * @throws IOException if there is a problem with the destination
      */
@@ -949,6 +960,7 @@ public class KeySpaceDirectory {
 
         /**
          * Get whether the provided value can be represented by this type.
+         *
          * @param value the value to check
          * @return {@code true} if {@code value} can be represented by this type
          */

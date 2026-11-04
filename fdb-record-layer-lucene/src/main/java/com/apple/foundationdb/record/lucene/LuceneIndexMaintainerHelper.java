@@ -115,6 +115,7 @@ public final class LuceneIndexMaintainerHelper {
 
     /**
      * Delete a document in the index writer.
+     *
      * @param indexWriter the index writer to use
      * @param primaryKey the document to delete
      * @param index the index used (for options)
@@ -152,6 +153,7 @@ public final class LuceneIndexMaintainerHelper {
      * writer may cache the changes in NRT and the reader (created before the updates) can't see them. Refreshing the reader from the
      * writer can alleviate this by re-reading the changes in the NRT.
      * If the index can't find the document with the refreshed reader, null is returned.
+     *
      * @param groupingKey the grouping key for the index
      * @param partitionId the partition ID for the index
      * @param primaryKey the record primary key to look for

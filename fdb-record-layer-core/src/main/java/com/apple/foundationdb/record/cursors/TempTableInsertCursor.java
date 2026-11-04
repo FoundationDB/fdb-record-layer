@@ -105,6 +105,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
 
     /**
      * Creates a new instance of {@link TempTableInsertCursor}.
+     *
      * @param unparsed An optional unparsed continuation, if {@code NULL} it is assumed that the cursor is at the beginning.
      * @param tempTableDeserializer A method that, given a serialized {@link TempTable} returns a runtime {@link TempTable},
      *                              note that the serialized {@link TempTable} can be {@code null}.

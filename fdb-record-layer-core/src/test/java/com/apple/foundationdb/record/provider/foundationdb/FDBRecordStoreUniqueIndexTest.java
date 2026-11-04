@@ -478,6 +478,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     /**
      * This test covers the situation where you change the index to non-unique, and then, in the same transaction, add
      * what would be more violations if the index were still unique.
+     *
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      * @throws Exception if there is an issue
      */
@@ -514,6 +515,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * This test is primarily here to make sure that if there is an index maintainer that doesn't implement the new
      * {@link IndexMaintainer#clearUniquenessViolations}, the old flow of increasing the version when changing the state
      * still works.
+     *
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      */
     @ParameterizedTest
@@ -530,6 +532,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * Test to show what happens if you drop the uniqueness constraint on an index that doesn't implement the new
      * {@link IndexMaintainer#clearUniquenessViolations} without bumping {@code lastModifiedVersion}, despite the
      * instructions on {@link IndexOptions#UNIQUE_OPTION}.
+     *
      * @param allowReadableUniquePending whether to test with allowing {@link IndexState#READABLE_UNIQUE_PENDING}
      */
     @ParameterizedTest

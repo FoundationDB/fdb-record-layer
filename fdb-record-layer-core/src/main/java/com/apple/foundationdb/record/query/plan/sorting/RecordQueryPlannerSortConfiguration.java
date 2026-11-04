@@ -55,6 +55,7 @@ public class RecordQueryPlannerSortConfiguration {
      * <p>This method returns {@code true}.
      *
      * <p>A subclass can override this method to use more complex criteria to decide.
+     *
      * @return whether to allow non-index sorting
      */
     public boolean shouldAllowNonIndexSort() {
@@ -71,6 +72,7 @@ public class RecordQueryPlannerSortConfiguration {
      *
      * <p>A subclass can override this method to return a subclass of {@link RecordQuerySortKey} and thereby affect
      * the {@link RecordQuerySortAdapter} used.
+     *
      * @param key required sort key
      * @param reverse whether to sort in reverse
      * @return a new sort key instance

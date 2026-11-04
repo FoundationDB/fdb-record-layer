@@ -94,6 +94,7 @@ public class ComposedBitmapIndexAggregate {
 
     /**
      * Try to build a composed bitmap plan for the given query and aggregate function call.
+     *
      * @param planner a query planner to use to construct the plans
      * @param query a query providing target record type, filter, and required fields
      * @param indexAggregateFunctionCall the function call giving the desired position and grouping
@@ -115,6 +116,7 @@ public class ComposedBitmapIndexAggregate {
 
     /**
      * Try to turn this composed bitmap into an executable plan.
+     *
      * @param planner a query planner to use to construct the plans
      * @param queryBuilder a prototype query providing target record types and required fields
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible

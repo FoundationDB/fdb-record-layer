@@ -99,6 +99,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the calculated value has a value equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
@@ -109,6 +110,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the calculated value has a value not equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
@@ -119,6 +121,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the calculated value has a value greater than the given comparand.
+     *
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
@@ -129,6 +132,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the calculated value has a value greater than or equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
@@ -139,6 +143,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the calculated value has a value less than the given comparand.
+     *
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
@@ -149,6 +154,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the calculated value has a value less than or equal to the given comparand.
+     *
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
@@ -160,6 +166,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the result for this function is in the given list.
+     *
      * @param comparand a list of elements
      * @return a new component for doing the actual evaluation
      */
@@ -170,6 +177,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
 
     /**
      * Checks if the result for this function is in the list that is bound to the given param.
+     *
      * @param param a param that will be bound to a list in the execution context
      * @return a new component for doing the actual evaluation
      */

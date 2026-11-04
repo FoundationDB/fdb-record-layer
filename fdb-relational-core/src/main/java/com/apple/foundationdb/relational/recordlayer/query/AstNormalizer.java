@@ -649,6 +649,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     /**
      * Normalizes the SQL query using a given planning context.
+     *
      * @param context The planning context, captures all the state required to plan and execution query such as prepared parameter values.
      * @param query The query string.
      * @param isCaseSensitive If {@code true}, the query is case-sensitive, otherwise {@code false}.

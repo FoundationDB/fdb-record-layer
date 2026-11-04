@@ -99,6 +99,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
 
     /**
      * Method to compose this boolean with another {@link ConstrainedBoolean}.
+     *
      * @param other another {@link ConstrainedBoolean}
      * @return a new {@link ConstrainedBoolean} that is {@code false} if {@code this} or {@code other} is false,
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
@@ -116,6 +117,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
     /**
      * Method to compose this boolean with a {@link QueryPlanConstraint}. It is assumed that the caller just wants to
      * strengthen the constraint already recorded in {@code this}.
+     *
      * @param constraint a {@link QueryPlanConstraint}
      * @return a new {@link ConstrainedBoolean} that is {@code false} if {@code this} is false,
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
@@ -134,6 +136,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
     /**
      * Monadic method to filter {@code this} by applying a {@link Predicate} to the recorded plan constraint if
      * applicable.
+     *
      * @param predicate to be applied as filter
      * @return {@link ConstrainedBoolean#falseValue()} if {@link #isFalse()} is true or the {@link Predicate}
      *         evaluates to {@code false}, {@code this} otherwise
@@ -150,6 +153,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * Helper method to interface with {@link Optional}s. A mapper that is passed in by the client to map the
      * recorded {@link QueryPlanConstraint} to an object of a type {@code U} which is applied when {@code this} object
      * is transformed to an {@link Optional}.
+     *
      * @param mapper a function to map from {@link QueryPlanConstraint} to type {@code U}
      * @param <U> type parameter of the resulting {@link Optional}
      * @return an {@link Optional} of type {@code U} that is {@link Optional#empty()} if {@code this} is false; it is
@@ -167,6 +171,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
     /**
      * Monadic method to compose {@code this} by applying a {@link Function} to the recorded plan constraint if
      * applicable.
+     *
      * @param composeFunction function that maps the current {@link QueryPlanConstraint} to a new
      *        {@link ConstrainedBoolean}
      * @return {@link ConstrainedBoolean#falseValue()} if {@link #isFalse()} is true or the
@@ -214,6 +219,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
 
     /**
      * Factory method to create an unconditional {@code true}.
+     *
      * @return a {@link ConstrainedBoolean} that is unconditionally {@code true}, i.e. that is {@code true} using
      *         a {@link QueryPlanConstraint#noConstraint()}
      */
@@ -224,6 +230,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
 
     /**
      * Helper method to dispatch to {@link #falseValue()} or {@link #alwaysTrue()} based on a boolean value handed in.
+     *
      * @param isTrue {@code true} or {@code false}
      * @return the appropriate unconditional {@link ConstrainedBoolean}
      */
@@ -235,6 +242,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
     /**
      * Factory method to create a conditional {@code true} based on a {@link QueryPlanConstraint} that is also passed
      * in.
+     *
      * @param constraint the {@link QueryPlanConstraint} that this {@link ConstrainedBoolean} is constraint on.
      * @return a {@link ConstrainedBoolean} that is conditionally {@code true} under the constraint
      *         {@code constraint}.

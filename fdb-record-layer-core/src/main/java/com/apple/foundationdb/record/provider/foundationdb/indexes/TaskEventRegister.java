@@ -67,6 +67,7 @@ interface TaskEventRegister {
     /**
      * Combines registers into one that forwards each callback to all of them, in order — {@code first} then each of
      * {@code additional}. A convenience over {@link #compose(List)} for a statically-known set of registers.
+     *
      * @param first the register notified first
      * @param additional further registers notified after {@code first}, in order
      * @return a register forwarding {@code onTaskEnqueued}/{@code onTaskExecuted} to {@code first} then {@code additional}
@@ -86,6 +87,7 @@ interface TaskEventRegister {
      * Combines registers into one that forwards each callback to all of them, in order. An empty list yields
      * {@link #NOOP} and a single-element list yields that element, so a caller can assemble the applicable registers
      * unconditionally and compose them without special-casing how many there are.
+     *
      * @param registers the registers to notify, in order
      * @return {@link #NOOP} if {@code registers} is empty, the sole element if there is exactly one, otherwise a
      *         register forwarding {@code onTaskEnqueued}/{@code onTaskExecuted} to all of them in order

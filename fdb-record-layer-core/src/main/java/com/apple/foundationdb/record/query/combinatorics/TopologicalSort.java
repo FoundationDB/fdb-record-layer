@@ -103,6 +103,7 @@ public class TopologicalSort {
     /**
      * A complex iterable implementing {@link EnumeratingIterable} that is used for sets of cardinality greater
      * than 1 (i.e., the regular case).
+     *
      * @param <T> type
      */
     private static class BacktrackIterable<T> implements EnumeratingIterable<T> {
@@ -296,6 +297,7 @@ public class TopologicalSort {
     /**
      * A complex iterable implementing a {@link EnumeratingIterable} that is used for sets of cardinality greater
      * than 1 (i.e., the regular case).
+     *
      * @param <T> type
      */
     private static class KahnIterable<T> implements EnumeratingIterable<T> {
@@ -588,6 +590,7 @@ public class TopologicalSort {
 
     /**
      * Create an {@link EnumeratingIterable} based on a set.
+     *
      * @param set the set to create the iterable over
      * @param <T> type
      * @return a new {@link EnumeratingIterable} that enumerates all permutations of the given set
@@ -599,6 +602,7 @@ public class TopologicalSort {
     /**
      * Create an {@link EnumeratingIterable} based on a set and a function describing
      * the depends-on relationships between items in the given set.
+     *
      * @param set the set to create the iterable over
      * @param dependsOnFn a function from {@code T} to {@code Set<T>} that can be called during the lifecycle of all
      *        iterators multiple times repeatedly or not at all for any given element in {@code set}. This method is
@@ -617,6 +621,7 @@ public class TopologicalSort {
 
     /**
      * Create an {@link EnumeratingIterable} based on a partially-ordered set.
+     *
      * @param set the partially-ordered set to create the iterable over
      * @param <T> type
      * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in
@@ -630,6 +635,7 @@ public class TopologicalSort {
     /**
      * Create an {@link EnumeratingIterable} based on a set and a function describing
      * the depends-on relationships between items in the given set.
+     *
      * @param set the set to create the iterable over
      * @param dependsOnMap a set-based multimap from {@code T} to {@code T} describing the dependencies between entities.
      *        The key entity of the map depends on each entity in the set of values for that key.
@@ -646,6 +652,7 @@ public class TopologicalSort {
     /**
      * Create an {@link EnumeratingIterable} based on a set and a function describing
      * the depends-on relationships between items in the given set.
+     *
      * @param set the set to create the iterable over
      * @param complexIterableSupplier a supplier to provide an instance of {@link EnumeratingIterable} which is invoked
      *        when a non-trivial iterable is needed.
@@ -705,6 +712,7 @@ public class TopologicalSort {
     /**
      * Create a correct topological ordering based on a set and a function describing
      * the dependency relationships between items in the given set.
+     *
      * @param set the set to create the iterable over
      * @param dependsOnFn a function from {@code T} to {@code Set<T>} that can be called during the lifecycle of all
      *        iterators multiple times repeatedly or not at all for any given element in {@code set}. This method is
@@ -722,6 +730,7 @@ public class TopologicalSort {
     /**
      * Create a correct topological ordering based on a partial order describing the dependency relationships between
      * the items in the given set.
+     *
      * @param partiallyOrderedSet the partial order to create the iterable over
      * @param <T> type
      * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnFn}
@@ -738,6 +747,7 @@ public class TopologicalSort {
     /**
      * Create a correct topological ordering based on a set and a map describing the dependency relationships between
      * items in the given set.
+     *
      * @param set the set to create the iterable over
      * @param dependsOnMap a set-based multimap from {@code T} to {@code T} describing the dependencies between entities.
      *        The key entity of the map depends on each entity in the set of values for that key.
@@ -752,6 +762,7 @@ public class TopologicalSort {
     /**
      * Create a correct topological ordering based on a set and a function describing
      * the depends-on relationships between items in the given set.
+     *
      * @param set the set to create the iterable over
      * @param complexIterableSupplier a supplier to provide an instance of {@link EnumeratingIterable} which is invoked
      *        when a non-trivial iterable is needed.

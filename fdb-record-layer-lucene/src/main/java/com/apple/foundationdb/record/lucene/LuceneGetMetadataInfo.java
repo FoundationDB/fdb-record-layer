@@ -80,6 +80,7 @@ public class LuceneGetMetadataInfo extends IndexOperation {
 
     /**
      * Just fetch the partition info, and not the information for each partition.
+     *
      * @return if {@code true} only the partition info will be fetched, otherwise it will fetch the information for
      * the lucene indexes
      */

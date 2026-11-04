@@ -39,6 +39,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Creates a new instance of {@link UserDefinedFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The types of function parameters.
      */
@@ -48,6 +49,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Creates a new instance of {@link UserDefinedFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterNames The names of the function parameters.
      * @param parameterTypes The types of the function parameters.

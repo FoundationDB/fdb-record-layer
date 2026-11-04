@@ -355,6 +355,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
     /**
      * Assert that the comparator plan runs through with the comparison successfully, compare the results to the given.
      * parameters
+     *
      * @param planUnderTest the comparator plan
      * @param numValue2 the expected value of the numValue2 field in the read records
      * @param atMostDiscarded the expected maximum allowed number of discarded records
@@ -371,6 +372,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
     /**
      * Assert that the comparator plan fails to compare the two plans. This is overridden by subclasses since the behavior
      * is different depending on the value of the abortOnComparisonFailure flag.
+     *
      * @param planUnderTest the comparator plan
      * @param numValue2 the expected value of the numValue2 field in the read records
      * @param atMostDiscarded the expected maximum allowed number of discarded records
@@ -381,6 +383,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
 
     /**
      * Assert that the comparator plan runs through with comparison successfully when given an (optional) continuation.
+     *
      * @param planUnderTest the comparator plan
      * @param continuation optional contionuation to pick up from
      * @param returnedRowLimit row limit to pass in to the query execution
@@ -412,6 +415,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
     /**
      * Assert that the comparator plan fails to compare the two plans. This is overridden by subclasses since the behavior
      * is different depending on the value of the abortOnComparisonFailure flag.
+     *
      * @param planUnderTest the comparator plan
      * @param continuation optional contionuation to pick up from
      * @param returnedRowLimit row limit to pass in to the query execution

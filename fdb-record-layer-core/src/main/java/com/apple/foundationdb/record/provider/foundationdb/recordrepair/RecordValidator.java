@@ -55,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 public interface RecordValidator {
     /**
      * Validate a record with the given primary key.
+     *
      * @param primaryKey the primary key of the record
      * @return a future to be completed with the validation result
      */
@@ -62,6 +63,7 @@ public interface RecordValidator {
 
     /**
      * Repair a record based on the previously executed validation.
+     *
      * @param validationResult the result of the previously executed validation
      * @return a future to be completed with the repair result
      */

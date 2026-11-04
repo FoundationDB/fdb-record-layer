@@ -109,6 +109,7 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * <p>This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
      * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
      * set of neighbors from this node and all its ancestors.
+     *
      * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
      */
     @Override

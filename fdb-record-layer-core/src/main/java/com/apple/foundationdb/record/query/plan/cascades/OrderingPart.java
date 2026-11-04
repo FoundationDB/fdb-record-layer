@@ -47,6 +47,7 @@ import java.util.function.Supplier;
  * A class that is used to express ordered-ness. The base class {@code OrderingPart} itself only has a protected
  * constructor. All subclasses are also final static nested classes of {@code OrderingPart}, thus emulating a sealed
  * trait.
+ *
  * @param <S> the type sort order that is being used
  */
 public class OrderingPart<S extends OrderingPart.SortOrder> {
@@ -171,6 +172,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * interface should always use the actual enum values for ascending and descending in the implementing enum,
          * this method just returns an indicator if the sort order is directional, i.e. it is either ascending or
          * descending.
+         *
          * @return a boolean indicator; {@code true} iff this sort order is ascending or descending.
          */
         boolean isDirectional();
@@ -586,6 +588,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * resulting order    "↗"        compare asc        | resulting order    "↗"         compare desc
          * }
          * </pre>
+         *
          * @param isReverse indicator if the set operation is using a forward or a reverse comparison function
          * @return a {@link Value} that represents the <em>physical</em> comparison kay part for this ordering part
          */
@@ -636,6 +639,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         /**
          * Constructor.
+         *
          * @param parameterId the unique identifier of this part in the match candidate
          * @param orderByValue value that defines what to order by
          * @param comparisonRange comparison used to match this ordering part
@@ -712,6 +716,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
     /**
      * Functional interface to be used to create instances of a particular kind of {@link OrderingPart}.
+     *
      * @param <O> type or specific sort order
      * @param <P> type of specific ordering part
      */

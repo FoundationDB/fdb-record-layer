@@ -29,6 +29,7 @@ import java.util.Comparator;
 
 /**
  * Provide various options for {@link MemorySorter} and {@link MemorySortCursor}.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */
@@ -36,6 +37,7 @@ import java.util.Comparator;
 public interface MemorySortAdapter<K, V> extends Comparator<K> {
     /**
      * Generate a sorting key for the given value.
+     *
      * @param value value to be sorted
      * @return the key for {@code value}
      */
@@ -46,6 +48,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * Convert key into a byte array.
      * The desired sort order of keys must be congruent to unsigned byte order of the serialized form, up to
      * {@link #isSerializedOrderReversed}.
+     *
      * @param key the key
      * @return a byte array encoding {@code key}
      */
@@ -55,12 +58,14 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
     /**
      * Get whether the unsigned byte comparison order of values returned by {@link #serializeKey} is the same
      * as {@link #compare}'s order or its reverse.
+     *
      * @return {@code true} if the byte comparison order is the reverse of the key order
      */
     boolean isSerializedOrderReversed();
 
     /**
      * Convert serialized key back to key.
+     *
      * @param key the serialized form of a key
      * @return the original key
      */
@@ -69,6 +74,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
 
     /**
      * Convert value into a byte array.
+     *
      * @param value the value
      * @return a byte array encoding {@code value}
      */
@@ -77,6 +83,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
 
     /**
      * Convert serialized value back into value.
+     *
      * @param value the serialized form of a value
      * @return the original value
      */
@@ -149,6 +156,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
     /**
      * Stateful comparator supporting insertion order and delegating to a regular {@link Comparator} to establish
      * equality between the minimum key and a probe.
+     *
      * @param <K> the type of key
      */
     class InsertionOrderComparator<K> implements MemorySortComparator<K> {

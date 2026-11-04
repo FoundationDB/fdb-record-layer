@@ -266,6 +266,7 @@ public class StoreTimer {
          * in a manner such that some events contributed to the aggregate in different fashions (for example,
          * {@code eventA + eventB - eventC}), in which case this method would return the fact that the three events
          * comprise the aggregate but with no indication of in which manner they contribute to its value.
+         *
          * @return the events that comprise the aggregate
          */
         Set<? extends Event> getComponentEvents();

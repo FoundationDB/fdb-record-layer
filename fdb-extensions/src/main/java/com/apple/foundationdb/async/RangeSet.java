@@ -67,6 +67,7 @@ public class RangeSet {
      * Creates a new RangeSet that will write its data to the given subspace provided.
      * The contents of this subspace should either be empty or contain the data
      * used by another RangeSet object.
+     *
      * @param subspace the subspace in which to write data
      */
     public RangeSet(@Nonnull Subspace subspace) {
@@ -152,6 +153,7 @@ public class RangeSet {
      * Add the read conflict that {@link #contains(ReadTransactionContext, byte[])} adds for the given key. That is, after
      * checking the key with a snapshot transaction, the transaction will conflict with changes to whether this key is
      * contained within the range set as if it had checked it with a serializable one.
+     *
      * @param tr transaction to add the read conflict to
      * @param key the key whose presence in the set was checked
      */
@@ -635,6 +637,7 @@ public class RangeSet {
 
     /**
      * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
+     *
      * @param tc transaction or database in which to run operation
      * @return a future that is completed when the range has been cleared
      */

@@ -50,6 +50,7 @@ public class PlannerEventStats {
     /**
      * Get a {@link Map} of {@link PlannerEvent.Location} to the number of times instances of the {@link PlannerEvent}
      * class tracked by this instance were emitted with the provided {@link PlannerEvent.Location}.
+     *
      * @return a {@link Map} of {@link PlannerEvent.Location} to a {@link Long}.
      */
     @Nonnull
@@ -60,6 +61,7 @@ public class PlannerEventStats {
     /**
      * Get the number of times instances of the {@link PlannerEvent} class tracked by this instance
      * were emitted with the provided {@link PlannerEvent.Location}.
+     *
      * @return {@code long} representing the number of events emitted with {@code location}.
      */
     public long getCount(@Nonnull final PlannerEvent.Location location) {
@@ -106,6 +108,7 @@ public class PlannerEventStats {
 
     /**
      * Merge two instances of {@link PlannerEventStats}.
+     *
      * @param first the first instance of {@link PlannerEventStats}
      * @param second the second instance of {@link PlannerEventStats}
      * @return a new instance of {@link PlannerEventStats} containing the combined statistics for the {@link PlannerEvent} class

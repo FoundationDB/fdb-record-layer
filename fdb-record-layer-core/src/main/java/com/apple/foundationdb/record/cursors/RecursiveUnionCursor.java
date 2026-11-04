@@ -93,6 +93,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      *     cursor to iterate over the items of the new recursive step.</li>
      *     <li>decide to stop the recursive execution, signalling to the underlying cursor that it should now be exhausted.</li>
      * </ul>
+     *
      * @return the next cursor item of the underlying active state cursor.
      */
     @Nonnull
@@ -208,6 +209,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         /**
          * Creates a new {@link Continuation} instance from a serialized continuation protobuf message and a temporary
          * table deserializer.
+         *
          * @param message The serialized continuation protobuf message.
          * @param tempTableDeserializer a {@link TempTable} deserializer.
          * @return a new {@link Continuation} instance.
@@ -266,6 +268,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      * Interface for recursive state management, the caller is expected to invoke respective callbacks when certain
      * events occur so the internal state mutates accordingly, it also offers a set of methods that enable examining
      * current state and whether the execution can proceed to a subsequent recursive state or not.
+     *
      * @param <T> The type of the cursor elements.
      */
     public interface RecursiveStateManager<T> {
@@ -278,6 +281,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         /**
          * Checks whether it is possible to transition from current recursive step {@code n} to next step {@code n + 1}.
+         *
          * @return {@code True} if it is possible to transition from current recursive step {@code n} to next step {@code n + 1},
          * otherwise {@code false}.
          */
@@ -299,6 +303,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         /**
          * Checks whether the execution is still in the initial phase or not.
+         *
          * @return {@code True} if the execution is still in the initial phase, otherwise {@code false}, i.e. the execution
          * is in the recursive phase.
          */

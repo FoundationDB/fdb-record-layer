@@ -158,6 +158,7 @@ public class PredicateMultiMap {
         /**
          * Recreates this predicate compensation function, and if appropriate, allows this compensation function
          * to become possible.
+         *
          * @param unmatchedAggregateMap unmatched aggregated map; the resulting predicate compensation function
          *        can only become possible if the unmatched aggregates are not referenced by the predicate
          * @param amendedMatchedAggregateMap matched aggregate map (amended)
@@ -375,6 +376,7 @@ public class PredicateMultiMap {
         /**
          * Recreates this result compensation function, and if appropriate, allows this compensation function
          * to become possible.
+         *
          * @param unmatchedAggregateMap unmatched aggregated map; the resulting predicate compensation function
          *        can only become possible if the unmatched aggregates are not referenced by the predicate
          * @param amendedMatchedAggregateMap matched aggregate map (amended)

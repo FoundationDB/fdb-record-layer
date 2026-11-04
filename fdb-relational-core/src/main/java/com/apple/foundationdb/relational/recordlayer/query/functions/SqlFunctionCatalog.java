@@ -41,6 +41,7 @@ public interface SqlFunctionCatalog {
      * lookup a function in the catalog using its name, and a list of arguments. note that calling this method
      * can trigger the compilation of a user-defined function iff the user-defined function has a matching name, and this
      * is the first time it was looked up, i.e. the compilation is lazily, and only once.
+     *
      * @param name The name of the function.
      * @param arguments The arguments passed with the invocation of the function.
      * @return the function instance.
@@ -51,6 +52,7 @@ public interface SqlFunctionCatalog {
     /**
      * Checks whether a function exists in the catalog. Note that invoking this method shall not trigger compiling
      * any user-defined functions.
+     *
      * @param name The name of the function.
      * @return {@code True} if the function exists, otherwise {@code false}.
      */

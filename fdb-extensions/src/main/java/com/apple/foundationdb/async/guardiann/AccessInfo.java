@@ -66,6 +66,7 @@ record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
     /**
      * Returns the negated centroid and enforces non-nullness. Callers should always probe {@link #canUseRaBitQ()}
      * before accessing this field.
+     *
      * @return a vector which is the negated centroid used for translation
      */
     @Nonnull

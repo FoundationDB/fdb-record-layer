@@ -307,6 +307,7 @@ public class TestHelpers {
     /**
      * The default Hamcrest anything matcher returns a <code>Matcher&lt;Object&gt;</code>, which leads to either type errors
      * or terrible casting. This is a type-safe anything matcher.
+     *
      * @param <T> the required type
      */
     public static class RealAnythingMatcher<T> extends BaseMatcher<T> {

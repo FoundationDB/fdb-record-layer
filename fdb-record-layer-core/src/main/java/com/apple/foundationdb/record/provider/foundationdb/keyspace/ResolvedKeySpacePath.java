@@ -193,6 +193,7 @@ public class ResolvedKeySpacePath {
     /**
      * If this path was created via {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)}, this returns
      * any remaining portion of the input tuple that was not used to construct the path.
+     *
      * @return the remaining portion of the original input tuple or <code>null</code>
      */
     @Nullable
@@ -274,6 +275,7 @@ public class ResolvedKeySpacePath {
 
     /**
      * Returns a new {@code ResolvedKeySpacePath} that is the same, except with the provided {@link #getRemainder()}.
+     *
      * @param newRemainder a new remainder. This can be {@code null} to remove the remainder entirely.
      * @return a new {@code ResolvedKeySpacePath} that is the same as this, except with a different {@link #getRemainder()}.
      */

@@ -376,6 +376,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format stored in the store's info header.
      *
      * <p>Index maintainers can use this to determine what format to expect / produce.
+     *
      * @return the storage format version
      */
     @Deprecated(forRemoval = true)
@@ -402,6 +403,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * <p>After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the value stored in the store's info header.
      *
      * <p>This version is returned from {@link UserVersionChecker#checkUserVersion} and does not have any meaning within the Record Layer core.
+     *
      * @return the user format version
      */
     public int getUserVersion() {
@@ -431,6 +433,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Returns {@code true} if the RecordMetadata version is changed in the RecordStore. Alternatively, returns
      * {@code false} if the version is either not checked (checkVersion() not called) or it is up-to-date.
+     *
      * @return the versionChanged boolean
      */
     public boolean isVersionChanged() {
@@ -451,6 +454,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Get the {@link RecordStoreState} for this store.
      * This represents the indexes that are disabled or in the process of being rebuilt.
      * If the state is not already loaded, it is loaded synchronously.
+     *
      * @return the store state for this store
      */
     @Override
@@ -500,6 +504,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck, FDBRecordVersion, VersionstampSaveBehavior)}.
+     *
      * @param rec the record to save
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the associated record version
@@ -523,6 +528,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Internal flavor of the {@link #saveRecordAsync} method that allows bypassing of the record update lock.
      * This is used by internal repair processes to ensure we can repair records outside the normal data flow.
+     *
      * @param rec the record to save
      * @param existenceCheck whether to throw an exception if a record with the same primary key does or does not already exist
      * @param version the associated record version
@@ -966,6 +972,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
+     *
      * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
      * @return a future which completes to the synthesized record
      */
@@ -1012,6 +1019,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Subspace for sliding window index bookkeeping (window, overflow, and count partitions).
      * Separate from the secondary subspace to avoid collisions with delegate index types
      * that also use the secondary subspace (e.g. rank, permuted min/max, text).
+     *
      * @param index the index to retrieve the sliding window subspace for
      * @return the sliding window subspace for the given index
      */
@@ -1024,6 +1032,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Subspace for index in which to place a {@link com.apple.foundationdb.async.RangeSet RangeSet}.
      * This is used for determining how much progress has been made on building the index in the
      * case that one is building the index offline.
+     *
      * @param index the index to retrieve the range subspace for
      * @return the subspace for the {@link com.apple.foundationdb.async.RangeSet RangeSet} for the given index
      */
@@ -1036,6 +1045,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Subspace for index in which to place a record in uniqueness violations. This
      * is used while the index is being built to keep track of what values are duplicated and
      * thus have to be addressed later.
+     *
      * @param index the index to retrieve the uniqueness violation subspace for
      * @return the subspace for the uniqueness violations for the given index
      */
@@ -1046,6 +1056,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Subspace for index to store information for online index build.
+     *
      * @param index the index to retrieve the build information for
      * @return the subspace for the build information of the given index
      */
@@ -1056,6 +1067,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Get the maintainer for a given index.
+     *
      * @param index the required index
      * @return the maintainer for the given index
      */
@@ -1159,6 +1171,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * record does not have a version, but that cannot be determined
      * before making a call to the database, this might return a
      * completable future that wraps <code>null</code>.
+     *
      * @param primaryKey the primary key of the record
      * @return a future that completes with the version of the record of {@code Optional.empty()} if versions are not enabled for this store
      */
@@ -1169,6 +1182,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Async version of {@link #loadRecordVersion(Tuple, boolean)}.
+     *
      * @param primaryKey the primary key of the record
      * @param snapshot whether to snapshot read
      * @return a future that completes with the version of the record of {@code Optional.empty()} if versions are not enabled for this store
@@ -1208,6 +1222,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * not have a version (because the record does not exist
      * or the record was last loaded when versions were
      * not being stored), it will return the empty {@link Optional}.
+     *
      * @param primaryKey the primary key for the record
      * @return an {@link Optional} that, if not empty, contains record's version
      */
@@ -1221,6 +1236,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * reads. If <code>snapshot</code> is set to <code>true</code>,
      * reading the record's version does not add a read conflict to the
      * store's transaction.
+     *
      * @param primaryKey the primary key for the record
      * @param snapshot whether this operation should be done with a <code>snapshot</code>
      * @return an {@link Optional} that, if not empty, contain's the record version
@@ -1353,6 +1369,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Asynchronously read a record from the database.
+     *
      * @param primaryKey the key for the record to be loaded
      * @param sizeInfo a size info to fill in from serializer
      * @param snapshot whether to snapshot read
@@ -1710,6 +1727,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Create and return an instance of {@link FDBRawRecord} from a given {@link MappedKeyValue}. The given
      * parameter represents a series of record splits (and optional version), that the method will "unsplit" and reconstruct
      * into a single raw record.
+     *
      * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
      * @param sizeInfo Size Info to collect metrics
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
@@ -2055,6 +2073,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Returns whether or not record keys contain a trailing suffix indicating whether or not the record has been (or
      * could have been) split across multiple records.
+     *
      * @return <code>true</code> if the keys have split suffixes, otherwise <code>false</code>.
      */
     private boolean hasSplitRecordSuffix() {
@@ -3281,6 +3300,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Prepare an index for rebuilding by clearing any existing data and marking the index as write-only.
+     *
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only for building
      */
@@ -3292,6 +3312,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Prepare an index for indexing via a write-pending queue by clearing any existing data and marking the
      * index as {@link IndexState#WRITE_ONLY_WITH_QUEUE}.
+     *
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
      * @see #clearAndMarkIndexWriteOnly(Index, IndexState)
@@ -3303,6 +3324,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Prepare an index for rebuilding by clearing any existing data and marking the index with the given write-only state.
+     *
      * @param index the index to build
      * @param writeOnlyState the write-only state to mark the index with, one of the write-only states
      * @return a future that completes when the index has been cleared and marked for building
@@ -3686,6 +3708,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Set a store lock state. If done for recovery, note that setting a lock state requires a valid store header. If the header is
      * corrupted, it should be recovered before any lock state usage. See {@link Builder#repairMissingHeader}.
+     *
      * @param state the new lock state
      * @param reason a free text message that can hint future observers about the reasons for setting this state.
      * @return a future that sets this state
@@ -3985,6 +4008,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * If there is no range that is currently unbuilt, it will return an
      * empty {@link Optional}. If there is one, it will return an {@link Optional}
      * set to the first unbuilt range it finds.
+     *
      * @param index the index to check built state
      * @return a future that will contain the first unbuilt range if any
      */
@@ -4009,6 +4033,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         /**
          * Creates an exception with the given message and the given
          * range set as one of the unbuilt ranges.
+         *
          * @param message the message associated with this exception
          * @param unbuiltRange one of the unbuilt ranges associated with this exception
          * @param keyValues additional information for logging
@@ -4022,6 +4047,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * Get the unbuilt range associated with this exception.
          * If none has been set for this exception, then it will
          * return <code>null</code>.
+         *
          * @return the unbuilt range
          */
         @Nullable
@@ -4181,6 +4207,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * ready. This is dangerous to do if one has not first verified that the
      * index is ready to be readable as it can cause half-built indexes to be
      * used within queries and can thus produce inconsistent results.
+     *
      * @param indexName the name of the index to mark readable
      * @return a future that will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
@@ -4238,6 +4265,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Loads the current state of the record store asynchronously and sets {@code recordStoreStateRef}.
+     *
      * @param existenceCheck the action to be taken when the record store already exists (or does not exist yet)
      * @param storeHeaderIsolationLevel the isolation level for loading the store header
      * @param indexStateIsolationLevel the isolation level for loading index state
@@ -4615,6 +4643,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Get the progress of building the given index.
+     *
      * @param index the index to check the index build state
      * @return a future that completes to the progress of building the given index
      * @see IndexBuildState
@@ -4687,6 +4716,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Gets the list of readable indexes that are on the given record type.
      * This only include those {@link Index}es that are readable, i.e., the index name is not
      * within the {@link RecordStoreState}'s list of write-only indexes or its list of disabled indexes.
+     *
      * @param recordType type of record to get the readable indexes of
      * @return the list of readable indexes on the given type
      */
@@ -4699,6 +4729,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Gets the list of enabled indexes that are on the given record type.
      * This only include those {@link Index}es that are enabled, i.e., the index name is not
      * within the {@link RecordStoreState}'s list of disabled indexes.
+     *
      * @param recordType type of record to get the enabled indexes of
      * @return the list of enabled indexes on the given type
      */
@@ -4711,6 +4742,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Gets the list of readable indexes that are on multiple record types one of which is the
      * given type. This only include those {@link Index}es that are readable, i.e., the index name is not
      * within the {@link RecordStoreState}'s list of write-only indexes or its list of disabled indexes.
+     *
      * @param recordType type of record to get the readable multi-type indexes of
      * @return the list of readable indexes on multiple types including the given type
      */
@@ -4723,6 +4755,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Gets the list of enabled indexes that are on multiple record types one of which is the
      * given type. This only include those {@link Index}es that are enabled, i.e., the index name is not
      * within the {@link RecordStoreState}'s list of disabled indexes.
+     *
      * @param recordType type of record to get the enabled multi-type indexes of
      * @return the list of readable indexes on multiple types including the given type
      */
@@ -4735,6 +4768,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Gets the list of readable universal indexes, i.e., the indexes on all record types.
      * This only include those {@link Index}es that are readable, i.e., the index name is not
      * within the {@link RecordStoreState}'s list of write-only indexes or its list of disabled indexes.
+     *
      * @return the list of readable universal indexes
      */
     @Nonnull
@@ -4746,6 +4780,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Gets the list of enabled universal indexes, i.e., the indexes on all record types.
      * This only include those {@link Index}es that are enabled, i.e., the index name is not
      * within the {@link RecordStoreState}'s list of disabled indexes.
+     *
      * @return the list of readable universal indexes
      */
     @Nonnull
@@ -4759,6 +4794,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
      * as this record store will fail to commit due to conflicts.
+     *
      * @return a map of all the index states.
      */
     @Nonnull
@@ -5146,6 +5182,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * It is legal to remove a uniqueness constraint from an index without changing the {@code lastModifiedVersion},
      * if this is done this method will clear any violations, and transition {@link IndexState#READABLE_UNIQUE_PENDING}
      * to {@link IndexState#READABLE}.
+     *
      * @param metaData the current metadata
      * @param work work to be done as part of {@code checkVersion}
      * @param indexesToBuildSince the list of indexes whose {@code lastModifiedVersion} has changed since we last did
@@ -5773,6 +5810,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * operation, or later in the background. The returned control object lets the caller indicate to the index maintenance
      * that he intends to trigger these deferred maintenance in another, possibly background, transaction.
      * This feature is experimental. The default is to perform all the needed index changes inline.
+     *
      * @return an {@link IndexDeferredMaintenanceControl} object.
      */
     @API(API.Status.EXPERIMENTAL)

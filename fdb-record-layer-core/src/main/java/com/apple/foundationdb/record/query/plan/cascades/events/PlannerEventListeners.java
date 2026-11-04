@@ -45,6 +45,7 @@ public final class PlannerEventListeners {
     /**
      * Set the active thread-local instance for the provided listener class to the provided instance.
      * This will override any currently set instances for the same {@link Class}.
+     *
      * @param listenerClass the class that the provided listener is an instance of.
      * @param listener the new listener instance to use
      */
@@ -70,6 +71,7 @@ public final class PlannerEventListeners {
 
     /**
      * Get the current active {@link EventListener} instance for the provided {@link Class}.
+     *
      * @param listenerClass a class that implements the {@link EventListener} interface.
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
      */
@@ -90,6 +92,7 @@ public final class PlannerEventListeners {
 
     /**
      * Dispatch a {@link PlannerEvent} produced by eventSupplier to all {@link EventListener} instances in thread-local storage.
+     *
      * @param eventSupplier supplies a {@link PlannerEvent} event to dispatch to {@link EventListener}s.
      * eventSupplier is called only if any of {@link EventListener} exist.
      */
@@ -102,6 +105,7 @@ public final class PlannerEventListeners {
 
     /**
      * Signal to all {@link EventListener} instances in thread-local storage that the planning of a new query is starting.
+     *
      * @param queryAsString query being planned.
      * @param planContext context object provided to the planner.
      */
@@ -125,6 +129,7 @@ public final class PlannerEventListeners {
     public interface EventListener {
         /**
          * Callback to execute when a new query starts being planned.
+         *
          * @param queryAsString query being planned.
          * @param planContext context object provided to the planner.
          */
@@ -132,6 +137,7 @@ public final class PlannerEventListeners {
 
         /**
          * Callback to execute when a new {@link PlannerEvent} is emitted.
+         *
          * @param event the event that was emitted by the
          *        {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
          */

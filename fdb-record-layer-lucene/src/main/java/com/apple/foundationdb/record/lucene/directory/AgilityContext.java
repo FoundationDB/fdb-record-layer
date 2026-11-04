@@ -59,6 +59,7 @@ public interface AgilityContext {
 
     /**
      * `apply` should be called when a returned value is expected. Performed under appropriate lock.
+     *
      * @param function a function accepting context, returning a future
      * @return the future of the function above
      * @param <R> future's type
@@ -71,6 +72,7 @@ public interface AgilityContext {
      * Agile mode, it creates a new context for the function's apply to allow recovery, in non-Agile mode it's a
      * no-op. This function may be called after agility context
      * was closed.
+     *
      * @param function a function accepting context, returning a future
      * @return the future of the function above
      * @param <R> future's type
@@ -85,6 +87,7 @@ public interface AgilityContext {
 
     /**
      * `set` should be called for writes - keeping track of write size (if needed).
+     *
      * @param key key
      * @param value value
      */

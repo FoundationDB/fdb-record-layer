@@ -34,6 +34,7 @@ public interface ByteScanLimiter {
     /**
      * Create a new {@code ByteScanLimiter} with this limiter's original limit, ignoring any calls to
      * {@link #hasBytesRemaining()} and {@link #registerScannedBytes(long)}.
+     *
      * @return a new {@code ByteScanLimiter} with this limiter's original limit
      */
     @Nonnull

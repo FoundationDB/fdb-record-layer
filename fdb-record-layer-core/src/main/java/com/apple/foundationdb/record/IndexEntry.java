@@ -155,6 +155,7 @@ public class IndexEntry {
 
     /**
      * Get a tuple element of the key tuple.
+     *
      * @param idx the index of the desired element
      * @return the tuple element at index {@code idx}
      */
@@ -178,6 +179,7 @@ public class IndexEntry {
      * Returns true if the key expression contains a NULL value that is not a {@link NullStandin#NULL_UNIQUE} value.
      * Calling this method on a <code>IndexEntry</code> that was created directly from tuples will result in an
      * exception.
+     *
      * @return {@code true} if the key contains a non-unique null value
      */
     public boolean keyContainsNonUniqueNull() {
@@ -208,6 +210,7 @@ public class IndexEntry {
      * Get the type of null stored in a given key index location. Calling this method on
      * an <code>IndexEntry</code> that was created directly from tuples, or if the value at <code>idx</code>
      * is not null, will result in an exception.
+     *
      * @param idx the index of a null element
      * @return the type of null stored at {@code idx}
      */
@@ -222,6 +225,7 @@ public class IndexEntry {
 
     /**
      * Produces a new <code>IndexEntry</code> whose key is a subset of this <code>IndexEntry</code>.
+     *
      * @param startIdx the starting offset of the key to use for the new value
      * @param endIdx the ending offset (exclusive) of the key to use for the new value
      * @return a new index entry with the subset key between {@code startIdx} and {@code endIdx}

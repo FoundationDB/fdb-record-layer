@@ -86,6 +86,7 @@ public class SynchronizedSession {
     /**
      * Construct a session. Remember to call {@link #initializeSessionAsync(Transaction)} if the {@code sessionId} is
      * newly generated.
+     *
      * @param lockSubspace the lock for which this session contends
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
@@ -108,6 +109,7 @@ public class SynchronizedSession {
 
     /**
      * Initialize the session by acquiring the lock. This should be invoked before a new session is ever used.
+     *
      * @param tr transaction to use
      * @return a future that will return {@code null} when the session is initialized
      */
@@ -164,6 +166,7 @@ public class SynchronizedSession {
     /**
      * Check if the session still holds the lock. This should be invoked in every transaction in the session to follow
      * the contract.
+     *
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is checked
      */
@@ -182,6 +185,7 @@ public class SynchronizedSession {
 
     /**
      * End the session by releasing the lock if it still holds the lock. Do nothing otherwise.
+     *
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is no longer this session
      */
@@ -225,6 +229,7 @@ public class SynchronizedSession {
 
     /**
      * Check if there is any active session on the given lock subspace, so that a new session would not able to be initialized.
+     *
      * @param tr transaction to use
      * @param lockSubspace the lock whose active session needs to be checked
      * @return {@code true} if there is any active session, otherwise {@code false}
@@ -279,6 +284,7 @@ public class SynchronizedSession {
     /**
      * Update the lease's end time. This should be invoked in every transaction in the session to keep the session
      * alive.
+     *
      * @param tr transaction to use
      */
     public void updateLockSessionLeaseEndTime(@Nonnull Transaction tr) {

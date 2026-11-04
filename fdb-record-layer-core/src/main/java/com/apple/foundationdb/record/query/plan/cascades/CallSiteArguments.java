@@ -48,6 +48,7 @@ public sealed interface CallSiteArguments {
      * Returns the call-site arguments as a {@link List}. For {@link NamedArguments} the ordering follows the
      * underlying map's iteration order; callers that rely on positional semantics should only use this on
      * positional invocations.
+     *
      * @return the arguments as a list
      */
     @Nonnull
@@ -76,6 +77,7 @@ public sealed interface CallSiteArguments {
     /**
      * Reads a call-site option. This is the typed way to get at an option: the value is handed back as the option's
      * declared type, so no caller needs to cast.
+     *
      * @param option the option to read
      * @param <T> the option's value type
      * @return the option's value, or {@link Optional#empty()} if the option was not supplied at this call site
@@ -87,6 +89,7 @@ public sealed interface CallSiteArguments {
 
     /**
      * Returns call-site arguments with {@code option} set to {@code value}, in addition to any options already set.
+     *
      * @param option the option to set
      * @param value the option's value
      * @param <T> the option's value type
@@ -296,6 +299,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Creates an option with a bespoke conversion, for value types the typed factories do not cover.
+         *
          * @param name the option name
          * @param type the option's value type
          * @param coercer the conversion from a raw call-site value to the option's value type
@@ -408,6 +412,7 @@ public sealed interface CallSiteArguments {
         public interface Coercer<T> {
             /**
              * Converts {@code rawValue} to the option's value type.
+             *
              * @param optionName the name of the option being converted, for diagnostics
              * @param rawValue the raw value supplied at the call site
              * @return the converted value
@@ -479,6 +484,7 @@ public sealed interface CallSiteArguments {
         /**
          * The names the options are set under. Useful for diagnostics and for validating a call site against the
          * options a function declares.
+         *
          * @return the option names
          */
         @Nonnull
@@ -488,6 +494,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Whether {@code option} is set.
+         *
          * @param option the option to look for
          * @return {@code true} if the option is set
          */
@@ -497,6 +504,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Reads an option, converting the stored value to the option's declared type.
+         *
          * @param option the option to read
          * @param <T> the option's value type
          * @return the option's value, or {@link Optional#empty()} if the option is not set
@@ -509,6 +517,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Reads an option, falling back to {@code defaultValue} when it is not set.
+         *
          * @param option the option to read
          * @param defaultValue the value to return when the option is not set
          * @param <T> the option's value type
@@ -593,6 +602,7 @@ public sealed interface CallSiteArguments {
 
             /**
              * Sets an option to a value of the option's declared type.
+             *
              * @param option the option to set
              * @param value the option's value
              * @param <T> the option's value type
@@ -607,6 +617,7 @@ public sealed interface CallSiteArguments {
              * Sets an option by name to a value that has not been type-checked yet. This is for front ends that only
              * have an option's name and its literal value at parse time; the value is type-checked against the called
              * function's declared options when the call is encapsulated.
+             *
              * @param name the option name
              * @param rawValue the raw option value
              * @return this builder
