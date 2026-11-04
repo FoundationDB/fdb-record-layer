@@ -117,7 +117,7 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>There is no record store, so stored queries are planned as if every index were readable. A store with an index
      * that is disabled or still being built plans with fewer indexes, gets a different cache key, and does not find the
-     * warmed plan.</p>
+     * warmed plan.
      *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
@@ -268,7 +268,7 @@ public final class OfflineStoredQueriesProcessor {
      * <p>The temporary functions are compiled inside this method rather than once for the whole stored query, because a
      * declared parameter captured by a function's body changes that function's plan too, so each case needs its own
      * compile from the original template. The outcome is returned rather than counted here, so that the caller can count
-     * both outcomes side by side.</p>
+     * both outcomes side by side.
      *
      * @return {@code true} if the body was planned, {@code false} if this case failed
      */
