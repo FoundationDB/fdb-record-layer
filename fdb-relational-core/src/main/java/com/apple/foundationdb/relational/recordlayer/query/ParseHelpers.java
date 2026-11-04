@@ -84,6 +84,7 @@ public final class ParseHelpers {
 
     /**
      * Attempt to parse an input value into the corresponding numerical literal {@link Value}.
+     *
      * @param valueAsString The value to parse.
      * @return The corresponding typed and literal {@link Value} object
      */

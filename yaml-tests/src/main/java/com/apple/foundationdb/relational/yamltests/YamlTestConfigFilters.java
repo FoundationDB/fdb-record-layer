@@ -120,6 +120,7 @@ public enum YamlTestConfigFilters {
 
     /**
      * Returns whether the associated test should be excluded for the provided config.
+     *
      * @param config a {@link YamlTestConfig}
      * @return {@code false} if the test should be excluded.
      */

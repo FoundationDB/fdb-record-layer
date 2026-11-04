@@ -78,6 +78,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *              +-------------+
  * }
  * </pre>
+ *
  * @param <P> the type parameter of the actual in-join plan to match. Currently, this rule is used for
  *        {@link RecordQueryInValuesJoinPlan}, {@link RecordQueryInParameterJoinPlan} and
  *        {@link RecordQueryInComparandJoinPlan}.

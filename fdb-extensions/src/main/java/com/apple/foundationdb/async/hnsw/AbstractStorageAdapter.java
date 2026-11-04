@@ -179,7 +179,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *        into the storage space that is currently being used
      * @param layer the layer index from which to fetch the node
      * @param primaryKey the primary key that uniquely identifies the node to be fetched; must not be {@code null}
-     *
      * @return a {@link CompletableFuture} that will be completed with the fetched {@link AbstractNode}.
      *         The future will complete with {@code null} if no node is found for the given key and layer.
      */
@@ -193,7 +192,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *
      * @param node the node to check
      * was passed in
-     *
      * @return the node that was passed in
      */
     @Nullable
@@ -256,6 +254,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Deletes a single node from the given layer of the data store as part of a larger transaction.
+     *
      * @param transaction the transaction to use
      * @param layer the layer
      * @param primaryKey the primary key of the node

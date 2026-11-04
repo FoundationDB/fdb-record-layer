@@ -59,9 +59,7 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
     }
 
     /**
-     * Returns the singleton instance of {@link PredicateCountByLevelProperty}.
-     *
-     * @return the singleton instance of {@link PredicateCountByLevelProperty}
+     * {@return the singleton instance of {@link PredicateCountByLevelProperty}}
      */
     @Nonnull
     public static PredicateCountByLevelProperty predicateCountByLevel() {
@@ -161,7 +159,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          *
          * @param a the first {@link PredicateCountByLevelInfo} to compare
          * @param b the second {@link PredicateCountByLevelInfo} to compare
-         *
          * @return the value {@code 0} if {@code a} have the same number of predicates at each level as {@code b};
          *         a value less than {@code 0} if {@code a} has fewer predicates than {@code b} at a
          *         deeper level or if {@code a} has fewer levels than {@code b}; and

@@ -304,7 +304,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
-     *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
     @Nonnull
@@ -476,6 +475,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     /**
      * transforms this Sargable into a conjunction of equality and non-equality predicates.
+     *
      * @return a conjunction of equality and non-equality predicates.
      */
     @Override

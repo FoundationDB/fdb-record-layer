@@ -31,6 +31,7 @@ import java.net.URI;
 
 /**
  * Relational Catalog.
+ *
  * @see com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider
  */
 public interface StoreCatalog {

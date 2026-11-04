@@ -45,6 +45,7 @@ public class RecordScanLimiterFactory {
 
     /**
      * Creates a limiter that tracks the number of records that has been scanned, but does not impose a limit.
+     *
      * @return a tracking limiter
      */
     public static RecordScanLimiter tracking() {

@@ -33,6 +33,7 @@ import java.util.function.Function;
 
 /**
  * A cursor that applies a function to the elements of another cursor.
+ *
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function
  */

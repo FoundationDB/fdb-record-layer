@@ -81,6 +81,7 @@ public class BooleanNormalizer {
 
     /**
      * Obtain a normalizer with the default size limit {@link BooleanNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
@@ -91,6 +92,7 @@ public class BooleanNormalizer {
 
     /**
      * Obtain a normalizer with the given size limit.
+     *
      * @param sizeLimit a limit on the size of DNF that this normalizer will produce
      * @return a normalizer with the given size limit
      */
@@ -113,6 +115,7 @@ public class BooleanNormalizer {
 
     /**
      * Obtain a normalizer for the given planner configuration.
+     *
      * @param configuration a a planner configuration specifying the DNF limit that this normalizer will produce
      * @return a normalizer for the given planner configuration
      */
@@ -126,6 +129,7 @@ public class BooleanNormalizer {
 
     /**
      * Get the limit on the size of the DNF that this normalizer will produce.
+     *
      * @return size limit
      */
     public int getSizeLimit() {
@@ -134,6 +138,7 @@ public class BooleanNormalizer {
 
     /**
      * Get whether this normalizer attempts to remove redundant conditions.
+     *
      * @return {@code true} if some redundant conditions
      */
     public boolean isCheckForDuplicateConditions() {
@@ -143,6 +148,7 @@ public class BooleanNormalizer {
     /**
      * Convert the given predicate to disjunctive normal form, if necessary. If the size of the DNF would exceed the
      * size limit, return the un-normalized predicate.
+     *
      * @param predicate the query predicate to be normalized
      * @return the predicate in disjunctive normal form if it does not exceed the size limit or the predicate otherwise
      */
@@ -154,6 +160,7 @@ public class BooleanNormalizer {
     /**
      * Convert the given predicate to disjunctive normal form, if necessary. If the size of the DNF would exceed the
      * size limit, throw a {@link DNFTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @return the predicate in disjunctive normal form
      * @throws DNFTooLargeException if the DNF would exceed the size limit
@@ -274,6 +281,7 @@ public class BooleanNormalizer {
 
     /**
      * Convert given predicate to list (to be Or'ed) of lists (to be And'ed).
+     *
      * @param predicate a predicate subtree
      * @param negate whether this subtree is negated
      * @return a list (to be Or'ed) of lists (to be And'ed)
@@ -302,6 +310,7 @@ public class BooleanNormalizer {
 
     /**
      * <code>Or</code> flattens all normalized Or's of its children.
+     *
      * @param children arguments to Or
      * @param negate whether the Or is negated
      * @return a list (to be Or'ed) of lists (to be And'ed)
@@ -315,6 +324,7 @@ public class BooleanNormalizer {
 
     /**
      * <code>And</code> combines all the normalized Or's into a cross-product, And'ing one choice from each.
+     *
      * @param children arguments to And
      * @param negate whether the And is negated
      * @return a list (to be Or'ed) of lists (to be And'ed)

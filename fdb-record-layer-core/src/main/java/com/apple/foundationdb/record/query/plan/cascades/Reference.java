@@ -147,6 +147,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Properties map capturing properties for all final members of this reference. {@link ExpressionPropertiesMap},
      * together with the more specialized {@link PlanPropertiesMap}, are the basis for creating partitions of
      * expressions that satisfy certain properties and powerful matchers for implementation rules.
+     *
      * @see ExpressionPartition
      * @see PlanPartition
      */
@@ -203,6 +204,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Advance the planner stage of this reference to the given one. This method cleans up internal state of this
      * reference such that exploration in a new phase can start again.
+     *
      * @param newStage the new stage we should advance to
      */
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
@@ -214,6 +216,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Advance the planner stage of this reference to the given one. This method cleans up internal state of this
      * reference such that exploration in a new phase can start again.
+     *
      * @param newStage the new stage we should advance to
      */
     @VisibleForTesting
@@ -228,6 +231,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     /**
      * Return the {@link RecordQueryPlan} contained in this reference.
+     *
      * @return the {@link RecordQueryPlan} contained in this reference
      * @throws UngettableReferenceException if the reference does not support retrieving its expression
      * @throws ClassCastException if the only member of this reference is not a {@link RecordQueryPlan}
@@ -245,6 +249,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Return the expression contained in this reference. If the reference does not support getting its expresssion
      * (for example, because it holds more than one expression, or none at all), this should throw an exception.
+     *
      * @return the expression contained in this reference
      * @throws UngettableReferenceException if the reference does not support retrieving its expression
      */
@@ -262,6 +267,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Legacy method that calls {@link #pruneWith(RelationalExpression)} while being synchronized on {@code this}.
      * Note that unlike for {@link #pruneWith(RelationalExpression)}, the given expression does not have to be part of
      * this reference already. This method is only used by the heuristic planner.
+     *
      * @param plan new plan to replace members of this reference.
      */
     @HeuristicPlanner
@@ -273,6 +279,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Method that replaces the current final members of this reference with a new value. This is called by the planner
      * to prune the variations of a reference down to exactly one new member.
+     *
      * @param expression expression to replace existing members with
      */
     public void pruneWith(@Nonnull final RelationalExpression expression) {
@@ -283,6 +290,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Method to prune the final expressions in this reference. The given expression must be one of the final
      * expressions. This operation does not touch the exploratory expressions.
+     *
      * @param expression an expression that is assumed to be among the final expressions
      */
     private void pruneWithUnchecked(@Nonnull final RelationalExpression expression) {
@@ -295,6 +303,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Inserts a new exploratory expression into this reference. This method checks for prior memoization of the
      * expression passed in within the reference. If the expression is already contained in this reference, the
      * reference is not modified.
+     *
      * @param newValue new expression to be inserted
      * @return {@code true} if and only if the new expression was successfully inserted into this reference,
      *         {@code false} otherwise.
@@ -307,6 +316,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Inserts a new final expression into this reference. This method checks for prior memoization of the expression
      * passed in within the reference. If the expression is already contained in this reference, the reference is not
      * modified.
+     *
      * @param newValue new expression to be inserted
      * @return {@code true} if and only if the new expression was successfully inserted into this reference,
      *         {@code false} otherwise.
@@ -318,6 +328,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
      * in within the reference. If the expression is already contained in this reference, the reference is not modified.
+     *
      * @param newExpression new expression to be inserted
      * @param isFinal indicator whether the new expression is final or not
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a final expression
@@ -353,6 +364,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * method does not check for prior memoization of the expression passed in within the reference. The caller needs to
      * exercise caution to only call this method on a reference if it is known that the reference cannot possibly
      * already have the expression memoized.
+     *
      * @param newExpression new expression to be inserted (without check)
      * @param isFinal indicator whether the new expression is final or not
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a final expression
@@ -385,6 +397,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Method to return if the given expression is contained in this reference (by Java object identity, that is not by
      * equality, using {@link #containsInMemo(RelationalExpression, boolean)} or other methods). This method
      * does not distinguish between exploratory and final expressions.
+     *
      * @param expression expression to check
      * @return {@code true} iff this reference contains the expression passed in.
      */
@@ -395,6 +408,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Method to indicate if the given expression is an exploratory expression (by Java object identity) of this
      * reference. This method is not sensitive to whether the expression is also a final expression of this reference.
+     *
      * @param expression expression to check
      * @return {@code true} if the expression passed in is an exploratory expression, {@code false} if the expression
      *         passed in is not an exploratory expression.
@@ -413,6 +427,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Method to indicate if the given expression is a final expression (by Java object identity) of this reference.
      * This method is not sensitive to whether the expression is also an exploratory expression of this reference.
+     *
      * @param expression expression to check
      * @return {@code true} if the expression passed in is a final expression, {@code false} if the expression passed in
      *         is not a final expression.
@@ -457,6 +472,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Method to determine is this reference already memoized the expression that is passed in. An expression is
      * memoized if a semantically equal expression (that includes equality by java object id) is contained in this
      * reference and if the expression's children expressions are all memoized compatibly as well.
+     *
      * @param expression expression to check
      * @param isFinal indicator iff the expression passed in should be considered a final expression (or an exploratory
      *        expression
@@ -497,6 +513,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     /**
      * Method that resolves the result type by looking and unifying the result types from all the members.
+     *
      * @return {@link Type} representing result type
      */
     @Nonnull
@@ -674,6 +691,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Return all match candidates that partially match this reference. This set must be a subset of all {@link MatchCandidate}s
      * in the {@link PlanContext} during planning. Note that it is possible that a particular match candidate matches this
      * reference more than once.
+     *
      * @return a set of match candidates that partially match this reference.
      */
     @Nonnull
@@ -684,6 +702,7 @@ public class Reference implements Correlated<Reference>, Typed {
     /**
      * Return all partial matches that match a given expression. This method is agnostic of the {@link MatchCandidate}
      * that created the partial match.
+     *
      * @param expression expression to return partial matches for. This expression has to be a member of this reference
      * @return a collection of partial matches that matches the give expression to some candidate
      */
@@ -699,6 +718,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     /**
      * Return all partial matches for the {@link MatchCandidate} passed in.
+     *
      * @param candidate match candidate
      * @return a set of partial matches for {@code candidate}
      */
@@ -709,6 +729,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     /**
      * Add the {@link PartialMatch} passed in to this reference for the {@link MatchCandidate} passed in.
+     *
      * @param candidate match candidate this partial match relates to
      * @param partialMatch a new partial match.
      * @return {@code true} if this call added a new partial, {@code false} if the partial match passed in was already
@@ -724,6 +745,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
      * {@link Reference}. During debugging you can then click show() on an instance and enjoy the query graph
      * it represents rendered in your standard browser.
+     *
      * @param renderSingleGroups whether to render group references with just one member
      * @return the String "done"
      */

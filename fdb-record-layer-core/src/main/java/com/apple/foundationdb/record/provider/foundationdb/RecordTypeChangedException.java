@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStoreBase#updateRecord} is called, but the existing record has a different record type.
+ *
  * @see FDBRecordStoreBase.RecordExistenceCheck#ERROR_IF_RECORD_TYPE_CHANGED
  * @see FDBRecordStoreBase.RecordExistenceCheck#ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED
  */

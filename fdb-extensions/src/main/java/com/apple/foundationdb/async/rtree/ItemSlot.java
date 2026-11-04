@@ -125,7 +125,6 @@ public class ItemSlot implements NodeSlot {
      *
      * @param hilbertValue Hilbert value
      * @param key first key
-     *
      * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
      */
     public int compareHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,

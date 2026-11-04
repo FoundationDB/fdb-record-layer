@@ -60,7 +60,6 @@ public final class StoreTimerSnapshot {
      * Creates an immutable snapshot of a {@link StoreTimer}.
      *
      * @param timer to create the snapshot from
-     *
      * @return immutable snapshot of the provided timer
      */
     @Nonnull
@@ -69,18 +68,14 @@ public final class StoreTimerSnapshot {
     }
 
     /**
-     * Returns the counters taken at the time of the snapshot.
-     *
-     * @return the counters taken at the time of the snapshot.
+     * {@return the counters taken at the time of the snapshot}
      */
     public Map<StoreTimer.Event, CounterSnapshot> getCounters() {
         return counters;
     }
 
     /**
-     * Returns the timeout counters taken at the time of the snapshot.
-     *
-     * @return the timeout counters taken at the time of the snapshot.
+     * {@return the timeout counters taken at the time of the snapshot}
      */
     public Map<StoreTimer.Event, CounterSnapshot> getTimeoutCounters() {
         return timeoutCounters;
@@ -91,7 +86,6 @@ public final class StoreTimerSnapshot {
      * Get the counter for a given event.
      *
      * @param event the event of interest
-     *
      * @return immutable counter if it exists or null otherwise
      */
     @Nullable
@@ -103,7 +97,6 @@ public final class StoreTimerSnapshot {
      * Determine if there is a counter recorded for a given event.
      *
      * @param event the event of interest
-     *
      * @return true if a counter exists for the event of interest
      */
     public boolean containsCounter(@Nonnull StoreTimer.Event event) {
@@ -114,7 +107,6 @@ public final class StoreTimerSnapshot {
      * Get the timeout counter for a given event.
      *
      * @param event the event of interest
-     *
      * @return immutable timeout counter if it exists or null otherwise
      */
     @Nullable
@@ -126,7 +118,6 @@ public final class StoreTimerSnapshot {
      * Determine if there is a timeout counter recorded for a given event.
      *
      * @param event the event of interest
-     *
      * @return true if a timeout counter exists for the event of interest
      */
     public boolean containsTimeoutCounter(@Nonnull StoreTimer.Event event) {
@@ -137,7 +128,6 @@ public final class StoreTimerSnapshot {
      * Determine if this snapshot is derived from the provided timer.
      *
      * @param timer the provided timer
-     *
      * @return true if it is valid to diff this snapshot from the provided timer
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -152,7 +142,6 @@ public final class StoreTimerSnapshot {
      * Determine if this snapshot was taken after the provided timer was last reset.
      *
      * @param timer the provided timer
-     *
      * @return true if this snapshot was taken after the provided timer was last reset
      */
     public boolean takenAfterReset(StoreTimer timer) {
@@ -189,7 +178,6 @@ public final class StoreTimerSnapshot {
          * Creates an immutable snapshot of a {@link StoreTimer.Counter}.
          *
          * @param counter to create the snapshot from
-         *
          * @return immutable snapshot of the provided counter
          */
         @Nonnull
@@ -198,27 +186,21 @@ public final class StoreTimerSnapshot {
         }
 
         /**
-         * Get the number of occurrences of the associated event.
-         *
-         * @return the number of occurrences of the associated event
+         * {@return the number of occurrences of the associated event}
          */
         public int getCount() {
             return count;
         }
 
         /**
-         * Get the cumulative time spent on the associated event.
-         *
-         * @return the cumulative time spent on the associated event
+         * {@return the cumulative time spent on the associated event}
          */
         public long getTimeNanos() {
             return getCumulativeValue();
         }
 
         /**
-         * Get the cumulative size of the associated event.
-         *
-         * @return the cumulative size of the associated event
+         * {@return the cumulative size of the associated event}
          */
         public long getCumulativeValue() {
             return cumulativeValue;

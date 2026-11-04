@@ -60,7 +60,6 @@ public final class TimedAsyncIterable {
      * @param iterable the iterable to time
      * @param elapsedNanosConsumer receives the accumulated await time in nanoseconds
      * @param <T> the element type
-     *
      * @return a timing wrapper around {@code iterable}
      */
     @Nonnull

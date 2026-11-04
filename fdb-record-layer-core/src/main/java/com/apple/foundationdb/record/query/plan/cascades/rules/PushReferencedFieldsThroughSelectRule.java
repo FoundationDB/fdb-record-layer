@@ -90,6 +90,7 @@ public class PushReferencedFieldsThroughSelectRule extends AbstractCascadesRule<
 
     /**
      * Return all {@link FieldValue}s contained in the result values of this expression.
+     *
      * @return a set of {@link FieldValue}s
      */
     private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {

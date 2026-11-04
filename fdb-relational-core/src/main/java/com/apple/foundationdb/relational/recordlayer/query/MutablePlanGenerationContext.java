@@ -414,7 +414,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      *
      * @param supplier The closure to run with literal processing disabled.
      * @param <T> The type of the closure result.
-     *
      * @return The result of the closure
      */
     @Nonnull

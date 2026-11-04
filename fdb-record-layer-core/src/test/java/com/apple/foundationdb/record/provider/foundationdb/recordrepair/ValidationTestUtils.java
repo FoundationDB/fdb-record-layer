@@ -69,6 +69,7 @@ public class ValidationTestUtils {
      * The bitsets represent combinations of splits to be removed by the test:
      * bit 0 is the version (Split #-1)
      * bits 1-3 are the 1st (#1), 2nd (#2) or 3rd (#3) splits of a long (split) record
+     *
      * @return a stream of splits combinations
      */
     @Nonnull
@@ -81,6 +82,7 @@ public class ValidationTestUtils {
      * This is useful to know since a gone record will not show up in the validation results.
      * A record will disappear if all of its splits  and version are deleted, or if we are not storing version with the
      * record and all of its data is deleted.
+     *
      * @param numOfSplits number of splits for the record (2 or 3)
      * @param splitsToRemove the bitset of splits to be removed
      * @param formatVersion the format version for the store
@@ -108,6 +110,7 @@ public class ValidationTestUtils {
     /**
      * Return TRUE if removing the given splits will leave the record in valid state.
      * The record will remain valid if we are removing non-existing splits or a version when the version is stored elsewhere.
+     *
      * @param numOfSplits number of splits for the record (2 or 3)
      * @param splitsToRemove the bitset of splits to be removed
      * @param formatVersion the format version for the store
@@ -134,6 +137,7 @@ public class ValidationTestUtils {
 
     /**
      * Return TRUE if removing the given splits will leave the record without a version but otherwise valid.
+     *
      * @param numOfSplits number of splits for the record (2 or 3)
      * @param splitsToRemove the bitset of splits to be removed
      * @param formatVersion the format version for the store

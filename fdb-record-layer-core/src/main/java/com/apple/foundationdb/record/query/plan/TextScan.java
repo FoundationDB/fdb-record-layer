@@ -470,9 +470,7 @@ public class TextScan implements PlanHashable {
     }
 
     /**
-     * Get the index being scanned.
-     *
-     * @return the index being scanned
+     * {@return the index being scanned}
      */
     @Nonnull
     public Index getIndex() {

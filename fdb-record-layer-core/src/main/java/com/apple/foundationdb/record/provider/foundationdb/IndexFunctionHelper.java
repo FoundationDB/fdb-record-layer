@@ -66,6 +66,7 @@ public class IndexFunctionHelper {
 
     /**
      * Find an index that can evaluate the given function against the given record.
+     *
      * @param store the record store containing the record
      * @param function the function to evaluate
      * @param record the record to evaluate against
@@ -80,6 +81,7 @@ public class IndexFunctionHelper {
 
     /**
      * Find an index that can evaluate the given function against all of the given record types. 
+     *
      * @param store the record store containing the record types
      * @param function the function to evaluate
      * @param recordTypeNames the names of all the record types for which the function will be evaluated
@@ -127,6 +129,7 @@ public class IndexFunctionHelper {
      * {@link IndexMaintainer}. During the binding process we enumerate all indexes and for each such index we enumerate
      * all permutations of grouping expressions in order to find an index that can be used to evaluated the aggregate
      * function call.
+     *
      * @param store the store containing the record types
      * @param functionCall an {@link IndexAggregateFunctionCall}
      * @param recordTypeNames the names of the record types for which indexes need to be considered
@@ -160,6 +163,7 @@ public class IndexFunctionHelper {
 
     /**
      * The indexes that apply to <em>exactly</em> the given types, no more, no less.
+     *
      * @param store the store containing the record types
      * @param recordTypeNames the names of the record types for which indexes are needed
      * @return a stream of indexes
@@ -171,6 +175,7 @@ public class IndexFunctionHelper {
 
     /**
      * The indexes that apply to <em>exactly</em> the given types, no more, no less.
+     *
      * @param metaData the meta-data containing the record types
      * @param recordTypeNames the names of the record types for which indexes are needed
      * @return a stream of indexes
@@ -191,6 +196,7 @@ public class IndexFunctionHelper {
     /**
      * Is the operand for this function compatible with this index?
      * The <em>grouped</em> part must match. The <em>grouping</em> part must be a prefix.
+     *
      * @param functionOperand the operand to the function
      * @param indexRoot the index's expression
      * @return {@code true} if the operand is compatible with the index
@@ -383,6 +389,7 @@ public class IndexFunctionHelper {
     /**
      * Given an index record function and condition on repeated fields (such as a key for a map-like field), return a function suitable for use with
      * {@link #recordFunctionIndexEntry} to get the matching index entry.
+     *
      * @param store store against which function will be evaluated
      * @param recordFunction function to be evaluated
      * @param record record against which to evaluate
@@ -429,6 +436,7 @@ public class IndexFunctionHelper {
      *
      * <p>In most cases, this is the same as {@link KeyExpression#evaluateSingleton}. But if {@code recordFunction} is
      * the result of {@link #recordFunctionWithSubrecordCondition}, a matching entry will be found.
+     *
      * @param store store against which function will be evaluated
      * @param index index for which to evaluate
      * @param context context for parameter bindings

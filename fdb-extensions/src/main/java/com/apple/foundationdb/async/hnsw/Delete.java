@@ -101,6 +101,7 @@ class Delete {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -110,6 +111,7 @@ class Delete {
 
     /**
      * Get the configuration of this hnsw.
+     *
      * @return hnsw configuration
      */
     @Nonnull
@@ -118,8 +120,7 @@ class Delete {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -127,8 +128,7 @@ class Delete {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {
@@ -177,7 +177,6 @@ class Delete {
      * @param transaction the {@link Transaction} context for all database operations, ensuring atomicity
      *        and consistency of the deletion and repair operations
      * @param primaryKey the unique {@link Tuple} primary key identifying the node to be deleted from the graph
-     *
      * @return a {@link CompletableFuture} that completes when the deletion operation is fully finished,
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.
@@ -256,7 +255,6 @@ class Delete {
      * @param topLayer the top layer for the node.
      * @param needNewEntryNode whether the node being deleted is the entry node, so that each layer has to offer a
      *        replacement for it; if not, every layer offers {@code null}
-     *
      * @return a {@link CompletableFuture} of what each layer offers as a replacement entry node, one element per layer
      *         in layer order, each {@code null} if that layer offers none or {@code needNewEntryNode} is {@code false}
      */
@@ -291,7 +289,6 @@ class Delete {
      * @param toBeDeletedPrimaryKey the primary key of the new node to be inserted
      * @param needNewEntryNode whether the node being deleted is the entry node, so that this layer has to offer a
      *        replacement for it; if not, this layer offers {@code null}
-     *
      * @return a {@code CompletableFuture} of the node this layer offers as a replacement entry node, or of {@code null}
      */
     @Nonnull
@@ -990,6 +987,7 @@ class Delete {
      * Predicate to determine if a potential candidate is to be used as a candidate for repairing the HNSW.
      * The predicate rejects the candidate reference if it is referring to the node that is being deleted, otherwise the
      * predicate accepts the candidate reference.
+     *
      * @param candidateReference a potential candidate that is either accepted or rejected
      * @param toBeDeletedPrimaryKey the {@link Tuple} representing the node that is being deleted
      * @return {@code true} iff {@code candidateReference} is accepted as an actual candidate for repair.
@@ -1013,6 +1011,7 @@ class Delete {
      *    <li> Sample the remaining potential candidates such that eventually the repair algorithm can use
      *         roughly {@code efRepair} actual candidates.</li>
      * </ol>
+     *
      * @param random the PRNG to be used (splittable)
      * @param initialNodeKeys a set of {@link Tuple}s that hold the primary neighbors of the node being deleted.
      * @param numberOfCandidates the number of potential candidates the repair algorithm compiled

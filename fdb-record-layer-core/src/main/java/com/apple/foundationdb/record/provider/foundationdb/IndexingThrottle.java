@@ -443,6 +443,7 @@ public class IndexingThrottle {
     /**
      * Record - in this existing indexing transaction - the queued indexes whose pending writes queue is currently non-empty.
      * If they exist, the indexer will lunch dedicated transactions to drain their queues.
+     *
      * @param store store
      * @param context context
      * @return a future that completes once {@link #drainRequiredIndexes} has been populated
@@ -459,6 +460,7 @@ public class IndexingThrottle {
     /**
      * Filter the given indexes down to those whose pending writes queue currently holds at least one entry.
      * The size counter is read via a snapshot (conflict-free) read.
+     *
      * @param store store
      * @param context context
      * @param indexes candidate indexes (expected to be in a write-only-with-queue state)

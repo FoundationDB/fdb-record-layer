@@ -47,6 +47,7 @@ public interface LuceneAnalyzerFactory {
 
     /**
      * Get the {@link LuceneAnalyzerType} for the Lucene analyzer factory.
+     *
      * @return the {@link LuceneScanTypes} used to determine how the analyzers build by this factory is used
      */
     @Nonnull

@@ -534,6 +534,7 @@ public class KeySpaceTreeResolver {
 
     /**
      * Resolve something other than a {@link KeySpaceDirectory} node.
+     *
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return a future that completes to a new {@link Resolved} or {@code null}
@@ -643,6 +644,7 @@ public class KeySpaceTreeResolver {
      *
      * <p>Override this if whether a leaf directory can be determined from the {@link Resolved}; for example, because they
      * use a specific {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathWrapper} class.
+     *
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return {@code true} if this path stores a record store
@@ -655,6 +657,7 @@ public class KeySpaceTreeResolver {
      * Given a key space path for which {@link #isRecordStoreLeaf} is {@code true}, get the record store's meta-data.
      *
      * <p>Override this method if the meta-data can be determined from the {@link Resolved} tree.
+     *
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return a future that completes to the record store's meta-data or {@code null}

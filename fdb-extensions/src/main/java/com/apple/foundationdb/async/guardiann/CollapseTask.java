@@ -331,7 +331,6 @@ class CollapseTask extends AbstractDeferredTask {
      * in the metadata update.
      *
      * @param collapseAssignments the assignments whose vectors are tallied
-     *
      * @return the primary-underreplicated and replicated vector counts for the assignments
      */
     @Nonnull

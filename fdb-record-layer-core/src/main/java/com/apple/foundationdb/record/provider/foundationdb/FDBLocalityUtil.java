@@ -38,6 +38,7 @@ public class FDBLocalityUtil implements FDBLocalityProvider {
 
     /**
      * Get the single instance of this utility class.
+     *
      * @return the only instance of the class
      */
     @Nonnull
@@ -54,7 +55,6 @@ public class FDBLocalityUtil implements FDBLocalityProvider {
      * @param tr the transaction on which to base the query
      * @param begin the inclusive start of the range
      * @param end the exclusive end of the range
-     *
      * @return a sequence of keys denoting the start of single-server ranges
      * @see LocalityUtil#getBoundaryKeys(Transaction, byte[], byte[])
      */

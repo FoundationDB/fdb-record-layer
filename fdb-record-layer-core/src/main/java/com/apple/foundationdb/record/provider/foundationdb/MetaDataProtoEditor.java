@@ -351,7 +351,6 @@ public class MetaDataProtoEditor {
      *
      * @param field the field descriptor to check the type of
      * @param fullTypeName the fully-qualified type name
-     *
      * @return whether the field matches or might match the given type
      */
     @Nonnull

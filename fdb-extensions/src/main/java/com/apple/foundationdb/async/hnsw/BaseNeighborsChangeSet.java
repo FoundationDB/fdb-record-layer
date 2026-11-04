@@ -89,6 +89,7 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
 
     /**
      * Returns {@code false} as this change set is a base change set. It does not represent any changes.
+     *
      * @return {@code false} as this change set does not have any changes.
      */
     @Override
@@ -101,6 +102,7 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      *
      * <p>This implementation fulfills the {@code merge} contract by simply returning the
      * existing list of neighbors without performing any additional merging logic.
+     *
      * @return a non-null list of neighbors. The generic type {@code N} represents
      *         the type of the neighboring elements.
      */

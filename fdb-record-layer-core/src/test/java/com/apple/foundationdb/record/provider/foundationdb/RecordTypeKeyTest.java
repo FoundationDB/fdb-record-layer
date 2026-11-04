@@ -373,6 +373,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
      * Returns arguments for the tests with sorts. This returns a pair of arguments with the first
      * argument being the field to sort on and the second field being whether to sort in forward or
      * reverse order.
+     *
      * @return a stream of arguments to use for parameterized tests with sorts
      */
     @Nonnull

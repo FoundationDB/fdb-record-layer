@@ -124,6 +124,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     /**
      * This FormatVersion allows the user to store additional fields in the StoreHeader.
      * These fields aren't used by the record store itself, but allow the user to set and read additional information.
+     *
      * @see FDBRecordStore#setHeaderUserField
      *
      */
@@ -139,6 +140,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     CHECK_INDEX_BUILD_TYPE_DURING_UPDATE(10),
     /**
      * This FormatVersion allows setting a state for the RecordCountKey on an individual store.
+     *
      * @see RecordMetaDataProto.DataStoreInfo#getRecordCountState()
      */
     RECORD_COUNT_STATE(11),
@@ -149,6 +151,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     /**
      * This FormatVersion supports setting an incarnation for the store.
      * The incarnation is intended to be incremented when moving data from one cluster to another.
+     *
      * @see RecordMetaDataProto.DataStoreInfo#getIncarnation()
      */
     INCARNATION(13),
@@ -193,6 +196,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     /**
      * The minimum {@code FormatVersion}.
+     *
      * @return the minimum {@code FormatVersion}
      */
     static FormatVersion getMinimumVersion() {
@@ -201,6 +205,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     /**
      * The maximum {@code FormatVersion} that this version of the Record Layer can support.
+     *
      * @return the maximum supported version
      */
     public static FormatVersion getMaximumSupportedVersion() {
@@ -244,6 +249,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     /**
      * Returns whether this version is {@code >=} the provided version.
+     *
      * @param other a different format version.
      * @return {@code true} if this format version is the same as {@code other} or greater than it
      */

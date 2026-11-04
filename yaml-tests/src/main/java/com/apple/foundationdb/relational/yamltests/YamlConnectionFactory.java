@@ -37,9 +37,7 @@ public interface YamlConnectionFactory {
      *
      * @param connectPath the path to connect to
      * @param clusterIndex the cluster to connect to (0 is the default cluster)
-     *
      * @return A new {@link RelationalConnection} for the given path on the specified cluster
-     *
      * @throws SQLException if we cannot connect or the cluster index is not supported
      */
     YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException;

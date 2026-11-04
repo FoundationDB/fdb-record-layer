@@ -101,6 +101,7 @@ public class PatternForLikeValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link PatternForLikeValue}.
+     *
      * @param patternChild the pattern
      * @param escapeChild the escape character
      */

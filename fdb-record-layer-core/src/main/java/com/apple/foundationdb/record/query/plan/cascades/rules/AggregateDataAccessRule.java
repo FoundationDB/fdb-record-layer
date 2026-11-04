@@ -100,6 +100,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
      * {@code _.1, _2}. We can then also access the aggregates in individually, e.g.
      * ({@code (q1._0, q1._1, q1._2, q2._2}) would return the groupings comprised of {@code a} and {@code b} as well
      * as the sum and the count.
+     *
      * @param memoizer the memoizer
      * @param intersectionInfoMap a map that allows us to access information about other intersections of degree
      *        {@code n-1}.

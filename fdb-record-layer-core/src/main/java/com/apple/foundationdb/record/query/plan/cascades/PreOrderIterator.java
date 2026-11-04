@@ -136,6 +136,7 @@ public final class PreOrderIterator<T extends TreeLike<T>> extends AbstractItera
 
     /**
      * Retuns an iterator that traverses {@code treeLike} in pre-order.
+     *
      * @param treeLike a {@link TreeLike} treeLike.
      * @param <T> The type of {@code treeLike} items.
      * @return an iterator that traverses the items in pre-order.

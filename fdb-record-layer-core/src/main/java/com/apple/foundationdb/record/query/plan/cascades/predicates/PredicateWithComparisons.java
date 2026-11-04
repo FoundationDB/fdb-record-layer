@@ -32,6 +32,7 @@ import java.util.List;
 public interface PredicateWithComparisons {
     /**
      * Return all comparisons this predicate uses.
+     *
      * @return a list of comparisons
      */
     @Nonnull

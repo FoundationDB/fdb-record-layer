@@ -101,7 +101,6 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * Creates a default instance of the extended directory layer.
      *
      * @param database The {@link FDBDatabase} for this resolver
-     *
      * @return The global <code>ExtendedDirectoryLayer</code> for this database
      */
     public static ExtendedDirectoryLayer global(@Nonnull FDBDatabase database) {

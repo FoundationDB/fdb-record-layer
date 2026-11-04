@@ -68,6 +68,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Returns the subspace in which the index data is stored.
+     *
      * @return subspace for index data
      */
     @Nonnull
@@ -77,6 +78,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Returns the secondary subspace in which the index data is stored.
+     *
      * @return secondary subspace for index data
      */
     @Nonnull
@@ -89,6 +91,7 @@ public abstract class IndexMaintainer {
      * from the secondary subspace, used exclusively by {@code SlidingWindowIndexMaintainer}
      * for window/overflow/count bookkeeping, so it does not collide with delegate index
      * types that also use the secondary subspace.
+     *
      * @return sliding window subspace for index data
      */
     @Nonnull
@@ -98,6 +101,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Scan entries in the index.
+     *
      * @param scanType the {@link IndexScanType type} of scan to perform
      * @param range the range to scan
      * @param continuation any continuation from a previous scan invocation
@@ -112,6 +116,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Scan entries in the index.
+     *
      * @param scanBounds the {@link IndexScanBounds bounds} of the scan to perform
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
@@ -126,6 +131,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Update associated index for a changed record.
+     *
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
@@ -155,6 +161,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Update associated index for a scanned record during online indexing.
+     *
      * @param newRecord a scanned record that needs to be indexed.
      * @param <M> type of message
      * @return a future that is complete when the index update is done
@@ -261,6 +268,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Return <code>true</code> if this index be used to evaluate the given record function.
+     *
      * @param function requested function
      * @return {@code true} if this index can be used to evaluate the given function
      */
@@ -268,6 +276,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Apply the key and value expressions to a <code>record</code>.
+     *
      * @param <M> the message type of the record
      * @param record the record from which the index will extract its key and value
      * @return a list of index keys and values
@@ -277,6 +286,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Similar to {@link #evaluateIndex(FDBRecord)}, but returns null if the record should be filtered out.
+     *
      * @param <M> the message type of the record
      * @param savedRecord the indexable record from which the index will extract its key and value
      * @return a list of index keys and values
@@ -286,6 +296,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Evaluate a record function on the given record.
+     *
      * @param <T> the result type of the function
      * @param <M> the message type of the record
      * @param context context for evaluation
@@ -305,6 +316,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Get whether this index can be used to evaluate the given aggregate function.
+     *
      * @param function the requested aggregate function
      * @return <code>true</code> if this index be used to evaluate the given aggregate function
      */
@@ -312,6 +324,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Evaluate an aggregate function over the given range using this index.
+     *
      * @param function the aggregate function to evaluate
      * @param range the range over which to accumulate the aggregate
      * @param isolationLevel the isolation level at which to perform the scan
@@ -332,6 +345,7 @@ public abstract class IndexMaintainer {
      * index updates in the normal case are idempotent as long as the index update and the
      * record insertion or deletion is atomic. However, certain indexes (mostly aggregate
      * indexes) have the property that the index update on its own are not idempotent.
+     *
      * @return whether updating this index is idempotent
      */
     public abstract boolean isIdempotent();
@@ -343,6 +357,7 @@ public abstract class IndexMaintainer {
      * index directly, and the online indexer drains that queue as it builds.
      * Maintainers that cannot correctly defer and later replay updates should return {@code false} to refuse this state;
      * this is the default, so maintainers that do support the queue must opt in by overriding this method.
+     *
      * @return whether this index may be built with a pending write queue
      */
     @API(API.Status.EXPERIMENTAL)
@@ -356,6 +371,7 @@ public abstract class IndexMaintainer {
      * write-only index with a new key. If the key is in some range, then it means that one should update the index
      * as it is based off of stale data. If the key is not in some range, then it means that one should not update
      * the index, as the rebuild job will handle it later.
+     *
      * @param primaryKey the record key of the record to check
      * @return a future that will be <code>true</code> if some range contains the record and <code>false</code> otherwise
      */
@@ -364,6 +380,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Get whether this index scan delete records matching a particular key query.
+     *
      * @param matcher the key query
      * @param evaluated parameters to the key query
      * @return <code>true</code> if this index accommodate a <code>whereRecordsWhere</code>
@@ -372,6 +389,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Clear index storage associated with the given key prefix.
+     *
      * @param tr transaction in which to access the database
      * @param prefix prefix of primary key to clear
      * @return a future that is complete when the given prefix has been cleared from this index
@@ -381,6 +399,7 @@ public abstract class IndexMaintainer {
     /**
      * Perform a type-specific operation on index. 
      * Allowed operations will vary by index type.
+     *
      * @param operation the requested operation
      * @return a future that completes with the result of the operation
      */
@@ -388,6 +407,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Use the getMappedRange scan method to return a range scan with the dereferenced record for each index entry.
+     *
      * @param scanBounds the index range to scan
      * @param continuation the continuation to use
      * @param scanProperties the scan properties to use
@@ -406,6 +426,7 @@ public abstract class IndexMaintainer {
 
     /**
      * If the index is merge'Able, perform an index merge (within a single transaction limit).
+     *
      * @return a future that completes the merge operation
      */
     @API(API.Status.EXPERIMENTAL)

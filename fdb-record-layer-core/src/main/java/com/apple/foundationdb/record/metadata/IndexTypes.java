@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.FunctionNames;
  * The standard index types.
  *
  * <p>The type of an {@link Index} is just a string, so that new ones can be defined outside the Record Layer core.
+ *
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry
  */
 @API(API.Status.UNSTABLE)
@@ -66,6 +67,7 @@ public class IndexTypes {
 
     /**
      * Compatible name for {@link #MIN_EVER_LONG}.
+     *
      * @deprecated use {@link #MIN_EVER_LONG} for compatibility with existing data or {@link #MIN_EVER_TUPLE} for more flexibility
      */
     @Deprecated
@@ -74,6 +76,7 @@ public class IndexTypes {
 
     /**
      * Compatible name for {@link #MAX_EVER_LONG}.
+     *
      * @deprecated use {@link #MAX_EVER_LONG} for compatibility with existing data or {@link #MAX_EVER_TUPLE} for more flexibility
      */
     @Deprecated

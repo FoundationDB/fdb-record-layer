@@ -37,6 +37,7 @@ import java.util.function.Function;
 
 /**
  * A rule call implementation for the computation of a result while traversing {@link Value} trees.
+ *
  * @param <ARGUMENT> the type of the arguments to this rule call
  * @param <RESULT> the type of result this rule call produces
  */

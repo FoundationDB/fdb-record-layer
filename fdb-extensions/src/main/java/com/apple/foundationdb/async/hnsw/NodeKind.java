@@ -48,6 +48,7 @@ public enum NodeKind {
 
     /**
      * Constructs a new {@code NodeKind} instance with its serialized representation.
+     *
      * @param serialized the byte value used for serialization
      */
     NodeKind(final byte serialized) {
@@ -55,8 +56,7 @@ public enum NodeKind {
     }
 
     /**
-     * Gets the serialized byte value.
-     * @return the serialized byte value
+     * {@return the serialized byte value}
      */
     public byte getSerialized() {
         return serialized;
@@ -64,6 +64,7 @@ public enum NodeKind {
 
     /**
      * Deserializes a byte into the corresponding {@link NodeKind}.
+     *
      * @param serializedNodeKind the byte representation of the node kind.
      * @return the corresponding {@link NodeKind}, never {@code null}.
      * @throws IllegalArgumentException if the {@code serializedNodeKind} does not

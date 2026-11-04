@@ -100,6 +100,7 @@ public class Search {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -109,6 +110,7 @@ public class Search {
 
     /**
      * Get the configuration of this hnsw.
+     *
      * @return hnsw configuration
      */
     @Nonnull
@@ -117,8 +119,7 @@ public class Search {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {
@@ -139,7 +140,6 @@ public class Search {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -169,7 +169,6 @@ public class Search {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -211,7 +210,6 @@ public class Search {
      * @param queryVector the vector to find the nearest neighbors for
      * @param efSearchFunction a function that returns the exploration factor for a layer that is passed in
      * @param objectiveFunctionCreator a functional that creates the objective function for this search
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -492,7 +490,6 @@ public class Search {
      * cost of performance.
      * @param objectiveFunction the objective function that is to be minimized
      * @param nodeCache A cache of nodes that have already been fetched from storage to avoid redundant I/O.
-     *
      * @return A {@link CompletableFuture} that, upon completion, will contain a list of the
      * best candidate nodes found in this layer, paired with their full node data.
      */

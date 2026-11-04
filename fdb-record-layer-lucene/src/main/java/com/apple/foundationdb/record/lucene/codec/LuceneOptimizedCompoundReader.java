@@ -65,6 +65,7 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     /**
      * Sole constructor.
+     *
      * @param directory the underlying directory
      * @param si the segment
      * @param context context in which this is being read
@@ -146,6 +147,7 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     }
 
     /** Returns the length of a file in the directory.
+     *
      * @throws IOException if the file does not exist */
     @Override
     public long fileLength(String name) throws IOException {
@@ -176,6 +178,7 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     /**
      * Get the underlying directory associated with this reader.
+     *
      * @return the underlying directory
      */
     public Directory getDirectory() {
@@ -184,6 +187,7 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     /**
      * Get the filename for storing the entries in this compound file.
+     *
      * @return the filename for the entries
      */
     public String getEntriesFileName() {

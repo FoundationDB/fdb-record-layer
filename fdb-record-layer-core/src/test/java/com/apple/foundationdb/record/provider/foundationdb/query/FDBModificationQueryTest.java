@@ -205,6 +205,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *          (200, 'Heirloom Cafe', (), (), ());
      * }
      * </pre>
+     *
      * @throws Exception if problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -503,6 +504,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *   SET name = name + ' McDonald\'s'
      * }
      * </pre>
+     *
      * @throws Exception if problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -645,6 +647,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *                (400, 'Bonita Burrito')) v;
      * }
      * </pre>
+     *
      * @throws Exception if there is a problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

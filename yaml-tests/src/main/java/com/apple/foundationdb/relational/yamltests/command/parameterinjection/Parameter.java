@@ -71,9 +71,7 @@ public interface Parameter {
     Parameter bind(@Nonnull Random random);
 
     /**
-     * Returns {@code true} if this parameter is bound, else {@code false}.
-     *
-     * @return {@code true} if this parameter is bound, else {@code false}
+     * {@return {@code true} if this parameter is bound, else {@code false}}
      */
     boolean isUnbound();
 
@@ -98,6 +96,7 @@ public interface Parameter {
 
     /**
      * Returns the {@link String} that is the textual SQL representation of the value of this parameter.
+     *
      * @return the string
      */
     @Nonnull

@@ -109,9 +109,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param abortOnComparisonFailure whether to abort the execution and throw an exception when encountering a comparison failure
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
-     *
      * @return a cursor containing same records in all child cursors
-     *
      * @see #create(Function, List, byte[], FDBStoreTimer, int, boolean, Supplier, Supplier)
      */
     @Nonnull
@@ -157,7 +155,6 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param abortOnComparisonFailure whether to abort the execution and throw an exception when encountering a comparison failure
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
-     *
      * @return a cursor that contains the same records as the reference cursor (Note the side effect of logging comparison errors).
      */
     @Nonnull
@@ -288,7 +285,6 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param comparisonKey the key to apply to the record
      * @param message the message
      * @param <M> the type of encoding for the record
-     *
      * @return the result of applying the key to the record, for the purpose of comparison to other records
      */
     @Nonnull

@@ -149,14 +149,12 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     }
 
     /**
-     * Get the minimum number of arguments supported by this function.
-     * @return the minimum number of arguments supported by this function
+     * {@return the minimum number of arguments supported by this function}
      */
     public abstract int getMinArguments();
 
     /**
-     * Get the maximum number of arguments supported by this function.
-     * @return the maximum number of arguments supported by this function
+     * {@return the maximum number of arguments supported by this function}
      */
     public abstract int getMaxArguments();
 
@@ -225,6 +223,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     /**
      * Create a function from its protobuf serialized form.
+     *
      * @param function the protobuf definition of the function
      * @return the key expression that implements the function
      * @throws InvalidExpressionException If the function name provided does not have an available
@@ -265,6 +264,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * that serve as the arguments to the function. In reality this method is exclusively called from the
      * expansion visitors, e.g. {@link com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor},
      * thus forming the bridge between key expressions and Cascades values.
+     *
      * @param argumentValues the argument values
      * @return a new {@link Value}
      */
@@ -308,6 +308,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashMode)} so
      * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
+     *
      * @param mode the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)

@@ -94,6 +94,7 @@ public class Guardiann {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link Guardiann}
      * @see Config.ConfigBuilder#build
      */
@@ -103,6 +104,7 @@ public class Guardiann {
 
     /**
      * Returns a default {@link Config}.
+     *
      * @param numDimensions number of dimensions
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
@@ -149,6 +151,7 @@ public class Guardiann {
 
     /**
      * Get the executor used by this object.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -158,6 +161,7 @@ public class Guardiann {
 
     /**
      * Get this object's configuration.
+     *
      * @return the configuration
      */
     @Nonnull
@@ -166,8 +170,7 @@ public class Guardiann {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -175,8 +178,7 @@ public class Guardiann {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -206,7 +208,6 @@ public class Guardiann {
      * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors of
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -240,7 +241,6 @@ public class Guardiann {
      *        its primary key is strictly greater (may be {@code null} to disable the tie-break)
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} completing with up to {@code k} results in ascending distance order
      */
     @Nonnull

@@ -132,6 +132,7 @@ public class Key {
          * the concatenation will generate 6 index entries: [[a,1], [a,2], [a,3], [b,1], [b,2], [b,3]]. No context is
          * shared by this expression between it's children.
          * This flattens children, so concat(concat(field), concat(field2)) == concat(field1, field2).
+         *
          * @param first the first child expression to use in the index
          * @param second the second child expression to use in the index
          * @param rest this supports any number children (at least 2), this is the rest of them
@@ -149,6 +150,7 @@ public class Key {
          * the concatenation will generate 6 index entries: [[a,1], [a,2], [a,3], [b,1], [b,2], [b,3]]. No context is
          * shared by this expression between it's children.
          * This flattens children, so concat(concat(field), concat(field2)) == concat(field1, field2).
+         *
          * @param children child expressions
          * @return a new expression which evaluates each child and returns the cross product
          */
@@ -159,6 +161,7 @@ public class Key {
 
         /**
          * Shortcut for `concat(field(first), field(second), field(rest[0]), ...)`.
+         *
          * @param first the name of the first field to use in the index
          * @param second the name of the second field to use in the index
          * @param fields this supports any number fields (at least 2), this is the rest of them
@@ -176,6 +179,7 @@ public class Key {
 
         /**
          * Concatenate multiple fields together.
+         *
          * @param fields names of the fields
          * @return a new expression which evaluates each field and returns them all in a single key
          */
@@ -190,6 +194,7 @@ public class Key {
 
         /**
          * Combine multiple expressions into a list.
+         *
          * @param children child expressions
          * @return a new expression which evaluates each child and returns the cross product as a list
          */
@@ -200,6 +205,7 @@ public class Key {
 
         /**
          * Combine multiple expressions into a list.
+         *
          * @param children child expressions
          * @return a new expression which evaluates each child and returns the cross product as a list
          */
@@ -213,6 +219,7 @@ public class Key {
          *
          * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         *
          * @param name name of the map field
          * @return a new expression which evaluates to the key and value pairs of the given {@code map} field.
          */
@@ -226,6 +233,7 @@ public class Key {
          *
          * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         *
          * @param name name of the map field
          * @return a new expression which evaluates to the values of the given {@code map} field.
          */
@@ -239,6 +247,7 @@ public class Key {
          *
          * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         *
          * @param name name of the map field
          * @return a new expression which evaluates to the values of the given {@code map} field.
          */
@@ -255,6 +264,7 @@ public class Key {
          *
          * <p>A map can be an actual Protobuf 3 {@code map} field or, 
          * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         *
          * @param name name of the map field
          * @return a new expression which evaluates to the value and key pairs of the given {@code map} field.
          */
@@ -265,6 +275,7 @@ public class Key {
 
         /**
          * Create a function call with arguments that will result in a key expression.
+         *
          * @param name the name of the function
          * @param arguments the arguments to the function
          * @return a new key expression that evaluates by calling the named function
@@ -276,6 +287,7 @@ public class Key {
 
         /**
          * Create a function call with arguments that will result in a key expression.
+         *
          * @param name the name of the function
          * @return a new key expression that evaluates by calling the named function
          */
@@ -287,6 +299,7 @@ public class Key {
         /**
          * Create a static scalar value of type <code>T</code>. The typical use case for this would be to
          * pass arguments to a function call (see {@link FunctionKeyExpression}).
+         *
          * @param value the {@code T} value
          * @param <T> the type of the value
          * @return a new key expression that evaluates to the given value
@@ -301,6 +314,7 @@ public class Key {
          * produces more than one column, and indicates that all columns before the specified <code>splitPoint</code>
          * should be used in the key of an index and all of the values starting at the <code>splitPoint</code>
          * are to be used as the value of the index.
+         *
          * @param child the key expression to split
          * @param splitPoint the position in the key result to split
          * keys before this position are part of the key and keys after this position are part of the value
@@ -313,6 +327,7 @@ public class Key {
 
         /**
          * The empty key expression.
+         *
          * @return the empty key expression
          * @see EmptyKeyExpression
          */
@@ -323,6 +338,7 @@ public class Key {
 
         /**
          * The version key expression, which indicates that a versionstamp should be contained within the key.
+         *
          * @return the version key expression
          * @see VersionKeyExpression
          */
@@ -334,6 +350,7 @@ public class Key {
         /**
          * The record type key expression, which indicates that a unique record type identifier should
          * be contained within the key.
+         *
          * @return the record type key expression
          * @see RecordTypeKeyExpression
          */
@@ -344,6 +361,7 @@ public class Key {
 
         /**
          * Convert a field descriptor into a expression. Assumes FanOut for repeated keys.
+         *
          * @param fieldDescriptor a field in a record type.
          * @return a new {@code Field} to get the value of the given field descriptor.
          */
@@ -358,6 +376,7 @@ public class Key {
 
         /**
          * Determine whether the given key expression has a record type key prefix.
+         *
          * @param key key expression to check
          * @return {@code true} if the given key expression has a record type key prefix
          */
@@ -440,6 +459,7 @@ public class Key {
 
         /**
          * Creates a new key with just a single value.
+         *
          * @param object the lone value in the key
          * @return a new key for the one value
          */
@@ -450,6 +470,7 @@ public class Key {
 
         /**
          * Fanout a list of scalars into a key for each value.
+         *
          * @param valuesToAdd the list of scalars
          * @return one key for each value in valuesToAdd
          */
@@ -465,6 +486,7 @@ public class Key {
         /**
          * Take a list of scalars and concatenate them in a single key. Note this is a key containing the list of values,
          * as opposed to a key with a single value that is a list.
+         *
          * @param values the values to combine together into a key
          * @return a new key with the given values
          */
@@ -475,6 +497,7 @@ public class Key {
 
         /**
          * Primarily for tests, shorthand for creating a concatenation with a bunch of elements, see concatenate.
+         *
          * @param first the first value to be concatenated, avoids type conflicts with the other concatenate
          * @param rest the rest of the values
          * @return a new key consisting of the provided values
@@ -490,6 +513,7 @@ public class Key {
         /**
          * Take a {@link Tuple} and create the corresponding
          * key from it.
+         *
          * @param tuple the tuple to convert
          * @return a new key based on the given tuple
          */
@@ -501,6 +525,7 @@ public class Key {
         /**
          * Convert this key to the corresponding {@link Tuple} that can then be serialized
          * into the database.
+         *
          * @return this key converted into a {@link Tuple}
          */
         @Nonnull
@@ -607,6 +632,7 @@ public class Key {
 
         /**
          * Creates a new key by appending another key to this one.
+         *
          * @param secondValue another key that will form the second part of the new key.
          * @return a new key consisting of the elements in this key, and then the elements of the second key
          */
@@ -619,6 +645,7 @@ public class Key {
 
         /**
          * Converts to a list. Useful for creating tuples
+         *
          * @return the elements of this key value
          */
         @Nonnull
@@ -629,6 +656,7 @@ public class Key {
         /**
          * Converts to a list. Useful for creating tuples. If possible the underlying objects will be converted to
          * types that Tuple can handle.
+         *
          * @return the elements of this key value
          */
         @Nonnull
@@ -641,6 +669,7 @@ public class Key {
 
         /**
          * Check for NULL value that inhibits unique indexes.
+         *
          * @return <code>true</code> if this has a null value
          */
         public boolean containsNonUniqueNull() {

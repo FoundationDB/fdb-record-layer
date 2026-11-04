@@ -50,6 +50,7 @@ public class TransitiveClosure {
 
     /**
      * Compute the transitive closure of the depends-on map that is passed in.
+     *
      * @param set the set determining the universe of entities
      * @param dependsOnMap depends-on map
      * @param <T> type
@@ -62,6 +63,7 @@ public class TransitiveClosure {
 
     /**
      * Compute the transitive closure of the depends-on map that is passed in.
+     *
      * @param partiallyOrderedSet partial order to compute the transitive closure for
      * @param <T> type
      * @return the transitive closure of the partial order handed in

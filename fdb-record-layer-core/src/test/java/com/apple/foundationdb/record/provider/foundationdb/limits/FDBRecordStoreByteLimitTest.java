@@ -155,6 +155,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
      *
      * <p>These claims should hold for most query plans. Notably, even claim (a) does not hold for the
      * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}.
+     *
      * @param byteCountsByRecord a list of the number of bytes scanned between successive records without any limits
      * @param context an open record store context
      * @param plan a query plan to execute

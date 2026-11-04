@@ -56,6 +56,7 @@ public interface KeyExpression extends PlanHashable {
      *
      * <p>Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     *
      * @param <M> the type of record
      * @param record the record
      * @return the list of evaluated keys for the given record
@@ -69,6 +70,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Evaluate this expression with the expectation of getting exactly one result.
+     *
      * @param <M> the type of record
      * @param record the record
      * @return the evaluated keys for the given record
@@ -88,6 +90,7 @@ public interface KeyExpression extends PlanHashable {
      *
      * <p>Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     *
      * @param <M> the type of record
      * @param record the record
      * @param message the Protobuf message to evaluate against
@@ -115,6 +118,7 @@ public interface KeyExpression extends PlanHashable {
      * Under ordinary circumstances, if {@code record} is {@code null}, then {@code message} will be {@code null}.
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
+     *
      * @see #evaluate
      * @param <M> the type of record
      * @param record the record
@@ -137,6 +141,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Validate this expression against a given record type descriptor.
+     *
      * @param descriptor the descriptor for the record type or submessage
      * @return a list of fields that this key applies to
      * @throws InvalidExpressionException
@@ -209,6 +214,7 @@ public interface KeyExpression extends PlanHashable {
      * Get key in normalized form for comparing field-by-field.
      * Does not take account of fan-type, so only valid
      * when this has already been taken care of, such as individual index entries.
+     *
      * @return a list of key expressions in order
      */
     @Nonnull
@@ -234,6 +240,7 @@ public interface KeyExpression extends PlanHashable {
      * it is not part of the base record, or by extension the message contained therein.
      * This information is needed to allow key expressions to partake in covering index scans that are not
      * provided by the underlying index entries, but can easily be computed on-the-fly.
+     *
      * @return {@code true} if the key expression needs to be copied from index entry to partial record.
      */
     @API(API.Status.INTERNAL)
@@ -266,6 +273,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Return the key fields for an expression.
+     *
      * @param rootExpression a key expression
      * @return the parts of the key expression that are in the key
      */
@@ -282,6 +290,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Return the value fields for an expression.
+     *
      * @param rootExpression a key expression
      * @return the parts of the key expression that are in the value
      */
@@ -298,6 +307,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Returns the number of version columns produced by this key expression.
+     *
      * @return the number of version columns
      */
     default int versionColumns() {
@@ -306,6 +316,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Check whether a key expression uses record type key in some way.
+     *
      * @return {@code true} if record type key is used
      */
     default boolean hasRecordTypeKey() {
@@ -333,6 +344,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Check whether a key is a prefix of another key.
+     *
      * @param key the whole key to check
      * @return {@code true} if {@code prefix} is a left subset of {@code key}
      */

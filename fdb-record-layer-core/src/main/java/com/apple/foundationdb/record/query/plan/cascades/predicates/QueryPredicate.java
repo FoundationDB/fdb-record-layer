@@ -161,7 +161,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
-     *
      * @return {@code Optional(predicateMapping)} if {@code this} implies {@code candidatePredicate} where
      * {@code predicateMapping} is a new instance of {@link PredicateMapping} that captures potential bindings
      * and compensation for {@code candidatePredicate}
@@ -195,6 +194,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Return a {@link PredicateCompensation} that reapplies this predicate.
+     *
      * @param originalQueryPredicate the original query predicate that was used to create this predicate
      * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
@@ -206,6 +206,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Return a {@link PredicateCompensationFunction} that reapplies this predicate.
+     *
      * @param partialMatch the partial match that was established when this predicate was matched
      * @param originalQueryPredicate the original query predicate that was used to when this predicate was translated
      * @param boundParameterPrefixMap the bound parameter prefix map
@@ -245,6 +246,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     /**
      * Create a {@link QueryPredicate} that is equivalent to {@code this} but which is evaluated as a residual
      * predicate (cannot function as an index search argument).
+     *
      * @return a {@link QueryPredicate} (which may be {@code this}) that can be evaluated as a residual predicate.
      */
     @Nonnull
@@ -263,6 +265,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * be found at all, this method will then call
      * {@link #impliesCandidatePredicateMaybe(ValueEquivalence, QueryPredicate, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
+     *
      * @param valueEquivalence the current alias map together with some other known equalities
      * @param candidatePredicates an {@link Iterable} of candidate predicates
      * @param evaluationContext the evaluation context used to examine predicate implication.
@@ -305,6 +308,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     
     /**
      * Method that indicates whether this predicate is filtering at all.
+     *
      * @return {@code true} if this predicate always evaluates to true, {@code false} otherwise
      */
     default boolean isTautology() {
@@ -415,9 +419,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     QueryPredicate withAtomicity(boolean isAtomic);
 
     /**
-     * Returns a human-friendly textual representation of this {@link QueryPredicate}.
-     *
-     * @return a human-friendly textual representation of this {@link QueryPredicate}.
+     * {@return a human-friendly textual representation of this {@link QueryPredicate}}
      */
     @Nonnull
     default ExplainTokensWithPrecedence explain() {

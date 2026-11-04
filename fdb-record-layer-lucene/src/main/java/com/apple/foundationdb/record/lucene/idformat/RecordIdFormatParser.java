@@ -61,6 +61,7 @@ public class RecordIdFormatParser {
 
     /**
      * Parse a string representing a format (see syntax above) and return an instance of {@link RecordIdFormat}.
+     *
      * @param formatString the given string representation
      * @return the constructed format
      * @throws RecordCoreFormatException in case of parse failure
@@ -120,6 +121,7 @@ public class RecordIdFormatParser {
      *     {@code "[c, [d,e], f]]"}
      *     {@code "[g, h]"}
      * </pre>
+     *
      * @param s the given string
      * @return the parsed tokens
      */

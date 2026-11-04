@@ -35,6 +35,7 @@ import java.util.Objects;
 
 /**
  * A record that has been loaded via an index.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
@@ -61,6 +62,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
 
     /**
      * Get the index for this record.
+     *
      * @return the index that contained the entry pointing to this record
      */
     @Nonnull
@@ -70,6 +72,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
 
     /**
      * Get the index entry for this record.
+     *
      * @return the index entry that pointed to this record
      */
     @Nonnull
@@ -80,6 +83,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     /**
      * When scanning for orphaned index entries, this method must be used to determine whether or not a record exists
      * before calling <code>getStoredRecord()</code>.
+     *
      * @return {@code true} if this record has an {@link FDBStoredRecord}
      */
     public boolean hasStoredRecord() {

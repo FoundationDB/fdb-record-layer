@@ -239,7 +239,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a cursor for collecting statistics of that store
      */
     @Nonnull
@@ -255,7 +254,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the records of that store
      */
     @Nonnull
@@ -273,7 +271,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -292,7 +289,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -308,7 +304,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given subspace
      */
     @Nonnull
@@ -385,9 +380,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Return a copy of this instance.
-         *
-         * @return a copy of this instance
+         * {@return a copy of this instance}
          */
         private SizeStatisticsResults copy() {
             SizeStatisticsResults target = new SizeStatisticsResults();
@@ -566,7 +559,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          * interpolated from the recorded size distribution.
          *
          * @param proportion the proportion of key-value pairs that should have a size less than the returned size
-         *
          * @return an estimate for the size that is consistent with the given proportion
          */
         public double getProportion(double proportion) {
@@ -591,27 +583,21 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Get an estimate for the size of the median key-value pair.
-         *
-         * @return an estimate for the median key-value pair
+         * {@return an estimate for the size of the median key-value pair}
          */
         public double getMedian() {
             return getProportion(0.5);
         }
 
         /**
-         * Get an estimate for the size of the 90th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 90th percentile key-value pair
+         * {@return an estimate for the size of the 90th percentile key-value pair}
          */
         public double getP90() {
             return getProportion(0.90);
         }
 
         /**
-         * Get an estimate for the size of the 95th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 95th percentile key-value pair
+         * {@return an estimate for the size of the 95th percentile key-value pair}
          */
         public double getP95() {
             return getProportion(0.95);

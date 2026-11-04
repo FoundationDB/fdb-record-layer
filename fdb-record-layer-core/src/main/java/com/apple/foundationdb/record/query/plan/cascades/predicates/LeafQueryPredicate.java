@@ -54,6 +54,7 @@ public interface LeafQueryPredicate extends QueryPredicate {
 
     /**
      * Default implementation to be mixed in.
+     *
      * @return the result of invoking {@link #hashCodeWithoutChildren()}
      */
     default int computeSemanticHashCode() {

@@ -50,6 +50,7 @@ public class EvaluationContextBuilder {
      * This ensures that the resulting <code>EvaluationContext</code>
      * has all of the bindings contained in the original context (except
      * for those which have had their value over-ridden).
+     *
      * @param original the original {@link EvaluationContext} to build a new one around
      */
     protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {

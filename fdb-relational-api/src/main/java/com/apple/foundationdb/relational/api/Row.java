@@ -35,9 +35,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 public interface Row {
 
     /**
-     * Get the number of fields in this row.
-     *
-     * @return the number of fields in the row.
+     * {@return the number of fields in this row}
      */
     int getNumFields();
 
@@ -122,6 +120,7 @@ public interface Row {
 
     /**
      * Checks if this row starts with a given prefix.
+     *
      * @param prefix the prefix to check against
      * @return true if this row starts with the correct prefix, false otherwise
      */
@@ -129,6 +128,7 @@ public interface Row {
 
     /**
      * Get a prefix of this row as a row.
+     *
      * @param length The length of the prefix
      * @return a prefix Row
      */

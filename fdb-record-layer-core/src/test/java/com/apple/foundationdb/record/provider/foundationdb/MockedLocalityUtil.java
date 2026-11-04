@@ -60,6 +60,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
 
     /**
      * Get the single instance of this utility class.
+     *
      * @return the only instance of the class
      */
     @Nonnull
@@ -68,8 +69,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     }
 
     /**
-     * Get the key of the last range.
-     * @return the key of the last range
+     * {@return the key of the last range}
      */
     public static byte[] getLastRange() {
         return INSTANCE.keyRanges.get(MockedLocalityUtil.instance().ranges.get(MockedLocalityUtil.instance().ranges.size() - 1)).key;
@@ -121,7 +121,6 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      * @param tr the transaction on which to base the query
      * @param begin the inclusive start of the range
      * @param end the exclusive end of the range
-     *
      * @return a sequence of keys denoting the start of the ranges
      */
     @Nonnull

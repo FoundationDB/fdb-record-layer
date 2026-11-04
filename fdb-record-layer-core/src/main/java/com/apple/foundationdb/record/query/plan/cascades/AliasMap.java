@@ -172,6 +172,7 @@ public class AliasMap {
 
     /**
      * Private constructor. Use static factory methods/builders to instantiate alias maps.
+     *
      * @param map the backing bi-map
      */
     private AliasMap(@Nonnull final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map,
@@ -182,6 +183,7 @@ public class AliasMap {
 
     /**
      * Define equality based on the equality of the backing bimap.
+     *
      * @param o other object
      * @return {@code true} if {@code o} is equal to {@code this}, {@code false} otherwise.
      */
@@ -199,6 +201,7 @@ public class AliasMap {
 
     /**
      * Define equality based on the equality of the backing bimap.
+     *
      * @return {@code true} if {@code o} is equal to {@code this}.
      */
     @Override
@@ -226,6 +229,7 @@ public class AliasMap {
 
     /**
      * Returns the set of {@link CorrelationIdentifier}s that are mapped by this {@code AliasMap}.
+     *
      * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for
      */
     @Nonnull
@@ -236,6 +240,7 @@ public class AliasMap {
     /**
      * Returns the set of all {@link CorrelationIdentifier}s that this map maps to using the set of
      * {@link CorrelationIdentifier}s returned by {@link #sources()}.
+     *
      * @return a set of {@link CorrelationIdentifier}s that this map maps to.
      */
     @Nonnull
@@ -245,6 +250,7 @@ public class AliasMap {
 
     /**
      * Returns the size of the alias map, i.e., the number of contained bindings.
+     *
      * @return the size of the alias map.
      */
     public int size() {
@@ -253,6 +259,7 @@ public class AliasMap {
 
     /**
      * Create a builder for a new alias map using the bindings of this map.
+     *
      * @return a new builder derived from the contents of this map.
      */
     @Nonnull
@@ -262,6 +269,7 @@ public class AliasMap {
 
     /**
      * Create a builder for a new alias map using the bindings of this map.
+     *
      * @param expectedAdditionalElements the number of additional elements that the caller expects to add before
      *        build is called.
      * @return a new builder derived from the contents of this map.
@@ -273,6 +281,7 @@ public class AliasMap {
 
     /**
      * Returns the set of entries in this map.
+     *
      * @return the set of entries
      */
     @Nonnull
@@ -282,6 +291,7 @@ public class AliasMap {
 
     /**
      * Get the source for a target passed in.
+     *
      * @param target the target to return the source for
      * @return the source that target is bound to in this alias map or {@code null} if there is no binding
      *         to {@code target} in this alias map
@@ -293,6 +303,7 @@ public class AliasMap {
 
     /**
      * Returns the inverse of this {@link AliasMap}.
+     *
      * @return The inverse of this {@link AliasMap}.
      */
     @Nonnull
@@ -302,6 +313,7 @@ public class AliasMap {
 
     /**
      * Get the source for a target passed in or a default in case there is no mapping for the target alias.
+     *
      * @param target the target to return the source for
      * @param defaultValue default value to return is there is no mapping in this map for {@code target}
      * @return the source that target is bound to in this alias map or {@code null} if there is no binding
@@ -318,6 +330,7 @@ public class AliasMap {
 
     /**
      * Get the source for a target passed in or throw an exception in case there is no mapping for the target alias.
+     *
      * @param target the target to return the source for
      * @return the source that target is bound to in this alias map or {@code null} if there is no binding
      *         to {@code target} in this alias map
@@ -330,6 +343,7 @@ public class AliasMap {
 
     /**
      * Get the target for a source passed in.
+     *
      * @param source the source to return the target for
      * @return the target that source is bound to in this alias map or {@code null} if there is no binding
      *         from {@code source} in this alias map
@@ -341,6 +355,7 @@ public class AliasMap {
 
     /**
      * Get the target for a source passed in or a default in case there is no mapping for the source alias.
+     *
      * @param source the source to return the target for
      * @param defaultValue default value to return is there is no mapping in this map for {@code source}
      * @return the target that source is bound to in this alias map or {@code null} if there is no binding
@@ -357,6 +372,7 @@ public class AliasMap {
 
     /**
      * Get the target for a source passed in or throw an exception in case there is no mapping for the source alias.
+     *
      * @param source the source to return the target for
      * @return the target that source is bound to in this alias map or {@code null} if there is no binding
      *         from {@code source} in this alias map
@@ -369,6 +385,7 @@ public class AliasMap {
 
     /**
      * Call an action for each mapping contained in this alias map.
+     *
      * @param action a bi-consumer that is called for each (source, target) pair
      */
     public void forEachMapping(@Nonnull final BiConsumer<CorrelationIdentifier, CorrelationIdentifier> action) {
@@ -382,6 +399,7 @@ public class AliasMap {
      * by immediately filtering the contents of this map and then creating a new map which is quite different to what
      * e.g. operations on {@link java.util.stream.Stream} would do where the result is computed when the collect
      * happens.
+     *
      * @param predicate a bi-predicate that is called for each (source, target) pair
      * @return a new alias map that only retains bindings that where accepted by {@code predicate}, i.e., for which
      *         the predicate returned {@code true}.
@@ -400,6 +418,7 @@ public class AliasMap {
 
     /**
      * Compute the composition of two {@link AliasMap}s.
+     *
      * @param other second alias map
      * @return a alias map that maps {@code a -> c} for all {@code a, b, c} if {@code a -> b} is contained in
      *         {@code this} and {@code b -> c} is contained in {@code other},
@@ -431,6 +450,7 @@ public class AliasMap {
 
     /**
      * Determine if two {@link AliasMap}s are compatible.
+     *
      * @param other second alias map
      * @return {@code true} if this {@code AliasMap} is compatible to {@code other}, that is there are no conflicting
      *         mappings in a sense that a union of the mappings of {@code this} and {@code other} can form a
@@ -455,6 +475,7 @@ public class AliasMap {
 
     /**
      * Combine two compatible {@link AliasMap}s.
+     *
      * @param other second alias map
      * @return a combined translation map (see {@link #combineMaybe})
      */
@@ -466,6 +487,7 @@ public class AliasMap {
 
     /**
      * Combine two {@link AliasMap}s if possible.
+     *
      * @param other second alias map
      * @return {@code Optional} containing a translation map that maps {@code a -> b} for all {@code a, b} if
      *         {@code a -> b} is contained in {@code this} and there is no c with {@code b != c}
@@ -495,6 +517,7 @@ public class AliasMap {
 
     /**
      * Return if this alias map exclusively contains mappings of the shape {@code x -> x}.
+     *
      * @return {@code true} if this alias map only contains mapped identities.
      */
     public boolean definesOnlyIdentities() {
@@ -505,6 +528,7 @@ public class AliasMap {
      * Find complete matches between two sets of aliases, given their depends-on sets and a
      * {@link MatchPredicate}.
      * This method creates an underlying {@link PredicatedMatcher} to do the work.
+     *
      * @param aliases a set of aliases
      * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
      * @param otherAliases a set of other aliases
@@ -531,6 +555,7 @@ public class AliasMap {
      * Find matches (including partial matches) between two sets of aliases, given their depends-on sets and a
      * {@link MatchPredicate}.
      * This method creates an underlying {@link PredicatedMatcher} to do the work.
+     *
      * @param aliases a set of aliases
      * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
      * @param otherAliases a set of other aliases
@@ -569,6 +594,7 @@ public class AliasMap {
 
     /**
      * Create a new empty builder.
+     *
      * @return a builder for a new {@link AliasMap}
      */
     @Nonnull
@@ -578,6 +604,7 @@ public class AliasMap {
 
     /**
      * Create a new empty builder using an expected size that is passed in.
+     *
      * @param expectedSize expected size of the eventual {@link AliasMap}
      * @return a builder for a new {@link AliasMap}
      */
@@ -588,6 +615,7 @@ public class AliasMap {
 
     /**
      * Factory method to create an empty alias map.
+     *
      * @return a new empty {@link AliasMap}
      */
     @Nonnull
@@ -597,6 +625,7 @@ public class AliasMap {
 
     /**
      * Factory method to create an alias map based on a given binding.
+     *
      * @param source an alias of a source
      * @param target an alias of a target
      * @return a new {@link AliasMap} containing exactly the binding {@code source -> target}
@@ -609,6 +638,7 @@ public class AliasMap {
     /**
      * Factory method to create an alias map that is a copy of an {@link BiMap} passed in. Note that no actual
      * copy takes place if the bi-map that is passed in is of type {@link ImmutableBiMap}.
+     *
      * @param map a bi0map containing bindings
      * @return a new {@link AliasMap}
      */
@@ -624,6 +654,7 @@ public class AliasMap {
     /**
      * Factory method to create an alias map that contains entries {@code a -> a, b -> b, ...} for each alias contained
      * in the set of {@link CorrelationIdentifier}s passed in.
+     *
      * @param aliases set of aliases that this method should create identity-bindings for
      * @return a new {@link AliasMap}
      */
@@ -634,6 +665,7 @@ public class AliasMap {
 
     /**
      * Factory method to create an alias map based on a {@code zip} of two parallel lists of aliases.
+     *
      * @param left one list
      * @param right other list
      * @return a new {@link AliasMap}
@@ -662,6 +694,7 @@ public class AliasMap {
          * {@code source}, the binding will remain untouched if {@code target.equals(oldTarget)}, it will be
          * replaced with {@code source -> target} otherwise. Also, putting a binding for a {@code target} that already
          * exists will fail.
+         *
          * @param source a source alias
          * @param target a target alias
          * @return {@code this} that has been modified to contain {@code source -> target}
@@ -678,6 +711,7 @@ public class AliasMap {
          * sources contained in {@code other}, these bindings will remain untouched if {@code target.equals(oldTarget)},
          * they will be replaced otherwise. Also, this call will fail if a target contained in {@code other} already
          * exists in {@code this},
+         *
          * @param other another {@link AliasMap}
          * @return {@code this} that has been modified to contain all bindings from {@code other}
          * @throws IllegalArgumentException if any target contained in {@code other} is already contained in the builder
@@ -693,6 +727,7 @@ public class AliasMap {
         /**
          * Method to update the builder to contain entries {@code a -> a, b -> b, ...} for each alias contained
          * in the set of {@link CorrelationIdentifier}s passed in.
+         *
          * @param aliases set of aliases that this method should create identity-bindings for
          * @return {@code this} that has been modified to contain identity-bindings for all aliases contained in
          *         {@code aliases}
@@ -705,6 +740,7 @@ public class AliasMap {
 
         /**
          * Method to update the builder to additionally contain the {@code zip} of two parallel lists of aliases.
+         *
          * @param left one list
          * @param right other list
          * @return {@code this} that has been modified to contain the zip of left and right as bindings {@code l -> r};
@@ -719,6 +755,7 @@ public class AliasMap {
 
         /**
          * Method to update the builder to additionally contain the {@code zip} of two parallel lists of aliases.
+         *
          * @param left one list
          * @param right other list
          * @param limitExclusive the limit (exclusively) up to which the lists are zipped together
@@ -737,6 +774,7 @@ public class AliasMap {
 
         /**
          * Build a new {@link AliasMap}. This will entail a copy of the mappings in order to gain immutability guarantees.
+         *
          * @return a new {@link AliasMap}
          */
         @Nonnull

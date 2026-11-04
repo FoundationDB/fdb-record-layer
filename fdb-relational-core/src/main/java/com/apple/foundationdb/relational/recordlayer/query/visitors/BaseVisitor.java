@@ -204,7 +204,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
      * subqueries), and table-access visitors that set up an initial operator.
      *
      * @return the newly created (now current) fragment
-     *
      * @see #popPlanFragment
      */
     @Nonnull

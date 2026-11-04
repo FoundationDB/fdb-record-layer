@@ -174,6 +174,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * Create a <code>FDBRecordVersion</code> that is incomplete and has the given
      * local version. After it is serialized, something else will have to make it
      * sure it gets a global version.
+     *
      * @param localVersion the local version associated with this version
      * @return a new incomplete <code>FDBRecordVersion</code>
      */
@@ -331,6 +332,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * this behavior, one should consider using the version of
      * {@link #toVersionstamp(boolean) toVersionstamp} that
      * takes a boolean as an argument.
+     *
      * @return {@link Versionstamp} representation of this version
      */
     @Nonnull
@@ -466,6 +468,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * might be "incomplete" that should be set by some
      * global monotonic order enforcer to impose a global
      * ordering on all record versions.
+     *
      * @return whether this record version is complete
      */
     public boolean isComplete() {
@@ -480,6 +483,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * keeping local state to set the order. Even if
      * a record version is incomplete, it should still
      * return something for this method.
+     *
      * @return the local version
      */
     public int getLocalVersion() {
@@ -602,6 +606,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
 
     /**
      * Complete this version with the version from as successful commit.
+     *
      * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a new record version with a complete version
      */
@@ -621,6 +626,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * object. It will compare equally with another {@link FDBRecordVersion}
      * that has the same local and global version and will compare
      * as not equal otherwise.
+     *
      * @param o the object to check for equality
      * @return <code>true</code> if the object is equal to this version and <code>false</code> otherwise
      */
@@ -688,6 +694,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * Hash code derived from the local and global version hash codes. It
      * is the bitwise exclusive-or of the the hash codes of the local and
      * global version components.
+     *
      * @return hash code for this version
      */
     @Override
@@ -699,6 +706,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * Human-readable representation of this <code>FDBRecordVersion</code>. It
      * will include both the local and global version information. It will
      * return a global version of 10 consecutive bytes with value <code>0xff</code>.
+     *
      * @return human-readable representation of the record version
      */
     @Override

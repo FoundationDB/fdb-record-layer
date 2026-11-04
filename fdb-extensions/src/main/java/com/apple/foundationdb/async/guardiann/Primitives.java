@@ -126,6 +126,7 @@ class Primitives {
 
     /**
      * Get the executor used by this guardiann.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -134,8 +135,7 @@ class Primitives {
     }
 
     /**
-     * Get the configuration.
-     * @return the configuration
+     * {@return the configuration}
      */
     @Nonnull
     private Config getConfig() {
@@ -143,8 +143,7 @@ class Primitives {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -152,8 +151,7 @@ class Primitives {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {
@@ -1140,7 +1138,6 @@ class Primitives {
      * @param updatedStandardDeviation the recomputed running statistics of member distances to the centroid
      * @param causeClusterIds the ids of clusters produced by the operation that triggered this update (for example
      *        the clusters a split created); used by the reassign tail to decide whether a {@link ReassignTask} is needed
-     *
      * @return the id of an enqueued task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
@@ -1199,7 +1196,6 @@ class Primitives {
      * @param causeClusterIds the ids of clusters produced by the operation that triggered this update (for example
      *        the clusters a split created); a cluster in this set is never reassigned, and a non-empty set forces a
      *        reassign of clusters that are not in it
-     *
      * @return the id of an enqueued reassign task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
@@ -1285,7 +1281,6 @@ class Primitives {
      * @param accessInfo the current access info
      * @param updatedStandardDeviation the running stats already reflecting the removed primary (this carries the
      *        decremented primary-vector count)
-     *
      * @return a future that completes once the metadata has been written and any task enqueued
      */
     @Nonnull
@@ -1396,7 +1391,6 @@ class Primitives {
      * @param numPrimaryUnderreplicatedVectorsAdded delta of primary-underreplicated vectors to apply
      * @param numReplicatedVectorsAdded delta of replicated vectors to apply
      * @param updatedStandardDeviation the running stats to write (carries the updated primary-vector count)
-     *
      * @return the id of the enqueued task
      */
     @Nonnull

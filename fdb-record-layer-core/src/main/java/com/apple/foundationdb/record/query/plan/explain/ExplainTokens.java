@@ -121,6 +121,7 @@ public class ExplainTokens {
      * characters. If the budget is limited (if {@code remainingCharacterBudget < Integer.MAX_VALUE}), this method will
      * at worst render into a string of that budget (plus three characters {@code ...} if the rendered char sequence has
      * to be cut off).
+     *
      * @param renderingExplainLevel the desired {@link ExplainLevel}
      * @param formatter the formatter
      * @param remainingCharacterBudget the budget of the number of remaining characters

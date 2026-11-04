@@ -100,9 +100,7 @@ public class SizeStatisticsResults {
     }
 
     /**
-     * Return a copy of this instance.
-     *
-     * @return a copy of this instance
+     * {@return a copy of this instance}
      */
     public SizeStatisticsResults copy() {
         SizeStatisticsResults target = new SizeStatisticsResults();
@@ -281,7 +279,6 @@ public class SizeStatisticsResults {
      * interpolated from the recorded size distribution.
      *
      * @param proportion the proportion of key-value pairs that should have a size less than the returned size
-     *
      * @return an estimate for the size that is consistent with the given proportion
      */
     public double getProportion(double proportion) {
@@ -306,27 +303,21 @@ public class SizeStatisticsResults {
     }
 
     /**
-     * Get an estimate for the size of the median key-value pair.
-     *
-     * @return an estimate for the median key-value pair
+     * {@return an estimate for the size of the median key-value pair}
      */
     public double getMedian() {
         return getProportion(0.5);
     }
 
     /**
-     * Get an estimate for the size of the 90th percentile key-value pair.
-     *
-     * @return an estimate for the size of the 90th percentile key-value pair
+     * {@return an estimate for the size of the 90th percentile key-value pair}
      */
     public double getP90() {
         return getProportion(0.90);
     }
 
     /**
-     * Get an estimate for the size of the 95th percentile key-value pair.
-     *
-     * @return an estimate for the size of the 95th percentile key-value pair
+     * {@return an estimate for the size of the 95th percentile key-value pair}
      */
     public double getP95() {
         return getProportion(0.95);

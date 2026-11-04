@@ -105,6 +105,7 @@ class Insert {
 
     /**
      * Get the executor used by this Guardiann structure.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -114,6 +115,7 @@ class Insert {
 
     /**
      * Get the configuration of this Guardiann structure.
+     *
      * @return the configuration
      */
     @Nonnull
@@ -122,8 +124,7 @@ class Insert {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -131,8 +132,7 @@ class Insert {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -174,7 +174,6 @@ class Insert {
      * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
      *        transaction (and skip the hard-cap back-pressure valve); when {@code false} tasks accumulate for a
      *        background merge and the hard cap back-pressures the caller
-     *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
@@ -388,7 +387,6 @@ class Insert {
      * @param transaction the transaction to bootstrap the structure within
      * @param random the per-insert RNG (drives the RaBitQ rotator seed and the first cluster's id)
      * @param newVector the vector being inserted, which also becomes the first cluster's centroid
-     *
      * @return a future of the {@link AccessInfo} established for the structure
      */
     @Nonnull
@@ -447,7 +445,6 @@ class Insert {
      * @param random a random to use
      * @param currentAccessInfo this current access info that was fetched as part of an insert
      * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
-     *
      * @return a future that returns {@code null} when completed
      */
     @Nonnull

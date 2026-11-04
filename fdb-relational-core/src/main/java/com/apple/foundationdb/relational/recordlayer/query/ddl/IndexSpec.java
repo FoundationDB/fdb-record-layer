@@ -127,7 +127,6 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
      * @param expression the root of the plan
      * @param quantifierValues what the plan's quantifiers stand for, from the preceding pass
      * @param schemaTemplateBuilder the metadata the plan's type filter is resolved against
-     *
      * @return what the index is made of
      */
     @Nonnull
@@ -178,7 +177,6 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
      *
      * @param allValues every projected column
      * @param keyValues the columns the index is ordered by, a subset of {@code allValues}
-     *
      * @return the columns in traversal order
      */
     @Nonnull

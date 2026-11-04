@@ -262,6 +262,7 @@ public class SemanticAnalyzer {
 
     /**
      * Checks whether a string is properly quoted (same quote markers at the beginning and at the end).
+     *
      * @param str The input string.
      * @param quotationMark The quotation mark to look for
      * @return <code>true</code> is the string is quoted, otherwise <code>false</code>.
@@ -272,6 +273,7 @@ public class SemanticAnalyzer {
 
     /**
      * Looks up a common table expression (CTE) in a chain of {@link LogicalPlanFragment}.
+     *
      * @param identifier The name of the CTE.
      * @param logicalPlanFragment The plan fragments chain.
      * @return Optional with {@link LogicalOperator} whose name matches the given identifier, if found.
@@ -420,7 +422,6 @@ public class SemanticAnalyzer {
      *
      * @param qualifier the qualifier preceding the {@code *}, or {@code null} for an unqualified {@code *}
      * @param operators the logical operators in scope for resolving the qualifier
-     *
      * @return a {@link Star} expression capturing the expansion
      */
     @Nonnull
@@ -948,6 +949,7 @@ public class SemanticAnalyzer {
      *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
      *     words, their maximum type is well-defined.
      * </ul>
+     *
      * @param unionLegs The logical operators representing the legs of the union.
      * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
      * representing the maximum type of each column calculated pairwise.
@@ -1047,6 +1049,7 @@ public class SemanticAnalyzer {
 
     /**
      * validates that a SQL {@code LIMIT} expression is within allowed limits of {@code [1, Integer.MAX_VALUE]}.
+     *
      * @param expression The {@code LIMIT} literal expression.
      */
     public static void validateLimit(@Nonnull Expression expression) {
@@ -1130,7 +1133,6 @@ public class SemanticAnalyzer {
      * @param arguments The call-site arguments (positional/named values, options, and window specification).
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
-     *
      * @return An {@link Expression} representing the resolved SQL function.
      */
     @Nonnull
@@ -1165,7 +1167,6 @@ public class SemanticAnalyzer {
      * content, otherwise {@code false}.
      * @param windowSpecExpression The parsed {@code OVER} clause.
      * @param arguments The function's direct arguments (may be empty).
-     *
      * @return An {@link Expression} representing the resolved SQL window function.
      */
     @Nonnull
@@ -1226,7 +1227,6 @@ public class SemanticAnalyzer {
      * @param arguments The function arguments.
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
-     *
      * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
     @Nonnull

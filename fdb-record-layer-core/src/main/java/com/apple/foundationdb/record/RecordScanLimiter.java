@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 public interface RecordScanLimiter {
     /**
      * Create a new {@code RecordScanLimiter} with this limiter's original limit, ignoring any calls to {@link #tryRecordScan()}.
+     *
      * @return a new limiter with the same original scan limit as this limiter
      */
     @Nonnull
@@ -47,6 +48,7 @@ public interface RecordScanLimiter {
 
     /**
      * Atomically decrement the counter and return false if falls below 0.
+     *
      * @return <code>true</code> if the remaining count is at least 0, and <code>false</code> if it is less than 0
      */
     boolean tryRecordScan();

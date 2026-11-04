@@ -41,7 +41,6 @@ public interface ExploratoryMemoizer {
      * through other planner logic are undefined and should be avoided.
      *
      * @param expression exploratory expression to memoize
-     *
      * @return a new or a reused reference
      */
     @Nonnull
@@ -67,6 +66,7 @@ public interface ExploratoryMemoizer {
      * the builder's {@link ReferenceBuilder#reference()} is called. The expression is treated as an exploratory
      * expression meaning that the reference that is eventually obtained may be a new {@link Reference} of a reused
      * {@link Reference}.
+     *
      * @param expression the expression to potentially memoize
      * @return a new {@link ReferenceBuilder}
      */

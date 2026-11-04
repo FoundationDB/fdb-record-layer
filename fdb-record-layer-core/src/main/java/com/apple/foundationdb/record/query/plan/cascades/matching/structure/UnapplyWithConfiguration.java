@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Interface for the unapply function (also using a {@link RecordQueryPlannerConfiguration} used in a variety of matchers.
+ *
  * @param <T> the type that is extracted from
  * @param <U> the type that is extracted into
  */

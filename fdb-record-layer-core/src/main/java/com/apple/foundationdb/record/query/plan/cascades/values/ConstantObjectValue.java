@@ -204,6 +204,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     /**
      * Creates a new instance of {@link ConstantObjectValue}.
+     *
      * @param alias the alias, must be a {@code CONSTANT} quantifier
      * @param constantId the id through which we can reference the constant
      * @param resultType the result of the object referenced by this constant reference

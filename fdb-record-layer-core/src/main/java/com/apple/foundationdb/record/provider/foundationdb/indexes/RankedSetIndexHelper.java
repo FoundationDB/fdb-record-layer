@@ -58,6 +58,7 @@ public class RankedSetIndexHelper {
 
     /**
      * Parse standard options into {@link RankedSet.Config}.
+     *
      * @param index the index definition to get options from
      * @return parsed config options
      */

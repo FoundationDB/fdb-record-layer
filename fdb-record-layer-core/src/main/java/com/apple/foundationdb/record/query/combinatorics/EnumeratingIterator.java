@@ -25,6 +25,7 @@ import java.util.List;
 
 /**
  * An iterator extending {@link Iterator} providing the ability to skip a certain prefix.
+ *
  * @param <T> type
  */
 public interface EnumeratingIterator<T> extends Iterator<List<T>> {

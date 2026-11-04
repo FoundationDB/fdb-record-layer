@@ -113,6 +113,7 @@ public class Primitives {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -122,6 +123,7 @@ public class Primitives {
 
     /**
      * Get this hnsw's configuration.
+     *
      * @return hnsw configuration
      */
     @Nonnull
@@ -130,8 +132,7 @@ public class Primitives {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -139,8 +140,7 @@ public class Primitives {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {
@@ -187,7 +187,6 @@ public class Primitives {
      * @param <N> the type of the node reference, which must extend {@link NodeReference}
      * @param primaryKey the {@link Tuple} representing the primary key of the node
      * @param nodeCache the cache to check for the node
-     *
      * @return a {@link CompletableFuture} that will be completed with the cached {@link AbstractNode}
      * @throws IllegalArgumentException if the node is not already present in the cache
      */
@@ -219,7 +218,6 @@ public class Primitives {
      * @param layer the layer index where the node is located
      * @param nodeReference the reference to the node to fetch
      * @param nodeCache the cache to check for the node and to which the node will be added if fetched
-     *
      * @return a {@link CompletableFuture} that will be completed with the fetched or cached {@link AbstractNode}
      */
     @Nonnull
@@ -267,7 +265,6 @@ public class Primitives {
      * non-null value, the node fetch is bypassed.
      * @param biMapFunction A function to be applied after a successful node fetch, combining the
      * original reference and the fetched node to produce the final result.
-     *
      * @return A {@link CompletableFuture} that will complete with the result from either the
      * {@code fetchBypassFunction} or the {@code biMapFunction}.
      */
@@ -309,7 +306,6 @@ public class Primitives {
      * @param neighborReferences an iterable of references to the neighbor nodes to be fetched
      * @param nodeCache a map serving as an in-memory cache for nodes. This map will be populated with any
      * nodes fetched from storage.
-     *
      * @return a {@link CompletableFuture} that, upon completion, will contain a list of
      *         {@link NodeReferenceWithVectorAndAdditionalValues} objects for the specified neighbors
      */
@@ -415,7 +411,6 @@ public class Primitives {
      * be fetched.
      * @param nodeCache A map used as a cache. It is checked for existing nodes and updated with any newly fetched
      * nodes.
-     *
      * @return A {@link CompletableFuture} which will complete with a {@link List} of {@link NodeReferenceAndNode}
      *         objects, pairing each requested reference with its corresponding node.
      */
@@ -467,7 +462,6 @@ public class Primitives {
      * mapping the reference directly to a result of type {@code U}.
      * @param biMapFunction The function to apply when a node is successfully fetched, mapping the original
      * reference and the fetched {@link AbstractNode} to a result of type {@code U}.
-     *
      * @return A {@link CompletableFuture} that, upon completion, will hold a {@link List} of non-null results
      * of type {@code U}
      */
@@ -600,7 +594,6 @@ public class Primitives {
      * {@link HNSW#cardinality(ReadTransaction)} for the public entry point and the rationale.
      *
      * @param readTransaction the transaction to use for reading from the database
-     *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
     @Nonnull
@@ -656,7 +649,6 @@ public class Primitives {
      * @param neighborChangeSet a set of pending changes to the neighborhood that must be included in the pruning
      *        calculation
      * @param nodeCache a cache of nodes to avoid redundant database fetches
-     *
      * @return a {@link CompletableFuture} which completes with a list of the newly selected neighbors for the pruned node.
      * If no pruning was necessary, it completes with {@code null}.
      */
@@ -726,7 +718,6 @@ public class Primitives {
      * @param m the maximum number of neighbors to select
      * neighbors of the {@code nearestNeighbors}
      * @param nodeCache a cache of nodes to avoid redundant storage lookups
-     *
      * @return a {@link CompletableFuture} which will complete with a list of the selected neighbors,
      * each represented as a {@link NodeReferenceAndNode}
      */
@@ -812,7 +803,6 @@ public class Primitives {
      * @param isExtendCandidates a boolean flag; if {@code true}, the candidate set is extended with neighbors
      * @param nodeCache a cache mapping primary keys to {@link AbstractNode} objects to avoid redundant fetches
      * @param vector the query vector used to calculate distances for any new neighbor nodes
-     *
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithDistance},
      * containing the original candidates and potentially their neighbors
      */
@@ -907,7 +897,6 @@ public class Primitives {
      * @param samplingPredicate a predicate that restricts the number of neighbors to be fetched
      * @param layer the graph layer from which to fetch nodes
      * @param nodeCache a cache mapping primary keys to {@link AbstractNode} objects to avoid redundant fetches
-     *
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithVector}
      */
     private <T extends NodeReference, N extends NodeReference> CompletableFuture<? extends List<? extends NodeReferenceWithVector>>
@@ -931,7 +920,6 @@ public class Primitives {
      *
      * @param <N> the type of the {@link NodeReference} storage space that is currently being used
      * @param initialNodeReferenceAndNodes an {@link Iterable} of initial candidate nodes
-     *
      * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReference}s
      */
     private <T extends NodeReference, N extends NodeReference> Set<NodeReference>
@@ -1057,6 +1045,7 @@ public class Primitives {
      * <p>We know that the candidate change set map only contains keys for nodes that exist AND that the candidate change
      * set map contains all primary neighbors (if they exist). Therefore, we filter the neighbors list from the node by
      * cross-referencing the change set map.
+     *
      * @param <N> type parameter extending {@link NodeReference}
      * @param toBeDeletedNode the node that is being deleted.
      * @param candidateChangeSetMap the initialized candidate change set map.
@@ -1095,7 +1084,6 @@ public class Primitives {
      * This is used as the base for calculating changes. Must not be null.
      * @param afterNeighbors an iterable collection of the desired neighbors after the update.
      * Must not be null.
-     *
      * @return a new {@code NeighborsChangeSet} that includes the necessary deletion and insertion
      * operations to transform the neighbors from the "before" state to the "after" state.
      */
@@ -1164,6 +1152,7 @@ public class Primitives {
      * a higher layer decreases exponentially. This is achieved by applying the inverse transform sampling method.
      * The specific formula is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random number and
      * {@code lambda} is a normalization factor derived from a system configuration parameter {@code M}.
+     *
      * @param primaryKey the primary key of the record to be inserted/updated/deleted
      * @return a non-negative integer representing the randomly selected layer
      */

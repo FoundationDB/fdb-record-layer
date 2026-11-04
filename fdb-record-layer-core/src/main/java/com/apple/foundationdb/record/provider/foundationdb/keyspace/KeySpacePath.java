@@ -45,8 +45,7 @@ import java.util.concurrent.CompletableFuture;
 public interface KeySpacePath {
 
     /**
-     * Get the length of the path.
-     * @return the length of the path
+     * {@return the length of the path}
      */
     default int size() {
         KeySpacePath root = this;
@@ -60,6 +59,7 @@ public interface KeySpacePath {
 
     /**
      * Adds the constant value for subdirectory <code>dirName</code> to the directory path.
+     *
      * @param dirName the name of the subdirectory to add to the path
      * @return this path
      * @throws NoSuchDirectoryException if the specified subdirectory does not exist
@@ -70,6 +70,7 @@ public interface KeySpacePath {
 
     /**
      * Adds a <code>value</code> for a specific subdirectory <code>dirName</code> to the directory path.
+     *
      * @param dirName the name of the subdirectory to add to the path
      * @param value the value to use for the subdirectory
      * @return this path
@@ -82,6 +83,7 @@ public interface KeySpacePath {
 
     /**
      * Returns the parent of this entry or null if this is the root of the path.
+     *
      * @return the parent keyspace path
      */
     @Nullable
@@ -89,6 +91,7 @@ public interface KeySpacePath {
 
     /**
      * Returns the directory name for this path element.
+     *
      * @return the directory name
      */
     @Nonnull
@@ -96,6 +99,7 @@ public interface KeySpacePath {
 
     /**
      * Returns the directory that corresponds to this path entry.
+     *
      * @return returns the directory that corresponds to this path entry
      */
     @Nonnull
@@ -105,6 +109,7 @@ public interface KeySpacePath {
      * Returns the value that was provided when to {@link #add(String, Object)} when this path was constructed.
      * Note that for some directory types, such as {@link DirectoryLayerDirectory}, this may not be the value
      * that is actually stored at this path element. For that, use {@link #resolveAsync(FDBRecordContext)}.
+     *
      * @return the path value
      */
     @Nullable
@@ -193,6 +198,7 @@ public interface KeySpacePath {
     /**
      * Flattens the path into a list of <code>KeySpacePath</code> entries, with the root of the path
      * located at position 0.
+     *
      * @return this path as a list
      */
     @Nonnull
@@ -385,7 +391,6 @@ public interface KeySpacePath {
      * directory values in accordance with the input {@link Tuple}.
      *
      * @param tuple representing the directory values of this path in resolved form
-     *
      * @return a string representation of the path that shows both original and resolved directory values
      */
     @API(API.Status.UNSTABLE)
@@ -434,6 +439,7 @@ public interface KeySpacePath {
     /**
      * Two {@link KeySpacePath}s are equal if they have equal values, the same directory (reference equality) and their
      * parents are the same.
+     *
      * @param obj another {@link KeySpacePath}
      * @return {@code true} if this path equals {@code obj}
      */

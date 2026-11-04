@@ -113,6 +113,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Builder class for quantifiers.
+     *
      * @param <Q> quantifier type
      * @param <B> builder type
      */
@@ -296,6 +297,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Create a builder for a for-each quantifier containing relational expressions.
+     *
      * @return a for-each quantifier builder
      */
     @Nonnull
@@ -305,6 +307,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create a for-each quantifier ranging over a reference.
+     *
      * @param reference the reference
      * @return a new for-each quantifier ranging over {@code reference}
      */
@@ -316,6 +319,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create a for-each quantifier ranging over a reference using a given alias.
+     *
      * @param reference the reference
      * @param alias the alias to be used
      * @return a new for-each quantifier ranging over {@code reference}
@@ -331,6 +335,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Shorthand to create a for-each quantifier ranging over a reference using a given alias. It returns {@code null}
      * if the underlying {@code Reference} returns nothing.
+     *
      * @param reference the reference
      * @return a new for-each quantifier ranging over {@code reference}
      */
@@ -344,6 +349,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Shorthand to create a for-each quantifier ranging over a reference using a given alias.  It returns {@code null}
      * if the underlying {@code Reference} returns nothing.
+     *
      * @param reference the reference
      * @param alias the alias to be used
      * @return a new for-each quantifier ranging over {@code reference}
@@ -463,6 +469,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Create a builder for an existential quantifier containing relational
      * expressions.
+     *
      * @return an existential quantifier builder
      */
     @Nonnull
@@ -472,6 +479,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create an existential quantifier ranging over a reference.
+     *
      * @param reference the reference
      * @return a new existential quantifier ranging over {@code reference}
      */
@@ -483,6 +491,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create an existential quantifier ranging over a reference using a given alias.
+     *
      * @param reference the reference
      * @param alias the alias to be used
      * @return a new existential quantifier ranging over {@code reference}
@@ -518,6 +527,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
              * Build a new physical quantifier from a for-each quantifier with the same alias.
              * Often times a for-each quantifier needs to "turn" into a physical quantifier e.g. when a logical
              * operator is implemented by a physical one.
+             *
              * @param quantifier for each quantifier to morph from
              * @return the new physical quantifier
              */
@@ -640,6 +650,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Create a builder for a physical quantifier containing record query plans.
+     *
      * @return a physical quantifier builder
      */
     public static Physical.PhysicalBuilder physicalBuilder() {
@@ -674,8 +685,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public abstract Quantifier.Builder<? extends Quantifier, ? extends Quantifier.Builder<?, ?>> toBuilder();
 
     /**
-     * Return the reference that the quantifier ranges over.
-     * @return {@link Reference} this quantifier ranges over
+     * {@return {@link Reference} this quantifier ranges over}
      */
     @Nonnull
     public abstract Reference getRangesOver();
@@ -683,6 +693,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Return a shorthand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
      * not distract from expressions. For example, when a data flow is visualized the returned string should be <em>short</em>.
+     *
      * @return a short string representing the quantifier.
      */
     @Nonnull
@@ -690,6 +701,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
+     *
      * @param visitor the visitor that is being accepted
      * @param <U> the type the visitor computes
      * @return the property
@@ -753,6 +765,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Helper to determine if anything that this quantifier ranges over is correlated to something that needs to be
      * rebased.
+     *
      * @param translationMap a map that expresses translations from correlations identifiers to correlation identifiers.
      * @return {@code true} if the graph this quantifier ranges over needs to be rebased given the translation map
      *         passed in, {@code false} otherwise

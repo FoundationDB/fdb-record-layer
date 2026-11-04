@@ -273,7 +273,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * This includes records, indexes, and other meta-data.
          *
          * @param store the store from which to collect statistics on key and value sizes
-         *
          * @return a statistics collector of that store
          */
         @Nonnull
@@ -287,7 +286,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param store a store with the given index
          * @param indexName the name of the index to collect statistics on key and value sizes
-         *
          * @return a statistics collector of the given index
          */
         @Nonnull
@@ -301,7 +299,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param store a store with the given index
          * @param index the index to collect statistics on key and value sizes
-         *
          * @return a statistics collector of the given index
          */
         @Nonnull
@@ -313,7 +310,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * Create a statistics collector of all keys used by index within a given {@link Subspace}.
          *
          * @param subspace the subspace to collect statistics on key and value sizes
-         *
          * @return a statistics collector of the given subspace
          */
         @Nonnull
@@ -333,7 +329,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param context the transaction context in which to collect statistics
          * @param executeProperties limits on execution
-         *
          * @return a future that completes to <code>true</code> if this object is done collecting statistics or
          * <code>false</code> otherwise
          */
@@ -371,7 +366,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param context the transaction context in which to collect statistics
          * @param executeProperties limits on execution
-         *
          * @return <code>true</code> if this object is done collecting statistics or <code>false</code> otherwise
          */
         private boolean collect(@Nonnull FDBRecordContext context, @Nonnull ExecuteProperties executeProperties) {
@@ -481,7 +475,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * interpolated from the recorded size distribution.
          *
          * @param proportion the proportion of key-value pairs that should have a size less than the returned size
-         *
          * @return an estimate for the size that is consistent with the given proportion
          */
         private double getProportion(double proportion) {
@@ -489,27 +482,21 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
         }
 
         /**
-         * Get an estimate for the size of the median key-value pair.
-         *
-         * @return an estimate for the median key-value pair
+         * {@return an estimate for the size of the median key-value pair}
          */
         private double getMedian() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getMedian()).orElse(1.0);
         }
 
         /**
-         * Get an estimate for the size of the 90th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 90th percentile key-value pair
+         * {@return an estimate for the size of the 90th percentile key-value pair}
          */
         private double getP90() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getP90()).orElse(1.0);
         }
 
         /**
-         * Get an estimate for the size of the 95th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 95th percentile key-value pair
+         * {@return an estimate for the size of the 95th percentile key-value pair}
          */
         private double getP95() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getP95()).orElse(1.0);

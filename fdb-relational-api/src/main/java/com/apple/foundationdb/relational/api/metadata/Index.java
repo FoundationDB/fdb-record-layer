@@ -43,7 +43,6 @@ public interface Index extends Metadata {
      * {@code com.apple.foundationdb.record.metadata.IndexTypes}.
      *
      * @return the type of the index.
-     *
      * @implNote (yhatem) this currently returns the type as a {@code String} which is error-prune.
      *           instead we should an {@code enum} structure.
      * TODO (yhatem) return {@code enum} instead.

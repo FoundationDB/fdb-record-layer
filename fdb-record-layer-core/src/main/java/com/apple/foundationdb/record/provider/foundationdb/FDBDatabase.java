@@ -198,6 +198,7 @@ public class FDBDatabase {
      * <p>It is possible for this function to be called with the result of calling it previously.
      * Therefore, if wrapping exceptions with some application-specific exception class, it is best
      * to check for being passed an {@code ex} that is already of that class and in that case just return it.
+     *
      * @see #setAsyncToSyncExceptionMapper
      * @see #asyncToSync
      * @see FDBExceptions#wrapException(Throwable)
@@ -237,6 +238,7 @@ public class FDBDatabase {
 
     /**
      * Get the locality provider that is used to discover the server location of the keys.
+     *
      * @return the locality provider
      */
     @Nonnull
@@ -301,6 +303,7 @@ public class FDBDatabase {
 
     /**
      * Get the factory that produced this database.
+     *
      * @return the database factory
      */
     @Nonnull
@@ -310,6 +313,7 @@ public class FDBDatabase {
 
     /**
      * Get the underlying FDB database.
+     *
      * @return the FDB database
      */
     @Nonnull
@@ -320,6 +324,7 @@ public class FDBDatabase {
 
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
+     *
      * @return a new record context
      * @see Database#createTransaction
      */
@@ -730,6 +735,7 @@ public class FDBDatabase {
 
     /**
      * Create a new executor for the database. This is used internally when creating a transaction or a new runner.
+     *
      * @param mdcContext if present, the MDC context to be made available within the executors threads
      * @return the new executor
      */
@@ -788,6 +794,7 @@ public class FDBDatabase {
      * Create an {@link FDBDatabaseRunner} for use against this database.
      * Changes made to {@code contextConfigBuilder} subsequently will continue to be reflected in contexts opened
      * by the runner.
+     *
      * @param contextConfigBuilder options for contexts opened by the new runner
      * @return a new runner
      */
@@ -798,6 +805,7 @@ public class FDBDatabase {
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.
+     *
      * @return a new runner
      */
     @Nonnull
@@ -807,6 +815,7 @@ public class FDBDatabase {
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.
+     *
      * @param timer the timer to use for instrumentation
      * @param mdcContext logger context to set in running threads
      * @return a new runner
@@ -818,6 +827,7 @@ public class FDBDatabase {
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.
+     *
      * @param timer the timer to use for instrumentation
      * @param mdcContext logger context to set in running threads
      * @param weakReadSemantics allowable staleness information if caching read versions
@@ -1165,7 +1175,6 @@ public class FDBDatabase {
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
      * @return the result value
-     *
      * @throws java.util.concurrent.CancellationException if the future was cancelled
      * @throws ExecutionException if the future completed exceptionally
      * @throws InterruptedException if the current thread was interrupted
@@ -1177,6 +1186,7 @@ public class FDBDatabase {
 
     /**
      * Log warning and close tracked contexts that have been open for too long.
+     *
      * @param minAgeSeconds number of seconds above which to warn
      * @return number of such contexts found
      */

@@ -59,6 +59,7 @@ public final class JDBCURI {
 
     /**
      * Return first value in the values list.
+     *
      * @param key Key to use looking up values list.
      * @param map Map to search.
      * @return First value in values list or null if no values found.
@@ -70,6 +71,7 @@ public final class JDBCURI {
 
     /**
      * From https://stackoverflow.com/questions/13592236/parse-a-uri-string-into-name-value-collection.
+     *
      * @param  uri JDBC Connect URL.
      * @return Map of lists of query string parameters keyed by query parameter name.
      */
@@ -95,6 +97,7 @@ public final class JDBCURI {
 
     /**
      * Run UTF-8 URLDecoding of <code>s</code>.
+     *
      * @param s String to URLDecode.
      * @return URL decoded String.
      */

@@ -112,6 +112,7 @@ public class FDBReverseDirectoryCache {
      * within the context of a single transaction, when this limit is hit, a new one will be
      * started before continuing.  The default value is 10,000. A value that is less than or
      * equal to zero indicates no row limit.
+     *
      * @return row limit
      */
     public int getMaxRowsPerTransaction() {
@@ -127,6 +128,7 @@ public class FDBReverseDirectoryCache {
      * within the context of a single transaction, when this limit is hit, a new one will be
      * started before continuing.  The default value is 3000ms (3 seconds). A value that is
      * less than or equal to zero indicates no time limit.
+     *
      * @return time limit
      */
     public long getMaxMillisPerTransaction() {
@@ -140,6 +142,7 @@ public class FDBReverseDirectoryCache {
     /**
      * Get the number of reverse lookups in which the persistent cache was found to be missing an entry,
      * resulting in a scan of the directory layer in order to populate the missing entry.
+     *
      * @return the number of cache misses
      */
     public long getPersistentCacheMissCount() {
@@ -230,6 +233,7 @@ public class FDBReverseDirectoryCache {
 
     /**
      * Helper method to log the cache stats to the StoreTimer.
+     *
      * @param context the FDB record context
      * @param event the event to log
      */
@@ -414,6 +418,7 @@ public class FDBReverseDirectoryCache {
     /**
      * Clears out the persistent reverse directory cache, repopulates it, clears out the in-memory cache
      * and resets cache miss statistics.
+     *
      * @param scope name to string resolver
      */
     @VisibleForTesting
