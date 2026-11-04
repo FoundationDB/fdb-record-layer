@@ -175,7 +175,7 @@ test_block:
       - query: select "foo.table$repeated".id from "foo.table$repeated" where 'foo' IN "foo.table$repeated"."field.1$array"
       # Ideally, this would use the index "foo.table$repeated.2". It appears to be a matching problem unrelated to the identifier choices
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array) | FILTER @c7 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
+      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.field.1$array)) | FILTER @c7 EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }"
       - result: [{1}, {2}]
     -
       # select with predicates on repeated scalar fields
@@ -187,7 +187,7 @@ test_block:
       - query: select t."field.1$array" from "foo.table$repeated" as t where 3 IN t."field.0$array"
       # Ideally, this would use the index "foo.table$repeated.1". It appears to be a matching problem unrelated to the identifier choices
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array) }"
+      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.field.0$array)) | FILTER promote(@c9 AS LONG) EQUALS _._0 AS q1 RETURN (q0.field.1$array AS field.1$array) }"
       - result: [{["foo", "bar", "baz"]}]
     -
       # select repeated scalar fields
@@ -384,7 +384,7 @@ test_block:
     -
       # inline table definition
       - query: select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$", "_$")
-      - explain: "EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15 AS _$$, @c17 AS _$))"
+      - explain: "TF explode(array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15 AS _$$, @c17 AS _$))) | MAP _._0"
       - result: [{"_$$$": 1, "_$$": 2, "_$": 3}, { "_$$$": 4, "_$$": 5, "_$": 6}]
     -
       # named record construction
