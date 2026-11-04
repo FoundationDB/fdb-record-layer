@@ -531,7 +531,7 @@ join-tests®EXPLAIN select project.id, project.name from emp, dept, project whe
 §
 
 join-testsïEXPLAIN select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)Í5
-"∏≠¢ˇ£§»? ø∫¶’(ø	0•ñ‹Ô8ö@ôÿSCAN([IS PROJECT]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS DEPT, EQUALS q1._0]) } | FLATMAP q2 -> { COVERING(EMPDEPT [EQUALS q2.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q0.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }Ë2digraph G {
+"∏≠¢ˇ£§»? ø∫¶’(ø	0•ñ‹Ô8ö@ôÿ[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) }Ë2digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -665,7 +665,7 @@ join-testsvEXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept
 y
 
 join-testskEXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)ˆ!
-µ5∏˜±Œí Éõù‡(ú0Ωø™.8‡	@<›[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q0._0]) | FILTER _.DEPT_ID EQUALS q1.ID AS q2 RETURN (q2.ID AS ID) } }Údigraph G {
+µ5∏˜±Œí Éõù‡(ú0Ωø™.8‡	@<›[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS EMP, EQUALS q0._0]) } | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FILTER q1.DEPT_ID EQUALS _.ID AS q2 RETURN (q1.ID AS ID) }Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
