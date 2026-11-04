@@ -166,6 +166,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Nonnull
     @SuppressWarnings("this-escape")
+    private final Supplier<Set<Comparisons.Comparison>> comparisonsSupplier = Suppliers.memoize(RecordQueryPlanWithComparisons.super::computeComparisons);
+    @Nonnull
+    @SuppressWarnings("this-escape")
     private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     @Nonnull
     private final KeyValueCursorBase.SerializationMode serializationMode;
@@ -601,6 +604,12 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Override
     public boolean hasScanComparisons() {
         return scanParameters.hasScanComparisons();
+    }
+
+    @Nonnull
+    @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        return comparisonsSupplier.get();
     }
 
     @Nonnull

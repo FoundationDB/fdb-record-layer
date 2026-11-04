@@ -43,8 +43,11 @@ public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
         return hasComparisonRanges() || hasScanComparisons();
     }
 
-    default Set<Comparisons.Comparison> getComparisons() {
-        // TODO find a way to memoize this
+    @Nonnull
+    Set<Comparisons.Comparison> getComparisons();
+
+    @Nonnull
+    default Set<Comparisons.Comparison> computeComparisons() {
         Preconditions.checkArgument(hasComparisonRanges() || hasScanComparisons());
 
         if (hasComparisonRanges()) {
