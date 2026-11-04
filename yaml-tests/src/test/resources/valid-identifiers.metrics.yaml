@@ -30,22 +30,16 @@ all-tests:
         (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1"
         = 10)
     ref: valid-identifiers.yamsql:166
-    explain: ISCAN(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26
-        AS LONG)]) | FLATMAP q0 -> { TF explode(q0.level0.field1) | FLATMAP q1 ->
-        { TF explode(q1._0.level1$field.1) | FILTER _._0.level2$array.field.1 EQUALS
-        promote(@c26 AS LONG) AS q2 RETURN (q1._0.level1$field.1 AS level1$field.1,
-        q1._0.level1$field.2 AS level1$field.2, q1._0.level1$field.3 AS level1$field.3,
-        q2._0.level2$array.field.1 AS level2$array.field.1, q2._0.level2$field.2 AS
-        level2$field.2) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN q0 } | MAP
-        (_.ID AS ID)
-    task_count: 804
-    task_total_time_ms: 187
-    transform_count: 296
-    transform_time_ms: 101
-    transform_yield_count: 63
-    insert_time_ms: 6
-    insert_new_count: 86
-    insert_reused_count: 4
+    explain: 'COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26
+        AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
+    task_count: 899
+    task_total_time_ms: 190
+    transform_count: 320
+    transform_time_ms: 142
+    transform_yield_count: 69
+    insert_time_ms: 3
+    insert_new_count: 94
+    insert_reused_count: 3
 -   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
         where id = 1
     ref: valid-identifiers.yamsql:171
