@@ -1,9 +1,12 @@
-# Migration map: record query tests affected by the `ExplodeValue` change
+# Migration map: `fdb-record-layer-core` query tests to `cascades-query-tests`
 
-The subset of the `fdb-record-layer-core` Cascades query tests whose plans, plan-matching code or helpers change when an
-explode is represented by `TableFunctionExpression(ExplodeValue)` rather than `ExplodeExpression`. Each is ported to a
-declarative yamsql file here, so that the effect of that change on the planner is visible as plan and metric differences
-in one place. **The core tests are untouched.** Authoring conventions are in `README.md` in this directory.
+Generated as part of moving the Cascades-planner query tests out of `fdb-record-layer-core` and into
+the declarative yamsql suite. **The core tests are untouched** — retiring them is a separate, later
+step, so every source method listed here still exists and still runs.
+
+New tests live in `yaml-tests/src/test/resources/cascades-query-tests/<file>.yamsql`, registered by
+`yaml-tests/src/test/java/CascadesQueryTests.java`. Authoring conventions are in `README.md` in the
+same directory.
 
 ## Legend
 

@@ -15,10 +15,8 @@ and records the product divergences found while porting.
 
 ## Status
 
-      17 files, covering the 37 record query tests affected by representing an explode as
-`TableFunctionExpression(ExplodeValue)`. `MIGRATION.md` records the state of every source method. The core tests only
-gain `SQL Port status` comments (and, where the Cascades branch no longer applies, a restriction to the old planner).
-
+17 files. `MIGRATION.md` records the state of every source method. The core tests are untouched; retiring them is a
+separate, later step.
 
 ## Authoring conventions
 
