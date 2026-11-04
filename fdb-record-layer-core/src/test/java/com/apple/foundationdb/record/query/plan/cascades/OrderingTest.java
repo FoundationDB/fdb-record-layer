@@ -877,7 +877,7 @@ class OrderingTest {
         final var rcv = ValueTestHelpers.qov();
         final List<Column<? extends Value>> columns = Arrays.stream(projection)
                 .map(field -> FieldValue.ofFieldName(rcv, field))
-                .map(field -> Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(field.getLastFieldName().orElseThrow() + "p")), field))
+                .map(field -> Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(field.getFieldPath().getLastFieldName().orElseThrow() + "p")), field))
                 .collect(Collectors.toList());
         // create a bunch of aliases
         return RecordConstructorValue.ofColumns(columns);
