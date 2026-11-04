@@ -316,7 +316,6 @@ public class MaxMatchMap {
      * @param queryValue the query result {@code Value}.
      * @param candidateValue the candidate result {@code Value} we want to search for maximum matches.
      * @param rangedOverAliases a set of aliases that should be considered constant
-     *
      * @return a {@link MaxMatchMap} of all maximum matches.
      */
     @Nonnull

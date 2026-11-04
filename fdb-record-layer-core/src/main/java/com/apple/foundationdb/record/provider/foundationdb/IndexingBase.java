@@ -787,7 +787,6 @@ public abstract class IndexingBase {
      * @param recordsScanned when return, number of scanned records.
      * @param snapshotIsolationLevel if true, records are scanned as snapshot, and each indexed record is protected by its own conflict ranges (see {@link #canUseSnapshotResolution})
      * @param <T> cursor result's type.
-     *
      * @return hasMore, nextResultCont, and recordsScanned.
      */
 

@@ -175,7 +175,6 @@ class Delete {
      * @param transaction the {@link Transaction} context for all database operations, ensuring atomicity
      *        and consistency of the deletion and repair operations
      * @param primaryKey the unique {@link Tuple} primary key identifying the node to be deleted from the graph
-     *
      * @return a {@link CompletableFuture} that completes when the deletion operation is fully finished,
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.
@@ -254,7 +253,6 @@ class Delete {
      * @param topLayer the top layer for the node.
      * @param needNewEntryNode whether the node being deleted is the entry node, so that each layer has to offer a
      *        replacement for it; if not, every layer offers {@code null}
-     *
      * @return a {@link CompletableFuture} of what each layer offers as a replacement entry node, one element per layer
      *         in layer order, each {@code null} if that layer offers none or {@code needNewEntryNode} is {@code false}
      */
@@ -289,7 +287,6 @@ class Delete {
      * @param toBeDeletedPrimaryKey the primary key of the new node to be inserted
      * @param needNewEntryNode whether the node being deleted is the entry node, so that this layer has to offer a
      *        replacement for it; if not, this layer offers {@code null}
-     *
      * @return a {@code CompletableFuture} of the node this layer offers as a replacement entry node, or of {@code null}
      */
     @Nonnull

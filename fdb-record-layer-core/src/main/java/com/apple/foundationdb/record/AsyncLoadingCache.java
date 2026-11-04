@@ -91,7 +91,6 @@ public class AsyncLoadingCache<K, V> {
      *
      * @param key the key in the cache to lookup
      * @param supplier an asynchronous operation to retrieve the desired value if the cache is empty
-     *
      * @return a future containing either the cached value or the result from the supplier
      */
     @SuppressWarnings("squid:S2789") // comparison of null and optional used to differentiate absence of key and presence of null

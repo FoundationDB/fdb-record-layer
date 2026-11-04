@@ -55,7 +55,6 @@ public interface Node<N extends NodeReference> {
      * that contain a vector and are independent of the storage implementation.
      * @param vector the vector of {@code Half} objects to process. This parameter
      * is optional and can be {@code null}.
-     *
      * @return a non-null reference to this object ({@code this}) for further
      * method calls.
      */

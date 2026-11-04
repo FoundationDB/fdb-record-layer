@@ -850,7 +850,6 @@ public class OnlineIndexer implements AutoCloseable {
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
          * @return this builder
-         *
          * @deprecated use {@link IndexingPolicy.Builder} instead. Example:
          *
          * <p>setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()

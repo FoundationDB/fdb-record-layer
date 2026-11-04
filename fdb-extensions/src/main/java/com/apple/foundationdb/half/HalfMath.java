@@ -44,7 +44,6 @@ public class HalfMath {
      *
      * @param half
      *            the floating-point value whose ulp is to be returned
-     *
      * @return the size of an ulp of the argument
      */
     public static Half ulp(Half half) {
@@ -80,7 +79,6 @@ public class HalfMath {
      *
      * @param half
      *            a {@code half} value
-     *
      * @return the unbiased exponent of the argument
      */
     public static int getExponent(Half half) {
@@ -100,7 +98,6 @@ public class HalfMath {
      *
      * @param half
      *            the argument whose absolute value is to be determined
-     *
      * @return the absolute value of the argument.
      */
     public static Half abs(Half half) {

@@ -128,7 +128,6 @@ public class EvaluationContext {
      *
      * @param type the type of the parameter
      * @param alias the correlation identifier
-     *
      * @return the value bound to the given parameter
      */
     public Object getBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
@@ -243,7 +242,6 @@ public class EvaluationContext {
      * @param type the type of the binding.
      * @param alias the alias determining the binding name to add
      * @param value the value to bind the name to
-     *
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {

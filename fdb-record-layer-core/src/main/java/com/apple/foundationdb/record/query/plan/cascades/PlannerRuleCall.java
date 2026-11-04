@@ -58,9 +58,7 @@ public interface PlannerRuleCall {
      *
      * @param key the binding from the rule's matcher expression
      * @param <U> the requested return type
-     *
      * @return the bindable bound to <code>name</code> in the rule's matcher expression
-     *
      * @throws java.util.NoSuchElementException when <code>key</code> is not a valid binding, or is not bound to a
      * bindable
      */

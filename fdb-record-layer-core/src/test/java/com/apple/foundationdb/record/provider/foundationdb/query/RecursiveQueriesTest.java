@@ -890,7 +890,6 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param successiveRowLimits execution resumption points by means of result offsets.\
      * @param reportExecutionTime if {@code true}, outputs the execution time to standard out.
      * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
-     *
      * @return A chunked list of nodes representing the path from the given path from child(ren) to the parent across
      * the given list of execution resumptions.
      */
@@ -917,7 +916,6 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param successiveRowLimits execution resumption points by means of result offsets.
      * @param reportExecutionTime if {@code true}, outputs the execution time to standard out.
      * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
-     *
      * @return A chunked list of nodes representing the path from the given parent(s) to the children across
      * the given list of execution resumptions.
      */
@@ -947,7 +945,6 @@ class RecursiveQueriesTest extends TempTableTestBase {
      *                             effectively restructuring the hierarchy during query execution.
      * @param reportExecutionTime if {@code true}, outputs the execution time to standard out.
      * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
-     *
      * @return A chunked list of nodes representing the path from the given parent(s) to the children across
      * the given list of execution resumptions.
      */

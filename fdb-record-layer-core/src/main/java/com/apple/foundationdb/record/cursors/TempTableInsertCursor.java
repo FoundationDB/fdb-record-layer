@@ -109,7 +109,6 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
      * @param tempTableDeserializer A method that, given a serialized {@link TempTable} returns a runtime {@link TempTable},
      *                              note that the serialized {@link TempTable} can be {@code null}.
      * @param childCursorCreator A creator of the child cursor, using a nullable child continuation.
-     *
      * @return a new {@link TempTableInsertCursor} that either resumes the execution according to the given continuation,
      *         or starts from the beginning.
      */

@@ -129,9 +129,7 @@ public enum Metric implements MetricDefinition {
      * @param vector1 the first vector. Must not be null.
      * @param vector2 the second vector. Must not be null and must have the same
      * length as {@code vector1}.
-     *
      * @return the calculated distance as a {@code double}.
-     *
      * @throws IllegalArgumentException if the vectors have different lengths.
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */

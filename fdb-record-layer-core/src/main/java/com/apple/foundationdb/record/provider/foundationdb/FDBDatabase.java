@@ -1165,7 +1165,6 @@ public class FDBDatabase {
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
      * @return the result value
-     *
      * @throws java.util.concurrent.CancellationException if the future was cancelled
      * @throws ExecutionException if the future completed exceptionally
      * @throws InterruptedException if the current thread was interrupted

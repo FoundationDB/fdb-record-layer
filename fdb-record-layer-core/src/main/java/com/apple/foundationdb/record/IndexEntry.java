@@ -194,7 +194,6 @@ public class IndexEntry {
      * Copy of this entry carrying the given value in place of its own, or this entry itself if the two values are equal.
      *
      * @param value the value the copy should carry
-     *
      * @return an entry with the same index and key as this one, and the given value
      */
     @Nonnull

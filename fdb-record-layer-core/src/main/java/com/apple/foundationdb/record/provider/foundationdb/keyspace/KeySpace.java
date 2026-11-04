@@ -223,7 +223,6 @@ public class KeySpace {
      * @param continuation if non-null, provides a continuation from a previous listing
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a cursor over the paths that were found
-     *
      * @deprecated use {@link #listDirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
     @API(API.Status.DEPRECATED)
@@ -242,7 +241,6 @@ public class KeySpace {
      * @param directory the path under which to list
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a list of the paths that were found
-     *
      * @deprecated use {@link #listDirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
     @API(API.Status.DEPRECATED)

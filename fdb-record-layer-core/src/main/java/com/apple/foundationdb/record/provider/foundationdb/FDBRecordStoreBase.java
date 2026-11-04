@@ -232,7 +232,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          *
          * @param storeHeader store header
          * @param metaData the meta-data provider that will be used to get meta-data
-         *
          * @return the user version to store in the record info header
          */
         default CompletableFuture<Integer> checkUserVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
@@ -253,9 +252,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param oldUserVersion the old user version or <code>-1</code> if this is a new record store
          * @param oldMetaDataVersion the old meta-data version
          * @param metaData the meta-data provider that will be used to get meta-data
-         *
          * @return the user version to store in the record info header
-         *
          * @deprecated use {@link #checkUserVersion(RecordMetaDataProto.DataStoreInfo, RecordMetaDataProvider)} instead
          */
         @API(API.Status.DEPRECATED)
@@ -850,7 +847,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
-     *
      * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
     @Nonnull
@@ -864,7 +860,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param range the range to scan
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
-     *
      * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
     @Nonnull
@@ -881,7 +876,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param highEndpoint whether high point is inclusive or exclusive
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
-     *
      * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
     @Nonnull
@@ -901,7 +895,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @param continuation a continuation from a previous scan (null if none)
      * @param scanProperties the scan properties to use (reverse is not supported)
-     *
      * @return a cursor of Tuples representing the Pks of the records in the range
      */
     @Nonnull
@@ -918,7 +911,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param high high point of scan point
      * @param lowEndpoint whether low point is inclusive or exclusive
      * @param highEndpoint whether high point is inclusive or exclusive
-     *
      * @return a future that will complete with the number of records in the range
      */
     @Nonnull
@@ -936,7 +928,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param highEndpoint whether high point is inclusive or exclusive
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
-     *
      * @return a future that will complete with the number of records in the range
      */
     @Nonnull
@@ -1625,7 +1616,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Delete the record with the given primary key.
      *
      * @param primaryKey the primary key for the record to be deleted
-     *
      * @return true if something was there to delete, false if the record didn't exist
      */
     default boolean deleteRecord(@Nonnull Tuple primaryKey) {

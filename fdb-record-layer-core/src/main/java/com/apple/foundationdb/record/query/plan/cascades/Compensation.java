@@ -921,7 +921,6 @@ public interface Compensation {
          * @param matchedToRealizedTranslationMapFunction a function that given an alias for the quantifier over the
          *        realized compensation, returns a {@link TranslationMap} that is then used to translate
          *        from {@link QueryPredicate}s and {@link Value}s using matched aliases to the realized alias
-         *
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
          */

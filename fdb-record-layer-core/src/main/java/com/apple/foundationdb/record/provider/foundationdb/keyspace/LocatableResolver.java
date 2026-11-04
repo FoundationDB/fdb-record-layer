@@ -946,7 +946,6 @@ public abstract class LocatableResolver {
      *
      * @param context the transaction context in which to perform the delete
      * @param value the reverse directory value to delete
-     *
      * @return a future that completes when the delete operation has completed
      */
     @VisibleForTesting
@@ -962,7 +961,6 @@ public abstract class LocatableResolver {
      * @param context the transaction context in which to perform the delete
      * @param value the reverse directory value to write
      * @param key the key to the forward directory associated with the {@code value}
-     *
      * @return a future that completes when the put operation has completed
      */
     @API(API.Status.INTERNAL)

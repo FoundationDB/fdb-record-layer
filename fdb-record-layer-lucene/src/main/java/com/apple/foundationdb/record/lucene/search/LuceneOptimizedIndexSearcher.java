@@ -191,7 +191,6 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      * @param leaves List of leaves reader contexts.
      * @param collector Collector that gathers the results.
      * @return a {@code Future} that can be waited upon for the parallel search tasks to finish.
-     *
      * @implNote it is possible that an {@link IOException} is thrown during parallel execution of task. Since Java does
      * not permit throwing a checked exception from a lambda, and we need to cascade this exception to the caller, we wrap
      * it using a custom, unchecked {@link WrapperException} and rethrow it. Therefore, the caller of this method should catch

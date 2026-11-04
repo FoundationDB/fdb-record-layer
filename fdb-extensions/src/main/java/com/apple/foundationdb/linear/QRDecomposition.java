@@ -54,9 +54,7 @@ public class QRDecomposition {
      * for efficiency.
      *
      * @param matrix the square matrix to decompose. Must not be null.
-     *
      * @return a {@link Result} object containing suppliers for the Q and R matrices.
-     *
      * @throws IllegalArgumentException if the provided {@code matrix} is not square.
      */
     @Nonnull
@@ -193,7 +191,6 @@ public class QRDecomposition {
      * @param qrt The packed QRT decomposition data. The strict upper-triangular
      *        part of {@code R} is stored in this matrix.
      * @param rDiagonal An array containing the diagonal elements of the R matrix.
-     *
      * @return The reconstructed upper-triangular R matrix as a {@link RealMatrix}.
      */
     @Nonnull

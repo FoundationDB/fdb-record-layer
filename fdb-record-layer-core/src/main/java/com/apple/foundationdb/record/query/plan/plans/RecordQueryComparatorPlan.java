@@ -90,7 +90,6 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      * @param children the list of plans to compare results from
      * @param comparisonKey a key expression by which the results of all plans are compared by
      * @param referencePlanIndex the index of the "reference plan" (source of truth) among the given sub-plans
-     *
      * @return a new plan that will compare all results from child plans
      */
     @Nonnull
@@ -109,7 +108,6 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      * @param abortOnComparisonFailure whether to abort the plan execution when encountering comparison failure. This parameter
      *        is used for testing since we don't want to fail normal plans on that kind of failure, but it allows a fast
      *        and easy-to-check condition for testing
-     *
      * @return a new plan that will compare all results from child plans
      */
     @HeuristicPlanner

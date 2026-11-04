@@ -196,7 +196,6 @@ public class PendingWriteQueue {
      * @param scanProperties the scan properties for the cursor; the isolation level is always forced to
      * {@link IsolationLevel#SNAPSHOT}, while row/byte/skip limits are still honored at the entry level
      * @param continuation the continuation to continue from (null means start from the beginning)
-     *
      * @return a record cursor that iterates through the elements of the queue, in order
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -297,7 +296,6 @@ public class PendingWriteQueue {
      * This should be called before executing a query to ensure queued writes are visible.
      *
      * @param indexWriter the index writer to write to
-     *
      * @return CompletableFuture that completes when all operations have been replayed
      */
     @Nonnull
@@ -451,7 +449,6 @@ public class PendingWriteQueue {
      * of {@link #isQueueEmpty(FDBRecordContext)}, in which case we use counting to see if the size is greater than 0).
      *
      * @param context the record context to use
-     *
      * @return a future that resolves to the queue size, or {@code null} if the counter does not exist
      */
     @Nonnull

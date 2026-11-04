@@ -204,7 +204,6 @@ public class Guardiann {
      * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors of
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -238,7 +237,6 @@ public class Guardiann {
      *        its primary key is strictly greater (may be {@code null} to disable the tie-break)
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} completing with up to {@code k} results in ascending distance order
      */
     @Nonnull

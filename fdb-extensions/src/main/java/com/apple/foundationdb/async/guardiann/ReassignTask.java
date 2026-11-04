@@ -223,7 +223,6 @@ class ReassignTask extends AbstractDeferredTask {
      * @param targetClusterMetadata the metadata of the cluster being reassigned
      * @param targetClusterCentroid the cluster's centroid in client (untransformed) space
      * @param enqueueFollowUpTasks whether to enqueue follow-up deferred tasks (always {@code true} in production)
-     *
      * @return a future that completes when the reassignment has been persisted
      */
     @Nonnull

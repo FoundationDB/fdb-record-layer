@@ -359,7 +359,6 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
      * @param numValue2 the expected value of the numValue2 field in the read records
      * @param atMostDiscarded the expected maximum allowed number of discarded records
      * @param totalCount the total returned record count
-     *
      * @throws Exception just in case
      */
     protected void assertSamePlans(final RecordQueryPlan planUnderTest, final int numValue2, final int atMostDiscarded, final int totalCount) throws Exception {
@@ -376,7 +375,6 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
      * @param numValue2 the expected value of the numValue2 field in the read records
      * @param atMostDiscarded the expected maximum allowed number of discarded records
      * @param totalCount the total returned record count
-     *
      * @throws Exception just in case
      */
     protected abstract void assertDifferentPlans(final RecordQueryPlan planUnderTest, final int numValue2, final int atMostDiscarded, final int totalCount) throws Exception;

@@ -125,7 +125,6 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * Test if the ID candidate is a valid ID.
      *
      * @param idCandidate the ID candidate.
-     *
      * @return <code>true</code> if it is valid; <code>false</code> otherwise.
      */
     @Override

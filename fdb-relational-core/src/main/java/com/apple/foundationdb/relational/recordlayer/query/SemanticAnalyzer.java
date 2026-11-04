@@ -420,7 +420,6 @@ public class SemanticAnalyzer {
      *
      * @param qualifier the qualifier preceding the {@code *}, or {@code null} for an unqualified {@code *}
      * @param operators the logical operators in scope for resolving the qualifier
-     *
      * @return a {@link Star} expression capturing the expansion
      */
     @Nonnull
@@ -1130,7 +1129,6 @@ public class SemanticAnalyzer {
      * @param arguments The call-site arguments (positional/named values, options, and window specification).
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
-     *
      * @return An {@link Expression} representing the resolved SQL function.
      */
     @Nonnull
@@ -1165,7 +1163,6 @@ public class SemanticAnalyzer {
      * content, otherwise {@code false}.
      * @param windowSpecExpression The parsed {@code OVER} clause.
      * @param arguments The function's direct arguments (may be empty).
-     *
      * @return An {@link Expression} representing the resolved SQL window function.
      */
     @Nonnull
@@ -1226,7 +1223,6 @@ public class SemanticAnalyzer {
      * @param arguments The function arguments.
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
-     *
      * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
     @Nonnull

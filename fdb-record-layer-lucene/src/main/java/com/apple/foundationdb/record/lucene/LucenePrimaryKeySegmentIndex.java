@@ -48,9 +48,7 @@ public interface LucenePrimaryKeySegmentIndex {
      *
      * @param directoryReader a NRT reader
      * @param primaryKey the document's record's primary key
-     *
      * @return an entry with the leaf reader and document id in that segment or {@code null} if not found
-     *
      * @see IndexWriter#tryDeleteDocument
      */
     @Nullable

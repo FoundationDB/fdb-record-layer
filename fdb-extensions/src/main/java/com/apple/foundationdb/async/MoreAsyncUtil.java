@@ -111,7 +111,6 @@ public class MoreAsyncUtil {
      * @param iterable the iterable to drain
      * @param executor the executor to advance the iteration on
      * @param <T> the element type (elements are discarded)
-     *
      * @return a future that completes with {@code null} once the iterable is exhausted, or exceptionally if advancing
      *         it fails
      */
@@ -129,7 +128,6 @@ public class MoreAsyncUtil {
      * @param iterator the iterator to drain from its current position
      * @param executor the executor to advance the iteration on
      * @param <T> the element type (elements are discarded)
-     *
      * @return a future that completes with {@code null} once the iterator is exhausted, or exceptionally if advancing
      *         it fails
      */
@@ -195,7 +193,6 @@ public class MoreAsyncUtil {
      * @param whilePredicate the predicate an element must satisfy to be included; the first failure ends the stream
      * @param executor the executor used to drive the asynchronous iteration
      * @param <T> the element type
-     *
      * @return an {@link AsyncIterable} over the leading run of matching elements
      */
     @Nonnull
@@ -222,7 +219,6 @@ public class MoreAsyncUtil {
      * @param iterator the source iterator; consumed up to and including the first non-matching element
      * @param whilePredicate the predicate an element must satisfy to be included; the first failure ends the stream
      * @param <T> the element type
-     *
      * @return a {@link CloseableAsyncIterator} over the leading run of matching elements
      */
     @Nonnull
@@ -1162,11 +1158,9 @@ public class MoreAsyncUtil {
      * @param future1 one future
      * @param future2 another future
      * @param combiner a function to combine the results of both {@code future1} and {@code future2} into a single result.
-     *
      * @param <T> the result type for {@code future1}
      * @param <U> the result type for {@code future2}
      * @param <R> the result type for the returned future
-     *
      * @return a future that fails with one of the exceptions from {@code future1} or {@code future2} if either of those
      * failed, or the result of applying {@code combiner} to their results if both succeeded.
      */
@@ -1187,7 +1181,6 @@ public class MoreAsyncUtil {
      * @param shouldSwallow a predicate on whether to swallow the error from the future. Note that if the future failed
      * with a {@link CompletionException}, {@code swallowException} will also be called with its cause so that you don't
      * need special handling to cover this.
-     *
      * @return a future that will complete successfully if  {@code future} completed successfully, <em>or</em> the
      * {@code shouldSwallow} predicate returned {@code true} for the error that {@code future} threw
      */

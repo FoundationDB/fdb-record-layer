@@ -308,7 +308,6 @@ public class Expression {
      * Replaces all the {@link ConstantObjectValue} objects with corresponding {@link LiteralValue}s.
      *
      * @param literals The array of literals.
-     *
      * @return a new {@link Expressions} list where each {@link Expression} internal {@link Value} with {@link LiteralValue}s
      * instead of any {@link ConstantObjectValue}s.
      */

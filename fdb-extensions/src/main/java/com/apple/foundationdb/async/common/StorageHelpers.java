@@ -62,7 +62,6 @@ public final class StorageHelpers {
      * @param prefixSubspace the subspace holding the sampled vectors
      * @param numMaxVectors the maximum number of sampled vectors to consume
      * @param onReadListener the listener notified of each key/value read
-     *
      * @return a future completing with the consumed sampled vectors
      */
     @Nonnull
@@ -100,7 +99,6 @@ public final class StorageHelpers {
      * and counts.
      *
      * @param vectors the partial aggregates to combine
-     *
      * @return the combined aggregate, or {@code null} if {@code vectors} contributes no elements
      */
     @Nullable
@@ -197,7 +195,6 @@ public final class StorageHelpers {
      * Returns the raw byte representation of a transformed vector's underlying data, as stored in the database.
      *
      * @param transformedVector the transformed vector whose underlying raw bytes are returned
-     *
      * @return the raw bytes of the underlying vector
      */
     @Nonnull

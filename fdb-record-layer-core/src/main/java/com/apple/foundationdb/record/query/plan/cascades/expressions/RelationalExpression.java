@@ -681,7 +681,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      * from one of the expressions below that quantifier
      * @param evaluationContext the evaluation context used for checking subsumption.
-     *
      * @return an iterable of {@link MatchInfo}s if subsumption between this expression and the candidate expression
      * can be established
      */

@@ -126,7 +126,6 @@ interface StorageAdapter {
      * @param key the key of the {@code (Hilbert Value, key)} pair to search for
      * @param isInsertUpdate a use case indicator determining if this search is going to be used for an
      * update operation or a delete operation
-     *
      * @return a future that when completed holds the appropriate {@link Node} or {@code null} if such a
      * {@link Node} could not be found.
      */
@@ -143,7 +142,6 @@ interface StorageAdapter {
      *
      * @param transaction the transaction to use
      * @param nodeId the node id we should use
-     *
      * @return A completable future containing the {@link Node} that was fetched from the database once completed.
      * The node may be an object of {@link LeafNode} or of {@link IntermediateNode}.
      */

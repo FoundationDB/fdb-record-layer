@@ -80,10 +80,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      *
      * @param vector the vector to be associated with the node reference. Despite the
      * {@code @Nullable} annotation, this parameter must not be null.
-     *
      * @return a new {@link NodeReferenceWithVector} instance containing the node's
      * primary key and the provided vector; will never be null.
-     *
      * @throws NullPointerException if the provided {@code vector} is null.
      */
     @Nonnull

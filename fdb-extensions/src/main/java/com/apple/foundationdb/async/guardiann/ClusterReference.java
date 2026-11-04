@@ -61,7 +61,6 @@ record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector
      * what a deferred task carries into the task queue to the minimum a follow-up needs to re-locate the clusters.
      *
      * @param clusterMetadataWithDistances the clusters to project, in order
-     *
      * @return the projected references, one per input, in the same order
      */
     @Nonnull

@@ -279,7 +279,6 @@ public class SizeStatisticsResults {
      * interpolated from the recorded size distribution.
      *
      * @param proportion the proportion of key-value pairs that should have a size less than the returned size
-     *
      * @return an estimate for the size that is consistent with the given proportion
      */
     public double getProportion(double proportion) {
