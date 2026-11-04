@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
@@ -491,6 +492,18 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void unionEmptyTables(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union-empty-tables.yamsql");
+    }
+
+    @TestTemplate
+    public void joinedRecordTypeIndexes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("joined-record-type-indexes.yamsql");
+    }
+
+    @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
+            reason = "Seven-table joins take seconds to plan, and forcing continuations makes the file take over 15 minutes")
+    public void joinedRecordTypeIndexesInLargerJoins(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("joined-record-type-indexes-in-larger-joins.yamsql");
     }
 
     @TestTemplate

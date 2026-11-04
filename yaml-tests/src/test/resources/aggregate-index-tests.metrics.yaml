@@ -1093,14 +1093,14 @@ agg-index-tests:
         [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS
         _3)'
-    task_count: 392
-    task_total_time_ms: 115
-    transform_count: 146
-    transform_time_ms: 95
-    transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 1
+    task_count: 512
+    task_total_time_ms: 177
+    transform_count: 170
+    transform_time_ms: 136
+    transform_yield_count: 50
+    insert_time_ms: 1
+    insert_new_count: 52
+    insert_reused_count: 2
 agg-index-tests-t6-tvf:
 -   query: EXPLAIN select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c) as
         ek group by a, ek.k, b

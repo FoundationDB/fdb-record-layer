@@ -950,7 +950,9 @@ public interface Compensation {
                         matchedToRealizedTranslationMapFunction);
             }
 
-            final var matchedForEachAlias = getMatchedForEachAlias();
+            // The compensating predicates are expressed over the top of the match, so the alias picked here only names
+            // the quantifier they are re-targeted onto -- any matched for-each alias will do, and a join match has several.
+            final var matchedForEachAlias = Iterables.get(getMatchedForEachAliases(), 0);
             final var matchedToRealizedTranslationMap = matchedToRealizedTranslationMapFunction.apply(matchedForEachAlias);
 
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
@@ -1036,8 +1038,11 @@ public interface Compensation {
             }
         }
 
+        /**
+         * {@return the aliases of the matched for-each quantifiers}
+         */
         @Nonnull
-        private CorrelationIdentifier getMatchedForEachAlias() {
+        private Set<CorrelationIdentifier> getMatchedForEachAliases() {
             final var matchedQuantifierMap =
                     Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
 
@@ -1045,13 +1050,10 @@ public interface Compensation {
                     matchedQuantifierMap.keySet();
             Verify.verify(compensatedAliases.equals(matchedAliases));
 
-            final var matchedForEachQuantifierAliases =
-                    matchedAliases
-                            .stream()
-                            .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
-                            .collect(ImmutableSet.toImmutableSet());
-
-            return Iterables.getOnlyElement(matchedForEachQuantifierAliases);
+            return matchedAliases
+                    .stream()
+                    .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
+                    .collect(ImmutableSet.toImmutableSet());
         }
 
         @Nonnull
@@ -1062,7 +1064,9 @@ public interface Compensation {
             Verify.verify(!isImpossible());
             Verify.verify(resultCompensationFunction.isNeeded());
 
-            final var matchedForEachAlias = getMatchedForEachAlias();
+            // The compensated result value is expressed over the top of the match, so the alias picked here only names
+            // the quantifier it is re-targeted onto -- any matched for-each alias will do, and a join match has several.
+            final var matchedForEachAlias = Iterables.get(getMatchedForEachAliases(), 0);
 
             final var resultValue =
                     resultCompensationFunction.applyCompensationForResult(

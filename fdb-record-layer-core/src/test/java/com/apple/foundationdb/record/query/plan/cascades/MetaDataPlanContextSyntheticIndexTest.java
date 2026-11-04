@@ -121,12 +121,11 @@ class MetaDataPlanContextSyntheticIndexTest {
     }
 
     /**
-     * An index on a synthetic record type is offered to the planner, but cannot be expanded into a match candidate
-     * yet: the primary key of a synthetic record type is a list, which the expansion does not support. The expansion
-     * gives up on such an index rather than failing, so offering it leaves planning as it was.
+     * An index on a joined record type is expanded into a match candidate alongside the indexes on the stored types,
+     * whichever way the plan context is built.
      */
     @Test
-    void planContextForAQueryReadingTheJoinedTypesBuildsWithoutACandidateForTheJoinedIndex() {
+    void planContextForAQueryReadingTheJoinedTypesHasACandidateForTheJoinedIndex() {
         final RecordMetaData metaData = metaData(metaDataBuilder -> {
             addOuterOtherJoined().accept(metaDataBuilder);
             // A query reading both stored types is offered only the indexes on both of them.
@@ -139,7 +138,7 @@ class MetaDataPlanContextSyntheticIndexTest {
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), metaData, ALL_READABLE,
                 IndexMaintainerFactoryRegistryImpl.instance(),
                 RecordQuery.newBuilder().setRecordTypes(List.of(OUTER, OTHER)).build());
-        assertThat(candidateNames(forRecordQuery)).contains(STORED_INDEX).doesNotContain(JOINED_INDEX);
+        assertThat(candidateNames(forRecordQuery)).contains(STORED_INDEX, JOINED_INDEX);
 
         final Set<String> queriedTypes = Set.of(OUTER, OTHER);
         final PlanContext forRootReference = MetaDataPlanContext.forRootReference(
@@ -148,7 +147,7 @@ class MetaDataPlanContextSyntheticIndexTest {
                 Reference.initialOf(new FullUnorderedScanExpression(queriedTypes,
                         metaData.getPlannerType(queriedTypes), new AccessHints())),
                 Optional.empty(), IndexQueryabilityFilter.DEFAULT);
-        assertThat(candidateNames(forRootReference)).contains(STORED_INDEX).doesNotContain(JOINED_INDEX);
+        assertThat(candidateNames(forRootReference)).contains(STORED_INDEX, JOINED_INDEX);
     }
 
     @Nonnull
