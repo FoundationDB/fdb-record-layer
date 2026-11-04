@@ -30,11 +30,13 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.test.BooleanSource;
 import com.google.common.base.VerifyException;
@@ -49,6 +51,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -374,6 +377,30 @@ class ExplodeValueTest {
         final var value = new ExplodeValue(LiteralValue.ofList(List.of(1, 2)));
         Assertions.assertEquals("explode([1, 2])",
                 value.explain().getExplainTokens().render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString());
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void derivationsOfATableFunctionKeepTheCollectionCorrelationAndTheStruct(final boolean withOrdinality) {
+        final var sourceAlias = CorrelationIdentifier.of("source");
+        final var arrayType = new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false));
+        final var sourceType = Type.Record.fromFields(List.of(Type.Record.Field.of(arrayType, Optional.of("arr"))));
+        final Value collectionValue = FieldValue.ofFieldName(QuantifiedObjectValue.of(sourceAlias, sourceType), "arr");
+        final var explodeValue = new ExplodeValue(collectionValue, withOrdinality);
+
+        final var derivations = new DerivationsProperty.DerivationsVisitor()
+                .visitTableFunctionPlan(new RecordQueryTableFunctionPlan(explodeValue));
+
+        Assertions.assertEquals(1, derivations.getResultValues().size());
+        final Value derived = derivations.getResultValues().get(0);
+        // the representative of some struct of the explode is still correlated to what the collection is correlated to
+        Assertions.assertTrue(derived.getCorrelatedTo().contains(sourceAlias));
+        // and it has the shape of the struct the explode flows: the first element of the collection, and the ordinal
+        Assertions.assertEquals(explodeValue.getResultType(), derived.getResultType());
+        Assertions.assertTrue(derived instanceof RecordConstructorValue);
+        final List<? extends Value> columns = ImmutableList.copyOf(derived.getChildren());
+        Assertions.assertEquals(withOrdinality ? 2 : 1, columns.size());
+        Assertions.assertTrue(columns.get(0) instanceof FirstOrDefaultValue);
     }
 
     @ParameterizedTest
