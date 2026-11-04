@@ -169,8 +169,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Get the maximum number of records to process in one transaction.
-     * @return the maximum number of records to process in one transaction
+     * {@return the maximum number of records to process in one transaction}
      */
     public int getLimit() {
         return configBuilder.getMaxLimit();
@@ -256,8 +255,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Get the maximum number of records to process in a single second.
-     * @return the maximum number of records to process in a single second
+     * {@return the maximum number of records to process in a single second}
      */
     public int getRecordsPerSecond() {
         return configBuilder.getRecordsPerSecond();

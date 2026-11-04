@@ -73,8 +73,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     T withChildren(Iterable<? extends T> newChildren);
 
     /**
-     * Returns an iterator that traverse the nodes in pre-order.
-     * @return an iterator that traverse the nodes in pre-order.
+     * {@return an iterator that traverse the nodes in pre-order}
      */
     @Nonnull
     default PreOrderIterator<T> preOrderIterator() {
@@ -86,8 +85,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * Returns a {@link Stream} that traverses the nodes in pre-order.
-     * @return a {@link Stream} that traverses the nodes in pre-order.
+     * {@return a {@link Stream} that traverses the nodes in pre-order}
      */
     @Nonnull
     default Stream<T> preOrderStream() {
@@ -115,8 +113,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * Returns a {@link Stream} that traverses the nodes in post-order.
-     * @return a {@link Stream} that traverses the nodes in post-order.
+     * {@return a {@link Stream} that traverses the nodes in post-order}
      */
     @Nonnull
     default Stream<T> postOrderStream() {

@@ -446,9 +446,7 @@ public abstract class FDBDatabaseFactory {
     }
 
     /**
-     * Returns the current latency injector.
-     *
-     * @return the current latency injector
+     * {@return the current latency injector}
      */
     @Nonnull
     public Function<FDBLatencySource, Long> getLatencyInjector() {

@@ -68,9 +68,7 @@ public class FDBRecordStoreStateCacheEntry {
     }
 
     /**
-     * Get the {@link RecordStoreState} contained within this entry.
-     *
-     * @return the {@link RecordStoreState} contained within this entry
+     * {@return the {@link RecordStoreState} contained within this entry}
      */
     @Nonnull
     public RecordStoreState getRecordStoreState() {

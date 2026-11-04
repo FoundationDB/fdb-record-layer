@@ -437,9 +437,7 @@ public class StoreTimer {
         }
 
         /**
-         * Get the number of occurrences of the associated event.
-         *
-         * @return the number of occurrences of the associated event
+         * {@return the number of occurrences of the associated event}
          */
         public int getCount() {
             return count.get();
@@ -457,9 +455,7 @@ public class StoreTimer {
         }
 
         /**
-         * Get the cumulative value of the associated event.
-         *
-         * @return the cumulative value of the associated event
+         * {@return the cumulative value of the associated event}
          */
         public long getCumulativeValue() {
             return cumulativeValue.get();
@@ -524,9 +520,7 @@ public class StoreTimer {
     }
 
     /**
-     * Get the UUID of this timer.
-     *
-     * @return the UUID of this timer
+     * {@return the UUID of this timer}
      */
     @Nonnull
     public UUID geUUID() {

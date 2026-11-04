@@ -149,14 +149,12 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     }
 
     /**
-     * Get the minimum number of arguments supported by this function.
-     * @return the minimum number of arguments supported by this function
+     * {@return the minimum number of arguments supported by this function}
      */
     public abstract int getMinArguments();
 
     /**
-     * Get the maximum number of arguments supported by this function.
-     * @return the maximum number of arguments supported by this function
+     * {@return the maximum number of arguments supported by this function}
      */
     public abstract int getMaxArguments();
 

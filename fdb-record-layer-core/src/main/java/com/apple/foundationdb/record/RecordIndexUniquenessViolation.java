@@ -69,8 +69,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
     }
 
     /**
-     * Get the index associated with this uniqueness violation.
-     * @return the index associated with this uniqueness violation
+     * {@return the index associated with this uniqueness violation}
      */
     @Nonnull
     public Index getIndex() {

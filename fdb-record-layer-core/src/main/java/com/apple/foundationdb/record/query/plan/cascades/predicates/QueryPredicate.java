@@ -415,9 +415,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     QueryPredicate withAtomicity(boolean isAtomic);
 
     /**
-     * Returns a human-friendly textual representation of this {@link QueryPredicate}.
-     *
-     * @return a human-friendly textual representation of this {@link QueryPredicate}.
+     * {@return a human-friendly textual representation of this {@link QueryPredicate}}
      */
     @Nonnull
     default ExplainTokensWithPrecedence explain() {

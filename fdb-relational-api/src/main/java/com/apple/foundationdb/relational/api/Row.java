@@ -35,9 +35,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 public interface Row {
 
     /**
-     * Get the number of fields in this row.
-     *
-     * @return the number of fields in the row.
+     * {@return the number of fields in this row}
      */
     int getNumFields();
 

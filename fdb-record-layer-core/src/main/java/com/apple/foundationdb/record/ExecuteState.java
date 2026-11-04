@@ -108,16 +108,14 @@ public class ExecuteState {
     }
 
     /**
-     * Return the number of records that have been scanned.
-     * @return the number of records that have been scanned
+     * {@return the number of records that have been scanned}
      */
     public int getRecordsScanned() {
         return recordScanLimiter.getRecordsScanned();
     }
 
     /**
-     * Return the number of bytes that have been scanned.
-     * @return the number of bytes that have been scanned
+     * {@return the number of bytes that have been scanned}
      */
     public long getBytesScanned() {
         return byteScanLimiter.getBytesScanned();

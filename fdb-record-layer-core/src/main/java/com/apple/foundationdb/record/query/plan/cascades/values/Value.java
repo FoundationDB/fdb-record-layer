@@ -141,9 +141,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
-     * Returns a human-friendly textual representation of this {@link Value}.
-     *
-     * @return a human-friendly textual representation of this {@link Value}.
+     * {@return a human-friendly textual representation of this {@link Value}}
      */
     @Nonnull
     default ExplainTokensWithPrecedence explain() {

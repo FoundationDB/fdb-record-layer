@@ -184,8 +184,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
-     * Get whether the query planner should attempt to delay the fetch of the whole record until after in-join or in union operators.
-     * @return whether the planner should delay the fetch of the whole record until after in-join or in union operators.
+     * {@return whether the query planner should attempt to delay the fetch of the whole record until after in-join or in union operators}
      */
     public boolean shouldDeferFetchAfterInJoinAndInUnion() {
         return flagSet(DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK);
@@ -264,8 +263,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
-     * Get the maximum number of matches that are permitted per rule call within the Cascades planner.
-     * @return the maximum number of matches that are permitted per rule call within the Cascades planner
+     * {@return the maximum number of matches that are permitted per rule call within the Cascades planner}
      */
     public int getMaxNumMatchesPerRuleCall() {
         return proto.getMaxNumMatchesPerRuleCall();

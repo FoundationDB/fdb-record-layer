@@ -296,8 +296,7 @@ public class ResolverValidator {
         }
 
         /**
-         * Return the key in the resolver mapping.
-         * @return the key in the resolver mapping
+         * {@return the key in the resolver mapping}
          */
         @Nonnull
         public String getKey() {

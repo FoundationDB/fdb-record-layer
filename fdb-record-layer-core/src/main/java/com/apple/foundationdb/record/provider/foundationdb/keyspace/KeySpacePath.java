@@ -45,8 +45,7 @@ import java.util.concurrent.CompletableFuture;
 public interface KeySpacePath {
 
     /**
-     * Get the length of the path.
-     * @return the length of the path
+     * {@return the length of the path}
      */
     default int size() {
         KeySpacePath root = this;

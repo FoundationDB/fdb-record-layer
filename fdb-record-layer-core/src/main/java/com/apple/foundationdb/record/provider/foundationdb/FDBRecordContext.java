@@ -655,8 +655,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Get the number of milliseconds since context was created.
-     * @return the number of milliseconds since context was created
+     * {@return the number of milliseconds since context was created}
      */
     public long getTransactionAge() {
         return System.currentTimeMillis() - transactionCreateTime;

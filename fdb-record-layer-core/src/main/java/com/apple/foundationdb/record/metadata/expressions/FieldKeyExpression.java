@@ -353,8 +353,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     /**
-     * Get this field as a group without any grouping keys.
-     * @return this field without any grouping keys
+     * {@return this field as a group without any grouping keys}
      */
     @Nonnull
     public GroupingKeyExpression ungrouped() {

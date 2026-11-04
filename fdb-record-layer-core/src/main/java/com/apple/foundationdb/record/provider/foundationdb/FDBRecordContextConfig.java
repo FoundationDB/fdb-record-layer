@@ -148,8 +148,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Returns whether or not internal correctness assertions are enabled.
-     * @return whether or not internal correctness assertions are enabled
+     * {@return whether or not internal correctness assertions are enabled}
      */
     public boolean areAssertionsEnabled() {
         return enableAssertions;
@@ -190,9 +189,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Get a new builder for this class.
-     *
-     * @return a new builder for this class
+     * {@return a new builder for this class}
      */
     @Nonnull
     public static Builder newBuilder() {
@@ -200,9 +197,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Return the listener to be notified of transaction events.
-     *
-     * @return the listener to be notified of transaction events
+     * {@return the listener to be notified of transaction events}
      */
     @Nullable
     public TransactionListener getTransactionListener() {

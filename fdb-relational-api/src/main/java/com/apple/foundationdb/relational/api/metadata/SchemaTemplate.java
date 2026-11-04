@@ -44,9 +44,7 @@ public interface SchemaTemplate extends Metadata {
     int getVersion();
 
     /**
-     * Returns {@code true} if long rows are permitted in tables of this template, else {@code false}.
-     *
-     * @return {@code true} if long rows are permitted in tables of this template, else {@code false}.
+     * {@return {@code true} if long rows are permitted in tables of this template, else {@code false}}
      */
     boolean isEnableLongRows();
 

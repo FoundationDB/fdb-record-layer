@@ -392,8 +392,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Get the current config parameters of the online indexer.
-     * @return the config parameters of the online indexer
+     * {@return the current config parameters of the online indexer}
      */
     @Nonnull
     @VisibleForTesting

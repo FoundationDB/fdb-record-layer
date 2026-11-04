@@ -218,9 +218,7 @@ public enum FDBClientKnob {
     }
 
     /**
-     * Get the type of value that this knob expects.
-     *
-     * @return the type of value that this knob expects
+     * {@return the type of value that this knob expects}
      */
     @Nonnull
     public KnobValueType getValueType() {

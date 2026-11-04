@@ -69,18 +69,14 @@ public final class StoreTimerSnapshot {
     }
 
     /**
-     * Returns the counters taken at the time of the snapshot.
-     *
-     * @return the counters taken at the time of the snapshot.
+     * {@return the counters taken at the time of the snapshot}
      */
     public Map<StoreTimer.Event, CounterSnapshot> getCounters() {
         return counters;
     }
 
     /**
-     * Returns the timeout counters taken at the time of the snapshot.
-     *
-     * @return the timeout counters taken at the time of the snapshot.
+     * {@return the timeout counters taken at the time of the snapshot}
      */
     public Map<StoreTimer.Event, CounterSnapshot> getTimeoutCounters() {
         return timeoutCounters;
@@ -198,27 +194,21 @@ public final class StoreTimerSnapshot {
         }
 
         /**
-         * Get the number of occurrences of the associated event.
-         *
-         * @return the number of occurrences of the associated event
+         * {@return the number of occurrences of the associated event}
          */
         public int getCount() {
             return count;
         }
 
         /**
-         * Get the cumulative time spent on the associated event.
-         *
-         * @return the cumulative time spent on the associated event
+         * {@return the cumulative time spent on the associated event}
          */
         public long getTimeNanos() {
             return getCumulativeValue();
         }
 
         /**
-         * Get the cumulative size of the associated event.
-         *
-         * @return the cumulative size of the associated event
+         * {@return the cumulative size of the associated event}
          */
         public long getCumulativeValue() {
             return cumulativeValue;

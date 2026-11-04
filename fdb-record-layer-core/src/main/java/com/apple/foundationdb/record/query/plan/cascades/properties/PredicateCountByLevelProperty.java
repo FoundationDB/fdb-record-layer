@@ -59,9 +59,7 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
     }
 
     /**
-     * Returns the singleton instance of {@link PredicateCountByLevelProperty}.
-     *
-     * @return the singleton instance of {@link PredicateCountByLevelProperty}
+     * {@return the singleton instance of {@link PredicateCountByLevelProperty}}
      */
     @Nonnull
     public static PredicateCountByLevelProperty predicateCountByLevel() {

@@ -71,9 +71,7 @@ public interface Parameter {
     Parameter bind(@Nonnull Random random);
 
     /**
-     * Returns {@code true} if this parameter is bound, else {@code false}.
-     *
-     * @return {@code true} if this parameter is bound, else {@code false}
+     * {@return {@code true} if this parameter is bound, else {@code false}}
      */
     boolean isUnbound();
 
