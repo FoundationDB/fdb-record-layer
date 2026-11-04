@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -191,8 +192,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN without an index is implemented as a filter on a scan, as opposed to a loop of a filter on a scan.
      */
-    @DualPlannerTest
+    // SQL Port status: (#4843) ported, plan generated
+    @DualPlannerTest()
     void testInQueryNoIndex() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         final QueryComponent filter = Query.field("num_value_2").in(asList(0, 2));
         RecordQuery query = RecordQuery.newBuilder()
@@ -226,8 +230,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN (with parameter) without an index is implemented as a filter on a scan.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryNoIndexWithParameter() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         final QueryComponent filter = Query.field("num_value_2").in("valuesThree");
         RecordQuery query = RecordQuery.newBuilder()
@@ -261,10 +268,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN with an index is implemented as an index scan, with an IN join.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQueryIndex[reverse={0}]")
     @BooleanSource
     void testInQueryIndex(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         List<Integer> ls = asList(1, 2, 4);
         RecordQuery query = RecordQuery.newBuilder()
@@ -524,10 +534,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN with an index is implemented as an index scan, with an IN join.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQueryCoveringIndex[reverse={0}]")
     @BooleanSource
     void testInQueryCoveringIndex(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         List<Integer> ls = asList(1, 2, 4);
         RecordQuery query = RecordQuery.newBuilder()
@@ -580,8 +593,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN (with parameter) with an index is implemented as an index scan, with an IN join.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryParameter() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -620,10 +636,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(60, count);
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQuerySortedByParameter[reverse={0}]")
     @BooleanSource
     void testInQuerySortedByParameter(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -726,10 +745,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an IN (with parameter) with an index is implemented as an index scan, with an IN union in the presence
      * of other equality-bound index parts.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQueryParameter2[reverse={0}]")
     @BooleanSource
     void testInQueryParameter2(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
             metaData.removeIndex("MySimpleRecord$num_value_unique");
@@ -792,10 +814,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an IN (with parameter) with an index is implemented as an index scan, with an IN union in the presence
      * of other equality-bound index parts.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQueryParameter2UsingCoveringIndexScans[reverse={0}]")
     @BooleanSource
     void testInQueryParameter2UsingCoveringIndexScans(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
             metaData.removeIndex("MySimpleRecord$num_value_unique");
@@ -861,8 +886,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an in with a bad parameter plans correctly but fails upon execution.
      */
+    // SQL Port status: (#4843) not portable
     @DualPlannerTest
     void testInQueryParameterBad() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -949,10 +977,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an IN against an unsorted list with an index is implemented as an index scan, with an IN join on
      * a sorted copy of the list.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQueryIndexSorted[reverse={0}]")
     @BooleanSource
     void testInQueryIndexSorted(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -992,10 +1023,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an IN against an unsorted list with an index is not implemented as an IN JOIN when the query sort is
      * not by the field with an IN filter.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInQueryIndexSortedDifferently[reverse={0}]")
     @BooleanSource
     void testInQueryIndexSortedDifferently(boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         final QueryComponent filter = Query.field("num_value_3_indexed").in(asList(1, 4, 2));
         RecordQuery query = RecordQuery.newBuilder()
@@ -1035,10 +1069,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Arguments.of(omitPrimaryKeyInOrdering, reverse)));
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testParameterizedInQuerySortedWithExtraUnorderedColumns[omitPrimaryKeyInOrdering={0}, reverse={1}]")
     @MethodSource
     void testParameterizedInQuerySortedWithExtraUnorderedColumns(boolean omitPrimaryKeyInOrdering, boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final Index index = new Index("indexForInUnion", concatenateFields("num_value_2", "num_value_3_indexed", "num_value_unique", "str_value_indexed"));
         final RecordMetaDataHook hook = complexQuerySetupHook()
                 .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
@@ -1216,10 +1253,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      *
      * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest
     @EnumSource(InAsOrUnionMode.class)
     void inQueryWithSortBySecondFieldOfCompoundIndex(InAsOrUnionMode inAsOrMode) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", "compoundIndex",
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
@@ -1299,10 +1339,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      *
      * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest
     @EnumSource(InAsOrUnionMode.class)
     void inQueryWithSortAndRangePredicateOnSecondFieldOfCompoundIndex(InAsOrUnionMode inAsOrMode) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", "compoundIndex",
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
@@ -1385,10 +1428,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 Arguments.of(inAsOrUnionMode, omitPrimaryKeyInOrdering, reverse))));
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testListInQuerySortedWithExtraUnorderedColumns[inAsOrUnionMode={0}, omitPrimaryKeyInOrdering={1}, reverse={2}]")
     @MethodSource
     void testListInQuerySortedWithExtraUnorderedColumns(InAsOrUnionMode inAsOrUnionMode, boolean omitPrimaryKeyInOrdering, boolean reverse) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final Index index = new Index("indexForInUnion", concatenateFields("num_value_2", "num_value_3_indexed", "num_value_unique", "str_value_indexed"));
         final RecordMetaDataHook hook = complexQuerySetupHook()
                 .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
@@ -1502,10 +1548,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN query over a parameter with a sort keeps filter even if OR is allowed.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @ParameterizedTest
     @EnumSource(InAsOrUnionMode.class)
     @DualPlannerTest
     void inQueryWithSortAndParameter(InAsOrUnionMode inAsOrMode) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", "compoundIndex",
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
@@ -1610,10 +1659,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query with an IN on the second nested field of a multi-index for which there is also a first nested
      * field is translated into an appropriate index scan.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @ParameterizedTest(name = "testInWithNesting[normalizeNestedFields={0}]")
     @DualPlannerTest
     @BooleanSource
     void testInWithNesting(boolean normalizeNestedFields) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -1668,10 +1720,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a query with multiple INs is translated into an index scan within multiple IN joins.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @ParameterizedTest(name = "testMultipleInQueryIndex[normalizeNestedFields={0}]")
     @DualPlannerTest
     @BooleanSource
     void testMultipleInQueryIndex(boolean normalizeNestedFields) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -1740,10 +1795,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query with multiple INs is translated into an index scan within multiple IN joins, when the query
      * sort order is compatible with the nesting of the IN joins.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @ParameterizedTest(name = "testInWithNesting[normalizeNestedFields={0}]" )
     @DualPlannerTest
     @BooleanSource
     void testMultipleInQueryIndexSorted(boolean normalizeNestedFields) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -1805,10 +1863,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN join is executed correctly when the number of records to retrieve is limited.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @ParameterizedTest(name = "testInWithLimit[normalizeNestedFields={0}]")
     @DualPlannerTest
     @BooleanSource
     void testInWithLimit(boolean normalizeNestedFields) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -1865,10 +1926,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN join is executed correctly when continuations are used.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @ParameterizedTest(name = "testInWithContinuation[normalizeNestedFields={0}]")
     @DualPlannerTest
     @BooleanSource
     void testInWithContinuation(boolean normalizeNestedFields) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -2163,8 +2227,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that IN queries can be planned using index scans, then used in a UNION to implement OR with an inequality
      * on the same field, and that the resulting union will be ordered by that field.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryOr() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -2210,8 +2277,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that IN queries can be planned using index scans, then used in a UNION to implement an OR with IN whose
      * elements overlap, and that the union with that comparison key deduplicates the records in the overlap.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryOrOverlap() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -2265,8 +2335,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN requires an unordered union due to incompatible ordering.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryOrDifferentCondition() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());
 
@@ -2314,8 +2387,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * multi-field index, where the left subset has equality and the final field has an IN plus inequality on that same
      * field.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryOrCompound() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -2369,8 +2445,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify an IN clause prevents index usage because the IN loop is not compatible with index ordering in the old
      * planner but causes an IN-UNION to be created in the new planner.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryOrMultipleIndexes() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         planner.setConfiguration(InAsOrUnionMode.AS_UNION.configure(planner.getConfiguration().asBuilder())
                 .build());
@@ -2423,8 +2502,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that enum field indexes are used to implement IN clauses.
      */
+    // SQL Port status: (#4843) deferred
     @DualPlannerTest
     void enumIn() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         RecordMetaDataHook hook = metaData -> {
             final RecordTypeBuilder type = metaData.getRecordType("MyShapeRecord");
             metaData.addIndex(type, new Index("color", field("color")));
@@ -2483,8 +2565,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN with an empty list returns nothing.
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     void testInQueryEmptyList() throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
         List<Integer> ls = Collections.emptyList();
         final QueryComponent filter = Query.field("num_value_2").in(ls);
@@ -2600,10 +2685,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInUnionWithNonSargable[replans={0}]")
     @ValueSource(ints = {-1, 0, 1})
     void testInUnionWithNonSargable(int replans) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
 
         planner.setConfiguration(planner.getConfiguration().asBuilder()
@@ -2643,10 +2731,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInUnionWithSomeSargable[replans={0}]")
     @ValueSource(ints = {-2, -1, 0, 1})
     void testInUnionWithSomeSargable(int replans) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final Index numValue2Then3Index = new Index("numValue2NumValue3", concatenateFields("num_value_2", "num_value_3_indexed"));
         final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", numValue2Then3Index);
         complexQuerySetup(hook);
@@ -2758,10 +2849,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Arguments.of(replans, dropNumValue3Index)));
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest
     @ParameterizedTest(name = "testInUnionWithSomeSargable[replans={0}, dropNumValue3Index={1}]")
     @MethodSource
     void testInUnionWithIntersectionOnTwoPredicates(int replans, boolean dropNumValue3Index) throws Exception {
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(useCascadesPlanner);
         final Index numValue2Then3Index = new Index("numValue2NumValue3", concatenateFields("num_value_2", "num_value_3_indexed"));
         final Index strValueThen3Index = new Index("strValueNumValue3", concatenateFields("str_value_indexed", "num_value_3_indexed"));
         final RecordMetaDataHook hook = metaDataBuilder -> {
