@@ -51,7 +51,7 @@ import java.util.Random;
  * <p>Here is a textbook usage of this API. Given a query with a snippet,
  * <pre>{@code
  *      SELECT * FROM foo WHERE foo.a > %% one or two or three %%
- *}</pre>
+ * }</pre>
  * %% ... %% defines the snippet. Suppose there is an implementation of {@link Parameter} called {@code TextToInteger}
  * that interprets this snippet. Clearly, {@code TextToInteger} is not bound hence our query doesn't work as it is.
  * Then, calling {@code bind} on this instance of {@code TextToInteger} produces a new bound {@link Parameter} that holds
