@@ -142,12 +142,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Nonnull
     /**
-     * An implementation of the {@link #scanRemoteFetch} method for the {@link IndexScanType.BY_VALUE} case.
+     * An implementation of the {@link #scanRemoteFetch} method for the {@link IndexScanType#BY_VALUE} case.
      * Index Maintainers that support the {@link #scanRemoteFetch} method can use this implementation. Note that this
      * method is not supported by default by an index maintainer.
      */
+    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(@Nonnull final IndexScanBounds scanBounds,
                                                                        @Nullable final byte[] continuation,
