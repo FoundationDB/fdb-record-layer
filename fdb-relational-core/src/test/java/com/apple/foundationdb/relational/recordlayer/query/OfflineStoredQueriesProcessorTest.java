@@ -54,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests warm-up with record metadata and options passed by the caller. Needs no database.
  *
  * <p>The record metadata has an index that the template's table lacks. It stands for indexes a template cannot
- * describe, such as indexes on several record types.</p>
+ * describe, such as indexes on several record types.
  */
 class OfflineStoredQueriesProcessorTest {
 

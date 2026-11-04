@@ -74,7 +74,7 @@ import java.util.function.Consumer;
  * </ol>
  *
  * <p>{@code planStoredQueries} plans one schema template against the record metadata and the options that the
- * caller passes.</p>
+ * caller passes.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class OfflineStoredQueriesProcessor {
@@ -158,7 +158,7 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>The record metadata and the options must be the ones queries get at runtime. The record metadata can have
      * indexes that the template's tables do not describe, and the options are part of the cache key. A stored query
-     * that fails is logged and counted, not thrown.</p>
+     * that fails is logged and counted, not thrown.
      */
     public static void planStoredQueries(@Nonnull final RelationalPlanCache cache,
                                          @Nonnull final RecordLayerSchemaTemplate template,
@@ -316,7 +316,7 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>All steps plan against {@code recordMetaData}, as at runtime. The template copies with the compiled functions
      * only resolve names: their own record metadata is rebuilt from the tables and lacks indexes they do not
-     * describe.</p>
+     * describe.
      *
      * @return {@code true} if the body was planned, {@code false} if this case failed
      */
