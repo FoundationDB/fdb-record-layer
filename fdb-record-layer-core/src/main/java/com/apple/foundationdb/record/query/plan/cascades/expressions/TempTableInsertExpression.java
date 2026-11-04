@@ -228,7 +228,6 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      * @param inner The source of the inserted records
      * @param correlation The table-valued correlation.
      * @param type The type of the temporary table records.
-     *
      * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
      */
     @Nonnull
@@ -247,7 +246,6 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      * @param type The type of the temporary table records.
      * @param isOwningTempTable if set to {@code True} then the expression will own the lifecycle of the underlying
      *                          {@link TempTable}, otherwise {@code False}.
-     *
      * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
      */
     @Nonnull

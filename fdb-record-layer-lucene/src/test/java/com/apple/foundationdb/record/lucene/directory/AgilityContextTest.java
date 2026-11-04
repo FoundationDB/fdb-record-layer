@@ -146,7 +146,6 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
      * context
      *
      * @param agilityContext the agility context to use
-     *
      * @return the produced subspace
      */
     private Subspace getSubspace(final AgilityContext agilityContext) {

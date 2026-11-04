@@ -73,7 +73,6 @@ public final class StatefulServerConnection implements StreamObserver<Transactio
      * protocol.
      *
      * @param request the request to send
-     *
      * @return the response returned by the server
      */
     public TransactionalResponse sendRequest(TransactionalRequest request) {

@@ -323,7 +323,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param comparand the value being compared against (the right-hand side of the comparison)
      * @return an {@link Optional} containing the transformed {@link QueryPredicate} if this value recognizes
      *         the comparison pattern and can transform it; {@link Optional#empty()} otherwise
-     *
      * @see RowNumberValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
      */
     @Nonnull

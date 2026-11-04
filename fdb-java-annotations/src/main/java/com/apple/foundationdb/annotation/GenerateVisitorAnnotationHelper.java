@@ -307,7 +307,6 @@ class GenerateVisitorAnnotationHelper {
      * {@code Deserializer} -- so descending into a type must not remove the type itself from consideration.
      *
      * @param element the element to descend into, a package or a type
-     *
      * @return a stream of the types enclosed by {@code element}, recursively
      */
     @Nonnull
@@ -324,7 +323,6 @@ class GenerateVisitorAnnotationHelper {
      * of the annotated root rather than inside the enclosing type.
      *
      * @param element the type to check
-     *
      * @return {@code true} if the type is visible to generated code
      */
     private static boolean isPublicIncludingEnclosingTypes(@Nonnull final Element element) {
@@ -346,7 +344,6 @@ class GenerateVisitorAnnotationHelper {
      * {@code ValueVisitor<T>} reads as "a literal whose type is the visitor's result type", which is not what is meant.
      *
      * @param typeElement the type to name
-     *
      * @return the type name to emit, wildcard-parameterized if the type is generic
      */
     @Nonnull

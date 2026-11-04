@@ -41,7 +41,6 @@ public interface ExploratoryMemoizer {
      * through other planner logic are undefined and should be avoided.
      *
      * @param expression exploratory expression to memoize
-     *
      * @return a new or a reused reference
      */
     @Nonnull

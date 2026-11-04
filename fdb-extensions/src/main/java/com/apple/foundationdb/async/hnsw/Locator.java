@@ -69,7 +69,6 @@ public class Locator {
      * @param config the {@link Config} object containing HNSW algorithm parameters.
      * @param onWriteListener a listener to be notified of write events on the graph.
      * @param onReadListener a listener to be notified of read events on the graph.
-     *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public Locator(@Nonnull final Subspace subspace,

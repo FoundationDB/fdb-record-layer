@@ -127,7 +127,6 @@ public class TempTable implements ProtoSerializable {
      *
      * @param bytes The byte buffer.
      * @param descriptor An optional descriptor of the temporary table elements.
-     *
      * @return A deserialized {@link TempTable}.
      */
     @Nonnull
@@ -140,7 +139,6 @@ public class TempTable implements ProtoSerializable {
      *
      * @param byteString The byte string.
      * @param descriptor An optional descriptor of the temporary table elements.
-     *
      * @return A deserialized {@link TempTable}.
      */
     @Nonnull

@@ -286,7 +286,6 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      *
      * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
      * @param transformMap a map of transformations
-     *
      * @return a {@link TransformationTrieNode}
      */
     @Nonnull

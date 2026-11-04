@@ -1257,7 +1257,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param <T> the type of the value produced by the future
      * @return the result value
      * @see FDBDatabase#get(CompletableFuture)
-     *
      * @throws java.util.concurrent.CancellationException if the future was cancelled
      * @throws ExecutionException if the future completed exceptionally
      * @throws InterruptedException if the current thread was interrupted

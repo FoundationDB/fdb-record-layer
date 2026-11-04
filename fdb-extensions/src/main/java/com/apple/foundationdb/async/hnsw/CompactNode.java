@@ -99,7 +99,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      *
      * @param vector the vector context, which is ignored in this implementation.
      * Per the {@code @Nullable} annotation, this can be {@code null}.
-     *
      * @return a non-null {@link NodeReference} to this node.
      */
     @Nonnull

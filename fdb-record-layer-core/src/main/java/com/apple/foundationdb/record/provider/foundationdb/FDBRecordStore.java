@@ -1389,7 +1389,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param range the range of records to scan, expressed as raw key bytes within the records subspace
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
-     *
      * @return a cursor over the stored records in the given range
      */
     @Nonnull
@@ -6231,7 +6230,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
-         *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
          */
@@ -6294,7 +6292,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
          * @param repairMissingHeaderOptions options for how to do the repair
-         *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
          */

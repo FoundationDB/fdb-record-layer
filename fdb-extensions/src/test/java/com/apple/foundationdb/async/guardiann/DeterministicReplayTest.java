@@ -206,7 +206,6 @@ public class DeterministicReplayTest implements BaseTest {
      * @param runName distinguishes this run's subspace from the other run's
      * @param inserts the vectors to insert, in order
      * @param deletes the vectors to delete afterwards, in order
-     *
      * @return the captures taken after the insert phase and after the delete phase
      */
     @Nonnull

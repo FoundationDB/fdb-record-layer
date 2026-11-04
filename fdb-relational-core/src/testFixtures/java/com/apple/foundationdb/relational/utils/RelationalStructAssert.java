@@ -208,7 +208,6 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
      * </ul>
      * @param actual the actual {@link RelationalStruct}.
      * @param expected the actual {@link RelationalStruct}.
-     *
      * @return if the actual and expected is the same.
      */
     @SuppressWarnings("checkstyle:EmptyCatchBlock")

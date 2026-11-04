@@ -103,7 +103,6 @@ public class KeySpaceDirectory {
      * directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
      * objects return from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}.
-     *
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
      */

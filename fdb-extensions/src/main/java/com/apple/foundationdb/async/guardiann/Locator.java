@@ -62,7 +62,6 @@ public final class Locator {
      * @param config the {@link Config} containing the Guardiann parameters.
      * @param onWriteListener a listener to be notified of write events.
      * @param onReadListener a listener to be notified of read events.
-     *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public Locator(@Nonnull final Subspace subspace,

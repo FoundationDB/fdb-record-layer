@@ -42,7 +42,6 @@ public interface FinalMemoizer {
      *
      * @param reference the source reference containing all passed-in expressions
      * @param expressions the expressions to memoize
-     *
      * @return a new reference
      */
     @Nonnull
@@ -91,7 +90,6 @@ public interface FinalMemoizer {
      *
      * @param reference the source reference containing all passed-in expressions
      * @param plans the plans to memoize
-     *
      * @return a new reference
      */
     @Nonnull

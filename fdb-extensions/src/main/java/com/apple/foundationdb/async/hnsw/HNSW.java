@@ -93,7 +93,6 @@ public class HNSW {
      * @param config the {@link Config} object containing HNSW algorithm parameters.
      * @param onWriteListener a listener to be notified of write events on the graph.
      * @param onReadListener a listener to be notified of read events on the graph.
-     *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public HNSW(@Nonnull final Subspace subspace,
@@ -197,7 +196,6 @@ public class HNSW {
      * with a neighbor is even possible.
      *
      * @param readTransaction the transaction to use for reading from the database
-     *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
     @Nonnull
@@ -214,7 +212,6 @@ public class HNSW {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -238,7 +235,6 @@ public class HNSW {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -271,7 +267,6 @@ public class HNSW {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
      * @param additionalValues additional values to be associated with the new vector/record
-     *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
@@ -317,7 +312,6 @@ public class HNSW {
      * @param transaction the {@link Transaction} context for all database operations, ensuring atomicity
      *        and consistency of the deletion and repair operations
      * @param primaryKey the unique {@link Tuple} primary key identifying the node to be deleted from the graph
-     *
      * @return a {@link CompletableFuture} that completes when the deletion operation is fully finished,
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.

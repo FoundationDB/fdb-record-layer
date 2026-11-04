@@ -92,7 +92,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *        into the current storage space
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
-     *
      * @return a future that will complete with the fetched {@link AbstractNode} or {@code null} if the node cannot
      *         be fetched
      */
@@ -126,7 +125,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param primaryKey the primary key for the node
      * @param keyBytes the raw byte representation of the node's key
      * @param valueBytes the raw byte representation of the node's value, which will be deserialized
-     *
      * @return a non-null, deserialized {@link AbstractNode} object
      */
     @Nonnull
@@ -154,9 +152,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *        into the storage space that is currently being used
      * @param primaryKey the tuple representing the primary key of the node
      * @param valueTuple the tuple containing the serialized node data, including kind, vector, and neighbors
-     *
      * @return the reconstructed compact {@link AbstractNode}
-     *
      * @throws com.google.common.base.VerifyException if the node kind encoded in {@code valueTuple} is not
      *         {@link NodeKind#COMPACT}
      */
@@ -187,7 +183,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param primaryKey the tuple representing the node's primary key
      * @param vectorTuple the tuple containing the node's vector data
      * @param neighborsTuple the tuple containing a list of nested tuples, where each nested tuple represents a neighbor
-     *
      * @return a new {@code Node} instance containing the deserialized data from the input tuples
      */
     @Nonnull
@@ -280,7 +275,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param layer the layer index where the node resides
      * @param primaryKey the primary key that uniquely identifies the node within its layer,
      * encapsulated in a {@link Tuple}
-     *
      * @return a byte array representing the packed key for the specified node
      */
     @Nonnull
@@ -302,7 +296,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param lastPrimaryKey the primary key of the last node from a previous scan. If {@code null},
      * the scan starts from the beginning of the layer.
      * @param maxNumRead the maximum number of nodes to read in this scan
-     *
      * @return an {@link Iterable} of {@link AbstractNode} objects found in the specified layer,
      * limited by {@code maxNumRead}
      */

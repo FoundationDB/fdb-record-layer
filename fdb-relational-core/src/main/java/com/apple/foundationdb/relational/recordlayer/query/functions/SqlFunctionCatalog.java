@@ -70,7 +70,6 @@ public interface SqlFunctionCatalog {
      * cached so it is done at most once.
      *
      * @param metadata The metadata used to load any user-defined functions.
-     *
      * @return a new instance of {@link SqlFunctionCatalogImpl}.
      */
     @Nonnull

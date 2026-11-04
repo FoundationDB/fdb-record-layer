@@ -2536,7 +2536,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
-         *
          * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */

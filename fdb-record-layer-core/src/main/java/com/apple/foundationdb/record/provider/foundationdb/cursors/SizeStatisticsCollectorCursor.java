@@ -239,7 +239,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a cursor for collecting statistics of that store
      */
     @Nonnull
@@ -255,7 +254,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the records of that store
      */
     @Nonnull
@@ -273,7 +271,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -292,7 +289,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -308,7 +304,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given subspace
      */
     @Nonnull
@@ -564,7 +559,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          * interpolated from the recorded size distribution.
          *
          * @param proportion the proportion of key-value pairs that should have a size less than the returned size
-         *
          * @return an estimate for the size that is consistent with the given proportion
          */
         public double getProportion(double proportion) {

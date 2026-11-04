@@ -384,7 +384,6 @@ public interface KeySpacePath {
      * directory values in accordance with the input {@link Tuple}.
      *
      * @param tuple representing the directory values of this path in resolved form
-     *
      * @return a string representation of the path that shows both original and resolved directory values
      */
     @API(API.Status.UNSTABLE)

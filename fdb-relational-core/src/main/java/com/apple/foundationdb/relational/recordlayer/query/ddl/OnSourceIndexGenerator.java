@@ -240,7 +240,6 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
          *
          * @param columnSpec the parser context containing the column specification
          * @param identifierVisitor the visitor used to extract the column identifier
-         *
          * @return an {@link IndexedColumn} representing the parsed column specification
          */
         @Nonnull

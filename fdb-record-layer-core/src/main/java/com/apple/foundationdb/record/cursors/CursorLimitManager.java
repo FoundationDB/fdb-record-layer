@@ -128,7 +128,6 @@ public class CursorLimitManager {
      * accordingly.
      *
      * @return <code>true</code> if another record scan would not exceed any limit and <code>false</code> if it would
-     *
      * @throws ScanLimitReachedException if the scan limit was reached and {@link ExecuteProperties#isFailOnScanLimitReached()}
      */
     public boolean tryRecordScan() {

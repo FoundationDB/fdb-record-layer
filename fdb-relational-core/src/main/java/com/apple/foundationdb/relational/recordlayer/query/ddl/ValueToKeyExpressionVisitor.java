@@ -152,7 +152,6 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
      * @param value the result value of the select
      * @param orderingFunctions the ordering function per column, keyed by identity on the columns of {@code value}
      * @param extremumEverStorage which form an extremum-ever aggregate is stored in
-     *
      * @return the key expression and the index type
      */
     @Nonnull
@@ -171,7 +170,6 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
      * @param allowCollapsing whether a run of adjacent field paths may be collapsed under its shared prefix, as the class
      * javadoc describes: true for an index on a stored table, where the collapsed navigation is the fan-out; false for
      * one on an unnested synthetic table, whose constituents already hold one element each
-     *
      * @return the key expression and the index type
      */
     @Nonnull
@@ -467,7 +465,6 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
      * was declared with.
      *
      * @param accessor one step of a field path
-     *
      * @return the name to reference that field by
      */
     @Nonnull

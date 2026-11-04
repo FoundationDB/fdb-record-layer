@@ -98,9 +98,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param plan The plan to execute.
      * @param inputTempTable The input temp table, possibly containing the expected plan results.
      * @param tempTableId The id of the temp table, used to register it correctly in the {@link EvaluationContext}.
-     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
-     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
@@ -123,9 +121,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param context The transaction used to execute the plan.
      * @param plan The plan to be executed.
      * @param evaluationContext The evaluation context.
-     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
-     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
@@ -147,9 +143,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param context The transaction used to execute the plan.
      * @param plan The plan to be executed.
      * @param evaluationContext The evaluation context.
-     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
-     *
      * @throws Exception If the execution fails.
      */
     @Nonnull

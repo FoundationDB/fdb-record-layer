@@ -144,7 +144,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
      * @param spec what the index is made of
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for, and the unnestings it performs
-     *
      * @return a generator for the synthetic table, empty when the index is maintained from the stored table
      */
     @Nonnull
@@ -180,7 +179,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
      * </pre>
      *
      * @param value a value resolved down to the base record
-     *
      * @return the markers traversed, empty if there are none
      */
     @Nonnull
@@ -203,7 +201,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
      * Composes what {@link QuantifierValues} recorded at each explode into what the unnesting means.
      *
      * @param quantifierValues what the plan's quantifiers stand for, and what it explodes
-     *
      * @return every unnesting the plan performs, keyed by marker
      */
     @Nonnull
@@ -308,7 +305,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
      * and the projection and ordering are resolved against it.
      *
      * @param spec what the index is made of, resolved against the stored record
-     *
      * @return the same index, in the synthetic table's coordinates
      */
     @Nonnull
@@ -345,7 +341,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
      * translated as ordinary field paths.
      *
      * @param values the index key columns, resolved against the stored record
-     *
      * @return the same columns, resolved against the synthetic table
      */
     @Nonnull
@@ -513,7 +508,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
      * rejects the same shape there.
      *
      * @param values the index key columns
-     *
      * @return whether no scalar unnesting is referenced twice
      */
     private boolean scalarUnnestingsReferencedOnce(@Nonnull final List<Value> values) {

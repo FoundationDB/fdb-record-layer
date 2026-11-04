@@ -510,7 +510,6 @@ public final class PlanGenerator {
      * conditions such as plan-cache-specific session options.
      *
      * @param queryCachingFlags A bitset of query caching flags.
-     *
      * @return {@code true} if the query should interact with the plan cache, otherwise {@code false}.
      */
     private static boolean shouldNotCache(@Nonnull final Set<QueryCachingFlags> queryCachingFlags) {

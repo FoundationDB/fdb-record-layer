@@ -208,7 +208,6 @@ public final class OrPredicate extends AndOrPredicate {
      * @param candidatePredicate another predicate to match.
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
-     *
      * @return optional match mapping.
      */
     @Nonnull
