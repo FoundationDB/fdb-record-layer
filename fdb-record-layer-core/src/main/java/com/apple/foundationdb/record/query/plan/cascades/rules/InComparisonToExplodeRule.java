@@ -161,13 +161,13 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
                 if (comparison instanceof final Comparisons.ValueComparison comparisonValue) {
                     Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
                     explodeValue = new ExplodeValue(new ArrayDistinctValue(comparisonValue.getComparandValue()));
-                } else if (comparison instanceof final Comparisons.ListComparison listComparison) {
-                    // type the list by the compared value, as the elements need not determine a type, e.g. if they
-                    // are enums or the list is empty
-                    explodeValue = new ExplodeValue(new LiteralValue<>(new Type.Array(elementType.notNullable()),
-                            (List<?>)listComparison.getComparand(null, null)));
-                } else if (comparison instanceof Comparisons.ParameterComparison) {
-                    explodeValue = new ExplodeValue(ParameterObjectValue.of(((Comparisons.ParameterComparison)comparison).getParameter(), new Type.Array(elementType)));
+//                } else if (comparison instanceof final Comparisons.ListComparison listComparison) {
+//                    // type the list by the compared value, as the elements need not determine a type, e.g. if they
+//                    // are enums or the list is empty
+//                    explodeValue = new ExplodeValue(new LiteralValue<>(new Type.Array(elementType.notNullable()),
+//                            (List<?>)listComparison.getComparand(null, null)));
+//                } else if (comparison instanceof Comparisons.ParameterComparison) {
+//                    explodeValue = new ExplodeValue(ParameterObjectValue.of(((Comparisons.ParameterComparison)comparison).getParameter(), new Type.Array(elementType)));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
