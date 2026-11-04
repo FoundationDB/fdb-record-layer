@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SegmentReadState;
@@ -71,7 +73,22 @@ public class LuceneOptimizedDocValuesFormat extends DocValuesFormat {
 
 
         public LazyDocValuesProducer(SegmentReadState state) {
-            docValuesProducer = LazyCloseable.supply(() -> docValuesFormat.fieldsProducer(state));
+            docValuesProducer = LazyCloseable.supply(() -> {
+                try {
+                    return docValuesFormat.fieldsProducer(state);
+                } catch (CorruptIndexException e) {
+                    // The Lucene80DocValuesProducer constructor calls CodecUtil.checkFooter even if reading the header
+                    // failed. So, an FDB error (e.g. a timeout) while reading the header surfaces as a
+                    // CorruptIndexException that only has the FDB error as a suppressed exception, and callers that
+                    // look at the cause chain would report corruption.
+                    for (final Throwable suppressed : e.getSuppressed()) {
+                        if (suppressed instanceof RuntimeException) {
+                            throw LuceneExceptions.toIoException(suppressed, e);
+                        }
+                    }
+                    throw e;
+                }
+            });
         }
 
         @Override
