@@ -1,0 +1,250 @@
+#
+# or-query-to-union-key-with-value.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrQueryToUnionTest.orderByIncludingValuePortion` — an ordered union over an index
+# whose sort column lives in the *key* while a projected column lives in the *value* part.
+#
+# The source builds `keyWithValue(concatenateFields("num_value_3_indexed", "num_value_2",
+# "num_value_unique"), 2)`: key (num_value_3_indexed, num_value_2), value (num_value_unique). In SQL
+# the ORDER BY of the index definition is that split, so naming only the first two columns leaves
+# NUM_VALUE_UNIQUE in the value part.
+#
+# The source is parameterized over two sort keys — `num_value_2` and `(num_value_2, rec_no)` — in both
+# directions, giving the four queries below. Note the union's comparison key retains
+# NUM_VALUE_3_INDEXED even though it is equality-bound per leg (the source asserts
+# `concatenateFields("num_value_2", "rec_no", "num_value_3_indexed")`), which is what makes the merge
+# sound here.
+#
+# The two `num_value_2`-only variants use `unorderedResult`: NUM_VALUE_2 has three distinct values
+# across 40 rows, so the sort key alone does not determine the sequence. The variants that include
+# REC_NO do determine it, so those are asserted in order.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index simple_key_with_value as
+        select num_value_3_indexed, num_value_2, num_value_unique from my_simple_record
+        order by num_value_3_indexed, num_value_2
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: or-query-to-union-key-with-value
+  preset: single_repetition_ordered
+  tests:
+    -
+      # orderByIncludingValuePortion
+      # sortKey = num_value_2, forward
+      - query: select num_value_unique, num_value_3_indexed from my_simple_record
+               where num_value_3_indexed = 0 or num_value_3_indexed = 2
+               order by num_value_2
+      - explain: "COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED, _.REC_NO) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - unorderedResult: [{NUM_VALUE_UNIQUE: 1000, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 998, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 995, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 993, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 990, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 988, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 985, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 983, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 980, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 978, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 975, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 973, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 970, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 968, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 965, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 963, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 960, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 958, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 955, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 953, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 950, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 948, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 945, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 943, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 940, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 938, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 935, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 933, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 930, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 928, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 925, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 923, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 920, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 918, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 915, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 913, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 910, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 908, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 905, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 903, NUM_VALUE_3_INDEXED: 2}]
+    -
+      # orderByIncludingValuePortion
+      # sortKey = num_value_2, reverse
+      - query: select num_value_unique, num_value_3_indexed from my_simple_record
+               where num_value_3_indexed = 0 or num_value_3_indexed = 2
+               order by num_value_2 desc
+      - explain: "COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13 AS INT)] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED, _.REC_NO) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - unorderedResult: [{NUM_VALUE_UNIQUE: 1000, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 998, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 995, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 993, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 990, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 988, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 985, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 983, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 980, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 978, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 975, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 973, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 970, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 968, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 965, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 963, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 960, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 958, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 955, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 953, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 950, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 948, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 945, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 943, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 940, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 938, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 935, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 933, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 930, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 928, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 925, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 923, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 920, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 918, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 915, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 913, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 910, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 908, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_UNIQUE: 905, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_UNIQUE: 903, NUM_VALUE_3_INDEXED: 2}]
+    -
+      # orderByIncludingValuePortion
+      # sortKey = (num_value_2, rec_no), forward
+      - query: select num_value_unique, num_value_3_indexed from my_simple_record
+               where num_value_3_indexed = 0 or num_value_3_indexed = 2
+               order by num_value_2, rec_no
+      - explain: "COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO, _.NUM_VALUE_3_INDEXED) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2, _.REC_NO AS REC_NO) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - result: [{NUM_VALUE_UNIQUE: 1000, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 988, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 985, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 973, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 970, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 958, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 955, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 943, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 940, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 928, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 925, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 913, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 910, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 993, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 990, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 978, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 975, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 963, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 960, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 948, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 945, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 933, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 930, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 918, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 915, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 903, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 998, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 995, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 983, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 980, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 968, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 965, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 953, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 950, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 938, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 935, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 923, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 920, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 908, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 905, NUM_VALUE_3_INDEXED: 0}]
+    -
+      # orderByIncludingValuePortion
+      # sortKey = (num_value_2, rec_no), reverse
+      - query: select num_value_unique, num_value_3_indexed from my_simple_record
+               where num_value_3_indexed = 0 or num_value_3_indexed = 2
+               order by num_value_2 desc, rec_no desc
+      - explain: "COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c9 AS INT)] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) ∪ COVERING(SIMPLE_KEY_WITH_VALUE [EQUALS promote(@c13 AS INT)] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: VALUE:[0], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO, _.NUM_VALUE_3_INDEXED) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2, _.REC_NO AS REC_NO) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - result: [{NUM_VALUE_UNIQUE: 905, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 908, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 920, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 923, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 935, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 938, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 950, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 953, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 965, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 968, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 980, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 983, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 995, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 998, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 903, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 915, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 918, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 930, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 933, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 945, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 948, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 960, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 963, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 975, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 978, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 990, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 993, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 910, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 913, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 925, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 928, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 940, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 943, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 955, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 958, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 970, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 973, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 985, NUM_VALUE_3_INDEXED: 0},
+                 {NUM_VALUE_UNIQUE: 988, NUM_VALUE_3_INDEXED: 2},
+                 {NUM_VALUE_UNIQUE: 1000, NUM_VALUE_3_INDEXED: 0}]
+...

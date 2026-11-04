@@ -1,0 +1,29 @@
+simple-query-graph-tag-index:
+-   query: EXPLAIN select r.name from restaurant_record as r where exists (select
+        1 from r.tags as t where t.value = 'les aliments')
+    ref: simple-query-graph-tag-index.yamsql:110
+    explain: ISCAN(RESTAURANT_TAG_VALUE [EQUALS promote(@c24 AS STRING)]) | MAP (_.NAME
+        AS NAME)
+    task_count: 584
+    task_total_time_ms: 7
+    transform_count: 181
+    transform_time_ms: 3
+    transform_yield_count: 59
+    insert_time_ms: 0
+    insert_new_count: 64
+    insert_reused_count: 0
+-   query: EXPLAIN select r.name from restaurant_record as r where exists (select
+        1 from r.tags as t where t.value in ('les aliments'))
+    ref: simple-query-graph-tag-index.yamsql:116
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c24)
+        | FLATMAP q1 -> { EXPLODE q0.TAGS | FILTER _.VALUE EQUALS q1 AS q2 RETURN
+        (@c12 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN (q0.NAME AS
+        NAME) }
+    task_count: 988
+    task_total_time_ms: 11
+    transform_count: 336
+    transform_time_ms: 5
+    transform_yield_count: 77
+    insert_time_ms: 0
+    insert_new_count: 119
+    insert_reused_count: 4

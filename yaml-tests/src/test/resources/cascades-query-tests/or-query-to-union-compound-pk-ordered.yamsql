@@ -1,0 +1,98 @@
+#
+# or-query-to-union-compound-pk-ordered.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrQueryToUnionTest.testOrQueryOrdered` — an ordered union whose comparison key is
+# `concat(num_value_3_indexed, primaryKey)`, i.e. (num_value_3_indexed, str_value_indexed,
+# num_value_unique) under the compound primary key.
+#
+# Mirrors `complexPrimaryKeyHook()` — unlike or-query-to-union-compound-pk.yamsql this variant keeps
+# MySimpleRecord$num_value_3_indexed.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(str_value_indexed, num_value_unique))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index str_value_2_index as select str_value_indexed, num_value_2 from my_simple_record
+        order by str_value_indexed, num_value_2
+    create index str_value_3_index as select str_value_indexed, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: or-query-to-union-compound-pk-ordered
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testOrQueryOrdered
+      - query: select * from my_simple_record
+               where num_value_3_indexed = 1 or num_value_3_indexed = 3
+               order by num_value_3_indexed
+      - explain: "COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.STR_VALUE_INDEXED, _.NUM_VALUE_UNIQUE) | FETCH"
+      - unorderedResult: [{REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 86, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 914, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 76, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 924, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 66, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 934, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 56, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 944, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 46, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 954, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 36, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 964, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 26, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 974, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 16, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 984, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
+                          {REC_NO: 91, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 909, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 81, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 919, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 71, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 929, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 61, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 939, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 51, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 949, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 41, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 959, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 31, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 969, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 21, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 979, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 11, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 989, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 1, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 999, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
+                          {REC_NO: 98, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 902, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 88, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 912, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 78, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 922, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 68, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 932, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 58, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 942, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 48, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 952, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 38, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 962, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 28, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 972, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 18, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 982, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 8, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 992, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7]},
+                          {REC_NO: 93, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 907, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 83, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 917, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 73, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 927, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 63, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 937, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 53, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 947, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 43, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 957, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 33, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 967, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 23, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 977, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 13, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 987, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
+                          {REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]}]
+...

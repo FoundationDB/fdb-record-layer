@@ -1,0 +1,12 @@
+record-store-query-even-odd:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+    ref: record-store-query-even-odd.yamsql:165
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)])
+    task_count: 571
+    task_total_time_ms: 5
+    transform_count: 134
+    transform_time_ms: 2
+    transform_yield_count: 58
+    insert_time_ms: 0
+    insert_new_count: 68
+    insert_reused_count: 6

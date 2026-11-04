@@ -1,0 +1,23 @@
+Ï
+³
+*nested-field-query-reviewer-email-hometown„EXPLAIN select * from restaurant_reviewer where stats.start_date <= 0 and stats.hometown = 'Home Town' and email = 'pmp@example.com'–
+
+÷ý‹œ æ¼´(=0£‘.8J@ƒISCAN(EMAIL_HOMETOWN [EQUALS promote(@c20 AS STRING), EQUALS promote(@c16 AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]])ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS STRING), EQUALS promote(@c16 AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">EMAIL_HOMETOWN</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ï
+³
+*nested-field-query-reviewer-email-hometown„EXPLAIN select * from restaurant_reviewer where stats.start_date <= 0 and email = 'pmp@example.com' and stats.hometown = 'Home Town'–
+
+÷œÆ€ ¸ØÓ(=0¾Ž#8J@ƒISCAN(EMAIL_HOMETOWN [EQUALS promote(@c14 AS STRING), EQUALS promote(@c20 AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]])ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS STRING), EQUALS promote(@c20 AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">EMAIL_HOMETOWN</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

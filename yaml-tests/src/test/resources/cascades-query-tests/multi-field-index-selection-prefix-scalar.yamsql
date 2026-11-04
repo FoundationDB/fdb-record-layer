@@ -1,0 +1,74 @@
+#
+# multi-field-index-selection-prefix-scalar.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBMultiFieldIndexSelectionTest.testPrefixScalar` — a two-field index is usable for
+# a query on its first field alone as well as on both fields.
+#
+# This test brings its own three-row data set rather than the shared 100-record fixture, and the
+# only additional index is PREFIX_SCALAR over (num_value_2, num_value_3_indexed). REC_NO 3 leaves
+# NUM_VALUE_3_INDEXED unset, which is what makes it sort ahead of REC_NO 1 in the index.
+#
+# `select *`, not a narrow projection: the source sets no `setRequiredResults`, so its query returns
+# whole records and its plan is a plain (non-covering) index scan. Projecting REC_NO alone lets
+# Cascades serve the query from the index and produces a COVERING scan instead — a different plan for
+# the same rows.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index prefix_scalar as select num_value_2, num_value_3_indexed from my_simple_record
+        order by num_value_2, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+             VALUES (1, 1, 1), (2, 2, 2), (3, 1, null)
+---
+test_block:
+  name: multi-field-index-selection-prefix-scalar
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPrefixScalar
+      # Only the first index column is constrained. NULL sorts first, so REC_NO 3 precedes 1 — the order
+      # the source asserts. Neither query has a sort; this is index order.
+      - query: select * from my_simple_record where num_value_2 = 1
+      - explain: "ISCAN(PREFIX_SCALAR [EQUALS promote(@c7 AS INT)])"
+      - result: [{REC_NO: 3, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1,
+                  NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1,
+                  NUM_VALUE_3_INDEXED: 1, REPEATER: !null _}]
+    -
+      # testPrefixScalar
+      # Both index columns constrained.
+      - query: select * from my_simple_record where num_value_2 = 1 and num_value_3_indexed = 1
+      - explain: "ISCAN(PREFIX_SCALAR [EQUALS promote(@c7 AS INT), EQUALS promote(@c7 AS INT)])"
+      - result: [{REC_NO: 1, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1,
+                  NUM_VALUE_3_INDEXED: 1, REPEATER: !null _}]
+...

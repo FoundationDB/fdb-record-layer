@@ -1,0 +1,61 @@
+#
+# and-query-to-intersection-choice.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBAndQueryToIntersectionTest.intersectionVersusRange` — a five-way AND should be
+# served by the single INDEX_2_3 range scan with the remaining predicates as residual filters,
+# rather than by an intersection of narrower scans.
+#
+# A plan-choice test, so it deliberately does not use `USE INDEX`. The source removes both
+# MySimpleRecord$num_value_3_indexed and MySimpleRecord$num_value_unique — the latter because the
+# Cascades planner would otherwise (correctly) prefer it. The companion file
+# and-query-to-intersection-choice-unique.yamsql keeps the unique index and asserts exactly that.
+#
+# NUM_VALUE_UNIQUE is 1000 - i over the fixture, so it is never 0 and the result is empty; the
+# source likewise never executes the query. The real assertion arrives with the `explain:` value.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create index my_simple_record_num_value_2 as select num_value_2 from my_simple_record
+    create index index_2_3 as select num_value_2, num_value_3_indexed from my_simple_record
+        order by num_value_2, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: and-query-to-intersection-choice
+  preset: single_repetition_ordered
+  tests:
+    -
+      # intersectionVersusRange
+      - query: select * from my_simple_record
+               where str_value_indexed = 'even' and num_value_unique = 0 and num_value_2 = 1
+                 and num_value_3_indexed >= 2 and num_value_3_indexed <= 3
+      - explain: "ISCAN(INDEX_2_3 [EQUALS promote(@c15 AS INT), [GREATER_THAN_OR_EQUALS promote(@c20 AS INT) && LESS_THAN_OR_EQUALS promote(@c25 AS INT)]]) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) AND _.NUM_VALUE_UNIQUE EQUALS promote(@c11 AS INT)"
+      - result: []
+...

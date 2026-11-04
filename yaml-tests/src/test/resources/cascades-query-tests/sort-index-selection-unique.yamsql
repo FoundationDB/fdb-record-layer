@@ -1,0 +1,255 @@
+#
+# sort-index-selection-unique.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBSortQueryIndexSelectionTest.sortOnly` — a bare sort with no predicate is served by
+# an unbounded scan of the matching index.
+#
+# Its own file because the source's `sortOnlyUnique` helper builds a different 100-row data set:
+# REC_NO is a Carter-Wegman hash `(1096 * i + 722) % 1289` so that primary-key order and
+# NUM_VALUE_UNIQUE order differ, and only those two columns are set. That is what makes the test
+# meaningful — a primary-key scan could not satisfy the sort.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_UNIQUE)
+             VALUES
+               (722, 0),
+               (529, 1),
+               (336, 2),
+               (143, 3),
+               (1239, 4),
+               (1046, 5),
+               (853, 6),
+               (660, 7),
+               (467, 8),
+               (274, 9),
+               (81, 10),
+               (1177, 11),
+               (984, 12),
+               (791, 13),
+               (598, 14),
+               (405, 15),
+               (212, 16),
+               (19, 17),
+               (1115, 18),
+               (922, 19),
+               (729, 20),
+               (536, 21),
+               (343, 22),
+               (150, 23),
+               (1246, 24),
+               (1053, 25),
+               (860, 26),
+               (667, 27),
+               (474, 28),
+               (281, 29),
+               (88, 30),
+               (1184, 31),
+               (991, 32),
+               (798, 33),
+               (605, 34),
+               (412, 35),
+               (219, 36),
+               (26, 37),
+               (1122, 38),
+               (929, 39),
+               (736, 40),
+               (543, 41),
+               (350, 42),
+               (157, 43),
+               (1253, 44),
+               (1060, 45),
+               (867, 46),
+               (674, 47),
+               (481, 48),
+               (288, 49),
+               (95, 50),
+               (1191, 51),
+               (998, 52),
+               (805, 53),
+               (612, 54),
+               (419, 55),
+               (226, 56),
+               (33, 57),
+               (1129, 58),
+               (936, 59),
+               (743, 60),
+               (550, 61),
+               (357, 62),
+               (164, 63),
+               (1260, 64),
+               (1067, 65),
+               (874, 66),
+               (681, 67),
+               (488, 68),
+               (295, 69),
+               (102, 70),
+               (1198, 71),
+               (1005, 72),
+               (812, 73),
+               (619, 74),
+               (426, 75),
+               (233, 76),
+               (40, 77),
+               (1136, 78),
+               (943, 79),
+               (750, 80),
+               (557, 81),
+               (364, 82),
+               (171, 83),
+               (1267, 84),
+               (1074, 85),
+               (881, 86),
+               (688, 87),
+               (495, 88),
+               (302, 89),
+               (109, 90),
+               (1205, 91),
+               (1012, 92),
+               (819, 93),
+               (626, 94),
+               (433, 95),
+               (240, 96),
+               (47, 97),
+               (1143, 98),
+               (950, 99)
+---
+test_block:
+  name: sort-index-selection-unique
+  preset: single_repetition_ordered
+  tests:
+    -
+      # sortOnly
+      - query: select * from my_simple_record order by num_value_unique
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,>)"
+      - result: [{REC_NO: 722, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 0, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 529, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 1, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 336, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 2, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 143, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 3, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1239, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 4, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1046, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 5, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 853, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 6, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 660, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 7, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 467, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 8, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 274, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 9, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 81, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 10, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1177, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 11, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 984, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 12, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 791, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 13, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 598, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 14, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 405, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 15, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 212, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 16, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 19, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 17, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1115, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 18, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 922, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 19, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 729, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 20, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 536, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 21, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 343, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 22, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 150, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 23, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1246, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 24, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1053, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 25, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 860, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 26, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 667, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 27, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 474, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 28, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 281, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 29, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 88, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 30, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1184, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 31, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 991, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 32, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 798, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 33, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 605, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 34, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 412, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 35, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 219, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 36, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 26, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 37, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1122, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 38, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 929, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 39, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 736, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 40, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 543, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 41, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 350, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 42, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 157, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 43, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1253, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 44, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1060, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 45, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 867, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 46, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 674, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 47, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 481, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 48, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 288, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 49, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 95, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 50, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1191, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 51, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 998, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 52, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 805, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 53, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 612, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 54, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 419, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 55, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 226, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 56, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 33, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 57, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1129, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 58, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 936, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 59, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 743, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 60, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 550, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 61, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 357, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 62, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 164, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 63, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1260, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 64, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1067, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 65, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 874, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 66, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 681, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 67, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 488, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 68, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 295, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 69, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 102, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 70, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1198, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 71, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1005, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 72, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 812, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 73, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 619, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 74, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 426, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 75, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 233, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 76, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 40, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 77, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1136, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 78, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 943, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 79, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 750, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 80, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 557, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 81, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 364, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 82, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 171, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 83, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1267, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 84, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1074, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 85, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 881, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 86, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 688, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 87, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 495, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 88, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 302, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 89, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 109, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 90, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1205, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 91, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1012, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 92, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 819, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 93, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 626, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 94, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 433, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 95, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 240, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 96, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 47, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 97, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 1143, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 98, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 950, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: 99, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _}]
+...

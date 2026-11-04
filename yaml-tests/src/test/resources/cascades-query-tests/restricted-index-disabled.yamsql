@@ -1,0 +1,99 @@
+#
+# restricted-index-disabled.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBRestrictedIndexQueryTest.queryWithDisabled` — the planner must not use an index that is in
+# the DISABLED state.
+#
+# MY_SIMPLE_RECORD_STR_VALUE_INDEXED is disabled before the row is written. The source asserts
+# `hasNoDescendant(indexScan(indexName(containsString("str_value_indexed"))))` and then that the query
+# returns REC_NO 1066 — which, again, only a scan can produce, since the disabled index never saw the write.
+# The source's record value is literally "not_actually_indexed", kept here.
+#
+# WHY THIS FILE DOES NOT LOOK LIKE ITS NEIGHBOURS. Every other file here declares a `schema_template`
+# block and lets the framework create the database and schema. That cannot work with `set schema state`:
+# the directive's JSON must name the `database_id` and schema `name` (`Command.java:189-190`), and with an
+# implicit template those are framework-generated. So this file creates the template, database and schema
+# by hand and the test block connects explicitly — the shape of `disabled-index-tests-proto.yamsql`, with
+# the template built by inline DDL (`create-drop.yamsql:52`) rather than loaded from a proto.
+#
+# Both `setup:` blocks carry `connect: "jdbc:embed:/__SYS?schema=CATALOG"`. Without a `schema_template`
+# block there is no default connection URI, and `SetupBlock$ManualSetupBlock.parse:115` resolves one
+# eagerly — omitting it fails at parse time with "Requested a default connection URI, but none present".
+# `store_info.formatVersion` must be present: `set schema state` feeds it straight to
+# `RecordLayerConfig.setFormatVersion(FormatVersion.getFormatVersion(...))` (`Command.java:186`), and 2 is
+# what every existing user of the directive passes.
+#
+# The database path is hard-coded, as it is in all seven existing users of `set schema state`. The setup
+# drops it first, so re-runs are clean.
+#
+# ONLY THE FIRST HALF OF THE SOURCE METHOD PORTS. Both source methods have two phases: restrict the index
+# and check the planner avoids it, then `uncheckedMarkIndexReadable` and check the planner uses it again —
+# without a rebuild, so the index is deliberately stale. The second phase needs the index state changed
+# *mid-test*, and `set schema state` is a setup-block directive: all seven existing users call it exactly
+# once, before any query. There is no per-query or mid-file form, so the re-enable half is not portable.
+#
+# `assertDiscardedExactly` / `assertDiscardedNone` have no yamsql surface either, so what is checked here
+# is the plan and the rows, not how many records were scanned and thrown away.
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists restricted_index_disabled_template
+    - query: drop database if exists /FRL/RESTRICTED_INDEX_DISABLED
+    - query: create schema template restricted_index_disabled_template
+             create table my_simple_record(
+                 rec_no bigint,
+                 str_value_indexed string,
+                 num_value_unique integer,
+                 num_value_2 integer,
+                 num_value_3_indexed integer,
+                 repeater integer array,
+                 primary key(rec_no))
+             create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+             create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+             create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+             WITH OPTIONS(INTERMINGLE_TABLES=true)
+    - query: create database /FRL/RESTRICTED_INDEX_DISABLED
+    - query: create schema /FRL/RESTRICTED_INDEX_DISABLED/test with template restricted_index_disabled_template
+    - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/RESTRICTED_INDEX_DISABLED\", \"template_name\": \"RESTRICTED_INDEX_DISABLED_TEMPLATE\", \"index_states\" : {\"MY_SIMPLE_RECORD_STR_VALUE_INDEXED\": \"DISABLED\"}, \"store_info\" : {\"formatVersion\": 2}}"
+---
+test_block:
+  name: restricted-index-disabled
+  connect: "jdbc:embed:/FRL/RESTRICTED_INDEX_DISABLED?schema=TEST"
+  preset: single_repetition_ordered
+  tests:
+    -
+      # queryWithDisabled — the row is written while MY_SIMPLE_RECORD_STR_VALUE_INDEXED is DISABLED.
+      - query: insert into my_simple_record (rec_no, str_value_indexed)
+               values (1066, 'not_actually_indexed')
+      - count: 1
+    -
+      # queryWithDisabled — the plan must not scan MY_SIMPLE_RECORD_STR_VALUE_INDEXED.
+      - query: select * from my_simple_record where str_value_indexed = 'not_actually_indexed'
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,>) | FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING)"
+      - result: [{REC_NO: 1066, STR_VALUE_INDEXED: 'not_actually_indexed', NUM_VALUE_UNIQUE: !null _,
+                  NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/RESTRICTED_INDEX_DISABLED
+    - query: drop schema template restricted_index_disabled_template
+...

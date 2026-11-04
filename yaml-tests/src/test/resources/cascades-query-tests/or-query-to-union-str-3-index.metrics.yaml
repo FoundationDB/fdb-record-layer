@@ -1,0 +1,17 @@
+or-query-to-union-str-3-index:
+-   query: EXPLAIN select * from my_simple_record where (str_value_indexed = 'even'
+        and num_value_3_indexed > 3) or num_value_3_indexed < 1
+    ref: or-query-to-union-str-3-index.yamsql:54
+    explain: 'COVERING(STR_VALUE_3_INDEX [EQUALS promote(@c8 AS STRING), [GREATER_THAN
+        promote(@c12 AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2],
+        STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[LESS_THAN promote(@c17 AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO:
+        KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH'
+    task_count: 8438
+    task_total_time_ms: 86
+    transform_count: 1436
+    transform_time_ms: 39
+    transform_yield_count: 506
+    insert_time_ms: 6
+    insert_new_count: 1220
+    insert_reused_count: 112

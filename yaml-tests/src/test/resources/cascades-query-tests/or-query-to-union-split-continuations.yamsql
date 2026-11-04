@@ -1,0 +1,186 @@
+#
+# or-query-to-union-split-continuations.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrQueryToUnionTest.testOrQuerySplitContinuations` — three equality legs on the same
+# index, arranged so that each sub-stream is exhausted before the next begins.
+#
+# Its own file because the source builds a different 100-row data set: REC_NO is i and
+# NUM_VALUE_3_INDEXED is i / 10, so each distinct NUM_VALUE_3_INDEXED value covers a contiguous block
+# of ten primary keys. That contiguity is the point — it is what makes the union's sub-streams split
+# cleanly. Only those two columns are set, and the index set is the unmodified proto one.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_3_INDEXED)
+             VALUES
+               (0, 0),
+               (1, 0),
+               (2, 0),
+               (3, 0),
+               (4, 0),
+               (5, 0),
+               (6, 0),
+               (7, 0),
+               (8, 0),
+               (9, 0),
+               (10, 1),
+               (11, 1),
+               (12, 1),
+               (13, 1),
+               (14, 1),
+               (15, 1),
+               (16, 1),
+               (17, 1),
+               (18, 1),
+               (19, 1),
+               (20, 2),
+               (21, 2),
+               (22, 2),
+               (23, 2),
+               (24, 2),
+               (25, 2),
+               (26, 2),
+               (27, 2),
+               (28, 2),
+               (29, 2),
+               (30, 3),
+               (31, 3),
+               (32, 3),
+               (33, 3),
+               (34, 3),
+               (35, 3),
+               (36, 3),
+               (37, 3),
+               (38, 3),
+               (39, 3),
+               (40, 4),
+               (41, 4),
+               (42, 4),
+               (43, 4),
+               (44, 4),
+               (45, 4),
+               (46, 4),
+               (47, 4),
+               (48, 4),
+               (49, 4),
+               (50, 5),
+               (51, 5),
+               (52, 5),
+               (53, 5),
+               (54, 5),
+               (55, 5),
+               (56, 5),
+               (57, 5),
+               (58, 5),
+               (59, 5),
+               (60, 6),
+               (61, 6),
+               (62, 6),
+               (63, 6),
+               (64, 6),
+               (65, 6),
+               (66, 6),
+               (67, 6),
+               (68, 6),
+               (69, 6),
+               (70, 7),
+               (71, 7),
+               (72, 7),
+               (73, 7),
+               (74, 7),
+               (75, 7),
+               (76, 7),
+               (77, 7),
+               (78, 7),
+               (79, 7),
+               (80, 8),
+               (81, 8),
+               (82, 8),
+               (83, 8),
+               (84, 8),
+               (85, 8),
+               (86, 8),
+               (87, 8),
+               (88, 8),
+               (89, 8),
+               (90, 9),
+               (91, 9),
+               (92, 9),
+               (93, 9),
+               (94, 9),
+               (95, 9),
+               (96, 9),
+               (97, 9),
+               (98, 9),
+               (99, 9)
+---
+test_block:
+  name: or-query-to-union-split-continuations
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testOrQuerySplitContinuations
+      - query: select * from my_simple_record
+               where num_value_3_indexed = 1 or num_value_3_indexed = 3 or num_value_3_indexed = 5
+      - explain: "COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c15 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH"
+      - unorderedResult: [{REC_NO: 10, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 11, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 12, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 13, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 14, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 15, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 16, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 17, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 18, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 19, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                          {REC_NO: 30, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 31, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 32, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 33, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 34, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 35, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 36, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 37, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 38, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 39, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+                          {REC_NO: 50, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 51, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 52, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 53, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 54, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 55, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 56, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 57, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 58, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+                          {REC_NO: 59, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _}]
+...

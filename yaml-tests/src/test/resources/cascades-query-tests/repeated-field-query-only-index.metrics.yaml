@@ -1,0 +1,12 @@
+repeated-field-query-only-index:
+-   query: EXPLAIN select rec_no from my_simple_record
+    ref: repeated-field-query-only-index.yamsql:52
+    explain: SCAN(<,>) | TFILTER MY_SIMPLE_RECORD | MAP (_.REC_NO AS REC_NO)
+    task_count: 161
+    task_total_time_ms: 5
+    transform_count: 43
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2

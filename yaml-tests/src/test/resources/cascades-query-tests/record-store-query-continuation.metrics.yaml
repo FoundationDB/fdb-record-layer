@@ -1,0 +1,35 @@
+record-store-query-continuation:
+-   query: EXPLAIN select * from my_simple_record
+    ref: record-store-query-continuation.yamsql:170
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)
+    task_count: 400
+    task_total_time_ms: 4
+    transform_count: 101
+    transform_time_ms: 2
+    transform_yield_count: 49
+    insert_time_ms: 0
+    insert_new_count: 40
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+    ref: record-store-query-continuation.yamsql:274
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)])
+    task_count: 571
+    task_total_time_ms: 5
+    transform_count: 134
+    transform_time_ms: 2
+    transform_yield_count: 58
+    insert_time_ms: 0
+    insert_new_count: 68
+    insert_reused_count: 6
+-   query: EXPLAIN select * from my_simple_record where num_value_2 = 0
+    ref: record-store-query-continuation.yamsql:329
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
+        EQUALS promote(@c7 AS INT)
+    task_count: 535
+    task_total_time_ms: 5
+    transform_count: 131
+    transform_time_ms: 2
+    transform_yield_count: 55
+    insert_time_ms: 0
+    insert_new_count: 66
+    insert_reused_count: 5

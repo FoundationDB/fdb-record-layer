@@ -1,0 +1,197 @@
+long-arithmetic-functions-binary:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 1
+    ref: long-arithmetic-functions-binary.yamsql:199
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_ADD [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 20
+    transform_count: 339
+    transform_time_ms: 11
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 8
+    ref: long-arithmetic-functions-binary.yamsql:209
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_ADD [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 20
+    transform_count: 339
+    transform_time_ms: 11
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 - num_value_3_indexed
+        = 2
+    ref: long-arithmetic-functions-binary.yamsql:220
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_SUB [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 20
+    transform_count: 339
+    transform_time_ms: 11
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 - num_value_3_indexed
+        = -5
+    ref: long-arithmetic-functions-binary.yamsql:230
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_SUB [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 20
+    transform_count: 339
+    transform_time_ms: 11
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 * num_value_3_indexed
+        = 15
+    ref: long-arithmetic-functions-binary.yamsql:241
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_MUL [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 18
+    transform_count: 339
+    transform_time_ms: 9
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 * num_value_3_indexed
+        = 12
+    ref: long-arithmetic-functions-binary.yamsql:251
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_MUL [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 18
+    transform_count: 339
+    transform_time_ms: 9
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 / num_value_3_indexed
+        = 3
+    ref: long-arithmetic-functions-binary.yamsql:262
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_DIV [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 18
+    transform_count: 339
+    transform_time_ms: 10
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 / num_value_3_indexed
+        = 2
+    ref: long-arithmetic-functions-binary.yamsql:272
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_DIV [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 18
+    transform_count: 339
+    transform_time_ms: 10
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 % num_value_3_indexed
+        = 3
+    ref: long-arithmetic-functions-binary.yamsql:283
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_MOD [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 17
+    transform_count: 339
+    transform_time_ms: 9
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 % num_value_3_indexed
+        = 2
+    ref: long-arithmetic-functions-binary.yamsql:298
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_MOD [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 17
+    transform_count: 339
+    transform_time_ms: 9
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & num_value_3_indexed
+        = 3
+    ref: long-arithmetic-functions-binary.yamsql:319
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_BITAND [EQUALS promote(@c9 AS
+        INT)])
+    task_count: 1428
+    task_total_time_ms: 18
+    transform_count: 339
+    transform_time_ms: 10
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 & num_value_3_indexed
+        = 2
+    ref: long-arithmetic-functions-binary.yamsql:329
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_BITAND [EQUALS promote(@c9 AS
+        INT)])
+    task_count: 1428
+    task_total_time_ms: 18
+    transform_count: 339
+    transform_time_ms: 10
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 | num_value_3_indexed
+        = 6
+    ref: long-arithmetic-functions-binary.yamsql:350
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_BITOR [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 17
+    transform_count: 339
+    transform_time_ms: 9
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 | num_value_3_indexed
+        = 4
+    ref: long-arithmetic-functions-binary.yamsql:360
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_BITOR [EQUALS promote(@c9 AS INT)])
+    task_count: 1428
+    task_total_time_ms: 17
+    transform_count: 339
+    transform_time_ms: 9
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 ^ num_value_3_indexed
+        = 7
+    ref: long-arithmetic-functions-binary.yamsql:371
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_BITXOR [EQUALS promote(@c9 AS
+        INT)])
+    task_count: 1428
+    task_total_time_ms: 21
+    transform_count: 339
+    transform_time_ms: 10
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where num_value_2 ^ num_value_3_indexed
+        = 0
+    ref: long-arithmetic-functions-binary.yamsql:386
+    explain: ISCAN(MY_SIMPLE_RECORD_BINARY_FUNCTION_BITXOR [EQUALS promote(@c9 AS
+        INT)])
+    task_count: 1428
+    task_total_time_ms: 21
+    transform_count: 339
+    transform_time_ms: 10
+    transform_yield_count: 160
+    insert_time_ms: 0
+    insert_new_count: 184
+    insert_reused_count: 14

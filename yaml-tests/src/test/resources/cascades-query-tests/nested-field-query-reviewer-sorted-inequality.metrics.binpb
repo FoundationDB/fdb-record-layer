@@ -1,0 +1,12 @@
+–
+ª
+-nested-field-query-reviewer-sorted-inequalityâEXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date = 1066 and stats.hometown > 'M' order by stats.hometownè
+
+¡ëÙˆ; ˇ€ñ(0ÅÙ8@ÄISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]])Ódigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STATS_CAT_SCHOOL_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -1,0 +1,218 @@
+#
+# permuted-min-max-repeater.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBPermutedMinMaxQueryTest.testSortedMaxWithEqualityOnRepeater` and
+# `.testSortedMaxWithInOnRepeater` — a PERMUTED_MAX index whose grouping key contains a fan-out over the
+# repeated REPEATER column, so the aggregate is per (str_value_indexed, repeater element, num_value_2).
+#
+# Its own file, and its own data: these two are the only methods in the class that call
+# `setUpWithRepeaters` rather than `complexQuerySetup`. That writes 100 records with REC_NO = i + 100,
+# NUM_VALUE_3_INDEXED = i / 2, and REPEATER holding the *set bit positions* of i — so a record belongs to
+# one group per bit set in its index.
+#
+# The lateral inside an aggregate index's GROUP BY is the `aggregate-index-tests.yamsql:50` idiom
+# (`select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b`). Three grouping
+# values with the aggregate at position 2 gives `PERMUTED_SIZE_OPTION = 1`, matching the source's
+# `max3ByStrValueRepeaterAnd2`.
+#
+# The source's `setAttemptFailedInJoinAsUnionMaxSize(20)` is not reproduced and does not need to be: the
+# IN lists here have two elements, well under the 24 the SQL layer pins.
+#
+# The source loops str_value_indexed over {even, odd} and the repeater value over 0..8, i.e. 18
+# combinations for the equality case and 81 pairs for the IN case. A representative few are ported; what
+# they exercise is the fan-out in the grouping key and the descending sort on the aggregate, not the
+# arithmetic of every bit position.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index max_num_value_3_by_str_value_repeater_and_2 as
+        select r.str_value_indexed, sq.x, max(r.num_value_3_indexed), r.num_value_2
+        from my_simple_record as r, (select x from r.repeater as x) sq
+        group by r.str_value_indexed, sq.x, r.num_value_2
+        order by r.str_value_indexed, sq.x, max(r.num_value_3_indexed), r.num_value_2
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD
+               (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2,
+                NUM_VALUE_3_INDEXED, REPEATER)
+             VALUES
+               (100, 'even', 1000, 0, 0, []),
+               (101, 'odd', 999, 1, 0, [0]),
+               (102, 'even', 998, 2, 1, [1]),
+               (103, 'odd', 997, 0, 1, [0, 1]),
+               (104, 'even', 996, 1, 2, [2]),
+               (105, 'odd', 995, 2, 2, [0, 2]),
+               (106, 'even', 994, 0, 3, [1, 2]),
+               (107, 'odd', 993, 1, 3, [0, 1, 2]),
+               (108, 'even', 992, 2, 4, [3]),
+               (109, 'odd', 991, 0, 4, [0, 3]),
+               (110, 'even', 990, 1, 5, [1, 3]),
+               (111, 'odd', 989, 2, 5, [0, 1, 3]),
+               (112, 'even', 988, 0, 6, [2, 3]),
+               (113, 'odd', 987, 1, 6, [0, 2, 3]),
+               (114, 'even', 986, 2, 7, [1, 2, 3]),
+               (115, 'odd', 985, 0, 7, [0, 1, 2, 3]),
+               (116, 'even', 984, 1, 8, [4]),
+               (117, 'odd', 983, 2, 8, [0, 4]),
+               (118, 'even', 982, 0, 9, [1, 4]),
+               (119, 'odd', 981, 1, 9, [0, 1, 4]),
+               (120, 'even', 980, 2, 10, [2, 4]),
+               (121, 'odd', 979, 0, 10, [0, 2, 4]),
+               (122, 'even', 978, 1, 11, [1, 2, 4]),
+               (123, 'odd', 977, 2, 11, [0, 1, 2, 4]),
+               (124, 'even', 976, 0, 12, [3, 4]),
+               (125, 'odd', 975, 1, 12, [0, 3, 4]),
+               (126, 'even', 974, 2, 13, [1, 3, 4]),
+               (127, 'odd', 973, 0, 13, [0, 1, 3, 4]),
+               (128, 'even', 972, 1, 14, [2, 3, 4]),
+               (129, 'odd', 971, 2, 14, [0, 2, 3, 4]),
+               (130, 'even', 970, 0, 15, [1, 2, 3, 4]),
+               (131, 'odd', 969, 1, 15, [0, 1, 2, 3, 4]),
+               (132, 'even', 968, 2, 16, [5]),
+               (133, 'odd', 967, 0, 16, [0, 5]),
+               (134, 'even', 966, 1, 17, [1, 5]),
+               (135, 'odd', 965, 2, 17, [0, 1, 5]),
+               (136, 'even', 964, 0, 18, [2, 5]),
+               (137, 'odd', 963, 1, 18, [0, 2, 5]),
+               (138, 'even', 962, 2, 19, [1, 2, 5]),
+               (139, 'odd', 961, 0, 19, [0, 1, 2, 5]),
+               (140, 'even', 960, 1, 20, [3, 5]),
+               (141, 'odd', 959, 2, 20, [0, 3, 5]),
+               (142, 'even', 958, 0, 21, [1, 3, 5]),
+               (143, 'odd', 957, 1, 21, [0, 1, 3, 5]),
+               (144, 'even', 956, 2, 22, [2, 3, 5]),
+               (145, 'odd', 955, 0, 22, [0, 2, 3, 5]),
+               (146, 'even', 954, 1, 23, [1, 2, 3, 5]),
+               (147, 'odd', 953, 2, 23, [0, 1, 2, 3, 5]),
+               (148, 'even', 952, 0, 24, [4, 5]),
+               (149, 'odd', 951, 1, 24, [0, 4, 5]),
+               (150, 'even', 950, 2, 25, [1, 4, 5]),
+               (151, 'odd', 949, 0, 25, [0, 1, 4, 5]),
+               (152, 'even', 948, 1, 26, [2, 4, 5]),
+               (153, 'odd', 947, 2, 26, [0, 2, 4, 5]),
+               (154, 'even', 946, 0, 27, [1, 2, 4, 5]),
+               (155, 'odd', 945, 1, 27, [0, 1, 2, 4, 5]),
+               (156, 'even', 944, 2, 28, [3, 4, 5]),
+               (157, 'odd', 943, 0, 28, [0, 3, 4, 5]),
+               (158, 'even', 942, 1, 29, [1, 3, 4, 5]),
+               (159, 'odd', 941, 2, 29, [0, 1, 3, 4, 5]),
+               (160, 'even', 940, 0, 30, [2, 3, 4, 5]),
+               (161, 'odd', 939, 1, 30, [0, 2, 3, 4, 5]),
+               (162, 'even', 938, 2, 31, [1, 2, 3, 4, 5]),
+               (163, 'odd', 937, 0, 31, [0, 1, 2, 3, 4, 5]),
+               (164, 'even', 936, 1, 32, [6]),
+               (165, 'odd', 935, 2, 32, [0, 6]),
+               (166, 'even', 934, 0, 33, [1, 6]),
+               (167, 'odd', 933, 1, 33, [0, 1, 6]),
+               (168, 'even', 932, 2, 34, [2, 6]),
+               (169, 'odd', 931, 0, 34, [0, 2, 6]),
+               (170, 'even', 930, 1, 35, [1, 2, 6]),
+               (171, 'odd', 929, 2, 35, [0, 1, 2, 6]),
+               (172, 'even', 928, 0, 36, [3, 6]),
+               (173, 'odd', 927, 1, 36, [0, 3, 6]),
+               (174, 'even', 926, 2, 37, [1, 3, 6]),
+               (175, 'odd', 925, 0, 37, [0, 1, 3, 6]),
+               (176, 'even', 924, 1, 38, [2, 3, 6]),
+               (177, 'odd', 923, 2, 38, [0, 2, 3, 6]),
+               (178, 'even', 922, 0, 39, [1, 2, 3, 6]),
+               (179, 'odd', 921, 1, 39, [0, 1, 2, 3, 6]),
+               (180, 'even', 920, 2, 40, [4, 6]),
+               (181, 'odd', 919, 0, 40, [0, 4, 6]),
+               (182, 'even', 918, 1, 41, [1, 4, 6]),
+               (183, 'odd', 917, 2, 41, [0, 1, 4, 6]),
+               (184, 'even', 916, 0, 42, [2, 4, 6]),
+               (185, 'odd', 915, 1, 42, [0, 2, 4, 6]),
+               (186, 'even', 914, 2, 43, [1, 2, 4, 6]),
+               (187, 'odd', 913, 0, 43, [0, 1, 2, 4, 6]),
+               (188, 'even', 912, 1, 44, [3, 4, 6]),
+               (189, 'odd', 911, 2, 44, [0, 3, 4, 6]),
+               (190, 'even', 910, 0, 45, [1, 3, 4, 6]),
+               (191, 'odd', 909, 1, 45, [0, 1, 3, 4, 6]),
+               (192, 'even', 908, 2, 46, [2, 3, 4, 6]),
+               (193, 'odd', 907, 0, 46, [0, 2, 3, 4, 6]),
+               (194, 'even', 906, 1, 47, [1, 2, 3, 4, 6]),
+               (195, 'odd', 905, 2, 47, [0, 1, 2, 3, 4, 6]),
+               (196, 'even', 904, 0, 48, [5, 6]),
+               (197, 'odd', 903, 1, 48, [0, 5, 6]),
+               (198, 'even', 902, 2, 49, [1, 5, 6]),
+               (199, 'odd', 901, 0, 49, [0, 1, 5, 6])
+---
+test_block:
+  name: permuted-min-max-repeater
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testSortedMaxWithEqualityOnRepeater, str_value_indexed = 'even', x = 0 —
+      - query: select r.num_value_2, max(r.num_value_3_indexed) as m
+               from my_simple_record as r, (select x from r.repeater as x) sq
+               where r.str_value_indexed = 'even'
+               group by r.str_value_indexed, sq.x, r.num_value_2
+               having sq.x = 0
+               order by max(r.num_value_3_indexed) desc
+      - explain: "AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c34 AS STRING), EQUALS @c53] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS NUM_VALUE_2, _._3 AS M)"
+      - result: []
+    -
+      # testSortedMaxWithEqualityOnRepeater, str_value_indexed = 'odd', x = 3 —
+      - query: select r.num_value_2, max(r.num_value_3_indexed) as m
+               from my_simple_record as r, (select x from r.repeater as x) sq
+               where r.str_value_indexed = 'odd'
+               group by r.str_value_indexed, sq.x, r.num_value_2
+               having sq.x = 3
+               order by max(r.num_value_3_indexed) desc
+      - explain: "AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c34 AS STRING), EQUALS @c53] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS NUM_VALUE_2, _._3 AS M)"
+      - result: [{NUM_VALUE_2: 2, M: 47},
+                 {NUM_VALUE_2: 0, M: 46},
+                 {NUM_VALUE_2: 1, M: 45}]
+    -
+      # testSortedMaxWithInOnRepeater — an in-union over the repeater values, which are now
+      # projected so the groups can be told apart.
+      - query: select sq.x, r.num_value_2, max(r.num_value_3_indexed) as m
+               from my_simple_record as r, (select x from r.repeater as x) sq
+               where r.str_value_indexed = 'even'
+               group by r.str_value_indexed, sq.x, r.num_value_2
+               having sq.x in (0, 2)
+               order by max(r.num_value_3_indexed) desc
+      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
+      - unorderedResult: [{X: 2, NUM_VALUE_2: 1, M: 47},
+                          {X: 2, NUM_VALUE_2: 2, M: 46},
+                          {X: 2, NUM_VALUE_2: 0, M: 42}]
+    -
+      # The same with a repeated IN value; the union must not emit a group twice.
+      - query: select sq.x, r.num_value_2, max(r.num_value_3_indexed) as m
+               from my_simple_record as r, (select x from r.repeater as x) sq
+               where r.str_value_indexed = 'even'
+               group by r.str_value_indexed, sq.x, r.num_value_2
+               having sq.x in (0, 0)
+               order by max(r.num_value_3_indexed) desc
+      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
+      - unorderedResult: []
+...

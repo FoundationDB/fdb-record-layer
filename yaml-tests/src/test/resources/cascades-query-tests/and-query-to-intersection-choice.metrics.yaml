@@ -1,0 +1,17 @@
+and-query-to-intersection-choice:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_unique = 0 and num_value_2 = 1 and num_value_3_indexed >= 2
+        and num_value_3_indexed <= 3
+    ref: and-query-to-intersection-choice.yamsql:60
+    explain: ISCAN(INDEX_2_3 [EQUALS promote(@c15 AS INT), [GREATER_THAN_OR_EQUALS
+        promote(@c20 AS INT) && LESS_THAN_OR_EQUALS promote(@c25 AS INT)]]) | FILTER
+        _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) AND _.NUM_VALUE_UNIQUE EQUALS
+        promote(@c11 AS INT)
+    task_count: 738
+    task_total_time_ms: 6
+    transform_count: 161
+    transform_time_ms: 3
+    transform_yield_count: 62
+    insert_time_ms: 0
+    insert_new_count: 86
+    insert_reused_count: 5

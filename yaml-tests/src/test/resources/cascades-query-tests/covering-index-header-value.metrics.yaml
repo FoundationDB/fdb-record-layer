@@ -1,0 +1,14 @@
+covering-index-header-value:
+-   query: EXPLAIN select header.path from my_record where str_value = 'lion'
+    ref: covering-index-header-value.yamsql:47
+    explain: 'COVERING(MY_RECORD_STR_VALUE [EQUALS promote(@c9 AS STRING)] -> [STR_VALUE:
+        KEY:[0], HEADER: [PATH: VALUE:[0], REC_NO: KEY:[1]]]) | MAP (_.HEADER.PATH
+        AS PATH)'
+    task_count: 475
+    task_total_time_ms: 10
+    transform_count: 114
+    transform_time_ms: 4
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 52
+    insert_reused_count: 4

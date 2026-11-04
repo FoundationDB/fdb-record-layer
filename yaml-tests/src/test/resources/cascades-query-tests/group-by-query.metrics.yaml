@@ -1,0 +1,31 @@
+group-by-query:
+-   query: EXPLAIN select num_value_2, str_value_indexed, sum(num_value_3_indexed)
+        as total from my_simple_record group by num_value_2, str_value_indexed
+    ref: group-by-query.yamsql:93
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2 <,>) | MAP (_ AS _0) | AGG (sum_i(_._0.NUM_VALUE_3_INDEXED)
+        AS _0) GROUP BY (_._0.NUM_VALUE_2 AS _0, _._0.STR_VALUE_INDEXED AS _1) | MAP
+        (_._0._0 AS NUM_VALUE_2, _._0._1 AS STR_VALUE_INDEXED, _._1._0 AS TOTAL)
+    task_count: 321
+    task_total_time_ms: 4
+    transform_count: 88
+    transform_time_ms: 2
+    transform_yield_count: 50
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select num_value_2, str_value_indexed, sum(num_value_3_indexed)
+        as total from my_simple_record where num_value_2 >= 42 group by num_value_2,
+        str_value_indexed
+    ref: group-by-query.yamsql:115
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2 [[GREATER_THAN_OR_EQUALS promote(@c17
+        AS INT)]]) | MAP (_ AS _0) | AGG (sum_i(_._0.NUM_VALUE_3_INDEXED) AS _0) GROUP
+        BY (_._0.NUM_VALUE_2 AS _0, _._0.STR_VALUE_INDEXED AS _1) | MAP (_._0._0 AS
+        NUM_VALUE_2, _._0._1 AS STR_VALUE_INDEXED, _._1._0 AS TOTAL)
+    task_count: 432
+    task_total_time_ms: 6
+    transform_count: 119
+    transform_time_ms: 3
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 39
+    insert_reused_count: 1

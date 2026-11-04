@@ -1,0 +1,44 @@
+in-query-header:
+-   query: EXPLAIN select * from my_record where header.rec_no = 1 and header.path
+        in ('String6', 'String1', 'String25', 'String11')
+    ref: in-query-header.yamsql:160
+    explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { ISCAN(IND [EQUALS promote(@c9
+        AS LONG), EQUALS q0]) }'
+    task_count: 968
+    task_total_time_ms: 16
+    transform_count: 246
+    transform_time_ms: 8
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 125
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path
+        in ('String6', 'String25', 'String1', 'String34')
+    ref: in-query-header.yamsql:172
+    explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN
+        arrayDistinct(@c19)] | INJOIN q1 -> { ISCAN(IND [EQUALS q0, EQUALS q1]) }
+        }'
+    task_count: 2440
+    task_total_time_ms: 45
+    transform_count: 802
+    transform_time_ms: 17
+    transform_yield_count: 145
+    insert_time_ms: 6
+    insert_new_count: 355
+    insert_reused_count: 36
+-   query: EXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path
+        in ('String6', 'String25', 'String1', 'String34') order by header.rec_no,
+        header.path
+    ref: in-query-header.yamsql:186
+    explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) ⋈ IN arrayDistinct(@c19)]
+        INUNION q0, q1 -> { COVERING(IND [EQUALS q0, EQUALS q1] -> [STR_VALUE: KEY:[2],
+        HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } COMPARE BY (_.HEADER.REC_NO,
+        _.HEADER.PATH, _.STR_VALUE) | FETCH'
+    task_count: 2515
+    task_total_time_ms: 42
+    transform_count: 831
+    transform_time_ms: 17
+    transform_yield_count: 147
+    insert_time_ms: 4
+    insert_new_count: 311
+    insert_reused_count: 33

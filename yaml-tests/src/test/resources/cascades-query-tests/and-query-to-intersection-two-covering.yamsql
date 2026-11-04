@@ -1,0 +1,118 @@
+#
+# and-query-to-intersection-two-covering.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBAndQueryToIntersectionTest.testComplexQueryAndWithTwoChildren3` — the projection
+# needs only the two filtered columns, so the plan should be an intersection of two *covering* scans
+# over the two three-column indexes.
+#
+# Index set mirrors the hook exactly: `complexQuerySetupHook()` then `removeIndex("multi_index")`,
+# `removeIndex("MySimpleRecord$str_value_indexed")`,
+# `removeIndex("MySimpleRecord$num_value_3_indexed")`, then MULTI_VAL_VAL_3 and MULTI_VAL_3_VAL. Its
+# own file: the two single-column indexes and MULTI_INDEX must all be absent, and no hint can
+# express an absent index.
+#
+# The source asserts on the plan only and never executes this query, so the expected rows below are
+# derived from the fixture rather than copied from the source.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index multi_val_val_3 as select str_value_indexed, num_value_2, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_2, num_value_3_indexed
+    create index multi_val_3_val as select num_value_3_indexed, num_value_2, str_value_indexed from my_simple_record
+        order by num_value_3_indexed, num_value_2, str_value_indexed
+    create index repeater_fanout as
+        select sq.v from my_simple_record as r, (select v from r.repeater as v) as sq order by sq.v
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: and-query-to-intersection-two-covering
+  preset: single_repetition_ordered
+  tests:
+    -
+      # NOTE — the query below is skipped; see the SKIPPED note on it. The expectation is correct and the
+      # result is not: this query returns
+      # 2 rows (REC_NO 88 and 98) instead of 10.
+      #
+      # The planner believes the two legs are compatibly ordered, but it reasons from *all* the
+      # query's equality-bound predicates rather than the ones each leg actually applies. Each leg
+      # applies only its own equality, so what they really provide is
+      #   leg A  MULTI_VAL_VAL_3 (str, nv2, nv3) bounded str='even'  ->  (nv2, nv3, rec_no)
+      #   leg B  MULTI_VAL_3_VAL (nv3, nv2, str) bounded nv3=3       ->  (nv2, str,  rec_no)
+      # Neither is sorted by the chosen COMPARE BY (NUM_VALUE_2, REC_NO): NUM_VALUE_3_INDEXED is
+      # constant only in leg B and STR_VALUE_INDEXED only in leg A. Over the unrestricted streams
+      # REC_NO is not monotonic within a NUM_VALUE_2 — leg A's nv2=0 block runs
+      #   (0,0) (0,30) (0,60) (0,90) (0,6) (0,36) ...
+      # so the merge advances the wrong cursor and skips matches.
+      #
+      # The fix is not a longer comparison key. (NUM_VALUE_2, NUM_VALUE_3_INDEXED, STR_VALUE_INDEXED,
+      # REC_NO) would be a valid ordering of both legs and does return all 10 rows, but the resulting
+      # plan is pointless: both indexes contain both predicate columns, so either leg on its own
+      # answers the query, and the intersection reads 50 + 20 = 70 index entries to produce what a
+      # single 50-entry covering scan produces. This intersection should not be generated at all —
+      # which is what the heuristic planner does, planning
+      #
+      # Contrast testComplexQueryAndWithTwoChildren in and-query-to-intersection.yamsql, where the
+      # intersection is genuinely useful: its legs are single-column indexes that cannot evaluate each
+      # other's predicate, and both really are ordered by REC_NO alone.
+      #
+      # `FDBAndQueryToIntersectionTest.testComplexQueryAndWithTwoChildren3` asserts this Cascades plan,
+      # comparison key included, but never executes it — which is why the row loss is invisible
+      # upstream.
+      - query: select str_value_indexed, num_value_3_indexed from my_simple_record
+               where str_value_indexed = 'even' and num_value_3_indexed = 3
+      # ── SKIPPED, NOT PASSING ─────────────────────────────────────────────────────────────────────────
+      # Returns 2 rows (REC_NO 88, 98) where the answer is 10. The planner treats the two legs
+      # as compatibly ordered by reasoning from all of the query's equality-bound predicates
+      # rather than the ones each leg applies: leg A provides (nv2, nv3, rec_no) and leg B (nv2,
+      # str, rec_no), so neither is sorted by the chosen COMPARE BY (num_value_2, rec_no) and
+      # the merge skips matches. The intersection should not be generated at all — both indexes
+      # contain both predicate columns, so either leg alone answers the query, which is what the
+      # heuristic planner does.
+      # FDBAndQueryToIntersectionTest.testComplexQueryAndWithTwoChildren3 asserts this plan but
+      # never executes it. See .out/issue-intersection-comparison-key.md.
+      # This is the ONLY query in this file, so it cannot be parked with a per-query
+      # `supported_version` sentinel: a test block whose every query is skipped has no executables and
+      # `TestBlock.parse:409` rejects it with "have no tests to execute". The suite method is `@Disabled`
+      # instead. That costs nothing here — there are no other queries to switch off as collateral — but do
+      # NOT reach for `@Disabled` in a file that has working siblings; use the sentinel there. Re-enable
+      # the method when the defect is fixed; the expectation below is the correct answer and is
+      # deliberately left as it is.
+      - explain: "COVERING(MULTI_VAL_VAL_3 [EQUALS promote(@c9 AS STRING)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(MULTI_VAL_3_VAL [EQUALS promote(@c13 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO) | MAP (_.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - unorderedResult: [{STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3},
+                          {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 3}]
+...

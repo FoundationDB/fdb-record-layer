@@ -1,0 +1,34 @@
+ordering-query:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 = 100 or num_value_2
+        = 101 or num_value_2 = 102 order by num_value_2 asc, str_value_indexed desc
+        nulls last
+    ref: ordering-query.yamsql:69
+    explain: ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c7 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE
+        [EQUALS promote(@c11 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c15
+        AS INT)]) COMPARE BY (_.NUM_VALUE_2, to_ordered_bytes(_.STR_VALUE_INDEXED,
+        DESC_NULLS_LAST), _.REC_NO)
+    task_count: 1892
+    task_total_time_ms: 27
+    transform_count: 364
+    transform_time_ms: 12
+    transform_yield_count: 108
+    insert_time_ms: 1
+    insert_new_count: 200
+    insert_reused_count: 26
+-   query: EXPLAIN select str_value_indexed from my_simple_record where num_value_2
+        = 101 and str_value_indexed > 'a' order by num_value_2 asc, str_value_indexed
+        desc nulls last
+    ref: ordering-query.yamsql:82
+    explain: 'COVERING(ORDERED_STR_VALUE [EQUALS promote(@c7 AS INT), [LESS_THAN to_ordered_bytes(promote(@c11
+        AS STRING), DESC_NULLS_LAST)]] -> [NUM_VALUE_2: KEY:[0], REC_NO: KEY:[2],
+        STR_VALUE_INDEXED: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST)]) | MAP (_.STR_VALUE_INDEXED
+        AS STR_VALUE_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2) | MAP (_.STR_VALUE_INDEXED
+        AS STR_VALUE_INDEXED)'
+    task_count: 462
+    task_total_time_ms: 16
+    transform_count: 113
+    transform_time_ms: 7
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 45
+    insert_reused_count: 2

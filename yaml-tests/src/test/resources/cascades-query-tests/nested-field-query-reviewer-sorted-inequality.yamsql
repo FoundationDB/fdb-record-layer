@@ -1,0 +1,68 @@
+#
+# nested-field-query-reviewer-sorted-inequality.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedWithAndSortedInequality` — the ORDER BY column is the same
+# column the inequality bounds. The index's first two components are equality-bound, so its third
+# component is already in the requested order and the inequality only narrows the range.
+#
+# Its own file: the hook drops `stats$school` and adds
+# `stats$cat_school_email` = (category, stats.start_date, stats.hometown) — the same index name as
+# nested-field-query-reviewer-sorted.yamsql but a different key, hence a separate template.
+#
+# The source's second query moves the two stats conditions under one `field("stats").matches(...)`,
+# which is the same SQL text, so only one query is ported.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_cat_school_email as
+        select category, stats.start_date, stats.hometown from restaurant_reviewer
+        order by category, stats.start_date, stats.hometown
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer-sorted-inequality
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedWithAndSortedInequality
+      - query: select * from restaurant_reviewer
+               where category = 1 and stats.start_date = 1066 and stats.hometown > 'M'
+               order by stats.hometown
+      - explain: "ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+...

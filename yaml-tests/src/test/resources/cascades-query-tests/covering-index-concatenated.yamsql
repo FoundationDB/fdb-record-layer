@@ -1,0 +1,121 @@
+#
+# covering-index-concatenated.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBCoveringIndexQueryTest.coveringConcatenatedFields` — a required-results entry that
+# is itself a concatenation of two fields should still yield a covering scan over the index holding
+# both of them.
+#
+# Its own file because MY_SIMPLE_RECORD_2_3 would also become a candidate for the queries in
+# covering-index.yamsql and change their plans.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index my_simple_record_2_3 as select num_value_2, num_value_3_indexed from my_simple_record
+        order by num_value_2, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: covering-index-concatenated
+  preset: single_repetition_ordered
+  tests:
+    -
+      # coveringConcatenatedFields
+      - query: select num_value_2, num_value_3_indexed from my_simple_record
+               where num_value_2 > 0 and num_value_2 < 10
+      - explain: "COVERING(MY_SIMPLE_RECORD_2_3 [[GREATER_THAN promote(@c9 AS INT) && LESS_THAN promote(@c13 AS INT)]] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)"
+      - unorderedResult: [{NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0},
+                          {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2},
+                          {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3}]
+...

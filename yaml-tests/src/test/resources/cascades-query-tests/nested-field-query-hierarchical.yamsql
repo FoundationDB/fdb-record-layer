@@ -1,0 +1,91 @@
+#
+# nested-field-query-hierarchical.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.hierarchical` — a predicate on the first column of a compound
+# primary key bounds a record scan.
+#
+# Its own file: `openHierarchicalRecordStore` builds `test_records_3.proto` with the primary key
+# (parent_path, child_name) — that shape exists nowhere else in the class.
+#
+# The two top-level rows have a NULL parent_path, exactly as in the source, where the record builder
+# is created without a parent path and the test loads one back with `Tuple.from(null, "photos")`.
+# Neither query returns them, but they are what the scan bound has to exclude. (A NULL in the leading
+# primary-key column inserts and reads back fine — nothing in the Relational layer forbids it.)
+#
+# Divergence: the source's second query is `Query.field("parent_path").startsWith("photos")`, which
+# plans as the prefix range `Scan({[photos],[photos]})`. SQL `LIKE 'photos%'` does not — the predicate
+# cannot bound the primary key at all. That costs more than the lost range: with no bound left on the
+# record scan, the planner prefers a covering scan of the NUM_VALUE_INDEXED index and the rows come out
+# in NUM_VALUE_INDEXED order rather than primary-key order, which is why that block is unordered.
+# The same startsWith→LIKE divergence is recorded in and-query-to-intersection.yamsql.
+---
+schema_template:
+    create table my_hierarchical_record(
+        parent_path string,
+        child_name string,
+        num_value_indexed integer,
+        primary key(parent_path, child_name))
+    create index my_hierarchical_record_num_value_indexed as
+        select num_value_indexed from my_hierarchical_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_HIERARCHICAL_RECORD (PARENT_PATH, CHILD_NAME, NUM_VALUE_INDEXED)
+             VALUES
+               (null, 'photos', 1),
+               (null, 'music', 2),
+               ('photos', 'vacations', 11),
+               ('photos', 'pets', 12),
+               ('photos/vacations', 'paris', 111),
+               ('photos/vacations', 'london', 112),
+               ('photos/vacations/paris', 'seine', 1111)
+---
+test_block:
+  name: nested-field-query-hierarchical
+  preset: single_repetition_ordered
+  tests:
+    -
+      # hierarchical
+      # Emission order is primary-key order, so within parent_path = 'photos' the rows come back by
+      # CHILD_NAME: 'pets' before 'vacations'. The source asserts NUM_VALUE_INDEXED [12, 11].
+      - query: select * from my_hierarchical_record where parent_path = 'photos'
+      - explain: "SCAN([EQUALS promote(@c7 AS STRING)]) | TFILTER MY_HIERARCHICAL_RECORD"
+      - result: [{PARENT_PATH: 'photos', CHILD_NAME: 'pets', NUM_VALUE_INDEXED: 12},
+                 {PARENT_PATH: 'photos', CHILD_NAME: 'vacations', NUM_VALUE_INDEXED: 11}]
+    -
+      # hierarchical
+      # The source asserts NUM_VALUE_INDEXED [12, 11, 112, 111, 1111] — primary-key order again, now
+      # across the three parent paths that start with 'photos'. The two NULL-parent rows are dropped
+      # because `NULL LIKE 'photos%'` is NULL.
+      #
+      # Unordered here, and this is where the startsWith→LIKE divergence bites hardest. `LIKE 'photos%'`
+      # cannot bound the primary key, so the record scan has no advantage left and the planner takes a
+      # covering scan of MY_HIERARCHICAL_RECORD_NUM_VALUE_INDEXED instead — its entries carry
+      # NUM_VALUE_INDEXED plus the whole primary key, so all three columns are covered. The rows then
+      # arrive in NUM_VALUE_INDEXED order (11, 12, 111, 112, 1111), not primary-key order. The set is the
+      # same; the sequence is an artefact of which access path wins on cost, so it is not asserted.
+      - query: select * from my_hierarchical_record where parent_path like 'photos%'
+      - explain: "COVERING(MY_HIERARCHICAL_RECORD_NUM_VALUE_INDEXED <,> -> [CHILD_NAME: KEY:[2], NUM_VALUE_INDEXED: KEY:[0], PARENT_PATH: KEY:[1]]) | FILTER _.PARENT_PATH LIKE @c7 ESCAPE 'null' | FETCH"
+      - unorderedResult: [{PARENT_PATH: 'photos', CHILD_NAME: 'pets', NUM_VALUE_INDEXED: 12},
+                          {PARENT_PATH: 'photos', CHILD_NAME: 'vacations', NUM_VALUE_INDEXED: 11},
+                          {PARENT_PATH: 'photos/vacations', CHILD_NAME: 'london', NUM_VALUE_INDEXED: 112},
+                          {PARENT_PATH: 'photos/vacations', CHILD_NAME: 'paris', NUM_VALUE_INDEXED: 111},
+                          {PARENT_PATH: 'photos/vacations/paris', CHILD_NAME: 'seine', NUM_VALUE_INDEXED: 1111}]
+...

@@ -1,0 +1,15 @@
+≤
+ 
+*nested-field-query-reviewer-hometown-emailõEXPLAIN select * from restaurant_reviewer where stats.hometown = 'Home Town' and stats.school_name = 'University of Learning' and email = 'pmp@example.com'‚
+Ô≈öìç §‡˝(<0çî&8K@¯COVERING(HOMETOWN_EMAIL [EQUALS promote(@c9 AS STRING), EQUALS promote(@c15 AS STRING)] -> [EMAIL: KEY:[3], ID: KEY:[4], STATS: [HOMETOWN: KEY:[0], SCHOOL_NAME: KEY:[1], START_DATE: KEY:[2]]]) | FILTER _.EMAIL EQUALS promote(@c19 AS STRING) | FETCH»digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q104.EMAIL EQUALS promote(@c19 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS STRING), EQUALS promote(@c15 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">HOMETOWN_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  3 -> 2 [ label=<&nbsp;q104> label="q104" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q106> label="q106" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -1,0 +1,27 @@
+nested-field-query-reviewer-email-hometown:
+-   query: EXPLAIN select * from restaurant_reviewer where stats.start_date <= 0 and
+        stats.hometown = 'Home Town' and email = 'pmp@example.com'
+    ref: nested-field-query-reviewer-email-hometown.yamsql:66
+    explain: ISCAN(EMAIL_HOMETOWN [EQUALS promote(@c20 AS STRING), EQUALS promote(@c16
+        AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]])
+    task_count: 631
+    task_total_time_ms: 13
+    transform_count: 143
+    transform_time_ms: 7
+    transform_yield_count: 61
+    insert_time_ms: 0
+    insert_new_count: 74
+    insert_reused_count: 6
+-   query: EXPLAIN select * from restaurant_reviewer where stats.start_date <= 0 and
+        email = 'pmp@example.com' and stats.hometown = 'Home Town'
+    ref: nested-field-query-reviewer-email-hometown.yamsql:76
+    explain: ISCAN(EMAIL_HOMETOWN [EQUALS promote(@c14 AS STRING), EQUALS promote(@c20
+        AS STRING), [LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]])
+    task_count: 631
+    task_total_time_ms: 10
+    transform_count: 143
+    transform_time_ms: 5
+    transform_yield_count: 61
+    insert_time_ms: 0
+    insert_new_count: 74
+    insert_reused_count: 6

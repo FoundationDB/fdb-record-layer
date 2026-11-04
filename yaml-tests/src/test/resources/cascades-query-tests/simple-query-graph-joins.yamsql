@@ -1,0 +1,178 @@
+#
+# simple-query-graph-joins.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from the join tests of `FDBSimpleQueryGraphTest`: `.testPlanCrossProductJoin`, `.testSimpleJoin`,
+# `.testMediumJoinDatabaseObjectDependencies`, `.testMediumJoin` and `.testPlanFiveWayJoin`.
+#
+# `name = 'name'` matches no restaurant — the names are 'Chez Thenardier' and 'ABC' — so the first three
+# blocks return nothing. That is faithful: the source builds those graphs with `planGraph` and asserts the
+# plan without executing, so the literal exists to bound the scan, not to select rows.
+#
+# What does not port:
+#   * `testMediumJoinDatabaseObjectDependencies` also asserts the plan's *database object dependencies*
+#     (which tables and indexes it reads). There is no yamsql directive for that; only the plan is checked
+#     here.
+#   * `testMediumJoin` and `testPlanFiveWayJoin` assert nothing but
+#     `assertInstanceOf(RecordQueryFlatMapPlan.class, plan)` and, for the former, round-trip
+#     serialization. `verifySerialization` has no yamsql surface. Their `explain` is a much tighter
+#     assertion than the source's, so these two ports are stronger, not weaker.
+#   * the four `testMediumJoinTypeEvolution*` methods, which mutate `RecordMetaData` between planning and
+#     execution. A yamsql file has one schema per template and no way to evolve it mid-block.
+
+# Schema: `openNestedRecordStore` — *both* TestRecords4 record types in one store, with bare primary keys
+# and no record-type prefix. `WITH OPTIONS(INTERMINGLE_TABLES=true)` reproduces that, and here it is not
+# just safe but load-bearing: it is why the source's plans carry a `typeFilterPlan` over the scan. The
+# primary-key values do not collide (reviewers 1-2, restaurants 1000-1001).
+#
+# Data deviations, both invisible to every query: the apostrophe is dropped from the tag "l'atmosphère"
+# and the accents from "Chez Thénardier" and "éponine". A SQL literal spells an apostrophe as the doubled
+# quote `''`, and decoding that only landed in 4.13.5.0 (b9790b9af), so an older server in a mixed-mode
+# configuration would read the value back with the escape still in it.
+#
+# One thing SQL cannot vary: `setUpWithNullableArray` builds the same records over
+# `test_records_4_wrapper.proto`, where each repeated field is wrapped in a `…List` message with a
+# `values` field. That *is* how the Relational layer models an `ARRAY` — `NullableArrayUtils.wrapArray` is
+# applied to every generated index key — so the wrapped and unwrapped variants are one and the same DDL
+# here, and `testSimplePlanGraphWithNullableArray` collapses into `testSimplePlanGraph`.
+---
+schema_template:
+    create type as struct restaurant_review(reviewer bigint, rating integer)
+    create type as struct restaurant_tag(value string, weight integer)
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_record(
+        rest_no bigint,
+        name string,
+        reviews restaurant_review array,
+        tags restaurant_tag array,
+        customer string array,
+        primary key(rest_no))
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_record_name as select name from restaurant_record
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index review_rating as
+        select sq.rating from restaurant_record as r, (select rating from r.reviews) sq
+        order by sq.rating
+    create index tag as
+        select sq.value, sq.weight from restaurant_record as r, (select value, weight from r.tags) sq
+        order by sq.value, sq.weight
+    create index customers as
+        select sq.c from restaurant_record as r, (select c from r.customer as c) sq order by sq.c
+    create index customers_name as
+        select sq.c, r.name from restaurant_record as r, (select c from r.customer as c) sq
+        order by sq.c, r.name
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS)
+             VALUES
+               (1, 'Javert', 'inspecteur@policier.fr', (100, null, 'Toulon')),
+               (2, 'M. le Maire', null, (120, null, 'Montreuil-sur-mer'))
+    - query: INSERT INTO RESTAURANT_RECORD (REST_NO, NAME, REVIEWS, TAGS, CUSTOMER)
+             VALUES
+               (1000, 'Chez Thenardier',
+                [(1, 100), (2, 0)],
+                [('latmosphere', 10), ('les aliments', 70)],
+                ['jean', 'fantine', 'cosette', 'eponine']),
+               (1001, 'ABC',
+                [(1, 34), (2, 110)],
+                [('latmosphere', 40), ('les aliments', 20)],
+                ['gavroche', 'enjolras', 'eponine'])
+---
+test_block:
+  name: simple-query-graph-joins
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPlanCrossProductJoin — no join predicate, so the reviewer side is an unbounded type-filtered
+      # scan under the flat-map: Fetch is not involved, the restaurant side is
+      # Index(RestaurantRecord$name [[name],[name]]).
+      - query: select rv.name as reviewerName, sq.rating as reviewRating
+               from restaurant_record as r,
+                    (select reviewer, rating from r.reviews) sq,
+                    restaurant_reviewer as rv
+               where r.name = 'name'
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME [EQUALS promote(@c37 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.REVIEWS AS q1 RETURN q1 } | FLATMAP q1 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) AS q3 RETURN (q3.NAME AS REVIEWERNAME, q1.RATING AS REVIEWRATING) }"
+      - result: []
+    -
+      # testSimpleJoin — the same shape with the join predicate rv.id = review.reviewer, which turns the
+      # inner side into an equality-bounded scan.
+      - query: select rv.name as reviewerName, sq.rating as reviewRating
+               from restaurant_record as r,
+                    (select reviewer, rating from r.reviews) sq,
+                    restaurant_reviewer as rv
+               where r.name = 'name' and rv.id = sq.reviewer
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME [EQUALS promote(@c37 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.REVIEWS | FLATMAP q1 -> { SCAN([EQUALS q1.REVIEWER]) | TFILTER RESTAURANT_REVIEWER | MAP (_ AS _0, q1 AS _1) AS q2 RETURN q2 } AS q3 RETURN (q3._0.NAME AS REVIEWERNAME, q3._1.RATING AS REVIEWRATING) }"
+      - result: []
+    -
+      # testMediumJoinDatabaseObjectDependencies — the same query again; the source's extra assertion is
+      # on the plan's database-object dependencies, which yamsql cannot express.
+      - query: select rv.name as reviewerName, sq.rating as reviewRating
+               from restaurant_record as r,
+                    (select reviewer, rating from r.reviews) sq,
+                    restaurant_reviewer as rv
+               where r.name = 'name' and rv.id = sq.reviewer
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME [EQUALS promote(@c37 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.REVIEWS | FLATMAP q1 -> { SCAN([EQUALS q1.REVIEWER]) | TFILTER RESTAURANT_REVIEWER | MAP (_ AS _0, q1 AS _1) AS q2 RETURN q2 } AS q3 RETURN (q3._0.NAME AS REVIEWERNAME, q3._1.RATING AS REVIEWRATING) }"
+      - result: []
+    -
+      # testMediumJoin — restaurants reviewed by two (not necessarily distinct) reviewers. Five
+      # quantifiers: two reviewers, the restaurant, and an explode of `reviews` per reviewer. Both
+      # restaurants were reviewed by both reviewers, so every one of the 2 x 2 x 2 combinations appears.
+      - query: select rv1.name as reviewer1Name, rv2.name as reviewer2Name,
+                      r.name as restaurantName, r.rest_no as restaurantNo
+               from restaurant_reviewer as rv1, restaurant_reviewer as rv2, restaurant_record as r
+               where exists (select 1 from r.reviews as x where x.reviewer = rv1.id)
+                 and exists (select 1 from r.reviews as y where y.reviewer = rv2.id)
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) | FLATMAP q1 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) | FLATMAP q2 -> { EXPLODE q0.REVIEWS | FILTER _.REVIEWER EQUALS q2.ID | MAP (@c40 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q3 -> { EXPLODE q0.REVIEWS | FILTER _.REVIEWER EQUALS q1.ID | MAP (@c40 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q4 RETURN (1 AS _0) } AS q5 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q7 RETURN (q7._0.NAME AS REVIEWER1NAME, q7._1.NAME AS REVIEWER2NAME, q0.NAME AS RESTAURANTNAME, q0.REST_NO AS RESTAURANTNO) }"
+      - unorderedResult: [{REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001},
+                          {REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001}]
+    -
+      # testPlanFiveWayJoin — the source builds the same five-quantifier graph inline that
+      # `planMediumJoin` builds, and asserts the same thing about it, so this is the same SQL. Kept so
+      # the method has a home and so the two explains can be compared.
+      - query: select rv1.name as reviewer1Name, rv2.name as reviewer2Name,
+                      r.name as restaurantName, r.rest_no as restaurantNo
+               from restaurant_reviewer as rv1, restaurant_reviewer as rv2, restaurant_record as r
+               where exists (select 1 from r.reviews as x where x.reviewer = rv1.id)
+                 and exists (select 1 from r.reviews as y where y.reviewer = rv2.id)
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) | FLATMAP q1 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) | FLATMAP q2 -> { EXPLODE q0.REVIEWS | FILTER _.REVIEWER EQUALS q2.ID | MAP (@c40 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q3 -> { EXPLODE q0.REVIEWS | FILTER _.REVIEWER EQUALS q1.ID | MAP (@c40 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q4 RETURN (1 AS _0) } AS q5 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q7 RETURN (q7._0.NAME AS REVIEWER1NAME, q7._1.NAME AS REVIEWER2NAME, q0.NAME AS RESTAURANTNAME, q0.REST_NO AS RESTAURANTNO) }"
+      - unorderedResult: [{REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001},
+                          {REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'Javert', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'Javert', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'Chez Thenardier', RESTAURANTNO: 1000},
+                          {REVIEWER1NAME: 'M. le Maire', REVIEWER2NAME: 'M. le Maire', RESTAURANTNAME: 'ABC', RESTAURANTNO: 1001}]
+...

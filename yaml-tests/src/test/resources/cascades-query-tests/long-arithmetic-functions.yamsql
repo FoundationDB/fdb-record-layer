@@ -1,0 +1,337 @@
+#
+# long-arithmetic-functions.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBLongArithmeticFunctionQueryTest.sum2And3Query` -- an equality predicate on an
+# `add(num_value_2, num_value_3_indexed)` function index.
+#
+# `CREATE INDEX ... AS SELECT num_value_2 + num_value_3_indexed` generates exactly the source's key
+# expression: `MaterializedViewIndexGenerator.toKeyExpression` turns an `ArithmeticValue` into
+# `function(<logical operator name>, concat(args))` (`MaterializedViewIndexGenerator.java:567-575`),
+# and `add` is the name `LongArithmethicFunctionKeyExpressionFactory` registers. The index *name*
+# cannot be spelled in SQL -- `MySimpleRecord$num_value_2+num_value_3_indexed` is not an identifier --
+# so it becomes MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED.
+#
+# Index set: the three indexes test_records_1.proto declares plus the sum index. The hook is purely
+# additive and `complexQuerySetupHook()` is not applied, so MULTI_INDEX and the repeater fan-out index
+# are absent.
+#
+# Data: `setupSimpleRecordStore` writes 100 records with REC_NO = i, NUM_VALUE_2 = i % 5 and
+# NUM_VALUE_3_INDEXED = i % 3. Every other column is left unset, which reads back as NULL here (and as
+# an absent proto field in the source). NUM_VALUE_UNIQUE is NULL in all 100 rows; the unique index
+# tolerates that because `StandardIndexMaintainer.updateOneKeyAsync` skips the uniqueness check when
+# the index key contains a null.
+#
+# The source sets no `setRequiredResults`, so the projection is `select *`. It asserts the set of
+# matching records with `containsInAnyOrder`, hence `unorderedResult`.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index my_simple_record_num_value_2_add_num_value_3_indexed as
+        select num_value_2 + num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, NUM_VALUE_3_INDEXED, REPEATER)
+             VALUES
+               (0, 0, 0, []),
+               (1, 1, 1, []),
+               (2, 2, 2, []),
+               (3, 3, 0, []),
+               (4, 4, 1, []),
+               (5, 0, 2, []),
+               (6, 1, 0, []),
+               (7, 2, 1, []),
+               (8, 3, 2, []),
+               (9, 4, 0, []),
+               (10, 0, 1, []),
+               (11, 1, 2, []),
+               (12, 2, 0, []),
+               (13, 3, 1, []),
+               (14, 4, 2, []),
+               (15, 0, 0, []),
+               (16, 1, 1, []),
+               (17, 2, 2, []),
+               (18, 3, 0, []),
+               (19, 4, 1, []),
+               (20, 0, 2, []),
+               (21, 1, 0, []),
+               (22, 2, 1, []),
+               (23, 3, 2, []),
+               (24, 4, 0, []),
+               (25, 0, 1, []),
+               (26, 1, 2, []),
+               (27, 2, 0, []),
+               (28, 3, 1, []),
+               (29, 4, 2, []),
+               (30, 0, 0, []),
+               (31, 1, 1, []),
+               (32, 2, 2, []),
+               (33, 3, 0, []),
+               (34, 4, 1, []),
+               (35, 0, 2, []),
+               (36, 1, 0, []),
+               (37, 2, 1, []),
+               (38, 3, 2, []),
+               (39, 4, 0, []),
+               (40, 0, 1, []),
+               (41, 1, 2, []),
+               (42, 2, 0, []),
+               (43, 3, 1, []),
+               (44, 4, 2, []),
+               (45, 0, 0, []),
+               (46, 1, 1, []),
+               (47, 2, 2, []),
+               (48, 3, 0, []),
+               (49, 4, 1, []),
+               (50, 0, 2, []),
+               (51, 1, 0, []),
+               (52, 2, 1, []),
+               (53, 3, 2, []),
+               (54, 4, 0, []),
+               (55, 0, 1, []),
+               (56, 1, 2, []),
+               (57, 2, 0, []),
+               (58, 3, 1, []),
+               (59, 4, 2, []),
+               (60, 0, 0, []),
+               (61, 1, 1, []),
+               (62, 2, 2, []),
+               (63, 3, 0, []),
+               (64, 4, 1, []),
+               (65, 0, 2, []),
+               (66, 1, 0, []),
+               (67, 2, 1, []),
+               (68, 3, 2, []),
+               (69, 4, 0, []),
+               (70, 0, 1, []),
+               (71, 1, 2, []),
+               (72, 2, 0, []),
+               (73, 3, 1, []),
+               (74, 4, 2, []),
+               (75, 0, 0, []),
+               (76, 1, 1, []),
+               (77, 2, 2, []),
+               (78, 3, 0, []),
+               (79, 4, 1, []),
+               (80, 0, 2, []),
+               (81, 1, 0, []),
+               (82, 2, 1, []),
+               (83, 3, 2, []),
+               (84, 4, 0, []),
+               (85, 0, 1, []),
+               (86, 1, 2, []),
+               (87, 2, 0, []),
+               (88, 3, 1, []),
+               (89, 4, 2, []),
+               (90, 0, 0, []),
+               (91, 1, 1, []),
+               (92, 2, 2, []),
+               (93, 3, 0, []),
+               (94, 4, 1, []),
+               (95, 0, 2, []),
+               (96, 1, 0, []),
+               (97, 2, 1, []),
+               (98, 3, 2, []),
+               (99, 4, 0, [])
+---
+test_block:
+  name: long-arithmetic-functions
+  preset: single_repetition_ordered
+  tests:
+    -
+      # sum2And3Query
+      # The source binds $sum over LongStream.range(-1, 11); NUM_VALUE_2 is i % 5 and
+      # NUM_VALUE_3_INDEXED is i % 3, so the sum only ever falls in 0..6 and the five
+      # out-of-range bindings are empty.
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = -1
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: []
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 0
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 15, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 30, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 45, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 60, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 75, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 90, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 1
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 6, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 10, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 21, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 25, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 36, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 40, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 51, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 55, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 66, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 70, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 81, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 85, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 96, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 2
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 1, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 5, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 12, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 16, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 20, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 27, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 31, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 35, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 42, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 46, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 50, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 57, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 61, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 65, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 72, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 76, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 80, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 87, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 91, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 95, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 3
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 3, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 7, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 11, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 18, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 22, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 26, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 33, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 37, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 41, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 48, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 52, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 56, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 63, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 67, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 71, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 78, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 82, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 86, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 93, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 97, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 4
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 2, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 9, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 13, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 17, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 24, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 28, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 32, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 39, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 43, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 47, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 54, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 58, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 62, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 69, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 73, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 77, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 84, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
+                          {REC_NO: 88, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 92, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 99, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 0, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 5
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 4, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 8, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 19, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 23, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 34, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 38, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 49, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 53, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 64, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 68, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 79, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 83, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 94, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 1, REPEATER: []},
+                          {REC_NO: 98, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 3, NUM_VALUE_3_INDEXED: 2, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 6
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: [{REC_NO: 14, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 29, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 44, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 59, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 74, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 2, REPEATER: []},
+                          {REC_NO: 89, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 4, NUM_VALUE_3_INDEXED: 2, REPEATER: []}]
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 7
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: []
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 8
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: []
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 9
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: []
+    -
+      # sum2And3Query
+      - query: select * from my_simple_record
+               where num_value_2 + num_value_3_indexed = 10
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])"
+      - unorderedResult: []
+...

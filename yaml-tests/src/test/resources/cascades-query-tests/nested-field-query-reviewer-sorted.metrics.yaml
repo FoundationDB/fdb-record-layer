@@ -1,0 +1,53 @@
+nested-field-query-reviewer-sorted:
+-   query: EXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date
+        > 0 order by stats.start_date
+    ref: nested-field-query-reviewer-sorted.yamsql:66
+    explain: ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), [GREATER_THAN
+        promote(@c13 AS LONG)]])
+    task_count: 193
+    task_total_time_ms: 3
+    transform_count: 59
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1
+-   query: EXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date
+        > 0 order by stats.start_date, email
+    ref: nested-field-query-reviewer-sorted.yamsql:76
+    explain: ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), [GREATER_THAN
+        promote(@c13 AS LONG)]])
+    task_count: 193
+    task_total_time_ms: 3
+    transform_count: 59
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1
+-   query: EXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date
+        = 1066 order by stats.start_date
+    ref: nested-field-query-reviewer-sorted.yamsql:85
+    explain: ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13
+        AS LONG)])
+    task_count: 193
+    task_total_time_ms: 2
+    transform_count: 59
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1
+-   query: EXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date
+        = 1066 order by stats.start_date, category, email
+    ref: nested-field-query-reviewer-sorted.yamsql:95
+    explain: ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13
+        AS LONG)])
+    task_count: 193
+    task_total_time_ms: 3
+    transform_count: 59
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1

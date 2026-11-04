@@ -1,0 +1,28 @@
+≥
+l
+nested-field-query-hierarchicalIEXPLAIN select * from my_hierarchical_record where parent_path = 'photos'¬
+ﬁì˝êR ÜÓä( 0Ÿ†8)@FSCAN([EQUALS promote(@c7 AS STRING)]) | TFILTER MY_HIERARCHICAL_RECORD‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [MY_HIERARCHICAL_RECORD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PARENT_PATH, STRING AS CHILD_NAME, INT AS NUM_VALUE_INDEXED)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [MY_HIERARCHICAL_RECORD]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q50> label="q50" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ä
+p
+nested-field-query-hierarchicalMEXPLAIN select * from my_hierarchical_record where parent_path like 'photos%'ã
+–ƒ∏ùO ±äô(0â›8&@∑COVERING(MY_HIERARCHICAL_RECORD_NUM_VALUE_INDEXED <,> -> [CHILD_NAME: KEY:[2], NUM_VALUE_INDEXED: KEY:[0], PARENT_PATH: KEY:[1]]) | FILTER _.PARENT_PATH LIKE @c7 ESCAPE 'null' | FETCH≥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(STRING AS PARENT_PATH, STRING AS CHILD_NAME, INT AS NUM_VALUE_INDEXED)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q41.PARENT_PATH LIKE @c7 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PARENT_PATH, STRING AS CHILD_NAME, INT AS NUM_VALUE_INDEXED)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PARENT_PATH, STRING AS CHILD_NAME, INT AS NUM_VALUE_INDEXED)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_HIERARCHICAL_RECORD_NUM_VALUE_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PARENT_PATH, STRING AS CHILD_NAME, INT AS NUM_VALUE_INDEXED)" ];
+  3 -> 2 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

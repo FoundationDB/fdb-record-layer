@@ -1,0 +1,15 @@
+covering-index-multi:
+-   query: EXPLAIN select num_value_unique, num_value_2 from my_simple_record where
+        num_value_unique > 990 order by num_value_unique
+    ref: covering-index-multi.yamsql:53
+    explain: 'COVERING(MULTI_INDEX [[GREATER_THAN promote(@c9 AS INT)]] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[2]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE, _.NUM_VALUE_2 AS NUM_VALUE_2)'
+    task_count: 384
+    task_total_time_ms: 6
+    transform_count: 97
+    transform_time_ms: 3
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
