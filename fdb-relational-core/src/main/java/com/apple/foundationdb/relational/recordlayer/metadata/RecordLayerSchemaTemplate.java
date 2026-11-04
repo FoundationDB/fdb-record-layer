@@ -693,29 +693,23 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         /**
-         * Adds an auxiliary type via a supplier, which is only evaluated when the type is actually needed.
+         * Adds an auxiliary type via a supplier, which is only evaluated when the type is needed.
          * <p>
          * An auxiliary type is a type that can be referenced later on in a table definition, in other auxiliary
-         * types, or in user defined functions. Any {@link DataType.Named} data type can be an auxiliary type, such as
-         * {@code enum}s and {@code struct}s. Prefer {@link #addAuxiliaryType(DataType.Named)} when the type is
-         * already in hand; use this method when producing the type is expensive and may never be needed, for example
-         * when deriving it from a {@link RecordMetaData} records descriptor.
+         * types, or in user defined functions. Prefer {@link #addAuxiliaryType(DataType.Named)} when the
+         * {@link DataType.Named} instance already exists; use this method when instantiating the type is expensive
+         * and the type may not have any references.
          * <p>
          * The provided supplier must return a resolved type, that is, {@link DataType#isResolved()} must
-         * return {@code true} for the returned value. This is checked when the supplier is evaluated rather than when
-         * it is added, so a violation surfaces as an {@link ErrorCode#INVALID_SCHEMA_TEMPLATE} error when the supplier
-         * is evaluated. The returned type's name is expected to equal {@code auxiliaryTypeName}, which is the name the
-         * type is registered and looked up under regardless.
+         * return {@code true} for the returned value. This is checked when the supplier is evaluated.
+         * The returned type's name is expected to equal {@code auxiliaryTypeName}.
          * <p>
          * The supplier is evaluated at most once, and only when the type instance is needed:
          * <ul>
          *     <li>by {@link #findType(String)} on this builder, or by {@link RecordLayerSchemaTemplate#findTypeByName(String)}
          *         on the built schema template;</li>
-         *     <li>by {@link RecordLayerSchemaTemplate#accept(Visitor)}, which visits every auxiliary type. This includes
-         *         {@link RecordLayerSchemaTemplate#toRecordMetadata()}, but <em>only</em> for a template built without
-         *         a cached {@link RecordMetaData} set via {@link #setCachedMetadata(RecordMetaData)}.;</li>
-         *     <li>during {@link #build()}, if some other table/auxiliary type requires resolution and names this type
-         *         as a dependency.</li>
+         *     <li>by {@link RecordLayerSchemaTemplate#accept(Visitor)}, which visits every auxiliary type.
+         *     <li>to resolve other table/auxiliry types during {@link #build()} which depend on this auxiliary type.</li>
          * </ul>
          *
          * @param auxiliaryTypeName The name to register the auxiliary type under.

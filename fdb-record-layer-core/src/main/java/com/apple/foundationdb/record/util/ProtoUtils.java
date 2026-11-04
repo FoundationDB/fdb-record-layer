@@ -22,23 +22,20 @@ package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Utility functions for interacting with protobuf.
@@ -108,84 +105,70 @@ public class ProtoUtils {
     }
 
     /**
-     * Recursively collects every message and enum type declared in {@code fileDescriptor} and in its transitive
-     * dependencies into {@code descriptorByFullNameBuilder}, keyed by fully-qualified protobuf name. Nested message
-     * and enum types are collected as well, to any depth.
+     * Recursively collect every message and enum type visible from a file descriptor and its dependencies.
      * <p>
-     * Dependencies are visited (in reverse order) before the types declared in {@code fileDescriptor} itself, so
-     * a caller finishing the map with {@link ImmutableMap.Builder#buildKeepingLast()} resolves a duplicated full name
-     * in favor of the file closest to the root of the walk.
-     * <p>
-     * {@code excludedDependenciesByName} doubles as the set of already-visited files and is mutated accordingly:
-     * a dependency is skipped when it is already present, and is added to the set before being descended into.
+     * {@code excludedDependencies} doubles as the set of already-visited file descriptors during the recursive
+     * walk and must be mutable. Descriptors in the top level file descriptor are added first to
+     * {@code descriptorSetBuilder}, and then the descriptors from each dependency in order.
      *
-     * @param fileDescriptor The file whose types, and whose dependencies' types, are collected.
-     * @param descriptorByFullNameBuilder The builder to add the collected descriptors to, keyed by
-     *                                    {@link Descriptors.GenericDescriptor#getFullName()}.
-     * @param excludedDependenciesByName The names of the dependency files to skip, as returned by
-     *                                   {@link Descriptors.FileDescriptor#getFullName()}. Mutated to record the
-     *                                   files that have been visited.
+     * @param fileDescriptor The {@link Descriptors.FileDescriptor} whose types, and whose dependencies' types, are
+     *                       collected.
+     * @param descriptorSetBuilder The {@link ImmutableSet.Builder} to add the collected descriptors to.
+     * @param excludedDependencies A set of {@link Descriptors.FileDescriptor} dependencies that should not be processed.
+     * @param excludedDescriptors A set of {@link Descriptors.GenericDescriptor} that should not be added to
+     *                            {@code descriptorSetBuilder}.
      */
-    private static void addAllTypesInFileDescriptorToMap(
+    private static void addAllTypesInFileDescriptorToSet(
             @Nonnull Descriptors.FileDescriptor fileDescriptor,
-            @Nonnull ImmutableMap.Builder<String, Descriptors.GenericDescriptor> descriptorByFullNameBuilder,
-            @Nonnull Set<String> excludedDependenciesByName) {
-        // Iterate over dependencies in reverse order to make sure that types in dependencies declared first
-        // win any collisions.
-        final var dependencyIterator = fileDescriptor.getDependencies().listIterator(
-                fileDescriptor.getDependencies().size());
-        while (dependencyIterator.hasPrevious()) {
-            final var dependency = dependencyIterator.previous();
-            if (excludedDependenciesByName.add(dependency.getFullName())) {
-                addAllTypesInFileDescriptorToMap(dependency, descriptorByFullNameBuilder, excludedDependenciesByName);
-            }
-        }
-
-        final Deque<Descriptors.GenericDescriptor> namedTypesToProcess = new ArrayDeque<>(
-                fileDescriptor.getMessageTypes());
+            @Nonnull ImmutableSet.Builder<Descriptors.GenericDescriptor> descriptorSetBuilder,
+            @Nonnull HashSet<Descriptors.FileDescriptor> excludedDependencies,
+            @Nonnull Set<Descriptors.GenericDescriptor> excludedDescriptors) {
+        final Deque<Descriptors.GenericDescriptor> namedTypesToProcess = new ArrayDeque<>(fileDescriptor.getMessageTypes());
         namedTypesToProcess.addAll(fileDescriptor.getEnumTypes());
         while (!namedTypesToProcess.isEmpty()) {
             final var namedType = namedTypesToProcess.pop();
-            descriptorByFullNameBuilder.put(namedType.getFullName(), namedType);
+            if (!excludedDescriptors.contains(namedType)) {
+                descriptorSetBuilder.add(namedType);
+            }
             if (namedType instanceof Descriptors.Descriptor descriptor) {
                 namedTypesToProcess.addAll(descriptor.getNestedTypes());
                 namedTypesToProcess.addAll(descriptor.getEnumTypes());
             }
         }
+
+        for (final var dependency : fileDescriptor.getDependencies()) {
+            if (excludedDependencies.add(dependency)) {
+                addAllTypesInFileDescriptorToSet(dependency, descriptorSetBuilder, excludedDependencies, excludedDescriptors);
+            }
+        }
     }
 
     /**
-     * Collects every message and enum type visible from a file descriptor, keyed by fully-qualified protobuf name.
+     * Collect every message and enum type visible from a file descriptor.
+     * <p>
      * The result covers the types declared directly in {@code fileDescriptor} as well as those declared in its
-     * transitive dependencies, including nested message and enum types to any depth.
-     * <p>
-     * Files in {@code excludedDependencies} are not descended into, which also excludes any type reachable only
-     * through them. Excluding {@code record_metadata_options.proto}, for instance, drops the {@code descriptor.proto}
-     * types that it imports as well. Listing {@code fileDescriptor} itself has no effect, as the root file is always
-     * walked.
-     * <p>
-     * If there are multiple types with the same full name in multiple files, the type in the file closest to the
-     * provided {@code fileDescriptor} wins.
+     * transitive dependencies, including nested message and enum types to any depth. File descriptors in
+     * {@code excludedDependencies} are not processed, unless it's {@code fileDescriptor} itself, which also
+     * excludes any type reachable only through them.
      *
-     * @param fileDescriptor The file to collect types from, along with its transitive dependencies.
-     * @param excludedDependencies The dependency files to prune from the walk, together with everything reachable
-     *                             only through them.
-     * @return An immutable map from fully-qualified protobuf name to the corresponding descriptor.
+     * @param fileDescriptor The {@link Descriptors.FileDescriptor} to collect types from, along with its transitive
+     *                       dependencies.
+     * @param excludedDependencies A set of dependency {@link Descriptors.FileDescriptor} to prune from the walk.
+     * @param excludedDescriptors A set of {@link Descriptors.GenericDescriptor} to exclude from the returned set.
+     * @return An immutable set of {@link Descriptors.GenericDescriptor}s collected from {@code fileDescriptor}.
      */
     @Nonnull
-    public static Map<String, Descriptors.GenericDescriptor> getTypeDescriptorByFullNameMapForFile(
+    public static Set<Descriptors.GenericDescriptor> getTypeDescriptorsInFile(
             @Nonnull Descriptors.FileDescriptor fileDescriptor,
-            @Nonnull Collection<Descriptors.FileDescriptor> excludedDependencies) {
-        final var descriptorByFullNameMapBuilder =
-                ImmutableMap.<String, Descriptors.GenericDescriptor>builder();
-        addAllTypesInFileDescriptorToMap(
+            @Nonnull Set<Descriptors.FileDescriptor> excludedDependencies,
+            @Nonnull Set<Descriptors.GenericDescriptor> excludedDescriptors) {
+        final var descriptorByFullNameMapBuilder = ImmutableSet.<Descriptors.GenericDescriptor>builder();
+        addAllTypesInFileDescriptorToSet(
                 fileDescriptor,
                 descriptorByFullNameMapBuilder,
-                new HashSet<>(
-                        excludedDependencies.stream()
-                                .map(Descriptors.FileDescriptor::getFullName)
-                                .collect(Collectors.toSet())));
-        return descriptorByFullNameMapBuilder.buildKeepingLast();
+                new HashSet<>(excludedDependencies),
+                excludedDescriptors);
+        return descriptorByFullNameMapBuilder.build();
     }
 
     /**

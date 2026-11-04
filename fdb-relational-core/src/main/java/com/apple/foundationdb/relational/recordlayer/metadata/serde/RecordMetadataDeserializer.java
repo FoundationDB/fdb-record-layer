@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
@@ -46,6 +48,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.protobuf.Descriptors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -61,6 +65,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataDeserializer {
+    private static final Logger logger = LoggerFactory.getLogger(RecordMetadataDeserializer.class);
 
     @Nonnull
     protected final RecordMetaData recordMetaData;
@@ -133,16 +138,25 @@ public class RecordMetadataDeserializer {
             schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
         }
 
-        for (final var auxiliaryTypeDescriptor : recordMetaData.getNonRecordTypeDescriptorsByFullName().values()) {
+        for (final var auxiliaryTypeDescriptor : recordMetaData.getNonRecordTypeDescriptors()) {
             // Skip descriptors for nullable arrays as these are unwrapped to `DataType.ArrayType` when they are used in
             // any other type and shouldn't be used in SQL queries.
             if (auxiliaryTypeDescriptor instanceof Descriptors.Descriptor typeDescriptor
                     && NullableArrayUtils.isWrappedArrayDescriptor(typeDescriptor)) {
                 continue;
             }
-            schemaTemplateBuilder.addResolvedAuxiliaryTypeSupplier(
-                    ProtoUtils.toUserIdentifier(auxiliaryTypeDescriptor.getFullName()),
-                    Suppliers.memoize(() -> namedDataTypeFromDescriptor(auxiliaryTypeDescriptor)));
+
+            final var auxiliaryTypeName = ProtoUtils.toUserIdentifier(auxiliaryTypeDescriptor.getFullName());
+            if (schemaTemplateBuilder.findType(auxiliaryTypeName).isEmpty()) {
+                schemaTemplateBuilder.addResolvedAuxiliaryTypeSupplier(
+                        auxiliaryTypeName,
+                        Suppliers.memoize(() -> namedDataTypeFromDescriptor(auxiliaryTypeDescriptor)));
+            } else {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("RecordMetadata contains non-record types with duplicate user-facing full names",
+                            LogMessageKeys.NAME, auxiliaryTypeName));
+                }
+            }
         }
 
         schemaTemplateBuilder.setCachedMetadata(recordMetaData);
@@ -153,15 +167,13 @@ public class RecordMetadataDeserializer {
     private static DataType.Named namedDataTypeFromDescriptor(@Nonnull final Descriptors.GenericDescriptor descriptor) {
         final Type recordLayerType;
         if (descriptor instanceof Descriptors.EnumDescriptor) {
-            recordLayerType = Type.Enum.fromDescriptor(true, (Descriptors.EnumDescriptor)descriptor)
-                    .withName(ProtoUtils.toUserIdentifier(descriptor.getName()));
+            recordLayerType = Type.Enum.fromDescriptorPreservingNames(true, (Descriptors.EnumDescriptor)descriptor);
         } else {
             Assert.thatUnchecked(descriptor instanceof Descriptors.Descriptor,
                     ErrorCode.INTERNAL_ERROR,
                     () -> String.format("Unsupported auxiliary type descriptor with name '%s'", descriptor.getFullName()));
             recordLayerType = Type.Record
                     .fromDescriptorPreservingName((Descriptors.Descriptor)descriptor)
-                    .withName(ProtoUtils.toUserIdentifier(descriptor.getName()))
                     .withNullability(true);
         }
         return (DataType.Named)DataTypeUtils.toRelationalType(recordLayerType);

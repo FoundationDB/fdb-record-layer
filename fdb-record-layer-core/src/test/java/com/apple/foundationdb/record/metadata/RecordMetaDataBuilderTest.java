@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsImportFlatProto;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsImportedMapProto;
+import com.apple.foundationdb.record.TestRecordsImportWithTupleFieldsProto;
 import com.apple.foundationdb.record.TestRecordsMarkedUnmarkedProto;
 import com.apple.foundationdb.record.TestRecordsNoPrimaryKeyProto;
 import com.apple.foundationdb.record.TestRecordsUnionMissingRecordProto;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.record.TestRecordsUnsigned2Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned3Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned4Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned5Proto;
+import com.apple.foundationdb.record.TestRecordsWithDeprecatedTypeProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestTwoUnionsProto;
 import com.apple.foundationdb.record.TestUnionDefaultNameProto;
@@ -898,7 +900,7 @@ public class RecordMetaDataBuilderTest {
     }
 
     @Test
-    void getNonRecordTypeDescriptorsByFullNameReturnsAllTypes() {
+    void getNonRecordTypeDescriptorsReturnsAllTypes() {
         final RecordMetaData metaData = RecordMetaData.newBuilder()
                 .setRecords(TestRecords4WrapperProto.getDescriptor())
                 .build();
@@ -967,6 +969,29 @@ public class RecordMetaDataBuilderTest {
         ));
     }
 
+    @Test
+    void getNonRecordTypesWithImportedTypeWithTupleFields() {
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsImportWithTupleFieldsProto.getDescriptor())
+                .build();
+        checkNonRecordTypes(metaDataWithNonRecordTypes, "com.apple.foundationdb.record" , ImmutableList.of(
+                "nestedwithtuple.NestedTypeWithTupleFields",
+                "nestedwithtuple.RecordTypeUnion"
+        ));
+    }
+
+
+    @Test
+    void getNonRecordTypesWithDeprecatedTypes() {
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsWithDeprecatedTypeProto.getDescriptor())
+                .build();
+        checkNonRecordTypes(metaDataWithNonRecordTypes, TestRecordsWithDeprecatedTypeProto.getDescriptor(), ImmutableList.of(
+                "DeprecatedType",
+                "TypeWithDeprecatedField"
+        ));
+    }
+
     private void checkNonRecordTypes(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull List<String> expectedNonRecordTypes) {
         checkNonRecordTypes(metaData, fileDescriptor.getPackage(), expectedNonRecordTypes);
     }
@@ -978,17 +1003,10 @@ public class RecordMetaDataBuilderTest {
     }
 
     private void checkNonRecordTypes(@Nonnull RecordMetaData metaData, @Nonnull List<String> expectedFullNonRecordTypeNames) {
-        final var actualNonRecordTypes = metaData.getNonRecordTypeDescriptorsByFullName();
+        final var actualNonRecordTypes = metaData.getNonRecordTypeDescriptors();
         assertEquals(expectedFullNonRecordTypeNames.size(), actualNonRecordTypes.size());
-        for (final var expectedFullName : expectedFullNonRecordTypeNames) {
-            // The map is keyed by the full name (<protobuf_package>.<name>) of the type descriptors.
-            assertTrue(actualNonRecordTypes.containsKey(expectedFullName));
-            final Descriptors.GenericDescriptor actualNonRecordType = actualNonRecordTypes.get(expectedFullName);
-
-            assertEquals(expectedFullName, actualNonRecordType.getFullName());
-            int lastDot = expectedFullName.lastIndexOf('.');
-            final String expectedName = lastDot < 0 ? expectedFullName : expectedFullName.substring(lastDot + 1);
-            assertEquals(expectedName, actualNonRecordType.getName());
+        for (final var actualNonRecordType : actualNonRecordTypes) {
+            assertTrue(expectedFullNonRecordTypeNames.contains(actualNonRecordType.getFullName()));
         }
     }
 }
