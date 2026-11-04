@@ -476,7 +476,7 @@ test_block:
       - query: SELECT "restaurant"."region" AS "region", COUNT(*) AS "n"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
              GROUP BY "restaurant"."region"
-      - error: "0AF00"
+      - error: "0AF02"
     -
       # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
       - query: SELECT SUM(SQ."rating") AS "total"
@@ -489,13 +489,13 @@ test_block:
       - query: SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
                  FROM "book", "book"."authors" AS "a"
              GROUP BY "a"."name"."last"
-      - explain: "ISCAN(mv_deep_element <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (max_l(_._1.score) AS _0) GROUP BY (_._1.name.last AS _0) | MAP (_._0._0 AS last, _._1._0 AS best)"
+      - explain: "ISCAN(mv_deep_element <,>) | MAP (_.parent AS _0, (_.unnesting_0 AS _0) AS _1) | AGG (max_l(_._1._0.score) AS _0) GROUP BY (_._1._0.name.last AS _0) | MAP (_._0._0 AS last, _._1._0 AS best)"
       - unorderedResult: [{last: 'Austen', best: 8}, {last: 'Herbert', best: 9}]
     -
       - query: SELECT "venue"."venue_no" AS "venue_no", SUM(SQ."seats") AS "total"
                  FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
              GROUP BY "venue"."venue_no"
-      - explain: "SCAN([IS venue]) | FLATMAP q0 -> { EXPLODE q0.slots AS q1 RETURN (q0 AS _0, q1 AS _1) } | AGG (sum_l(_._1.seats) AS _0) GROUP BY (_._0.venue_no AS _0) | MAP (_._0._0 AS venue_no, _._1._0 AS total)"
+      - explain: "SCAN([IS venue]) | FLATMAP q0 -> { TF explode(q0.slots) AS q1 RETURN (q0 AS _0, q1._0 AS _1) } | AGG (sum_l(_._1.seats) AS _0) GROUP BY (_._0.venue_no AS _0) | MAP (_._0._0 AS venue_no, _._1._0 AS total)"
       - unorderedResult: [{venue_no: 1, total: 30}, {venue_no: 2, total: 5}]
 ---
 # These tests focus on which index the planner picks when a query that unnests could use either an index on the stored
@@ -516,7 +516,7 @@ test_block:
       - query: SELECT "kiosk"."kiosk_no", SQ."sku", SQ."qty"
                  FROM "kiosk", (SELECT "sku", "qty" FROM "kiosk"."lines") AS SQ
                 WHERE "kiosk"."city" = 'SF'
-      - explain: "ISCAN(kiosk_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1.sku AS sku, q1.qty AS qty) }"
+      - explain: "ISCAN(kiosk_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { TF explode(q0.lines) AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1._0.sku AS sku, q1._0.qty AS qty) }"
       - unorderedResult: [
           {kiosk_no: 1, sku: 'apple', qty: 2},
           {kiosk_no: 1, sku: 'pear', qty: 1},
@@ -528,7 +528,7 @@ test_block:
       - query: SELECT "kiosk"."kiosk_no", SQ."qty"
                  FROM "kiosk", (SELECT "sku", "qty" FROM "kiosk"."lines") AS SQ
                 WHERE "kiosk"."city" = 'SF' AND SQ."sku" = 'apple'
-      - explain: "ISCAN(kiosk_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines | FILTER _.sku EQUALS promote(@c34 AS STRING) AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1.qty AS qty) }"
+      - explain: "ISCAN(kiosk_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { TF explode(q0.lines) | FILTER _._0.sku EQUALS promote(@c34 AS STRING) AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1._0.qty AS qty) }"
       - unorderedResult: [{kiosk_no: 1, qty: 2}, {kiosk_no: 1, qty: 2}]
     -
       # both index considered. simple index has lesser number of predicates. The index on the synthetic type covers the
@@ -536,7 +536,7 @@ test_block:
       - query: SELECT "shop"."shop_no", SQ."sku", SQ."qty"
                  FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
                 WHERE "shop"."city" = 'SF'
-      - explain: "ISCAN(shop_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines AS q1 RETURN (q0.shop_no AS shop_no, q1.sku AS sku, q1.qty AS qty) }"
+      - explain: "ISCAN(shop_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { TF explode(q0.lines) AS q1 RETURN (q0.shop_no AS shop_no, q1._0.sku AS sku, q1._0.qty AS qty) }"
       - unorderedResult: [
           {shop_no: 1, sku: 'apple', qty: 2},
           {shop_no: 1, sku: 'pear', qty: 1},
@@ -561,7 +561,7 @@ test_block:
       - query: SELECT "shop"."owner", SQ."sku"
                  FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
                 WHERE "shop"."city" = 'SF'
-      - explain: "ISCAN(shop_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.lines AS q1 RETURN (q0.owner AS owner, q1.sku AS sku) }"
+      - explain: "ISCAN(shop_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { TF explode(q0.lines) AS q1 RETURN (q0.owner AS owner, q1._0.sku AS sku) }"
       - unorderedResult: [
           {owner: 'ann', sku: 'apple'},
           {owner: 'ann', sku: 'pear'},
