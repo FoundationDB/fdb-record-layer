@@ -112,6 +112,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
     /**
      * Create a builder for the runner.
+     *
      * @param database the FDB database to use to create new transactions
      * @param storeBuilder the store builder to use
      * @return the builder instance
@@ -132,6 +133,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
     /**
      * Internal utility ot start the iteration with the underlying iterator.
+     *
      * @return a Future that completes when the iteration is done
      */
     protected CompletableFuture<Void> iterateAll() {
@@ -225,6 +227,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
         /**
          * Constructor.
+         *
          * @param database the FDB database to use
          * @param storeBuilder the store builder to use
          */
@@ -235,6 +238,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
         /**
          * Finalize the build and create a stats runner.
+         *
          * @return the newly created stats runner
          */
         public RecordRepairStatsRunner buildStatsRunner() {
@@ -243,6 +247,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
         /**
          * Finalize the build and create a repair  runner.
+         *
          * @param allowRepair whether to repair the found issues (TRUE) or run in read-only mode (FALSE)
          * @return the newly created repair runner
          */
@@ -254,6 +259,7 @@ public abstract class RecordRepair implements AutoCloseable {
          * Limit the number of issues found.
          * This parameter is intended to stop the iteration once a number of issues has been found, as a means of controlling
          * the size of the list returned. Note that this is only relevant for a repair runner.
+         *
          * @param maxResultsReturned the maximum number of issues to be returned from the {@link RecordRepairValidateRunner#run} method.
          * Default: 10,000. Use 0 for Unlimited.
          * @return this builder
@@ -266,6 +272,7 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * The {@link ValidationKind} to use for the validation or repair.
          * Default: {@link ValidationKind#RECORD_VALUE_AND_VERSION}.
+         *
          * @param validationKind the validation kind to use
          * @return this builder
          */
@@ -278,6 +285,7 @@ public abstract class RecordRepair implements AutoCloseable {
          * Limit the number of records deleted in a transaction.
          * Records can be deleted as part of the repair process. Once this number is reached, the transaction gets committed
          * and a new one is started.
+         *
          * @param maxRecordDeletesPerTransaction the max number of records allowed to be deleted in a transaction.
          * Default: 0 (unlimited)
          * @return this builder
@@ -292,6 +300,7 @@ public abstract class RecordRepair implements AutoCloseable {
          * This will instruct the runner to stop a transaction once this duration has been reached. Note that each transaction
          * is limited (to 5 seconds normally) by FDB as well. If set to 0 the runner will not limit transaction time,
          * which may result in FDB failing to commit (transaction too old).
+         *
          * @param transactionTimeQuotaMillis the max number of milliseconds to spend in a transaction.
          * Default: 4000. Use 0 for unlimited.
          * @return this builder
@@ -304,6 +313,7 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * Limit the number of records that can be scanned every second.
          * This would delay the next transaction to ensure the limit is maintained (while there are no delays added during a transaction).
+         *
          * @param maxRecordScannedPerSec the average number of records to scan in per second.
          * Default: 0 (unlimited)
          * @return this builder
@@ -316,6 +326,7 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * Limit the number of records that can be deleted every second.
          * This would delay the next transaction to ensure the limit is maintained (while there are no delays added during a transaction).
+         *
          * @param maxRecordDeletesPerSec the average number of records to delete in per second.
          * Default: 1000. Use 0 for unlimited.
          * @return this builder
@@ -328,6 +339,7 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * Control the number of retries before failure.
          * The runner will retry a transaction if failed. Once the max number of retries has been reached, the operation would fail.
+         *
          * @param numOfRetries the maximum number of times to retry a transaction upon failure.
          * Default: 4
          * @return this builder
@@ -343,6 +355,7 @@ public abstract class RecordRepair implements AutoCloseable {
          * as part of the repair operation in case the store fails to open.
          * If the runner is running in dry run mode (repair not allowed) then the operation will be rolled back once the run
          * is complete, making no change to the header.
+         *
          * @param userVersion the user version for the header repair
          * @param minimumPossibleFormatVersion the minimum store format version to use for the repair
          * Default: null minimumPossibleFormatVersion will not attempt to repair the header

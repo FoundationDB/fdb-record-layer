@@ -28,6 +28,7 @@ import java.util.function.Predicate;
 
 /**
  * Matcher that applies a {@link Predicate} and has a name as its description.
+ *
  * @param <T> type of argument to the predicate
  */
 public class NamedPredicate<T> extends TypeSafeMatcher<T> {

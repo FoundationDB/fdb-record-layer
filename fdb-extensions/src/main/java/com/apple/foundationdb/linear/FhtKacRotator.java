@@ -275,6 +275,7 @@ public final class FhtKacRotator implements LinearOperator {
 
     /**
      * Apply transpose (inverse) of the π/4 Givens.
+     *
      * @see #givensPiOver4(double[])
      */
     private static void givensMinusPiOver4(double[] y) {

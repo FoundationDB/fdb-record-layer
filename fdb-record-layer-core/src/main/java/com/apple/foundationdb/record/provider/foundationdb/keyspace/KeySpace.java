@@ -133,6 +133,7 @@ public class KeySpace {
 
     /**
      * Retrieves a subdirectory.
+     *
      * @param name the name of the directory to return
      * @return the directory with the specified <code>name</code>
      * @throws NoSuchDirectoryException if the directory does not exist
@@ -144,6 +145,7 @@ public class KeySpace {
 
     /**
      * Returns the available root directories in the <code>KeySpace</code>.
+     *
      * @return a list of root directories
      */
     @Nonnull
@@ -321,6 +323,7 @@ public class KeySpace {
 
     /**
      * Synchronously list the available paths from a directory.
+     *
      * @param context the context in which to perform database access
      * @param directory the path under which to list
      * @return a list of the paths that were found
@@ -345,6 +348,7 @@ public class KeySpace {
 
     /**
      * Creates a visually pleasing ASCII-art representation of the directory tree.
+     *
      * @param out the print destination
      * @throws IOException if there is a problem writing to the destination
      */

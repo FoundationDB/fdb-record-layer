@@ -133,6 +133,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
      * This allows us to better distribute the connections positions as connections are created per query in the tests
      * and thus connections with a single query should increment their position between connection creation or else they
      * will always execute with the same initial connection.
+     *
      * @return the next initial connection number to use
      */
     private int getNextConnectionNumber() {
@@ -248,6 +249,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
          * This method conditionally advances the connection selector. This is done for ease of testing, where some
          * commands that just return information will not advance the selector, leading to better predictability
          * of the command routing.
+         *
          * @param advance whether to advance the connection selector
          * @param op the name of the operation (for logging)
          * @return the underlying connection to use

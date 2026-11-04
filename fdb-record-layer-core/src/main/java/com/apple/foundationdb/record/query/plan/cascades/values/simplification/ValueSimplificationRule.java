@@ -28,6 +28,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the base type of the {@link AbstractRuleCall} to be {@link Value}.
+ *
  * @param <TYPE> the type of the object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)

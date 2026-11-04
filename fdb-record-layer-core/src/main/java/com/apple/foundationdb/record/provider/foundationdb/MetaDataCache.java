@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 public interface MetaDataCache {
     /**
      * Get a version to use for cache validation of <code>-1</code> to skip validation.
+     *
      * @param context the transaction to use to access the database
      * @return a future that completes with the current version
      */
@@ -53,6 +54,7 @@ public interface MetaDataCache {
 
     /**
      * Get cached {@link RecordMetaData} object. For instance, from a Guava cache.
+     *
      * @return any cached meta-data
      */
     @Nullable
@@ -62,6 +64,7 @@ public interface MetaDataCache {
 
     /**
      * Get cached serialized meta-data. For instance, from Memcache.
+     *
      * @return any cached serialized form
      */
     @Nullable
@@ -75,6 +78,7 @@ public interface MetaDataCache {
      * <p>If maintained, the version should be stored in a way that is transactionally
      * consistent with the given <code>context</code>. For instance, in one or more
      * key-value pairs.
+     *
      * @param context the transaction to use to access the database
      * @param version the new current version
      * @see #getCurrentVersionAsync(FDBRecordContext)
@@ -88,6 +92,7 @@ public interface MetaDataCache {
      * <p>This cache can be kept in memory. If {@link #setCurrentVersion} is supported, it is
      * still possible to determine when it is out-of-date, even if changed by some other
      * client.
+     *
      * @param metaData the new cached meta-data
      * @see #getCachedMetaData
      */
@@ -100,6 +105,7 @@ public interface MetaDataCache {
      * <p>This cache is normally maintained some place that is not transationally consistent.
      * In which case, if multiple clients can change the meta-data, {@link #setCurrentVersion}
      * should also be supported.
+     *
      * @param serialized the new cached serialized meta-data
      * @see #getCachedSerialized
      */

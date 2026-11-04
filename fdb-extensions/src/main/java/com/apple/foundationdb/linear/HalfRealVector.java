@@ -215,6 +215,7 @@ public class HalfRealVector extends AbstractRealVector {
 
     /**
      * Returns a vector whose components are all zero.
+     *
      * @param numDimensions number of dimensions
      * @return a vector whose components are all zero
      */
@@ -274,6 +275,7 @@ public class HalfRealVector extends AbstractRealVector {
      * <p>The input is interpreted as a leading type byte (which must match {@link VectorType#HALF})
      * followed by a sequence of big-endian 16-bit {@link Half}-encoded components, one per
      * dimension.
+     *
      * @param vectorBytes the non-null byte array to convert
      * @return a new {@link HalfRealVector} instance created from the byte array
      */

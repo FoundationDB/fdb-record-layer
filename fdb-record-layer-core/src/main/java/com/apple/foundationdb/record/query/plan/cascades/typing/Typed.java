@@ -38,6 +38,7 @@ public interface Typed {
 
     /**
      * Returns a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
+     *
      * @return a token list used to render a human-friendly textual representation of both the type-producing instance
      *         and its result set {@link Type}.
      */

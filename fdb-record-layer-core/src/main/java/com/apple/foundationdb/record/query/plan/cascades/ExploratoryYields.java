@@ -32,6 +32,7 @@ public interface ExploratoryYields {
     /**
      * Yield a set of exploratory expressions. The yielded expressions will be inserted (if necessary) into the set of
      * exploratory expressions of the current reference.
+     *
      * @param expressions a set of {@link RelationalExpression}s
      */
     default void yieldExploratoryExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
@@ -43,6 +44,7 @@ public interface ExploratoryYields {
     /**
      * Yield an exploratory expression. The yielded expression will be inserted (if necessary) into the set of
      * exploratory expressions of the current reference.
+     *
      * @param expression a {@link RelationalExpression}s
      */
     void yieldExploratoryExpression(@Nonnull RelationalExpression expression);

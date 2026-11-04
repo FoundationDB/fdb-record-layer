@@ -84,6 +84,7 @@ public class QueryPlanInfo {
 
     /**
      * Return TRUE if the info set is empty.
+     *
      * @return TRUE if the info set is empty
      */
     public boolean isEmpty() {
@@ -92,6 +93,7 @@ public class QueryPlanInfo {
 
     /**
      * Return the Key Set for info map.
+     *
      * @return the Key Sey for the info map
      */
     @SuppressWarnings("java:S1452")

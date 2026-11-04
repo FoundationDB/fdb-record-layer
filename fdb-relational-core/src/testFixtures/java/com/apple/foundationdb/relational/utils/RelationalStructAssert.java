@@ -206,6 +206,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
      *     <li>If the column is of primitive or array type, the values should match completely. However, if it is a struct,
      *     the matching can be partial.</li>
      * </ul>
+     *
      * @param actual the actual {@link RelationalStruct}.
      * @param expected the actual {@link RelationalStruct}.
      * @return if the actual and expected is the same.

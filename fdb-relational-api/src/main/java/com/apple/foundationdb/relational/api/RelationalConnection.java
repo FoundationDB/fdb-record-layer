@@ -77,6 +77,7 @@ public interface RelationalConnection extends java.sql.Connection {
      * pre-compiled and stored in a <code>PreparedStatement</code> object. This
      * object can then be used to efficiently execute this statement
      * multiple times.
+     *
      * @param sql an SQL statement that may contain one or more '?' IN
      * parameter placeholders
      * @return a new default <code>RelationalPreparedStatement</code> object containing the

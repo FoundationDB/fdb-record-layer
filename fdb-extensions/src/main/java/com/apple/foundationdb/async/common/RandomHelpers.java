@@ -66,6 +66,7 @@ public final class RandomHelpers {
     /**
      * Returns high-quality double hash code between {@code 0} and {@code 1}. It uses {@link #splitMixLong(long)}
      * internally.
+     *
      * @param x a {@code long}
      * @return a high quality hash code of {@code x} as a {@code double} in the range {@code [0.0d, 1.0d)}.
      */
@@ -77,6 +78,7 @@ public final class RandomHelpers {
      * Returns a good long hash code for the argument of type {@code long}. It is an implementation of the
      * output mixing function {@code SplitMix64} (the finalizing mix of the SplitMix algorithm) as employed by many
      * PRNGs such as {@link SplittableRandom}.
+     *
      * @param x a {@code long}
      * @return a high quality hash code of {@code x}
      */

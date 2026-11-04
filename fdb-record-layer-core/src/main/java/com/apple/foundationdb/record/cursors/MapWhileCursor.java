@@ -36,6 +36,7 @@ import java.util.function.Function;
 
 /**
  * A {@code RecordCursor} that calls a function that maps the value and can stop the cursor.
+ *
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function
  */

@@ -160,6 +160,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
 
     /**
      * Creates an instance of this {@link LuceneQueryComponent} with a new list of fields.
+     *
      * @param fields The new list of fields.
      * @param explicitFieldNames the new list of explicit field names
      * @return a new instance of {@link LuceneQueryComponent}.

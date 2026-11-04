@@ -64,6 +64,7 @@ public class MatchLeafRule extends AbstractCascadesRule<RelationalExpression> {
      * here as this rule is non-specific which means that it matches sub classes of {@link RelationalExpression} and not
      * just {@link RelationalExpression} itself. In order for this rule to fall into the set of rules that is always
      * utilized we return {@code Optional.empty()} here.
+     *
      * @return {@code Optional.empty()}
      */
     @Nonnull
@@ -105,6 +106,7 @@ public class MatchLeafRule extends AbstractCascadesRule<RelationalExpression> {
 
     /**
      * Method to match an expression with a candidate expression.
+     *
      * @param expression an expression
      * @param candidateExpression a candidate expression
      * @return an {@link Iterable} of bound {@link MatchInfo}s where each match info represents a math under the bound

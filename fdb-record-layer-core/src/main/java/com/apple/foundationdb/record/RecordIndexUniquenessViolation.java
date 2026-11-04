@@ -80,6 +80,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the index value of this uniqueness violation. This is the value the
      * index took for some record that conflicted with the value
      * for a different record.
+     *
      * @return the index key of this uniqueness violation
      */
     @Nullable
@@ -91,6 +92,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the primary key of this uniqueness violation. This is the
      * record that was added that triggered the uniqueness
      * violation
+     *
      * @return the primary key of this uniqueness violation
      */
     @Nullable
@@ -102,6 +104,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the existing key of this uniqueness violation. This is the
      * primary key of the record that was already within the database
      * at the time the second record was added.
+     *
      * @return the existing key of this uniqueness violation
      */
     @Nullable

@@ -272,6 +272,7 @@ public class PartialMatch {
     /**
      * Return a set of aliases that this partial match is responsible for covering, that is either the matches
      * replacement or compensation will take care of the aliases in the returned set.
+     *
      * @return a set of compensated aliases
      */
     @Nonnull
@@ -446,6 +447,7 @@ public class PartialMatch {
      * Determine if compensation can be applied at a later time, e.g. at the top of the matched DAG. Mostly, that
      * can only be done if the compensation for this match is just a predicate that the MQT cannot handle. Whenever
      * we need to compensate for unmatched quantifiers and value computations, we need compensate right away (for now).
+     *
      * @return {@code true} if compensation can be deferred, {@code false} otherwise.
      */
     public boolean compensationCanBeDeferred() {

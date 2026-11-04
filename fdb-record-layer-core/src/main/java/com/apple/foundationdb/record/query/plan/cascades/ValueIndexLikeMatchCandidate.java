@@ -52,6 +52,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
      * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
      *     synthesize the comparison range in (2)
      * (4) the candidate predicate on the candidate side that is the placeholder predicate for the parameter
+     *
      * @param matchInfo a pre-existing match info structure
      * @param sortParameterIds the query should be ordered by
      * @param isReverse reversed-ness of the order

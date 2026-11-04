@@ -70,6 +70,7 @@ public interface PlannerEvent {
 
     /**
      * Getter.
+     *
      * @return description of an event
      */
     @Nonnull

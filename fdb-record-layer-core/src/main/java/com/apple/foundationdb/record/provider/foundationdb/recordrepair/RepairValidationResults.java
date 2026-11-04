@@ -54,6 +54,7 @@ public class RepairValidationResults {
      * Whether the repair operation completed the iteration through all the records or not.
      * The operation can return before completing the iteration either in the case of an error (in which case the
      * {@link #caughtException} will be set or by reaching the maximum number of results allowed.
+     *
      * @return TRUE if the operation completed iterating through all the records.
      */
     public boolean isComplete() {
@@ -62,6 +63,7 @@ public class RepairValidationResults {
 
     /**
      * The exception caught by the operation, if any.
+     *
      * @return the throwable caught by the operation, if any.
      */
     @Nullable
@@ -72,6 +74,7 @@ public class RepairValidationResults {
     /**
      * The list of validation and repair results for all records that results in non-valid validation code.
      * Note that this list can be limited in size by calling {@link RecordRepair.Builder#withMaxResultsReturned(int)}
+     *
      * @return the list of record validation results that ended up with non-valid code.
      */
     @Nonnull
@@ -83,6 +86,7 @@ public class RepairValidationResults {
      * Return the number of record validation results that had a valid return code during the repair run.
      * This returns the valid count only. Under normal circumstances, this number will be much greater than the number of non-valid
      * results, and a count only will reduce resource usage.
+     *
      * @return the number of records that returned a valid results during the repair run.
      */
     public int getValidResultCount() {

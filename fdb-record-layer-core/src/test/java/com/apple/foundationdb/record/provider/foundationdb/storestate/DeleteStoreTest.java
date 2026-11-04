@@ -656,6 +656,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
 
         /**
          * Whether this operation writes to the store header.
+         *
          * @return {@code true} iff the operation writes {@code STORE_INFO_KEY} on commit.
          *   The write-set of the concurrent operation is what {@code deleteStoreAsync}'s
          *   header read conflicts with; operations that never touch {@code STORE_INFO_KEY}

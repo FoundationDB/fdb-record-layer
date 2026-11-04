@@ -53,6 +53,7 @@ public interface Node<N extends NodeReference> {
     /**
      * Returns a self-reference to this object, enabling fluent method chaining. This allows to create node references
      * that contain a vector and are independent of the storage implementation.
+     *
      * @param vector the vector of {@code Half} objects to process. This parameter
      * is optional and can be {@code null}.
      * @return a non-null reference to this object ({@code this}) for further
@@ -73,6 +74,7 @@ public interface Node<N extends NodeReference> {
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
+     *
      * @return the kind of this node as a {@link NodeKind}
      */
     @Nonnull

@@ -650,6 +650,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     /**
      * Create a planner graph for better visualization of a query index plan.
+     *
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */

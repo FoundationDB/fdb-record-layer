@@ -162,6 +162,7 @@ public class RankedSet {
 
         /**
          * Get the hash function to use.
+         *
          * @return a {@link HashFunction} used to convert keys to a bit mask used to determine level splits in the skip list
          */
         public HashFunction getHashFunction() {
@@ -170,6 +171,7 @@ public class RankedSet {
 
         /**
          * Get the number of levels to use.
+         *
          * @return the number of levels in the skip list
          */
         public int getNLevels() {
@@ -178,6 +180,7 @@ public class RankedSet {
 
         /**
          * Get whether duplicate entries increase ranks below them.
+         *
          * @return {@code true} if duplicates are counted separately
          */
         public boolean isCountDuplicates() {
@@ -217,6 +220,7 @@ public class RankedSet {
          *
          * <p>It is possible to change the hash function of an existing ranked set, although this is not recommended since the distribution in the skip list may
          * become uneven as a result.
+         *
          * @param hashFunction the hash function to use
          * @return this builder
          */
@@ -233,6 +237,7 @@ public class RankedSet {
          * Set the hash function to use.
          *
          * <p>It is not currently possible to change the number of levels for an existing ranked set.
+         *
          * @param nlevels the number of levels to use
          * @return this builder
          */
@@ -252,6 +257,7 @@ public class RankedSet {
          * Set whether to count duplicate keys separately.
          *
          * <p>If duplicate keys are counted separately, ranks after them are increased by the number of duplicates.
+         *
          * @param countDuplicates whether to count duplicates
          * @return this builder
          */
@@ -267,6 +273,7 @@ public class RankedSet {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link RankedSet}
      * @see ConfigBuilder#build
      */
@@ -276,6 +283,7 @@ public class RankedSet {
 
     /**
      * Initialize a new ranked set.
+     *
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
      * @param config configuration to use
@@ -291,6 +299,7 @@ public class RankedSet {
      *
      * <p>Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
      * may be superior in new code.
+     *
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
      * @param hashFunction hash function for new ranked set
@@ -305,6 +314,7 @@ public class RankedSet {
      *
      * <p>Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
      * may be superior in new code.
+     *
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
      * @param nlevels number of skip list levels for new ranked set
@@ -315,6 +325,7 @@ public class RankedSet {
 
     /**
      * Initialize a new ranked set with the default configuration.
+     *
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
      */
@@ -328,6 +339,7 @@ public class RankedSet {
 
     /**
      * Determine whether {@link #init} needs to be called.
+     *
      * @param tc the transaction to use to access the database
      * @return {@code true} if this ranked set needs to be initialized
      */
@@ -337,6 +349,7 @@ public class RankedSet {
 
     /**
      * Get the subspace used to store this ranked set.
+     *
      * @return ranked set subspace
      */
     public Subspace getSubspace() {
@@ -345,6 +358,7 @@ public class RankedSet {
 
     /**
      * Get executed used by this ranked set.
+     *
      * @return executor used when running asynchronous tasks
      */
     public Executor getExecutor() {
@@ -353,6 +367,7 @@ public class RankedSet {
 
     /**
      * Get this ranked set's configuration.
+     *
      * @return ranked set configuration
      */
     public Config getConfig() {
@@ -365,6 +380,7 @@ public class RankedSet {
      * <p>If {@link Config#isCountDuplicates} is {@code false} and {@code key} is already present, the return value is {@code false}.
      * If {@link Config#isCountDuplicates} is {@code true}, the return value is never {@code false} and a duplicate will
      * cause all {@link #rank}s below it to increase by one.
+     *
      * @param tc the transaction to use to access the database
      * @param key the key to add
      * @return a future that completes to {@code true} if the ranked set was modified
@@ -440,6 +456,7 @@ public class RankedSet {
 
     /**
      * Removes a key from the set.
+     *
      * @param tc the transaction to use to access the database
      * @param key the key to remove
      * @return a future that completes to {@code true} if the set was modified, that is, if the key was present before this operation
@@ -506,6 +523,7 @@ public class RankedSet {
 
     /**
      * Clears the entire set.
+     *
      * @param tc the transaction to use to access the database
      * @return a future that completes when the ranked set has been cleared
      */
@@ -519,6 +537,7 @@ public class RankedSet {
 
     /**
      * Checks for the presence of a key in the set.
+     *
      * @param tc the transaction to use to access the database
      * @param key the key to check for
      * @return a future that completes to {@code true} if the key is present in the ranked set
@@ -530,6 +549,7 @@ public class RankedSet {
 
     /**
      * Count the number of occurrences of a key in the set.
+     *
      * @param tc the transaction to use to access the database
      * @param key the key to check for
      * @return a future that completes to {@code 0} if the key is not present in the ranked set or
@@ -611,6 +631,7 @@ public class RankedSet {
     /**
      * Return the Nth item in the set.
      * This operation is also referred to as <i>select</i>.
+     *
      * @param tc the transaction to use to access the database
      * @param rank the rank index to find
      * @return a future that completes to the key for the {@code rank}th item or {@code null} if that index is out of bounds
@@ -628,6 +649,7 @@ public class RankedSet {
 
     /**
      * Returns the ordered set of keys in a given range.
+     *
      * @param tc the transaction to use to access the database
      * @param beginKey the (inclusive) lower bound for the range
      * @param endKey the (exclusive) upper bound for the range
@@ -650,6 +672,7 @@ public class RankedSet {
     /**
      * Read the deeper, likely empty, levels to get them into the RYW cache, since individual lookups may only
      * add pieces, requiring additional requests as keys increase.
+     *
      * @param tr the transaction to use to access the database
      * @return a future that is complete when the deeper levels have been loaded
      */
@@ -746,6 +769,7 @@ public class RankedSet {
 
     /**
      * Return the index of a key within the set.
+     *
      * @param tc the transaction to use to access the database
      * @param key the key to find
      * @return a future that completes to the index of {@code key} in the ranked set or {@code null} if it is not present
@@ -757,6 +781,7 @@ public class RankedSet {
 
     /**
      * Return the index of a key within the set.
+     *
      * @param tc the transaction to use to access the database
      * @param key the key to find
      * @param nullIfMissing whether to return {@code null} when {@code key} is not present in the set
@@ -786,6 +811,7 @@ public class RankedSet {
 
     /**
      * Count the items in the set.
+     *
      * @param tc the transaction to use to access the database
      * @return a future that completes to the number of items in the set
      */

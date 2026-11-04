@@ -174,6 +174,7 @@ public class LogicalIntersectionExpression extends AbstractRelationalExpressionW
 
     /**
      * Creates a new intersection over the given for-each quantifiers, which may include null-on-empty quantifiers.
+     *
      * @param quantifiers the for-each quantifiers ranging over the plans to take the intersection of
      * @param comparisonKeyProvidedOrderingParts a list of {@link ProvidedOrderingPart}s by which the results of all
      *        quantifiers are ordered

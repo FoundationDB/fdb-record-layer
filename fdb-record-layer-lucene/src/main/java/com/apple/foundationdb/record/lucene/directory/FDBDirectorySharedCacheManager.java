@@ -74,6 +74,7 @@ public class FDBDirectorySharedCacheManager {
      *
      * <p>Note that attaching the cache manager to the context means that the context cannot perform Lucene queries against
      * multiple record stores.
+     *
      * @param context the record context in which to find the shared cache manager
      * @return the shared cache manager set in the context or {@code null} if none has been set
      * @see #setForContext
@@ -85,6 +86,7 @@ public class FDBDirectorySharedCacheManager {
 
     /**
      * Set the given shared cache manager in the given context.
+     *
      * @param context the record context in which to put the shared cache manager
      */
     public void setForContext(@Nonnull FDBRecordContext context) {
@@ -101,6 +103,7 @@ public class FDBDirectorySharedCacheManager {
 
     /**
      * Get a cache for a directory.
+     *
      * @param key the directory key, including the index prefix and any grouping keys
      * @param sequenceNumber the sequence number of the directory as read in the current transaction
      * @return a shared cache of {@code null} if the sequence number is too old

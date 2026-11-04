@@ -119,6 +119,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Scan the primary index tree for the given range.
+     *
      * @param range range of index keys to scan
      * @param continuation any continuation from previous scan
      * @param scanProperties any limits on the scan
@@ -171,6 +172,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Convert stored key value pair into an index entry.
+     *
      * @param kv a raw key-value from the database
      * @return an index entry
      */
@@ -181,6 +183,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Convert stored key value pair located in the given subspace into an index entry.
+     *
      * @param subspace the database subspace for the index
      * @param kv a raw key-value within {@code subspace}
      * @return an index entry
@@ -198,6 +201,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Decode value portion of key value pair.
+     *
      * @param value the raw value portion of a key value pair
      * @return a decoded tuple of any values stored in the value side of the index, which is
      * usually empty
@@ -304,6 +308,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Check if a record is already indexed by the ongoing index build.
+     *
      * @param primaryKey the record's primary key
      * @param rangeKey the record's key in the range set's key space (the primary key, or the source index entry key)
      * @return a future that is true if the record is indexed
@@ -428,6 +433,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Filter out index keys according to {@link IndexMaintenanceFilter}.
      * Keys that do not pass the filter will not be stored / removed from the index.
+     *
      * @param <M> the message type of the record
      * @param savedRecord record for key evaluation
      * @return filtered list of index keys for the given record
@@ -497,6 +503,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Update index according to record keys.
      * Often this operation returns an already completed future because there is no asynchronous work to be done.
+     *
      * @param <M> the message type of the record
      * @param savedRecord the record being indexed
      * @param remove <code>true</code> if removing from index
@@ -513,6 +520,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Store a single key in the index.
+     *
      * @param <M> the message type of the record
      * @param savedRecord the record being indexed
      * @param remove <code>true</code> if removing from index
@@ -595,6 +603,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * uniqueness violations that occur when an index is in write-only mode, both during
      * the built itself and by other writes. This means that the writes will succeed, but
      * it will cause a later attempt to make the index readable to fail.
+     *
      * @param valueKey the indexed key that is (apparently) not unique
      * @param primaryKey the primary key of one record that is causing a violation
      * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
@@ -612,6 +621,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      *
      * <p>This will remove the last uniqueness violation entry when removing the second
      * last entry that contains the value key.
+     *
      * @param valueKey the indexed key that is (apparently) not unique
      * @param primaryKey the primary key of one record that is causing a violation
      * @return a future that is complete when the uniqueness violation is removed
@@ -666,6 +676,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * identifying records that do not point to valid index entries). The default implementation provided by the
      * <code>StandardIndexMaintainer</code> class is a no-op (performs no validation) and should be overridden by
      * implementing classes.
+     *
      * @param continuation any continuation from a previous validation invocation
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
      * @return a cursor over invalid index entries including reasons (the default is an empty cursor)
@@ -679,6 +690,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     *
      * @param continuation any continuation from a previous validation invocation
      * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over index entries that have no associated records including the reason
@@ -698,6 +710,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Validate entries in the index. It scans the records and checks if the index entries associated with each record
      * exist. Note that it may not work for indexes on synthetic record types (e.g., join indexes).
+     *
      * @param continuation any continuation from a previous validation invocation
      * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over records that have no associated index entries including the reason
@@ -759,6 +772,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * The entire index key to be used, including both the indexed value(s) and the primary key(s), with redundancy
      * removed.
+     *
      * @param valueKey the indexed value(s) for the entry
      * @param primaryKey the primary key for the record
      * @return the key to use for an index entry
@@ -771,6 +785,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Manually save an index entry, for example when rebuilding in place with a different storage format.
      * Does not check uniqueness or maintain any secondary subspaces.
+     *
      * @param keyValue the entry to save
      */
     protected void saveIndexEntryAsKeyValue(IndexEntry keyValue) {
@@ -874,6 +889,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Apply the key and value expressions to a <code>record</code>.
+     *
      * @param <M> the message type of the record
      * @param record the record from which the index will extract its key and value
      * @return a list of index keys and values
@@ -901,6 +917,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
      * Since {@link Index#trimPrimaryKey(List)} removes redundant key entries, we need to construct the list of locations of the primary key
      * elements by using the keyLocations (if there are any), followed by the remaining key elements.
+     *
      * @param commonPrimaryKeyLength the length (# of elements) of the primary key (used to construct the PK locations in the de-referenced record)
      * @return A Tuple representing the Mapper structure required by the FDB getMappedRange call
      */

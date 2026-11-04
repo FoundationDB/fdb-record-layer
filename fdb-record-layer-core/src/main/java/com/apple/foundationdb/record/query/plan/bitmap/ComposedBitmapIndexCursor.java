@@ -60,6 +60,7 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
     public interface Composer {
         /**
          * Generate a bitmap from several others.
+         *
          * @param bitmaps a list of bitmaps or {@code null} if the corresponding input is absent / empty
          * @param size the common size of the bitmaps
          * @return a new bitmap formed from the inputs or {@code null} to represent an empty (all zero) bitmap

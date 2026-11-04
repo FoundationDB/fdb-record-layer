@@ -113,6 +113,7 @@ public class Primitives {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -122,6 +123,7 @@ public class Primitives {
 
     /**
      * Get this hnsw's configuration.
+     *
      * @return hnsw configuration
      */
     @Nonnull
@@ -1043,6 +1045,7 @@ public class Primitives {
      * <p>We know that the candidate change set map only contains keys for nodes that exist AND that the candidate change
      * set map contains all primary neighbors (if they exist). Therefore, we filter the neighbors list from the node by
      * cross-referencing the change set map.
+     *
      * @param <N> type parameter extending {@link NodeReference}
      * @param toBeDeletedNode the node that is being deleted.
      * @param candidateChangeSetMap the initialized candidate change set map.
@@ -1149,6 +1152,7 @@ public class Primitives {
      * a higher layer decreases exponentially. This is achieved by applying the inverse transform sampling method.
      * The specific formula is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random number and
      * {@code lambda} is a normalization factor derived from a system configuration parameter {@code M}.
+     *
      * @param primaryKey the primary key of the record to be inserted/updated/deleted
      * @return a non-negative integer representing the randomly selected layer
      */

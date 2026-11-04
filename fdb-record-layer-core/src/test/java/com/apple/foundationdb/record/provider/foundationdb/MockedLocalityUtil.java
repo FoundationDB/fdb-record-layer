@@ -60,6 +60,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
 
     /**
      * Get the single instance of this utility class.
+     *
      * @return the only instance of the class
      */
     @Nonnull

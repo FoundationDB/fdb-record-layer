@@ -305,6 +305,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         /**
          * Get the time that was left until the existing lock's lease expires. Note that the lock holder may renew the
          * lease before it expires.
+         *
          * @return the time left in milliseconds
          */
         public long getLeaseRemainingMillis() {

@@ -124,6 +124,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
      * Returns the number of items in each KeyValue that will be returned.
      * Note that this is exactly the number of child expressions, rather than the sum of their sizes,
      * because each one becomes a separate nested tuple.
+     *
      * @return the number of elements that will be produced for every key
      */
     @Override

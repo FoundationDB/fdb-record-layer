@@ -88,6 +88,7 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     /**
      * End using this record store state.
+     *
      * @see #beginRead()
      */
     @Override
@@ -115,6 +116,7 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     /**
      * End modifying this record store state.
+     *
      * @see #beginWrite()
      */
     public void endWrite() {

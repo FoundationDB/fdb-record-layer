@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 /**
  * Abstract base implementations for all {@link ChangeSet}s.
+ *
  * @param <S> slot type class
  * @param <N> node type class (self type)
  */
@@ -55,6 +56,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
 
     /**
      * Previous change set in the chain of change sets. Can be {@code null} if there is no previous change set.
+     *
      * @return the previous change set in the chain of change sets
      */
     @Nullable
@@ -64,6 +66,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
 
     /**
      * The node this change set applies to.
+     *
      * @return the node this change set applies to
      */
     @Nonnull
@@ -74,6 +77,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
     /**
      * The level we should use when maintaining the node slot index. If {@code level < 0}, do not maintain the node slot
      * index.
+     *
      * @return the level used when maintaing the node slot index
      */
     public int getLevel() {
@@ -86,6 +90,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
      * In addition to that, there are change set implementations that should not update the index even if such and index
      * is maintained in general. For instance, the moved-in slots were already persisted in the database before the
      * move-in operation. We should not update the node slot index in such a case.
+     *
      * @return {@code true} if we need to update the node slot index, {@code false} otherwise
      */
     public boolean isUpdateNodeSlotIndex() {

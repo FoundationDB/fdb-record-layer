@@ -176,6 +176,7 @@ public class MaxMatchMap {
 
     /**
      * Creates a new instance of {@link MaxMatchMap}.
+     *
      * @param mapping the {@link Value} mappings from query side to candidate side
      * @param queryValue the query result from which the mapping keys originate
      * @param candidateValue the candidate result from which the mapping values originate
@@ -230,6 +231,7 @@ public class MaxMatchMap {
     /**
      * Express the {@link #queryValue} in terms of the {@link #candidateValue} which is now referred to via
      * the {@code candidateAlias} passed in.
+     *
      * @param candidateAlias the alias we should use to refer to the {@link #candidateValue}
      * @return an optional containing the translated query value or {@code Optional.empty()}.
      */
@@ -490,6 +492,7 @@ public class MaxMatchMap {
      *
      * <p>The logic in this method determines whether the problem is local or not and reacts accordingly. Since that
      * is not particularly straightforward, the code is quite dense and very probably can be iterated upon.
+     *
      * @param currentQueryValue the current query value which is a sub {@link Value} of the root query side value
      * @param candidateValue the candidate value (root)
      * @param rangedOverAliases a set of aliases that are not constant
@@ -713,6 +716,7 @@ public class MaxMatchMap {
     /**
      * Compute a {@link MatchResult} for the current {@code resultQueryValue} given the results from recursing
      * into its children.
+     *
      * @param maxDepthBound the maximum depth bound
      * @param resultQueryValue the current result query value at consideration
      * @param candidateValue the candidate value

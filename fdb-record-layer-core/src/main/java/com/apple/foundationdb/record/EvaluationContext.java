@@ -48,6 +48,7 @@ public class EvaluationContext {
 
     /**
      * Get an empty evaluation context.
+     *
      * @return an evaluation context with no bindings
      */
     @SuppressWarnings("squid:S1845") // The field and the function mean the same thing.
@@ -63,6 +64,7 @@ public class EvaluationContext {
     /**
      * Create a new {@link EvaluationContext} around a given set of {@link Bindings}
      * from parameter names to values.
+     *
      * @param bindings a mapping from parameter name to values
      * @return a new evaluation context with the bindings
      */
@@ -74,6 +76,7 @@ public class EvaluationContext {
     /**
      * Create a new {@link EvaluationContext} around a given set of {@link Bindings} and a {@link TypeRepository}.
      * from parameter names to values.
+     *
      * @param bindings a mapping from parameter name to values
      * @param typeRepository a type repository
      * @return a new evaluation context with the bindings and the schema.

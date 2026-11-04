@@ -350,6 +350,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      *
      * <p>This is only used when creating both the untyped and typed record stores at the same time.
      * To create a new typed record store from an open record store, use {@link FDBRecordStoreBase#getTypedRecordStore}.
+     *
      * @param <M> generated Protobuf class for the record message type
      * @see FDBTypedRecordStore#newBuilder
      */
@@ -389,6 +390,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         /**
          * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         *
          * @return untyped serializer
          */
         @Nonnull
@@ -398,6 +400,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         /**
          * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         *
          * @param serializer untyped serializer
          * @return this builder
          */

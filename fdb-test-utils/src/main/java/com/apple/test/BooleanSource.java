@@ -46,6 +46,7 @@ public @interface BooleanSource {
      * A name to give the boolean values; if unspecified, {@code "true"} and {@code "false"} will be used.
      * If multiple values are given, the cartesian product of {@code true} and {@code false} will be used for each of
      * the names, giving all combinations. There should be one value in this array per boolean parameter to the test.
+     *
      * @return the names to be used for the true value for each argument, the false value will be prefixed with "!"
      */
     String[] value() default "";

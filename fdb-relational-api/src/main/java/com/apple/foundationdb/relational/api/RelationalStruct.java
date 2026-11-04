@@ -148,6 +148,7 @@ public interface RelationalStruct extends Struct, Wrapper, WithMetadata {
 
     /**
      * Utility for figuring out one-based-position of a column when passed columnName.
+     *
      * @param columnName Name to lookup.
      * @param relationalStruct Where to do the lookup.
      * @return One-based positional index to use accessing the column.

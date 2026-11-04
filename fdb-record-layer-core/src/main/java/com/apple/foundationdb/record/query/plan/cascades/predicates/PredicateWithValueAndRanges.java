@@ -475,6 +475,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     /**
      * transforms this Sargable into a conjunction of equality and non-equality predicates.
+     *
      * @return a conjunction of equality and non-equality predicates.
      */
     @Override

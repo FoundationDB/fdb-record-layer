@@ -52,6 +52,7 @@ import java.util.List;
  *
  * <p>If the record type key appears at the start of every primary key, the record extent is divided by type,
  * as in other database systems.
+ *
  * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
  * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix
  */
@@ -97,6 +98,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     /**
      * A <code>RecordType</code> expression with no grouping keys (mostly for evaluating record functions).
+     *
      * @return a {@link GroupingKeyExpression} with no grouping keys
      */
     @Nonnull

@@ -50,6 +50,7 @@ public class KeySpacePathSerializer {
 
     /**
      * Constructor a new serializer for serializing relative to a given root path.
+     *
      * @param root a path which is a parent path of all the data you want to serialize
      */
     public KeySpacePathSerializer(@Nonnull final KeySpacePath root) {
@@ -58,6 +59,7 @@ public class KeySpacePathSerializer {
 
     /**
      * Serialize the given data relative to the root.
+     *
      * @param data a piece of data that is contained within the root
      * @return the data serialized relative to the root
      * @throws RecordCoreArgumentException if the given data is not contained within the root

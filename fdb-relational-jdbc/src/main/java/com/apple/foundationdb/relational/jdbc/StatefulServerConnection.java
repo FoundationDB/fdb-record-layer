@@ -136,6 +136,7 @@ public final class StatefulServerConnection implements StreamObserver<Transactio
     /**
      * Got an error from the server.
      * This is closing the connection, and no other calls can be made.
+     *
      * @param t the error occurred on the stream
      */
     @Override

@@ -254,6 +254,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Deletes a single node from the given layer of the data store as part of a larger transaction.
+     *
      * @param transaction the transaction to use
      * @param layer the layer
      * @param primaryKey the primary key of the node

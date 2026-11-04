@@ -43,6 +43,7 @@ public class StandardDirectoryReaderOptimization {
 
     /**
      * Called from {@link DirectoryReader#open} methods.
+     *
      * @param directory the directory to open
      * @param commit the index changes to open
      * @param leafSorter a comparator for sorting leaf readers

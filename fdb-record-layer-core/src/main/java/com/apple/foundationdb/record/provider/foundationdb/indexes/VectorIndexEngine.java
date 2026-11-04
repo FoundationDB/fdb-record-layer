@@ -129,6 +129,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * The register that tracks this engine's outstanding deferred-maintenance work, or {@code null} for an engine that
      * does everything inline (HNSW) and therefore has nothing to track. The engine owns it (built from the index's
      * secondary subspace at construction), so the maintainer can ask for it without a per-engine branch of its own.
+     *
      * @return this engine's task-count register, or {@code null} if the engine defers no work
      */
     @Nullable
@@ -142,6 +143,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * write self-drains in-transaction. The maintainer uses this to decide whether to compose a
      * {@link MaintenanceControlRegister} into the register it hands the engine, keeping the engine itself decoupled
      * from the store.
+     *
      * @param maintainInTransaction whether this write drains a deferred task in its own transaction (see
      *        {@link #insert}); an engine that defers work signals the caller only when this is {@code false}
      * @return whether the caller should be signalled to merge when this engine enqueues deferred work

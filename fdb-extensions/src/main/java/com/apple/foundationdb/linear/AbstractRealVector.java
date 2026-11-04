@@ -66,6 +66,7 @@ public abstract class AbstractRealVector implements RealVector {
      * defensive copy. Therefore, any subsequent modifications to the input array will be reflected in this vector's
      * state. The contract of this constructor is that callers do not modify {@code data} after calling the constructor.
      * We do not want to copy the array here for performance reasons.
+     *
      * @param data the components of this vector
      * @throws NullPointerException if the provided {@code data} array is null.
      */
@@ -75,6 +76,7 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Returns the number of elements in the vector.
+     *
      * @return the number of elements
      */
     @Override
@@ -88,6 +90,7 @@ public abstract class AbstractRealVector implements RealVector {
      * <p>The dimension is a zero-based index. For a 3D vector, for example, dimension 0 might correspond to the
      * x-component, 1 to the y-component, and 2 to the z-component. This method provides direct access to the
      * underlying data element.
+     *
      * @param dimension the zero-based index of the component to retrieve.
      * @return the component at the specified dimension as a {@code double}.
      * @throws IndexOutOfBoundsException if the {@code dimension} is negative or
@@ -104,6 +107,7 @@ public abstract class AbstractRealVector implements RealVector {
      * <p>The returned array is guaranteed to be non-null. Note that this method
      * returns a direct reference to the internal array, not a copy — callers must not mutate it
      * unless the concrete subtype is {@link MutableDoubleRealVector}.
+     *
      * @return the data array, never {@code null}.
      */
     @Nonnull
@@ -117,6 +121,7 @@ public abstract class AbstractRealVector implements RealVector {
      *
      * <p>This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
      * implementation-specific and should be documented by the concrete class that implements this method.
+     *
      * @return a non-null byte array containing the raw data.
      */
     @Nonnull
@@ -130,6 +135,7 @@ public abstract class AbstractRealVector implements RealVector {
      *
      * <p>This method provides a direct, unprocessed view of the object's underlying data. The format of the byte array is
      * implementation-specific and should be documented by the concrete class that implements this method.
+     *
      * @return a non-null byte array containing the raw data.
      */
     @Nonnull
@@ -141,6 +147,7 @@ public abstract class AbstractRealVector implements RealVector {
      * <p>The result is {@code true} if and only if the argument is not {@code null} and is a {@code RealVector} object that
      * has the same data elements as this object. This method performs a deep equality check on the underlying data
      * elements using {@link Objects#deepEquals(Object, Object)}.
+     *
      * @param o the object to compare with this {@code RealVector} for equality.
      * @return {@code true} if the given object is a {@code RealVector} equivalent to this vector, {@code false} otherwise.
      */
@@ -154,6 +161,7 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Returns a hash code value for this object. The hash code is computed once and memoized.
+     *
      * @return a hash code value for this object.
      */
     @Override
@@ -163,6 +171,7 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Computes a hash code based on the internal {@code data} array.
+     *
      * @return the computed hash code for this object.
      */
     protected int computeHashCode() {
@@ -188,6 +197,7 @@ public abstract class AbstractRealVector implements RealVector {
      * <p>If the specified {@code limitDimensions} is less than the actual number of dimensions in the data array,
      * the resulting string will be a truncated view, ending with {@code ", ..."} to indicate that more elements exist.
      * Otherwise, the method returns a complete string representation of the entire array.
+     *
      * @param limitDimensions The maximum number of array elements to include in the string. A non-positive
      *        value will cause an {@link com.google.common.base.VerifyException}.
      * @return A string representation of the data array, potentially truncated.

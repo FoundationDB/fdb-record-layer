@@ -96,6 +96,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Validate this key expression by interpreting it against the given meta-data.
+     *
      * @param root the {@code LUCENE} index root expresison
      * @param recordType Protobuf meta-data for record type
      */
@@ -213,6 +214,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Get the derivations of known document fields.
+     *
      * @param root the {@code LUCENE} index root expression
      * @param recordType Protobuf meta-data for record type
      * @return a map of document field names to {@link DocumentFieldDerivation}
@@ -243,6 +245,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Constructs a point-config map for a given {@link Index} fields.
+     *
      * @param store The record store, used to retrieve metadata.
      * @param index The index.
      * @return a mapping between an index field name and its {@link PointsConfig}.
@@ -269,6 +272,7 @@ public class LuceneIndexExpressions {
 
     /**
      * An actual record / record meta-data.
+     *
      * @param <T> the actual type of this source
      */
     public interface RecordSource<T extends RecordSource<T>> {
@@ -284,11 +288,13 @@ public class LuceneIndexExpressions {
 
     /**
      * An actual document / document meta-data.
+     *
      * @param <T> the actual type of the source
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
         /**
          * Add fields to the destination of the "getFields" traversal.
+         *
          * @param source the RecordSource for the field to be added
          * @param fieldName the (full) field name
          * @param value the last element of the field name
@@ -311,6 +317,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Interpret the index key expression, either concretely for an actual record, or symbolically using meta-data.
+     *
      * @param <T> specific kind of {@link RecordSource}
      * @param root the {@code LUCENE} index root expresison
      * @param source the record / record meta-data

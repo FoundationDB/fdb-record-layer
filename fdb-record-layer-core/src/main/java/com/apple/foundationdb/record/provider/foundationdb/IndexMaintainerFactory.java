@@ -49,6 +49,7 @@ public interface IndexMaintainerFactory {
 
     /**
      * Get the index types supported by this factory.
+     *
      * @return a collection of strings of index types supported by this factory
      */
     @Nonnull
@@ -56,6 +57,7 @@ public interface IndexMaintainerFactory {
 
     /**
      * Get a validator for the given index meta-data.
+     *
      * @param index an index that was produced by this factory
      * @return a validator for this kind of index
      */
@@ -64,6 +66,7 @@ public interface IndexMaintainerFactory {
 
     /**
      * Get an index maintainer for the given record store and index meta-data.
+     *
      * @param state the state of the new index maintainer
      * @return a new index maintainer for the type of index given
      */

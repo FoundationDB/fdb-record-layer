@@ -101,6 +101,7 @@ class Delete {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -110,6 +111,7 @@ class Delete {
 
     /**
      * Get the configuration of this hnsw.
+     *
      * @return hnsw configuration
      */
     @Nonnull
@@ -985,6 +987,7 @@ class Delete {
      * Predicate to determine if a potential candidate is to be used as a candidate for repairing the HNSW.
      * The predicate rejects the candidate reference if it is referring to the node that is being deleted, otherwise the
      * predicate accepts the candidate reference.
+     *
      * @param candidateReference a potential candidate that is either accepted or rejected
      * @param toBeDeletedPrimaryKey the {@link Tuple} representing the node that is being deleted
      * @return {@code true} iff {@code candidateReference} is accepted as an actual candidate for repair.
@@ -1008,6 +1011,7 @@ class Delete {
      *    <li> Sample the remaining potential candidates such that eventually the repair algorithm can use
      *         roughly {@code efRepair} actual candidates.</li>
      * </ol>
+     *
      * @param random the PRNG to be used (splittable)
      * @param initialNodeKeys a set of {@link Tuple}s that hold the primary neighbors of the node being deleted.
      * @param numberOfCandidates the number of potential candidates the repair algorithm compiled

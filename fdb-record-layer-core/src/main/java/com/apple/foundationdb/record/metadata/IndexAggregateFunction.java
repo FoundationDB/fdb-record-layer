@@ -38,6 +38,7 @@ import java.util.Objects;
 
 /**
  * An aggregate function implemented by scanning an appropriate index.
+ *
  * @see com.apple.foundationdb.record.FunctionNames
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#evaluateAggregateFunction
  */

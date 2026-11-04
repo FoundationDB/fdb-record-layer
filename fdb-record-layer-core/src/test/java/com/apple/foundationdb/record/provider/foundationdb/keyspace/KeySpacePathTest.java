@@ -52,6 +52,7 @@ class KeySpacePathTest {
     /**
      * Creates a KeySpace for testing with a consistent structure.
      * The structure is: root -> branch -> leaf
+     *
      * @param useDirectoryLayer if true, leaf uses DirectoryLayerDirectory; otherwise uses KeySpaceDirectory
      * @param useConstantValue if true, adds a constant value to the leaf directory
      * @return a KeySpace with the specified configuration

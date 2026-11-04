@@ -129,12 +129,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the untyped record store associated with this possibly typed store.
+     *
      * @return an untyped record store
      */
     FDBRecordStore getUntypedRecordStore();
 
     /**
      * Get a typed record store using the given typed serializer.
+     *
      * @param <N> the type for the new record store
      * @param serializer typed serializer to use
      * @return a new typed record store
@@ -145,6 +147,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the record context (transaction) to use for the record store.
+     *
      * @return context the record context / transaction to use
      */
     @Nonnull
@@ -170,6 +173,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get the {@link RecordStoreState} for this store.
      * This represents the indexes that are disabled or in the process of being rebuilt.
      * If the state is not already loaded, it is loaded synchronously.
+     *
      * @return the store state for this store
      */
     @Nonnull
@@ -177,6 +181,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the serializer used to convert records into byte arrays.
+     *
      * @return the serializer to use
      */
     @Nonnull
@@ -187,6 +192,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Returns the index maintainer for a given index.
+     *
      * @param index the index
      * @return the {@link IndexMaintainer} for the index passed in
      */
@@ -345,6 +351,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Action to take if the record store does / does not already exist.
+     *
      * @see FDBRecordStore.Builder#createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck)
      */
     enum StoreExistenceCheck {
@@ -382,6 +389,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Throw if the record store already exists.
          *
          * <p>This corresponds to {@link FDBRecordStore.Builder#create}
+         *
          * @see RecordStoreAlreadyExistsException
          */
         ERROR_IF_EXISTS,
@@ -390,6 +398,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Throw if the record store does not already exist.
          *
          * <p>This corresponds to {@link FDBRecordStore.Builder#open}
+         *
          * @see RecordStoreDoesNotExistException
          */
         ERROR_IF_NOT_EXISTS
@@ -397,6 +406,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Action to take if the record being saved does / does not already exist.
+     *
      * @see FDBRecordStoreBase#saveRecordAsync(Message, RecordExistenceCheck)
      */
     enum RecordExistenceCheck {
@@ -411,6 +421,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Throw if the record already exists.
          *
          * <p>This corresponds to {@link FDBRecordStoreBase#insertRecord}
+         *
          * @see RecordAlreadyExistsException
          */
         ERROR_IF_EXISTS,
@@ -433,6 +444,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Throw if the record does not already exist or has a different record type.
          *
          * <p>This corresponds to {@link FDBRecordStoreBase#updateRecord}
+         *
          * @see RecordDoesNotExistException
          * @see RecordTypeChangedException
          */
@@ -495,6 +507,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #saveRecord(Message)}.
+     *
      * @param rec the record to save
      * @return a future that completes with the stored record form of the saved record
      */
@@ -505,6 +518,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck)}.
+     *
      * @param rec the record to save
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return a future that completes with the stored record form of the saved record
@@ -516,6 +530,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #saveRecord(Message, FDBRecordVersion)}.
+     *
      * @param rec the record to save
      * @param version the associated record version
      * @return a future that completes with the stored record form of the saved record
@@ -527,6 +542,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #saveRecord(Message, FDBRecordVersion, VersionstampSaveBehavior)}.
+     *
      * @param rec the record to save
      * @param version the associated record version
      * @param behavior the save behavior w.r.t. the given <code>version</code>
@@ -539,6 +555,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck, FDBRecordVersion, VersionstampSaveBehavior)}.
+     *
      * @param rec the record to save
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the associated record version
@@ -560,6 +577,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Save the given record.
+     *
      * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
@@ -570,6 +588,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Save the given record.
+     *
      * @param rec the record to be saved
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return wrapping object containing saved record and metadata
@@ -583,6 +602,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Save the given record with a specific version. If <code>null</code>
      * is passed for <code>version</code>, then a new version is
      * created that will be unique for this record.
+     *
      * @param rec the record to be saved
      * @param version the version to associate with the record when saving
      * @return wrapping object containing saved record and metadata
@@ -598,6 +618,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * the method acts as {@link #saveRecord(Message, FDBRecordVersion)}. If behavior is <code>NO_VERSION</code> then
      * <code>version</code> is ignored and no version is saved. If behavior is <code>WITH_VERSION</code> then the value
      * of <code>version</code>  is stored as given by the caller.
+     *
      * @param rec the record to be saved
      * @param version the version to associate with the record when saving
      * @param behavior the save behavior w.r.t. the given <code>version</code>
@@ -614,6 +635,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * the method acts as {@link #saveRecord(Message, FDBRecordVersion)}. If behavior is <code>NO_VERSION</code> then
      * <code>version</code> is ignored and no version is saved. If behavior is <code>WITH_VERSION</code> then the value
      * of <code>version</code>  is stored as given by the caller.
+     *
      * @param rec the record to be saved
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the version to associate with the record when saving
@@ -628,6 +650,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Save the given record and throw an exception if a record already exists with the same primary key.
+     *
      * @param rec the record to be saved
      * @return a future that completes with the stored record form of the saved record
      */
@@ -638,6 +661,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Save the given record and throw an exception if a record already exists with the same primary key.
+     *
      * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
@@ -648,6 +672,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Save the given record and throw an exception if the record does not already exist in the database.
+     *
      * @param rec the record to be saved
      * @return a future that completes with the stored record form of the saved record
      */
@@ -658,6 +683,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Save the given record and throw an exception if the record does not already exist in the database.
+     *
      * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
@@ -668,6 +694,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Load the record with the given primary key.
+     *
      * @param primaryKey the primary key for the record
      * @return a {@link FDBStoredRecord} for the record or <code>null</code>.
      */
@@ -678,6 +705,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Load the record with the given primary key.
+     *
      * @param primaryKey the primary key for the record
      * @param snapshot whether to load at snapshot isolation
      * @return a {@link FDBStoredRecord} for the record or <code>null</code>.
@@ -689,6 +717,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Asynchronously load a record.
+     *
      * @param primaryKey the key for the record to be loaded
      * @return a CompletableFuture that will return a message or null if there was no record with that key
      */
@@ -699,6 +728,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Asynchronously load a record.
+     *
      * @param primaryKey the key for the record to be loaded
      * @param snapshot whether to load at snapshot isolation
      * @return a CompletableFuture that will return a message or null if there was no record with that key
@@ -716,6 +746,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get record into FDB RYW cache.
      * Caller needs to hold on to result until ready or else there is a chance it will get
      * GC'ed and cancelled before then.
+     *
      * @param primaryKey the primary key for the record to retrieve
      * @return a future that will return {@code null} when the record is preloaded
      */
@@ -724,6 +755,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
+     *
      * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
      * @return a future which completes to the synthesized record
      */
@@ -741,6 +773,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * <li>{@link IndexOrphanBehavior#SKIP}: Future(null) is returned</li>
      * <li>{@link IndexOrphanBehavior#RETURN}: Future(Record with no constituents) is returned</li>
      * </ul>
+     *
      * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
      * @param orphanBehavior what to do if any of the record's constituents is missing
      * @return a future which completes to the synthesized record
@@ -938,6 +971,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the entries in an index.
+     *
      * @param index the index to scan
      * @param scanBounds the scan to preform
      * @param continuation any continuation from a previous scan
@@ -950,6 +984,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the entries in an index.
+     *
      * @param index the index to scan
      * @param scanType the type of scan to perform
      * @param range range to scan
@@ -966,6 +1001,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index.
+     *
      * @param indexName the name of the index
      * @return a cursor that return records pointed to by the index
      */
@@ -976,6 +1012,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index.
+     *
      * @param indexName the name of the index
      * @param isolationLevel the isolation level to use when reading
      * @return a cursor that return records pointed to by the index
@@ -988,6 +1025,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index.
+     *
      * @param indexName the name of the index
      * @param scanType the type of scan to perform
      * @param range the range of the index to scan
@@ -1006,6 +1044,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index.
+     *
      * @param indexName the name of the index
      * @param scanType the type of scan to perform
      * @param range the range of the index to scan
@@ -1028,6 +1067,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index.
+     *
      * @param index the index to scan
      * @param scanType the type of scan to perform
      * @param range the range of the index to scan
@@ -1233,6 +1273,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
+     *
      * @param index the index to scan
      * @param scanBounds the range for the index to scan
      * @param commonPrimaryKeyLength the length (# of elements) of the common primary key for the records that would be returned.
@@ -1257,6 +1298,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * This method would reconstruct a record from the parts returned by the index scan call, such that the record can
      * be used separately from the cursor that constructs all records for the index. This can be useful in case there are
      * some validations that need to be done during the iteration of the cursor without waiting for all records to be serialized.
+     *
      * @param indexedRawRecord the raw records (the set of key-value pairs returned from scanRemoteFetch)
      * @return a future containing (when completed) the reconstructed record
      */
@@ -1302,6 +1344,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index equal to indexed values.
+     *
      * @param indexName the name of the index
      * @param values a left-subset of values of indexed fields
      * @return a cursor that return records pointed to by the index
@@ -1315,6 +1358,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method.
+     *
      * @param indexName the name of the index
      * @param values a left-subset of values of indexed fields
      * @return a cursor of the records pointed to by the index
@@ -1330,6 +1374,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index between two indexed values.
+     *
      * @param indexName the name of the index
      * @param low the low value for the first indexed field
      * @param high the high value for the first indexed field
@@ -1347,6 +1392,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Determine if a given index entry points to a record.
+     *
      * @param entry the index entry to check
      * @param isolationLevel whether to use snapshot read
      * @return a future that completes with {@code true} if the given index entry still points to a record
@@ -1359,6 +1405,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Using the given index entry, resolve the primary key and asynchronously return the referenced record.
+     *
      * @param entry the index entry to be resolved
      * @param orphanBehavior the {@link IndexOrphanBehavior} to apply if the record is not found
      * @return the record referred to by the given index entry
@@ -1371,6 +1418,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Using the given index entry, resolve the primary key and asynchronously return the referenced record.
+     *
      * @param entry the index entry to be resolved
      * @param orphanBehavior the {@link IndexOrphanBehavior} to apply if the record is not found
      * @param executeState an execution state object to be used to enforce limits on query execution
@@ -1407,6 +1455,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Return a tuple to be used as the key for an index entry for the given value and primary key.
+     *
      * @param index the index for which this will be an entry
      * @param valueKey the indexed value(s) for the entry
      * @param primaryKey the primary key for the record
@@ -1565,6 +1614,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * a uniqueness violation) except for the one that has the given primary key (if the key is not <code>null</code>).
      * This is like the version of {@link FDBRecordStoreBase#resolveUniquenessViolation(Index, Tuple, Tuple) resolveUniquenessViolation()}
      * that takes a {@link Tuple}, but this takes the index value as a {@link Key.Evaluated} instead.
+     *
      * @param index the index to resolve uniqueness violations for
      * @param indexKey the value of the index that is being removed
      * @param primaryKey the primary key of the record that should remain (or <code>null</code> to remove all of them)
@@ -1580,6 +1630,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * uniqueness violation) except for the one that has the given primary key (if the key is not <code>null</code>).
      * It also cleans up the set of uniqueness violations so that none of the remaining entries will
      * be associated with the given value key.
+     *
      * @param index the index to resolve uniqueness violations for
      * @param valueKey the value of the index that is being removed
      * @param primaryKey the primary key of the record that should remain (or <code>null</code> to remove all of them)
@@ -1592,6 +1643,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Return the key portion of <code>entry</code>, which should be the key with the index value
      * as a tuple. This is used to store the index uniqueness violations when building a
      * unique index.
+     *
      * @param valueKey the value of the index for a record
      * @param primaryKey the primary key for a record
      * @return a tuple that is the two keys appended together
@@ -1606,6 +1658,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #deleteRecord}.
+     *
      * @param primaryKey the primary key of the record to delete
      * @return a future that completes {@code true} if the record was present to be deleted
      */
@@ -1683,6 +1736,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #deleteRecordsWhere(String, QueryComponent)}.
+     *
      * @param recordType the type of records to delete
      * @param component the query filter for records to delete efficiently or {@code null} to delete all records of the given type
      * @return a future that will be complete when the delete is done
@@ -1703,6 +1757,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the function for computing the number of elements to allow in the asynchronous pipeline for an operation of the given
      * type.
+     *
      * @return the pipeline sizer
      */
     @Nonnull
@@ -1710,6 +1765,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the number of elements to allow in the asynchronous pipeline for an operation of the given type.
+     *
      * @param pipelineOperation the operation
      * @return the number of elements to pipeline
      */
@@ -1765,6 +1821,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get the number of records in the record store.
      *
      * <p>There must be a suitable {@code COUNT} type index defined.
+     *
      * @return a future that will complete to the number of records in the store
      */
     @Nonnull
@@ -1776,6 +1833,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get the number of records in a portion of the record store determined by a group key expression.
      *
      * <p>There must be a suitably grouped {@code COUNT} type index defined.
+     *
      * @param key the grouping key expression
      * @param value the value of {@code key} to match
      * @return a future that will complete to the number of records
@@ -1792,6 +1850,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * <p>There must be a suitably grouped, readable {@code COUNT} type index defined, that is not filtered by
      * {@code indexQueryabilityFilter}, or a suitable record count key on the metadata.
+     *
      * @param key the grouping key expression
      * @param value the value of {@code key} to match
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning. If there is a
@@ -1806,6 +1865,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get the number of records in the record store of the given record type.
      *
      * <p>The record type must have a {@code COUNT} index defined for it.
+     *
      * @param recordTypeName record type for which to count records
      * @return a future that will complete to the number of records
      */
@@ -1821,6 +1881,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * <p>The record type must have a readable {@code COUNT} index defined for it, that is not excluded by the
      * {@code indexQueryabilityFilter}.
+     *
      * @param recordTypeName record type for which to count records
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning.
      * @return a future that will complete to the number of records
@@ -1849,6 +1910,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate a {@link RecordFunction} against a record.
+     *
      * @param function the function to evaluate
      * @param rec the record to evaluate against
      * @param <T> the type of the result
@@ -1862,6 +1924,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate a {@link RecordFunction} against a record.
+     *
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
      * @param rec the record to evaluate against
@@ -1884,6 +1947,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate a {@link IndexRecordFunction} against a record.
+     *
      * @param <T> the type of the result
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
@@ -1897,6 +1961,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
+     *
      * @param <T> the type of the result
      * @param function the function to evaluate
      * @param rec the record to evaluate against
@@ -1910,6 +1975,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
+     *
      * @param <T> the type of the result
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
@@ -1926,6 +1992,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * <p>Before calling {@link #evaluateAggregateFunction(List, IndexAggregateFunction, TupleRange, IsolationLevel)},
      * this overload adjusts the given range to include any prefix in the function itself.
+     *
      * @param evaluationContext evaluation context containing parameter bindings
      * @param recordTypeNames record types for which to find a matching index
      * @param aggregateFunction the function to evaluate
@@ -1945,6 +2012,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a group value.
+     *
      * @param recordTypeNames record types for which to find a matching index
      * @param aggregateFunction the function to evaluate
      * @param value the value for the group key(s)
@@ -1961,6 +2029,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.
+     *
      * @param recordTypeNames record types for which to find a matching index
      * @param aggregateFunction the function to evaluate
      * @param range the range of records (group) for which to evaluate
@@ -1980,6 +2049,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.
+     *
      * @param recordTypeNames record types for which to find a matching index
      * @param aggregateFunction the function to evaluate
      * @param range the range of records (group) for which to evaluate
@@ -1998,6 +2068,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get a query result record from a stored record.
      * This is from a direct record scan / lookup without an associated index.
+     *
      * @param storedRecord the stored record to convert to a queried record
      * @return a {@link FDBQueriedRecord} corresponding to {@code storedRecord}
      */
@@ -2009,6 +2080,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get a query result record from an indexed record.
      * This is from an index scan and permits access to the underlying index entry.
+     *
      * @param indexedRecord the indexed record to convert to a queried record
      * @return a {@link FDBQueriedRecord} corresponding to {@code indexedRecord}
      */
@@ -2021,6 +2093,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get a query result from a covering index entry.
      * The entire <code>StoredRecord</code> is not available, and the record only has fields from the index entry.
      * Normal indexes have a primary key in their entries, but aggregate indexes do not.
+     *
      * @param index the index from which the entry came
      * @param indexEntry the index entry
      * @param recordType the record type of the indexed record
@@ -2038,6 +2111,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Plan and execute a query.
+     *
      * @param query the query to plan and execute
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
@@ -2049,6 +2123,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Plan and execute a query.
+     *
      * @param query the query to plan and execute
      * @param continuation continuation from a previous execution of this same query
      * @param executeProperties limits on execution
@@ -2064,6 +2139,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Execute a query.
+     *
      * @param plan the plan to execute
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
@@ -2075,6 +2151,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Execute a query.
+     *
      * @param plan the plan to execute
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
@@ -2090,6 +2167,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Execute a query.
+     *
      * @param plan the plan to execute
      * @param continuation continuation from a previous execution of this same plan
      * @param evaluationContext a context for the execution of this plan
@@ -2119,6 +2197,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Plan a query.
+     *
      * @param query the query to plan
      * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
@@ -2131,6 +2210,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Plan a query with customized {@link RecordQueryPlannerConfiguration} rather than the default one.
+     *
      * @param query the query to plan
      * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
@@ -2144,6 +2224,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Plan a query.
+     *
      * @param query the query to plan
      * @return a query plan
      * @see RecordQueryPlanner#plan(RecordQuery)
@@ -2155,6 +2236,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Builder for {@link FDBRecordStoreBase}.
+     *
      * @param <M> type used to represent stored records
      * @param <R> type of built record store
      */
@@ -2162,6 +2244,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the serializer used to convert records into byte arrays.
+         *
          * @return the serializer to use
          */
         @Nullable
@@ -2169,6 +2252,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the serializer used to convert records into byte arrays.
+         *
          * @param serializer the serializer to use
          * @return this builder
          */
@@ -2177,6 +2261,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the storage format version for this store.
+         *
          * @return the format version to use
          * @deprecated use {@link #getFormatVersionEnum()}
          */
@@ -2185,6 +2270,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FormatVersion} for this store.
+         *
          * @return the format version to use
          */
         default FormatVersion getFormatVersionEnum() {
@@ -2193,6 +2279,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the storage format version for this store.
+         *
          * @param formatVersion the format version to use
          * @return this builder
          * @deprecated This is deprecated, and instead, one should use {@link #setFormatVersion(FormatVersion)}.
@@ -2225,6 +2312,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the provider for the record store's meta-data.
+         *
          * @return the meta-data source to use
          */
         @Nullable
@@ -2233,6 +2321,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Set the provider for the record store's meta-data.
          * If {@link #setMetaDataStore} is also called, the provider will only be used to initialize the meta-data store when it is empty. The record store will be built using the store as its provider.
+         *
          * @param metaDataProvider the meta-data source to use
          * @return this builder
          */
@@ -2241,6 +2330,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FDBMetaDataStore} to use as the source of meta-data.
+         *
          * @return the meta-data store to use
          */
         @Nullable
@@ -2249,6 +2339,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Set the {@link FDBMetaDataStore} to use as the source of meta-data.
          * If {@link #setMetaDataProvider} is also called, it will be used to seed the store.
+         *
          * @param metaDataStore the meta-data store to use
          * @return this builder
          */
@@ -2257,6 +2348,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the record context (transaction) to use for the record store.
+         *
          * @return context the record context / transaction to use
          */
         @Nullable
@@ -2264,6 +2356,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the record context (transaction) to use for the record store.
+         *
          * @param context the record context / transaction to use
          * @return this builder
          */
@@ -2278,6 +2371,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the subspace provider from a subspace provider.
+         *
          * @param subspaceProvider the subspace provider
          * @return this builder
          */
@@ -2288,6 +2382,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Set the subspace to use for the record store.
          * The record store is allowed to use the entire subspace, so it should not overlap any other record store's subspace.
          * It is preferred to {@link #setKeySpacePath} rather than this because key space path provides more meaningful logs.
+         *
          * @param subspace the subspace to use
          * @return this builder
          */
@@ -2299,6 +2394,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Set the key space path to use for the record store.
          * The record store is allowed to use the entire subspace, so it should not overlap any other record store's subspace.
          * Note: The context should be set before setting the key space path.
+         *
          * @param keySpacePath the key space path to use
          * @return this builder
          */
@@ -2307,6 +2403,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FDBRecordStore.UserVersionChecker function} to be used to check the meta-data version of the record store.
+         *
          * @return the checker function to use
          */
         @Nullable
@@ -2314,6 +2411,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the {@link FDBRecordStore.UserVersionChecker function} to be used to check the meta-data version of the record store.
+         *
          * @param userVersionChecker the checker function to use
          * @return this builder
          */
@@ -2322,6 +2420,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the registry of index maintainers to be used by the record store.
+         *
          * @return the index registry to use
          */
         @Nonnull
@@ -2329,6 +2428,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the registry of index maintainers to be used by the record store.
+         *
          * @param indexMaintainerRegistry the index registry to use
          * @return this builder
          * @see FDBRecordStore#getIndexMaintainer
@@ -2339,6 +2439,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link IndexMaintenanceFilter index filter} to be used by the record store.
+         *
          * @return the index filter to use
          */
         @Nonnull
@@ -2346,6 +2447,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the {@link IndexMaintenanceFilter index filter} to be used by the record store.
+         *
          * @param indexMaintenanceFilter the index filter to use
          * @return this builder
          */
@@ -2354,6 +2456,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FDBRecordStoreBase.PipelineSizer object} to be used to determine the depth of pipelines run by the record store.
+         *
          * @return the sizer to use
          */
         @Nonnull
@@ -2361,6 +2464,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the {@link PipelineSizer object} to be used to determine the depth of pipelines run by the record store.
+         *
          * @param pipelineSizer the sizer to use
          * @return this builder
          * @see FDBRecordStoreBase#getPipelineSize
@@ -2480,6 +2584,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          *     store1 = builder.copyBuilder().setContext(context1).build()
          *     store2 = builder.copyBuilder().setContext(context2).build()
          * </pre>
+         *
          * @return a new builder with the same state as this builder
          */
         @Nonnull
@@ -2487,6 +2592,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Build the record store.
+         *
          * @return a new record store with the desired state.
          */
         @Nonnull
@@ -2494,6 +2600,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #uncheckedOpenAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2503,6 +2610,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #createAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2512,6 +2620,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #openAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2521,6 +2630,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #createOrOpenAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2530,6 +2640,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck)}.
+         *
          * @param existenceCheck whether the store must already exist
          * @return an open record store
          */
@@ -2540,6 +2651,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion(UserVersionChecker, StoreExistenceCheck)}.
+         *
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2548,6 +2660,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Opens a new <code>FDBRecordStore</code> instance in the given path with the given meta-data.
          * The store must not have already been written to the specified subspace.
+         *
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2558,6 +2671,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Opens an existing <code>FDBRecordStore</code> instance in the given path with the given meta-data.
          * The store must have already been written to the specified subspace.
+         *
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2567,6 +2681,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Opens a <code>FDBRecordStore</code> instance in the given path with the given meta-data.
+         *
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2576,6 +2691,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Opens a <code>FDBRecordStore</code> instance in the given path with the given meta-data.
+         *
          * @param existenceCheck whether the store must already exist
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
@@ -2605,6 +2721,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Return the common primary key for a given index. This method calculates the common primary key for an index based
      * off of the types the index is defined on. This can be null in the case where there is no common PK that is the same
      * across all types.
+     *
      * @param index the index for which the common primary key is needed
      * @return the primary key common to all record types defined for the index, or null if no such key exists
      */

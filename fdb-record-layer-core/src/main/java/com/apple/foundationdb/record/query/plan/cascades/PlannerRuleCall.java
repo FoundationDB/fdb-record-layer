@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 public interface PlannerRuleCall {
     /**
      * Method that returns the current {@link EvaluationContext}.
+     *
      * @return the current {@link EvaluationContext}
      */
     @Nonnull

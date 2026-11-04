@@ -83,6 +83,7 @@ public class ArithmeticValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link ArithmeticValue}.
+     *
      * @param operator The arithmetic operation.
      * @param leftChild The left child.
      * @param rightChild The right child.

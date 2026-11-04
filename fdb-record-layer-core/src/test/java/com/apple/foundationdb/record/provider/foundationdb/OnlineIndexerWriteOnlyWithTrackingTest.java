@@ -723,6 +723,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
     /**
      * Build the targets, committing {@code race} in the middle of the indexer's first transaction - after it has
      * started scanning and before it commits. The first batch covers records 0-8, with 10 as its continuation.
+     *
      * @return the number of indexer commits that failed
      */
     private int runRace(@Nonnull final List<Index> targets, @Nonnull final List<Index> trackingTargets, @Nonnull final Race race) {
@@ -1070,6 +1071,7 @@ class OnlineIndexerWriteOnlyWithTrackingTest extends OnlineIndexerTest {
 
     /**
      * One random user transaction, over a random record: insert, update, delete, re-insert, type change or source key move.
+     *
      * @param progressHint roughly the number of the record that the indexer is working on. Source keys are moved to
      * around this position half of the time, into the batch that the indexer is committing.
      */

@@ -200,6 +200,7 @@ public final class RaBitQuantizer implements Quantizer {
     /**
      * Builds per-dimension extra-bit code using the best {@code t} found by {@link #bestRescaleFactor(RealVector)} and
      * returns the code, {@code t}, and {@code ipNormInv}.
+     *
      * @param residual rotated residual vector r.
      */
     private QuantizeExResult exBitsCode(@Nonnull final RealVector residual) {

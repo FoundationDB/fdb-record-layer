@@ -74,6 +74,7 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
 
     /**
      * Get the spatial object with which to join spatial index entries.
+     *
      * @param context query context containing parameter bindings
      * @return a spatial object to use in spatial join or {@code null} if some bound parameter is null.
      */
@@ -88,6 +89,7 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
      *
      * <p>If there is no filter, or the filter is not entirely effective, some {@link com.apple.foundationdb.record.query.expressions.QueryComponent}
      * form of the original predicate will almost certainly be needed downstream of the {@code SpatialObjectQueryPlan}.
+     *
      * @param context query context containing parameter bindings
      * @return a spatial join filter or {@code null} if none is possible
      */
@@ -101,6 +103,7 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
      * Get the function to use for mapping {@link IndexEntry} to {@link GeophileRecordImpl}.
      *
      * <p>If the index is covering, the indexed {@link SpatialObject} may be recoverable from the value part of the index entry.
+     *
      * @return a function that creates new {@code GeophileRecordImpl} instances
      */
     protected BiFunction<IndexEntry, Tuple, GeophileRecordImpl> getRecordFunction() {

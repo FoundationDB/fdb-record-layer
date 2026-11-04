@@ -140,6 +140,7 @@ public class QRDecomposition {
 
     /**
      * Returns the matrix {@code Q} of the decomposition where {@code Q} is an orthogonal matrix.
+     *
      * @return the {@code Q} matrix
      */
     @Nonnull

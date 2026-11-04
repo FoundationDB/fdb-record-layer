@@ -85,6 +85,7 @@ import java.util.stream.Collectors;
 
 /**
  * Maintainer for the <code>TIME_WINDOW_LEADERBOARD</code> index type.
+ *
  * @see com.apple.foundationdb.record.provider.foundationdb.leaderboard for details of how this works.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -282,6 +283,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     /**
      * Negate the score part of the given range, which is after the group prefix and before the timestamp and any
      * other tiebreakers.
+     *
      * @param range the range of scores in normal order
      * @return a range with scores negated so that they sort in reverse order
      */
@@ -329,6 +331,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     /**
      * Negate the score element so that it sorts in reverse order to support high score first.
+     *
      * @param entry original entry
      * @param position position in {@code Tuple} of the score value
      * @return a new entry with the score negated
@@ -879,6 +882,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * Group the given <code>indexKeys</code> by group of size <code>groupPrefixSize</code>, ordering within each
      * group by score, taking <code>highScoreFirst</code> into account from the directory
      * or any sub-directory (if {@code includesGroup} is {@code true}).
+     *
      * @param indexEntries index entries to be added to the index
      * @param directory leaderboard directory used to decide whether higher scores are better (earlier in the list)
      * @param includesGroup whether index entries also include the group key(s)

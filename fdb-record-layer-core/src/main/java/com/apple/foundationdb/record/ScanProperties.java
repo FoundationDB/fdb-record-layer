@@ -53,6 +53,7 @@ public class ScanProperties {
 
     /**
      * Creates scan properties.
+     *
      * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
      */
     public ScanProperties(@Nonnull ExecuteProperties executeProperties) {
@@ -61,6 +62,7 @@ public class ScanProperties {
 
     /**
      * Creates scan properties.
+     *
      * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
      * @param reverse if true, the scan direction will be reversed
      */
@@ -70,6 +72,7 @@ public class ScanProperties {
 
     /**
      * Creates scan properties.
+     *
      * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
      * @param reverse if true, the scan direction will be reversed
      * @param cursorStreamingMode streaming mode to use if opening an FDB cursor
@@ -82,6 +85,7 @@ public class ScanProperties {
 
     /**
      * Get direction of scans.
+     *
      * @return {@code true} if scan is in reverse order
      */
     public boolean isReverse() {
@@ -90,6 +94,7 @@ public class ScanProperties {
 
     /**
      * Get execute properties for this scan properties.
+     *
      * @return execute properties for this scan properties.
      */
     @Nonnull
@@ -99,6 +104,7 @@ public class ScanProperties {
 
     /**
      * Change execute properties.
+     *
      * @param modifier a function to produce a new execute properties from the current one
      * @return a new scan properties with updated execute properties
      */
@@ -109,6 +115,7 @@ public class ScanProperties {
 
     /**
      * Change direction of scans.
+     *
      * @param reverse {@code true} if scan is in reverse order
      * @return a new scan properties with given direction
      */
@@ -122,6 +129,7 @@ public class ScanProperties {
 
     /**
      * Get cursor streaming mode.
+     *
      * @return cursor streaming mode
      */
     @Nonnull
@@ -131,6 +139,7 @@ public class ScanProperties {
 
     /**
      * Set cursor streaming mode.
+     *
      * @param cursorStreamingMode cursor streaming mode to set
      * @return a new scan properties with given streaming mode
      */

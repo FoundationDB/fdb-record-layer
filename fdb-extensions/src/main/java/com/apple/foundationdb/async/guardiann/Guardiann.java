@@ -94,6 +94,7 @@ public class Guardiann {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link Guardiann}
      * @see Config.ConfigBuilder#build
      */
@@ -103,6 +104,7 @@ public class Guardiann {
 
     /**
      * Returns a default {@link Config}.
+     *
      * @param numDimensions number of dimensions
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
@@ -149,6 +151,7 @@ public class Guardiann {
 
     /**
      * Get the executor used by this object.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -158,6 +161,7 @@ public class Guardiann {
 
     /**
      * Get this object's configuration.
+     *
      * @return the configuration
      */
     @Nonnull

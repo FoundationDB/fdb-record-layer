@@ -76,6 +76,7 @@ class FDBPreloadRecordCache {
 
     /**
      * Invalidates an entry in the cache, or discarding the outstanding result of a pre-fetch when it completes.
+     *
      * @param tuple the tuple to invalidate
      */
     public void invalidate(@Nonnull Tuple tuple) {

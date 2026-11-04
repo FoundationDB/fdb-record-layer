@@ -457,6 +457,7 @@ public class LuceneIndexTestDataModel {
 
     /**
      * Reverse the save order, going back from the start time.
+     *
      * @param reverseSaveOrder If set to {@code true}, the next saved record will be the oldest record. If set to
      * {@code false}, the next saved record will be the newest. The default is {@code false}.
      */

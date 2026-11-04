@@ -93,6 +93,7 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
 
     /**
      * Gets the kind of this node.
+     *
      * @return the non-null {@link NodeKind} of this node, which is always
      * {@code NodeKind.INLINING}.
      */
@@ -112,6 +113,7 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      *
      * <p>This implementation always throws an exception because this specific node type
      * cannot be represented as a compact node.
+     *
      * @return this node as a {@link CompactNode}, never {@code null}
      * @throws IllegalStateException always, as this node is not a compact node
      */
@@ -130,6 +132,7 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      * Returns this object as an {@link InliningNode}.
      *
      * <p>As this class is already an instance of {@code InliningNode}, this method simply returns {@code this}.
+     *
      * @return this object, which is guaranteed to be an {@code InliningNode} and never {@code null}.
      */
     @Nonnull

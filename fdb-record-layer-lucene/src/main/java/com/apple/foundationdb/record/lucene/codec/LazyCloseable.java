@@ -61,6 +61,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
 
     /**
      * Get the object returned by the {@code opener}.
+     *
      * @return the object returned by the {@code opener}
      * @throws IOException if calling {@link LazyOpener.Opener#open()} threw an {@link IOException}
      */
@@ -71,6 +72,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
     /**
      * Get the object returned by the {@code opener}, throwing {@link java.io.UncheckedIOException} if the
      * {@link LazyOpener.Opener#open()} method threw {@link IOException}.
+     *
      * @return the object returned by the {@code opener}
      */
     public T getUnchecked() {
@@ -80,6 +82,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
     /**
      * Calls close on the result of the {@code opener} if it was already accessed through {@link #get} or
      * {@link #getUnchecked}.
+     *
      * @throws IOException if the underlying {@code close} throws {@link IOException}.
      */
     @Override

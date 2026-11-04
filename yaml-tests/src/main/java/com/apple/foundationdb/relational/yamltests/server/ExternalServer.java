@@ -277,6 +277,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
 
     /**
      * Get a port that is currently available for the server.
+     *
      * @param unavailablePorts a set of ports that are known to be unavailable. This is useful for two reasons:
      * (1) when starting multiple servers, we include all previously allocated ports to avoid starting multiple
      * servers on the same ports, and (2) each server needs two ports, one for GRPC, and one for HTTP, so the

@@ -666,6 +666,7 @@ public abstract class LocatableResolver {
      * The lock state is cached for {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS} seconds. When changing the lock state,
      * transactions started at least {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS} seconds after this method succeeds should
      * see the updated state.
+     *
      * @return a future that completes when the write lock has been set
      */
     @Nonnull
@@ -679,6 +680,7 @@ public abstract class LocatableResolver {
      * The lock state is cached for {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS} seconds. When changing the lock state,
      * transactions started at least {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS} seconds after this method succeeds should
      * see the updated state.
+     *
      * @return a future that completes when the write lock has been set
      */
     @Nonnull
@@ -691,6 +693,7 @@ public abstract class LocatableResolver {
      * entries if they do not exist. The lock state is cached for {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS} seconds. When
      * changing the lock state, transactions started at least {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS} seconds after this
      * method succeeds should see the updated state.
+     *
      * @return a future that completes when the write lock has been cleared
      */
     @Nonnull
@@ -702,6 +705,7 @@ public abstract class LocatableResolver {
      * Retire this {@link LocatableResolver}, indicating that it should not be used for any future resolve operations.
      * This can be used to indicate that the current resolver has migrated to a new location and that clients should be
      * using that resolver instead.
+     *
      * @return a future that completes when the write lock has been cleared
      */
     @Nonnull
@@ -713,6 +717,7 @@ public abstract class LocatableResolver {
      * Increments the version of the data stored in this directory layer. The last read state is cached for
      * {@value FDBDatabase#DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS}, meaning it will take up to that long for a successful <code>incrementVersion</code>
      * to be seen by {@link #getVersion(FDBStoreTimer)}.
+     *
      * @return A future that completes when the version has been incremented
      */
     @Nonnull
@@ -730,6 +735,7 @@ public abstract class LocatableResolver {
      * invalidated. Note: if the version known by the resolver is <i>behind</i> the version for the cache (e.g. our cached version
      * of the state hasn't been refreshed recently enough to see some change) we don't need to do anything special, we can trust
      * that values from a future version of the cache are backwards compatible to our current version.
+     *
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with the value of the current version
      */
@@ -748,6 +754,7 @@ public abstract class LocatableResolver {
     /**
      * Check whether this resolver has been retired. A retired state indicates that this resolver was once active but has
      * since been migrated to a new keyspace.
+     *
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
@@ -759,6 +766,7 @@ public abstract class LocatableResolver {
     /**
      * Check whether this resolver has been retired. Skips the resolver state cache and reads the state directly. A
      * retired state indicates that this resolver was once active but has since been migrated to a new keyspace.
+     *
      * @param context the transaction to use to access the database
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
@@ -773,6 +781,7 @@ public abstract class LocatableResolver {
      * already exist in the directory, if it does not a {@link NoSuchElementException} will be thrown. If you want to add
      * metadata to a key you are creating see the <code>createHook</code> parameter in
      * {@link #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)}.
+     *
      * @param key the key in the directory to modify
      * @param metadata the new metadata
      * @return a future that will finish when the update and increment operations are complete
@@ -914,6 +923,7 @@ public abstract class LocatableResolver {
      * Get a {@link CompletableFuture} that will contain the {@link Subspace} where this resolver stores
      * the mappings from <code>key</code> {@link String}s to <code>value</code> {@link Long}. Direct access
      * to this subspace is not needed by general users and extreme care should be taken when interacting with it.
+     *
      * @return a future that, when ready, will hold the mapping subspace
      */
     @Nonnull
@@ -924,6 +934,7 @@ public abstract class LocatableResolver {
      * at (e.g. the global resolver {@link ExtendedDirectoryLayer#global(FDBDatabase)} has a base
      * subspace at the root of the FDB keyspace. Note that this is not the subspace where the resolver
      * maintains its allocation keys (see {@link #getMappingSubspaceAsync()}).
+     *
      * @return a future that, when ready, will hold the base subspace
      */
     @Nonnull
@@ -931,6 +942,7 @@ public abstract class LocatableResolver {
 
     /**
      * Deserialize the raw bytes value stored in the mapping subspace.
+     *
      * @param value raw value bytes.
      * @return the deserialized {@link ResolverResult}.
      */

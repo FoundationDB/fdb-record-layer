@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 interface StorageAdapter {
     /**
      * Get the {@link RTree.Config} associated with this storage adapter.
+     *
      * @return the configuration used by this storage adapter
      */
     @Nonnull

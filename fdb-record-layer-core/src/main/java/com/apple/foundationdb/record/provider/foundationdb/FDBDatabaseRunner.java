@@ -63,6 +63,7 @@ import java.util.function.Function;
 public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Get the database against which functions are run.
+     *
      * @return the database used to run
      */
     @Nonnull
@@ -71,6 +72,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Get the configuration used in record contexts opened by this runner.
      * Any changes made to the returned builder will be reflected in contexts opened by this runner.
+     *
      * @return configuration to use
      */
     @Nonnull
@@ -78,12 +80,14 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Set the configuration used in record contexts opened by this runner.
+     *
      * @param contextConfigBuilder configuration to use
      */
     void setContextConfigBuilder(FDBRecordContextConfig.Builder contextConfigBuilder);
 
     /**
      * Get the executor that will be used for {@link #runAsync}.
+     *
      * @return the executor to use
      */
     Executor getExecutor();
@@ -99,6 +103,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the timer used in record contexts opened by this runner.
+     *
      * @return timer to use
      */
     @Nullable
@@ -108,6 +113,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Set the timer used in record contexts opened by this runner.
+     *
      * @param timer timer to use
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
      */
@@ -117,6 +123,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the logging context used in record contexts opened by this runner.
+     *
      * @return the logging context to use
      */
     @Nullable
@@ -127,6 +134,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Set the logging context used in record contexts opened by this runner.
      * This will change the executor to be one that restores this new {@code mdcContext}.
+     *
      * @param mdcContext the logging context to use
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
      */
@@ -136,6 +144,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the read semantics used in record contexts opened by this runner.
+     *
      * @return allowable staleness parameters if caching read versions
      */
     @Nullable
@@ -162,6 +171,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the priority of transactions opened by this runner.
+     *
      * @return the priority of transactions opened by this runner
      * @see FDBRecordContext#getPriority()
      */
@@ -172,6 +182,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Set the priority of transactions opened by this runner.
+     *
      * @param priority the priority of transactions by this runner
      * @see FDBRecordContext#getPriority()
      */
@@ -209,6 +220,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Set the properties configured by adopter of Record-Layer for transactions opened by this runner.
+     *
      * @param propertyStorage the storage of properties
      * @see FDBRecordContext#getPropertyStorage()
      */
@@ -220,6 +232,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * Gets the maximum number of attempts for a database to make when running a
      * retriable transactional operation. This is used by {@link #run} and {@link #runAsync} to limit the number of
      * attempts that an operation is retried.
+     *
      * @return the maximum number of times to run a transactional database operation
      */
     int getMaxAttempts();
@@ -228,6 +241,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * Sets the maximum number of attempts for a database to make when running a
      * retriable transactional operation. This is used by {@link #run} and {@link #runAsync} to limit the number of
      * attempts that an operation is retried.
+     *
      * @param maxAttempts the maximum number of times to run a transactional database operation
      * @throws IllegalArgumentException if a non-positive number is given
      */
@@ -238,6 +252,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to limit the time spent
      * between successive attempts at completing a database operation.
      * Currently this value is fixed at 2 milliseconds and is not settable.
+     *
      * @return the minimum delay between attempts when retrying operations
      */
     long getMinDelayMillis();
@@ -247,6 +262,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to limit the time spent
      * between successive attempts at completing a database operation. The default value is 1000 so that
      * there will not be more than 1 second between attempts.
+     *
      * @return the maximum delay between attempts when retrying operations
      */
     long getMaxDelayMillis();
@@ -256,6 +272,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to limit the time spent
      * between successive attempts at completing a database operation. The default value is 1000 so that
      * there will not be more than 1 second between attempts.
+     *
      * @param maxDelayMillis the maximum delay between attempts when retrying operations
      * @throws IllegalArgumentException if the value is negative or less than the minimum delay
      */
@@ -268,6 +285,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * The exponential backoff algorithm will choose an amount of time to wait between zero
      * and the initial delay, and will use that value each successive iteration to determine
      * how long that wait should be. The default value is 10 milliseconds.
+     *
      * @return the delay ceiling between the first and second attempts at running a database operation
      */
     long getInitialDelayMillis();
@@ -279,6 +297,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * The exponential backoff algorithm will choose an amount of time to wait between zero
      * and the initial delay, and will use that value each successive iteration to determine
      * how long that wait should be. The default value is 10 milliseconds.
+     *
      * @param initialDelayMillis the delay ceiling between the first and second attempts at running a database operation
      * @throws IllegalArgumentException if the value is negative or greater than the maximum delay
      */
@@ -286,6 +305,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Open a new record context.
+     *
      * @return a new open record context
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
@@ -433,6 +453,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #startSynchronizedSessionAsync(Subspace, long)}.
+     *
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return a runner maintaining a new synchronized session
@@ -443,6 +464,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Produces a new runner, wrapping this runner, which performs all work in the context of an existing
      * {@link SynchronizedSession}.
+     *
      * @param lockSubspace the lock for which the session contends
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds

@@ -817,6 +817,7 @@ public class Comparisons {
     public interface Comparison extends WithValue<Comparison>, PlanHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
+         *
          * @param store the record store for the query
          * @param context the evaluation context for getting the other comparison value
          * @param value the value taken from the record
@@ -827,6 +828,7 @@ public class Comparisons {
 
         /**
          * Validate that this comparison is compatible with a given record field.
+         *
          * @param descriptor the Protobuf descriptor for the proposed comparison field
          * @param fannedOut whether a repeated field fans out into multiple comparisons or is treated as a single list value
          */
@@ -858,6 +860,7 @@ public class Comparisons {
 
         /**
          * Get the comparison value without any bindings.
+         *
          * @return the value to be compared
          */
         @Nullable
@@ -867,6 +870,7 @@ public class Comparisons {
 
         /**
          * Get the comparison value from the evaluation context.
+         *
          * @param store the record store for the query
          * @param context the context for query evaluation
          * @return the value to be compared
@@ -877,6 +881,7 @@ public class Comparisons {
         /**
          * Get whether the comparison is with the result of a multi-column key.
          * If so, {@link #getComparand} will return a {@link Tuple}.
+         *
          * @return {@code true} if the comparand is for multiple key columns
          */
         default boolean hasMultiColumnComparand() {
@@ -885,6 +890,7 @@ public class Comparisons {
 
         /**
          * Get the printed representation of the comparison less the comparison operator itself.
+         *
          * @return the typeless string
          */
         @Nonnull
@@ -2798,6 +2804,7 @@ public class Comparisons {
         /**
          * Get the maximum distance allowed between tokens in the source document allowed by
          * this filter.
+         *
          * @return the maximum distance allowed between tokens by this filter
          */
         public int getMaxDistance() {

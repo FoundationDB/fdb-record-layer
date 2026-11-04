@@ -57,12 +57,14 @@ import javax.annotation.Nonnull;
  *         child's {@link Reference}. In this way, expensive re-computation of the property value can be avoided.
  *     </li>
  * </ul>
+ *
  * @param <P> the type representing the actual property
  */
 public interface ExpressionProperty<P> {
     /**
      * Method to narrow the type from {@link Object} to the declared type of the attribute. Note that
      * the caller must guarantee that the narrowing is well-defined and successful.
+     *
      * @param object an object that actually is of dynamic type {@code P}
      * @return the narrowed object of type {@code P}
      */

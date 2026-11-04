@@ -233,6 +233,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     /**
      * Deserializes given a {@link RecordMetaData} into a corresponding {@link RecordLayerSchemaTemplate} instance.
+     *
      * @param metaData The serialized metadata.
      * @param templateName The name of the schema template.
      * @param version The version of the metadata.

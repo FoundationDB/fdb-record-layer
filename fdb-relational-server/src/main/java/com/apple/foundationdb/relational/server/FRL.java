@@ -190,6 +190,7 @@ public class FRL implements AutoCloseable {
 
     /**
      * Execute <code>sql</code>.
+     *
      * @param database Database to run the <code>sql</code> against.
      * @param schema Schema to use on <code>database</code>
      * @param sql SQL to execute.

@@ -34,6 +34,7 @@ import java.util.Objects;
 
 /**
  * A converter between a Protobuf record and a byte string stored in one or more values in the FDB key-value store.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
@@ -93,6 +94,7 @@ public interface RecordSerializer<M extends Message> {
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore.Builder#setUntypedSerializer}, then
      * in order to make the untyped record store that is paired with the typed store (used, for instance, to rebuild indexes),
      * the given typed serializer will be widened by calling this method.
+     *
      * @return a new serializer that works the same way but handles all record types.
      */
     @Nonnull

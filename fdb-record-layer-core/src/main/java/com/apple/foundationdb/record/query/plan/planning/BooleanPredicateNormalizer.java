@@ -127,6 +127,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a (dnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @Nonnull
@@ -136,6 +137,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a (cnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @Nonnull
@@ -145,6 +147,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a normalizer with the given size limit.
+     *
      * @param mode the mode of the new normalizer
      * @param sizeLimit a limit on the size of normalized form that this normalizer will produce
      * @return a normalizer with the given size limit
@@ -166,6 +169,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a normalizer for the given planner configuration.
+     *
      * @param mode the mode of the new normalizer
      * @param configuration a a planner configuration specifying the normalization limit that this normalizer will produce
      * @return a normalizer for the given planner configuration
@@ -179,6 +183,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Get the mode of this normalizer.
+     *
      * @return the mode used by this normalizer
      */
     @Nonnull
@@ -188,6 +193,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Get the limit on the size of the normalized form that this normalizer will produce.
+     *
      * @return size limit
      */
     public int getSizeLimit() {
@@ -197,6 +203,7 @@ public class BooleanPredicateNormalizer {
     /**
      * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
      * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
      *        (beyond {@link #sizeLimit}).
@@ -215,6 +222,7 @@ public class BooleanPredicateNormalizer {
     /**
      * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
      * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
      *        (beyond {@link #sizeLimit}).
@@ -230,6 +238,7 @@ public class BooleanPredicateNormalizer {
     /**
      * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
      * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
      *        (beyond {@link #sizeLimit}).
@@ -360,6 +369,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Convert given predicate to list (to be combined using the major) of lists (to be combined using the minor).
+     *
      * @param predicate a predicate subtree
      * @param negate whether this subtree is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
@@ -382,6 +392,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * <code>Major</code> flattens all normalized majors of its children.
+     *
      * @param children arguments to the major
      * @param negate whether the major is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
@@ -395,6 +406,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * <code>Minor</code> combines all the normalized majors into a cross-product, combining (via minor) one choice from each.
+     *
      * @param children arguments to the minor
      * @param negate whether the major is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)

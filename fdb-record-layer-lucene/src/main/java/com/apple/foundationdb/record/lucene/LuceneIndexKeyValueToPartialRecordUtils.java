@@ -178,6 +178,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
 
     /**
      * Get the list of fixed field names and that of the dynamic field names, given the entire concatenated field name.
+     *
      * @param entireFieldName the entire concatenated field name
      * @param overriddenKeyRanges the position ranges of the dynamic field names within the entire field name
      * @return a pair of the list of fixed names and that of the dynamic ones
@@ -223,6 +224,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
     /**
      * Get the {@link IndexKeyValueToPartialRecord} instance for an {@link IndexEntry} representing a result of Lucene auto-complete suggestion.
      * The partial record contains the suggestion in the field where it is indexed from, and the grouping keys if there are any.
+     *
      * @param index the index being scanned
      * @param recordType the record type for indexed records
      * @param scanType the type of scan

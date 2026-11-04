@@ -53,6 +53,7 @@ interface NeighborsChangeSet<N extends NodeReference> {
 
     /**
      * Method to indicate iff changes have been made that need to be persisted.
+     *
      * @return {@code true} iff changes have been made in this or parent change sets.
      */
     boolean hasChanges();

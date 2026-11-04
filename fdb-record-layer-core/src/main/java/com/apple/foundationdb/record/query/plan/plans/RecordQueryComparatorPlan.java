@@ -134,6 +134,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     /**
      * Execute children and compare results.
+     *
      * @param store record store from which to fetch records
      * @param context evaluation context containing parameter bindings
      * @param continuation continuation from a previous execution of this same plan

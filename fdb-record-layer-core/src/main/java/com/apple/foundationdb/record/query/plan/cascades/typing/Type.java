@@ -224,6 +224,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Create a new type based on the current one that indicates nullability based on the {@code isNullable} parameter
      * passed in.
+     *
      * @param newIsNullable indicator whether the returned new type is nullable or not nullable
      * @return a new type that is the same type as the current type but reflecting the nullability as passed in to
      *         this method.
@@ -326,6 +327,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Creates a synthetic protobuf descriptor that is equivalent to the <code>this</code> {@link Type} within a given
      * protobuf descriptor.
+     *
      * @param typeRepositoryBuilder The type repository.
      * @param descriptorBuilder The parent descriptor into which the newly created descriptor will be created.
      * @param fieldNumber The field number of the descriptor.
@@ -395,6 +397,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      *
      * <p>pre-condition: The {@link TypeCode} is primitive.
      * <br>
+     *
      * @param typeCode The primitive type code.
      * @return the corresponding {@link Type}.
      */
@@ -408,6 +411,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      *
      * <p>pre-condition: The {@link TypeCode} is primitive.
      * <br>
+     *
      * @param typeCode The primitive type code.
      * @param isNullable True, if the {@link Type} is supposed to be nullable, otherwise, false.
      * @return the corresponding {@link Type}.
@@ -421,6 +425,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
     /**
      * Maps a {@link List} of {@link Typed} instances to a {@link List} of their {@link Type}s.
+     *
      * @param typedList The list of {@link Typed} objects.
      * @return The list of {@link Type}s.
      */
@@ -482,6 +487,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
     /**
      * Translates a repeated field in a protobuf descriptor to a {@link Array}.
+     *
      * @param descriptor The protobuf descriptor.
      * @param protoType The protobuf descriptor type.
      * @return A {@link Array} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
@@ -693,6 +699,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
     /**
      * Returns an equivalent {@link Type} of a given Java object's type.
+     *
      * @param object The object whose Java type to be checked for an equivalent {@link Type}.
      * @return The equivalent {@link Type}.
      */
@@ -814,6 +821,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Construct a new {@link TypeCode} instance.
+         *
          * @param javaClass Java {@link Class} that corresponds to the {@link TypeCode}.
          * @param protoType Protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} descriptor that corresponds
          * @param isPrimitive <code>true</code> if a {@link TypeCode} is primitive, otherwise <code>false</code>.
@@ -869,6 +877,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Computes a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
+         *
          * @return a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
          */
         @Nonnull
@@ -885,6 +894,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         /**
          * Generates a {@link TypeCode} that corresponds to the given protobuf
          * {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type}.
+         *
          * @param protobufType The protobuf descriptor of the type.
          * @return A corresponding {@link TypeCode} instance.
          */
@@ -1818,6 +1828,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
+         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         boolean isErased() {
@@ -2164,6 +2175,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s.
+         *
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param normalizedFields The list of {@link Record} {@link Field}s.
          */
@@ -2173,6 +2185,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s and an explicit name.
+         *
          * @param name The name of the record.
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param normalizedFields The list of {@link Record} {@link Field}s.
@@ -2261,6 +2274,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Computes the list of {@link Field} {@link Type}s.
+         *
          * @return the list of {@link Field} {@link Type}s.
          */
         private List<Type> computeElementTypes() {
@@ -2281,6 +2295,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Computes a mapping from {@link Field} names to their {@link Type}s.
+         *
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
         @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -2292,6 +2307,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Compute a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         *
          * @return a mapping from {@link Field} to their ordinal positions in their {@link Type}.
          */
         @Nonnull
@@ -2305,6 +2321,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Compute a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         *
          * @return a mapping from {@link Field} to their ordinal positions in their {@link Type}.
          */
         @Nonnull
@@ -2318,6 +2335,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
+         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         @Override
@@ -2725,6 +2743,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             /**
              * Returns the field {@link Type}.
+             *
              * @return The field {@link Type}.
              */
             @Nonnull
@@ -2783,6 +2802,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             /**
              * Returns the field index.
+             *
              * @return The field index.
              */
             @Nonnull
@@ -2792,6 +2812,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             /**
              * Returns the field index.
+             *
              * @return The field index.
              */
             public int getFieldIndex() {
@@ -3005,6 +3026,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Returns the values {@link Type}.
+         *
          * @return The values {@link Type}.
          */
         @Nullable
@@ -3201,6 +3223,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Returns the array element {@link Type}.
+         *
          * @return The array element {@link Type}.
          */
         @Nullable
@@ -3210,6 +3233,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Return the array with a given element {@link Type} and the same nullability semantics.
+         *
          * @param elementType The new element type, can be {@code null}.
          * @return the array with a given element {@link Type} and the same nullability semantics, if the element type
          * matches the current element type, the same instance is returned.

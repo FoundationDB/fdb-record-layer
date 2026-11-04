@@ -504,6 +504,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a map of String -> Object as attributes of a vertex or edge.
+     *
      * @param context context
      * @param attributes attributes
      */
@@ -600,6 +601,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a map of String -> Object as attributes of a cluster.
+     *
      * @param context context
      * @param attributes attributes
      */
@@ -615,6 +617,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a key value pair for an attribute.
+     *
      * @param context context
      * @param attrName name
      * @param attribute attribute value

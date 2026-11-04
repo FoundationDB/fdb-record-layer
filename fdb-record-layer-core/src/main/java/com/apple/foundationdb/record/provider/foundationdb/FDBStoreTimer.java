@@ -50,6 +50,7 @@ public class FDBStoreTimer extends StoreTimer {
          * The amount of time taken to get a read version when explicitly called.
          * This metric is recorded only if the transaction is not conducted at batch priority.
          * This includes any injected latency by the client before issuing the request.
+         *
          * @see #INJECTED_GET_READ_VERSION_LATENCY
          * @see FDBTransactionPriority
          */
@@ -73,17 +74,20 @@ public class FDBStoreTimer extends StoreTimer {
         BATCH_GET_READ_VERSION("batch priority get read version"),
         /**
          * The amount of time injected by the client prior to getting a read version.
+         *
          * @see FDBDatabase#getLatencyToInject(FDBLatencySource)
          */
         INJECTED_GET_READ_VERSION_LATENCY("injected get read version latency"),
         /**
          * The amount of time taken committing transactions successfully.
          * This includes any injected latency added before issuing the request and any time spent performing pre-commit checks.
+         *
          * @see #INJECTED_COMMIT_LATENCY
          */
         COMMIT("commit transaction"),
         /**
          * The amount of time injected into committing transactions.
+         *
          * @see FDBDatabase#getLatencyToInject(FDBLatencySource)
          */
         INJECTED_COMMIT_LATENCY("injected commit latency"),

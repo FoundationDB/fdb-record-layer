@@ -49,6 +49,7 @@ import java.util.function.Supplier;
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
  * relational planner expression.
+ *
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)

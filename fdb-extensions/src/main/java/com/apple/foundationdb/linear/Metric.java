@@ -37,6 +37,7 @@ public enum Metric implements MetricDefinition {
      * <p>This metric calculates the "ordinary" straight-line distance between two points
      * in Euclidean space. The distance is the square root of the sum of the
      * squared differences between the corresponding coordinates of the two points.
+     *
      * @see MetricDefinition.EuclideanMetric
      */
     EUCLIDEAN_METRIC(new MetricDefinition.EuclideanMetric()),
@@ -63,6 +64,7 @@ public enum Metric implements MetricDefinition {
      * <p>This metric calculates a "distance" between two vectors {@code v1} and {@code v2} that ranges between
      * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
      * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
+     *
      * @see MetricDefinition.CosineMetric
      */
     COSINE_METRIC(new MetricDefinition.CosineMetric()),
@@ -83,6 +85,7 @@ public enum Metric implements MetricDefinition {
 
     /**
      * Constructs a new Metric instance with the specified metric.
+     *
      * @param metricDefinition the metric to be associated with this Metric instance; must not be null.
      */
     Metric(@Nonnull final MetricDefinition metricDefinition) {

@@ -60,6 +60,7 @@ interface NodeFactory<N extends NodeReference> {
 
     /**
      * Gets the kind of this node.
+     *
      * @return the kind of this node, never {@code null}.
      */
     @Nonnull

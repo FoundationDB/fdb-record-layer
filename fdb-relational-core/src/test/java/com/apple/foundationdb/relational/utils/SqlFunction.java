@@ -24,6 +24,7 @@ import java.sql.SQLException;
 
 /**
  * Like {@link java.util.function.Function} but may throw {@link SQLException}.
+ *
  * @param <T> the parameter type
  * @param <R> the return type
  */

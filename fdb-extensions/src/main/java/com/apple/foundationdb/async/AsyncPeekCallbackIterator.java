@@ -60,12 +60,14 @@ public interface AsyncPeekCallbackIterator<T> extends AsyncPeekIterator<T> {
 
     /**
      * Set the callback to the provided {@link Consumer}.
+     *
      * @param callback a consumer to call when a new result is produced by {@link #next()}
      */
     void setCallback(@Nonnull Consumer<T> callback);
 
     /**
      * Return the callback that this iterator calls before a new result is returned by {@link #next()}.
+     *
      * @return the callback that this iterator calls before a new result is returned by {@link #next()};W
      */
     @Nonnull

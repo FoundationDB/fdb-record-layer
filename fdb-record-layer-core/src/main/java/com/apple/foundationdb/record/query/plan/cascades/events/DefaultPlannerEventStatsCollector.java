@@ -68,6 +68,7 @@ public class DefaultPlannerEventStatsCollector implements PlannerEventStatsColle
 
     /**
      * Get the current state of this collector.
+     *
      * @return an instance of {@link PlannerEventStatsCollectorState}
      */
     @Nonnull

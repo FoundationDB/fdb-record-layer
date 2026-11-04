@@ -31,6 +31,7 @@ public interface WithAlias {
 
     /**
      * Returns the alias.
+     *
      * @return The alias.
      */
     @Nonnull

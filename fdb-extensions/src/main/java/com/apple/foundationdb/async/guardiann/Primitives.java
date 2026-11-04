@@ -126,6 +126,7 @@ class Primitives {
 
     /**
      * Get the executor used by this guardiann.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull

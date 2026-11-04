@@ -67,6 +67,7 @@ public abstract class IndexPredicate {
 
     /**
      * Check if a given record should be indexed.
+     *
      * @param <M> the subtype of {@link Message}
      * @param store record store
      * @param savedRecord the updated record
@@ -97,6 +98,7 @@ public abstract class IndexPredicate {
 
     /**
      * Parses a proto message into a corresponding predicate.
+     *
      * @param proto The serialized protobuf representation of the {@link IndexPredicate}.
      * @return a deserialized {@link IndexPredicate}.
      * @throws RecordCoreException if the provided message is not supported.
@@ -122,6 +124,7 @@ public abstract class IndexPredicate {
 
     /**
      * Parses a {@link QueryPredicate} into an equivalent {@link IndexPredicate}.
+     *
      * @param queryPredicate The query predicate to convert.
      * @return an equivalent {@link IndexPredicate}.
      * @throws RecordCoreException if the provided query predicate is not supported.
@@ -680,6 +683,7 @@ public abstract class IndexPredicate {
 
         /**
          * Returns the simple field name. Convenience method for single-element ordering fields.
+         *
          * @return the first (and only) element of the ordering field path
          * @throws RecordCoreException if the field path has more than one element
          */

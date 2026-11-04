@@ -47,6 +47,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *     <li>{@code (X^Y) v X = X}</li>
  *     <li>{@code (XvY) ^ X = X}</li>
  * </ul>
+ *
  * @param <P> the type representing the major of the law, i.e. {@code and} or {@code or}
  */
 @API(API.Status.EXPERIMENTAL)

@@ -62,6 +62,7 @@ public class LuceneGetMetadataInfo extends IndexOperation {
 
     /**
      * The grouping key to inspect.
+     *
      * @return the grouping key or an empty {@code Tuple} if this index is not grouped
      */
     @Nonnull
@@ -71,6 +72,7 @@ public class LuceneGetMetadataInfo extends IndexOperation {
 
     /**
      * The partition id to inpsect.
+     *
      * @return the partition id to inspect or {@code null} to inspect all partitions.
      */
     @Nullable
@@ -80,6 +82,7 @@ public class LuceneGetMetadataInfo extends IndexOperation {
 
     /**
      * Just fetch the partition info, and not the information for each partition.
+     *
      * @return if {@code true} only the partition info will be fetched, otherwise it will fetch the information for
      * the lucene indexes
      */

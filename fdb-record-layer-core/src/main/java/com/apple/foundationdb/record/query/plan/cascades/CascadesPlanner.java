@@ -268,6 +268,7 @@ public class CascadesPlanner implements QueryPlanner {
      * Set the size limit of the Cascades planner task queue.
      * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
      * Default value is 0, which means "unbound".
+     *
      * @param maxTaskQueueSize the maximum size of the queue.
      */
     @SuppressWarnings("unused")
@@ -281,6 +282,7 @@ public class CascadesPlanner implements QueryPlanner {
      * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
      * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
      * Default value is 0, which means "unbound".
+     *
      * @param maxTotalTaskCount the maximum number of tasks.
      */
     @SuppressWarnings("unused")
@@ -293,6 +295,7 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Set the maximum number of yields that are permitted per rule call within the Cascades planner.
      * Default value is 0, which means "unbound".
+     *
      * @param maxNumYieldsPerRuleCall the desired maximum number of yields that are permitted per rule call
      */
     @SuppressWarnings("unused")
@@ -809,6 +812,7 @@ public class CascadesPlanner implements QueryPlanner {
         /**
          * Returns whether the given rule is worth trying for the current (group, expression) pair. By default every
          * rule is, subclasses that can prove that applying a rule cannot make progress override this.
+         *
          * @param rule the rule in question
          * @return {@code true} if a task should be pushed for the given rule
          */

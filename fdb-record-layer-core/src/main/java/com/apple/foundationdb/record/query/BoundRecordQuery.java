@@ -102,6 +102,7 @@ public class BoundRecordQuery {
 
     /**
      * Plan this query using the given store.
+     *
      * @param store the store to use
      * @return a record query plan for this query
      */
@@ -113,6 +114,7 @@ public class BoundRecordQuery {
     /**
      * Check if a given {@link RecordQueryPlan} for the given store and a set of bindings is compatible to this bound
      * query.
+     *
      * @param store record store to access
      * @param parameterBindings evaluation context containing parameter bindings
      * @return {@code true} if the plan, if it were to be executed on the given store and with the given parameter

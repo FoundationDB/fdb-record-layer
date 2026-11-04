@@ -110,6 +110,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     /**
      * Gets the kind of this node.
      * This implementation always returns {@link NodeKind#COMPACT}.
+     *
      * @return the node kind, which is guaranteed to be {@link NodeKind#COMPACT}.
      */
     @Nonnull
@@ -120,6 +121,7 @@ class CompactNode extends AbstractNode<NodeReference> {
 
     /**
      * Gets the vector of {@code Half} objects.
+     *
      * @return the non-null vector of {@link Half} objects.
      */
     @Nonnull
@@ -140,6 +142,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     /**
      * Returns this node as a {@code CompactNode}. As this class is already a {@code CompactNode}, this method provides
      * {@code this}.
+     *
      * @return this object cast as a {@code CompactNode}, which is guaranteed to be non-null.
      */
     @Nonnull
@@ -158,6 +161,7 @@ class CompactNode extends AbstractNode<NodeReference> {
      *
      * <p>This override is for node types that are not inlining nodes. As such, it
      * will always fail.
+     *
      * @return this node as a non-null {@link InliningNode}
      * @throws IllegalStateException always, as this is not an inlining node
      */
