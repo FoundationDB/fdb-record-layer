@@ -4,6 +4,72 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-18}
+
+## 4.18
+
+{#release-4-18-1-0}
+
+### 4.18.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update protobuf version 4.35.1 - [PR #4837](https://github.com/FoundationDB/fdb-record-layer/pull/4837)
+<h4> New Features </h4>
+
+* Push in-joins over comparands through fetches - [PR #4830](https://github.com/FoundationDB/fdb-record-layer/pull/4830)
+* Describe the planner type of a `RecordType`, including a synthetic one - [PR #4829](https://github.com/FoundationDB/fdb-record-layer/pull/4829)
+* Expand a joined record type into a Cascades graph - [PR #4741](https://github.com/FoundationDB/fdb-record-layer/pull/4741)
+* Support for Indexes over `joinedRecordType`s in Relational - [PR #4653](https://github.com/FoundationDB/fdb-record-layer/pull/4653)
+<h4> Bug Fixes </h4>
+
+* Match fields by position rather than field number when deep-copying messages - [PR #4631](https://github.com/FoundationDB/fdb-record-layer/pull/4631)
+* Number a joined synthetic table's constituents in the order the definition names its tables - [PR #4818](https://github.com/FoundationDB/fdb-record-layer/pull/4818)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Enable the `RequireEmptyLineBeforeBlockTagGroup` Checkstyle check - [PR #4841](https://github.com/FoundationDB/fdb-record-layer/pull/4841)
+* Add an empty line before block tags in Javadoc comments - [PR #4836](https://github.com/FoundationDB/fdb-record-layer/pull/4836)
+* Remove empty lines between Javadoc block tags - [PR #4839](https://github.com/FoundationDB/fdb-record-layer/pull/4839)
+* Leverage inline `{@return}` tags in Javadoc comments - [PR #4838](https://github.com/FoundationDB/fdb-record-layer/pull/4838)
+* Enable the `JavadocMissingWhitespaceAfterAsterisk` Checkstyle check - [PR #4833](https://github.com/FoundationDB/fdb-record-layer/pull/4833)
+* Enable the `JavadocLeadingAsteriskAlign` Checkstyle check - [PR #4834](https://github.com/FoundationDB/fdb-record-layer/pull/4834)
+* Enable the `JavadocMissingLeadingAsterisk` Checkstyle check - [PR #4835](https://github.com/FoundationDB/fdb-record-layer/pull/4835)
+* Enable the `JavadocBlockTagLocation` Checkstyle check - [PR #4832](https://github.com/FoundationDB/fdb-record-layer/pull/4832)
+* Enable the `JavadocParagraph` Checkstyle check - [PR #4825](https://github.com/FoundationDB/fdb-record-layer/pull/4825)
+* Harmonize remaining Javadoc paragraphs - [PR #4824](https://github.com/FoundationDB/fdb-record-layer/pull/4824)
+* Run all tests if we are unable to determine the precise change set - [PR #4823](https://github.com/FoundationDB/fdb-record-layer/pull/4823)
+* Harmonize paragraphs in Javadoc comments (2/2) - [PR #4822](https://github.com/FoundationDB/fdb-record-layer/pull/4822)
+* Harmonize paragraphs in Javadoc comments (1/2) - [PR #4820](https://github.com/FoundationDB/fdb-record-layer/pull/4820)
+* Improve the `createVersionPropertiesFile` Gradle task - [PR #4811](https://github.com/FoundationDB/fdb-record-layer/pull/4811)
+* Remove external `git-version` plugin - [PR #4808](https://github.com/FoundationDB/fdb-record-layer/pull/4808)
+* Bump pylint from 2.15.7 to 4.0.9 in /scripts - [PR #4806](https://github.com/FoundationDB/fdb-record-layer/pull/4806)
+* Bump cqse/teamscale-upload-action from 2.11.0 to 2.11.1 in /actions/teamscale-upload - [PR #4805](https://github.com/FoundationDB/fdb-record-layer/pull/4805)
+* Bump actions/setup-java from 6.0.1 to 6.1.0 in /actions/setup-base-env - [PR #4804](https://github.com/FoundationDB/fdb-record-layer/pull/4804)
+* Bump actions/setup-java from 6.0.1 to 6.1.0 - [PR #4803](https://github.com/FoundationDB/fdb-record-layer/pull/4803)
+* Bump soupsieve from 2.10 to 3.0.3 in /docs/sphinx - [PR #4802](https://github.com/FoundationDB/fdb-record-layer/pull/4802)
+* Qualify `libs` version catalog lookups with `rootProject` - [PR #4799](https://github.com/FoundationDB/fdb-record-layer/pull/4799)
+
+</details>
+
+
+**[Full Changelog (4.17.2.0...4.18.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.17.2.0...4.18.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/41858404203)
+
+
+
 {#release-4-17}
 
 ## 4.17
