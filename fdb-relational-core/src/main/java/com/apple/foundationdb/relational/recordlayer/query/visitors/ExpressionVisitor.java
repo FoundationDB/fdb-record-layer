@@ -596,7 +596,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
      *
      * <p>The result is forced non-nullable: a declared type is only resolved for a parameter left without a value, and
      * that happens only when it is known not to receive a null. {@code Type.fromObject} does the same for a bound
-     * non-null value, so the two agree at cache lookup.</p>
+     * non-null value, so the two agree at cache lookup.
      */
     @Nonnull
     private Type resolveDeclaredType(@Nonnull final String declaredType) {

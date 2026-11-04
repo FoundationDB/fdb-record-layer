@@ -628,7 +628,7 @@ public final class PlanGenerator {
      *
      * <p>Why prepared parameters matter here: the plan, and the cache entry it goes into, depend on the types of the
      * query's parameters. Offline planning has no bound values, so there are no types to read off them. The caller
-     * passes declared types instead ({@link PreparedParams#withDeclaredTypeParams}).</p>
+     * passes declared types instead ({@link PreparedParams#withDeclaredTypeParams}).
      *
      * @param cache             optional plan cache
      * @param schemaTemplate    schema template; {@link RecordMetaData} is derived via
@@ -690,7 +690,7 @@ public final class PlanGenerator {
      * <p>Why prepared parameters matter here: the DDL compiled on this path can hold a query body of its own, such as
      * a temporary function declared beside a stored query. That body refers to the same parameters, so it needs the
      * same declared types ({@link PreparedParams#withDeclaredTypeParams}) to be planned value-free. Without them the
-     * function would be compiled against parameters with no value and no type.</p>
+     * function would be compiled against parameters with no value and no type.
      *
      * @param schemaTemplate            schema template used to resolve names in the function body
      * @param metadataOperationsFactory caller-provided factory for DDL

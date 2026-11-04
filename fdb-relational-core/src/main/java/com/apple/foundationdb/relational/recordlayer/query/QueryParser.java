@@ -186,7 +186,7 @@ public class QueryParser {
      * <p>This uses the same rule that accepts the type inside a parameter list, so the persisted form cannot drift from
      * the declared one. That rule does not end in {@code EOF}, since it is also matched mid-statement, so trailing text
      * is rejected here instead &mdash; otherwise {@code "BIGINT and then some"} would parse as {@code BIGINT} and the
-     * rest would be dropped silently.</p>
+     * rest would be dropped silently.
      *
      * @param declaredType the declared type's text
      * @return the parsed declared type

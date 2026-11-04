@@ -329,7 +329,7 @@ public class DelegatingVisitorTest {
         testSimple("BIGINT NOT NULL",
                 RelationalParser::storedQueryParameterType,
                 DelegatingVisitor::visitStoredQueryParameterType,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryParameterType(RelationalParser.StoredQueryParameterTypeContext ctx) {
