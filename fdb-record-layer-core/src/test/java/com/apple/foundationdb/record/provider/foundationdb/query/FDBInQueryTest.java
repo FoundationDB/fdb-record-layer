@@ -193,7 +193,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an IN without an index is implemented as a filter on a scan, as opposed to a loop of a filter on a scan.
      */
     // SQL Port status: (#4843) ported, plan generated
-    @DualPlannerTest()
+    @DualPlannerTest
     void testInQueryNoIndex() throws Exception {
         // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
         Assumptions.assumeFalse(useCascadesPlanner);
