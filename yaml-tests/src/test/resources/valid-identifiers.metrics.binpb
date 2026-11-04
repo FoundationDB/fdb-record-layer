@@ -22,54 +22,18 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.2.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q104> label="q104" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à;
+}ô
 ±
-	all-tests£EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)©:
-¤ÕÒ•Y¨ Ÿž˜0(?0Î…Ÿ8V@ISCAN(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)]) | FLATMAP q0 -> { TF explode(q0.level0.field1) | FLATMAP q1 -> { TF explode(q1._0.level1$field.1) | FILTER _._0.level2$array.field.1 EQUALS promote(@c26 AS LONG) AS q2 RETURN (q1._0.level1$field.1 AS level1$field.1, q1._0.level1$field.2 AS level1$field.2, q1._0.level1$field.3 AS level1$field.3, q2._0.level2$array.field.1 AS level2$array.field.1, q2._0.level2$field.2 AS level2$field.2) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN q0 } | MAP (_.ID AS ID)é5digraph G {
+	all-tests£EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)½
+ƒà½ÚZÀ ÆÿøC(E0²Œ¾8^@vCOVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10 NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3, LONG AS level2$array.field.1, LONG AS level2$field.2)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.1.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q10 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3, LONG AS level2$array.field.1, LONG AS level2$field.2)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q4._0.level1$field.1 AS level1$field.1, q4._0.level1$field.2 AS level1$field.2, q4._0.level1$field.3 AS level1$field.3, q6._0.level2$array.field.1 AS level2$array.field.1, q6._0.level2$field.2 AS level2$field.2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3, LONG AS level2$array.field.1, LONG AS level2$field.2)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q2.level0.field1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3 AS _0)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._0.level2$array.field.1 EQUALS promote(@c26 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS level2$array.field.1, LONG AS level2$field.2 AS _0)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q4._0.level1$field.1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS level2$array.field.1, LONG AS level2$field.2 AS _0)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 7 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 9 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    10 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    9 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    8 -> 9 [ color="red" style="invis" ];
-  }
-  {
-    8 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    4 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q117.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.1.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q117> label="q117" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ß
 r
 	all-testseEXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1è
