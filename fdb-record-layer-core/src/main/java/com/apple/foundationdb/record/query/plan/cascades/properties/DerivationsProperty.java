@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
@@ -394,6 +395,18 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Override
         public Derivations visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
             final var streamingValue = tableFunctionPlan.getValue();
+            if (streamingValue instanceof final ExplodeValue explodeValue) {
+                // Use the first element of the collection as a representative for "some" element, and wrap it in the
+                // struct the explode flows, so that accesses of the element are written against the struct.
+                final var elementType = Objects.requireNonNull(((Type.Array)explodeValue.getCollectionValue().getResultType()).getElementType());
+                final var columns = ImmutableList.<Column<? extends Value>>builder();
+                columns.add(Column.unnamedOf(new FirstOrDefaultValue(explodeValue.getCollectionValue(), new ThrowsValue(elementType))));
+                if (explodeValue.hasOrdinality()) {
+                    columns.add(Column.unnamedOf(new ThrowsValue(Type.primitiveType(Type.TypeCode.INT, false))));
+                }
+                final var representatives = ImmutableList.<Value>of(RecordConstructorValue.ofColumns(columns.build(), false));
+                return new Derivations(representatives, representatives);
+            }
             final var elementType = streamingValue.getResultType();
             final var values = ImmutableList.<Value>of(new FirstOrDefaultStreamingValue(streamingValue, new ThrowsValue(elementType)));
             return new Derivations(values, values);
