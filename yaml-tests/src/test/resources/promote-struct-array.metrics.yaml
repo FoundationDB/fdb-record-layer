@@ -1,0 +1,13 @@
+promote-struct-array:
+-   query: EXPLAIN select rest_no from restaurant_record where reviews = []
+    ref: promote-struct-array.yamsql:75
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>) | FILTER _.REVIEWS EQUALS promote(array()
+        AS ARRAY(LONG AS REVIEWER, INT AS RATING)) | MAP (_.REST_NO AS REST_NO)
+    task_count: 403
+    task_total_time_ms: 148
+    transform_count: 112
+    transform_time_ms: 97
+    transform_yield_count: 38
+    insert_time_ms: 9
+    insert_new_count: 43
+    insert_reused_count: 4
