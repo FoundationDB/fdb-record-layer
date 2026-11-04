@@ -117,8 +117,7 @@ public class Search {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {

@@ -123,8 +123,7 @@ public class Insert {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -132,8 +131,7 @@ public class Insert {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {

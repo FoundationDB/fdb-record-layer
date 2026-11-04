@@ -118,8 +118,7 @@ class Delete {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -127,8 +126,7 @@ class Delete {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {

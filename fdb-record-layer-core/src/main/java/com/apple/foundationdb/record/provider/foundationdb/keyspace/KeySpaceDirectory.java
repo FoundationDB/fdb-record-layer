@@ -151,8 +151,7 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Get the depth in the directory tree of this directory.
-     * @return the depth in the directory tree of this directory
+     * {@return the depth in the directory tree of this directory}
      */
     public int depth() {
         int depth = 0;
@@ -639,8 +638,7 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Returns the set of subdirectories contained within this directory.
-     * @return the set of subdirectories contained within this directory
+     * {@return the set of subdirectories contained within this directory}
      */
     @Nonnull
     public List<KeySpaceDirectory> getSubdirectories() {
@@ -720,8 +718,7 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Returns the name of this directory.
-     * @return the name of this directory
+     * {@return the name of this directory}
      */
     @Nonnull
     public String getName() {
@@ -739,8 +736,7 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Returns the type of values this directory stores.
-     * @return the type of values this directory stores
+     * {@return the type of values this directory stores}
      */
     @Nonnull
     public KeyType getKeyType() {

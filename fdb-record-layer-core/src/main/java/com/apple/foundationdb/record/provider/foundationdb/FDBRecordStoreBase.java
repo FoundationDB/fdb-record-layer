@@ -161,8 +161,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
-     * Get the subspace provider.
-     * @return the subspace provider
+     * {@return the subspace provider}
      */
     @Nullable
     SubspaceProvider getSubspaceProvider();
@@ -2282,8 +2281,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         BaseBuilder<M, R> setContext(@Nullable FDBRecordContext context);
 
         /**
-         * Get the subspace provider.
-         * @return the subspace provider
+         * {@return the subspace provider}
          */
         @Nullable
         SubspaceProvider getSubspaceProvider();

@@ -55,8 +55,7 @@ public enum NodeKind {
     }
 
     /**
-     * Gets the serialized byte value.
-     * @return the serialized byte value
+     * {@return the serialized byte value}
      */
     public byte getSerialized() {
         return serialized;

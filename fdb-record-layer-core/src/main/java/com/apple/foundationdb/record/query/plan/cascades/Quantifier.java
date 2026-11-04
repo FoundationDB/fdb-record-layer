@@ -674,8 +674,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public abstract Quantifier.Builder<? extends Quantifier, ? extends Quantifier.Builder<?, ?>> toBuilder();
 
     /**
-     * Return the reference that the quantifier ranges over.
-     * @return {@link Reference} this quantifier ranges over
+     * {@return {@link Reference} this quantifier ranges over}
      */
     @Nonnull
     public abstract Reference getRangesOver();

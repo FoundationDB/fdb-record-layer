@@ -833,8 +833,7 @@ public class Comparisons {
         void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut);
 
         /**
-         * Get the comparison type.
-         * @return the comparison type
+         * {@return the comparison type}
          */
         @Nonnull
         Type getType();

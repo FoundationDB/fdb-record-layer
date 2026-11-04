@@ -31,8 +31,7 @@ import javax.annotation.Nonnull;
 public interface Typed {
 
     /**
-     * Returns the {@link Type} of the result set.
-     * @return the {@link Type} of the result set.
+     * {@return the {@link Type} of the result set}
      */
     @Nonnull
     Type getResultType();

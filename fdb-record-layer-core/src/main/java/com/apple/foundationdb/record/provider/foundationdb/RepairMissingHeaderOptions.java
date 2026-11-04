@@ -64,8 +64,7 @@ public class RepairMissingHeaderOptions {
     }
 
     /**
-     * Get the lock reason if appropriate.
-     * @return the lock reason if appropriate.
+     * {@return the lock reason if appropriate}
      */
     @API(API.Status.INTERNAL)
     @Nonnull

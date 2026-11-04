@@ -102,36 +102,28 @@ public class OnlineIndexOperationConfig {
     }
 
     /**
-     * Get the maximum number of records to process in one transaction.
-     *
-     * @return the maximum number of records to process in one transaction
+     * {@return the maximum number of records to process in one transaction}
      */
     public int getMaxLimit() {
         return maxLimit;
     }
 
     /**
-     * Get the initial number of records to process in one transaction.
-     *
-     * @return the initial number of records to process in one transaction
+     * {@return the initial number of records to process in one transaction}
      */
     public int getInitialLimit() {
         return initialLimit > 0 ? Math.min(initialLimit, maxLimit) : maxLimit;
     }
 
     /**
-     * Get the maximum number of times to retry a single range rebuild.
-     *
-     * @return the maximum number of times to retry a single range rebuild
+     * {@return the maximum number of times to retry a single range rebuild}
      */
     public int getMaxRetries() {
         return maxRetries;
     }
 
     /**
-     * Get the maximum number of records to process in a single second.
-     *
-     * @return the maximum number of records to process in a single second
+     * {@return the maximum number of records to process in a single second}
      */
     public int getRecordsPerSecond() {
         return recordsPerSecond;
@@ -188,9 +180,7 @@ public class OnlineIndexOperationConfig {
     }
 
     /**
-     * Get the time quota for a single transaction.
-     *
-     * @return the time quota for a single transaction
+     * {@return the time quota for a single transaction}
      */
     public long getTransactionTimeLimitMilliseconds() {
         return transactionTimeLimitMilliseconds;

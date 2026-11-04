@@ -489,27 +489,21 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
         }
 
         /**
-         * Get an estimate for the size of the median key-value pair.
-         *
-         * @return an estimate for the median key-value pair
+         * {@return an estimate for the size of the median key-value pair}
          */
         private double getMedian() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getMedian()).orElse(1.0);
         }
 
         /**
-         * Get an estimate for the size of the 90th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 90th percentile key-value pair
+         * {@return an estimate for the size of the 90th percentile key-value pair}
          */
         private double getP90() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getP90()).orElse(1.0);
         }
 
         /**
-         * Get an estimate for the size of the 95th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 95th percentile key-value pair
+         * {@return an estimate for the size of the 95th percentile key-value pair}
          */
         private double getP95() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getP95()).orElse(1.0);

@@ -205,9 +205,7 @@ public final class QueryEvaluationConstants {
         }
 
         /**
-         * Get the {@link ConstantKind} of this constant instance.
-         *
-         * @return the {@link ConstantKind} of this constant instance.
+         * {@return the {@link ConstantKind} of this constant instance}
          */
         @Nonnull
         public ConstantKind getKind() {

@@ -33,8 +33,7 @@ import javax.annotation.Nonnull;
 @API(API.Status.UNSTABLE)
 public interface PlanDeserializer<M extends Message, T> {
     /**
-     * Returns {@code M.class}.
-     * @return {@code M.class}
+     * {@return {@code M.class}}
      */
     @Nonnull
     Class<M> getProtoMessageClass();

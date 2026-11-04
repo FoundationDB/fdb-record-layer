@@ -143,8 +143,7 @@ public class PlannerBindings {
     }
 
     /**
-     * Return an empty set of bindings.
-     * @return an empty set of bindings
+     * {@return an empty set of bindings}
      */
     @Nonnull
     public static PlannerBindings empty() {
@@ -152,8 +151,7 @@ public class PlannerBindings {
     }
 
     /**
-     * Return a new builder.
-     * @return a new builder
+     * {@return a new builder}
      */
     public static Builder newBuilder() {
         return new Builder();

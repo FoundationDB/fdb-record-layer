@@ -334,8 +334,7 @@ public class KeySpace {
 
 
     /**
-     * Get the root of this key space.
-     * @return the root key space
+     * {@return the root of this key space}
      */
     public KeySpaceDirectory getRoot() {
         return root;

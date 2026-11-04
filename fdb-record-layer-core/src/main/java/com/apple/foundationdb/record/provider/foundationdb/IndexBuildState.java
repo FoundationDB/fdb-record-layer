@@ -102,8 +102,7 @@ public class IndexBuildState {
     }
 
     /**
-     * Get the index state.
-     * @return the index state
+     * {@return the index state}
      */
     @Nonnull
     public IndexState getIndexState() {

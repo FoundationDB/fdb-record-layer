@@ -136,15 +136,13 @@ interface StorageAdapter<N extends NodeReference> {
     Subspace getDataSubspace();
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener.
+     * {@return the on-write listener}
      */
     @Nonnull
     OnWriteListener getOnWriteListener();
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener.
+     * {@return the on-read listener}
      */
     @Nonnull
     OnReadListener getOnReadListener();

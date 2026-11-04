@@ -109,8 +109,7 @@ public class NodeReference {
     }
 
     /**
-     * Returns a string representation of the object.
-     * @return a string representation of this object.
+     * {@return a string representation of the object}
      */
     @Override
     public String toString() {

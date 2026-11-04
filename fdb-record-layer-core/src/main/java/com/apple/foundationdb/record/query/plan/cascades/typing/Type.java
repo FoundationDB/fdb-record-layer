@@ -125,9 +125,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     TypeCode getTypeCode();
 
     /**
-     * Returns the corresponding Java {@link Class} of the {@link Type} instance.
-     *
-     * @return the corresponding Java {@link Class} of the {@link Type} instance.
+     * {@return the corresponding Java {@link Class} of the {@link Type} instance}
      */
     default Class<?> getJavaClass() {
         return getTypeCode().getJavaClass();
@@ -832,9 +830,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * Returns the corresponding Java {@link Class} of the {@link Type} instance.
-         *
-         * @return the corresponding Java {@link Class} of the {@link Type} instance.
+         * {@return the corresponding Java {@link Class} of the {@link Type} instance}
          */
         @Nullable
         public Class<?> getJavaClass() {
@@ -2233,8 +2229,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * Returns the list of {@link Record} {@link Field}s.
-         * @return the list of {@link Record} {@link Field}s.
+         * {@return the list of {@link Record} {@link Field}s}
          */
         @Nonnull
         public List<Field> getFields() {
@@ -2257,8 +2252,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * Returns the list of {@link Field} {@link Type}s.
-         * @return the list of {@link Field} {@link Type}s.
+         * {@return the list of {@link Field} {@link Type}s}
          */
         @Nullable
         public List<Type> getElementTypes() {
@@ -2277,8 +2271,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * Returns a mapping from {@link Field} names to their {@link Type}s.
-         * @return a mapping from {@link Field} names to their {@link Type}s.
+         * {@return a mapping from {@link Field} names to their {@link Type}s}
          */
         @Nonnull
         public Map<String, Field> getFieldNameFieldMap() {

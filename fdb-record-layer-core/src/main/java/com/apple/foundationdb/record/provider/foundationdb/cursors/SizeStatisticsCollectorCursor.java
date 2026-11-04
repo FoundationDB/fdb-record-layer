@@ -385,9 +385,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Return a copy of this instance.
-         *
-         * @return a copy of this instance
+         * {@return a copy of this instance}
          */
         private SizeStatisticsResults copy() {
             SizeStatisticsResults target = new SizeStatisticsResults();
@@ -591,27 +589,21 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Get an estimate for the size of the median key-value pair.
-         *
-         * @return an estimate for the median key-value pair
+         * {@return an estimate for the size of the median key-value pair}
          */
         public double getMedian() {
             return getProportion(0.5);
         }
 
         /**
-         * Get an estimate for the size of the 90th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 90th percentile key-value pair
+         * {@return an estimate for the size of the 90th percentile key-value pair}
          */
         public double getP90() {
             return getProportion(0.90);
         }
 
         /**
-         * Get an estimate for the size of the 95th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 95th percentile key-value pair
+         * {@return an estimate for the size of the 95th percentile key-value pair}
          */
         public double getP95() {
             return getProportion(0.95);

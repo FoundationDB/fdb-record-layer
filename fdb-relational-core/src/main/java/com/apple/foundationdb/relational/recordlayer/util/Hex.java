@@ -400,9 +400,7 @@ public class Hex {
     }
 
     /**
-     * Gets the charset.
-     *
-     * @return the charset.
+     * {@return the charset}
      */
     public Charset getCharset() {
         return this.charset;

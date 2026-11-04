@@ -558,9 +558,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
-     * Get this <code>RecordMetaData</code> instance.
-     *
-     * @return this <code>RecordMetaData</code> instance
+     * {@return this <code>RecordMetaData</code> instance}
      */
     @Nonnull
     @Override

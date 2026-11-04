@@ -134,8 +134,7 @@ class Primitives {
     }
 
     /**
-     * Get the configuration.
-     * @return the configuration
+     * {@return the configuration}
      */
     @Nonnull
     private Config getConfig() {
@@ -143,8 +142,7 @@ class Primitives {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -152,8 +150,7 @@ class Primitives {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {

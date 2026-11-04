@@ -30,15 +30,13 @@ import java.util.Optional;
  */
 public interface CommonCascadesRuleCall {
     /**
-     * Returns the current {@link PlannerPhase}.
-     * @return the current {@link PlannerPhase}
+     * {@return the current {@link PlannerPhase}}
      */
     @Nonnull
     PlannerPhase getPlannerPhase();
 
     /**
-     * Returns the root {@link Reference} of the expression DAG.
-     * @return the root {@link Reference} of the expression DAG
+     * {@return the root {@link Reference} of the expression DAG}
      */
     @Nonnull
     Reference getRoot();

@@ -125,8 +125,7 @@ class Search {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -134,8 +133,7 @@ class Search {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {

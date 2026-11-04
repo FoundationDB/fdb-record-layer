@@ -73,8 +73,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Get the length of the path.
-     * @return the length of the path
+     * {@return the length of the path}
      */
     public int size() {
         return inner.size();

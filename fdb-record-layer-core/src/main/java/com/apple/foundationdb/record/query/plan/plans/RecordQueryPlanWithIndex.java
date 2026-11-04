@@ -55,9 +55,7 @@ import java.util.function.Function;
 public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPlanWithMatchCandidate {
 
     /**
-     * Gets the name of the index used by this plan.
-     *
-     * @return the name of the index used by this plan
+     * {@return the name of the index used by this plan}
      */
     @Nonnull
     String getIndexName();
