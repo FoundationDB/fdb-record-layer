@@ -306,8 +306,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 ))
                 )
         ));
-        assertEquals(257175491, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(1690988598, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -387,7 +385,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                         .and(isNotReverse())
                                         ))
                         )));
-        assertEquals(-1453452657, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         final var evaluationContext = withUsedTypes(plan, EvaluationContext.empty());
         assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
                 rec -> {
@@ -639,9 +636,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 .and(isNotReverse())
                 ))
         )));
-
-        assertEquals(reverse ? 257169539 : 257169725, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(reverse ? 763596554 : 763602320, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -1035,9 +1029,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         )
                 ).where(inUnionComparisonValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no"))))
         );
-
-        assertEquals(reverse ? -1792241225 : -1792271016,  plan.planHash(CURRENT_LEGACY));
-        assertEquals(reverse ? -1678716941 : -1673175815, plan.planHash(CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

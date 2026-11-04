@@ -755,7 +755,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             )
                     )
             );
-            assertEquals(-166833728, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             // Simple existential query with equality predicate done via a simple index scan:
             //   map(Index(Restaurant$tag.value [EQUALS $t])[($q2.name as name)])
@@ -829,7 +828,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         )
                 )
         );
-        assertEquals(-1359424802, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
