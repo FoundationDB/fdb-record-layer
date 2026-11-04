@@ -104,10 +104,7 @@ public class MetaDataPlanContext implements PlanContext {
     }
 
     /**
-     * The readable indexes on synthetic record types that a query reading the given record types may be answered from.
-     * A synthetic record is made of stored records, so an index on a synthetic record type is offered only if the query
-     * reads every stored record type its constituents are; a constituent that is not stored, such as the element of an
-     * unnested array, is read through a stored one.
+     * The readable indexes on synthetic record types whose stored constituents are all among the queried record types.
      *
      * @param metaData the meta-data the synthetic record types are defined in
      * @param recordStoreState the state that decides which indexes are readable
