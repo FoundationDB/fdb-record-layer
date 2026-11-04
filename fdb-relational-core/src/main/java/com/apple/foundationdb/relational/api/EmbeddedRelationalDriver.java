@@ -107,7 +107,7 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
      * template, the record metadata, a metric collector and the planner options. Does nothing if there is no engine
      * or the engine has no plan cache.
      *
-     * <p>The record metadata and the options must be the ones queries get at runtime.</p>
+     * <p>The record metadata and the options must be the ones queries get at runtime.
      */
     public void planStoredQueries(@Nonnull RecordLayerSchemaTemplate schemaTemplate,
                                   @Nonnull RecordMetaData recordMetaData,
