@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * A query plan that reconstructs records from the entries in a covering index.
@@ -170,11 +171,11 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
-        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
-        resultBuilder.addAll(RecordQueryPlanWithNoChildren.super.getDynamicTypes());
-        resultBuilder.addAll(indexPlan.getDynamicTypes());
-        return resultBuilder.build();
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(indexPlan.getDynamicTypes())
+                .build();
     }
 
     @Nonnull

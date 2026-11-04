@@ -368,6 +368,15 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
     @Nonnull
     @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(indexPlan.getDynamicTypes())
+                .build();
+    }
+
+    @Nonnull
+    @Override
     public ScanComparisons getScanComparisons() {
         return indexPlan.getScanComparisons();
     }

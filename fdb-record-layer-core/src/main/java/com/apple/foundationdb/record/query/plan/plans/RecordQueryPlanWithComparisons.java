@@ -24,10 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -78,5 +80,16 @@ public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
 
     default boolean hasComparisonRanges() {
         return true;
+    }
+
+    default Set<Type> computeDynamicTypesFromComparisons() {
+        if (!hasComparisons()) {
+            return ImmutableSet.of();
+        }
+        return computeComparisons().stream()
+                .map(Comparisons.Comparison::getValue)
+                .filter(Objects::nonNull)
+                .flatMap(value -> value.getDynamicTypes().stream())
+                .collect(ImmutableSet.toImmutableSet());
     }
 }

@@ -643,6 +643,15 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return ComparisonRanges.from(getScanComparisons());
     }
 
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RecordQueryPlanWithComparisons.super.computeDynamicTypesFromComparisons())
+                .build();
+    }
+
     @Override
     public boolean hasComparisonRanges() {
         if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
@@ -733,21 +742,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Override
     public QueryPlanConstraint getConstraint() {
         return constraint;
-    }
-
-    @Nonnull
-    @Override
-    public Set<Type> getDynamicTypes() {
-        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
-        resultBuilder.addAll(RecordQueryPlanWithNoChildren.super.getDynamicTypes());
-        if (hasComparisons()) {
-            getComparisons().stream()
-                    .map(Comparisons.Comparison::getValue)
-                    .filter(Objects::nonNull)
-                    .flatMap(value -> value.getDynamicTypes().stream())
-                    .forEach(resultBuilder::add);
-        }
-        return resultBuilder.build();
     }
 
     @Nonnull

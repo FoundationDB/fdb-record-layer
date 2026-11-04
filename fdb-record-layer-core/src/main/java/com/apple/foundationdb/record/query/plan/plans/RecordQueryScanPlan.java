@@ -223,6 +223,14 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     @Nonnull
     private ComparisonRanges computeComparisonRanges() {
         return ComparisonRanges.from(comparisons);
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RecordQueryPlanWithComparisons.super.computeDynamicTypesFromComparisons())
+                .build();
     }
 
     @Override
