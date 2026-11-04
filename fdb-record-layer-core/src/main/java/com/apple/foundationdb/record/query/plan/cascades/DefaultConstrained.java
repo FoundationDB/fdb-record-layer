@@ -27,6 +27,7 @@ import java.util.Objects;
 
 /**
  * A container that can carry a {@link QueryPlanConstraint}.
+ *
  * @param <T> type parameter of the type of object this container wraps.
  */
 public class DefaultConstrained<T> implements Constrained<T> {
@@ -49,6 +50,7 @@ public class DefaultConstrained<T> implements Constrained<T> {
 
     /**
      * Method that returns the wrapped object.
+     *
      * @return the wrapped object
      */
     @Nonnull

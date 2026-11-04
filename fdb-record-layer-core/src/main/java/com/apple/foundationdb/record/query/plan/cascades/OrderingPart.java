@@ -155,6 +155,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     public interface SortOrder {
         /**
          * Name of the sort order; is implemented by the enum implementing this interface.
+         *
          * @return the name of this enum value
          */
         @Nonnull
@@ -162,6 +163,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         /**
          * Arrow indicator for pretty-printing the sort order.
+         *
          * @return a string containing an arrow indicator
          */
         @Nonnull
@@ -179,6 +181,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         /**
          * Get the corresponding tuple ordering direction.
+         *
          * @return the corresponding {@link Direction}.
          */
         @Nonnull

@@ -113,6 +113,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Retrieve the wrapped result.
+     *
      * @return the wrapped result as an object
      */
     @Nullable

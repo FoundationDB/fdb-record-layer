@@ -81,6 +81,7 @@ public class ResolvedKeySpacePath {
 
     /**
      * Returns the parent path element.
+     *
      * @return the parent path element or <code>null</code> if this is the root of the path
      */
     @Nullable
@@ -90,6 +91,7 @@ public class ResolvedKeySpacePath {
 
     /**
      * Returns the directory name for this path element.
+     *
      * @return the directory name
      */
     @Nonnull
@@ -99,6 +101,7 @@ public class ResolvedKeySpacePath {
 
     /**
      * Returns the directory that corresponds to this path entry.
+     *
      * @return returns the directory that corresponds to this path entry
      */
     @Nonnull

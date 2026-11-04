@@ -49,6 +49,7 @@ public interface IndexMaintainerFactory {
 
     /**
      * Get the index types supported by this factory.
+     *
      * @return a collection of strings of index types supported by this factory
      */
     @Nonnull

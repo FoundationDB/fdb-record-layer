@@ -135,6 +135,7 @@ public interface QueryComponent extends PlanHashable {
 
     /**
      * Get whether this component is asynchronous.
+     *
      * @return {@code true} if this component is better executed asynchronously
      */
     default boolean isAsync() {

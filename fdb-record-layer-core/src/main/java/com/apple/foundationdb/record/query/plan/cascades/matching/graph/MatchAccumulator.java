@@ -36,6 +36,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.graph;
 public interface MatchAccumulator<M, R> {
     /**
      * Accumulates the {@link Iterable} handed in into the internal state of the instance.
+     *
      * @param m and iterable of type {@code M}
      */
     void accumulate(Iterable<M> m);

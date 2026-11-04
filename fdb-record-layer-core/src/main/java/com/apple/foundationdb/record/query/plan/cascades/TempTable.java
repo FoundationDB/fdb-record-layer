@@ -73,6 +73,7 @@ public class TempTable implements ProtoSerializable {
 
     /**
      * Add a new {@link QueryResult} element to the underlying buffer.
+     *
      * @param element the new element to be added.
      */
     public void add(@Nonnull QueryResult element) {
@@ -96,6 +97,7 @@ public class TempTable implements ProtoSerializable {
 
     /**
      * Returns an iterator of the underlying buffer, note that this iterator is not synchronized.
+     *
      * @return an iterator of the underlying buffer.
      */
 
@@ -106,6 +108,7 @@ public class TempTable implements ProtoSerializable {
 
     /**
      * Returns the underlying buffer, note that this method is not synchronized.
+     *
      * @return The underlying buffer.
      */
     @Nonnull
@@ -172,6 +175,7 @@ public class TempTable implements ProtoSerializable {
 
     /**
      * Creates a new instance of {@link TempTable} backed by a synchronized list.
+     *
      * @return a new instance of {@link TempTable}.
      */
     @Nonnull

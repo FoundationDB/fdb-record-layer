@@ -59,6 +59,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     /**
      * Gets the node reference and its associated distance.
+     *
      * @return the non-null {@link NodeReferenceWithDistance} object.
      */
     @Nonnull
@@ -68,6 +69,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     /**
      * Gets the underlying node represented by this object.
+     *
      * @return the associated {@link Node} instance, never {@code null}.
      */
     @Nonnull

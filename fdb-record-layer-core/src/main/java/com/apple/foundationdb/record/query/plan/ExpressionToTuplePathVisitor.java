@@ -98,6 +98,7 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
 
     /**
      * Method to pop and return the top of the states stack.
+     *
      * @return the currentState
      */
     public State pop() {

@@ -133,6 +133,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
     /**
      * Internal utility ot start the iteration with the underlying iterator.
+     *
      * @return a Future that completes when the iteration is done
      */
     protected CompletableFuture<Void> iterateAll() {
@@ -237,6 +238,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
         /**
          * Finalize the build and create a stats runner.
+         *
          * @return the newly created stats runner
          */
         public RecordRepairStatsRunner buildStatsRunner() {

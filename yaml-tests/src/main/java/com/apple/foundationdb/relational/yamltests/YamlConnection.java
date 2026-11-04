@@ -41,6 +41,7 @@ import java.util.List;
 public interface YamlConnection extends AutoCloseable {
     /**
      * Close this connection.
+     *
      * @throws SQLException if there was an issue closing the underlying connection(s).
      */
     @Override
@@ -67,6 +68,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Returns true if this connection supports getting the metrics collector.
+     *
      * @return true if it is possible to get the metrics collector
      */
     boolean supportsMetricCollector();
@@ -81,6 +83,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Try to get the underlying embedded relational connection in support of a few specific setup methods.
+     *
      * @return the underlying embedded connection, or {@code null} if one is not (easily) available.
      */
     @Nullable

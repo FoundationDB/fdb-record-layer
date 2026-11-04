@@ -645,6 +645,7 @@ public class Key {
 
         /**
          * Converts to a list. Useful for creating tuples
+         *
          * @return the elements of this key value
          */
         @Nonnull
@@ -668,6 +669,7 @@ public class Key {
 
         /**
          * Check for NULL value that inhibits unique indexes.
+         *
          * @return <code>true</code> if this has a null value
          */
         public boolean containsNonUniqueNull() {

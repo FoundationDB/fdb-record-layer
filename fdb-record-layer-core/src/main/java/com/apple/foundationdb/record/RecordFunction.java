@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A function to be applied to a record as part of query execution.
+ *
  * @param <T> the result type of the function
  */
 @API(API.Status.UNSTABLE)

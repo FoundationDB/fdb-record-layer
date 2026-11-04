@@ -420,6 +420,7 @@ public class Index {
 
     /**
      * Checks whether the subspace key was set using {@link #setSubspaceKey(Object)}.
+     *
      * @return {@code true} if the subspace key was set using {@code #setSubspaceKey(Object)}
      */
     public boolean hasExplicitSubspaceKey() {
@@ -525,6 +526,7 @@ public class Index {
 
     /**
      * Get the number of indexed value columns.
+     *
      * @return the number of columns
      */
     public int getColumnSize() {
@@ -597,6 +599,7 @@ public class Index {
 
     /**
      * Get the version at which the index was first added.
+     *
      * @return the added version
      */
     public int getAddedVersion() {
@@ -605,6 +608,7 @@ public class Index {
 
     /**
      * Set the version at which the index was first added.
+     *
      * @param addedVersion the added version
      */
     public void setAddedVersion(int addedVersion) {
@@ -643,6 +647,7 @@ public class Index {
 
     /**
      * Set the version at which the index was changed.
+     *
      * @param lastModifiedVersion the last modified version
      */
     public void setLastModifiedVersion(int lastModifiedVersion) {

@@ -297,6 +297,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Create a builder for a for-each quantifier containing relational expressions.
+     *
      * @return a for-each quantifier builder
      */
     @Nonnull
@@ -649,6 +650,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Create a builder for a physical quantifier containing record query plans.
+     *
      * @return a physical quantifier builder
      */
     public static Physical.PhysicalBuilder physicalBuilder() {

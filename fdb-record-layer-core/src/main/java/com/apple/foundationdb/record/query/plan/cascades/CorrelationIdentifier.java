@@ -144,6 +144,7 @@ public class CorrelationIdentifier {
 
     /**
      * Returns the backing string id.
+     *
      * @return the string backing this {@link CorrelationIdentifier}
      */
     @Override

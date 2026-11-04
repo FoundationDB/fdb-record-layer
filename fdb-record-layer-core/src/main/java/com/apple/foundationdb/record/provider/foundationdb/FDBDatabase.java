@@ -238,6 +238,7 @@ public class FDBDatabase {
 
     /**
      * Get the locality provider that is used to discover the server location of the keys.
+     *
      * @return the locality provider
      */
     @Nonnull
@@ -302,6 +303,7 @@ public class FDBDatabase {
 
     /**
      * Get the factory that produced this database.
+     *
      * @return the database factory
      */
     @Nonnull
@@ -311,6 +313,7 @@ public class FDBDatabase {
 
     /**
      * Get the underlying FDB database.
+     *
      * @return the FDB database
      */
     @Nonnull
@@ -802,6 +805,7 @@ public class FDBDatabase {
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.
+     *
      * @return a new runner
      */
     @Nonnull

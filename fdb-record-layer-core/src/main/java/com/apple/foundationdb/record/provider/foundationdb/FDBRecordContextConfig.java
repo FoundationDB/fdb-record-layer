@@ -156,6 +156,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether transaction is logged to FDB client logs.
+     *
      * @return {@code true} if transaction is logged.
      */
     public boolean isLogTransaction() {
@@ -175,6 +176,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether open context is tracked in the associated {@link FDBDatabase}.
+     *
      * @return {@code true} if context is tracked.
      */
     public boolean isTrackOpen() {
@@ -183,6 +185,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether stack trace is recorded when context is opened.
+     *
      * @return {@code true} if stack trace is generated.
      */
     public boolean isSaveOpenStackTrace() {
@@ -217,6 +220,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get tags used for throttling.
+     *
      * @return throttling tags
      */
     @Nonnull
@@ -226,6 +230,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether to report conflicting key ranges on commit conflict.
+     *
      * @return {@code true} to report conflicting keys
      */
     public boolean isReportConflictingKeys() {
@@ -234,6 +239,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get the key checker to hook operations' keys.
+     *
      * @return the key checker to use
      */
     @Nullable
@@ -510,6 +516,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Return whether or not correctness assertions will enabled for the context.
+         *
          * @return {@code true} if correctness assertions are to be enabled for the context
          */
         public boolean areAssertionsEnabled() {
@@ -518,6 +525,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether transaction is logged to FDB client logs.
+         *
          * @return {@code true} if transaction is logged.
          */
         public boolean isLogTransaction() {
@@ -567,6 +575,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether open context is tracked in the associated {@link FDBDatabase}.
+         *
          * @return {@code true} if context is tracked.
          */
         public boolean isTrackOpen() {
@@ -586,6 +595,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether stack trace is recorded when context is opened.
+         *
          * @return {@code true} if stack trace is generated.
          */
         public boolean isSaveOpenStackTrace() {
@@ -645,6 +655,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get tags used for throttling.
+         *
          * @return throttling tags
          */
         @Nonnull
@@ -673,6 +684,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether to report conflicting key ranges on commit conflict.
+         *
          * @return {@code true} to report conflicting keys
          */
         public boolean isReportConflictingKeys() {
@@ -692,6 +704,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get the key checker to hook operations' keys.
+         *
          * @return the key checker to use
          */
         @Nullable
@@ -701,6 +714,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Set the key checker to hook operations' keys.
+         *
          * @param keyChecker the key checker to use
          */
         public void setKeyChecker(@Nullable final KeyChecker keyChecker) {
@@ -719,6 +733,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Make a copy of this builder.
+         *
          * @return a new builder with the same values as this builder
          */
         public Builder copyBuilder() {

@@ -113,6 +113,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
     /**
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     *
      * @return an iterable of match results.
      */
     @Nonnull

@@ -48,6 +48,7 @@ public class EvaluationContext {
 
     /**
      * Get an empty evaluation context.
+     *
      * @return an evaluation context with no bindings
      */
     @SuppressWarnings("squid:S1845") // The field and the function mean the same thing.

@@ -171,6 +171,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     /**
      * Take items from inner cursor and put in pipeline until no more or a mapped cursor item is available.
+     *
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     @Nonnull

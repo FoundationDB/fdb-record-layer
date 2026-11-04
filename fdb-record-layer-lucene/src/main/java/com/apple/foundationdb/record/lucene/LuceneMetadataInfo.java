@@ -48,6 +48,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
     /**
      * List of the metadata information for a given partition, most-recent will be first.
+     *
      * @return the list of metadata information for all the partitions
      */
     public List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionInfo() {
@@ -56,6 +57,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
     /**
      * Map from partition id to information from lucene.
+     *
      * @return the information from lucene for all partitions, or the one partition request if that was requested
      */
     public Map<Integer, LuceneInfo> getLuceneInfo() {
@@ -102,6 +104,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
         /**
          * The number of documents that lucene thinks are in the index.
+         *
          * @return the number of documents
          */
         public int getDocumentCount() {
@@ -120,6 +123,7 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
         /**
          * The number of FieldInfos in the directory; see {@link com.apple.foundationdb.record.lucene.directory.FieldInfosStorage}.
+         *
          * @return the number of field infos in the directory
          */
         public int getFieldInfoCount() {

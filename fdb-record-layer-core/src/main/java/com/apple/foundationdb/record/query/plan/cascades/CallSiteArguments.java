@@ -207,6 +207,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * The name this option is supplied under at a call site.
+         *
          * @return the option name
          */
         @Nonnull
@@ -216,6 +217,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * The value type of the option.
+         *
          * @return the value type
          */
         @Nonnull
@@ -406,6 +408,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Converts a raw value supplied at a call site to an option's value type.
+         *
          * @param <T> the option's value type
          */
         @FunctionalInterface
@@ -446,6 +449,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * The empty set of options.
+         *
          * @return options with nothing set
          */
         @Nonnull
@@ -455,6 +459,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Creates a builder for a new set of options.
+         *
          * @return a new builder
          */
         @Nonnull
@@ -464,6 +469,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Creates a builder pre-populated with these options.
+         *
          * @return a new builder
          */
         @Nonnull
@@ -632,6 +638,7 @@ public sealed interface CallSiteArguments {
 
             /**
              * Builds the options.
+             *
              * @return the options
              */
             @Nonnull

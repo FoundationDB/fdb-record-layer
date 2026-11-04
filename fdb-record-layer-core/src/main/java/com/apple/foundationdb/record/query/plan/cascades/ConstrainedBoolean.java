@@ -210,6 +210,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
 
     /**
      * Factory method to return a {@code false}.
+     *
      * @return {@code false}
      */
     @Nonnull

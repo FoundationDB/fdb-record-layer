@@ -70,6 +70,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      */
     public DirectoryLayerDirectory(@Nonnull String name) {

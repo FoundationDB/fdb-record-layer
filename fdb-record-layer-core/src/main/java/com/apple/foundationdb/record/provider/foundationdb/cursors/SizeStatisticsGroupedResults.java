@@ -41,6 +41,7 @@ public class SizeStatisticsGroupedResults {
 
     /**
      * The Tuple that represents the key whose stats are aggregated.
+     *
      * @return the Tuple representing the subspace key aggregated
      */
     @Nonnull
@@ -50,6 +51,7 @@ public class SizeStatisticsGroupedResults {
 
     /**
      * The aggregated stats.
+     *
      * @return the statistics collected for the subspace
      */
     @Nonnull

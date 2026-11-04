@@ -136,6 +136,7 @@ public class QueryKeyExpression {
 
     /**
      * Returns true if the key expression evaluates to {@code null}.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -145,6 +146,7 @@ public class QueryKeyExpression {
 
     /**
      * Returns true if the key expression does not evaluate to {@code null}.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -165,6 +167,7 @@ public class QueryKeyExpression {
 
     /**
      * Add comparisons to one of the values returned by a multi-valued expression.
+     *
      * @return a builder for comparisons
      */
     @Nonnull

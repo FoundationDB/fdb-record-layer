@@ -140,6 +140,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     CHECK_INDEX_BUILD_TYPE_DURING_UPDATE(10),
     /**
      * This FormatVersion allows setting a state for the RecordCountKey on an individual store.
+     *
      * @see RecordMetaDataProto.DataStoreInfo#getRecordCountState()
      */
     RECORD_COUNT_STATE(11),
@@ -195,6 +196,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     /**
      * The minimum {@code FormatVersion}.
+     *
      * @return the minimum {@code FormatVersion}
      */
     static FormatVersion getMinimumVersion() {
@@ -203,6 +205,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     /**
      * The maximum {@code FormatVersion} that this version of the Record Layer can support.
+     *
      * @return the maximum supported version
      */
     public static FormatVersion getMaximumSupportedVersion() {

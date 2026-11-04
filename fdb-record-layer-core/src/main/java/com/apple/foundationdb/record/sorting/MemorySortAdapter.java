@@ -92,12 +92,14 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
 
     /**
      * Get the maximum allowed size of the in-memory map.
+     *
      * @return the maximum size
      */
     int getMaxRecordCountInMemory();
 
     /**
      * Get action to perform when in-memory map is full.
+     *
      * @return size limit mode
      */
     @Nonnull
@@ -108,6 +110,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
 
     /**
      * An extended version of a comparator that can be stateful.
+     *
      * @param <K> the type of the key to be compared
      */
     interface MemorySortComparator<K> extends Comparator<K> {
@@ -119,6 +122,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
 
     /**
      * Stateful comparator to support orderings based on regular comparisons delegated to a {@link Comparator}.
+     *
      * @param <K> the type of key
      */
     class OrderComparator<K> implements MemorySortComparator<K> {

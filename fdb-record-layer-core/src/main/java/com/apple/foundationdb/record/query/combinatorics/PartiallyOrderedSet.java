@@ -499,6 +499,7 @@ public class PartiallyOrderedSet<T> {
 
     /**
      * Builder for {@code PartiallyOrderedSet}.
+     *
      * @param <T> the type of elements
      */
     public static class Builder<T> {

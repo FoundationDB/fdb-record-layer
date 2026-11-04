@@ -85,6 +85,7 @@ public class SyntheticRecordPlanner {
 
     /**
      * Initialize a new planner.
+     *
      * @param store a record store
      */
     public SyntheticRecordPlanner(@Nonnull FDBRecordStore store) {

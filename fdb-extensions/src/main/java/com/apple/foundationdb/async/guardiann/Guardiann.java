@@ -151,6 +151,7 @@ public class Guardiann {
 
     /**
      * Get the executor used by this object.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -160,6 +161,7 @@ public class Guardiann {
 
     /**
      * Get this object's configuration.
+     *
      * @return the configuration
      */
     @Nonnull

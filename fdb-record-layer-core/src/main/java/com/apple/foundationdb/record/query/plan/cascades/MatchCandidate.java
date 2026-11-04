@@ -83,6 +83,7 @@ public interface MatchCandidate {
 
     /**
      * Returns a list of parameter names for sargable parameters that can to be bound during matching.
+     *
      * @return a list of {@link CorrelationIdentifier}s for all sargable parameters in this match candidate
      */
     @Nonnull

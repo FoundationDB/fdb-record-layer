@@ -70,6 +70,7 @@ public class NodeReferenceWithVector extends NodeReference {
 
     /**
      * Override to declare that this class in fact is a {@link NodeReferenceWithVector}.
+     *
      * @return {@code true}
      */
     @Override
@@ -79,6 +80,7 @@ public class NodeReferenceWithVector extends NodeReference {
 
     /**
      * Returns this instance cast as a {@code NodeReferenceWithVector}.
+     *
      * @return this instance as a {@code NodeReferenceWithVector}, which is never {@code null}.
      */
     @Nonnull
@@ -103,6 +105,7 @@ public class NodeReferenceWithVector extends NodeReference {
 
     /**
      * Computes the hash code for this object.
+     *
      * @return a hash code value for this object.
      */
     @Override
@@ -112,6 +115,7 @@ public class NodeReferenceWithVector extends NodeReference {
 
     /**
      * Returns a string representation of this object.
+     *
      * @return a concise string representation of this object.
      */
     @Override

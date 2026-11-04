@@ -151,6 +151,7 @@ public class CrossProduct {
 
             /**
              * Method that advances to the next element on the given zero-indexed level.
+             *
              * @param level level to advance
              */
             @Override

@@ -387,6 +387,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get the nanosecond time at which this context was opened.
+     *
      * @return time opened
      */
     @API(API.Status.INTERNAL)
@@ -397,6 +398,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Set the nanosecond time at which this context was opened.
+     *
      * @param trackOpenTimeNanos  time opened
      */
     void setTrackOpenTimeNanos(final long trackOpenTimeNanos) {
@@ -405,6 +407,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get any stack track generated when this context was opened.
+     *
      * @return stack trace or {@code null}
      */
     @Nullable
@@ -464,6 +467,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Async version of {@link #commit}.
+     *
      * @return a future that is complete when commit is done
      */
     public CompletableFuture<Void> commitAsync() {
@@ -689,11 +693,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * A consistency check, such as uniqueness, that can execute asynchronously and is finally checked at or before commit time.
+     *
      * @see #addCommitCheck(CommitCheckAsync)
      */
     public interface CommitCheckAsync {
         /**
          * Get whether the check is ready to be tested.
+         *
          * @return {@code true} if the check is complete
          */
         default boolean isReady() {
@@ -877,6 +883,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Run any {@link CommitCheckAsync}s that are still outstanding.
+     *
      * @return a future that is complete when all checks have been performed
      */
     @Nonnull
@@ -1633,6 +1640,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get key ranges that encountered conflicts when trying to {@link #commit} failed due to {@code NOT_COMMITTED}.
+     *
      * @return list of conflict ranges
      */
     @Nullable
@@ -1679,6 +1687,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Returns a transaction-bound factory of {@link TempTable}s.
+     *
      * @return a factory of {@link TempTable}s bound to this transactional context.
      */
     @API(API.Status.INTERNAL)

@@ -88,6 +88,7 @@ public class FDBDirectorySharedCache {
 
     /**
      * Get the set of file references for this directory, if present in the cache.
+     *
      * @return cached file references or {@code null} if not cached
      */
     @Nullable
@@ -97,6 +98,7 @@ public class FDBDirectorySharedCache {
 
     /**
      * Add set of file references to the cache.
+     *
      * @param fileReferences the file references for the associated directory as of the sequence number
      */
     public void setFileReferencesIfAbsent(@Nonnull Map<String, FDBLuceneFileReference> fileReferences) {

@@ -129,6 +129,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the untyped record store associated with this possibly typed store.
+     *
      * @return an untyped record store
      */
     FDBRecordStore getUntypedRecordStore();
@@ -146,6 +147,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the record context (transaction) to use for the record store.
+     *
      * @return context the record context / transaction to use
      */
     @Nonnull
@@ -179,6 +181,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the serializer used to convert records into byte arrays.
+     *
      * @return the serializer to use
      */
     @Nonnull
@@ -348,6 +351,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Action to take if the record store does / does not already exist.
+     *
      * @see FDBRecordStore.Builder#createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck)
      */
     enum StoreExistenceCheck {
@@ -402,6 +406,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Action to take if the record being saved does / does not already exist.
+     *
      * @see FDBRecordStoreBase#saveRecordAsync(Message, RecordExistenceCheck)
      */
     enum RecordExistenceCheck {
@@ -2239,6 +2244,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the serializer used to convert records into byte arrays.
+         *
          * @return the serializer to use
          */
         @Nullable
@@ -2264,6 +2270,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FormatVersion} for this store.
+         *
          * @return the format version to use
          */
         default FormatVersion getFormatVersionEnum() {
@@ -2305,6 +2312,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the provider for the record store's meta-data.
+         *
          * @return the meta-data source to use
          */
         @Nullable
@@ -2322,6 +2330,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FDBMetaDataStore} to use as the source of meta-data.
+         *
          * @return the meta-data store to use
          */
         @Nullable
@@ -2339,6 +2348,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the record context (transaction) to use for the record store.
+         *
          * @return context the record context / transaction to use
          */
         @Nullable
@@ -2393,6 +2403,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FDBRecordStore.UserVersionChecker function} to be used to check the meta-data version of the record store.
+         *
          * @return the checker function to use
          */
         @Nullable
@@ -2409,6 +2420,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the registry of index maintainers to be used by the record store.
+         *
          * @return the index registry to use
          */
         @Nonnull
@@ -2427,6 +2439,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link IndexMaintenanceFilter index filter} to be used by the record store.
+         *
          * @return the index filter to use
          */
         @Nonnull
@@ -2443,6 +2456,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Get the {@link FDBRecordStoreBase.PipelineSizer object} to be used to determine the depth of pipelines run by the record store.
+         *
          * @return the sizer to use
          */
         @Nonnull
@@ -2578,6 +2592,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Build the record store.
+         *
          * @return a new record store with the desired state.
          */
         @Nonnull
@@ -2585,6 +2600,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #uncheckedOpenAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2594,6 +2610,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #createAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2603,6 +2620,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #openAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2612,6 +2630,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Synchronous version of {@link #createOrOpenAsync}.
+         *
          * @return a store with the appropriate parameters set
          */
         @Nonnull
@@ -2632,6 +2651,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion(UserVersionChecker, StoreExistenceCheck)}.
+         *
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2661,6 +2681,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Opens a <code>FDBRecordStore</code> instance in the given path with the given meta-data.
+         *
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull

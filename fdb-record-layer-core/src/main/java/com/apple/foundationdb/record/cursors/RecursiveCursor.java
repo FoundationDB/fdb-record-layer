@@ -207,6 +207,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         /**
          * Get the value for a recursive result.
+         *
          * @return the value associated with the given result
          */
         @Nullable
@@ -216,6 +217,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         /**
          * Get the depth for a recursive result.
+         *
          * @return the 1-based depth from the root of the given result
          */
         public int getDepth() {
@@ -224,6 +226,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         /**
          * Get whether a recursive result has any descendants.
+         *
          * @return {@code true} if the given result is a leaf, {@code false} if it has any descendants
          */
         public boolean isLeaf() {
@@ -233,6 +236,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     /**
      * Function to generate children of a parent value.
+     *
      * @param <T> the type of elements of the cursors
      */
     @FunctionalInterface
@@ -301,6 +305,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     /**
      * Called to advance the recursion.
+     *
      * @return a future that completes to {@code true} if the loop should continue or {@code false} if a result is available
      */
     @Nonnull

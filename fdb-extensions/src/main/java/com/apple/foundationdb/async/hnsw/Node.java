@@ -74,6 +74,7 @@ public interface Node<N extends NodeReference> {
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
+     *
      * @return the kind of this node as a {@link NodeKind}
      */
     @Nonnull

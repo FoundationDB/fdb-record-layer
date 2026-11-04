@@ -193,6 +193,7 @@ public class TupleKeyCountTree {
 
     /**
      * Hide tree nodes that do not have counts at least as great as the given fraction of their parent node.
+     *
      * @param fraction the threshold count fraction
      */
     public void hideLessThanFraction(double fraction) {

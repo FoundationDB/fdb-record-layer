@@ -81,6 +81,7 @@ public class BooleanNormalizer {
 
     /**
      * Obtain a normalizer with the default size limit {@link BooleanNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
@@ -128,6 +129,7 @@ public class BooleanNormalizer {
 
     /**
      * Get the limit on the size of the DNF that this normalizer will produce.
+     *
      * @return size limit
      */
     public int getSizeLimit() {
@@ -136,6 +138,7 @@ public class BooleanNormalizer {
 
     /**
      * Get whether this normalizer attempts to remove redundant conditions.
+     *
      * @return {@code true} if some redundant conditions
      */
     public boolean isCheckForDuplicateConditions() {

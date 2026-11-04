@@ -61,6 +61,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method to retrieve a list of children values.
+     *
      * @return a list of children
      */
     @Nonnull
@@ -97,6 +98,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
+     *
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
@@ -126,6 +128,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method that returns an {@link Iterable} of nodes as encountered in post-order traversal of this tree-like.
+     *
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
@@ -325,6 +328,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * returns the height of the tree rooted at {@code this} {@code TreeLike}.
+     *
      * @return the height of the tree.
      */
     default int height() {

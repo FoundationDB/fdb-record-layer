@@ -44,6 +44,7 @@ import java.util.stream.Stream;
 public interface BooleanComponent extends QueryComponent {
     /**
      * Starting from this boolean component find all sub components that itself are not considered {@link BooleanComponent}s.
+     *
      * @return a stream of non-boolean sub components.
      */
     @Nonnull

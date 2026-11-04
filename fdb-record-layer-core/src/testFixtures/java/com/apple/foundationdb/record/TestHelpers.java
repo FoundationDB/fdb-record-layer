@@ -289,6 +289,7 @@ public class TestHelpers {
 
     /**
      * A consumer that can throw exceptions.
+     *
      * @param <T> type of the consumer argument
      */
     @FunctionalInterface

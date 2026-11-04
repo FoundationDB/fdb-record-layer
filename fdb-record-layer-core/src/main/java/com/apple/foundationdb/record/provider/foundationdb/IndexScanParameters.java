@@ -48,6 +48,7 @@ import javax.annotation.Nonnull;
 public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanParameters>, PlanSerializable {
     /**
      * Get the type of index scan to be performed.
+     *
      * @return the scan type
      */
     @Nonnull
@@ -77,6 +78,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
 
     /**
      * Get a short summary of the scan, not including the scan type.
+     *
      * @return the scan details
      */
     @Nonnull

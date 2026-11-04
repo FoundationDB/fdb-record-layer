@@ -54,6 +54,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
 
     /**
      * Gets the additional values for this object.
+     *
      * @return the additional values
      */
     @Nullable

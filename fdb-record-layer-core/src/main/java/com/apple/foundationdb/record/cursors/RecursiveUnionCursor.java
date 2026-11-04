@@ -289,6 +289,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         /**
          * Retrieve the currently active cursor, an active cursor is either the {@code initial} cursor or the {@code recursive} cursor.
+         *
          * @return The currently active cursor.
          */
         @Nonnull
@@ -296,6 +297,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         /**
          * Retrieve the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
+         *
          * @return The {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
          */
         @Nonnull

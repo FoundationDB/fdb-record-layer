@@ -78,6 +78,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
 
     /**
      * Create a new checker.
+     *
      * @param checks ordered list of checks to match and apply
      */
     public MinimumTupleSizeKeyChecker(@Nonnull List<CheckedSubspace> checks) {

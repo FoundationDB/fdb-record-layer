@@ -49,12 +49,14 @@ public interface ByteScanLimiter {
 
     /**
      * Atomically check whether the number of remaining bytes is at least 0.
+     *
      * @return {@code true} if the remaining count is at least 0 and {@code false} if it is less than 0
      */
     boolean hasBytesRemaining();
 
     /**
      * Atomically decrement the number of remaining bytes by the given number of bytes.
+     *
      * @param bytes the number of bytes to register
      */
     void registerScannedBytes(long bytes);

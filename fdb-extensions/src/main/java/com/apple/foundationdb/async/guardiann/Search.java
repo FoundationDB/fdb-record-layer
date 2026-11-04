@@ -108,6 +108,7 @@ class Search {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -117,6 +118,7 @@ class Search {
 
     /**
      * Get the configuration of this hnsw.
+     *
      * @return hnsw configuration
      */
     @Nonnull

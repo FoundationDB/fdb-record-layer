@@ -174,6 +174,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Creates an instance of {@link RecordMetaDataBuilder}.
+     *
      * @return a new builder
      */
     @Nonnull
@@ -521,6 +522,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Determine whether every record type in this meta-data has the same primary key.
+     *
      * @return the common primary key or {@code null}
      */
     @Nullable

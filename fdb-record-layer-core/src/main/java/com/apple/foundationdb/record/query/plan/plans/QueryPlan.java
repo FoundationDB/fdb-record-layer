@@ -133,6 +133,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Returns a set of names of the indexes used by this plan (and its sub-plans).
+     *
      * @return a set of indexes used by this plan
      */
     @Nonnull
@@ -140,6 +141,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Indicates whether this plan (or one of its components) loads records by their primary key.
+     *
      * @return <code>true</code> if this plan (or one of its components) loads records by their primary key
      */
     boolean hasLoadBykeys();

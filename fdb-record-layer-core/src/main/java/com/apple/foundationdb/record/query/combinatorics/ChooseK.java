@@ -205,6 +205,7 @@ public class ChooseK {
 
             /**
              * Method that skips advances to the next element on the given zero-indexed level.
+             *
              * @param level level to advance
              */
             @Override

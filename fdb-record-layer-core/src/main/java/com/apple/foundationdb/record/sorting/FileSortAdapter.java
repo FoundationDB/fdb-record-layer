@@ -86,6 +86,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get the maximum number of files to keep before merging.
+     *
      * @return the maximum number of files kept by a single cursor
      */
     int getMaxFileCount();
@@ -103,12 +104,14 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get whether files should be compressed.
+     *
      * @return {@code true} if files are compressed
      */
     boolean isCompressed();
 
     /**
      * Get name of cipher to use for encrypting.
+     *
      * @return cipher name to use or {@code null} for unencrypted files
      */
     @Nullable
@@ -116,6 +119,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get whether files should be encrypted.
+     *
      * @return encryption key to use or {@code null} for unencrypted files
      */
     @Nullable
@@ -123,6 +127,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get source of randomness for encryption.
+     *
      * @return secure random source
      */
     @Nullable

@@ -31,6 +31,7 @@ import java.util.function.Predicate;
 
 /**
  * A partition used for matching holding a set of {@link RelationalExpression}s.
+ *
  * @param <E> type parameter to indicate the type of expression this partition holds.
  */
 public class ExpressionPartition<E extends RelationalExpression> {

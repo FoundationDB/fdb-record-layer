@@ -106,6 +106,7 @@ public class Insert {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -115,6 +116,7 @@ public class Insert {
 
     /**
      * Get the configuration of this hnsw.
+     *
      * @return hnsw configuration
      */
     @Nonnull

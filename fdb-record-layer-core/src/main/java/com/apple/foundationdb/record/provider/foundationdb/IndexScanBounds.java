@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 public interface IndexScanBounds {
     /**
      * Get the type of index scan to be performed.
+     *
      * @return the scan type
      */
     @Nonnull

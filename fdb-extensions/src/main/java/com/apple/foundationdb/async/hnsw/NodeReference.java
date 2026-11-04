@@ -37,6 +37,7 @@ public class NodeReference {
 
     /**
      * Constructs a new {@code NodeReference} with the specified primary key.
+     *
      * @param primaryKey the primary key of the node to reference; must not be {@code null}.
      */
     public NodeReference(@Nonnull final Tuple primaryKey) {
@@ -45,6 +46,7 @@ public class NodeReference {
 
     /**
      * Gets the primary key for this object.
+     *
      * @return the primary key as a {@code Tuple} object, which is guaranteed to be non-null.
      */
     @Nonnull
@@ -54,6 +56,7 @@ public class NodeReference {
 
     /**
      * Method to indicate if the method {@link #asNodeReferenceWithVector()} can be safely called.
+     *
      * @return {@code true} iff this instance is in fact at least a {@link NodeReferenceWithVector}.
      */
     boolean isNodeReferenceWithVector() {
@@ -102,6 +105,7 @@ public class NodeReference {
 
     /**
      * Generates a hash code for this object based on the primary key.
+     *
      * @return a hash code value for this object.
      */
     @Override

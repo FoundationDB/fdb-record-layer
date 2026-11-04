@@ -68,6 +68,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Returns the subspace in which the index data is stored.
+     *
      * @return subspace for index data
      */
     @Nonnull
@@ -77,6 +78,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Returns the secondary subspace in which the index data is stored.
+     *
      * @return secondary subspace for index data
      */
     @Nonnull
@@ -424,6 +426,7 @@ public abstract class IndexMaintainer {
 
     /**
      * If the index is merge'Able, perform an index merge (within a single transaction limit).
+     *
      * @return a future that completes the merge operation
      */
     @API(API.Status.EXPERIMENTAL)

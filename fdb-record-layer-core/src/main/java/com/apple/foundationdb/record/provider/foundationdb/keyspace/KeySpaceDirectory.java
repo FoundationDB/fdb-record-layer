@@ -427,6 +427,7 @@ public class KeySpaceDirectory {
 
     /**
      * Returns whether or not the directory is a leaf directory (has no subdirectories).
+     *
      * @return true if the directory is a leaf directory, false otherwise
      */
     public boolean isLeaf() {
@@ -717,6 +718,7 @@ public class KeySpaceDirectory {
 
     /**
      * Returns this directory's parent.
+     *
      * @return this directory's parent, or {@code null} if there is no parent
      */
     @Nullable
@@ -766,6 +768,7 @@ public class KeySpaceDirectory {
 
     /**
      * Whether this directory has a constant value, or can be any value.
+     *
      * @return {@code true} if this directory has a constant value, or {@code false} if it can accept any value.
      */
     public boolean isConstant() {

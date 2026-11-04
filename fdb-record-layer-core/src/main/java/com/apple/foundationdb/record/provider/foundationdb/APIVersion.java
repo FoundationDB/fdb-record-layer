@@ -71,6 +71,7 @@ public enum APIVersion {
 
     /**
      * Get the API version number. This is the value passed to FDB during client initialization.
+     *
      * @return the version number associated with this version of the API
      */
     public int getVersionNumber() {

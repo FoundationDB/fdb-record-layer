@@ -877,6 +877,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Computes a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
+         *
          * @return a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
          */
         @Nonnull
@@ -1827,6 +1828,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
+         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         boolean isErased() {
@@ -2272,6 +2274,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Computes the list of {@link Field} {@link Type}s.
+         *
          * @return the list of {@link Field} {@link Type}s.
          */
         private List<Type> computeElementTypes() {
@@ -2292,6 +2295,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Computes a mapping from {@link Field} names to their {@link Type}s.
+         *
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
         @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -2303,6 +2307,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Compute a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         *
          * @return a mapping from {@link Field} to their ordinal positions in their {@link Type}.
          */
         @Nonnull
@@ -2316,6 +2321,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Compute a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         *
          * @return a mapping from {@link Field} to their ordinal positions in their {@link Type}.
          */
         @Nonnull
@@ -2329,6 +2335,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
+         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         @Override
@@ -2736,6 +2743,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             /**
              * Returns the field {@link Type}.
+             *
              * @return The field {@link Type}.
              */
             @Nonnull
@@ -2794,6 +2802,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             /**
              * Returns the field index.
+             *
              * @return The field index.
              */
             @Nonnull
@@ -2803,6 +2812,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             /**
              * Returns the field index.
+             *
              * @return The field index.
              */
             public int getFieldIndex() {
@@ -3016,6 +3026,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Returns the values {@link Type}.
+         *
          * @return The values {@link Type}.
          */
         @Nullable
@@ -3212,6 +3223,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         /**
          * Returns the array element {@link Type}.
+         *
          * @return The array element {@link Type}.
          */
         @Nullable

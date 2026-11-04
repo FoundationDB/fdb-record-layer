@@ -188,6 +188,7 @@ public class QueryParser {
 
     /**
      * visits the parse tree and throws if it encounters a prepared parameter.
+     *
      * @param context The parse tree of the query.
      */
     public static void validateNoPreparedParams(@Nonnull final ParseTree context) {

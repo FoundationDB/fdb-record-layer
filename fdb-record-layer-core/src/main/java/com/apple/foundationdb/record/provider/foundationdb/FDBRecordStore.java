@@ -423,6 +423,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Get the provider for the record store's meta-data.
+     *
      * @return the meta-data source to use
      */
     @Nullable
@@ -442,6 +443,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Get the {@link RecordMetaData} used by this store.
+     *
      * @return the associated meta-data
      */
     @Override
@@ -495,6 +497,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Method to return the {@link PlanSerializationRegistry} in use.
+     *
      * @return the current {@link PlanSerializationRegistry}
      */
     @Nonnull
@@ -3727,6 +3730,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Clear the store lock state, if exists.
+     *
      * @return a future that clears this lock state
      */
     public CompletableFuture<Void> clearStoreLockStateAsync() {
@@ -4245,6 +4249,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Ensure that subspace provider has cached {@code Subspace} so that calling {@link #getSubspace} will not block.
+     *
      * @return a future that will be complete when the subspace is available
      */
     @Nonnull
@@ -4255,6 +4260,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Loads the current state of the record store asynchronously and caches it in memory so that {@link #getRecordStoreState()} requires no i/o.
+     *
      * @return a future that will be complete when this store has loaded its record store state
      */
     @Nonnull
@@ -4361,6 +4367,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Add a read conflict key so that the transaction will fail if the index state has changed.
+     *
      * @param indexName the index to conflict on, if it's state changes
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -5907,6 +5914,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * Copy state from another store builder.
+         *
          * @param other the record store builder whose state to take
          */
         public final void copyFrom(@Nonnull Builder other) {
@@ -5929,6 +5937,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * Copy state from a record store.
+         *
          * @param store the record store whose state to take
          */
         public final void copyFrom(@Nonnull FDBRecordStore store) {

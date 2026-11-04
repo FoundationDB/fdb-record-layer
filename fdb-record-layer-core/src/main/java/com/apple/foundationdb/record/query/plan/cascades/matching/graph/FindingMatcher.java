@@ -92,6 +92,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
     /**
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     *
      * @return an iterable of {@link AliasMap}s.
      */
     @Nonnull
@@ -102,6 +103,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
     /**
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     *
      * @return an iterable of {@link AliasMap}s.
      */
     @Nonnull

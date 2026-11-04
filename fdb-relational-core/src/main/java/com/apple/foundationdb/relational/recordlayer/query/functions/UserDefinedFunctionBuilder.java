@@ -70,6 +70,7 @@ public final class UserDefinedFunctionBuilder {
 
     /**
      * Creates a new builder, positioned at its first ({@link SignatureStepBuilder}) step.
+     *
      * @return a builder ready to receive the function signature.
      */
     public static SignatureStepBuilder newBuilder() {
@@ -125,6 +126,7 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Freezes the signature and advances to the {@linkplain BodyStepBuilder body step}.
+         *
          * @return the next step, ready to receive the function body.
          */
         BodyStepBuilder seal();
@@ -175,6 +177,7 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Builds the {@link UserDefinedFunction} from all the provided specifications.
+         *
          * @return the newly constructed function.
          */
         UserDefinedFunction build();

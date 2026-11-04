@@ -104,6 +104,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     /**
      * Returns the {@link Type} of the scalar value output.
+     *
      * @return The {@link Type} of the scalar value output.
      */
     @Nonnull

@@ -740,6 +740,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * deletes the file reference under the provided name.
+     *
      * @param name the name for the file reference
      */
     @Override
@@ -1015,6 +1016,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Checks if the pending write queue should be used.
+     *
      * @return true if queue should be used
      */
     public boolean shouldUseQueue() {
@@ -1024,6 +1026,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Checks if the pending write queue should be used.
+     *
      * @return future true if queue should be used
      */
     public CompletableFuture<Boolean> shouldUseQueueAsync() {
@@ -1170,6 +1173,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Get a primary key segment index if enabled.
+     *
      * @return index or {@code null} if not enabled
      */
     @Nullable

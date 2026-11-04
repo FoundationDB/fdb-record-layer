@@ -86,6 +86,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     /**
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
+     *
      * @param action consumer to invoke
      */
     static void withDebugger(@Nonnull final Consumer<Debugger> action) {
@@ -115,6 +116,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     /**
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
+     *
      * @param runnable to invoke that may throw an exception
      */
     static void sanityCheck(@Nonnull final Runnable runnable) {

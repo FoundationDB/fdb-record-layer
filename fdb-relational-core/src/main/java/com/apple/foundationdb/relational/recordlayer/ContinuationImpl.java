@@ -222,6 +222,7 @@ public final class ContinuationImpl implements Continuation {
 
     /**
      * Factory method to create a new {@link ContinuationBuilder}.
+     *
      * @return a newly created continuation builder
      */
     public static ContinuationBuilder newBuilder() {

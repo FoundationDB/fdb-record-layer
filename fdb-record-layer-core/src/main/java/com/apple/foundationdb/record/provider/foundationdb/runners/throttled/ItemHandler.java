@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A handler of an item during the iteration of a {@link ThrottledRetryingIterator}.
+ *
  * @param <T> the type of element in the iteration
  */
 @API(API.Status.EXPERIMENTAL)

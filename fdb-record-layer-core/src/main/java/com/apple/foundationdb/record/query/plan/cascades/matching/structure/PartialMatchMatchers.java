@@ -38,6 +38,7 @@ public class PartialMatchMatchers {
 
     /**
      * Matches any {@link PartialMatch}.
+     *
      * @return a matcher matching any partial match
      */
     @Nonnull
@@ -48,6 +49,7 @@ public class PartialMatchMatchers {
 
     /**
      * Matches any {@link PartialMatch} that is complete.
+     *
      * @return a matcher matching any partial match that is complete
      */
     @Nonnull
@@ -71,6 +73,7 @@ public class PartialMatchMatchers {
 
     /**
      * Matches any {@link PartialMatch} that is not yet complete.
+     *
      * @return a matcher matching any partial match that is incomplete
      */
     @Nonnull

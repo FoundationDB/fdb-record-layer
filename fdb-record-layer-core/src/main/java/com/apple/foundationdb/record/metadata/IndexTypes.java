@@ -67,6 +67,7 @@ public class IndexTypes {
 
     /**
      * Compatible name for {@link #MIN_EVER_LONG}.
+     *
      * @deprecated use {@link #MIN_EVER_LONG} for compatibility with existing data or {@link #MIN_EVER_TUPLE} for more flexibility
      */
     @Deprecated
@@ -75,6 +76,7 @@ public class IndexTypes {
 
     /**
      * Compatible name for {@link #MAX_EVER_LONG}.
+     *
      * @deprecated use {@link #MAX_EVER_LONG} for compatibility with existing data or {@link #MAX_EVER_TUPLE} for more flexibility
      */
     @Deprecated

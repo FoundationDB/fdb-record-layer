@@ -99,6 +99,7 @@ public class CursorLimitManager {
 
     /**
      * Report whether any limit handled by this manager has been exceeded.
+     *
      * @return <code>true</code> if any limit has been exceeded and <code>false</code> otherwise
      */
     public boolean isStopped() {
@@ -150,6 +151,7 @@ public class CursorLimitManager {
 
     /**
      * Record that the specified number of bytes have been scanned and update the relevant limiters with this information.
+     *
      * @param byteSize the number of bytes scanned
      */
     public void reportScannedBytes(long byteSize) {

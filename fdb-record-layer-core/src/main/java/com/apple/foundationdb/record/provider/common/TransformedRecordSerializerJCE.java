@@ -34,6 +34,7 @@ import java.security.SecureRandom;
 
 /**
  * An extension of {@link TransformedRecordSerializer} to use JCE to encrypt and decrypt records.
+ *
  * @param <M> type of {@link Message} that underlying records will use
  */
 @API(API.Status.UNSTABLE)

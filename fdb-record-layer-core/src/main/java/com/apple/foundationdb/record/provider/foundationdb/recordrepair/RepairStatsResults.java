@@ -46,6 +46,7 @@ public class RepairStatsResults {
 
     /**
      * Get the stats collected during the validation process.
+     *
      * @return A Map of error code to a count of the times that this code was encountered
      */
     @Nonnull
@@ -55,6 +56,7 @@ public class RepairStatsResults {
 
     /**
      * Return an exception (if caught) during the iteration (in which case the iteration may be incomplete).
+     *
      * @return an exception caught (if any)
      */
     @Nullable

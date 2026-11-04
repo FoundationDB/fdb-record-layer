@@ -87,6 +87,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
     /**
      * Method to pop and return the top of the states stack.
+     *
      * @return the currentState
      */
     public VisitorState pop() {

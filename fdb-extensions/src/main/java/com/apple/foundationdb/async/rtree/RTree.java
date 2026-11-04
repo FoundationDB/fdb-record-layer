@@ -463,6 +463,7 @@ public class RTree {
 
     /**
      * Get the {@link StorageAdapter} used to manage this r-tree.
+     *
      * @return r-tree subspace
      */
     @Nonnull
@@ -472,6 +473,7 @@ public class RTree {
 
     /**
      * Get the executer used by this r-tree.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -481,6 +483,7 @@ public class RTree {
 
     /**
      * Get this r-tree's configuration.
+     *
      * @return r-tree configuration
      */
     @Nonnull
@@ -1725,6 +1728,7 @@ public class RTree {
 
     /**
      * Method to validate the Hilbert R-tree.
+     *
      * @param db the database to use
      */
     public void validate(@Nonnull final Database db) {

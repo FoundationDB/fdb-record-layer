@@ -82,6 +82,7 @@ public class ProtoUtils {
 
     /**
      * Generates a JVM-wide unique type name.
+     *
      * @return a unique type name.
      */
     public static String uniqueTypeName() {

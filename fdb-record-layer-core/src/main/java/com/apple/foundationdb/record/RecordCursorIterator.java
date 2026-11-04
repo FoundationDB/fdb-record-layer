@@ -80,6 +80,7 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
 
     /**
      * Synchronously check whether there are more records available from the cursor.
+     *
      * @return {@code} true if {@link #next()} would return a record and {@code false} otherwise
      */
     @Override

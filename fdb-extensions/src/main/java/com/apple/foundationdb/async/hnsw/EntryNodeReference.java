@@ -57,6 +57,7 @@ class EntryNodeReference extends NodeReferenceWithVector {
 
     /**
      * Gets the layer value for this object.
+     *
      * @return the integer representing the layer
      */
     public int getLayer() {

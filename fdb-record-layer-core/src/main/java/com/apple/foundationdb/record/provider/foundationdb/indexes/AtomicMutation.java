@@ -41,6 +41,7 @@ public interface AtomicMutation {
 
     /**
      * Get the underlying mutation performed by the FDB API.
+     *
      * @return the underlying mutation type
      */
     @Nonnull
@@ -86,12 +87,14 @@ public interface AtomicMutation {
 
     /**
      * Determine whether this type aggregates exactly one value.
+     *
      * @return {@code true} if only a single value is allowed
      */
     boolean hasSingleValue();
 
     /**
      * Determine whether this type aggregates long (integer) values.
+     *
      * @return {@code true} if only a long value is allowed
      */
     boolean hasLongValue();
@@ -116,6 +119,7 @@ public interface AtomicMutation {
 
     /**
      * Get a value that causes the index entry to be removed if the result of the mutation matches.
+     *
      * @return a byte array to pass to {@code COMPARE_AND_CLEAR} or {@code null} to do nothing for this mutation
      */
     @Nullable

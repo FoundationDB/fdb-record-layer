@@ -96,6 +96,7 @@ public interface Parameter {
 
     /**
      * Returns the {@link String} that is the textual SQL representation of the value of this parameter.
+     *
      * @return the string
      */
     @Nonnull

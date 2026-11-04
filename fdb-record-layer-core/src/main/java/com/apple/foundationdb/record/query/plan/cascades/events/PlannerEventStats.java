@@ -99,6 +99,7 @@ public class PlannerEventStats {
 
     /**
      * Return an immutable copy of this instance.
+     *
      * @return an immutable instance of {@link PlannerEventStats}.
      */
     @Nonnull

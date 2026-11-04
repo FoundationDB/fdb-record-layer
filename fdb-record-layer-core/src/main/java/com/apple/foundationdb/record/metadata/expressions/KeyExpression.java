@@ -307,6 +307,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Returns the number of version columns produced by this key expression.
+     *
      * @return the number of version columns
      */
     default int versionColumns() {
@@ -315,6 +316,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Check whether a key expression uses record type key in some way.
+     *
      * @return {@code true} if record type key is used
      */
     default boolean hasRecordTypeKey() {

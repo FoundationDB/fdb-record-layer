@@ -82,6 +82,7 @@ public class PlannerEventStatsMaps {
 
     /**
      * Retrieves statistics about all {@link PlannerEvent}s associated with a certain planner {@link CascadesRule}.
+     *
      * @return a {@link Map} of {@link CascadesRule} classes to {@link PlannerEventStats} instances.
      */
     @Nonnull

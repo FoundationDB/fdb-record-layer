@@ -34,12 +34,14 @@ import java.io.InputStream;
 public interface SynonymMapConfig {
     /**
      * Get the name of the synonymMap to build.
+     *
      * @return the name
      */
     String getName();
 
     /**
      * Get solr format input stream to build the synonymMap.
+     *
      * @return the input stream
      */
     InputStream getSynonymInputStream();

@@ -94,6 +94,7 @@ public class FDBClientLogEvents {
 
     /**
      * Asynchronous callback.
+     *
      * @param <T> type of the callback argument
      */
     @FunctionalInterface
@@ -129,6 +130,7 @@ public class FDBClientLogEvents {
 
         /**
          * Get start timestamp formatted for the local time zone.
+         *
          * @return a printable timestamp
          */
         public String getStartTimestampString() {
@@ -163,6 +165,7 @@ public class FDBClientLogEvents {
     public interface EventConsumer extends AsyncConsumer<Event> {
         /**
          * Determine whether to continue processing events.
+         *
          * @return {@code true} if more events should be processed
          */
         default boolean more() {

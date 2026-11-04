@@ -166,6 +166,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         /**
          * Create an scrubbing policy builder.
+         *
          * @return a new {@link ScrubbingPolicy} builder
          */
         @Nonnull
@@ -366,6 +367,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         /**
          * Build an {@link OnlineIndexScrubber}.
+         *
          * @return a new online indexer
          */
         public OnlineIndexScrubber build() {

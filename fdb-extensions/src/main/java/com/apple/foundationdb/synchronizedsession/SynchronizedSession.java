@@ -156,6 +156,7 @@ public class SynchronizedSession {
 
     /**
      * Get session ID.
+     *
      * @return session ID
      */
     @Nonnull

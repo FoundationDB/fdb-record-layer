@@ -111,6 +111,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Set dependencies upon which record descriptors may depend.
+     *
      * @param dependencies array of descriptors that record descriptors might depend on
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
@@ -218,6 +219,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Set whether this store keeps a record of older versions.
+     *
      * @param maintainHistory {@code true} if this store should maintain a history
      */
     public void setMaintainHistory(boolean maintainHistory) {
@@ -706,6 +708,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index on all record types.
+     *
      * @param index the index to be added
      */
     public void addUniversalIndex(@Nonnull Index index) {
@@ -729,6 +732,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Remove the given index from the record meta-data.
+     *
      * @param indexName the name of the index to be removed
      */
     public void dropIndex(@Nonnull String indexName) {

@@ -147,6 +147,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
 
     /**
      * Get the list of joins for this joined record type.
+     *
      * @return the list of joins
      */
     @Nonnull

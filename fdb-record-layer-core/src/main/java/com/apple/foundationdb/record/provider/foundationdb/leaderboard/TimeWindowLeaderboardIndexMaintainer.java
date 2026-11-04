@@ -85,6 +85,7 @@ import java.util.stream.Collectors;
 
 /**
  * Maintainer for the <code>TIME_WINDOW_LEADERBOARD</code> index type.
+ *
  * @see com.apple.foundationdb.record.provider.foundationdb.leaderboard for details of how this works.
  */
 @API(API.Status.EXPERIMENTAL)

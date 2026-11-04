@@ -90,6 +90,7 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Gets the parent {@code NeighborsChangeSet} from which this change set was derived.
+     *
      * @return the parent {@link NeighborsChangeSet}, which is never {@code null}.
      */
     @Nonnull

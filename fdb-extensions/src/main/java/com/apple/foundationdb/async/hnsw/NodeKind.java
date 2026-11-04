@@ -48,6 +48,7 @@ public enum NodeKind {
 
     /**
      * Constructs a new {@code NodeKind} instance with its serialized representation.
+     *
      * @param serialized the byte value used for serialization
      */
     NodeKind(final byte serialized) {

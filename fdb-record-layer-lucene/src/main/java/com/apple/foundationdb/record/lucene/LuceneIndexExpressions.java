@@ -272,6 +272,7 @@ public class LuceneIndexExpressions {
 
     /**
      * An actual record / record meta-data.
+     *
      * @param <T> the actual type of this source
      */
     public interface RecordSource<T extends RecordSource<T>> {
@@ -287,6 +288,7 @@ public class LuceneIndexExpressions {
 
     /**
      * An actual document / document meta-data.
+     *
      * @param <T> the actual type of the source
      */
     public interface DocumentDestination<T extends RecordSource<T>> {

@@ -28,30 +28,35 @@ import javax.annotation.Nonnull;
 
 /**
  * Information about how a record is stored in the database.
+ *
  * @see FDBStoredRecord
  */
 @API(API.Status.UNSTABLE)
 public interface FDBStoredSizes {
     /**
      * Get the number of keys used to store this record.
+     *
      * @return number of keys
      */
     int getKeyCount();
 
     /**
      * Get the size in bytes of all keys used to store this record.
+     *
      * @return size in bytes
      */
     int getKeySize();
 
     /**
      * Get the size in bytes of all values used to store this record. 
+     *
      * @return size in bytes
      */
     int getValueSize();
 
     /**
      * Get whether this record is split between two or more key-value pairs.
+     *
      * @return {@code true} if split
      */
     boolean isSplit();

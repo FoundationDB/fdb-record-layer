@@ -61,6 +61,7 @@ public class TupleOrdering {
 
         /**
          * Get whether the byte ordering is inverted, that is, the opposite of the default unordered byte comparison of packed {@code Tuple}s.
+         *
          * @return {@code true} if byte order is inverted
          */
         public boolean isInverted() {
@@ -69,6 +70,7 @@ public class TupleOrdering {
 
         /**
          * Get whether {@code null} values sort at the opposite end as in the default {@code Tuple} packing.
+         *
          * @return {@code true} if nulls come at the end when ascending
          */
         public boolean isCounterflowNulls() {
@@ -77,6 +79,7 @@ public class TupleOrdering {
 
         /**
          * Returns a string that symbolizes the meaning of this enum constant.
+         *
          * @return the arrow indicator
          */
         public String getArrowIndicator() {

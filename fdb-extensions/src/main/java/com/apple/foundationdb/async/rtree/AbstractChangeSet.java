@@ -56,6 +56,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
 
     /**
      * Previous change set in the chain of change sets. Can be {@code null} if there is no previous change set.
+     *
      * @return the previous change set in the chain of change sets
      */
     @Nullable
@@ -65,6 +66,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
 
     /**
      * The node this change set applies to.
+     *
      * @return the node this change set applies to
      */
     @Nonnull

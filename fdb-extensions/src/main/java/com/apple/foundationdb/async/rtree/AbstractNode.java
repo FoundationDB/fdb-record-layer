@@ -76,6 +76,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
 
     /**
      * Return the slots of this node as a list. Note that the result type is covariant.
+     *
      * @return a list of node slots
      */
     @Nonnull
@@ -86,6 +87,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
 
     /**
      * Return a sub range of the slots of this node as a list. Note that the result type is covariant.
+     *
      * @return a list of node slots
      */
     @Nonnull

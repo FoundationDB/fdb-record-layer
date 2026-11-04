@@ -860,6 +860,7 @@ public class Comparisons {
 
         /**
          * Get the comparison value without any bindings.
+         *
          * @return the value to be compared
          */
         @Nullable
@@ -889,6 +890,7 @@ public class Comparisons {
 
         /**
          * Get the printed representation of the comparison less the comparison operator itself.
+         *
          * @return the typeless string
          */
         @Nonnull

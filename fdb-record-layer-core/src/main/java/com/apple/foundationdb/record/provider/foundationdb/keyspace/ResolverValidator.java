@@ -305,6 +305,7 @@ public class ResolverValidator {
 
         /**
          * The value for the key in the mapping.
+         *
          * @return the value for the key in the mapping
          */
         @Nonnull

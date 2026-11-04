@@ -195,6 +195,7 @@ public class Field {
 
     /**
      * Returns true if the field has not been set and uses the default value.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -204,6 +205,7 @@ public class Field {
 
     /**
      * Returns true if the field does not use the default value.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -213,6 +215,7 @@ public class Field {
 
     /**
      * Returns true if the repeated field does not have any occurrences.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -222,6 +225,7 @@ public class Field {
 
     /**
      * Returns true if the repeated field has occurrences.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull

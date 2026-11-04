@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 interface MetricDefinition {
     /**
      * Method to be implemented by the specific metric.
+     *
      * @return {@code true} iff for all {@link RealVector}s {@code x} holds that {@code distance(x, x) == 0}
      */
     default boolean satisfiesZeroSelfDistance() {
@@ -40,6 +41,7 @@ interface MetricDefinition {
 
     /**
      * Method to be implemented by the specific metric.
+     *
      * @return {@code true} iff for all {@link RealVector}s {@code x, y} holds that {@code distance(x, y) >= 0}
      */
     default boolean satisfiesPositivity() {
@@ -78,6 +80,7 @@ interface MetricDefinition {
 
     /**
      * Convenience method that returns if all properties of a metric required to be a <i>true</i> metric are satisfied.
+     *
      * @return {@code true} iff this metric is a true metric.
      */
     default boolean isTrueMetric() {

@@ -55,6 +55,7 @@ public interface TranslateValueFunction {
 
     /**
      * Shorthand for a function that never translates any value successfully.
+     *
      * @return a translation function that never translates any given value successfully
      */
     static TranslateValueFunction unableToTranslate() {

@@ -75,6 +75,7 @@ public interface RealVector {
 
     /**
      * Returns the number of elements in the vector, i.e. the number of dimensions.
+     *
      * @return the number of dimensions
      */
     int getNumDimensions();

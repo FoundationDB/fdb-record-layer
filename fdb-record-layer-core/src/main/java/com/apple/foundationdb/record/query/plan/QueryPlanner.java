@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 public interface QueryPlanner {
     /**
      * Preference between index scan and record scan.
+     *
      * @see #setIndexScanPreference
      */
     enum IndexScanPreference {
@@ -108,6 +109,7 @@ public interface QueryPlanner {
 
     /**
      * Get the {@link RecordMetaData} for this planner.
+     *
      * @return the meta-data
      */
     @Nonnull
@@ -115,6 +117,7 @@ public interface QueryPlanner {
 
     /**
      * Get the {@link RecordStoreState} for this planner.
+     *
      * @return the record store state
      */
     @Nonnull

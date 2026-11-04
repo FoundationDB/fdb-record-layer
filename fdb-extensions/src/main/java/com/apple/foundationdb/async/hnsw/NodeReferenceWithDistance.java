@@ -61,6 +61,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
 
     /**
      * Gets the distance.
+     *
      * @return the current distance value
      */
     public double getDistance() {
@@ -90,6 +91,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
 
     /**
      * Generates a hash code for this object.
+     *
      * @return a hash code value for this object.
      */
     @Override

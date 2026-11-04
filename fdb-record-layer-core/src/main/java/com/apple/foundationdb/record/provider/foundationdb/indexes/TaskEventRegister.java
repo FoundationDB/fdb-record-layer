@@ -37,12 +37,14 @@ import java.util.List;
 interface TaskEventRegister {
     /**
      * Records that a deferred maintenance task was enqueued in {@code transaction}.
+     *
      * @param transaction the transaction the enqueue happened in
      */
     void onTaskEnqueued(@Nonnull Transaction transaction);
 
     /**
      * Records that a deferred maintenance task was executed (and thereby removed from the queue) in {@code transaction}.
+     *
      * @param transaction the transaction the execution happened in
      */
     void onTaskExecuted(@Nonnull Transaction transaction);

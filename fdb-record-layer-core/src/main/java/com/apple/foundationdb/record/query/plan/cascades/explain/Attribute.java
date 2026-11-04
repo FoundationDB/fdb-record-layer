@@ -42,6 +42,7 @@ public interface Attribute {
 
     /**
      * Return the underlying object this attribute refers to.
+     *
      * @return the object.
      */
     @Nonnull

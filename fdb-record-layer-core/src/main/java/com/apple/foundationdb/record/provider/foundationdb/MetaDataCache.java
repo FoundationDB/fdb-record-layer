@@ -54,6 +54,7 @@ public interface MetaDataCache {
 
     /**
      * Get cached {@link RecordMetaData} object. For instance, from a Guava cache.
+     *
      * @return any cached meta-data
      */
     @Nullable
@@ -63,6 +64,7 @@ public interface MetaDataCache {
 
     /**
      * Get cached serialized meta-data. For instance, from Memcache.
+     *
      * @return any cached serialized form
      */
     @Nullable

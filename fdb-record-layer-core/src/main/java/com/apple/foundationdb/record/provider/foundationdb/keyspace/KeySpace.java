@@ -145,6 +145,7 @@ public class KeySpace {
 
     /**
      * Returns the available root directories in the <code>KeySpace</code>.
+     *
      * @return a list of root directories
      */
     @Nonnull

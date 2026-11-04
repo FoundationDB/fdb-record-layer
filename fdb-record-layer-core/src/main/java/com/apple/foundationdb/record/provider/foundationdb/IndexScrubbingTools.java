@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Index Scrubbing Toolbox for a specific index maintainer.
+ *
  * @param <T> the iteration type
  */
 @API(API.Status.EXPERIMENTAL)

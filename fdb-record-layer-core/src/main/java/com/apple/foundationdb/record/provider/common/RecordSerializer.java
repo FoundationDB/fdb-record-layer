@@ -34,6 +34,7 @@ import java.util.Objects;
 
 /**
  * A converter between a Protobuf record and a byte string stored in one or more values in the FDB key-value store.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)

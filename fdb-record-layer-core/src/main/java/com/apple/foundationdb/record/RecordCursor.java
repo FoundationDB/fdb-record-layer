@@ -284,6 +284,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Return the entire stream of records as an asynchronous list.
+     *
      * @return a future that when complete has a list with all remaining records.
      */
     @Nonnull
@@ -313,6 +314,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Count the number of records remaining.
+     *
      * @return a future that completes to the number of records in the cursor
      */
     @Nonnull

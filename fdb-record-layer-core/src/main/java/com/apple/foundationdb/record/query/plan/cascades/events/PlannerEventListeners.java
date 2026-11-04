@@ -56,6 +56,7 @@ public final class PlannerEventListeners {
 
     /**
      * Remove the {@link EventListener} instance associated with the provided {@code listenerClass}, if it is set.
+     *
      * @param listenerClass the listener class to remove the listener instance of.
      */
     public static void removeListener(@Nonnull final Class<? extends EventListener> listenerClass) {
@@ -82,6 +83,7 @@ public final class PlannerEventListeners {
 
     /**
      * Runs the {@link Runnable} in case any {@link EventListener}s exist.
+     *
      * @param runnable the {@link Runnable} to run.
      */
     public static void withListeners(@Nonnull final Runnable runnable) {

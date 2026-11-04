@@ -366,6 +366,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Increment deleted item number by count.
+         *
          * @param count the number of items to increment deleted count by
          */
         public void deleteCountAdd(int count) {
@@ -569,6 +570,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Create the iterator.
+         *
          * @return the newly minted iterator
          */
         public ThrottledRetryingIterator<T> build() {

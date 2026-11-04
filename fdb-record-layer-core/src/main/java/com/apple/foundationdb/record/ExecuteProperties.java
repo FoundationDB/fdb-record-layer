@@ -120,6 +120,7 @@ public class ExecuteProperties {
 
     /**
      * Get the limit on the number of rows that will be returned as it would be passed to FDB.
+     *
      * @return the limit or {@link ReadTransaction#ROW_LIMIT_UNLIMITED} if there is no limit.
      */
     public int getReturnedRowLimit() {
@@ -191,6 +192,7 @@ public class ExecuteProperties {
 
     /**
      * Build a new <code>ExecuteProperties</code> with an empty state.
+     *
      * @return a new properties object with an empty state
      */
     @Nonnull
@@ -225,6 +227,7 @@ public class ExecuteProperties {
 
     /**
      * Clear the returned row limit and time limit. Does not clear the skip.
+     *
      * @return a new <code>ExecuteProperties</code> without the returned row and time limits
      */
     @Nonnull
@@ -237,6 +240,7 @@ public class ExecuteProperties {
 
     /**
      * Clear the skip and returned row limit, but no other limits.
+     *
      * @return a new <code>ExecuteProperties</code> without the skip and returned row limit
      */
     @Nonnull
@@ -249,6 +253,7 @@ public class ExecuteProperties {
 
     /**
      * Remove any skip count and adjust the limit to include enough rows that we can skip those and then apply the current limit.
+     *
      * @return a new properties without skip and with an adjusted limit
      */
     @Nonnull
@@ -262,6 +267,7 @@ public class ExecuteProperties {
 
     /**
      * Get the limit on the number of rows that will be returned as could be used for counting.
+     *
      * @return the limit or {@link Integer#MAX_VALUE} if there is no limit.
      */
     public int getReturnedRowLimitOrMax() {
@@ -294,6 +300,7 @@ public class ExecuteProperties {
 
     /**
      * Get the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+     *
      * @return the default streaming mode
      */
     public CursorStreamingMode getDefaultCursorStreamingMode() {

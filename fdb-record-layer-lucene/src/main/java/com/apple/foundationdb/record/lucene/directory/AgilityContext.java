@@ -81,6 +81,7 @@ public interface AgilityContext {
 
     /**
      * `accept` should be called when a returned value is not expected. Performed under appropriate lock.
+     *
      * @param function a function that accepts context
      */
     void accept(Consumer<FDBRecordContext> function);
@@ -128,6 +129,7 @@ public interface AgilityContext {
 
     /**
      * This function returns the caller's context. If called by external entities, it should only be used for testing.
+     *
      * @return caller's context
      */
     @Nonnull

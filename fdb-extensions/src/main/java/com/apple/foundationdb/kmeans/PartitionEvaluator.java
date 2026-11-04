@@ -777,6 +777,7 @@ public class PartitionEvaluator {
 
         /**
          * Returns the number of clusters in this partitioning, i.e. {@code centroids.size()}.
+         *
          * @return the number of centroids {@code k} in this partition.
          */
         @SuppressWarnings("checkstyle:MethodName")

@@ -56,6 +56,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Shorthand-type for the extended functional interface.
+     *
      * @param <T> any type
      */
     public interface ComponentIdProvider<T> extends Function<T, String> {
@@ -63,6 +64,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Shorthand-type for the extended functional interface.
+     *
      * @param <T> any type
      */
     public interface ComponentAttributeProvider<T> extends Function<T, Map<String, Attribute>> {
@@ -319,6 +321,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Render all edges in a given network.
+     *
      * @param context the context to use
      */
     protected void renderEdges(@Nonnull final ExporterContext context) {

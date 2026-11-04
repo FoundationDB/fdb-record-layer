@@ -513,6 +513,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     /**
      * Method that resolves the result type by looking and unifying the result types from all the members.
+     *
      * @return {@link Type} representing result type
      */
     @Nonnull

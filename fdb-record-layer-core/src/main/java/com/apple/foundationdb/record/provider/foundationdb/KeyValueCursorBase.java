@@ -54,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * The base class for cursors scanning ranges of the FDB database.
+ *
  * @param <K> the type of the KeyValue that this cursor iterates over
  */
 @API(API.Status.UNSTABLE)

@@ -98,6 +98,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     /**
      * A <code>RecordType</code> expression with no grouping keys (mostly for evaluating record functions).
+     *
      * @return a {@link GroupingKeyExpression} with no grouping keys
      */
     @Nonnull

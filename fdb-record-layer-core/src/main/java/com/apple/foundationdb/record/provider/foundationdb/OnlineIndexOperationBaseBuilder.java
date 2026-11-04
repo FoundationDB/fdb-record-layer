@@ -69,6 +69,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the runner that will be used to call into the database.
+     *
      * @return the runner that connects to the target database
      */
     @Nullable
@@ -109,6 +110,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the record store builder that will be used to open record store instances for indexing.
+     *
      * @return the record store builder
      */
     @Nullable
@@ -150,6 +152,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the function used by the online indexer to load the config parameters on fly.
+     *
      * @return the function
      */
     @Nullable
@@ -304,6 +307,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the timer used during the online index operation.
+     *
      * @return the timer or <code>null</code> if none is set
      */
     @Nullable
@@ -331,6 +335,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the logging context used during the online index operation.
+     *
      * @return the logging context of <code>null</code> if none is set
      */
     @Nullable

@@ -42,6 +42,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
 
     /**
      * Method to return the (immutable) current state.
+     *
      * @return the current state of type {@code S}
      */
     S getCurrentState();

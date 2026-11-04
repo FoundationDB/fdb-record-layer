@@ -402,6 +402,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the number of times the configuration was loaded.
+     *
      * @return the number of times the {@code configLoader} was invoked
      */
     @VisibleForTesting
@@ -411,6 +412,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the number of indexing attempts that were made during the last indexing operation.
+     *
      * @return the number of indexing attempts
      */
     @VisibleForTesting
@@ -508,6 +510,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
+     *
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public boolean checkAnyOngoingOnlineIndexBuilds() {
@@ -516,6 +519,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     *
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
@@ -922,6 +926,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Build an {@link OnlineIndexer}.
+         *
          * @return a new online indexer
          */
         public OnlineIndexer build() {
@@ -1115,6 +1120,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Check if active.
+         *
          * @return True if active
          */
         public boolean isByIndex() {
@@ -1123,6 +1129,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If active, get the source index.
+         *
          * @return source index name
          */
         @Nullable
@@ -1137,6 +1144,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If another indexing method is not possible, indicate if a fallback to records scan is forbidden.
+         *
          * @return  {@code true} if a record scan is forbidden
          */
         public boolean isForbidRecordScan() {
@@ -1145,6 +1153,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * In this mode, assume concurrently indexing with other entities.
+         *
          * @return true if mutual
          */
         public boolean isMutual() {
@@ -1153,6 +1162,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create an indexing policy builder.
+         *
          * @return a new {@link IndexingPolicy} builder
          */
         @Nonnull
@@ -1162,6 +1172,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create an indexing policy builder from existing object.
+         *
          * @return an {@link IndexingPolicy} builder, defaulted to the existing object's values.
          */
         @Nonnull
@@ -1189,6 +1200,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is disabled.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfDisabled() {
@@ -1197,6 +1209,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in write only mode.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfWriteOnly() {
@@ -1205,6 +1218,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in partly built, but the requested policy mismatches the previous one.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfMismatchPrevious() {
@@ -1213,6 +1227,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in readable mode (i.e. already built).
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfReadable() {
@@ -1319,6 +1334,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get caller's request to scan records in reverse order while indexing.
+         *
          * @return true if reverse scan order was requested
          */
         public boolean isReverseScanOrder() {
@@ -1448,6 +1464,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Same as calling {@link #setForbidRecordScan(boolean)} with the value {@code true}.
+             *
              * @return this builder
              */
             public Builder forbidRecordScan() {
@@ -1510,6 +1527,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #allowUniquePendingState(boolean)} with default true.
+             *
              * @return this builder
              */
             public Builder allowUniquePendingState() {
@@ -1535,6 +1553,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #allowTakeoverContinue(boolean)} with default true.
+             *
              * @return this builder
              */
             public Builder allowTakeoverContinue() {
@@ -1579,6 +1598,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #setMutualIndexing(boolean)} with default true.
+             *
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
@@ -1744,6 +1764,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Create an online indexer builder.
+     *
      * @return a new online indexer builder
      */
     @Nonnull

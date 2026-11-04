@@ -1556,6 +1556,7 @@ public class Ordering {
 
     /**
      * Merge operator for orderings.
+     *
      * @param <O> the type of the resulting ordering
      */
     public interface MergeOperator<O extends SetOperationsOrdering> {

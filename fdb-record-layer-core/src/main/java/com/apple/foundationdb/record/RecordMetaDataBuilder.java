@@ -1187,6 +1187,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a new index on all record types.
+     *
      * @param index the index to be added
      */
     public void addUniversalIndex(@Nonnull Index index) {
@@ -1329,6 +1330,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Checks if counter-based subspace key assignment is used.
+     *
      * @return {@code true} if the subspace key counter is used
      */
     public boolean usesSubspaceKeyCounter() {
@@ -1373,6 +1375,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * If there is only one record type, get it.
+     *
      * @return the only type defined for this store.
      */
     @Nonnull
@@ -1385,6 +1388,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Get the index registry used for validation.
+     *
      * @return the index maintainer registry
      */
     @Nonnull
@@ -1452,6 +1456,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Build and validate meta-data.
+     *
      * @return new validated meta-data
      */
     @Nonnull

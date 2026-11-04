@@ -203,6 +203,7 @@ public class ConstraintsMap {
 
     /**
      * Method to establish whether this map is explored.
+     *
      * @return {@code true} if further (re-)exploration is required, {@code false} otherwise.
      */
     public boolean isExplored() {
@@ -222,6 +223,7 @@ public class ConstraintsMap {
 
     /**
      * This method indicates whether a reference containing this map has not been explored yet.
+     *
      * @return {@code true} if the associated reference has not been explored yet, {@code false} otherwise.
      */
     public boolean hasNeverBeenExplored() {
@@ -318,6 +320,7 @@ public class ConstraintsMap {
 
     /**
      * Method to inherit all state from another constraints map.
+     *
      * @param otherConstraintsMap the other constraints map
      */
     public void inheritFromOther(@Nonnull final ConstraintsMap otherConstraintsMap) {

@@ -261,6 +261,7 @@ public class Query {
 
     /**
      * A record function that can be used to determine the version of a record.
+     *
      * @return a record function that evaluates the version of the record
      */
     @Nonnull

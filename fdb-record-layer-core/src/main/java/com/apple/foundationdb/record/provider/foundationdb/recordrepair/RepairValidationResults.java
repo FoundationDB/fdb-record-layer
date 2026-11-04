@@ -63,6 +63,7 @@ public class RepairValidationResults {
 
     /**
      * The exception caught by the operation, if any.
+     *
      * @return the throwable caught by the operation, if any.
      */
     @Nullable

@@ -63,6 +63,7 @@ import java.util.function.Function;
 public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Get the database against which functions are run.
+     *
      * @return the database used to run
      */
     @Nonnull
@@ -79,12 +80,14 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Set the configuration used in record contexts opened by this runner.
+     *
      * @param contextConfigBuilder configuration to use
      */
     void setContextConfigBuilder(FDBRecordContextConfig.Builder contextConfigBuilder);
 
     /**
      * Get the executor that will be used for {@link #runAsync}.
+     *
      * @return the executor to use
      */
     Executor getExecutor();
@@ -100,6 +103,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the timer used in record contexts opened by this runner.
+     *
      * @return timer to use
      */
     @Nullable
@@ -119,6 +123,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the logging context used in record contexts opened by this runner.
+     *
      * @return the logging context to use
      */
     @Nullable
@@ -139,6 +144,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the read semantics used in record contexts opened by this runner.
+     *
      * @return allowable staleness parameters if caching read versions
      */
     @Nullable

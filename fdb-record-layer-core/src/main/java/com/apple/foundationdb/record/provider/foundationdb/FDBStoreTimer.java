@@ -74,6 +74,7 @@ public class FDBStoreTimer extends StoreTimer {
         BATCH_GET_READ_VERSION("batch priority get read version"),
         /**
          * The amount of time injected by the client prior to getting a read version.
+         *
          * @see FDBDatabase#getLatencyToInject(FDBLatencySource)
          */
         INJECTED_GET_READ_VERSION_LATENCY("injected get read version latency"),
@@ -86,6 +87,7 @@ public class FDBStoreTimer extends StoreTimer {
         COMMIT("commit transaction"),
         /**
          * The amount of time injected into committing transactions.
+         *
          * @see FDBDatabase#getLatencyToInject(FDBLatencySource)
          */
         INJECTED_COMMIT_LATENCY("injected commit latency"),

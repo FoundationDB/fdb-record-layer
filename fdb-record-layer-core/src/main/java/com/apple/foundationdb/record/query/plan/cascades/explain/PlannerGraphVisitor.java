@@ -84,6 +84,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Helper class to provide an incrementing integer identifier per use.
+     *
      * @param <T> the class of the component the {@code apply} method generates an identifier for.
      */
     private static class CountingIdProvider<T> implements ComponentIdProvider<T> {
@@ -98,6 +99,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Validate the flags upon instance creations.
+     *
      * @param flags the flags to validate
      */
     private static boolean validateFlags(final int flags) {

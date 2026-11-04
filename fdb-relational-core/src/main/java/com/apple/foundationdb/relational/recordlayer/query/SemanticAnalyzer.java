@@ -1049,6 +1049,7 @@ public class SemanticAnalyzer {
 
     /**
      * validates that a SQL {@code LIMIT} expression is within allowed limits of {@code [1, Integer.MAX_VALUE]}.
+     *
      * @param expression The {@code LIMIT} literal expression.
      */
     public static void validateLimit(@Nonnull Expression expression) {

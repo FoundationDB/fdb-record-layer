@@ -50,6 +50,7 @@ public class KeySpacePathSerializer {
 
     /**
      * Constructor a new serializer for serializing relative to a given root path.
+     *
      * @param root a path which is a parent path of all the data you want to serialize
      */
     public KeySpacePathSerializer(@Nonnull final KeySpacePath root) {

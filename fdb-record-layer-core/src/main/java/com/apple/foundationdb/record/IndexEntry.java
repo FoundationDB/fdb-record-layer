@@ -166,6 +166,7 @@ public class IndexEntry {
 
     /**
      * Validate that this entry is associated with the given index.
+     *
      * @param index the index this entry should be a member of
      */
     @API(API.Status.INTERNAL)

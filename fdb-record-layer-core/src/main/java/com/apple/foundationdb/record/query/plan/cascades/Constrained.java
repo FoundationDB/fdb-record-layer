@@ -27,11 +27,13 @@ import javax.annotation.Nonnull;
 
 /**
  * A container that can carry a {@link QueryPlanConstraint}.
+ *
  * @param <T> type parameter of the type of object this container wraps.
  */
 public interface Constrained<T> {
     /**
      * Method that returns the wrapped object.
+     *
      * @return the wrapped object
      */
     @Nonnull

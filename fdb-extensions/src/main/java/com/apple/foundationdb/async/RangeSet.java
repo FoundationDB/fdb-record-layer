@@ -629,6 +629,7 @@ public class RangeSet {
 
     /**
      * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
+     *
      * @param tr transaction with which to run the operation
      */
     public void clear(@Nonnull Transaction tr) {

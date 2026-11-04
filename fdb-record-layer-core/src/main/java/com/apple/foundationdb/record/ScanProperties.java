@@ -53,6 +53,7 @@ public class ScanProperties {
 
     /**
      * Creates scan properties.
+     *
      * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
      */
     public ScanProperties(@Nonnull ExecuteProperties executeProperties) {
@@ -84,6 +85,7 @@ public class ScanProperties {
 
     /**
      * Get direction of scans.
+     *
      * @return {@code true} if scan is in reverse order
      */
     public boolean isReverse() {
@@ -92,6 +94,7 @@ public class ScanProperties {
 
     /**
      * Get execute properties for this scan properties.
+     *
      * @return execute properties for this scan properties.
      */
     @Nonnull
@@ -126,6 +129,7 @@ public class ScanProperties {
 
     /**
      * Get cursor streaming mode.
+     *
      * @return cursor streaming mode
      */
     @Nonnull

@@ -93,6 +93,7 @@ public class RecordStoreState {
 
     /**
      * End using this record store state.
+     *
      * @see #beginRead()
      */
     public void endRead() {
@@ -260,6 +261,7 @@ public class RecordStoreState {
 
     /**
      * Get the names of any write-only indexes.
+     *
      * @return a set of indexes that are write-only for this store
      */
     public Set<String> getWriteOnlyIndexNames() {
@@ -271,6 +273,7 @@ public class RecordStoreState {
 
     /**
      * Get the names of any disabled indexes.
+     *
      * @return a set of indexes that are disabled for this store
      */
     public Set<String> getDisabledIndexNames() {
@@ -340,6 +343,7 @@ public class RecordStoreState {
 
     /**
      * Check if records may be updated.
+     *
      * @return true if record update is allowed.
      */
     public boolean isRecordUpdateAllowed() {
@@ -372,6 +376,7 @@ public class RecordStoreState {
 
     /**
      * Creates a valid hash code of this state based on the hashes of its members.
+     *
      * @return a hash code based off of the state's members hashes
      */
     @Override

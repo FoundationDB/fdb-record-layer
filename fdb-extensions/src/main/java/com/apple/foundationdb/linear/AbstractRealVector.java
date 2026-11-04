@@ -76,6 +76,7 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Returns the number of elements in the vector.
+     *
      * @return the number of elements
      */
     @Override
@@ -160,6 +161,7 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Returns a hash code value for this object. The hash code is computed once and memoized.
+     *
      * @return a hash code value for this object.
      */
     @Override
@@ -169,6 +171,7 @@ public abstract class AbstractRealVector implements RealVector {
 
     /**
      * Computes a hash code based on the internal {@code data} array.
+     *
      * @return the computed hash code for this object.
      */
     protected int computeHashCode() {

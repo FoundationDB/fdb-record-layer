@@ -105,6 +105,7 @@ class Insert {
 
     /**
      * Get the executor used by this Guardiann structure.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -114,6 +115,7 @@ class Insert {
 
     /**
      * Get the configuration of this Guardiann structure.
+     *
      * @return the configuration
      */
     @Nonnull

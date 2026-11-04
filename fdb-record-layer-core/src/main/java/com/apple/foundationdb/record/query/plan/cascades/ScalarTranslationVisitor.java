@@ -80,6 +80,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
     /**
      * Method to pop and return the top of the states stack.
+     *
      * @return the currentState
      */
     public ScalarVisitorState pop() {

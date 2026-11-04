@@ -308,6 +308,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     
     /**
      * Method that indicates whether this predicate is filtering at all.
+     *
      * @return {@code true} if this predicate always evaluates to true, {@code false} otherwise
      */
     default boolean isTautology() {

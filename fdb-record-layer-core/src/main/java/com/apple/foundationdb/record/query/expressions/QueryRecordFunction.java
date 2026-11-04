@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Class that provides context for asserting about a specially calculated value.
+ *
  * @param <T> the result type of the function
  */
 @API(API.Status.UNSTABLE)

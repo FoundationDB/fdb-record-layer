@@ -390,6 +390,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         /**
          * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         *
          * @return untyped serializer
          */
         @Nonnull

@@ -126,6 +126,7 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Get the subspace used to store this HNSW structure.
+     *
      * @return the subspace
      */
     @Nonnull

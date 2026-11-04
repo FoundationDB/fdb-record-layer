@@ -92,6 +92,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
 
     /**
      * The canonical wire name — the only name ever written.
+     *
      * @return the canonical name
      */
     @Nonnull
@@ -112,6 +113,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
 
     /**
      * The value type of the option, used by the scan-option surface to cast and (de)serialize stored values.
+     *
      * @return the value type
      */
     @Nonnull

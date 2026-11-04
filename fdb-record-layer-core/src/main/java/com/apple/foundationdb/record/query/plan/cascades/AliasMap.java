@@ -172,6 +172,7 @@ public class AliasMap {
 
     /**
      * Private constructor. Use static factory methods/builders to instantiate alias maps.
+     *
      * @param map the backing bi-map
      */
     private AliasMap(@Nonnull final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map,
@@ -200,6 +201,7 @@ public class AliasMap {
 
     /**
      * Define equality based on the equality of the backing bimap.
+     *
      * @return {@code true} if {@code o} is equal to {@code this}.
      */
     @Override
@@ -227,6 +229,7 @@ public class AliasMap {
 
     /**
      * Returns the set of {@link CorrelationIdentifier}s that are mapped by this {@code AliasMap}.
+     *
      * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for
      */
     @Nonnull
@@ -247,6 +250,7 @@ public class AliasMap {
 
     /**
      * Returns the size of the alias map, i.e., the number of contained bindings.
+     *
      * @return the size of the alias map.
      */
     public int size() {
@@ -255,6 +259,7 @@ public class AliasMap {
 
     /**
      * Create a builder for a new alias map using the bindings of this map.
+     *
      * @return a new builder derived from the contents of this map.
      */
     @Nonnull
@@ -276,6 +281,7 @@ public class AliasMap {
 
     /**
      * Returns the set of entries in this map.
+     *
      * @return the set of entries
      */
     @Nonnull
@@ -297,6 +303,7 @@ public class AliasMap {
 
     /**
      * Returns the inverse of this {@link AliasMap}.
+     *
      * @return The inverse of this {@link AliasMap}.
      */
     @Nonnull
@@ -378,6 +385,7 @@ public class AliasMap {
 
     /**
      * Call an action for each mapping contained in this alias map.
+     *
      * @param action a bi-consumer that is called for each (source, target) pair
      */
     public void forEachMapping(@Nonnull final BiConsumer<CorrelationIdentifier, CorrelationIdentifier> action) {
@@ -509,6 +517,7 @@ public class AliasMap {
 
     /**
      * Return if this alias map exclusively contains mappings of the shape {@code x -> x}.
+     *
      * @return {@code true} if this alias map only contains mapped identities.
      */
     public boolean definesOnlyIdentities() {
@@ -585,6 +594,7 @@ public class AliasMap {
 
     /**
      * Create a new empty builder.
+     *
      * @return a builder for a new {@link AliasMap}
      */
     @Nonnull
@@ -605,6 +615,7 @@ public class AliasMap {
 
     /**
      * Factory method to create an empty alias map.
+     *
      * @return a new empty {@link AliasMap}
      */
     @Nonnull
@@ -763,6 +774,7 @@ public class AliasMap {
 
         /**
          * Build a new {@link AliasMap}. This will entail a copy of the mappings in order to gain immutability guarantees.
+         *
          * @return a new {@link AliasMap}
          */
         @Nonnull

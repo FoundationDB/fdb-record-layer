@@ -127,6 +127,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a (dnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @Nonnull
@@ -136,6 +137,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a (cnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @Nonnull
@@ -181,6 +183,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Get the mode of this normalizer.
+     *
      * @return the mode used by this normalizer
      */
     @Nonnull
@@ -190,6 +193,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Get the limit on the size of the normalized form that this normalizer will produce.
+     *
      * @return size limit
      */
     public int getSizeLimit() {

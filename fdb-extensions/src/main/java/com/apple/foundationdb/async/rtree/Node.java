@@ -48,6 +48,7 @@ import java.util.stream.Stream;
 public interface Node {
     /**
      * Return the id of this node.
+     *
      * @return a byte array that represents the unique identifier of this node
      */
     @Nonnull
@@ -55,6 +56,7 @@ public interface Node {
 
     /**
      * Return the number of used slots of this node.
+     *
      * @return the number of used slots
      */
     int size();
@@ -108,6 +110,7 @@ public interface Node {
 
     /**
      * Returns the change set that need to be applied in order to correctly persist the node.
+     *
      * @return the change set, or {@code null} if the node has not been altered since it was read from the database
      */
     @Nullable
@@ -200,6 +203,7 @@ public interface Node {
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#LEAF} or {@link NodeKind#INTERMEDIATE}.
+     *
      * @return the kind of this node as a {@link NodeKind}
      */
     @Nonnull

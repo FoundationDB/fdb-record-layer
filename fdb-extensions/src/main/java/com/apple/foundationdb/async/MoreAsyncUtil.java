@@ -911,6 +911,7 @@ public class MoreAsyncUtil {
 
     /**
      * A holder for a (mutable) value.
+     *
      * @param <T> type of value to hold
      */
     public static class Holder<T> {
@@ -1053,6 +1054,7 @@ public class MoreAsyncUtil {
 
     /**
      * Close the given iterator, or at least cancel it.
+     *
      * @param iterator iterator to close
      */
     @API(API.Status.UNSTABLE)
@@ -1383,6 +1385,7 @@ public class MoreAsyncUtil {
 
     /**
      * A {@code Boolean} function that is always true.
+     *
      * @param <T> the type of the (ignored) argument to the function
      */
     public static class AlwaysTrue<T> implements Function<T, Boolean> {

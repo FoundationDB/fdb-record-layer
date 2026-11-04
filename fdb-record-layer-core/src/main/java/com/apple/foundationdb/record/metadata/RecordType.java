@@ -154,6 +154,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
 
     /**
      * Get any explicit record type key value.
+     *
      * @return the explicit record type key value or {@code null} if {@link #getRecordTypeKey} would return a union field number
      */
     @Nullable
@@ -212,6 +213,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
 
     /**
      * Determine whether this record type has a {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression} prefix in the primary key.
+     *
      * @return {@code true} if start of the primary key is the unique record type key
      */
     public boolean primaryKeyHasRecordTypePrefix() {
@@ -220,6 +222,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
 
     /**
      * Get the meta-data of which this record type is a part.
+     *
      * @return owning meta-data
      */
     @Nonnull

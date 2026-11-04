@@ -148,6 +148,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     /**
      * Get this entire concatenation as a group without any grouping keys.
+     *
      * @return this concatenation without any grouping keys
      */
     @Nonnull

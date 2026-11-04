@@ -248,6 +248,7 @@ public class RecordQueryPlannerConfiguration {
 
     /**
      * Return the size limit of the cascades planner task queue.
+     *
      * @return the maximum size of the queue. 0 means "unbound" (the default). Trying to add a task beyond the maximum size will fail the planning.
      */
     public int getMaxTaskQueueSize() {
@@ -256,6 +257,7 @@ public class RecordQueryPlannerConfiguration {
 
     /**
      * Return the limit on the number of tasks that can be executed as part of the cascades planner planning.
+     *
      * @return the maximum number of tasks. 0 means "unbound" (the default). Trying to execute a task after the maximum number was exceeded will fail the planning.
      */
     public int getMaxTotalTaskCount() {
@@ -264,6 +266,7 @@ public class RecordQueryPlannerConfiguration {
 
     /**
      * Get whether the planner uses the entire key, including the primary key, for value indexes.
+     *
      * @return whether to include primary key in planning
      */
     public boolean shouldUseFullKeyForValueIndex() {
@@ -280,6 +283,7 @@ public class RecordQueryPlannerConfiguration {
 
     /**
      * Get configuration for planning sorting, including whether the planner is allowed to use an in-memory sort plan.
+     *
      * @return configuration to use for planning non-index sorting, or {@code null} to never allow it
      */
     @Nullable
@@ -299,6 +303,7 @@ public class RecordQueryPlannerConfiguration {
 
     /**
      * Returns the set of disabled transformation rules.
+     *
      * @return set of disabled transformation rules.
      */
     @Nonnull

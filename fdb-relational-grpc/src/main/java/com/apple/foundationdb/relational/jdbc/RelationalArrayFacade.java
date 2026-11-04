@@ -83,6 +83,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     /**
      * Package-private so protobuf is available to serializer (in same package).
+     *
      * @return The backing protobuf used to keep Array data.
      */
     Array getDelegate() {
@@ -91,6 +92,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     /**
      * Package-private so protobuf is available to serializer (in same package).
+     *
      * @return The backing protobuf used to keep Array metadata.
      */
     ColumnMetadata getDelegateMetadata() {

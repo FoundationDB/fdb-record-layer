@@ -69,6 +69,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
 
     /**
      * Test with an index that has none of the primary key components.
+     *
      * @param indexFetchMethod the fetch type
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyNoKeyInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -80,6 +81,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
 
     /**
      * Test with an index that has the second key component (rec_no) as part of the index.
+     *
      * @param indexFetchMethod the fetch type
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyRecnoInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")

@@ -66,6 +66,7 @@ public final class IndexingTrackingTable {
 
     /**
      * Mark a record as indexed by user io.
+     *
      * @param primaryKey the record's primary key
      */
     public void track(@Nonnull Tuple primaryKey) {

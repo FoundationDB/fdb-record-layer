@@ -84,6 +84,7 @@ public class Commands {
 
         /**
          * The command in as a string.
+         *
          * @return the comman token
          */
         @Nonnull

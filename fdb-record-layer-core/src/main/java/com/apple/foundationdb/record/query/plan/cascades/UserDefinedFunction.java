@@ -64,6 +64,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Serializes the {@link UserDefinedFunction} instance as a protobuf message.
+     *
      * @return A serialized version of the {@link UserDefinedFunction} as a protobuf message.
      */
     @Nonnull

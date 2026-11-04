@@ -85,6 +85,7 @@ public enum Metric implements MetricDefinition {
 
     /**
      * Constructs a new Metric instance with the specified metric.
+     *
      * @param metricDefinition the metric to be associated with this Metric instance; must not be null.
      */
     Metric(@Nonnull final MetricDefinition metricDefinition) {

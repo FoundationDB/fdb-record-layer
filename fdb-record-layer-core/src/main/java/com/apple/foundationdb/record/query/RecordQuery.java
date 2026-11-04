@@ -131,6 +131,7 @@ public class RecordQuery {
 
     /**
      * Validates that this record query is valid with the provided metadata.
+     *
      * @param metaData the metadata that you want to use with this query
      */
     public void validate(@Nonnull RecordMetaData metaData) {

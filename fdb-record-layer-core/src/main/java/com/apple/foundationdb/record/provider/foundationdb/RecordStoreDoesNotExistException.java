@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStore.Builder#open} is called, but the record store does not exist yet.
+ *
  * @see FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_NOT_EXISTS
  */
 @SuppressWarnings("serial")

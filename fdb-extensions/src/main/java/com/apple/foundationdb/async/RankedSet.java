@@ -162,6 +162,7 @@ public class RankedSet {
 
         /**
          * Get the hash function to use.
+         *
          * @return a {@link HashFunction} used to convert keys to a bit mask used to determine level splits in the skip list
          */
         public HashFunction getHashFunction() {
@@ -170,6 +171,7 @@ public class RankedSet {
 
         /**
          * Get the number of levels to use.
+         *
          * @return the number of levels in the skip list
          */
         public int getNLevels() {
@@ -178,6 +180,7 @@ public class RankedSet {
 
         /**
          * Get whether duplicate entries increase ranks below them.
+         *
          * @return {@code true} if duplicates are counted separately
          */
         public boolean isCountDuplicates() {
@@ -346,6 +349,7 @@ public class RankedSet {
 
     /**
      * Get the subspace used to store this ranked set.
+     *
      * @return ranked set subspace
      */
     public Subspace getSubspace() {
@@ -354,6 +358,7 @@ public class RankedSet {
 
     /**
      * Get executed used by this ranked set.
+     *
      * @return executor used when running asynchronous tasks
      */
     public Executor getExecutor() {
@@ -362,6 +367,7 @@ public class RankedSet {
 
     /**
      * Get this ranked set's configuration.
+     *
      * @return ranked set configuration
      */
     public Config getConfig() {

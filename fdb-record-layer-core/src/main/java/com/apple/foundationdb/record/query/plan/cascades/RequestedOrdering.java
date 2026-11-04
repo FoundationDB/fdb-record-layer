@@ -285,6 +285,7 @@ public class RequestedOrdering {
 
     /**
      * Method to create an ordering instance that preserves the order of records.
+     *
      * @return a new ordering that preserves the order of records
      */
     @Nonnull

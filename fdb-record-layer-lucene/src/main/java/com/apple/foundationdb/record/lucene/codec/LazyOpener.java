@@ -34,6 +34,7 @@ import java.util.concurrent.Executor;
 
 /**
  * Class to lazily "open" something that may throw an IOException when opening.
+ *
  * @param <T> the type of object that the opener returns
  */
 public class LazyOpener<T> {
@@ -132,6 +133,7 @@ public class LazyOpener<T> {
 
     /**
      * A function that returns an object, but may throw an {@link IOException}.
+     *
      * @param <T> the type returned
      */
     @FunctionalInterface

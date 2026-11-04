@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 
 /**
  * A builder for {@link SyntheticRecordType}.
+ *
  * @param <C> type of constituent record types
  */
 @API(API.Status.EXPERIMENTAL)
@@ -87,6 +88,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Get the constitutents of this synthetic record type.
+     *
      * @return list of constituents
      */
     @Nonnull

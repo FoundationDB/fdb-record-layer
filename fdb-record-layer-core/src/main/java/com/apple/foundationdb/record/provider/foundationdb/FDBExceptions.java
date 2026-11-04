@@ -180,6 +180,7 @@ public class FDBExceptions {
 
     /**
      * An exception that should be retried by the caller because is stems from a transient condition in FDB.
+     *
      * @see FDBException#isRetryable
      */
     @SuppressWarnings("serial")
@@ -195,6 +196,7 @@ public class FDBExceptions {
 
     /**
      * A retriable exception where the transaction may have committed, so a blind retry is not safe.
+     *
      * @see FDBException#isMaybeCommitted
      */
     @SuppressWarnings("serial")

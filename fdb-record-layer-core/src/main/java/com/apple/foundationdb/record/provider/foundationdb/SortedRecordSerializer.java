@@ -45,6 +45,7 @@ import java.util.Map;
 
 /**
  * Serialize records during sorting, either in a continuation or in a file.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.EXPERIMENTAL)

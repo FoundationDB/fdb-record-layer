@@ -83,6 +83,7 @@ public interface KeySpacePath {
 
     /**
      * Returns the parent of this entry or null if this is the root of the path.
+     *
      * @return the parent keyspace path
      */
     @Nullable
@@ -90,6 +91,7 @@ public interface KeySpacePath {
 
     /**
      * Returns the directory name for this path element.
+     *
      * @return the directory name
      */
     @Nonnull
@@ -97,6 +99,7 @@ public interface KeySpacePath {
 
     /**
      * Returns the directory that corresponds to this path entry.
+     *
      * @return returns the directory that corresponds to this path entry
      */
     @Nonnull

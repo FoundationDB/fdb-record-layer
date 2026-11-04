@@ -36,6 +36,7 @@ import java.util.Objects;
 
 /**
  * A record returned by a query and therefore possibly associated with a particular entry in some index.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
@@ -70,6 +71,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
     /**
      * Get the synthetic record if this is a synthetic record type..
+     *
      * @return a synthetic record of {@code null}
      */
     @Nullable
@@ -86,6 +88,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
     /**
      * Get the name of this constituent if it comes from a synthetic record.
+     *
      * @return a constituent name of {@code null}
      */
     @Nullable

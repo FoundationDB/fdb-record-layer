@@ -86,6 +86,7 @@ public class FDBDirectorySharedCacheManager {
 
     /**
      * Set the given shared cache manager in the given context.
+     *
      * @param context the record context in which to put the shared cache manager
      */
     public void setForContext(@Nonnull FDBRecordContext context) {

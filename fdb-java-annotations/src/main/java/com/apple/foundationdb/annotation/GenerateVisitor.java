@@ -87,12 +87,14 @@ import java.lang.annotation.Target;
 public @interface GenerateVisitor {
     /**
      * .
+     *
      * @return suffix of the generated visitor interface
      */
     String classSuffix() default "Visitor";
 
     /**
      * .
+     *
      * @return prefix of all visitation methods
      */
     String methodPrefix() default "visit";

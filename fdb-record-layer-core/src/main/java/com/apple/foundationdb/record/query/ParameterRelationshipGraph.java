@@ -166,6 +166,7 @@ public class ParameterRelationshipGraph {
 
     /**
      * Returns a specific instance that must be considered as a {@code null} element.
+     *
      * @return the unbound instance
      */
     public static ParameterRelationshipGraph unbound() {

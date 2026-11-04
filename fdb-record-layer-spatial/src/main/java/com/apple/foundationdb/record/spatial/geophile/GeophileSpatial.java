@@ -77,6 +77,7 @@ class GeophileSpatial {
 
     /**
      * The default latitude, longitude space.
+     *
      * @return a new space
      */
     public static Space createLatLonSpace() {

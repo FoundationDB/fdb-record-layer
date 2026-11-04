@@ -35,6 +35,7 @@ public interface LeafValue extends Value {
 
     /**
      * Method to retrieve a list of children values.
+     *
      * @return a list of children
      */
     @Nonnull
