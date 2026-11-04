@@ -168,46 +168,40 @@
             <property name="tokens" value="VARIABLE_DEF"/>
             <property name="allowSamelineMultipleAnnotations" value="true"/>
         </module>
-        <module name="NonEmptyAtclauseDescription"/>
-
-        <module name="MissingJavadocPackage"/>
-        <!-- <module name="MissingJavadocType"/> -->
-
-        <module name="JavadocType">
-            <property name="scope" value="public"/>
-        </module>
-
-        <module name="JavadocTagContinuationIndentation">
-            <!-- Unlike most standard styles; but stay consistent. -->
-            <property name="offset" value="0"/>
-        </module>
-
-        <module name="SummaryJavadocCheck">
-            <property name="forbiddenSummaryFragments" value="^Created (by|with).*"/>
-        </module>
-        <module name="SummaryJavadocCheck">
-            <property name="forbiddenSummaryFragments" value="^User: .*"/>
-        </module>
-
-        <module name="JavadocLeadingAsteriskAlign"/>
-        <module name="JavadocMissingLeadingAsterisk"/>
-        <module name="JavadocBlockTagLocation"/>
-        <module name="JavadocMissingWhitespaceAfterAsterisk"/>
-        <module name="JavadocParagraph">
-            <property name="allowNewlineParagraph" value="false"/>
-        </module>
 
         <module name="AtclauseOrder">
             <property name="tagOrder" value="@param, @return, @throws, @deprecated"/>
             <property name="target" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF, VARIABLE_DEF"/>
         </module>
+        <module name="JavadocBlockTagLocation"/>
+        <module name="JavadocLeadingAsteriskAlign"/>
+        <module name="JavadocMissingLeadingAsterisk"/>
+        <module name="JavadocMissingWhitespaceAfterAsterisk"/>
+        <module name="JavadocParagraph">
+            <property name="allowNewlineParagraph" value="false"/>
+        </module>
+        <module name="JavadocTagContinuationIndentation">
+            <!-- Unlike most standard styles; but stay consistent. -->
+            <property name="offset" value="0"/>
+        </module>
+        <module name="JavadocType">
+            <property name="scope" value="public"/>
+        </module>
+        <module name="MissingJavadocPackage"/>
+        <!-- <module name="MissingJavadocType"/> -->
+        <module name="NonEmptyAtclauseDescription"/>
+        <module name="RequireEmptyLineBeforeBlockTagGroup"/>
+        <module name="SingleLineJavadoc">
+            <property name="ignoreInlineTags" value="true"/>
+        </module>
+        <module name="SummaryJavadocCheck">
+            <property name="forbiddenSummaryFragments" value="^Created (by|with).*|^User: .*"/>
+        </module>
+
         <module name="MethodName">
             <property name="format" value="^[a-z][a-z0-9][a-zA-Z0-9_]*$"/>
             <message key="name.invalidPattern"
              value="Method name ''{0}'' must match pattern ''{1}''."/>
-        </module>
-        <module name="SingleLineJavadoc">
-            <property name="ignoreInlineTags" value="true"/>
         </module>
 
         <module name="EmptyCatchBlock">
