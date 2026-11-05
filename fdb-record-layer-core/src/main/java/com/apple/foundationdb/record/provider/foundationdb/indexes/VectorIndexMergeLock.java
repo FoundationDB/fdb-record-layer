@@ -58,8 +58,10 @@ import java.util.function.LongSupplier;
  * a claim racing a delete aborts while acquires still never conflict with each other. See those two methods.
  */
 final class VectorIndexMergeLock {
-    /** Default lease window: comfortably longer than the gap between a holder's merge invocations (incl. driver
-     * back-off), short enough to reclaim a crashed holder's prefix promptly. */
+    /**
+     * Default lease window: comfortably longer than the gap between a holder's merge invocations (incl. driver
+     * back-off), short enough to reclaim a crashed holder's prefix promptly.
+     */
     static final long DEFAULT_LEASE_WINDOW_MILLIS = 60_000L;
 
     @Nonnull
