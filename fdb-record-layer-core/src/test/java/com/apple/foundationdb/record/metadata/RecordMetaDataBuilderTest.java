@@ -89,7 +89,6 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link RecordMetaDataBuilder}.
@@ -963,9 +962,9 @@ public class RecordMetaDataBuilderTest {
         checkNonRecordTypes(metaDataWithNonRecordTypes, "com.apple.foundationdb.record.nestedmaptest", ImmutableList.of(
                 "OuterRecord",
                 "MapRecord",
-                "MapRecord.Entry",
                 "OtherRecord",
-                "RecordTypeUnion"
+                "RecordTypeUnion",
+                "MapRecord.Entry"
         ));
     }
 
@@ -1005,8 +1004,9 @@ public class RecordMetaDataBuilderTest {
     private void checkNonRecordTypes(@Nonnull RecordMetaData metaData, @Nonnull List<String> expectedFullNonRecordTypeNames) {
         final var actualNonRecordTypes = metaData.getNonRecordTypeDescriptors();
         assertEquals(expectedFullNonRecordTypeNames.size(), actualNonRecordTypes.size());
-        for (final var actualNonRecordType : actualNonRecordTypes) {
-            assertTrue(expectedFullNonRecordTypeNames.contains(actualNonRecordType.getFullName()));
-        }
+        assertIterableEquals(expectedFullNonRecordTypeNames,
+                actualNonRecordTypes.stream()
+                        .map(Descriptors.GenericDescriptor::getFullName)
+                        .collect(ImmutableList.toImmutableList()));
     }
 }
