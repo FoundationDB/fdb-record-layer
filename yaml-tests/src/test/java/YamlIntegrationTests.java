@@ -374,11 +374,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void rankPlanning(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("rank-planning.yamsql");
-    }
-
-    @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }

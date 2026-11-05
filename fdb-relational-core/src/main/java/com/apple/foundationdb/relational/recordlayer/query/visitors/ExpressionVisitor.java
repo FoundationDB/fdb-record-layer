@@ -40,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
+import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -835,8 +837,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
         final var expression = parseChild(ctx);
-        // verify no window functions
-        Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof WindowedValue),
+        Assert.thatUnchecked(expression.getUnderlying().preOrderStream()
+                        .noneMatch(value -> value instanceof WindowedValue || value instanceof CompileTimeWindowValue),
                 ErrorCode.WINDOWING_ERROR, "window functions are not allowed in WHERE");
         return expression;
     }
