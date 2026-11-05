@@ -253,8 +253,7 @@ public class RecordQueryPlanMatchers {
     }
 
     /**
-     * Matches an IN-join over an {@link InExplodeSource}. Combine it with {@link #inExplodeParameter} or
-     * {@link #inExplodeValues} to match the exploded collection.
+     * Matches an IN-join over an {@link InExplodeSource}.
      * @param downstream the matcher for the inner plan
      * @return a matcher for IN-joins over explodes
      */
@@ -263,23 +262,7 @@ public class RecordQueryPlanMatchers {
         return childrenPlans(RecordQueryInComparandJoinPlan.class, all(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<RecordQueryInComparandJoinPlan> inExplodeParameter(@Nonnull BindingMatcher<String> downstream) {
-        return typedWithDownstream(RecordQueryInComparandJoinPlan.class,
-                Extractor.of(plan -> plan.getInSource() instanceof InExplodeSource
-                                     ? Objects.requireNonNullElse(((InExplodeSource)plan.getInSource()).getParameterName(), "")
-                                     : "", name -> "explodedParameter(" + name + ")"),
-                downstream);
-    }
 
-    @Nonnull
-    public static BindingMatcher<RecordQueryInComparandJoinPlan> inExplodeValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
-        return typedWithDownstream(RecordQueryInComparandJoinPlan.class,
-                Extractor.of(plan -> plan.getInSource() instanceof InExplodeSource
-                                     ? Objects.requireNonNullElse(((InExplodeSource)plan.getInSource()).getLiteralValues(), ImmutableList.of())
-                                     : ImmutableList.of(), name -> "explodedValues(" + name + ")"),
-                downstream);
-    }
 
     @Nonnull
     public static BindingMatcher<RecordQueryInValuesJoinPlan> inValuesJoin(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
@@ -676,19 +659,7 @@ public class RecordQueryPlanMatchers {
                 downstream);
     }
     
-    @Nonnull
-    public static BindingMatcher<InExplodeSource> inUnionInExplodeValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
-        return typedWithDownstream(InExplodeSource.class,
-                Extractor.of(source -> Objects.requireNonNullElse(source.getLiteralValues(), ImmutableList.of()), name -> "explodedValues(" + name + ")"),
-                downstream);
-    }
 
-    @Nonnull
-    public static BindingMatcher<InExplodeSource> inUnionInExplodeParameter(@Nonnull BindingMatcher<String> downstream) {
-        return typedWithDownstream(InExplodeSource.class,
-                Extractor.of(source -> Objects.requireNonNullElse(source.getParameterName(), ""), name -> "explodedParameter(" + name + ")"),
-                downstream);
-    }
 
     @Nonnull
     public static BindingMatcher<InParameterSource> inUnionInParameter(@Nonnull BindingMatcher<String> downstream) {
