@@ -57,6 +57,12 @@ public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
         return super.update(oldRecord, newRecord);
     }
 
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        injectedFailures.runHook(InjectedFailureRepository.Hooks.LUCENE_BEFORE_MERGE_INDEX);
+        return super.mergeIndex();
+    }
+
     @Nonnull
     @Override
     protected FDBDirectoryManager createDirectoryManager(@Nonnull final IndexMaintainerState state) {

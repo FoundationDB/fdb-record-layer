@@ -89,8 +89,8 @@ import java.util.stream.Collectors;
  * {@code SELECT A, B, C FROM T} will produce a {@code LogicalOperator} whose name is {@code T} and which has an output
  * of three expressions ({@link Expression}) named {@code A}, {@code B}, and {@code C}. The logical operator will wrap
  * an internal quantifier that is a for-each {@link Quantifier} returning all the rows of the table {@code T}.
- * <p>
- * [1] See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
+ *
+ * <p>[1] See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -500,8 +500,8 @@ public class LogicalOperator {
      * Determine whether it is possible to skip projection of individual columns of the underlying quantifier. This is
      * to avoid unnecessary "breaking" a record constructor value unnecessarily when the user issues a query as simple
      * as {@code SELECT * FROM T}.
-     * <br/>
-     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
+     *
+     * <p>It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
      * plan canonicalization phase.
      *
      * @param output the {@link LogicalOperator}'s output.

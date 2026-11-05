@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
@@ -60,7 +61,10 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
                     rollUpPartitions(anyPlanPartitionMatcher)));
 
     @Nonnull
-    private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+
+    @Nonnull
+    private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(innerQuantifierMatcher));
 
     public ImplementUniqueRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
@@ -68,7 +72,13 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
+        final var innerReference = call.get(innerReferenceMatcher);
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
-        innerPlanPartitions.forEach(partition -> call.yieldPlans(partition.getPlans()));
+        for (final PlanPartition partition : innerPlanPartitions) {
+            final var builder = innerQuantifier.applyGlue(call,
+                    call.memoizeMemberPlansBuilder(innerReference, partition.getPlans()));
+            call.yieldPlans(builder.members());
+        }
     }
 }

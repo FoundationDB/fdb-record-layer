@@ -32,8 +32,8 @@ import java.util.function.Supplier;
  * A {@link PassageFormatter} which keeps a whole number of words
  * before and after matching text entries to provide context, and inserts ellipses in between
  * matched strings to form a summarized text.
- * <p>
- * If you want a formatter which returns the whole string, use {@link WholeTextFormatter} instead.
+ *
+ * <p>If you want a formatter which returns the whole string, use {@link WholeTextFormatter} instead.
  */
 
 @API(API.Status.INTERNAL)

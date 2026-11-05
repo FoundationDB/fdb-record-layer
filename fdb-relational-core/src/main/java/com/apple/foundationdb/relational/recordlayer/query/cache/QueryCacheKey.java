@@ -60,8 +60,8 @@ import java.util.Objects;
  * </pre>
  * we would compile the query and return a result set comprising two columns {@code id, col1}.
  * we will also cache this query using a {@link QueryCacheKey} key of something like {@code "s1", "select * from t1 where col1 > ? ", 123456789}
- * <br>
- * if we run the <i>same</i> query, however after connecting to a schema that uses a {@code s2} instead:
+ *
+ * <p>if we run the <i>same</i> query, however after connecting to a schema that uses a {@code s2} instead:
  * <pre>
  * {@code
  * create schema /FRL/YOUSSEF/s2s with s2
@@ -71,18 +71,18 @@ import java.util.Objects;
  * </pre>
  * we would correctly compile this query and return a result set comprising three columns {@code id, col1, col2}.
  * we will also cache this query using {@link QueryCacheKey} key of something like {@code "s2", "select * from t1 where col1 > ? ", 123456789}
- * <br>
- * Note that without having the schema template name as part of the {@link QueryCacheKey} both keys would be identical.
+ *
+ * <p>Note that without having the schema template name as part of the {@link QueryCacheKey} both keys would be identical.
  * Therefore, we might incorrectly choose the compiled plan of the first query to execute the second query (because we find
  * a match in the cache) causing an error since the result set structure is different because table {@code T1} is defined
  * differently in {@code S1} and {@code S2}.
- * <br>
- * <br>
+ *
+ * <p><br>
  * <b>Example 2</b>
  * <br>
  * Although these queries appear different, their canonical representation is the same, and will end up using the same
  * compiled plan.
- * <br>
+ *
  * <table>
  *     <caption>queries with identical canonical representation</caption>
  *     <tbody>

@@ -27,33 +27,36 @@ import java.util.stream.Stream;
 
 /**
  * An enumeration form of the different error codes that Relational makes use of.
- * <p>
- * Error codes in Relational follow the SQLSTATE format wherever possible (to maximize interoperability and
+ *
+ * <p>Error codes in Relational follow the SQLSTATE format wherever possible (to maximize interoperability and
  * ease of understanding). To that end, all error codes are 5-digit codes, where the first 2 characters are the
  * Class of the error, and the remaining 3 characters describe the error itself.
- * <p>
- * It is important to note that not every error in Relational directly translates to a known standard SQLSTATE
+ *
+ * <p>It is important to note that not every error in Relational directly translates to a known standard SQLSTATE
  * code. In those cases, you'll want to look here for the technical definition of those error codes.
- * <p>
- * The Class codes are as follows:
- * <p>
- * 00 | Success
+ *
+ * <p>The Class codes are as follows:
+ *
+ * <p>00 | Success
  * 01 | Warning
  * 02 | No Data
  * 08 | Connection Exception
  * 0A | Unsupported Operation
  * 22 | Data exception
  * 23 | Integrity Constraint Violation
+ * 24 | Invalid Cursor State
  * 25 | Transaction State
  * 40 | Transaction Rollback
  * 42 | Syntax Error
  * 53 | Insufficient Resources
+ * 54 | Program Limit Exceeded
+ * 55 | Object Not In Prerequisite State
  * 58 | System Error (errors external to Relational)
  * XX | Internal Error
- * <p>
- * To add a new Error Code:
- * <p>
- * First, look at <a href="https://en.wikipedia.org/wiki/SQLSTATE">Wikipedia</a> to see if the standard has already
+ *
+ * <p>To add a new Error Code:
+ *
+ * <p>First, look at <a href="https://en.wikipedia.org/wiki/SQLSTATE">Wikipedia</a> to see if the standard has already
  * defined an error code that would be applicable for your purpose. If so, use that one (this means that we
  * are in-line with published SQL codes whenever possible). However, often you'll find that the standard does
  * not have an error code that matches what you're trying to do. In that case, choose a class from
@@ -70,6 +73,7 @@ public enum ErrorCode {
     // Class 08 - Connection Exception
     UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
     CONNECTION_DOES_NOT_EXIST("08003"),
+    TRANSACTION_RESOLUTION_UNKNOWN("08007"),
     INVALID_PATH("08F01"),
     CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT("08F02"),
 
@@ -77,10 +81,13 @@ public enum ErrorCode {
     UNSUPPORTED_OPERATION("0A000"),
     UNSUPPORTED_QUERY("0AF00"),
     UNSUPPORTED_SORT("0AF01"),
+    UNABLE_TO_PLAN("0AF02"),
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
+    INVALID_INTERVAL_FORMAT("22006"),
     ESCAPE_CHARACTER_CONFLICT("2200B"),
+    INTERVAL_FIELD_OVERFLOW("22015"),
     INVALID_ESCAPE_CHARACTER("22019"),
     /** LIMIT clause is given an invalid value (e.g. negative). */
     INVALID_ROW_COUNT_IN_LIMIT_CLAUSE("2201W"),
@@ -109,6 +116,8 @@ public enum ErrorCode {
 
     // Class 40 - Transaction Rollback
     SERIALIZATION_FAILURE("40001"),
+    TRANSACTION_TOO_OLD("40F01"),
+    TRANSIENT_TRANSACTION_FAILURE("40F02"),
 
     // Class 42 - Syntax Error or Access Rule Violation
     SYNTAX_OR_ACCESS_VIOLATION("42000"),
@@ -157,12 +166,17 @@ public enum ErrorCode {
     INVALID_DATABASE("42F66"),
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
-    // Class 54 Program Limit Exceeded
+    // Class 54 - Program Limit Exceeded
+    STATEMENT_TOO_COMPLEX("54001"),
     TOO_MANY_COLUMNS("54011"),
     EXECUTION_LIMIT_REACHED("54F01"),
+    TRANSACTION_TOO_LARGE("54F02"),
+    KEY_TOO_LARGE("54F03"),
+    VALUE_TOO_LARGE("54F04"),
 
     // Class 55 - Object Not In Prerequisite State
     STATEMENT_CLOSED("55F00"),
+    LOCK_NOT_AVAILABLE("55F03"),
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),
@@ -178,7 +192,9 @@ public enum ErrorCode {
      * system.
      */
     INTERNAL_ERROR("XX000"),
-    DESERIALIZATION_FAILURE("XXF01");
+    DESERIALIZATION_FAILURE("XXF01"),
+    SCHEMA_TEMPLATE_SERIALIZATION_FAILURE("XXF02"),
+    STORAGE_ERROR("XXF03");
 
     private final String errorCode;
 

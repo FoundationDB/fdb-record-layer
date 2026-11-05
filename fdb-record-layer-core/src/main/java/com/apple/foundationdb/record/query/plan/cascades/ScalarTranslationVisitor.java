@@ -80,6 +80,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
     /**
      * Method to pop and return the top of the states stack.
+     *
      * @return the currentState
      */
     public ScalarVisitorState pop() {
@@ -88,6 +89,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
     /**
      * Functional pop to facilitate a more fluent way of interacting with the states.
+     *
      * @param <T> a type parameter
      * @param t some value of type {@code T}
      * @return {@code t}
@@ -101,6 +103,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
      * Specific implementation of the fall-back visitation method. Sub classes of this class do not tolerate visits
      * from unknown subclasses of {@link KeyExpression}. Implementors of new sub classes of {@link KeyExpression}
      * should also add a new visitation method in {@link KeyExpressionVisitor}.
+     *
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
      */

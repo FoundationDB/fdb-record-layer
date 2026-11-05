@@ -106,48 +106,39 @@ import java.util.function.Supplier;
  * ISCAN(&lt;index_name&gt; &lt;scan_range&gt;)
  * </pre>
  *
- * <p>
- * Substituting in the index's name and the index scan range. Likewise, filter plans are represented by:
- * </p>
+ * <p>Substituting in the index's name and the index scan range. Likewise, filter plans are represented by:
  *
  * <pre>
  * &lt;child_plan&gt; | FILTER &lt;filter&gt;
  * </pre>
  *
- * <p>
- * We generate the explain string of a query plan in two phases. In the first phase, a token list is generated
+ * <p>We generate the explain string of a query plan in two phases. In the first phase, a token list is generated
  * that is then rendered in the second phase.
- * </p>
- * <p>
- * The logic to generate the token list is recursive and arranged using
+ *
+ * <p>The logic to generate the token list is recursive and arranged using
  * the visitor pattern. While this visitor can be considered the central hub of all individual plan-specific code,
  * plenty of other explain-related logic resides (and should continue to do so) in several
  * {@link com.apple.foundationdb.record.query.plan.cascades.TreeLike} hierarchies such as
  * {@link com.apple.foundationdb.record.query.plan.cascades.values.Value} and
  * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}.
- * </p>
- * <p>
- * The token list is then rendered using a {@link ExplainFormatter}
+ *
+ * <p>The token list is then rendered using a {@link ExplainFormatter}
  * which in turn employs a {@link ExplainSymbolMap} or derivatives
  * to actually render the tokens into a char sequence. While the formatter may inject whitespaces, line breaks, or
  * ANSI escape sequences (for color and in general prettification), the symbol map is used to resolve aliases used
  * by the planner into a string. That resolved string may just be the alias itself (for debugging purposes) or some
  * other alias that has desirable properties like stability across JVMs.
- * </p>
- * <p>
- * By convention all plans can be stringified which is replaced by a direct call to this visitor:
+ *
+ * <p>By convention all plans can be stringified which is replaced by a direct call to this visitor:
  * <pre>
  * {@code
  * ExplainVisitor.toStringForDebugging(this);
  * }
  * </pre>
  * which preserves aliases and has no maximum string length boundary.
- * </p>
  *
- * <p>
- * Note that objects of this class are stateful. It is not safe to use the same visitor in multiple threads
+ * <p>Note that objects of this class are stateful. It is not safe to use the same visitor in multiple threads
  * and a new object should be created each time a new explain is needed.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlanVisitor<ExplainTokens> {

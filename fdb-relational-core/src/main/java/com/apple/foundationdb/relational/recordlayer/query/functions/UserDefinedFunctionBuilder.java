@@ -47,8 +47,8 @@ import java.util.Optional;
 /**
  * A step builder that instantiates a {@link UserDefinedFunction} from the function definition specified in
  * a {@code CREATE FUNCTION} DDL statement.
- * <p>
- * Construction is split into a fixed sequence of steps, each modeled as its own interface which returns the next
+ *
+ * <p>Construction is split into a fixed sequence of steps, each modeled as its own interface which returns the next
  * builder step interface. This is to make the compiler enforce which set of options can be provided together and in
  * what order instead of relying on runtime checks. The builder steps are as follows:
  * <ol>
@@ -63,7 +63,6 @@ import java.util.Optional;
  *     <li>{@link FinalStepBuilder}: the builder step returned after specifying the function body, which applies any
  *     remaining optional specification and instantiates the correct instance of {@link UserDefinedFunction}.</li>
  * </ol>
- * </p>
  */
 public final class UserDefinedFunctionBuilder {
     private UserDefinedFunctionBuilder() {
@@ -71,6 +70,7 @@ public final class UserDefinedFunctionBuilder {
 
     /**
      * Creates a new builder, positioned at its first ({@link SignatureStepBuilder}) step.
+     *
      * @return a builder ready to receive the function signature.
      */
     public static SignatureStepBuilder newBuilder() {
@@ -83,6 +83,7 @@ public final class UserDefinedFunctionBuilder {
     public interface SignatureStepBuilder {
         /**
          * Sets the name of the function.
+         *
          * @param name the function name.
          * @return this builder, for chaining.
          */
@@ -90,13 +91,12 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Appends a single parameter to the signature.
-         * <p>
-         * The parameter carries its name, type and, optionally, a default value within the supplied {@link Expression};
+         *
+         * <p>The parameter carries its name, type and, optionally, a default value within the supplied {@link Expression};
          * a parameter whose underlying value is a {@link ThrowsValue} is taken to have no default.
-         * </p>
-         * <p>
-         * Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
-         * </p>
+         *
+         * <p>Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
+         *
          * @param expression the parameter to append.
          * @return this builder, for chaining.
          */
@@ -104,13 +104,12 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Appends all the given parameters to the signature, preserving their order.
-         * <p>
-         * The parameters carry their names, types and, optionally, a default value within the {@link Expression}; a
+         *
+         * <p>The parameters carry their names, types and, optionally, a default value within the {@link Expression}; a
          * parameter expression whose underlying value is a {@link ThrowsValue} is taken to have no default.
-         * </p>
-         * <p>
-         * Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
-         * </p>
+         *
+         * <p>Note: all parameter expressions must have a name, as unnamed parameters are not yet supported.
+         *
          * @param expressions the parameters to append.
          * @return this builder, for chaining.
          */
@@ -119,6 +118,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Sets an explicit return type for the function; passing {@code null} leaves the return type to be inferred
          * from the function body.
+         *
          * @param returnType the explicit return type, or {@code null} to infer it from the body.
          * @return this builder, for chaining.
          */
@@ -126,6 +126,7 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Freezes the signature and advances to the {@linkplain BodyStepBuilder body step}.
+         *
          * @return the next step, ready to receive the function body.
          */
         BodyStepBuilder seal();
@@ -138,6 +139,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Returns a quantifier ranging over the function parameters, so the caller can use it to reference the
          * parameters while parsing the function body.
+         *
          * @return a quantifier over the parameters, or {@link Optional#empty()} if the function has none.
          */
         Optional<Quantifier> getParametersCorrelation();
@@ -145,6 +147,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Supplies a {@link RelationalExpression} as the function body, which returns a {@link FinalStepBuilder} that
          * eventually instantiates a {@link CompiledSqlFunction}.
+         *
          * @param bodyExpression the relational expression the function evaluates to.
          * @return the final step, which builds a {@link CompiledSqlFunction}.
          */
@@ -153,6 +156,7 @@ public final class UserDefinedFunctionBuilder {
         /**
          * Supplies a {@link Value} as the function body, which returns a {@link FinalStepBuilder} that
          * eventually instantiates a {@link UserDefinedMacroFunction}.
+         *
          * @param bodyValue the value the function evaluates to.
          * @return the final step, which builds a {@link UserDefinedMacroFunction}.
          */
@@ -165,6 +169,7 @@ public final class UserDefinedFunctionBuilder {
     public interface FinalStepBuilder {
         /**
          * Attaches the auxiliary literals gathered while parsing the body.
+         *
          * @param literals the literals to attach.
          * @return this builder, for chaining.
          */
@@ -172,6 +177,7 @@ public final class UserDefinedFunctionBuilder {
 
         /**
          * Builds the {@link UserDefinedFunction} from all the provided specifications.
+         *
          * @return the newly constructed function.
          */
         UserDefinedFunction build();

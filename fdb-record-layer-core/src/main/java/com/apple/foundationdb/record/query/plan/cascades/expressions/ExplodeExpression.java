@@ -304,8 +304,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     @Override
     public String toString() {
         return withOrdinality
-               ? collectionValue + " WITH ORDINALITY"
-               : collectionValue.toString();
+                ? collectionValue + " WITH ORDINALITY"
+                : collectionValue.toString();
     }
 
     public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,

@@ -29,8 +29,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for {@link RealVectorPrimitives} backend selection, in two flavors.
- * <p>
- * <b>Active-backend assertions</b> check that the statically resolved {@link RealVectorPrimitives#backend()}
+ *
+ * <p><b>Active-backend assertions</b> check that the statically resolved {@link RealVectorPrimitives#backend()}
  * matches what the current task's JVM setup implies. Each is routed by a JUnit tag to the gradle
  * task whose backend it needs:
  * <ul>
@@ -39,8 +39,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *   <li>{@link Tags#RequiresScalar}: runs in {@code scalarFallbackTest}, which sets
  *       {@code fdb.vector.simd=scalar} and omits {@code --add-modules}.</li>
  * </ul>
- * <p>
- * <b>Selection-logic tests</b> drive {@link RealVectorPrimitives#selectBackend(String,
+ *
+ * <p><b>Selection-logic tests</b> drive {@link RealVectorPrimitives#selectBackend(String,
  * RealVectorPrimitives.SimdBackendLoader)} directly with a stub loader, so every branch (auto,
  * scalar, strict simd; loader success/failure) is covered deterministically in the default JVM
  * regardless of module availability. Two {@link Tags#RequiresScalar}-tagged variants additionally

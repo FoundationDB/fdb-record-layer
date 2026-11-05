@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
  * The Relational Keyspace.
  * "__SYS" in its current form, is a system schema that will house all the system tables.
  *
- *    / (root)
+ * <p>/ (root)
  *        |- __SYS (null)
  *        |
  *  [currently, we allow for the domains very naively for our use-cases like cli, testing, demo etc.]
@@ -188,7 +188,12 @@ public class RelationalKeyspaceProvider {
                 .addSubdirectory(new KeySpaceDirectory(INTERNING_LAYER, KeySpaceDirectory.KeyType.STRING, INTERNING_LAYER_VALUE));
     }
 
-    public void registerDomainIfNotExists(@Nonnull String domainName) {
+    public synchronized void registerDomainIfNotExists(@Nonnull String domainName) {
+        // Synchronized because this mutates the singleton KeySpace's tree via
+        // addSubdirectory. Without the lock, this will most likely fail with "Subdirectory already exists",
+        // although, KeySpaceDirectory itself is not designed to be mutated concurrently, so this could succeed, and
+        // end up with  two subdirectories matching the same name — every subsequent path resolution then throws
+        // "<...> is ambigous" from KeySpaceUtils#matchPathToSubdirectories.
         final var keySpaceRoot = getKeySpace().getRoot();
         final var exists = keySpaceRoot.getSubdirectories().stream()
                 .map(KeySpaceDirectory::getName)

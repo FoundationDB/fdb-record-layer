@@ -33,8 +33,8 @@ import java.util.Objects;
 
 /**
  * Represents a compact node within a graph structure, extending {@link AbstractNode}.
- * <p>
- * This node type is considered "compact" because it directly stores its associated
+ *
+ * <p>This node type is considered "compact" because it directly stores its associated
  * data vector of type {@link RealVector}. It is used to represent a vector in a
  * vector space and maintains references to its neighbors via {@link NodeReference} objects.
  *
@@ -71,8 +71,8 @@ class CompactNode extends AbstractNode<NodeReference> {
 
     /**
      * Constructs a new {@code CompactNode} instance.
-     * <p>
-     * This constructor initializes the node with its primary key, a data vector,
+     *
+     * <p>This constructor initializes the node with its primary key, a data vector,
      * and a list of its neighbors. It delegates the initialization of the
      * {@code primaryKey} and {@code neighbors} to the superclass constructor.
      *
@@ -93,13 +93,12 @@ class CompactNode extends AbstractNode<NodeReference> {
 
     /**
      * Returns a {@link NodeReference} that uniquely identifies this node.
-     * <p>
-     * This implementation creates the reference using the node's primary key, obtained via {@code getPrimaryKey()}. It
+     *
+     * <p>This implementation creates the reference using the node's primary key, obtained via {@code getPrimaryKey()}. It
      * ignores the provided {@code vector} parameter, which exists to fulfill the contract of the overridden method.
      *
      * @param vector the vector context, which is ignored in this implementation.
      * Per the {@code @Nullable} annotation, this can be {@code null}.
-     *
      * @return a non-null {@link NodeReference} to this node.
      */
     @Nonnull
@@ -111,6 +110,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     /**
      * Gets the kind of this node.
      * This implementation always returns {@link NodeKind#COMPACT}.
+     *
      * @return the node kind, which is guaranteed to be {@link NodeKind#COMPACT}.
      */
     @Nonnull
@@ -121,6 +121,7 @@ class CompactNode extends AbstractNode<NodeReference> {
 
     /**
      * Gets the vector of {@code Half} objects.
+     *
      * @return the non-null vector of {@link Half} objects.
      */
     @Nonnull
@@ -141,6 +142,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     /**
      * Returns this node as a {@code CompactNode}. As this class is already a {@code CompactNode}, this method provides
      * {@code this}.
+     *
      * @return this object cast as a {@code CompactNode}, which is guaranteed to be non-null.
      */
     @Nonnull
@@ -156,9 +158,10 @@ class CompactNode extends AbstractNode<NodeReference> {
 
     /**
      * Returns this node as an {@link InliningNode}.
-     * <p>
-     * This override is for node types that are not inlining nodes. As such, it
+     *
+     * <p>This override is for node types that are not inlining nodes. As such, it
      * will always fail.
+     *
      * @return this node as a non-null {@link InliningNode}
      * @throws IllegalStateException always, as this is not an inlining node
      */
@@ -170,8 +173,8 @@ class CompactNode extends AbstractNode<NodeReference> {
 
     /**
      * Gets the shared factory instance for creating {@link NodeReference} objects.
-     * <p>
-     * This static factory method is the preferred way to obtain a {@code NodeFactory}
+     *
+     * <p>This static factory method is the preferred way to obtain a {@code NodeFactory}
      * for {@link NodeReference} instances, as it returns a shared, pre-configured object.
      *
      * @return a shared, non-null instance of {@code NodeFactory<NodeReference>}

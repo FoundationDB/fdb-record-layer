@@ -109,6 +109,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     /**
      * Overloaded constructor.
      * Use other overloaded constructor to also pass in a set of record types.
+     *
      * @param scanComparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
@@ -118,6 +119,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     /**
      * Overloaded constructor for heuristic (old planner).
+     *
      * @param recordTypes a super set of record types of the records that this scan operator can produce
      * @param flowedType type of scan elements
      * @param commonPrimaryKey primary key of scanned records
@@ -136,6 +138,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     /**
      * Overloaded constructor.
+     *
      * @param recordTypes a super set of record types of the records that this scan operator can produce
      * @param flowedType type of scan elements
      * @param commonPrimaryKey primary key of scanned records
@@ -156,6 +159,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     /**
      * Overloaded constructor.
+     *
      * @param recordTypes a super set of record types of the records that this scan operator can produce
      * @param flowedType type of scan elements
      * @param commonPrimaryKey primary key of scanned records
@@ -377,10 +381,10 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         }
         final RecordQueryScanPlan that = (RecordQueryScanPlan)otherExpression;
         return Objects.equals(recordTypes, that.recordTypes) &&
-               flowedType.equals(otherExpression.getResultValue().getResultType()) &&
-               Objects.equals(commonPrimaryKey, that.commonPrimaryKey) &&
-               reverse == that.reverse &&
-               Objects.equals(scanComparisons, that.scanComparisons);
+                flowedType.equals(otherExpression.getResultValue().getResultType()) &&
+                Objects.equals(commonPrimaryKey, that.commonPrimaryKey) &&
+                reverse == that.reverse &&
+                Objects.equals(scanComparisons, that.scanComparisons);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -487,6 +491,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     /**
      * Rewrite the planner graph for better visualization of a query scan plan.
+     *
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models scanned storage as a separate node that is connected to the
      *         actual scan plan node.

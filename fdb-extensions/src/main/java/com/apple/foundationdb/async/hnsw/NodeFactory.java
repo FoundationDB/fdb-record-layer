@@ -31,8 +31,8 @@ import java.util.List;
 /**
  * A factory interface for creating {@link AbstractNode} instances within a Hierarchical Navigable Small World (HNSW)
  * graph.
- * <p>
- * Implementations of this interface define how nodes are constructed, allowing for different node types
+ *
+ * <p>Implementations of this interface define how nodes are constructed, allowing for different node types
  * or storage strategies within the HNSW structure.
  *
  * @param <N> the type of {@link NodeReference} used to refer to nodes in the graph
@@ -40,8 +40,8 @@ import java.util.List;
 interface NodeFactory<N extends NodeReference> {
     /**
      * Creates a new node with the specified properties.
-     * <p>
-     * This method is responsible for instantiating a {@code Node} object, initializing it
+     *
+     * <p>This method is responsible for instantiating a {@code Node} object, initializing it
      * with a primary key, an optional feature vector, and a list of its initial neighbors.
      *
      * @param primaryKey the {@link Tuple} representing the unique primary key for the new node. Must not be
@@ -60,6 +60,7 @@ interface NodeFactory<N extends NodeReference> {
 
     /**
      * Gets the kind of this node.
+     *
      * @return the kind of this node, never {@code null}.
      */
     @Nonnull

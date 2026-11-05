@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 /**
  * A source of {@link RecordMetaData}.
  *
- * If getting meta-data is expensive, implementations should assume that {@link #getRecordMetaData} will be called frequently and cache the result.
+ * <p>If getting meta-data is expensive, implementations should assume that {@link #getRecordMetaData} will be called frequently and cache the result.
  */
 @API(API.Status.UNSTABLE)
 public interface RecordMetaDataProvider {

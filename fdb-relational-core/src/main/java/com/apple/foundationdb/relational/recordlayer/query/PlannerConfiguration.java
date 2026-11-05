@@ -42,11 +42,9 @@ import static com.apple.foundationdb.relational.api.Options.Name.PLAN_RIGHT_DEEP
 /**
  * This contains a set of configurations given to the planner that fine-tunes its behavior.
  *
- * <p>
- * Note: Currently this only contains a list of <em>readable</em> indexes, but in the future
+ * <p>Note: Currently this only contains a list of <em>readable</em> indexes, but in the future
  * more configurations will be added, mostly reflecting what is already defined in {@link RecordQueryPlannerConfiguration}
  * and consolidate some of the configurations defined in {@link com.apple.foundationdb.relational.api.Options}.
- * </p>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -102,18 +100,16 @@ public final class PlannerConfiguration {
     /**
      * Returns a {@link PlannerConfiguration} identical to this one except with {@code planRightDeep} set
      * to {@code newPlanRightDeep}.
-     * <p>
-     * This is used by {@link com.apple.foundationdb.relational.recordlayer.query.AstNormalizer} to override
+     *
+     * <p>This is used by {@link com.apple.foundationdb.relational.recordlayer.query.AstNormalizer} to override
      * the connection-level configuration with a query-level {@code OPTIONS (PLAN RIGHT DEEP)}
      * clause, ensuring the resulting {@link com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey}
      * reflects the planner settings actually in effect for that query.
-     * </p>
-     * <p>
-     * <em>Note:</em> this method is a narrow, per-option escape hatch. It should eventually be replaced by a more
+     *
+     * <p><em>Note:</em> this method is a narrow, per-option escape hatch. It should eventually be replaced by a more
      * general mechanism that allows any subset of {@link com.apple.foundationdb.relational.api.Options} to override
      * the corresponding fields of a {@link PlannerConfiguration}, so that new query-level planner options do not
      * each require a dedicated {@code withXxx} method here.
-     * </p>
      *
      * @param newPlanRightDeep the desired value of the flag
      * @return {@code this} if the flag is already equal to {@code newPlanRightDeep},
@@ -137,7 +133,7 @@ public final class PlannerConfiguration {
         }
         final var that = (PlannerConfiguration) other;
         return Objects.equals(readableIndexes, that.readableIndexes)
-                && this.indexFetchMethod.equals(that.indexFetchMethod)
+                && this.indexFetchMethod == that.indexFetchMethod
                 && this.disabledAllPlannerRules == that.disabledAllPlannerRules
                 && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules)
                 && this.planRightDeep == that.planRightDeep

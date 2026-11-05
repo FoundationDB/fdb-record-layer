@@ -44,9 +44,7 @@ public interface SchemaTemplate extends Metadata {
     int getVersion();
 
     /**
-     * Returns {@code true} if long rows are permitted in tables of this template, else {@code false}.
-     *
-     * @return {@code true} if long rows are permitted in tables of this template, else {@code false}.
+     * {@return {@code true} if long rows are permitted in tables of this template, else {@code false}}
      */
     boolean isEnableLongRows();
 
@@ -105,8 +103,8 @@ public interface SchemaTemplate extends Metadata {
 
     /**
      * Returns a {@link BitSet} whose bits are set for each of passed index names.
-     * <br>
-     * <b>Example</b>
+     *
+     * <p><b>Example</b>
      * for a given schema template {@code st} with indexes {@code i1, i2, i3, i4} whose order are as-defined, calling
      * {@code st.getIndexEntriesAsBitset(Optiona.of(Set.of("i2", "i3"))} returns a bitset of {@code 0110}.
      *

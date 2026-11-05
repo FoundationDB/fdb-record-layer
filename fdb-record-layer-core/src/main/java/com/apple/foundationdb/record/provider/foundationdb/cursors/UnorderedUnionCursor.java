@@ -45,13 +45,11 @@ import java.util.function.Function;
  * children happen to be faster in one run than the other (due to, for example, non-determinism in sending messages across
  * the network).
  *
- * <p>
- * If there are limits applied to the children of this cursor, this cursor will continue to emit elements as long as
+ * <p>If there are limits applied to the children of this cursor, this cursor will continue to emit elements as long as
  * there remains at least one child cursor who has not yet returned its last result. (For example, if this cursor
  * has two children and one of them completes faster than the other due to hitting some limit, then the union cursor
  * will continue returning results from the other cursor.) This differs from the behavior of the ordered
  * {@link UnionCursor}.
- * </p>
  *
  * @param <T> the type of elements returned by the cursor
  */

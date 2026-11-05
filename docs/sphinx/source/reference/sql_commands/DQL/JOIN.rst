@@ -3,11 +3,12 @@ JOIN
 ====
 
 .. _inner_join:
+.. _cross_join:
 .. _left_outer_join:
 .. _right_outer_join:
 .. _outer_join:
 
-The FDB Record Layer supports ``INNER JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``. All three accept an ``ON`` condition or a ``USING`` column list. The ``FULL OUTER JOIN`` variant is not yet supported.
+The FDB Record Layer supports ``INNER JOIN``, ``CROSS JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``. ``INNER JOIN`` and the outer joins accept an ``ON`` condition or a ``USING`` column list; ``CROSS JOIN`` takes neither. The ``FULL OUTER JOIN`` variant is not yet supported.
 
 INNER JOIN
 ==========
@@ -28,6 +29,8 @@ Syntax
 
 The ``INNER`` keyword is optional: ``JOIN`` can be used as a shorthand for ``INNER JOIN``.
 
+Either an ``ON`` condition or a ``USING`` column list is required; omitting both is a syntax error. To produce a cartesian product, use ``CROSS JOIN``.
+
 Parameters
 ----------
 
@@ -44,6 +47,46 @@ Returns
 -------
 
 Returns a result set containing rows where the join condition is satisfied. For each matching pair of rows from the two sources, a combined row is produced with columns from both tables.
+
+CROSS JOIN
+==========
+
+A ``CROSS JOIN`` combines every row from one source with every row from another, producing their Cartesian product. If the two sources have ``m`` and ``n`` rows, the result has ``m × n`` rows.
+
+Syntax
+------
+
+.. raw:: html
+    :file: CROSS_JOIN.diagram.svg
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM table1 CROSS JOIN table2
+
+This is equivalent to listing the sources separated by commas:
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM table1, table2
+
+A ``CROSS JOIN`` does not accept an ``ON`` condition or a ``USING`` column list; either one is a syntax error. To keep only some of the combinations, filter them with a ``WHERE`` clause. When the ``FROM`` clause contains only inner and cross joins, ``FROM table1 CROSS JOIN table2 WHERE table1.column = table2.column`` returns the same rows as ``FROM table1 INNER JOIN table2 ON table1.column = table2.column``.
+
+.. important::
+
+   A ``WHERE`` clause does not always replace an ``ON`` condition. A ``WHERE`` clause applies to the result of *all* joins in the ``FROM`` clause, while an ``ON`` condition applies only to its own join, so the two forms can return different rows when an outer join follows. See :doc:`../../Joins` for an example.
+
+Parameters
+----------
+
+``source``
+    The table or subquery to join with.
+
+Returns
+-------
+
+Returns a result set containing one combined row, with columns from both sources, for every pair of rows from the two sources. Columns that appear in both sources are not merged: both copies are kept, and an unqualified reference to such a column is ambiguous. Use qualified names (for example, ``table1.column``) to refer to them.
 
 OUTER JOIN
 ==========

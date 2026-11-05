@@ -204,7 +204,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
      * subqueries), and table-access visitors that set up an initial operator.
      *
      * @return the newly created (now current) fragment
-     *
      * @see #popPlanFragment
      */
     @Nonnull
@@ -773,6 +772,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nullable
     @Override
     public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nullable
+    @Override
+    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1358,11 +1363,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Nonnull
-    @Override
-    public Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx) {
-        return visitChildren(ctx);
-    }
 
     @Nonnull
     @Override
@@ -1402,6 +1402,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Object visitDatetimeValueFunctionCall(RelationalParser.DatetimeValueFunctionCallContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         return expressionVisitor.visitScalarFunctionCall(ctx);
     }
@@ -1410,12 +1416,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx) {
-        return visitChildren(ctx);
     }
 
     @Nonnull
@@ -1482,6 +1482,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Object visitGetFormatFunctionCall(@Nonnull RelationalParser.GetFormatFunctionCallContext ctx) {
         return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimeValueFunction(RelationalParser.DatetimeValueFunctionContext ctx) {
+        return expressionVisitor.visitDatetimeValueFunction(ctx);
     }
 
     @Nonnull
@@ -1769,6 +1775,24 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
         return metadataPlanVisitor.visitCopyImportStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimePlusMinusIntervalExpression(final RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+        return expressionVisitor.visitDatetimePlusMinusIntervalExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalPlusDatetimeExpression(final RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+        return expressionVisitor.visitIntervalPlusDatetimeExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        return expressionVisitor.visitIntervalLiteral(ctx);
     }
 
     @Nonnull

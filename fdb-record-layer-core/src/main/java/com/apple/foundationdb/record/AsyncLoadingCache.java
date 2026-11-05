@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 
 /**
  * A cache for retaining the result of some asynchronous operation up until some expiration time.
+ *
  * @param <K> key type for the cache
  * @param <V> value type for the cache
  */
@@ -91,7 +92,6 @@ public class AsyncLoadingCache<K, V> {
      *
      * @param key the key in the cache to lookup
      * @param supplier an asynchronous operation to retrieve the desired value if the cache is empty
-     *
      * @return a future containing either the cached value or the result from the supplier
      */
     @SuppressWarnings("squid:S2789") // comparison of null and optional used to differentiate absence of key and presence of null

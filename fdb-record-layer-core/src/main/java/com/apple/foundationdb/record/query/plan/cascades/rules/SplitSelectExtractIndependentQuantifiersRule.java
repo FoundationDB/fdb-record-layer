@@ -47,7 +47,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that splits a {@link SelectExpression} into two {@link SelectExpression}s if one or more quantifiers this
- * expression owns satisfy the following criteria:
+ * expression owns satisfy the criteria below.
  * <ul>
  *     <li>
  *         the quantifier is not correlated to any other quantifier in this {@link SelectExpression}
@@ -60,7 +60,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *     </li>
  * </ul>
  *
- * Normally, we don't want to interfere with join enumeration (TBD) by effectively partitioning the quantifiers (and
+ * <p>Normally, we don't want to interfere with join enumeration (TBD) by effectively partitioning the quantifiers (and
  * therefore fixing the join order between quantifiers across these partitions). The particular case this rule
  * addresses is very specific in a sense that splitting the {@link SelectExpression} is objectively not harmful.
  * In fact, most SQL engines support this or similar kinds of transformations for star joins where pre-joining the
@@ -73,6 +73,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
+    // Match any for-each quantifier, as the rewrite moves the extracted quantifiers unchanged into the upper SELECT,
+    // which honors their semantics.
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =

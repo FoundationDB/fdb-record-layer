@@ -60,6 +60,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
 
     /**
      * Get the single instance of this utility class.
+     *
      * @return the only instance of the class
      */
     @Nonnull
@@ -68,8 +69,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     }
 
     /**
-     * Get the key of the last range.
-     * @return the key of the last range
+     * {@return the key of the last range}
      */
     public static byte[] getLastRange() {
         return INSTANCE.keyRanges.get(MockedLocalityUtil.instance().ranges.get(MockedLocalityUtil.instance().ranges.size() - 1)).key;
@@ -78,11 +78,9 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     /**
      * Initialize the {@code MockedLocalityUtil}'s singleton.
      *
-     * <p>
-     * This is method randomly partitions the sorted list of {@code keys} among {@code rangeCount} servers as if the keys
+     * <p>This is method randomly partitions the sorted list of {@code keys} among {@code rangeCount} servers as if the keys
      * were stored contiguously on those servers. The outcome of this partition is later used by {@link #getBoundaryKeys(Transaction, byte[], byte[])}.
      * Note that {@code getBoundaryKeys} must be called after this method is called, otherwise it will assume no keys exists.
-     * </p>
      *
      * @param keys a sorted list of keys
      * @param rangeCount the number of ranges to return.
@@ -123,7 +121,6 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      * @param tr the transaction on which to base the query
      * @param begin the inclusive start of the range
      * @param end the exclusive end of the range
-     *
      * @return a sequence of keys denoting the start of the ranges
      */
     @Nonnull

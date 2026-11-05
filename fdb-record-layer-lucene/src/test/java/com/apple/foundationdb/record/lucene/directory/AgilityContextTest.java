@@ -146,7 +146,6 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
      * context
      *
      * @param agilityContext the agility context to use
-     *
      * @return the produced subspace
      */
     private Subspace getSubspace(final AgilityContext agilityContext) {
@@ -833,7 +832,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         // assert that failing commit check fails commit
         try (FDBRecordContext context = openContext()) {
             final AgilityContext agilityContext = getAgilityContext(context, contextType);
-            agilityContext.setCommitCheck(ctx -> {
+            agilityContext.addCommitCheck(ctx -> {
                 value.set(1);
                 return CompletableFuture.completedFuture(null);
             });

@@ -35,9 +35,8 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
     public enum Rebuild {
         /**
          * Rebuild the index even if nothing has changed.
-         * <p>
-         *     Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
-         * </p>
+         *
+         * <p>Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
          */
         ALWAYS,
         /**
@@ -46,17 +45,16 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
         NEVER,
         /**
          * Rebuild the index if it is necessary to have the leaderboards contain the records they're supposed to.
-         * <p>
-         *     This can happen in a few situations:
+         *
+         * <p>This can happen in a few situations:
          *     <ul>
          *         <li>If {@link #isHighScoreFirst()} is changed</li>
          *         <li>If {@link #isAllTime()} is changed</li>
          *         <li>If a record has been saved that has a timestamp greater than the earliest timestamp for one of
          *         the provided specs</li>
          *     </ul>
-         * <p>
-         *     Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
-         * </p>
+         *
+         * <p>Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
          */
         IF_OVERLAPPING_CHANGED
     }
@@ -71,6 +69,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
 
     /**
      * Create a time window update operation.
+     *
      * @param updateTimestamp a timestamp to be recorded if any changes are made
      * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
      * @param deleteBefore delete any time windows ending at this time or before
@@ -96,6 +95,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
 
     /**
      * Create a time window update operation.
+     *
      * @param updateTimestamp a timestamp to be recorded if any changes are made
      * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
      * @param deleteBefore delete any time windows ending at this time or before;
@@ -149,7 +149,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
      * The following ones are spaced <code>startIncrement</code> apart.
      * They are <code>duration</code> wide.
      *
-     * So, for example, to have daily time windows accurate to six hours, and assuming that time units are seconds,
+     * <p>So, for example, to have daily time windows accurate to six hours, and assuming that time units are seconds,
      * <code>new TimeWindowSpec(DAILY, midnight, 6 * 60 * 60, 24 * 60 * 60, 4)</code>
      */
     public static class TimeWindowSpec {

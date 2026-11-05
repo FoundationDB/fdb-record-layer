@@ -84,7 +84,7 @@ import java.util.function.Function;
  *
  * <h2>Resource Governing</h2>
  *
- * When the <code>ChainedCursor</code> is created with a set of {@link ScanProperties} it will attempt to count each
+ * <p>When the <code>ChainedCursor</code> is created with a set of {@link ScanProperties} it will attempt to count each
  * iteration of the cursor against the limits that are indicated by the properties.  This can lead to an interesting
  * behavior if the same set of <code>ScanProperties</code> are also used by cursors that are present in the <code>nextGenerator</code>
  * that is provided and can lead to double-counting.  For example, if the <code>nextGenerator</code> is driven

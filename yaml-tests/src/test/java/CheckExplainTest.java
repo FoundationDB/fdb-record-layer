@@ -44,10 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests that {@code explain} and {@code explainContains} checks fail correctly on a plan mismatch
  * and pass when the plan matches. Exercises the full {@link YamlRunner} stack (requires FDB).
- * <p>
- *     Pure-Java unit tests for YAMSQL correction logic live in
+ *
+ * <p>Pure-Java unit tests for YAMSQL correction logic live in
  *     {@link com.apple.foundationdb.relational.yamltests.YamlCorrectionUnitTest}.
- * </p>
  */
 class CheckExplainTest {
 

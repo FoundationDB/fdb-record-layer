@@ -53,8 +53,9 @@ public class TupleHelpers {
     /**
      * Compare two tuples lexicographically, that is, the same way they would sort when used as keys.
      *
-     * Note that this is currently WAY more efficient than calling {@link Tuple#equals},
+     * <p>Note that this is currently WAY more efficient than calling {@link Tuple#equals},
      * and slightly more efficient than calling {@link Tuple#compareTo}.
+     *
      * @param t1 the first {@link Tuple} to compare
      * @param t2 the second {@link Tuple} to compare
      * @return {@code 0} if {@code t1} and {@code t2} are equal
@@ -97,6 +98,7 @@ public class TupleHelpers {
 
     /**
      * Negate a number used as an element of a {@link Tuple}.
+     *
      * @param number the number to be negated
      * @return a negated number suitable for use in a new {@link Tuple}
      */
@@ -126,6 +128,7 @@ public class TupleHelpers {
     /**
      * Get the number of bytes that an object would occupy as an element of an encoded {@link Tuple}.
      * Unlike {@link Tuple#getPackedSize()}, this does not include the extra space an incomplete {@link Versionstamp} would add to the end to record its position.
+     *
      * @param item an item of a tuple
      * @return the number of bytes in the encoded form of the item
      */
@@ -141,6 +144,7 @@ public class TupleHelpers {
 
     /**
      * Get whether one tuple is a prefix of another.
+     *
      * @param potentialPrefix the potential prefix
      * @param wholeTuple the whole tuple
      * @return {@code true} if {@code potentialPrefix} is a prefix of {@code wholeTuple}
@@ -161,6 +165,7 @@ public class TupleHelpers {
 
     /**
      * Get the index of a prefix of an encoded tuple that decodes as a sub-tuple of the given size.
+     *
      * @param bytes encoded tuple
      * @param size size of desired subtuple
      * @return the index into {@code bytes} that ends the sub-tuple or {@code -1} if {@code bytes} is too short or decoding fails

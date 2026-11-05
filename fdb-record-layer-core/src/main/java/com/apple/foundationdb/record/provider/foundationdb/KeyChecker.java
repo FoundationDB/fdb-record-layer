@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 /**
  * Hook for checking keys passed to a {@code Transaction}.
+ *
  * @see KeyCheckingTransaction
  */
 public interface KeyChecker {

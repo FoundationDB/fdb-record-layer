@@ -36,7 +36,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.levelTraversalIsAllowed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
@@ -53,16 +53,18 @@ public class ImplementRecursiveLevelUnionRule extends AbstractCascadesRule<Recur
     @Nonnull
     private static final BindingMatcher<PlanPartition> initialPlanPartitionsMatcher = anyPlanPartition();
 
+    // Match plain for-each quantifiers only. The legs of a recursive union range over temporary-table inserts, which
+    // are never null-on-empty, so there is no glue to apply.
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher =
-            forEachQuantifierOverRef(planPartitions(rollUpPartitions(any(initialPlanPartitionsMatcher))));
+            plainForEachQuantifierOverRef(planPartitions(rollUpPartitions(any(initialPlanPartitionsMatcher))));
 
     @Nonnull
     private static final BindingMatcher<PlanPartition> recursivePlanPartitionsMatcher = anyPlanPartition();
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher =
-            forEachQuantifierOverRef(planPartitions(rollUpPartitions(any(recursivePlanPartitionsMatcher))));
+            plainForEachQuantifierOverRef(planPartitions(rollUpPartitions(any(recursivePlanPartitionsMatcher))));
 
     @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher)

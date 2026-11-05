@@ -296,8 +296,7 @@ public class ResolverValidator {
         }
 
         /**
-         * Return the key in the resolver mapping.
-         * @return the key in the resolver mapping
+         * {@return the key in the resolver mapping}
          */
         @Nonnull
         public String getKey() {
@@ -306,6 +305,7 @@ public class ResolverValidator {
 
         /**
          * The value for the key in the mapping.
+         *
          * @return the value for the key in the mapping
          */
         @Nonnull
@@ -335,8 +335,8 @@ public class ResolverValidator {
             }
             final ValidatedEntry that = (ValidatedEntry)o;
             return result == that.result
-                   && keyValue.equals(that.keyValue)
-                   && reverseValue.equals(that.reverseValue);
+                    && keyValue.equals(that.keyValue)
+                    && reverseValue.equals(that.reverseValue);
         }
 
         @Override
@@ -347,10 +347,10 @@ public class ResolverValidator {
         @Override
         public String toString() {
             return "BadEntry{" +
-                   "error=" + result +
-                   ", keyValue=" + keyValue +
-                   ", reverseValue=" + reverseValue +
-                   '}';
+                    "error=" + result +
+                    ", keyValue=" + keyValue +
+                    ", reverseValue=" + reverseValue +
+                    '}';
         }
     }
 }

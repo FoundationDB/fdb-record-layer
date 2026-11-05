@@ -34,7 +34,7 @@ import java.util.Optional;
 /**
  * Main interface for defining a built-in function that can be evaluated against a number of arguments.
  *
- * A function could have a fixed number of arguments such as <code>Value Add(Value, Value)</code>, or a
+ * <p>A function could have a fixed number of arguments such as <code>Value Add(Value, Value)</code>, or a
  * variable number of arguments, such as <code>Value TEXT_CONTAINS_ALL_PREFIXES(Value, Value, Value, Value, ...)</code>.
  *
  * @param <T> The resulting type of the function.
@@ -46,6 +46,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
@@ -56,6 +57,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param variadicSuffixType The type of the function's vararg.

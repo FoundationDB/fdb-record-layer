@@ -73,6 +73,8 @@ public interface PlanHashable {
          * <ul>
          *   <li> {@link com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue} hashes
          *        without index </li>
+         *   <li> {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan} hashes whether it is with
+         *        ordinality, and no longer hashes the 0-based ordinality flag </li>
          * </ul>.
          */
         VC1(PlanHashKind.FOR_CONTINUATION, 1);
@@ -87,6 +89,7 @@ public interface PlanHashable {
 
         /**
          * Get the plan hash kind associated with this mode.
+         *
          * @return the plan hash kind
          */
         public PlanHashKind getKind() {
@@ -97,6 +100,7 @@ public interface PlanHashable {
          * Returns a numeric version. Do not use this information if you can. This method should strictly be used
          * when this method is serialized, etc. However, it should not be used to switch on different plan hash
          * versions.
+         *
          * @return a numerical version
          */
         public int getNumericVersion() {
@@ -121,6 +125,7 @@ public interface PlanHashable {
 
     /**
      * Return a hash similar to <code>hashCode</code>, but with the additional guarantee that is is stable across JVMs.
+     *
      * @param hashMode the "mode" of hash to calculate. Each mode contains a hash kind which has a particular logic with
      * regards to included and excluded items. It is also versioned to support for the evolution of the plan hash when
      * the underlying plan objects evolve
@@ -130,6 +135,7 @@ public interface PlanHashable {
 
     /**
      * Return a hash similar to <code>hashCode</code>, but with the additional guarantee that is is stable across JVMs.
+     *
      * @param kind the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
      * @return a stable hash code
      */
@@ -142,6 +148,7 @@ public interface PlanHashable {
      * Parameterless overload of planHash(). This method delegates to the {@link #planHash(PlanHashKind)}. This method
      * is deprecated. In order to achieve the same result, use {@link #planHash(PlanHashKind)} directly passing in
      * {@link PlanHashKind#LEGACY}.
+     *
      * @return a stable ash code using {@link PlanHashKind#LEGACY}
      */
     @Deprecated(forRemoval = true)
@@ -151,6 +158,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use {@link #planHash(PlanHashMode, Iterable)} instead.
+     *
      * @param kind plan hash kind
      * @param hashables an iterable to be hashed
      * @return a stable hash code
@@ -170,6 +178,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use {@link #planHash(PlanHashMode, PlanHashable...)} instead.
+     *
      * @param kind plan hash kind
      * @param hashables a varargs array to be hashed
      * @return a stable hash code
@@ -185,6 +194,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use {@link #planHashUnordered(PlanHashMode, Iterable)} instead.
+     *
      * @param kind plan hash kind
      * @param hashables a varargs array to be hashed
      * @return a stable hash code
@@ -207,6 +217,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use an order-independent hash algorithm instead, i.e. {@link AbstractSet#hashCode()}.
+     *
      * @param strings an iterable of strings
      * @return a stable hash code
      */
@@ -230,6 +241,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use {@link #objectPlanHash(PlanHashMode, Object)} instead.
+     *
      * @param kind plan hash kind
      * @param obj an object to be hashed
      * @return a stable hash code
@@ -270,6 +282,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use {@link #iterablePlanHash(PlanHashMode, Iterable)} instead.
+     *
      * @param kind plan hash kind
      * @param objects an iterable of objects to be hashed
      * @return a stable hash code
@@ -305,6 +318,7 @@ public interface PlanHashable {
 
     /**
      * This method is deprecated. Use {@link #objectsPlanHash(PlanHashMode, Object...)} instead.
+     *
      * @param kind plan hash kind
      * @param objects a varargs of objects to be hashed
      * @return a stable hash code

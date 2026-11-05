@@ -21,5 +21,5 @@
 /**
  * Ability to support zero copy byte[] wrapping to ByteString.
  *
-*/
+ */
 package com.google.protobuf;

@@ -35,10 +35,11 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method that is invoked for each key/value pair that is written to the database.
-     * <p>
-     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     *
+     * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
+     *
      * @param layer the layer the data was written to
      * @param key the key
      * @param value the value.
@@ -50,10 +51,11 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked when a key is deleted.
-     * <p>
-     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     *
+     * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
+     *
      * @param layer the layer index where the deletion occurred
      * @param key the key that was deleted
      */
@@ -64,10 +66,11 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked when an entire range is deleted.
-     * <p>
-     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     *
+     * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
+     *
      * @param layer the layer index where the deletion occurred
      * @param range the {@link Range} that was deleted
      */
@@ -78,9 +81,10 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method that is invoked after a node has been successfully written to a specific layer.
-     * <p>
-     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     *
+     * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
+     *
      * @param layer the index of the layer where the node was written.
      * @param node the {@link Node} that was written; guaranteed to be non-null.
      */
@@ -91,13 +95,14 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked when a neighbor is written for a specific node.
-     * <p>
-     * This method serves as a notification that a neighbor relationship has been established or updated. It is
+     *
+     * <p>This method serves as a notification that a neighbor relationship has been established or updated. It is
      * typically called after a write operation successfully adds a {@code neighbor} to the specified {@code node}
      * within a given {@code layer}.
-     * <p>
-     * As a {@code default} method, the base implementation does nothing. Implementers can override this to perform
+     *
+     * <p>As a {@code default} method, the base implementation does nothing. Implementers can override this to perform
      * custom actions, such as updating caches or triggering subsequent events in response to the change.
+     *
      * @param layer the index of the layer where the neighbor write operation occurred
      * @param node the {@link Node} for which the neighbor was written; must not be null
      * @param neighbor the {@link NodeReference} of the neighbor that was written; must not be null
@@ -110,9 +115,10 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked after a node has been successfully deleted from a specific layer.
-     * <p>
-     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     *
+     * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
+     *
      * @param layer the index of the layer where the node was deleted.
      * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
      */
@@ -123,10 +129,11 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
 
     /**
      * Callback method invoked when a neighbor of a specific node is deleted.
-     * <p>
-     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     *
+     * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
+     *
      * @param layer the layer index where the deletion occurred
      * @param node the {@link Node} whose neighbor was deleted
      * @param neighborPrimaryKey the primary key (as a {@link Tuple}) of the neighbor that was deleted
@@ -134,6 +141,25 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
     @SuppressWarnings("unused")
     default void onNeighborDeleted(final int layer, @Nonnull final Node<? extends NodeReference> node,
                                    @Nonnull final Tuple neighborPrimaryKey) {
+        // nothing
+    }
+
+    /**
+     * Callback method invoked when a delete removes references that name nodes an earlier delete had removed.
+     *
+     * <p>A delete only removes the references pointing at the node it deletes from the nodes it happens to visit, so
+     * references held by nodes it does not visit name a key that no longer resolves. A later delete reaps those
+     * whenever it reads storage for one of them and finds nothing. This reports how many it reaped, which is the rate
+     * at which that backlog is being worked off, and is unrelated to the references removed for the node being
+     * deleted right now.
+     *
+     * <p>This is a default method and its base implementation is a no-op.
+     *
+     * @param layer the layer index on which the references were reaped
+     * @param numReferences how many references were reaped, which may be zero
+     */
+    @SuppressWarnings("unused")
+    default void onNeighborReferencesReaped(final int layer, final int numReferences) {
         // nothing
     }
 }

@@ -124,6 +124,7 @@ public class Literals {
         /**
          * Sets a scope for all newly created literals, i.e. all newly added literals will have their id
          * comprising the scope in addition to their token index.
+         *
          * @param scope the scope.
          * @return {@code this} builder.
          */

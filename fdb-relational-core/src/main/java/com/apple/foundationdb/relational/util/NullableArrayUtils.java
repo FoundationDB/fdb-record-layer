@@ -56,9 +56,9 @@ public final class NullableArrayUtils {
     @Nonnull
     public static KeyExpression arrayElements(@Nonnull final String arrayFieldName, final boolean nullableArray) {
         return nullableArray
-               ? Key.Expressions.field(arrayFieldName)
+                ? Key.Expressions.field(arrayFieldName)
                        .nest(Key.Expressions.field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
-               : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
+                : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
     }
 
     public static String getRepeatedFieldName() {
@@ -221,7 +221,7 @@ public final class NullableArrayUtils {
      *     parent { field_name: "ARRAY_FIELD" fan_type: SCALAR …}
      *     child { field { field_name: "values" fan_type: CONCATENATE …}}
      *   }
-     *}
+     * }
      */
     private static RecordKeyExpressionProto.Nesting splitFieldIntoNestedWithValues(@Nonnull final RecordKeyExpressionProto.Field original) {
         final var nestedArrayBuilder = RecordKeyExpressionProto.Field.newBuilder()

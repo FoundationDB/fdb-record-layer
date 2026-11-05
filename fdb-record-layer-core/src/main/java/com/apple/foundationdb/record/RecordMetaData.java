@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
 /**
  * Meta-data for Record Layer record stores.
  *
- * Records are represented using Protobuf {@link com.google.protobuf.Message}s.
+ * <p>Records are represented using Protobuf {@link com.google.protobuf.Message}s.
  * Each message {@link com.google.protobuf.Descriptors.Descriptor} corresponds to a {@link RecordType}.
  * All message types in the database come from a single {@link com.google.protobuf.Descriptors.FileDescriptor}.
  * The Protobuf file must also define a union message type (conventionally named {@code RecordTypeUnion}) with fields for
@@ -71,7 +71,7 @@ import java.util.stream.Collectors;
  * When serializing, the record is put in the corresponding field and the whole saved as a byte string.
  * Then when deserializing, the returned record can be of any of the allowed types.
  *
- * Meta-data can also define any number of secondary {@link Index}es for record types.
+ * <p>Meta-data can also define any number of secondary {@link Index}es for record types.
  *
  * @see RecordMetaDataBuilder
  */
@@ -194,6 +194,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Creates an instance of {@link RecordMetaDataBuilder}.
+     *
      * @return a new builder
      */
     @Nonnull
@@ -246,6 +247,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get the record type that uses the given record type key.
+     *
      * @param recordTypeKey the key used as a prefix for some record type
      * @return the record type
      * @throws MetaDataException if the given key does not correspond to any record type
@@ -291,6 +293,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name as used in an index.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -307,6 +310,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name as used in a query.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -341,6 +345,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get the index that uses the given subspace key.
+     *
      * @param subspaceKey the key used as a prefix for some index
      * @return the index
      * @throws MetaDataException if the given key does not correspond to any index
@@ -391,6 +396,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get value of the counter used for index subspace keys if the counter-based assignment is used.
+     *
      * @return the value of the counter
      * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
      */
@@ -400,6 +406,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Checks if counter-based subspace key assignment is used.
+     *
      * @return {@code true} if the subspace key counter is used
      * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
      */
@@ -525,7 +532,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Determine whether every record type in this meta-data has {@link RecordType#primaryKeyHasRecordTypePrefix}.
      *
-     * If so, records are strictly partitioned by record type.
+     * <p>If so, records are strictly partitioned by record type.
+     *
      * @return {@code true} if every record type has a record type prefix on the primary key
      */
     public boolean primaryKeyHasRecordTypePrefix() {
@@ -534,6 +542,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Determine whether every record type in this meta-data has the same primary key.
+     *
      * @return the common primary key or {@code null}
      */
     @Nullable
@@ -560,6 +569,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Calculate and return the length common to all the PKs of the given types. The common PK length is calculated by
      * ensuring ALL PKs for the given types have the same length (number of fields). If there is no common length, -1 is
      * returned.
+     *
      * @param recordTypes the (non-null) collection of record types to calculate the common PK length for
      * @return the common length for all given types, -1 if not found
      */
@@ -578,9 +588,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
-     * Get this <code>RecordMetaData</code> instance.
-     *
-     * @return this <code>RecordMetaData</code> instance
+     * {@return this <code>RecordMetaData</code> instance}
      */
     @Nonnull
     @Override
@@ -596,6 +604,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Factory method to deserialize a record meta-data proto. It assumes that the proto contains all of the dependencies
      * and does not process extension options.
+     *
      * @param proto the serialized proto message of the {@code RecordMetaData}
      * @return the {@code RecordMetaData} object
      */
@@ -624,14 +633,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Serializes the record meta-data to a {@code MetaData} proto message. By default, it includes all of the
      * dependencies except {@code TupleFieldsProto}, {@code RecordMetaDataOptionsProto} and {@code RecordMetaDataProto}.
      *
-     * <p>
-     * Note that if this record meta-data object was created with a
+     * <p>Note that if this record meta-data object was created with a
      * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor},
      * then serializing the meta-data to a proto message is disallowed. This is because setting a local file descriptor
      * can change the meta-data in ways that would change its serialization, but it also will not update the meta-data
      * version. This means that if the meta-data were then saved to disk, existing clients would not be informed that
      * the meta-data had been updated.
-     * </p>
      *
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures
@@ -811,10 +818,27 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
     }
 
-
+    /**
+     * The type the planner sees for the records of the record type with the given name. The name is resolved with
+     * {@link #getRecordType(String)}, which only resolves stored record types.
+     *
+     * @param recordTypeName the name of a stored record type
+     * @return the planner's type for the records of that record type
+     * @throws MetaDataException if there is no stored record type with that name
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
-        final RecordType recordType = getRecordType(recordTypeName);
+        return getPlannerTypeForRecordType(getRecordType(recordTypeName));
+    }
+
+    /**
+     * The type the planner sees for the records of a record type.
+     *
+     * @param recordType the record type to describe
+     * @return the planner's type for the records of {@code recordType}
+     */
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordType(@Nonnull RecordType recordType) {
         Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
         if (storeRecordVersions) {
             plannerType = plannerType.addPseudoFields();
@@ -822,15 +846,39 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return plannerType;
     }
 
+    /**
+     * The type the planner sees for records of any of the record types with the given names. The names are resolved
+     * with {@link #getRecordType(String)}, which only resolves stored record types.
+     *
+     * @param recordTypeNames the names of stored record types
+     * @return the planner's type for records of any of those record types
+     * @throws MetaDataException if there is no stored record type with one of those names
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
         if (recordTypeNames.size() == 1) {
-            final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
-            return getPlannerType(recordTypeName);
+            return getPlannerType(Iterables.getOnlyElement(recordTypeNames));
+        }
+        return getPlannerTypeForRecordTypes(recordTypeNames.stream()
+                .map(this::getRecordType)
+                .toList());
+    }
+
+    /**
+     * The type the planner sees for records of any of several record types: the type of the one record type, or the
+     * union of the fields of all of them.
+     *
+     * @param recordTypes the record types to describe
+     * @return the planner's type for records of any of {@code recordTypes}
+     */
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        if (recordTypes.size() == 1) {
+            return getPlannerTypeForRecordType(Iterables.getOnlyElement(recordTypes));
         }
         // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
-        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypeNames.stream()
-                .map(this::getPlannerType)
+        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypes.stream()
+                .map(this::getPlannerTypeForRecordType)
                 .flatMap(type -> type.getFields().stream())
                 .collect(Collectors.groupingBy(Type.Record.Field::getFieldName,
                         LinkedHashMap::new,

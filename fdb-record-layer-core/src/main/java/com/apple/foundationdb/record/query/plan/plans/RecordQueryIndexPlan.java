@@ -112,27 +112,21 @@ import java.util.function.Supplier;
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
  *
- * <p>
- * This scans a larger range internally when {@link IndexScanType#BY_VALUE_OVER_SCAN} is applied.
+ * <p>This scans a larger range internally when {@link IndexScanType#BY_VALUE_OVER_SCAN} is applied.
  * Semantically, this returns the same results as a {@link IndexScanType#BY_VALUE} over the same range.
  * However, internally, it will scan additional data for the purposes of loading that data into an
  * in-memory cache that lives within the FDB client.
- * </p>
  *
- * <p>
- * {@link IndexScanType#BY_VALUE_OVER_SCAN} is most useful in the following situation: a query with
+ * <p>{@link IndexScanType#BY_VALUE_OVER_SCAN} is most useful in the following situation: a query with
  * parameters is planned once, and then executed multiple times in the same transaction with different
  * parameter values. In this case, the first time the plan is executed, this plan will incur additional
  * I/O in order to place entries in the cache, but subsequent executions of the plan may be able to be
  * served from this cache, saving time overall.
- * </p>
  *
- * <p>
- * This plan's continuations are also designed to be equivalent between {@link IndexScanType#BY_VALUE}
+ * <p>This plan's continuations are also designed to be equivalent between {@link IndexScanType#BY_VALUE}
  * and {@link IndexScanType#BY_VALUE_OVER_SCAN} over the same scan range, so a query plan with a
  * {@link IndexScanType#BY_VALUE} can be executed, and then the continuation from that plan can be given
  * to an identical plan that substitutes the index scan with {@link IndexScanType#BY_VALUE_OVER_SCAN} (or vice versa).
- * </p>
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -546,11 +540,11 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
         RecordQueryIndexPlan that = (RecordQueryIndexPlan) otherExpression;
         return reverse == that.reverse &&
-               strictlySorted == that.strictlySorted &&
-               indexFetchMethod == that.indexFetchMethod &&
-               fetchIndexRecords == that.fetchIndexRecords &&
-               Objects.equals(indexName, that.indexName) &&
-               Objects.equals(scanParameters, that.scanParameters);
+                strictlySorted == that.strictlySorted &&
+                indexFetchMethod == that.indexFetchMethod &&
+                fetchIndexRecords == that.fetchIndexRecords &&
+                Objects.equals(indexName, that.indexName) &&
+                Objects.equals(scanParameters, that.scanParameters);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -676,6 +670,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     /**
      * Create a planner graph for better visualization of a query index plan.
+     *
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */

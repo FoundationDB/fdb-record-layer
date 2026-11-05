@@ -313,7 +313,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                     RecordCoreArgumentException.class, "Cannot include version");
         } else if (!testConfig.splitLongRecords && serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
-                    RecordCoreException.class, "Record is too long");
+                    FDBExceptions.FDBStoreValueSizeException.class, "Record is too long");
         } else if (testConfig.isDryRun) {
             return dryRunSetSizeInfo(context, key, serialized, version, testConfig, previousSizeInfo);
         } else {

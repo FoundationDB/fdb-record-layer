@@ -400,7 +400,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
     }
 
     private void testUniquenessMultiTarget(boolean allowUniquePending) {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
 
@@ -672,7 +672,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
     @Test
     void testPartlyBuiltMarkReadableFailure() {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
 

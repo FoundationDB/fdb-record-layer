@@ -50,8 +50,7 @@ public class PathValue {
     }
 
     /**
-     * Returns the value that will be stored in the FDB row key for a path.
-     * @return the value that will be stored in the FDB row key
+     * {@return the value that will be stored in the FDB row key for a path}
      */
     @Nullable
     public Object getResolvedValue() {

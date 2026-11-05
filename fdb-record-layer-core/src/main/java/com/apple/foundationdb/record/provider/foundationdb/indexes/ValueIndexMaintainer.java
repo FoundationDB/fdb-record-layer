@@ -49,7 +49,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An index maintainer for an ordinary index by value, implementing ordered enumeration of records within a range of indexed values.
  *
- * When more than one field is indexed, records are ordered lexicographically.
+ * <p>When more than one field is indexed, records are ordered lexicographically.
  */
 @API(API.Status.UNSTABLE)
 public class ValueIndexMaintainer extends StandardIndexMaintainer {
@@ -71,6 +71,7 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     *
      * @param continuation any continuation from a previous validation invocation
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
      * @return a cursor over index entries that have no associated records

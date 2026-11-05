@@ -52,8 +52,8 @@ import java.util.stream.Stream;
 
 /**
  * End-to-end unit tests for Schema Template language in the RecordLayer.
- * <br/>
- * <b>Note:</b> this test suite has side effects, FDB should be manually cleaned up after running this test.
+ *
+ * <p><b>Note:</b> this test suite has side effects, FDB should be manually cleaned up after running this test.
  *
  */
 public class DdlRecordLayerSchemaTemplateTest {

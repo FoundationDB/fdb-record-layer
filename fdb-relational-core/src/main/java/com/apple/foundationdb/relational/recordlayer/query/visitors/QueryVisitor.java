@@ -197,12 +197,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     }
                     return Optional.of(Assert.castUnchecked(result, LogicalOperator.class));
                 });
-        {
-            getDelegate().pushPlanFragment();
-            recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
-                    queryName, getDelegate()::visitFullId, memoized, this);
-            getDelegate().popPlanFragment();
-        }
+        getDelegate().pushPlanFragment();
+        recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
+                queryName, getDelegate()::visitFullId, memoized, this);
+        getDelegate().popPlanFragment();
         Assert.thatUnchecked(recursiveQueryType.isPresent(), ErrorCode.INVALID_RECURSION, "recursive CTE does not contain non-recursive term");
         final var type = recursiveQueryType.get();
         final var currentPlanFragment = getDelegate().pushPlanFragment();
@@ -459,7 +457,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param leftOperators the left-side operators to resolve column names against
      * @param rightTableSource the right-side table source
      * @param uidList the parsed {@code <uidList>} list of identifiers (must be non-empty per the grammar)
-     *
      * @return a pair of the (possibly updated) right table source and the combined equality expression
      */
     @Nonnull
@@ -502,6 +499,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      *
      * @see #visitOuterJoin
      * @see #visitSimpleTable
+     * @see #visitCrossJoin
      */
     @Nullable
     @Override
@@ -525,6 +523,31 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final Expression expression = Assert.castUnchecked(expressionCtx.accept(this), Expression.class);
             fragment.addInnerJoinExpression(expression);
         }
+        return null;
+    }
+
+    /**
+     * Visits a {@code CROSS JOIN} clause and adds the right-side table source to the current plan fragment.
+     *
+     * <p>A {@code CROSS JOIN} has no {@code ON} or {@code USING} clause, this method does not add a join predicate.
+     * It is equivalent to listing the tables with commas in the {@code FROM} clause (e.g. {@code FROM T1, T2}), and
+     * produces the Cartesian product of both sides unless a {@code WHERE} clause filters it.
+     *
+     * <p>Since cross joins are associative and commutative, this method does <em>not</em> immediately fold the left and
+     * right sides into a single relational expression. Instead, it accumulates the right-side operator in the current
+     * plan fragment. All accumulated operators are later merged into a single flat {@link SelectExpression} by
+     * {@link #visitSimpleTable}.
+     *
+     * @see #visitInnerJoin
+     * @see #visitSimpleTable
+     */
+    @Nullable
+    @Override
+    public Void visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+        LogicalOperator rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this),
+                LogicalOperator.class);
+        final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
+        fragment.addOperator(rightTableSource);
         return null;
     }
 
@@ -793,8 +816,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
         return typeMaybe == null
-               ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
-               : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
+                ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
+                : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
     }
 
     @Override

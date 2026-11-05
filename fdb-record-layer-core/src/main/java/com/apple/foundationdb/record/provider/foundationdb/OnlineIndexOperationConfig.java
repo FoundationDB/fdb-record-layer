@@ -102,36 +102,28 @@ public class OnlineIndexOperationConfig {
     }
 
     /**
-     * Get the maximum number of records to process in one transaction.
-     *
-     * @return the maximum number of records to process in one transaction
+     * {@return the maximum number of records to process in one transaction}
      */
     public int getMaxLimit() {
         return maxLimit;
     }
 
     /**
-     * Get the initial number of records to process in one transaction.
-     *
-     * @return the initial number of records to process in one transaction
+     * {@return the initial number of records to process in one transaction}
      */
     public int getInitialLimit() {
         return initialLimit > 0 ? Math.min(initialLimit, maxLimit) : maxLimit;
     }
 
     /**
-     * Get the maximum number of times to retry a single range rebuild.
-     *
-     * @return the maximum number of times to retry a single range rebuild
+     * {@return the maximum number of times to retry a single range rebuild}
      */
     public int getMaxRetries() {
         return maxRetries;
     }
 
     /**
-     * Get the maximum number of records to process in a single second.
-     *
-     * @return the maximum number of records to process in a single second
+     * {@return the maximum number of records to process in a single second}
      */
     public int getRecordsPerSecond() {
         return recordsPerSecond;
@@ -188,9 +180,7 @@ public class OnlineIndexOperationConfig {
     }
 
     /**
-     * Get the time quota for a single transaction.
-     *
-     * @return the time quota for a single transaction
+     * {@return the time quota for a single transaction}
      */
     public long getTransactionTimeLimitMilliseconds() {
         return transactionTimeLimitMilliseconds;
@@ -206,6 +196,7 @@ public class OnlineIndexOperationConfig {
      * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
      * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
      * throw an exception if they another active indexing session is detected.
+     *
      * @return always true;
      */
     @API(API.Status.DEPRECATED)
@@ -265,7 +256,6 @@ public class OnlineIndexOperationConfig {
          * Get the maximum number of records to process in one transaction.
          *
          * @return the maximum number of records to process in one transaction
-         *
          * @see #setMaxLimit(int)
          */
         public int getMaxLimit() {
@@ -277,7 +267,6 @@ public class OnlineIndexOperationConfig {
          * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
          *
          * @param limit the maximum number of records to process in one transaction
-         *
          * @return this builder
          */
         @Nonnull
@@ -290,7 +279,6 @@ public class OnlineIndexOperationConfig {
          * Get the initial number of records to process in one transaction.
          *
          * @return the initial number of records to process in one transaction
-         *
          * @see #setInitialLimit(int)
          */
         public int getInitialLimit() {
@@ -303,7 +291,6 @@ public class OnlineIndexOperationConfig {
          * The default initial limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
          *
          * @param limit the initial number of records to process in one transaction
-         *
          * @return this builder
          */
         @Nonnull
@@ -316,7 +303,6 @@ public class OnlineIndexOperationConfig {
          * Stop scanning if the write size (bytes) becomes bigger that this value.
          *
          * @return max write quota for a single transaction
-         *
          * @see #setWriteLimitBytes(int)
          */
         public int getWriteLimitBytes() {
@@ -328,7 +314,6 @@ public class OnlineIndexOperationConfig {
          * The default limit is {@link #DEFAULT_WRITE_LIMIT_BYTES} = {@value #DEFAULT_WRITE_LIMIT_BYTES}.
          *
          * @param limit the approximate maximum write size in one transaction
-         *
          * @return this builder
          */
         @Nonnull
@@ -341,7 +326,6 @@ public class OnlineIndexOperationConfig {
          * Get the maximum number of times to retry a single range rebuild.
          *
          * @return the maximum number of times to retry a single range rebuild
-         *
          * @see #setMaxRetries(int)
          */
         public int getMaxRetries() {
@@ -350,11 +334,10 @@ public class OnlineIndexOperationConfig {
 
         /**
          * Set the maximum number of times to retry a single range rebuild.
-         * <p>
-         * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
+         *
+         * <p>The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
          *
          * @param maxRetries the maximum number of times to retry a single range rebuild
-         *
          * @return this builder
          */
         @Nonnull
@@ -367,7 +350,6 @@ public class OnlineIndexOperationConfig {
          * Get the maximum number of records to process in a single second.
          *
          * @return the maximum number of records to process in a single second
-         *
          * @see #setRecordsPerSecond(int)
          */
         public int getRecordsPerSecond() {
@@ -376,11 +358,10 @@ public class OnlineIndexOperationConfig {
 
         /**
          * Set the maximum number of records to process in a single second.
-         * <p>
-         * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
+         *
+         * <p>The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
          *
          * @param recordsPerSecond the maximum number of records to process in a single second
-         *
          * @return this builder
          */
         @Nonnull
@@ -393,7 +374,6 @@ public class OnlineIndexOperationConfig {
          * Get the enforced delay, in milliseconds, applied after each transaction.
          *
          * @return the enforced post-transaction delay in milliseconds
-         *
          * @see #setEnforcedPostTransactionDelay(long)
          */
         public long getEnforcedPostTransactionDelay() {
@@ -404,11 +384,10 @@ public class OnlineIndexOperationConfig {
          * Set the enforced delay, in milliseconds, applied after each transaction. When set to a positive value,
          * the indexer waits for this many milliseconds between transactions, bypassing the records-per-second
          * based throttling. A non-positive value disables the enforced delay.
-         * <p>
-         * The default value is {@link #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
+         *
+         * <p>The default value is {@link #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value #DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
          *
          * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
-         *
          * @return this builder
          */
         @Nonnull
@@ -422,7 +401,6 @@ public class OnlineIndexOperationConfig {
          * Negative will not log at all, 0 will log after every commit.
          *
          * @return the minimum time between successful progress logs in milliseconds
-         *
          * @see #setProgressLogIntervalMillis(long)
          */
         public long getProgressLogIntervalMillis() {
@@ -434,7 +412,6 @@ public class OnlineIndexOperationConfig {
          * Negative will not log at all, 0 will log after every commit.
          *
          * @param progressLogIntervalMillis the number of milliseconds to wait between successful logs
-         *
          * @return this builder
          */
         @Nonnull
@@ -450,7 +427,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return the number of successful range builds before increasing the number of records processed in a single
          * transaction
-         *
          * @see #setIncreaseLimitAfter(int)
          */
         public int getIncreaseLimitAfter() {
@@ -465,7 +441,6 @@ public class OnlineIndexOperationConfig {
          *
          * @param increaseLimitAfter the number of successful range builds before increasing the number of records
          * processed in a single transaction
-         *
          * @return this builder
          */
         @Nonnull
@@ -478,7 +453,6 @@ public class OnlineIndexOperationConfig {
          * Exit with exception if this limit is exceeded (checked after each non-final transaction).
          *
          * @return time limit in milliseconds
-         *
          * @see #setTimeLimitMilliseconds(long)
          */
         public long getTimeLimitMilliseconds() {
@@ -490,7 +464,6 @@ public class OnlineIndexOperationConfig {
          * non-final transaction.
          *
          * @param timeLimitMilliseconds the time limit in milliseconds
-         *
          * @return this builder
          */
         @Nonnull
@@ -506,7 +479,6 @@ public class OnlineIndexOperationConfig {
          * Get the time quota for a single transaction.
          *
          * @return the time quota for a single transaction
-         *
          * @see #setTransactionTimeLimitMilliseconds(long)
          */
         public long getTransactionTimeLimitMilliseconds() {
@@ -524,7 +496,6 @@ public class OnlineIndexOperationConfig {
          * The default value is 4,000 (4 seconds), matches fdb's default 5 seconds transaction limit.
          *
          * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
-         *
          * @return this builder
          */
         @Nonnull
@@ -537,6 +508,7 @@ public class OnlineIndexOperationConfig {
          * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
          * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
          * throw an exception if they another active indexing session is detected.
+         *
          * @param useSynchronizedSession ignored.
          * @return this builder
          */
@@ -551,6 +523,7 @@ public class OnlineIndexOperationConfig {
          * The default value is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
          * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
          * throw an exception if they another active indexing session is detected.
+         *
          * @param leaseLengthMillis length between last access and lease's end time in milliseconds
          * @return this builder
          */

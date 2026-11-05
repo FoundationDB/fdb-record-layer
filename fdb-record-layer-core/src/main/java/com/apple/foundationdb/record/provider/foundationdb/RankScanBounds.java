@@ -29,13 +29,12 @@ import javax.annotation.Nonnull;
 
 /**
  * {@link IndexScanBounds} for a scan of a rank index.
- * <p>
- * Only {@link IndexScanType#BY_VALUE} and {@link IndexScanType#BY_RANK} are accepted, those being the two traversals a
+ *
+ * <p>Only {@link IndexScanType#BY_VALUE} and {@link IndexScanType#BY_RANK} are accepted, those being the two traversals a
  * rank index supports: by value the range is over scores, by rank it is over ranks and is converted to a score range
  * before the underlying scan happens. Either way the entries are the same, so {@code includeRankAsValue} is what asks
  * for the rank to be reported rather than merely used as a bound. A rank index leaves the entry's value empty, so that
  * is where the rank can go.
- * </p>
  *
  * @param indexScanType whether the range is over scores ({@code BY_VALUE}) or over ranks ({@code BY_RANK})
  * @param rankRange the bounds of the scan, prefixed by the group

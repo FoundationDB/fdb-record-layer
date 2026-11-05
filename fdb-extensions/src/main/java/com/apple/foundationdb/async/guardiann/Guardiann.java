@@ -41,12 +41,11 @@ import java.util.concurrent.Executor;
  * replication state) to support incremental maintenance.
  *
  * <h2>Architecture</h2>
- * <p>
- * Vectors are partitioned into clusters. Each cluster stores a set of <em>primary</em> vector
+ *
+ * <p>Vectors are partitioned into clusters. Each cluster stores a set of <em>primary</em> vector
  * references (the authoritative copies) and <em>replicated</em> references (copies from neighboring
  * clusters kept for improved search recall). Cluster centroids are indexed in an HNSW graph so that
  * the nearest clusters to a query vector can be found efficiently.
- * </p>
  *
  * <h2>Operations</h2>
  * <ul>
@@ -61,10 +60,9 @@ import java.util.concurrent.Executor;
  * </ul>
  *
  * <h2>Maintenance</h2>
- * <p>
- * Structural maintenance is performed lazily via deferred tasks that are executed piggy-backed on
+ *
+ * <p>Structural maintenance is performed lazily via deferred tasks that are executed piggy-backed on
  * insert and delete operations:
- * </p>
  * <ul>
  *   <li><b>Split/Merge</b> — when a cluster grows beyond {@link Config#primaryClusterMax()} or shrinks
  *       below {@link Config#primaryClusterMin()}, a {@link SplitMergeTask} repartitions the affected
@@ -78,12 +76,11 @@ import java.util.concurrent.Executor;
  * </ul>
  *
  * <h2>Usage</h2>
- * <p>
- * This class is the primary entry point for interacting with the Guardiann vector structure. It
+ *
+ * <p>This class is the primary entry point for interacting with the Guardiann vector structure. It
  * delegates to specialized operation classes ({@link Insert}, {@link Search}, {@link Delete}) which
  * implement the respective algorithms. All operations are asynchronous and designed for use within
  * FoundationDB transactions.
- * </p>
  *
  * @see Config
  * @see Search
@@ -97,6 +94,7 @@ public class Guardiann {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link Guardiann}
      * @see Config.ConfigBuilder#build
      */
@@ -106,6 +104,7 @@ public class Guardiann {
 
     /**
      * Returns a default {@link Config}.
+     *
      * @param numDimensions number of dimensions
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
@@ -117,8 +116,8 @@ public class Guardiann {
 
     /**
      * Constructs a new Guardiann vector structure instance.
-     * <p>
-     * Initializes the structure with the necessary components for storage, execution, configuration,
+     *
+     * <p>Initializes the structure with the necessary components for storage, execution, configuration,
      * and event handling. All parameters are mandatory and must not be null.
      *
      * @param subspace the {@link Subspace} where the vector structure data is stored
@@ -152,6 +151,7 @@ public class Guardiann {
 
     /**
      * Get the executor used by this object.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -161,6 +161,7 @@ public class Guardiann {
 
     /**
      * Get this object's configuration.
+     *
      * @return the configuration
      */
     @Nonnull
@@ -169,8 +170,7 @@ public class Guardiann {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -178,8 +178,7 @@ public class Guardiann {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -209,7 +208,6 @@ public class Guardiann {
      * @param searchConfig the performance/recall tuning knobs for this search (see {@link SearchConfig})
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors of
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -243,7 +241,6 @@ public class Guardiann {
      *        its primary key is strictly greater (may be {@code null} to disable the tie-break)
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} completing with up to {@code k} results in ascending distance order
      */
     @Nonnull
@@ -262,8 +259,8 @@ public class Guardiann {
 
     /**
      * Inserts a new vector with its associated primary key into the vector structure.
-     * <p>
-     * Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, then writes a
+     *
+     * <p>Finds the nearest cluster(s) for the new vector by querying the HNSW centroid index, then writes a
      * primary vector reference to the nearest cluster and replicated references to neighboring clusters
      * based on replication priority scoring. Updates cluster metadata and enqueues deferred maintenance
      * tasks (split, merge, reassign) if cluster size invariants are violated.
@@ -285,8 +282,8 @@ public class Guardiann {
 
     /**
      * Deletes a vector identified by its primary key from the Guardiann index.
-     * <p>
-     * Removes the vector's references from all clusters it belongs to (primary and replicated),
+     *
+     * <p>Removes the vector's references from all clusters it belongs to (primary and replicated),
      * updates cluster metadata, and enqueues maintenance tasks if needed. The caller must provide
      * the vector data to locate which clusters contain the vector.
      *

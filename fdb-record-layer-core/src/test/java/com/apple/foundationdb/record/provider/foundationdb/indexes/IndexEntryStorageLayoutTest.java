@@ -53,12 +53,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Pins the raw stored key/value layout of one index of each interesting type.
- * <p>
- * The point is to establish, by observation rather than by reading maintainer code, which parts of a
+ *
+ * <p>The point is to establish, by observation rather than by reading maintainer code, which parts of a
  * {@link com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression} end up in an entry's key, which end
  * up in its value, and which are not stored as decodable columns at all. Every index below is defined over the same
  * record so the entries can be compared directly.
- * </p>
  */
 @Tag(Tags.RequiresFDB)
 class IndexEntryStorageLayoutTest extends FDBRecordStoreTestBase {

@@ -136,12 +136,12 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
      * Make detailed assertions about the number of bytes scanned when the byte scan limit is very close to the number
      * of records scanned between records.
      *
-     * This helper method attempts to verify that the number of bytes being scanned during query execution is not too
+     * <p>This helper method attempts to verify that the number of bytes being scanned during query execution is not too
      * much higher than the limit specified by {@link ExecuteProperties.Builder#setScannedBytesLimit(long)}. To do this,
      * it's given a list of the number of bytes scanned between individual records produced by the given plan. Then,
      * it sets the byte limit to that number of bytes, possibly increased or decreased by 1.
      *
-     * Suppose that A, B, and C are successive records produced by the plan's cursor. Consider the execution of that
+     * <p>Suppose that A, B, and C are successive records produced by the plan's cursor. Consider the execution of that
      * cursor in the absence of any limits. Let the number of bytes scanned between A and B be {@code m} and the number
      * of bytes scanned between B and C be {@code n}. This test relies on the following claims holding:
      * a) {@code m} and {@code n} are constant with respect to the asynchronous execution order of the underlying cursors.
@@ -149,12 +149,13 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
      *   A and B, even if we resume the cursor by continuation. The same holds for {@code n}, B and C.
      * c) If the byte scan limit is {@code m + 1}, then at least {@code m} and at most {@code m + n} bytes are scanned.
      *
-     * Note that claim (b) requires the factor of two because resuming certain cursors (such as a
+     * <p>Note that claim (b) requires the factor of two because resuming certain cursors (such as a
      * {@link com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor}) from a continuation requires
      * rescanning records that have already been deserialized.
      *
-     * These claims should hold for most query plans. Notably, even claim (a) does not hold for the
+     * <p>These claims should hold for most query plans. Notably, even claim (a) does not hold for the
      * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}.
+     *
      * @param byteCountsByRecord a list of the number of bytes scanned between successive records without any limits
      * @param context an open record store context
      * @param plan a query plan to execute

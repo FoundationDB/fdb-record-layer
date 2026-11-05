@@ -37,8 +37,7 @@ import java.util.List;
  * is given, then the assumption is that the user has already tokenized the string and the
  * list is the result of that tokenization.
  *
- * <p>
- * This type allows the user to specify a "tokenizer name". If one is given, then it will use
+ * <p>This type allows the user to specify a "tokenizer name". If one is given, then it will use
  * this tokenizer to tokenize the query string (if not pre-tokenized) and will require that
  * if an index is used, it uses the tokenizer provided. If no tokenizer is specified, then
  * it will allow itself to be matched against any text index on the field and apply the
@@ -47,13 +46,10 @@ import java.util.List;
  * tokenize the query string as well as to tokenize the record's text. By default, this
  * is the {@link DefaultTextTokenizer} (with name "{@value DefaultTextTokenizer#NAME}"), but
  * one can specify a different one if one wishes.
- * </p>
  *
- * <p>
- * This should be created by calling the {@link Field#text() text()} method on a query
+ * <p>This should be created by calling the {@link Field#text() text()} method on a query
  * {@link Field} or {@link OneOfThem} instance. For example, one might call: <code>Query.field("text").text()</code>
  * to create a predicate on the <code>text</code> field's contents.
- * </p>
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer TextIndexMaintainer
  * @see com.apple.foundationdb.record.provider.common.text.TextTokenizer TextTokenizer

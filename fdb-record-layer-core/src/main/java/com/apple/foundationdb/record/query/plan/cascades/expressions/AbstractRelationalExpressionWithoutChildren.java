@@ -35,6 +35,7 @@ import java.util.Set;
 public abstract class AbstractRelationalExpressionWithoutChildren extends AbstractRelationalExpression {
     /**
      * This override makes {@code getCorrelatedTo} final.
+     *
      * @return a set of aliases this object is considered to be correlated to.
      */
     @Nonnull

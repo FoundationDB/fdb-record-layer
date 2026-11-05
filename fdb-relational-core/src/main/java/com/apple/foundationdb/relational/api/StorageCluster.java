@@ -30,7 +30,7 @@ import java.net.URI;
 /**
  * A Representation of a cluster of storage servers (either FDB, or some theoretical alternative).
  *
- * A cluster of storage servers needs to provide two mechanisms:
+ * <p>A cluster of storage servers needs to provide two mechanisms:
  * 1. The ability to create many databases in an efficient multi-tenant way(e.g. {@link #loadDatabase(URI, Options)})
  * 2. Have a transaction system which can be used across all databases within the same cluster. (Note that it is not
  * necessary for transactions to span multiple StorageCluster systems; As of April 2022, this is not even possible).
@@ -39,9 +39,10 @@ public interface StorageCluster {
     /**
      * Load the specified database, if it is located within this cluster.
      *
-     * If the specified database does not exist in this cluster, {@code null} is returned.
+     * <p>If the specified database does not exist in this cluster, {@code null} is returned.
      *
-     * //TODO(bfines) ensure implementations actually hold to that spec.
+     * <p>//TODO(bfines) ensure implementations actually hold to that spec.
+     *
      * @param url the path to the database of interest.
      * @param connOptions options to use when connecting
      * @return the Database at the specified location, or {@code null} if no such database exist within this cluster.

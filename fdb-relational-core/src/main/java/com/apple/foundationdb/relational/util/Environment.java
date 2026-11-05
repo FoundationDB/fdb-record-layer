@@ -28,6 +28,7 @@ public class Environment {
     /**
      * Checks whether the environment of the currently running process is a debug environment, this is usually
      * set when running tests and should be used to e.g. trigger extra logging or diagnostics.
+     *
      * @return {@code true} if the environment of the currently running process is debug, otherwise {@code false}.
      */
     public static boolean isDebug() {

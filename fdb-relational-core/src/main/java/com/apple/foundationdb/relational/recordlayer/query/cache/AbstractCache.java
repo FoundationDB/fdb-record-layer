@@ -142,6 +142,7 @@ public abstract class AbstractCache<K, S, T, V> {
 
     /**
      * Retrieves the statistics of the cache.
+     *
      * @return The statistics of the cache.
      */
     public abstract CacheStatistics getStats();

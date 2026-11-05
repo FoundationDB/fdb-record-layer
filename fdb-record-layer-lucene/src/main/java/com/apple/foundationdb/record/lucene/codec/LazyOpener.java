@@ -34,6 +34,7 @@ import java.util.concurrent.Executor;
 
 /**
  * Class to lazily "open" something that may throw an IOException when opening.
+ *
  * @param <T> the type of object that the opener returns
  */
 public class LazyOpener<T> {
@@ -60,19 +61,20 @@ public class LazyOpener<T> {
 
     /**
      * Create a new {@link LazyOpener} for the given {@link LazyOpener.Opener}.
-     * <p>
-     *     The {@code opener} will be called at most once; see {@link Suppliers#memoize(Supplier)}.
-     * </p>
+     *
+     * <p>The {@code opener} will be called at most once; see {@link Suppliers#memoize(Supplier)}.
+     *
      * @param <U> the return type of the {@code opener}
      * @param opener a function to "open" a resource
      * @return a new lazily opened object
      */
     public static <U> LazyOpener<U> supply(LazyOpener.Opener<U> opener) {
-        return new LazyOpener<U>(opener);
+        return new LazyOpener<>(opener);
     }
 
     /**
      * Get the object returned by the {@code opener}.
+     *
      * @return the object returned by the {@code opener}
      * @throws IOException if calling {@link Opener#open()} threw an {@link IOException}
      */
@@ -95,6 +97,7 @@ public class LazyOpener<T> {
     /**
      * Get the object returned by the {@code opener}, throwing {@link UncheckedIOException} if the {@link Opener#open()}
      * method threw {@link IOException}.
+     *
      * @return the object returned by the {@code opener}
      */
     @SuppressWarnings("PMD.PreserveStackTrace")
@@ -130,6 +133,7 @@ public class LazyOpener<T> {
 
     /**
      * A function that returns an object, but may throw an {@link IOException}.
+     *
      * @param <T> the type returned
      */
     @FunctionalInterface

@@ -37,20 +37,17 @@ public interface YamlConnectionFactory {
      *
      * @param connectPath the path to connect to
      * @param clusterIndex the cluster to connect to (0 is the default cluster)
-     *
      * @return A new {@link RelationalConnection} for the given path on the specified cluster
-     *
      * @throws SQLException if we cannot connect or the cluster index is not supported
      */
     YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException;
 
     /**
      * The versions that the connection has, other than the current code.
-     * <p>
-     * If we are just testing against the current code, this will be empty, but otherwise it will include the
+     *
+     * <p>If we are just testing against the current code, this will be empty, but otherwise it will include the
      * versions that we're testing. In the future we may want to support tests that don't run against the
      * current version, but that's not currently needed, so not supported.
-     * </p>
      *
      * @return A set of versions that we are testing against, or an empty set if just testing against the current
      * version

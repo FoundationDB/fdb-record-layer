@@ -62,6 +62,7 @@ public class TestingIndexMaintainerRegistry implements IndexMaintainerFactoryReg
 
     /**
      * The method that can be used by tests to override an implementation of the factory by another.
+     *
      * @param factory the factory to register
      */
     public void overrideFactory(IndexMaintainerFactory factory) {

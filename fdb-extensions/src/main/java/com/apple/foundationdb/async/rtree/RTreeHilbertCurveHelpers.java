@@ -50,8 +50,8 @@ public class RTreeHilbertCurveHelpers {
 
     private static long shiftCoordinate(long coordinate) {
         return coordinate < 0
-               ? (Long.MAX_VALUE - (-coordinate - 1L))
-               : (coordinate | (1L << 63));
+                ? (Long.MAX_VALUE - (-coordinate - 1L))
+                : (coordinate | (1L << 63));
     }
 
     //

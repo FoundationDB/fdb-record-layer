@@ -62,7 +62,6 @@ public final class StorageHelpers {
      * @param prefixSubspace the subspace holding the sampled vectors
      * @param numMaxVectors the maximum number of sampled vectors to consume
      * @param onReadListener the listener notified of each key/value read
-     *
      * @return a future completing with the consumed sampled vectors
      */
     @Nonnull
@@ -100,7 +99,6 @@ public final class StorageHelpers {
      * and counts.
      *
      * @param vectors the partial aggregates to combine
-     *
      * @return the combined aggregate, or {@code null} if {@code vectors} contributes no elements
      */
     @Nullable
@@ -171,6 +169,7 @@ public final class StorageHelpers {
 
     /**
      * Converts a transformed vector into a tuple.
+     *
      * @param vector a transformed vector
      * @return a new, non-null {@code Tuple} instance representing the contents of the underlying vector.
      */
@@ -181,9 +180,10 @@ public final class StorageHelpers {
 
     /**
      * Converts a {@link RealVector} into a {@link Tuple}.
-     * <p>
-     * This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
+     *
+     * <p>This method first serializes the given vector into a byte array using the {@link RealVector#getRawData()} getter
      * method. It then creates a {@link Tuple} from the resulting byte array.
+     *
      * @param vector the {@link RealVector} to convert. Cannot be null.
      * @return a new, non-null {@code Tuple} instance representing the contents of the vector.
      */
@@ -197,7 +197,6 @@ public final class StorageHelpers {
      * Returns the raw byte representation of a transformed vector's underlying data, as stored in the database.
      *
      * @param transformedVector the transformed vector whose underlying raw bytes are returned
-     *
      * @return the raw bytes of the underlying vector
      */
     @Nonnull
@@ -207,10 +206,11 @@ public final class StorageHelpers {
 
     /**
      * Creates a {@link RealVector} from a given {@link Tuple}.
-     * <p>
-     * This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
+     *
+     * <p>This method assumes the vector data is stored as a byte array at the first. position (index 0) of the tuple. It
      * extracts this byte array and then delegates to the {@link #vectorFromBytes(VectorEncodingConfig, byte[])} method for the
      * actual conversion.
+     *
      * @param config an HNSW configuration
      * @param vectorTuple the tuple containing the vector data as a byte array at index 0. Must not be {@code null}.
      * @return a new {@link RealVector} instance created from the tuple's data.
@@ -223,9 +223,10 @@ public final class StorageHelpers {
 
     /**
      * Creates a {@link RealVector} from a byte array.
-     * <p>
-     * This method reads the leading vector-type byte and, based on it, delegates to the appropriate decoder:
+     *
+     * <p>This method reads the leading vector-type byte and, based on it, delegates to the appropriate decoder:
      * {@link EncodedRealVector} for RaBitQ-encoded vectors, otherwise {@link RealVector#fromBytes(byte[])}.
+     *
      * @param config a vector-encoding configuration
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.

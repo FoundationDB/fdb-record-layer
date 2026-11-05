@@ -46,8 +46,8 @@ import java.util.stream.Collectors;
 /**
  * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
  * towards the sources during planning.
- * <br>
- * There are two flows of information at work during planning:
+ *
+ * <p>There are two flows of information at work during planning:
  * <ul>
  *     <li>
  *         a {@link RequestedOrdering} is used to convey to an upstream expression (closer to source) that a particular
@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
  *     </li>
  * </ul>
  *
- * An {@link Ordering} satisfies a {@link RequestedOrdering} iff it adheres to the constraints given in the request.
+ * <p>An {@link Ordering} satisfies a {@link RequestedOrdering} iff it adheres to the constraints given in the request.
  */
 public class RequestedOrdering {
     /**
@@ -109,6 +109,7 @@ public class RequestedOrdering {
     /**
      * When expressing a requirement (see also {@link RequestedOrderingConstraint}), the requirement may be to preserve
      * the order of records that are being encountered. This is represented by a special value here.
+     *
      * @return {@code true} if the ordering needs to be preserved
      */
     public boolean isPreserve() {
@@ -128,6 +129,7 @@ public class RequestedOrdering {
     /**
      * Returns a map from {@link Value} to {@link RequestedSortOrder}. It is meant for quick lookups of the
      * sort order of a given value.
+     *
      * @return a map from {@link Value} to {@link RequestedSortOrder}. It is lazily computed and memoized. Subsequent
      *         calls return instantaneously.
      */
@@ -168,10 +170,10 @@ public class RequestedOrdering {
      * process of pushing the constituent parts of this requested ordering to {@link Value}
      * (which are also {@link Value}s). The rule set for simplifications of this requested ordering that is used is
      * created by specific ordering simplification rule sets.
-     * <br>
-     * Examples:
-     * <br>
-     * This example highlights that references get translated by the push down logic:
+     *
+     * <p>Examples:
+     *
+     * <p>This example highlights that references get translated by the push down logic:
      * <pre>
      *     {@code
      *     this: requested ordering [_.a, _.b.i]
@@ -179,8 +181,8 @@ public class RequestedOrdering {
      *     result: requested ordering [_.x, _y]
      *     }
      * </pre>
-     * <br>
-     * This example highlights that certain arithmetic operations (involving constants in a limited fashion) can
+     *
+     * <p>This example highlights that certain arithmetic operations (involving constants in a limited fashion) can
      * be ignored and therefore can be removed by the push down logic:
      * <pre>
      *     {@code
@@ -189,6 +191,7 @@ public class RequestedOrdering {
      *     result: requested ordering [_.x, _.y]
      *     }
      * </pre>
+     *
      * @param value the value this requested value should be pushed down through
      * @param lowerBaseAlias the alias that the new values should be referring to
      * @param evaluationContext the evaluation context
@@ -282,6 +285,7 @@ public class RequestedOrdering {
 
     /**
      * Method to create an ordering instance that preserves the order of records.
+     *
      * @return a new ordering that preserves the order of records
      */
     @Nonnull

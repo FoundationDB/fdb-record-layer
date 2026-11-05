@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
@@ -702,7 +703,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         final List<FDBStoredRecord<Message>> savedRecords = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addUngroupedVectorIndex);
-            recordStore.markIndexWriteOnlyWithQueue("UngroupedVectorIndex").join();
+            recordStore.markIndexWriteOnly("UngroupedVectorIndex", IndexState.WRITE_ONLY_WITH_QUEUE).join();
             for (long recNo = 0; recNo < size; recNo++) {
                 final Message generated = recordGenerator.apply(recNo);
                 savedRecords.add(recordStore.saveRecord(generated));
@@ -736,7 +737,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addGroupedVectorIndex);
-            recordStore.markIndexWriteOnlyWithQueue("GroupedVectorIndex").join();
+            recordStore.markIndexWriteOnly("GroupedVectorIndex", IndexState.WRITE_ONLY_WITH_QUEUE).join();
             recordStore.deleteRecordsWhere(Query.field("group_id").equalsValue(0));
             commit(context);
         }

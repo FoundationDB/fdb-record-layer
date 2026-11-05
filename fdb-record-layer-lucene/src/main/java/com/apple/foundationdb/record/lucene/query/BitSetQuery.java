@@ -34,7 +34,6 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.DocIdSetBuilder;
-import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.NumericUtils;
 
 import java.io.IOException;
@@ -114,40 +113,6 @@ public class BitSetQuery extends Query {
                     @Override
                     public void visit(DocIdSetIterator iterator, byte[] packedValue) throws IOException {
                         if (matches(packedValue)) {
-                            int docID;
-                            while ((docID = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-                                visit(docID);
-                            }
-                        }
-                    }
-
-                    @Override
-                    public PointValues.Relation compare(byte[] minPackedValue, byte[] maxPackedValue) {
-                        return PointValues.Relation.CELL_CROSSES_QUERY;
-                    }
-                };
-            }
-
-            private PointValues.IntersectVisitor getInverseIntersectVisitor(FixedBitSet result, int[] cost) {
-                return new PointValues.IntersectVisitor() {
-
-                    @Override
-                    public void visit(int docID) {
-                        result.clear(docID);
-                        cost[0]--;
-                    }
-
-                    @Override
-                    public void visit(int docID, byte[] packedValue) {
-                        if (!matches(packedValue)) {
-                            visit(docID);
-                        }
-                    }
-
-                    @Override
-                    @SuppressWarnings("PMD.AssignmentInOperand")
-                    public void visit(DocIdSetIterator iterator, byte[] packedValue) throws IOException {
-                        if (!matches(packedValue)) {
                             int docID;
                             while ((docID = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
                                 visit(docID);

@@ -78,6 +78,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -95,8 +96,8 @@ import java.util.stream.StreamSupport;
  * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
  * it assists in looking up an {@link Identifier} within a chain of {@link LogicalPlanFragment}(s), expanding a {@link Star}
  * expression into its individual fields, resolving an alias, and so on.
- * <br/>
- * In addition to that, this class performs metadata resolution tasks, such as resolving tables, validating indexes, and
+ *
+ * <p>In addition to that, this class performs metadata resolution tasks, such as resolving tables, validating indexes, and
  * resolving built-in and user-defined functions, which arguably, should be handled in a separate catalog component.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -129,8 +130,8 @@ public class SemanticAnalyzer {
 
     /**
      * If a string is double-quoted, removes the quotation, otherwise, upper-case it.
-     * <p>
-     * Refuses a single-quoted input. That is a string literal, and stripping its delimiters leaves the
+     *
+     * <p>Refuses a single-quoted input. That is a string literal, and stripping its delimiters leaves the
      * doubled-quote escape in the value; literals go through {@link #normalizeStringLiteral(String)}.
      * No identifier can arrive here in single quotes, since {@code uid : simpleId | DOUBLE_QUOTE_ID}.
      *
@@ -170,29 +171,29 @@ public class SemanticAnalyzer {
 
     /**
      * Normalizes a string literal, decoding the doubled-quote escape that the lexer defines.
-     * <p>
-     * {@code RelationalLexer.g4} spells a single-quoted string as
+     *
+     * <p>{@code RelationalLexer.g4} spells a single-quoted string as
      * {@code fragment SQUOTA_STRING: '\'' ('\'\'' | ~('\''))* '\'';}. The {@code '\'\''} alternative
      * admits a doubled quote as one unit <em>inside</em> the string, which is only meaningful if it
      * denotes a single quote character. {@link #normalizeString} strips the outer delimiters and
      * returns the remainder verbatim, so it leaves that escape undecoded and {@code 'it''s'} evaluates
      * to the five characters {@code it''s} rather than the four characters {@code it's}.
-     * <p>
-     * This works from the literal TOKENS rather than from {@code getText()} because the text form is
+     *
+     * <p>This works from the literal TOKENS rather than from {@code getText()} because the text form is
      * ambiguous: ANTLR's {@code getText()} concatenates tokens without their original spacing, so the
      * two-token run {@code 'a' 'b'} and the single escaped literal {@code 'a''b'} both render as
      * {@code 'a''b'} and cannot be told apart afterwards. Decoding each token and then joining is the
      * only reading that is correct for both, and it also gives the adjacent-literal run the
      * concatenation the grammar's {@code STRING_LITERAL+} implies.
-     * <p>
-     * Charset-prefixed, national and {@code COLLATE}-decorated literals deliberately keep the
+     *
+     * <p>Charset-prefixed, national and {@code COLLATE}-decorated literals deliberately keep the
      * normalization they had: they are rejected upstream of the value path and this method must not
      * change what they produce.
      *
      * @param stringLiteral the {@code stringLiteral} context to decode
      * @return the decoded string value
      */
-    @Nullable
+    @Nonnull
     public static String normalizeStringLiteral(@Nonnull final RelationalParser.StringLiteralContext stringLiteral) {
         if (stringLiteral.STRING_CHARSET_NAME() != null
                 || stringLiteral.START_NATIONAL_STRING_LITERAL() != null
@@ -208,6 +209,38 @@ public class SemanticAnalyzer {
             builder.append(normalizeStringLiteral(part.getText()));
         }
         return builder.toString();
+    }
+
+    /**
+     * Evaluates an {@code INTERVAL} literal to the number of milliseconds it denotes.
+     *
+     * <p>This is the single place where an interval literal is analyzed, and it is used by
+     * {@link com.apple.foundationdb.relational.recordlayer.query.visitors.ExpressionVisitor}, which
+     * evaluates the literal, and {@link AstNormalizer}, which extracts it as a constant for the plan
+     * cache. The two must agree exactly to ensure that cached plans can be used correctly.
+     *
+     * <p>The interval string value is taken separately from the context to make sure that it is normalized
+     * correctly by the caller before it is processed.
+     *
+     * <p>Only day-time intervals are currently supported.
+     *
+     * @param intervalLiteral the interval literal context, providing the qualifier and leading sign
+     * @param intervalLiteralValue the already-decoded string value of the literal, e.g. {@code 1 12:30}
+     * @return the signed length of the interval in milliseconds
+     */
+    public static long parseIntervalLiteral(@Nonnull final RelationalParser.IntervalLiteralContext intervalLiteral,
+                                            @Nonnull final String intervalLiteralValue) {
+        final var dayTimeIntervalQualifierCtx = Assert.castUnchecked(intervalLiteral.intervalQualifier(),
+                RelationalParser.DayTimeIntervalQualifierContext.class,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> "only day time intervals are supported");
+        final var startFieldString = dayTimeIntervalQualifierCtx.startField.getText().toUpperCase(Locale.ROOT);
+        final var endFieldString = dayTimeIntervalQualifierCtx.endField == null ?
+                                  startFieldString : dayTimeIntervalQualifierCtx.endField.getText().toUpperCase(Locale.ROOT);
+        final var startFieldUnit = ChronoUnit.valueOf(startFieldString + "S");
+        final var endField = ChronoUnit.valueOf(endFieldString + "S");
+        final var isNegative = intervalLiteral.direction != null && "-".equals(intervalLiteral.direction.getText());
+        return ParseHelpers.parseIntervalLiteral(intervalLiteralValue, isNegative, startFieldUnit, endField);
     }
 
     /**
@@ -228,6 +261,7 @@ public class SemanticAnalyzer {
 
     /**
      * Checks whether a string is properly quoted (same quote markers at the beginning and at the end).
+     *
      * @param str The input string.
      * @param quotationMark The quotation mark to look for
      * @return <code>true</code> is the string is quoted, otherwise <code>false</code>.
@@ -238,6 +272,7 @@ public class SemanticAnalyzer {
 
     /**
      * Looks up a common table expression (CTE) in a chain of {@link LogicalPlanFragment}.
+     *
      * @param identifier The name of the CTE.
      * @param logicalPlanFragment The plan fragments chain.
      * @return Optional with {@link LogicalOperator} whose name matches the given identifier, if found.
@@ -386,7 +421,6 @@ public class SemanticAnalyzer {
      *
      * @param qualifier the qualifier preceding the {@code *}, or {@code null} for an unqualified {@code *}
      * @param operators the logical operators in scope for resolving the qualifier
-     *
      * @return a {@link Star} expression capturing the expansion
      */
     @Nonnull
@@ -914,6 +948,7 @@ public class SemanticAnalyzer {
      *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
      *     words, their maximum type is well-defined.
      * </ul>
+     *
      * @param unionLegs The logical operators representing the legs of the union.
      * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
      * representing the maximum type of each column calculated pairwise.
@@ -1013,6 +1048,7 @@ public class SemanticAnalyzer {
 
     /**
      * validates that a SQL {@code LIMIT} expression is within allowed limits of {@code [1, Integer.MAX_VALUE]}.
+     *
      * @param expression The {@code LIMIT} literal expression.
      */
     public static void validateLimit(@Nonnull Expression expression) {
@@ -1096,7 +1132,6 @@ public class SemanticAnalyzer {
      * @param arguments The call-site arguments (positional/named values, options, and window specification).
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
-     *
      * @return An {@link Expression} representing the resolved SQL function.
      */
     @Nonnull
@@ -1131,7 +1166,6 @@ public class SemanticAnalyzer {
      * content, otherwise {@code false}.
      * @param windowSpecExpression The parsed {@code OVER} clause.
      * @param arguments The function's direct arguments (may be empty).
-     *
      * @return An {@link Expression} representing the resolved SQL window function.
      */
     @Nonnull
@@ -1181,8 +1215,8 @@ public class SemanticAnalyzer {
     /**
      * Resolves a table function given its name and a list of arguments by looking it up in the
      * {@link SqlFunctionCatalog}.
-     * <br>
-     * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
+     *
+     * <p>Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
      * whether the single-item records should be flattened or not.
      * Currently almost all supported SQL functions do not expect {@code Record} objects,
      * so this is probably ok, however, this does not necessarily hold for the future.
@@ -1192,7 +1226,6 @@ public class SemanticAnalyzer {
      * @param arguments The function arguments.
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      * content, otherwise {@code false}.
-     *
      * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
     @Nonnull
@@ -1392,6 +1425,7 @@ public class SemanticAnalyzer {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedReturnValue")
     @Nonnull
     private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
                                                        @Nonnull final RelationalParser.QueryContext namedQueryBody,
@@ -1401,6 +1435,8 @@ public class SemanticAnalyzer {
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();
             queryVisitor.getDelegate().pushPlanFragment();
+            // Visit the CTE definitions only for their side effect of registering them in the current plan fragment.
+            // The result is memoized and not needed here.
             memoizer.apply(ctes);
             logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
             queryVisitor.getDelegate().popPlanFragment();

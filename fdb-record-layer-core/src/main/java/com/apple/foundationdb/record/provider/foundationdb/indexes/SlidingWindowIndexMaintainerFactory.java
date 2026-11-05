@@ -51,17 +51,17 @@ import java.util.Collection;
  * vector (HNSW) indexes. The sliding window limits the number of
  * vectors maintained in the HNSW graph by evicting the worst entries and re-electing from
  * overflow when entries are deleted. This is particularly useful for bounding the size of
- * expensive HNSW structures while maintaining search quality over a curated subset.</p>
+ * expensive HNSW structures while maintaining search quality over a curated subset.
  *
  * <p>This factory does not register its own index types via {@link #getIndexTypes()} (it returns
  * an empty list). Instead, the {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl}
  * detects a sliding window index using {@link #isSlidingWindowIndex(Index)} and wraps the
  * vector index factory with this one. All operations — validation, maintainer creation, and match
  * candidate creation — are forwarded to the delegate after applying sliding-window-specific
- * logic where needed.</p>
+ * logic where needed.
  *
  * <p>The wrapping is transparent: consumers of the factory interface (e.g. {@code FDBRecordStore})
- * do not need to be aware of the sliding window decoration.</p>
+ * do not need to be aware of the sliding window decoration.
  */
 @API(API.Status.EXPERIMENTAL)
 public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFactory {
@@ -185,7 +185,7 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * Validates sliding-window-specific constraints on the index, then delegates to the
      * underlying factory's validator for type-specific validation.
      *
-     * <p>Sliding window constraints:</p>
+     * <p>Sliding window constraints:
      * <ul>
      *     <li>The index must be on exactly one (non-synthetic) record type.</li>
      *     <li>The index must have a predicate containing a

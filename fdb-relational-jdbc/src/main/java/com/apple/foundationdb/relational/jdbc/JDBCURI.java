@@ -23,9 +23,9 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -59,6 +59,7 @@ public final class JDBCURI {
 
     /**
      * Return first value in the values list.
+     *
      * @param key Key to use looking up values list.
      * @param map Map to search.
      * @return First value in values list or null if no values found.
@@ -70,7 +71,7 @@ public final class JDBCURI {
 
     /**
      * From https://stackoverflow.com/questions/13592236/parse-a-uri-string-into-name-value-collection.
-     * Converts UnsupportedEncodingException to a RuntimeException should it ever occur.
+     *
      * @param  uri JDBC Connect URL.
      * @return Map of lists of query string parameters keyed by query parameter name.
      */
@@ -95,18 +96,13 @@ public final class JDBCURI {
     }
 
     /**
-     * Run UTF-8 URLDecoding of <code>s</code> and if exception, convert to RuntimeException so we don't have to
-     * catch decoding exception {@link UnsupportedEncodingException} all up the stack, especially when it should never
-     * happen.
+     * Run UTF-8 URLDecoding of <code>s</code>.
+     *
      * @param s String to URLDecode.
      * @return URL decoded String.
      */
     private static String urlDecoder(String s) {
-        try {
-            return URLDecoder.decode(s, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
+        return URLDecoder.decode(s, StandardCharsets.UTF_8);
     }
 
     public static URI addQueryParameter(URI uri, String key, String value) {

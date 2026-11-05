@@ -44,7 +44,6 @@ public final class RandomHelpers {
      * clashes.
      *
      * @param primaryKey the record's primary key
-     *
      * @return a new {@link SplittableRandom}
      */
     @Nonnull
@@ -57,7 +56,6 @@ public final class RandomHelpers {
      * bits into the seed.
      *
      * @param identity the UUID identity
-     *
      * @return a new {@link SplittableRandom}
      */
     @Nonnull
@@ -68,6 +66,7 @@ public final class RandomHelpers {
     /**
      * Returns high-quality double hash code between {@code 0} and {@code 1}. It uses {@link #splitMixLong(long)}
      * internally.
+     *
      * @param x a {@code long}
      * @return a high quality hash code of {@code x} as a {@code double} in the range {@code [0.0d, 1.0d)}.
      */
@@ -79,6 +78,7 @@ public final class RandomHelpers {
      * Returns a good long hash code for the argument of type {@code long}. It is an implementation of the
      * output mixing function {@code SplitMix64} (the finalizing mix of the SplitMix algorithm) as employed by many
      * PRNGs such as {@link SplittableRandom}.
+     *
      * @param x a {@code long}
      * @return a high quality hash code of {@code x}
      */
@@ -95,7 +95,6 @@ public final class RandomHelpers {
      * full content of an identity (rather than a 32-bit {@link Object#hashCode()}) determines the seed.
      *
      * @param bytes the bytes to fold
-     *
      * @return a 64-bit seed
      */
     private static long seedFromBytes(@Nonnull final byte[] bytes) {
@@ -110,7 +109,6 @@ public final class RandomHelpers {
      * Returns the 16-byte big-endian representation of {@code uuid} (most-significant bits first).
      *
      * @param uuid the UUID to encode
-     *
      * @return its 16-byte representation
      */
     @Nonnull
@@ -127,7 +125,6 @@ public final class RandomHelpers {
      *
      * @param random the random source to derive a reproducible UUID from when {@code deterministicRandomness} is set
      * @param deterministicRandomness whether to derive the UUID deterministically from {@code random}
-     *
      * @return a new UUID
      */
     @Nonnull
@@ -140,7 +137,6 @@ public final class RandomHelpers {
      * made reproducible by seeding the source.
      *
      * @param random the random source to draw the UUID bits from
-     *
      * @return a type-4 UUID derived from {@code random}
      */
     @Nonnull
@@ -167,7 +163,6 @@ public final class RandomHelpers {
      *
      * @param primaryKey the record's primary key
      * @param deterministicRandomness whether to derive the UUID deterministically from {@code primaryKey}
-     *
      * @return a new UUID
      */
     @Nonnull
@@ -182,7 +177,6 @@ public final class RandomHelpers {
      *
      * @param identity the UUID identity to derive from
      * @param deterministicRandomness whether to derive the UUID deterministically from {@code identity}
-     *
      * @return a new UUID
      */
     @Nonnull
@@ -201,7 +195,6 @@ public final class RandomHelpers {
      * @param executor the executor to run on
      * @param <T> the type of input item
      * @param <U> the type of result produced per item
-     *
      * @return a future completing with the per-item results
      */
     @Nonnull

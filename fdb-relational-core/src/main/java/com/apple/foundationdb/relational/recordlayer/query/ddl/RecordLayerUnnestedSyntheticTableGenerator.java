@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,20 +56,20 @@ import java.util.Optional;
 
 /**
  * Generates the unnested synthetic table an index has to be defined on.
- * <p>
- * An index with an unnesting can be maintained from the stored table, with a fan-out key expression. This only works
+ *
+ * <p>An index with an unnesting can be maintained from the stored table, with a fan-out key expression. This only works
  * while every column read through one unnesting sits in a contiguous run of the index key, because those columns are
  * emitted under a single navigation into the array. Two or more columns reached through the same unnesting at
  * non-adjacent positions cannot be: a fan-out would have to be emitted twice and would range over the array twice.
  * Those indexes are defined on a synthetic table instead, whose constituents are navigated with
  * {@link KeyExpression.FanType#None} and so may be referenced at any number of key positions.
- * <p>
- * {@link #initIfNeeded} answers whether an index needs one at all, and yields a generator only when it does. Nothing is
+ *
+ * <p>{@link #initIfNeeded} answers whether an index needs one at all, and yields a generator only when it does. Nothing is
  * built until {@link #generate} is called, so an index on a stored table costs no more than the decision. What cannot be
  * defined on a synthetic table is rejected by {@link #checkSupported}, separately from the definitions
  * {@link IndexSpec#checkValidity} rejects for any index.
  */
-final class RecordLayerUnnestedSyntheticTableGenerator {
+final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTableGenerator {
 
     /**
      * Prefixes the name of a synthetic table, keeping it out of the space of names a user can declare.
@@ -135,15 +136,14 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
 
     /**
      * A generator for the index's synthetic table, if it needs one at all.
-     * <p>
-     * Every unnesting a column is read through counts, not only the innermost, so chained unnesting can require a
+     *
+     * <p>Every unnesting a column is read through counts, not only the innermost, so chained unnesting can require a
      * synthetic table even when no innermost unnesting is itself split. Only struct arrays are considered, since a
      * scalar array cannot be a constituent.
      *
      * @param spec what the index is made of
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for, and the unnestings it performs
-     *
      * @return a generator for the synthetic table, empty when the index is maintained from the stored table
      */
     @Nonnull
@@ -154,7 +154,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
         if (!isNeededFor(spec, unnestings)) {
             return Optional.empty();
         }
-        final var parentTable = spec.table();
+        final var parentTable = Iterables.getOnlyElement(spec.source().tables().keySet());
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + parentTable.getType().getName() + "_" + indexName;
@@ -165,8 +165,8 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     /**
      * The markers of every unnesting a value is read through, transitively, outermost first. A column carries the
      * marker of each unnesting on its path.
-     * <p>
-     * For a table {@code A(k, p P array)} whose element type holds {@code Q(y) array}, and the definition
+     *
+     * <p>For a table {@code A(k, p P array)} whose element type holds {@code Q(y) array}, and the definition
      * <pre>
      * FROM A AS a, (SELECT * FROM a.p) AS b, (SELECT * FROM b.q) AS c
      * </pre>
@@ -179,7 +179,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * </pre>
      *
      * @param value a value resolved down to the base record
-     *
      * @return the markers traversed, empty if there are none
      */
     @Nonnull
@@ -202,7 +201,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * Composes what {@link QuantifierValues} recorded at each explode into what the unnesting means.
      *
      * @param quantifierValues what the plan's quantifiers stand for, and what it explodes
-     *
      * @return every unnesting the plan performs, keyed by marker
      */
     @Nonnull
@@ -307,18 +305,16 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * and the projection and ordering are resolved against it.
      *
      * @param spec what the index is made of, resolved against the stored record
-     *
      * @return the same index, in the synthetic table's coordinates
      */
     @Nonnull
+    @Override
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
         Assert.isNullUnchecked(spec.predicate(), ErrorCode.UNSUPPORTED_OPERATION,
                 "predicate on an index over an unnested synthetic table");
         Assert.isNullUnchecked(spec.groupBy(), ErrorCode.UNSUPPORTED_OPERATION,
                 "group by on an index over an unnested synthetic table");
-        // The slot names the stored table the index reads from, which the synthetic table is built over, so it carries
-        // through unchanged; what the index is defined on is the synthetic type, which the caller takes from here.
-        return new IndexSpec(spec.scanCount(), spec.table(), null, null,
+        return new IndexSpec(1, IndexSpec.Source.of(generate()), null, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }
@@ -345,12 +341,11 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * translated as ordinary field paths.
      *
      * @param values the index key columns, resolved against the stored record
-     *
      * @return the same columns, resolved against the synthetic table
      */
     @Nonnull
     private List<Value> rewrite(@Nonnull final List<Value> values) {
-        final var rewriter = new Rewriter(new QueriedValue(getSyntheticType()));
+        final var rewriter = new Rewriter(new QueriedValue(getType()));
         return values.stream()
                 .map(value -> Objects.requireNonNull(value.acceptVisitor(rewriter)))
                 .collect(ImmutableList.toImmutableList());
@@ -429,7 +424,8 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     }
 
     @Nonnull
-    Type.Record getSyntheticType() {
+    @Override
+    public Type.Record getType() {
         return syntheticType.get();
     }
 
@@ -464,6 +460,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * @return the synthetic table, which the caller has to register alongside the index
      */
     @Nonnull
+    @Override
     public RecordLayerSyntheticTable.Builder generate() {
         final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticType.get())
                 .setAlias(parentAlias)
@@ -483,7 +480,8 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      *
      * @param spec what the index is made of
      */
-    void checkSupported(@Nonnull final IndexSpec spec) {
+    @Override
+    public void checkSupported(@Nonnull final IndexSpec spec) {
         final var projection = spec.projection();
         Assert.thatUnchecked(projection.aggregate() == null,
                 ErrorCode.UNSUPPORTED_OPERATION,
@@ -510,7 +508,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * rejects the same shape there.
      *
      * @param values the index key columns
-     *
      * @return whether no scalar unnesting is referenced twice
      */
     private boolean scalarUnnestingsReferencedOnce(@Nonnull final List<Value> values) {

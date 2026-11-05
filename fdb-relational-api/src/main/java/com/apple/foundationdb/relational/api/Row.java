@@ -25,19 +25,17 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
 /**
  * Represents a row within the store.
- * <p>
- * The individual fields of the row can themselves be NestableTuples(representing nested
+ *
+ * <p>The individual fields of the row can themselves be NestableTuples(representing nested
  * data structures). There can also be repeated fields, which is a bit of an extension on
  * standard SQL types.
- * <p>
- * The intent of this class is to represent a single result in a set of results in a generic form.
+ *
+ * <p>The intent of this class is to represent a single result in a set of results in a generic form.
  */
 public interface Row {
 
     /**
-     * Get the number of fields in this row.
-     *
-     * @return the number of fields in the row.
+     * {@return the number of fields in this row}
      */
     int getNumFields();
 
@@ -122,6 +120,7 @@ public interface Row {
 
     /**
      * Checks if this row starts with a given prefix.
+     *
      * @param prefix the prefix to check against
      * @return true if this row starts with the correct prefix, false otherwise
      */
@@ -129,6 +128,7 @@ public interface Row {
 
     /**
      * Get a prefix of this row as a row.
+     *
      * @param length The length of the prefix
      * @return a prefix Row
      */

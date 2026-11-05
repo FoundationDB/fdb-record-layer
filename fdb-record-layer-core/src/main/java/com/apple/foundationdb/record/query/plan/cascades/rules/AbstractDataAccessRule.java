@@ -105,7 +105,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
- * The logic that this rules delegates to and actually creates the expressions can be found in
+ * <p>The logic that this rules delegates to and actually creates the expressions can be found in
  * {@link MatchCandidate#toEquivalentPlan(PartialMatch, PlanContext, Memoizer, boolean)}.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -228,8 +228,8 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Method that does the leg work to create the appropriate expression dag for data access using value indexes or
      * value index-like scans (primary scans).
-     * <br>
-     * Conceptually we do the following work:
+     *
+     * <p>Conceptually we do the following work:
      *
      * <ul>
      * <li> This method yields a scan plan for each matching primary candidate ({@link PrimaryScanMatchCandidate}).
@@ -244,28 +244,28 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * </li>
      * </ul>
      *
-     * The work described above is semantically correct in a sense that it creates a search space that can be explored
+     * <p>The work described above is semantically correct in a sense that it creates a search space that can be explored
      * and pruned in suitable ways that will eventually converge into an optimal data access plan.
-     * <br>
-     * We can choose to create an index scan for every index that is available regardless what the coverage
+     *
+     * <p>We can choose to create an index scan for every index that is available regardless what the coverage
      * of an index is. The coverage of an index is a measurement that tells us how well an index can answer what a
      * filter (or by extension a query) asks for. For instance, a high number of search arguments used in the index scan
      * can be associated with high coverage (as in the index scan covers more of the query) and vice versa.
-     * <br>
-     * Similarly, we can choose to create the intersection of all possible combinations of suitable scans over indexes
+     *
+     * <p>Similarly, we can choose to create the intersection of all possible combinations of suitable scans over indexes
      * (that we have matches for). Since we create a logical intersection of these access plans we can leave it up to
      * the respective implementation rules (e.g., {@link ImplementIntersectionRule}) to do the right thing and implement
      * the physical plan for the intersection if possible (e.g. ensuring compatibly ordered legs, etc.).
-     * <br>
-     * In fact, the two before-mentioned approaches are completely valid with respect to correctness of the plan and
+     *
+     * <p>In fact, the two before-mentioned approaches are completely valid with respect to correctness of the plan and
      * the guaranteed creation of the optimal plan. However, in reality using this approach, although valid and probably
      * the conceptually better and more orthogonal approach, will result in a ballooning of the search space very quickly.
      * While that may be acceptable for group-by engines and only few index access paths, in an OLTP world where there
      * are potentially dozens of indexes, memory footprint and the sheer number of tasks that would be created for
      * subsequent exploration and implementation of all these alternatives make the purist approach to planning these
      * indexes infeasible.
-     * <br>
-     * Thus, we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
+     *
+     * <p>Thus, we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
      * either in creating a successful executable plan (e.g. logical expression may not ever be able to produce a
      * compatible ordering) or cannot ever create an optimal plan. In a nutshell, we try to utilize additional
      * information that is available in addition to the matching partition in order to make decisions about which
@@ -584,6 +584,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to eliminate {@link PartialMatch}es whose coverage is entirely contained in other matches
      * (among the matches given).
+     *
      * @param matches candidate matches
      * @param requestedOrderings a set of interesting orderings
      * @return a collection of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
@@ -597,8 +598,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
         int index = 0;
         final var maximumCoverageMatchesBuilder = ImmutableList.<Vectored<SingleMatchedAccess>>builder();
-        for (var i = 0; i < singleMatchedAccesses.size(); i++) {
-            final var outerAccess = singleMatchedAccesses.get(i);
+        for (final var outerAccess : singleMatchedAccesses) {
             final var isContained =
                     findContainingAccess(singleMatchedAccesses, outerAccess);
 
@@ -642,6 +642,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * Helper method to compensate the partial matches handed in and to resolve the scan direction of the realized
      * scan. Note that some partial matches can satisfy the requested ordering both in forward and reverse scan
      * directopm.
+     *
      * @param partialMatches a collection of partial matches
      * @param requestedOrderings a set of {@link RequestedOrdering}s
      * @return a list of {@link SingleMatchedAccess}s
@@ -715,6 +716,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to compute the subset of orderings passed in that would be satisfied by a scan
      * if the given {@link PartialMatch} were to be planned.
+     *
      * @param partialMatch a partial match
      * @param requestedOrderings a set of {@link Ordering}s
      * @return an optional boolean that is {@code Optional.empty()} if no orderings were satisfied,
@@ -772,6 +774,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Method to indicate whether a {@link PartialMatch} satisfies a {@link RequestedOrdering}. Note that we do not
      * check the directional requirements of the requested order here.
+     *
      * @param partialMatch the partial match to check
      * @param requestedOrdering the requested ordering the caller wants to check the partial match for
      * @return indicator if the partial match satisfies the requested ordering
@@ -848,6 +851,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
     /**
      * Private helper method to compute a map of matches to scans (no compensation applied yet).
+     *
      * @param planContext plan context
      * @param memoizer the memoizer for {@link Reference}s
      * @param matches a collection of matches
@@ -873,6 +877,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to compute a new match to scan map by applying a {@link LogicalDistinctExpression} on each
      * scan.
+     *
      * @param memoizer the memoizer for {@link Reference}s
      * @param matchToExpressionMap a map of matches to {@link RelationalExpression}s
      * @return a map of the matches where a match is associated with a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -906,6 +911,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * intersection. For single data scans that will not be used in an intersection we still follow the same
      * two-step approach of separately planning the scan and then computing the compensation and the compensating
      * expression.
+     *
      * @param memoizer the memoizer of this call
      * @param singleMatchedAccess the match the caller wants to apply compensation for
      * @param plan the plan the caller would like to create compensation for.
@@ -931,6 +937,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
+     *
      * @param memoizer the memoizer
      * @param intersectionInfoMap the intersection info map being maintained by the caller (that enumerates the possible
      *        intersections)
@@ -1052,6 +1059,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * a partial match and can therefore not contribute to the ordering of the realized scan (minus its compensation)
      * before it is intersected. This method serves a stop-gap purpose as laid out here:
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2764">relevant issue</a>
+     *
      * @param singleMatchedAccess a {@link SingleMatchedAccess}
      * @return a pair of matched ordering parts and the respective scan direction of the partial match it was
      *         computed from
@@ -1094,6 +1102,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
     /**
      * Private helper method that computes the ordering of the intersection using matches.
+     *
      * @param partitionOrderingPairs partition we would like to intersect
      * @return a {@link com.apple.foundationdb.record.query.plan.cascades.Ordering.Intersection} representing a
      *         common intersection ordering.
@@ -1137,6 +1146,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to verify that a list of {@link Value}s can be used as a comparison key.
      * ordering information coming from a match in form of a list of {@link Value}s.
+     *
      * @param comparisonKeyValues a list of {@link Value}s
      * @param commonRecordKeyValues common primary key
      * @param equalityBoundKeyValues  a set of equality-bound key parts
@@ -1175,6 +1185,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Method to add a new intersection to the intersection info map if the intersection has a common ordering. This
      * method also evicts all expressions of sub partitions that have been planned already.
+     *
      * @param intersectionInfoMap intersection info map
      * @param partition the partition to add (potentially)
      * @param intersectionResult the result from the intersection attempt (mostly to capture the intersection ordering)
@@ -1202,6 +1213,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Strip the resulting expressions from the intersection info map so they can be returned to the actual rule to be
      * yielded.
+     *
      * @param intersectionInfoMap intersection info map
      * @return a (linked identity) set of expressions that need to be yielded
      */

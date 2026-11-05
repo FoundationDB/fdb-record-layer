@@ -35,23 +35,23 @@ import java.util.Random;
 /**
  * A {@link Parameter} is the internal representation of parsed parameter injection snippet in the query that is
  * provided in the YAML testing framework using the {@link QueryCommand}.
- * <p>
- * Each of the snippet in the given query is translated into some form of (maybe) hierarchical structure of parameters
+ *
+ * <p>Each of the snippet in the given query is translated into some form of (maybe) hierarchical structure of parameters
  * which can then be converted into either:
  * <ul>
  *     <li>A JDBC-compliant SQL object that could be set as parameter to the query when executing using {@link java.sql.PreparedStatement} API.</li>
  *     <li>A constant that replaces snippet in the query itself using {@link java.sql.Statement} API.</li>
  * </ul>
  * The {@link Parameter#getSqlObject} and {@link Parameter#getSqlText} are used respectively for the required conversion.
- * <p>
- * The {@link Parameter} is not guaranteed to produce a literal value always, that is, they can be unbounded. See
+ *
+ * <p>The {@link Parameter} is not guaranteed to produce a literal value always, that is, they can be unbounded. See
  * {@link UnboundParameter} for more information. In case the parameter is unbounded, it first needs to be bound at
  * runtime to fixate to literal values. This can be done using {@link Parameter#bind} method.
- * <p>
- * Here is a textbook usage of this API. Given a query with a snippet,
+ *
+ * <p>Here is a textbook usage of this API. Given a query with a snippet,
  * <pre>{@code
  *      SELECT * FROM foo WHERE foo.a > %% one or two or three %%
- *}</pre>
+ * }</pre>
  * %% ... %% defines the snippet. Suppose there is an implementation of {@link Parameter} called {@code TextToInteger}
  * that interprets this snippet. Clearly, {@code TextToInteger} is not bound hence our query doesn't work as it is.
  * Then, calling {@code bind} on this instance of {@code TextToInteger} produces a new bound {@link Parameter} that holds
@@ -71,9 +71,7 @@ public interface Parameter {
     Parameter bind(@Nonnull Random random);
 
     /**
-     * Returns {@code true} if this parameter is bound, else {@code false}.
-     *
-     * @return {@code true} if this parameter is bound, else {@code false}
+     * {@return {@code true} if this parameter is bound, else {@code false}}
      */
     boolean isUnbound();
 
@@ -98,6 +96,7 @@ public interface Parameter {
 
     /**
      * Returns the {@link String} that is the textual SQL representation of the value of this parameter.
+     *
      * @return the string
      */
     @Nonnull

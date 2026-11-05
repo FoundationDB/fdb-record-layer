@@ -183,6 +183,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     /**
      * Rewrite the planner graph for better visualization.
+     *
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
@@ -226,8 +227,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     /**
      * Factory method to create a {@link RecordQueryUpdatePlan}.
-     * <br>
-     * Example:
+     *
+     * <p>Example:
      * <pre>
      * {@code
      *    RecordQueryAbstractDataModificationPlan.forTransformMap(inner,
@@ -240,6 +241,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      * transforms the current inner's object, according to the transform map, i.e. the data underneath {@code path1}
      * is transformed to the value {@code "1"}, the data underneath {@code path2} is transformed to the value {@code 2},
      * and the data underneath {@code path2} is transformed to the value {@code 3}.
+     *
      * @param inner an input value to transform
      * @param targetRecordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
@@ -286,7 +288,6 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      *
      * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
      * @param transformMap a map of transformations
-     *
      * @return a {@link TransformationTrieNode}
      */
     @Nonnull

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayCon
 import com.apple.foundationdb.record.query.plan.cascades.values.ArrayAggValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CurrentTimestampValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -53,11 +54,12 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
-import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
+import com.apple.foundationdb.relational.recordlayer.query.QueryEvaluationConstants.QueryEvaluationConstant;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -500,7 +502,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
         for (final var caseAlternative : ctx.caseFuncAlternative()) {
             final var condition = visitFunctionArg(caseAlternative.condition);
-            Assert.thatUnchecked(condition.getDataType().getCode().equals(DataType.Code.BOOLEAN), ErrorCode.DATATYPE_MISMATCH,
+            Assert.thatUnchecked(condition.getDataType().getCode() == DataType.Code.BOOLEAN, ErrorCode.DATATYPE_MISMATCH,
                     "argument of case when must be of boolean type");
             final var consequent = visitFunctionArg(caseAlternative.consequent);
             implications.add(condition.getUnderlying());
@@ -823,9 +825,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
-        final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
-        final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
-        return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
+        return handleMathExpression(ctx.left, ctx.right, ctx.mathOperator().getText());
     }
 
     @Nonnull
@@ -1185,6 +1185,49 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var targetExpression = visitFullColumnName(ctx.fullColumnName());
         final var updateExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         return Expressions.of(ImmutableList.of(targetExpression, updateExpression));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        final var intervalStringLiteralExpression =
+                getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitStringLiteral(ctx.value));
+        final var intervalStringLiteralValue =
+                Assert.castUnchecked(intervalStringLiteralExpression.getUnderlying(), LiteralValue.class);
+        final var intervalStringLiteral = Assert.castUnchecked(intervalStringLiteralValue.getLiteralValue(), String.class);
+        final var parsedIntervalMilliseconds = SemanticAnalyzer.parseIntervalLiteral(ctx, intervalStringLiteral);
+        final var type = Type.primitiveType(Type.TypeCode.LONG);
+        final var constantValue = getDelegate().getPlanGenerationContext().processQueryLiteral(type,
+                parsedIntervalMilliseconds, ctx.value.getStart().getTokenIndex());
+        return Expression.ofUnnamed(constantValue);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimeValueFunction(final RelationalParser.DatetimeValueFunctionContext ctx) {
+        return Expression.ofUnnamed(CurrentTimestampValue.of(
+                QueryEvaluationConstant.ConstantKind.EVALUATION_TIMESTAMP.getConstantObjectValue()));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimePlusMinusIntervalExpression(final RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+        return handleMathExpression(ctx.left, ctx.right, ctx.operator.getText());
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalPlusDatetimeExpression(final RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+        return handleMathExpression(ctx.left, ctx.right, ctx.operator.getText());
+    }
+
+    @Nonnull
+    private Expression handleMathExpression(@Nonnull ParserRuleContext leftCtx,
+                                            @Nonnull ParserRuleContext rightCtx,
+                                            @Nonnull String operator) {
+        final var left = Assert.castUnchecked(visit(leftCtx), Expression.class);
+        final var right = Assert.castUnchecked(visit(rightCtx), Expression.class);
+        return getDelegate().resolveFunction(operator, left, right);
     }
 
     @Nonnull

@@ -98,9 +98,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param plan The plan to execute.
      * @param inputTempTable The input temp table, possibly containing the expected plan results.
      * @param tempTableId The id of the temp table, used to register it correctly in the {@link EvaluationContext}.
-     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
-     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
@@ -123,9 +121,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param context The transaction used to execute the plan.
      * @param plan The plan to be executed.
      * @param evaluationContext The evaluation context.
-     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
-     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
@@ -147,9 +143,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param context The transaction used to execute the plan.
      * @param plan The plan to be executed.
      * @param evaluationContext The evaluation context.
-     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
-     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
@@ -600,8 +594,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
         /**
          * Calculates all descendants of a given vertex in the specified traversal order.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -648,8 +642,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Calculates all descendants of a given vertex in level-order (breadth-first) traversal.
          * This method visits all nodes at depth 0, then all nodes at depth 1, then all nodes at depth 2, etc.
          * Uses a queue-based iterative approach for breadth-first traversal.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -663,6 +657,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * </pre>
          * Starting from vertex 1, this method would return: [1, 10, 20, 40, 50, 70, 100, 210, 250]
          * <br>
+         *
          * @param vertex The starting vertex to find descendants from. Must be >= ROOT.
          * @return A list of all descendants (including the starting vertex) in level-order traversal.
          */
@@ -686,8 +681,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Helper method for pre-order (depth-first) traversal of descendants.
          * This method visits the current vertex first, then recursively visits all of its children from left to right.
          * Uses a recursive approach for depth-first traversal.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -701,6 +696,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * </pre>
          * Starting from vertex 1, this method would visit nodes in this order: [1, 10, 40, 50, 250, 70, 20, 100, 210]
          * <br>
+         *
          * @param vertex The current vertex being visited.
          * @param result The builder to accumulate the traversal results.
          */
@@ -717,8 +713,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * Helper method for post-order (depth-first) traversal of descendants.
          * This method recursively visits all of its children from left to right first, then visits the current vertex.
          * Uses a recursive approach for depth-first traversal where children are processed before their parent.
-         * <br>
-         * For example, given the hierarchy:
+         *
+         * <p>For example, given the hierarchy:
          * <pre>
          * {@code
          *         1
@@ -732,6 +728,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * </pre>
          * Starting from vertex 1, this method would visit nodes in this order: [40, 250, 50, 70, 10, 100, 210, 20, 1]
          * <br>
+         *
          * @param vertex The current vertex being visited.
          * @param result The builder to accumulate the traversal results.
          */

@@ -176,7 +176,7 @@ public class Comparisons {
             }
             UnsignedUUID that = (UnsignedUUID)o;
             return this.mostSignificantBits == that.mostSignificantBits &&
-                   this.leastSignificantBits == that.leastSignificantBits;
+                    this.leastSignificantBits == that.leastSignificantBits;
         }
 
         @Override
@@ -817,6 +817,7 @@ public class Comparisons {
     public interface Comparison extends WithValue<Comparison>, PlanHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
+         *
          * @param store the record store for the query
          * @param context the evaluation context for getting the other comparison value
          * @param value the value taken from the record
@@ -827,14 +828,14 @@ public class Comparisons {
 
         /**
          * Validate that this comparison is compatible with a given record field.
+         *
          * @param descriptor the Protobuf descriptor for the proposed comparison field
          * @param fannedOut whether a repeated field fans out into multiple comparisons or is treated as a single list value
          */
         void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut);
 
         /**
-         * Get the comparison type.
-         * @return the comparison type
+         * {@return the comparison type}
          */
         @Nonnull
         Type getType();
@@ -859,6 +860,7 @@ public class Comparisons {
 
         /**
          * Get the comparison value without any bindings.
+         *
          * @return the value to be compared
          */
         @Nullable
@@ -868,6 +870,7 @@ public class Comparisons {
 
         /**
          * Get the comparison value from the evaluation context.
+         *
          * @param store the record store for the query
          * @param context the context for query evaluation
          * @return the value to be compared
@@ -878,6 +881,7 @@ public class Comparisons {
         /**
          * Get whether the comparison is with the result of a multi-column key.
          * If so, {@link #getComparand} will return a {@link Tuple}.
+         *
          * @return {@code true} if the comparand is for multiple key columns
          */
         default boolean hasMultiColumnComparand() {
@@ -886,6 +890,7 @@ public class Comparisons {
 
         /**
          * Get the printed representation of the comparison less the comparison operator itself.
+         *
          * @return the typeless string
          */
         @Nonnull
@@ -1347,7 +1352,7 @@ public class Comparisons {
             }
 
             return Objects.equals(relatedByEquality(), that.relatedByEquality())
-                   ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
+                    ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
         }
 
         @Nullable
@@ -2118,7 +2123,7 @@ public class Comparisons {
 
         @Override
         public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
-            if (type.equals(Type.IN)) {
+            if (type == Type.IN) {
                 if (!fannedOut && fieldDescriptor.isRepeated()) {
                     throw new RecordCoreException("In comparison with non-scalar field " + fieldDescriptor.getName());
                 }
@@ -2799,6 +2804,7 @@ public class Comparisons {
         /**
          * Get the maximum distance allowed between tokens in the source document allowed by
          * this filter.
+         *
          * @return the maximum distance allowed between tokens by this filter
          */
         public int getMaxDistance() {
@@ -3161,10 +3167,8 @@ public class Comparisons {
      * multiple inputs that all map to the same output. For that reason, the predicate {@code f(x) = $val}
      * may sometimes get transformed into {@code x IN f^-1($val)}.
      *
-     * <p>
-     * In most cases, users should not construct this comparison on their own, but
+     * <p>In most cases, users should not construct this comparison on their own, but
      * some planner operations may create this in internal structures.
-     * </p>
      */
     @API(API.Status.INTERNAL)
     public static class InvertedFunctionComparison implements Comparison {
@@ -3354,9 +3358,7 @@ public class Comparisons {
          * original comparison's comparand. So, for example, if the original comparison is {@code = 2} and the function
          * is the exponential function, this will produce a comparison that is equivalent to {@code = log(2)}.
          *
-         * <p>
-         * This comparison currently has the following limitations:
-         * </p>
+         * <p>This comparison currently has the following limitations:
          *
          * <ul>
          *     <li>The function must be a unary function (i.e., it must take single-column inputs and produce

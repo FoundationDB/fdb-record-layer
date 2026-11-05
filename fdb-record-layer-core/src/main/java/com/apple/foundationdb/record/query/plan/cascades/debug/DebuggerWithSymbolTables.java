@@ -63,11 +63,10 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
 /**
- * <p>
  * Implementation of a debugger that maintains symbol tables for easier human consumption e.g. in test cases and/or
  * while debugging.
- * </p>
- * <b>Instances of this debugger should only be enabled in test cases, never in deployments</b>.
+ *
+ * <p><b>Instances of this debugger should only be enabled in test cases, never in deployments</b>.
  */
 @SuppressWarnings("PMD.SystemPrintln")
 public class DebuggerWithSymbolTables implements Debugger {
@@ -398,9 +397,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     private interface SupplierWithException<T> {
 
         /**
-         * Gets a result.
-         *
-         * @return a result
+         * {@return a result}
          */
         T get() throws Exception;
     }

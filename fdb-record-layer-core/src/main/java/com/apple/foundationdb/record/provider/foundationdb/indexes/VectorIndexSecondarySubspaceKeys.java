@@ -25,13 +25,13 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
  * subspace: the outstanding-work task counters ({@link VectorIndexTaskCounts}) and the per-partition merge lease plus
  * its delete-guard ({@link VectorIndexMergeLock}). Each kind decorates the index's secondary subspace with its prefix
  * (e.g. {@code indexSecondarySubspace.subspace(Tuple.from(TASK_COUNTS))}).
- * <p>
- * They are gathered here — sequential and in one place — for two reasons. First, a small integer packs into ~1 byte on
+ *
+ * <p>They are gathered here — sequential and in one place — for two reasons. First, a small integer packs into ~1 byte on
  * every key, whereas a descriptive word (the prefixes used to be {@code "taskCount"}, {@code "mergeLock"}, …) repeats
  * ~10–20 bytes into every key. Second, keeping them together makes a clash between two kinds, or a gap, obvious on
  * review rather than hidden across files. This mirrors {@code guardiann}'s {@code StorageAdapter}.
- * <p>
- * These values are part of the on-disk key layout. They live in the secondary subspace only; the vector structure's
+ *
+ * <p>These values are part of the on-disk key layout. They live in the secondary subspace only; the vector structure's
  * own keys (guardiann/HNSW) live in the primary/partition subspace, a separate key tree, so this numbering is
  * independent of theirs.
  */

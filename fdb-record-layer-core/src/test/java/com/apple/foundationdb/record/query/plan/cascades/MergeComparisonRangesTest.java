@@ -33,12 +33,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for {@link ComparisonRange#merge}.
  *
- * <p>
- * These tests exercise all meaningful paths through both the
+ * <p>These tests exercise all meaningful paths through both the
  * {@link ComparisonRange#merge(Comparisons.Comparison)} and
  * {@link ComparisonRange.MergeResult#merge(Comparisons.Comparison)} methods, including cases
  * that produce residual comparisons.
- * </p>
  */
 class MergeComparisonRangesTest {
 

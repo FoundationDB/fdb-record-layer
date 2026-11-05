@@ -128,8 +128,8 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     public static ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                         @Nonnull final PExistsValue existsValueProto) {
         return existsValueProto.hasChild() ?
-               new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext, Objects.requireNonNull(existsValueProto.getChild()))) :
-               new ExistsValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(existsValueProto.getValue())));
+                new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext, Objects.requireNonNull(existsValueProto.getChild()))) :
+                new ExistsValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(existsValueProto.getValue())));
     }
 
     @Nonnull

@@ -62,8 +62,8 @@ import java.util.stream.IntStream;
 
 /**
  * A microbenchmark to evaluate the performance impact of a plan cache.
- * <p>
- * This performs a simple query repeatedly, and evaluates the overall cost, and relies on subclasses
+ *
+ * <p>This performs a simple query repeatedly, and evaluates the overall cost, and relies on subclasses
  * to provide different PlanCache implementations to determine performance advantages
  */
 @State(Scope.Benchmark)

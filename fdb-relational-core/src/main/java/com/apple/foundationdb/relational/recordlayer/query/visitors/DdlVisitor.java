@@ -943,10 +943,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * <p>The persisted temp-function text on {@code StoredQuery} is required to be byte-identical to
      * what the online path submits, otherwise {@code auxiliaryMetadata} on the query cache key
      * (which fingerprints the {@code normalizedDescription} of each temp routine attached to the
-     * schema template) would diverge between warm-up and online, killing cache hits.</p>
+     * schema template) would diverge between warm-up and online, killing cache hits.
      *
      * <p>Pieces are read from the parser context and reassembled &mdash; no surface-syntax
-     * manipulation on the DECLARE fragment.</p>
+     * manipulation on the DECLARE fragment.
      *
      * <p><b>Case-sensitivity contract with online clients.</b> The keywords emitted here
      * ({@code CREATE TEMPORARY FUNCTION}, {@code ON COMMIT DROP FUNCTION}, {@code AS}) are
@@ -958,7 +958,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * or mixed-case keyword submissions from clients will produce a different canonical string and
      * thus a different cache key &mdash; warm-up plans become unreachable. See
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4323">issue #4323</a>
-     * for the underlying case-sensitivity behavior of the normalizer.</p>
+     * for the underlying case-sensitivity behavior of the normalizer.
      */
     @Nonnull
     private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,

@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple prefix) implements TaskEventRegister {
     /**
      * Records that a task was enqueued for this prefix.
+     *
      * @param transaction the transaction the enqueue happened in
      */
     @Override
@@ -46,6 +47,7 @@ record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple p
 
     /**
      * Records that a task for this prefix was executed (and thereby removed from the queue).
+     *
      * @param transaction the transaction the execution happened in
      */
     @Override

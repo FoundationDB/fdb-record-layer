@@ -116,12 +116,10 @@ public final class FDBRecordStoreConcurrencyManager implements StoreConcurrencyM
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * This implementation will acquire a shared lock covering the record's primary storage. The
+     * <p>This implementation will acquire a shared lock covering the record's primary storage. The
      * corresponding {@link #doWithRecordWriteLock(Tuple, Supplier)} operation acquires an exclusive
      * lock over the same subspace, and so this ensures that the read will be queued behind any
      * ongoing writes to the record, and that any writes will be queued behind all outstanding reads.
-     * </p>
      */
     @Override
     public <T> CompletableFuture<T> doWithRecordReadLock(@Nonnull final Tuple primaryKey, @Nonnull final Supplier<CompletableFuture<T>> operation) {
@@ -132,9 +130,7 @@ public final class FDBRecordStoreConcurrencyManager implements StoreConcurrencyM
     /**
      * {@inheritDoc}
      *
-     * <p>
-     * This implementation grabs two exclusive locks:
-     * </p>
+     * <p>This implementation grabs two exclusive locks:
      *
      * <ol>
      *     <li>
@@ -155,14 +151,12 @@ public final class FDBRecordStoreConcurrencyManager implements StoreConcurrencyM
      *     </li>
      * </ol>
      *
-     * <p>
-     * Note that the {@link #doWithRecordReadLock(Tuple, Supplier)} method does <em>not</em> grab a shared lock on
+     * <p>Note that the {@link #doWithRecordReadLock(Tuple, Supplier)} method does <em>not</em> grab a shared lock on
      * the mutation lock. The reason for this is that the
      * {@link com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainer SlidingWindowIndexMaintainer}
      * requires being able to read records from the store during a mutation, and as these locks are not re-entrant, blocking
      * reads on all mutations completing would actually create a deadlock. This is still safe for single record operations,
      * as reads themselves will queue up appropriately.
-     * </p>
      */
     @Override
     public <T> CompletableFuture<T> doWithRecordWriteLock(@Nonnull final Tuple primaryKey, @Nonnull final Supplier<CompletableFuture<T>> operation) {

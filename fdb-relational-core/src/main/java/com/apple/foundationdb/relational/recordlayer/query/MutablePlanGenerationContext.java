@@ -74,6 +74,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     private final Literals.Builder literalsBuilder;
 
+    @Nonnull
+    private final QueryEvaluationConstants evaluationConstants;
+
     private final int parameterHash;
 
     @Nonnull
@@ -117,12 +120,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     /**
      * Checks if the provided literal argument has already been referenced by a registered {@link OrderedLiteral}.
-     * <br>
-     * If a matching {@link OrderedLiteral} is found, it is returned, and an equality constraint is created
+     *
+     * <p>If a matching {@link OrderedLiteral} is found, it is returned, and an equality constraint is created
      * between it and a constant reference representing the lexical position of the current literal token in the query.
      * Otherwise, an empty {@link Optional} is returned.
-     * <br>
-     * For example, given the query {@code SELECT A + 3 FROM T WHERE B > 3}:
+     *
+     * <p>For example, given the query {@code SELECT A + 3 FROM T WHERE B > 3}:
      * <ul>
      *     <li>When encountering the first {@code 3} literal at lexical position 4, calling
      *     {@code getFirstCovReference(3, 4, Type.Int)} will return an empty {@link Optional} because this is the
@@ -270,14 +273,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
                                         @Nonnull String query,
                                         @Nonnull String canonicalQueryString,
-                                        int parameterHash) {
+                                        int parameterHash,
+                                        @Nonnull QueryEvaluationConstants evaluationConstants) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
         this.query = query;
         this.canonicalQueryString = canonicalQueryString;
         this.parameterHash = parameterHash;
         literalsBuilder = Literals.newBuilder();
-        constantObjectValues = new LinkedList<>();
+        this.evaluationConstants = evaluationConstants;
+        constantObjectValues = new LinkedList<>(evaluationConstants.stream()
+                .map(constant -> constant.getKind().getConstantObjectValue()).toList());
         shouldProcessLiteral = true;
         forExplain = false;
         continuation = null;
@@ -309,6 +315,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public Literals.Builder getLiteralsBuilder() {
         return literalsBuilder;
+    }
+
+    @Nonnull
+    @Override
+    public QueryEvaluationConstants getEvaluationConstants() {
+        return evaluationConstants;
     }
 
     @Nonnull
@@ -354,7 +366,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public boolean isForExplain() {
         return forExplain;
     }
-
 
     @Nonnull
     public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
@@ -403,7 +414,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      *
      * @param supplier The closure to run with literal processing disabled.
      * @param <T> The type of the closure result.
-     *
      * @return The result of the closure
      */
     @Nonnull

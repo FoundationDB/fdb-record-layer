@@ -105,6 +105,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         /**
          * Get the expression for which a name is given.
+         *
          * @return the expression that is named
          */
         @Nonnull
@@ -114,6 +115,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         /**
          * Get the expression to determine the name.
+         *
          * @return the expression to be evaluated to produce the name
          */
         @Nonnull
@@ -154,6 +156,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         /**
          * Get the expression that is marked as stored.
+         *
          * @return the stored expression
          */
         @Nonnull
@@ -194,6 +197,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         /**
          * Get the expression that is marked as stored.
+         *
          * @return the stored expression
          */
         @Nonnull
@@ -234,6 +238,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         /**
          * Get the record field that is tokenized as text using Lucene.
+         *
          * @return the field expression
          */
         @Nonnull

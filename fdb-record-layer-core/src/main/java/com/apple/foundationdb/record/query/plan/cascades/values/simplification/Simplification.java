@@ -60,6 +60,7 @@ import java.util.stream.Stream;
 public class Simplification {
     /**
      * Main function that simplifies the given value using the {@link AbstractValueRuleSet} passed in.
+     *
      * @param root the {@link Value} to be simplified
      * @param evaluationContext the evaluation context
      * @param aliasMap an alias map of equalities
@@ -131,6 +132,7 @@ public class Simplification {
 
     /**
      * Main function that simplifies the given value using the {@link AbstractValueRuleSet} passed in.
+     *
      * @param current the {@link Value} to be simplified
      * @param evaluationContext the evaluation context
      * @param aliasMap an alias map of equalities
@@ -174,6 +176,7 @@ public class Simplification {
      * current value. Unlike
      * {@link #executeRuleSetIteratively(Object, Object, AbstractRuleSet, RuleCallCreator, BiFunction)} which iterates
      * starting from {code current} it attempts to exhaustively apply the rules over this {@code current}.
+     *
      * @param <RESULT> type parameter for results
      * @param <CALL> type parameter for the rule call object to be used
      * @param <BASE> type parameter this rule set matches
@@ -240,6 +243,7 @@ public class Simplification {
      * the regular {@link #simplify(Value, EvaluationContext, AliasMap, Set, AbstractValueRuleSet)}, this method uses a
      * computation rule set that is passed in to derive useful information from the value tree. In particular, this is
      * currently used to track matches of subtrees and their compensation.
+     *
      * @param <ARGUMENT> type parameter of the argument
      * @param <RESULT> type parameter of the result
      * @param root the {@link Value} to be simplified
@@ -309,6 +313,7 @@ public class Simplification {
     /**
      * Compute a new current value if necessary, that is, if any of the children passed in are different when compared
      * to the actual children of the current value passed in.
+     *
      * @param current the current value
      * @param mappedChildren the mapped children, which may or may not be different from the actual children of the
      *                       current value
@@ -368,6 +373,7 @@ public class Simplification {
      * destructive manner meaning that the last yield wins and all previous yields on the current values were merely
      * interim stepping stones in transforming the original value to the final value. Thus, the order of the rules in
      * the rule set is important.
+     *
      * @param <RESULT> type parameter for results
      * @param <CALL> type parameter for the rule call object to be used
      * @param <BASE> type parameter this rule set matches
@@ -448,6 +454,7 @@ public class Simplification {
 
     /**
      * Main function that simplifies the given value using the {@link QueryPredicateComputationRuleSet} passed in.
+     *
      * @param root the {@link Value} to be simplified
      * @param evaluationContext the evaluation context
      * @param aliasMap an alias map of equalities
@@ -471,14 +478,15 @@ public class Simplification {
                                 new QueryPredicateSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings,
                                         aliasMap, constantAliases, constraintsMap::get));
         return simplifiedPredicate == root
-               ? Constrained.unconstrained(root)
-               : Constrained.ofConstrainedObject(simplifiedPredicate,
+                ? Constrained.unconstrained(root)
+                : Constrained.ofConstrainedObject(simplifiedPredicate,
                 collectAndComposeConstraints(simplifiedPredicate, constraintsMap));
     }
 
     /**
      * This method simplifies the tree like and additionally allows the rule engine to re-explore the children of a
      * newly yielded {@code BASE}.
+     *
      * @param <CALL> type parameter for the rule call object to be used
      * @param <BASE> type parameter this rule set matches
      * @param root the root value of the simplification/computation. This information is needed for some rules as
@@ -544,6 +552,7 @@ public class Simplification {
 
     /**
      * Functional interface to create a specific rule call object.
+     *
      * @param <RESULT> the type parameter representing the type of result that yielded
      * @param <CALL> the type parameter extending {@link AbstractValueRuleCall}
      * @param <BASE> the type of entity the rule matches

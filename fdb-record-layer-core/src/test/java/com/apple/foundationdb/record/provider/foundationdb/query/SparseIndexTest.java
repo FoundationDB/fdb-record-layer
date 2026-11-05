@@ -157,6 +157,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Constructs query {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50} using the provided metadata.
+     *
      * @param addPredicate if {@code true} attaches a predicate to the query, otherwise it does not.
      * @return A graph expansion representing the query.
      */

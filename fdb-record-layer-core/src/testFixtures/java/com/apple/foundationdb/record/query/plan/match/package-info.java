@@ -24,6 +24,5 @@
  * point is {@link com.apple.foundationdb.record.query.plan.match.PlanMatchers}, whose static
  * factory methods compose matchers from the per-node-kind classes in this package; tests
  * typically read as {@code assertThat(plan, indexScan(indexName("foo")))}.
- * </p>
  */
 package com.apple.foundationdb.record.query.plan.match;

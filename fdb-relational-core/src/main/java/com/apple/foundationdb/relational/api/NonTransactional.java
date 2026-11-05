@@ -29,7 +29,7 @@ import java.lang.annotation.Target;
 /**
  * Denotes that a class is not scoped to a transaction.
  *
- * Classes which are not scoped to a transaction are only allowed to maintain state which is independent
+ * <p>Classes which are not scoped to a transaction are only allowed to maintain state which is independent
  * of the transactions that will use it. This correlates with the Single-Owner principle, which is that
  * the Connection is the sole owner of the transaction, and any sub-objects of that connection must obtain
  * their transaction from that connection.

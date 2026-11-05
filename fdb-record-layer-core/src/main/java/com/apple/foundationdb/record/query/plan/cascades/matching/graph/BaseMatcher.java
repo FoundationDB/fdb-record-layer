@@ -53,19 +53,19 @@ import static com.apple.foundationdb.record.query.combinatorics.TopologicalSort.
  * Abstract base class for all matchers. Matching is an algorithm that <em>matches</em> two collections of things of type
  * {@code T} resulting in a reversible mapping between the elements of the respective collections.
  *
- * By definition two empty collections of elements match with an empty bijective mapping.
+ * <p>By definition two empty collections of elements match with an empty bijective mapping.
  *
- * The bijective mapping that is produced by matching is always encoded in instances of the class {@link AliasMap}.
+ * <p>The bijective mapping that is produced by matching is always encoded in instances of the class {@link AliasMap}.
  *
- * Matchers operate on a generic type {@code T}. However, the underlying mechanics always works on instances of
+ * <p>Matchers operate on a generic type {@code T}. However, the underlying mechanics always works on instances of
  * class {@link CorrelationIdentifier}. This separates the concept of equality from the actual objects that the client
  * logic matches over.
  *
- * This class keeps maps to track object-to-alias and alias-to-object relationships. To clients (that is logic extending
+ * <p>This class keeps maps to track object-to-alias and alias-to-object relationships. To clients (that is logic extending
  * from this class), this class presents the elements that are the domain of matching to be of type {@code T} as long
  * as the client can provided mappings between objects of type {@code T} and {@link CorrelationIdentifier}s.
  *
- * Matching can be but may not be commutative. Instead of using left/right terminology it seemed better to talk about
+ * <p>Matching can be but may not be commutative. Instead of using left/right terminology it seemed better to talk about
  * this/other as this and other are treated in a slightly asymmetric way. Clients still can implement matchers that
  * impose that a subclass of this class returns the same matches with this and other reversed, however, that behavior
  * is not encoded in this class per se.
@@ -132,6 +132,7 @@ public class BaseMatcher<T> {
 
     /**
      * Dumb constructor.
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map
@@ -218,13 +219,13 @@ public class BaseMatcher<T> {
      * create an {@link EnumeratingIterable} that enumerates all alias permutations that are possible based on the
      * depends-on constraints given to the matcher.
      *
-     * The enumeration function that is also handed in can filter and skip the stream of permutations thereby pruning
+     * <p>The enumeration function that is also handed in can filter and skip the stream of permutations thereby pruning
      * entire subtrees of possible matches. The enumeration function also defines the result of the matches if there
      * are any, e.g. for a predicated matcher, the {@link AliasMap}s themselves that map the elements from this to other
      * are the match result themselves, however, a generic matcher may want to create objects specific to the matching
      * use case.
      *
-     * The type {@code R} (the resulting type of matching) is a generic type on the method (not on this class) which
+     * <p>The type {@code R} (the resulting type of matching) is a generic type on the method (not on this class) which
      * allows a matcher of a particular type {@code T} to provide matchers of different types of results {@code R}.
      *
      * @param enumerationFunction enumeration function. See {@link EnumerationFunction} for further explanations.
@@ -295,6 +296,7 @@ public class BaseMatcher<T> {
     /**
      * Helper to determine whether this {@code set} is equals to {@code otherSet} after translation using the given
      * {@link AliasMap}.
+     *
      * @param aliasMap alias map defining a translation from this to other
      * @param dependsOn this set
      * @param otherDependsOn other set
@@ -380,6 +382,7 @@ public class BaseMatcher<T> {
      * Helper to map the dependencies of the given alias to the dependencies of the given other alias if such a mapping
      * is sound, i.e. the dependsOn functions for the given aliases sets are isomorphic under translation using the
      * given {@link AliasMap}.
+     *
      * @param aliasMap alias map to define the translation
      * @param alias alias on this side
      * @param otherAlias alias on the other side

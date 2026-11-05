@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A sampling engine which will pass a sample test according to a TokenBucket algorithm.
- * <p>
- * A Token-bucket algorithm allows a constant <em>average</em> throughput, but allows some burstiness by building
+ *
+ * <p>A Token-bucket algorithm allows a constant <em>average</em> throughput, but allows some burstiness by building
  * up tokens over periods of idleness. For more information,
  * see <a href="https://en.wikipedia.org/wiki/Token_bucket">Wikipedia</a>. You can control the burstiness by
  * configuring the maximum number of tokens to allow in the sampler,

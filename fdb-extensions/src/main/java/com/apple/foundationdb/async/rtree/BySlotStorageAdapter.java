@@ -101,7 +101,6 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
      *
      * @param nodeId node id
      * @param keyValues a list of key values as returned by the call to {@link Transaction#getRange(Range)}.
-     *
      * @return an instance of a subclass of {@link Node} specific to the node kind as read from the database.
      */
     @SuppressWarnings("ConstantValue")
@@ -153,8 +152,8 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         }
 
         return nodeKind == NodeKind.LEAF
-               ? new LeafNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
+                ? new LeafNode(nodeId, itemSlots)
+                : new IntermediateNode(nodeId, childSlots);
     }
 
     @Nonnull

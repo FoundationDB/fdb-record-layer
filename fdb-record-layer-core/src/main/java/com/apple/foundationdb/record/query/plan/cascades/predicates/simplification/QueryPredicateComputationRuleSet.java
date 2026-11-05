@@ -30,6 +30,7 @@ import java.util.Set;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ *
  * @param <ARGUMENT> the type of argument that rules in this set consume
  * @param <RESULT> the type of result that rules in this set (or subclasses thereof) produce
  */

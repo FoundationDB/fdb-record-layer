@@ -28,8 +28,8 @@ import java.util.function.Supplier;
 
 /**
  * Provides a static method to compute the QR decomposition of a matrix.
- * <p>
- * This class is a utility class and cannot be instantiated. The decomposition
+ *
+ * <p>This class is a utility class and cannot be instantiated. The decomposition
  * is performed using the Householder reflection method. The result of the
  * decomposition of a matrix A is an orthogonal matrix Q and an upper-triangular
  * matrix R such that {@code A = QR}.
@@ -46,17 +46,15 @@ public class QRDecomposition {
     /**
      * Decomposes a square matrix A into an orthogonal matrix Q and an upper
      * triangular matrix R, such that A = QR.
-     * <p>
-     * This implementation uses the Householder reflection method to perform the
+     *
+     * <p>This implementation uses the Householder reflection method to perform the
      * decomposition. The resulting Q and R matrices are not computed immediately but are
      * available through suppliers within the returned {@link Result} object, allowing for
      * lazy evaluation. The decomposition is performed on the transpose of the input matrix
      * for efficiency.
      *
      * @param matrix the square matrix to decompose. Must not be null.
-     *
      * @return a {@link Result} object containing suppliers for the Q and R matrices.
-     *
      * @throws IllegalArgumentException if the provided {@code matrix} is not square.
      */
     @Nonnull
@@ -75,13 +73,13 @@ public class QRDecomposition {
 
     /**
      * Performs a Householder reflection on a minor of a matrix.
-     * <p>
-     * This method is a core step in QR decomposition. It transforms the {@code minor}-th
+     *
+     * <p>This method is a core step in QR decomposition. It transforms the {@code minor}-th
      * column of the {@code qrt} matrix into a vector with a single non-zero element {@code a}
      * (which becomes the new diagonal element of the R matrix), and applies the same
      * transformation to the remaining columns of the minor. The transformation is done in-place.
-     * </p>
-     * The reflection is defined by a matrix {@code H = I - 2vv'/|v|^2}, where the vector {@code v}
+     *
+     * <p>The reflection is defined by a matrix {@code H = I - 2vv'/|v|^2}, where the vector {@code v}
      * is derived from the {@code minor}-th column of the matrix.
      *
      * @param minor the index of the minor matrix to be transformed.
@@ -142,6 +140,7 @@ public class QRDecomposition {
 
     /**
      * Returns the matrix {@code Q} of the decomposition where {@code Q} is an orthogonal matrix.
+     *
      * @return the {@code Q} matrix
      */
     @Nonnull
@@ -180,21 +179,19 @@ public class QRDecomposition {
 
     /**
      * Constructs the upper-triangular R matrix from a QRT decomposition's packed storage.
-     * <p>
-     * This is a helper method that reconstructs the {@code R} matrix from the compact
+     *
+     * <p>This is a helper method that reconstructs the {@code R} matrix from the compact
      * representation used by some QR decomposition algorithms. The resulting matrix @{code R}
      * is upper-triangular.
-     * </p><p>
-     * The upper-triangular elements (where row index {@code i < j}) are extracted
+     *
+     * <p>The upper-triangular elements (where row index {@code i < j}) are extracted
      * from the {@code qrt} matrix at transposed indices ({@code qrt[j][i]}). The
      * diagonal elements (where {@code i == j}) are taken from the {@code rDiagonal}
      * array. All lower-triangular elements (where {@code i > j}) are set to 0.0.
-     * </p>
      *
      * @param qrt The packed QRT decomposition data. The strict upper-triangular
      *        part of {@code R} is stored in this matrix.
      * @param rDiagonal An array containing the diagonal elements of the R matrix.
-     *
      * @return The reconstructed upper-triangular R matrix as a {@link RealMatrix}.
      */
     @Nonnull

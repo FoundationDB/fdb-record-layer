@@ -67,12 +67,12 @@ import java.util.stream.Collectors;
  * Transform a tree of Boolean expressions into a tree of bitwise operations on streams of bitmaps from multiple
  * {@link IndexTypes#BITMAP_VALUE} indexes with common group and position keys.
  *
- * So, {@code AND} turns into {@code BITAND} and {@code OR} into {@code BITOR}, with the leaves of the streams
+ * <p>So, {@code AND} turns into {@code BITAND} and {@code OR} into {@code BITOR}, with the leaves of the streams
  * being scans of a {@code BITMAP_VALUE} index keyed by the leaf condition.
  *
- * Optional additional grouping predicates for all indexes are also preserved.
+ * <p>Optional additional grouping predicates for all indexes are also preserved.
  *
- * This means dividing a set of conditions into three categories:
+ * <p>This means dividing a set of conditions into three categories:
  * <ol>
  * <li>group predicates common to all indexes</li>
  * <li>group predicates for a single bitmap index</li>
@@ -94,6 +94,7 @@ public class ComposedBitmapIndexAggregate {
 
     /**
      * Try to build a composed bitmap plan for the given query and aggregate function call.
+     *
      * @param planner a query planner to use to construct the plans
      * @param query a query providing target record type, filter, and required fields
      * @param indexAggregateFunctionCall the function call giving the desired position and grouping
@@ -115,6 +116,7 @@ public class ComposedBitmapIndexAggregate {
 
     /**
      * Try to turn this composed bitmap into an executable plan.
+     *
      * @param planner a query planner to use to construct the plans
      * @param queryBuilder a prototype query providing target record types and required fields
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
@@ -140,14 +142,14 @@ public class ComposedBitmapIndexAggregate {
 
     /**
      * Try to build a composed bitmap for the given aggregate function and filters.
-     * <p>
-     * The function should use a supported aggregate function (currently {@value BitmapValueIndexMaintainer#AGGREGATE_FUNCTION_NAME})
+     *
+     * <p>The function should use a supported aggregate function (currently {@value BitmapValueIndexMaintainer#AGGREGATE_FUNCTION_NAME})
      * and the bitmap-indexed position field grouped by any common fields.
      * The filter should supply equality conditions to the common fields.
      * The filter can include additional equality conditions on various other fields for which there are appropriate bitmap indexes, in a Boolean
      * expression that will be transformed into a set the corresponding bit operations on the bitmaps.
      * The filter can also include range conditions on the position field.
-     * </p>
+     *
      * @param planner a query planner to use to construct the plans
      * @param recordTypeNames the record types on which the indexes are defined
      * @param indexAggregateFunctionCall the function giving the desired position and grouping

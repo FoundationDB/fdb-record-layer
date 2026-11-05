@@ -146,15 +146,15 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
     /**
      * Method to break a tie between a plan using singular index scan and one using a singular primary scan.
-     * <br>
-     * The problematic case this method tries to resolve is that:
+     *
+     * <p>The problematic case this method tries to resolve is that:
      *
      * <ul>
      *     <li>we have a scan plan that is not constraining the types of records (bad) but naturally does not need a fetch (good)</li>
      *     <li>we have an index scan that is constraining the records to one type (good) but needs a fetch (bad)</li>
      * </ul>
      *
-     * The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
+     * <p>The method is written in a way that it attempts to establish that the first parameter is assumed to be the primary
      * scan plan and the second parameter is assumed to be the index scan. We verify the assumption and return
      * {@code OptionalInt.empty()} if it does not hold true. This method is meant to be called using
      * {@link #flipFlop(Supplier, Supplier)} meaning that we will discover if the opposite holds true.
@@ -243,6 +243,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
      * or that this plan and the other plan are comparable. It never returns that the in-plan should be preferable.
      * The reasoning behind this is to avoid plans that were generated out of an IN-transformation that wasn't able
      * to translate the rewritten equality into an index search argument (SARG).
+     *
      * @param leftExpression this expression
      * @param rightExpression other expression
      * @return {@code OptionalInt.empty()} if the comparator is unable to compare the two expressions handed in. That
@@ -296,7 +297,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
     private static boolean isSingularIndexScanWithFetch(@Nonnull PlanOpsMap planOpsMapIndexScan) {
         return count(planOpsMapIndexScan, RecordQueryPlanWithIndex.class) == 1 ||
-               (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
+                (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
                 count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
     }
 

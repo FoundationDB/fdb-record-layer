@@ -26,8 +26,8 @@ import org.junit.jupiter.api.TestTemplate;
 
 /**
  * Class covering the standard integration tests specified by yamsql files.
- * <br>
- * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPECTATIONS} or similar
+ *
+ * <p>Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPECTATIONS} or similar
  * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
  * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
  * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
@@ -160,6 +160,12 @@ public class YamlIntegrationTests {
     public void createDropCreateTemplate(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("create-drop-create-template.yamsql");
     }
+
+    @TestTemplate
+    public void crossJoinTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cross-join-tests.yamsql");
+    }
+
 
     @TestTemplate
     public void cte(YamlTest.Runner runner) throws Exception {
@@ -430,6 +436,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void sqlFunctionsWithStructParametersTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sql-functions-with-struct-parameters.yamsql");
+    }
+
+    @TestTemplate
+    public void datetimeValueFunctions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("datetime-value-functions.yamsql");
     }
 
     @TestTemplate

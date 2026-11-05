@@ -62,14 +62,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * post-insert state, a first round of reassigns pushes mis-homed primaries toward their nearest cluster (driving
  * the <em>wrong-assignment</em> count down), and a second round replicates the primaries that the first round
  * re-homed into new clusters (driving the <em>under-replication</em> count down).
- * <p>
- * Reassigns are driven directly, in memory, one cluster per transaction: for each cluster the test builds a
+ *
+ * <p>Reassigns are driven directly, in memory, one cluster per transaction: for each cluster the test builds a
  * {@link ReassignTask} with precomputed nearest clusters and calls {@link ReassignTask#reassign} with
  * {@code enqueueFollowUpTasks=false}, so the two rounds are the only work — no follow-up split/reassign tasks are
  * enqueued. This is the realization of the "reassign-convergence" idea: insert, observe imperfection, then show two
  * controlled reassign rounds reduce it.
- * <p>
- * The post-insert state must actually be imperfect for the test to mean anything; it almost always is (small,
+ *
+ * <p>The post-insert state must actually be imperfect for the test to mean anything; it almost always is (small,
  * bordered clusters), but in the rare degenerate case the test deactivates itself via {@link Assumptions}.
  */
 public class ReassignConvergenceTest implements BaseTest {
@@ -127,7 +127,8 @@ public class ReassignConvergenceTest implements BaseTest {
     @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void reassignConvergenceSiftSubsampledSlow(final long seed) throws Exception {
-        runConvergence(seed, newGuardiannBig(), TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE));
+        runConvergence(seed, newGuardiannBig(),
+                GuardiannTestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE));
     }
 
     /**
@@ -138,14 +139,14 @@ public class ReassignConvergenceTest implements BaseTest {
                                 @Nonnull final List<PrimaryKeyAndVector> sample) throws Exception {
         // ---- Phase 0: insert the sample; let everything (including auto-enqueued reassigns) run. ----
         logger.info("seed={} inserting {} vectors", seed, sample.size());
-        TestHelpers.insertRecords(getDb(), guardiann, sample, BATCH_SIZE);
+        GuardiannTestHelpers.insertRecords(getDb(), guardiann, sample, BATCH_SIZE);
         GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
 
         // ---- Baseline: the post-insert state must be imperfect to have anything to converge. ----
         final StructureSnapshot postInsert = Objects.requireNonNull(
                 GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after inserts");
         final int wrong0 = postInsert.computeAssignmentRanking().numWrongAssignments();
-        final int under0 = TestHelpers.countUnderReplicatedPrimaries(postInsert);
+        final int under0 = GuardiannTestHelpers.countUnderReplicatedPrimaries(postInsert);
         logger.info("seed={} post-insert: clusters={}, wrongAssignments={}, underReplicated={}",
                 seed, postInsert.numClusters(), wrong0, under0);
         Assumptions.assumeTrue(wrong0 > 0,
@@ -158,7 +159,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot afterRound1 = Objects.requireNonNull(
                 GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after round 1");
         final int wrong1 = afterRound1.computeAssignmentRanking().numWrongAssignments();
-        final int under1 = TestHelpers.countUnderReplicatedPrimaries(afterRound1);
+        final int under1 = GuardiannTestHelpers.countUnderReplicatedPrimaries(afterRound1);
         logger.info("seed={} after round 1: wrongAssignments={} (was {}), underReplicated={} (was {})",
                 seed, wrong1, wrong0, under1, under0);
 
@@ -167,7 +168,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot afterRound2 = Objects.requireNonNull(
                 GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after round 2");
         final int wrong2 = afterRound2.computeAssignmentRanking().numWrongAssignments();
-        final int under2 = TestHelpers.countUnderReplicatedPrimaries(afterRound2);
+        final int under2 = GuardiannTestHelpers.countUnderReplicatedPrimaries(afterRound2);
         logger.info("seed={} after round 2: wrongAssignments={} (was {}), underReplicated={} (was {})",
                 seed, wrong2, wrong1, under2, under1);
         logger.info("seed={} convergence summary: wrong {} -> {} -> {}, underReplicated {} -> {} -> {}",
@@ -302,7 +303,7 @@ public class ReassignConvergenceTest implements BaseTest {
         return new Guardiann(getSubspace(),
                 TestExecutors.defaultThreadPool(),
                 config,
-                new TestHelpers.TestOnWriteListener(),
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnWriteListener(),
+                new GuardiannTestHelpers.TestOnReadListener());
     }
 }

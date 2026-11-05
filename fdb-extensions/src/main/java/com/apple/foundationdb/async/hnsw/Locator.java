@@ -60,8 +60,8 @@ public class Locator {
 
     /**
      * Constructs a new HNSW graph instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     *
+     * <p>This constructor initializes the HNSW graph with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param subspace the {@link Subspace} where the graph data is stored.
@@ -69,7 +69,6 @@ public class Locator {
      * @param config the {@link Config} object containing HNSW algorithm parameters.
      * @param onWriteListener a listener to be notified of write events on the graph.
      * @param onReadListener a listener to be notified of read events on the graph.
-     *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public Locator(@Nonnull final Subspace subspace,
@@ -97,6 +96,7 @@ public class Locator {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -106,6 +106,7 @@ public class Locator {
 
     /**
      * Get this hnsw's configuration.
+     *
      * @return hnsw configuration
      */
     @Nonnull
@@ -114,8 +115,7 @@ public class Locator {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -123,8 +123,7 @@ public class Locator {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {

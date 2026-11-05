@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * A base builder for {@link RecordType}.
  *
- * Contains:
+ * <p>Contains:
  * <ul>
  * <li>name.</li>
  * <li>optional secondary indexes.</li>
@@ -71,6 +71,7 @@ public abstract class RecordTypeIndexesBuilder {
 
     /**
      * The {@link Index}es that this record type is on that also contain other record types.
+     *
      * @return a list of all indexes that include this record type along with other types.
      */
     @Nonnull

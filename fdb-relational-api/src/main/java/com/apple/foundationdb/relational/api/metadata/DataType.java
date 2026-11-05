@@ -162,9 +162,7 @@ public abstract class DataType {
     public interface Named {
 
         /**
-         * Returns the name of the {@link DataType}.
-         *
-         * @return the name of the {@link DataType}.
+         * {@return the name of the {@link DataType}}
          */
         @Nonnull
         String getName();

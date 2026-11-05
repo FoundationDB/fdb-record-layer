@@ -943,7 +943,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             // that is not matched, so query planning fails. This could be fixed by using the BooleanNormalizer
             // after re-writing the query, but this code path is more-or-less deprecated in favor of planning as
             // an in-union, so just assert that this fails until we start planning this as an ordinary union
-            final RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planQuery(query));
+            final RecordCoreException rce = assertThrows(UnableToPlanException.class, () -> planQuery(query));
             assertThat(rce.getMessage(), containsString("Cannot sort without appropriate index"));
         }
     }
@@ -1105,7 +1105,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = addUnnestedType()
                 .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OUTER, otherMapKeyValue()));
         final BindingMatcher<RecordQueryPlan> anyPlanMatcher = PrimitiveMatchers.anyObject();
-        RecordCoreException err = assertThrows(RecordCoreException.class, () -> filterOnKeyAndOtherIdUnnested(hook, anyPlanMatcher));
+        RecordCoreException err = assertThrows(UnableToPlanException.class, () -> filterOnKeyAndOtherIdUnnested(hook, anyPlanMatcher));
         assertThat(err.getMessage(), containsString("cannot create scan plan for a synthetic record type"));
     }
 

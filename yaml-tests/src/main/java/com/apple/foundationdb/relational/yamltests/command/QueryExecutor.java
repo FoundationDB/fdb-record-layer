@@ -78,6 +78,7 @@ public class QueryExecutor {
 
     /**
      * Constructor.
+     *
      * @param query the query to execute
      * @param reference the {@link YamlReference} from the test script
      * @param parameters the parameters to bind
@@ -92,6 +93,7 @@ public class QueryExecutor {
 
     /**
      * Execute the query.
+     *
      * @param connection the connection to use
      * @param continuation the continuation to use. Null is none.
      * @param config the query config relevant for the execution
@@ -108,8 +110,8 @@ public class QueryExecutor {
 
     /**
      * Executes the query and verifies the outcome against {@code config}, with an optional inline metadata check.
-     * <p>
-     * When {@code inlineMetadataConfig} is non-null, column metadata is read from the result set before any rows
+     *
+     * <p>When {@code inlineMetadataConfig} is non-null, column metadata is read from the result set before any rows
      * are consumed and validated via {@link CheckResultMetadataConfig#checkInline}. The result set is then passed
      * to {@code config} intact for row validation. This is used when a {@code resultMetadata} config appears on a
      * continuation page and the query cannot be re-executed from scratch.
@@ -135,6 +137,7 @@ public class QueryExecutor {
 
     /**
      * Execute a statement with (or without) cache-checking logic.
+     *
      * @param s the statement to execute
      * @param statementHasQuery whether the statement already has a query (e.g. prepared statement) or not (e.g. regular statement)
      * @param connection the connection to use

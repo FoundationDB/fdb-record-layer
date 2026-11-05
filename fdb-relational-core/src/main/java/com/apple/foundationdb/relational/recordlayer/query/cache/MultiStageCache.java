@@ -49,14 +49,14 @@ import java.util.stream.Collectors;
 /**
  * This is a simple generic cache of caches of caches that employs LRU and TTL expiration policies. It uses the {@link Caffeine}
  * cache implementation internally for primary, secondary and tertiary caches.
- * <br>
- * Items stored in the primary and secondary cache expire after a duration (see {@link Builder#setTtl(long)}) of time, if an item is read
+ *
+ * <p>Items stored in the primary and secondary cache expire after a duration (see {@link Builder#setTtl(long)}) of time, if an item is read
  * the duration is reset (read-TTL).
- * <br>
- * Similarly, items stored in the tertiary cache expire after a duration (see {@link Builder#setSecondaryTtl(long)} of time).
+ *
+ * <p>Similarly, items stored in the tertiary cache expire after a duration (see {@link Builder#setSecondaryTtl(long)} of time).
  * The duration is set at the moment of loading the item in the cache (write-TTL).
- * <br>
- * If primary, secondary or tertiary caches reach their maximum capacity (see {@link Builder#setSize(int)}, resp. {@link Builder#setSecondarySize(int)}, {@link Builder#setTertiarySize(int)})
+ *
+ * <p>If primary, secondary or tertiary caches reach their maximum capacity (see {@link Builder#setSize(int)}, resp. {@link Builder#setSecondarySize(int)}, {@link Builder#setTertiarySize(int)})
  * an LRU policy is employed to evict the oldest item.
  * <pre>
  * {@code
@@ -73,8 +73,8 @@ import java.util.stream.Collectors;
  *     +---------------- Main Cache
  * }
  * </pre>
- * <br>
- * Here are some ideas on how to improve this design to support different use cases:
+ *
+ * <p>Here are some ideas on how to improve this design to support different use cases:
  * <ul>
  *     <li>reduce memory footprint by reusing compiled plans when applicable; in certain cases it is possible that the
  *     <i>same</i> compiled plan is generated in different schema templates. To reduce memory

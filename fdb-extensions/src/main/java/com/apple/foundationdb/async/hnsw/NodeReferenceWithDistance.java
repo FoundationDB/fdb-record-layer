@@ -30,8 +30,8 @@ import java.util.Objects;
 
 /**
  * Represents a reference to a node that includes its vector and its distance from a query vector.
- * <p>
- * This class extends {@link NodeReferenceWithVector} by additionally associating a distance value, typically the result
+ *
+ * <p>This class extends {@link NodeReferenceWithVector} by additionally associating a distance value, typically the result
  * of a distance calculation in a nearest neighbor search. Objects of this class are immutable.
  */
 public class NodeReferenceWithDistance extends NodeReferenceWithVector {
@@ -44,10 +44,11 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
 
     /**
      * Constructs a new instance of {@code NodeReferenceWithDistance}.
-     * <p>
-     * This constructor initializes the reference with the node's primary key, its vector, and the calculated distance
+     *
+     * <p>This constructor initializes the reference with the node's primary key, its vector, and the calculated distance
      * from some origin vector (e.g., a query vector). It calls the superclass constructor to set the {@code primaryKey}
      * and {@code vector}.
+     *
      * @param primaryKey the primary key of the referenced node, represented as a {@link Tuple}. Must not be null.
      * @param vector the vector associated with the referenced node. Must not be null.
      * @param distance the calculated distance of this node reference to some query vector or similar.
@@ -60,6 +61,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
 
     /**
      * Gets the distance.
+     *
      * @return the current distance value
      */
     public double getDistance() {
@@ -68,11 +70,12 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
 
     /**
      * Compares this object against the specified object for equality.
-     * <p>
-     * The result is {@code true} if and only if the argument is not {@code null},
+     *
+     * <p>The result is {@code true} if and only if the argument is not {@code null},
      * is a {@code NodeReferenceWithDistance} object, has the same properties as
      * determined by the superclass's {@link #equals(Object)} method, and has
      * the same {@code distance} value.
+     *
      * @param o the object to compare with this instance for equality.
      * @return {@code true} if the specified object is equal to this {@code NodeReferenceWithDistance};
      *         {@code false} otherwise.
@@ -88,6 +91,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
 
     /**
      * Generates a hash code for this object.
+     *
      * @return a hash code value for this object.
      */
     @Override

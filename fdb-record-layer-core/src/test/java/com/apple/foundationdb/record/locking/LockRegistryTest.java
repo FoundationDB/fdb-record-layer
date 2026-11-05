@@ -486,11 +486,9 @@ public class LockRegistryTest {
      * scheduled write on the value associated with the lock ID to complete, and any write must wait for
      * any previously scheduled read or write.
      *
-     * <p>
-     * This test is not deterministic, as the exact completion order can depend on thread scheduling.
+     * <p>This test is not deterministic, as the exact completion order can depend on thread scheduling.
      * However, a seed is provided for the pseudo-random number generator that is used to generate the
      * tasks and the delays so that there is some amount of repeatability.
-     * </p>
      *
      * @param seed used to construct the pseudo-random number generator for semi-repeatable test cases
      * @throws Exception an error hit while running the test
