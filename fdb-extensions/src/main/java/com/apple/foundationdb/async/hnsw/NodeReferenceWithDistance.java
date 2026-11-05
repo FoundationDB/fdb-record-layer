@@ -87,11 +87,6 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
         return Double.compare(distance, that.distance) == 0;
     }
 
-    /**
-     * Generates a hash code for this object.
-     *
-     * @return a hash code value for this object.
-     */
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), distance);
