@@ -131,13 +131,13 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
                 assertInstanceOf(ValueIndexScanMatchCandidate.class, candidate, "Rank index candidate should be a ValueIndexScanMatchCandidate, got: " + candidate.getClass().getName());
             }
 
-            // Verify no WindowedIndexScanMatchCandidate (BY_RANK scans) are created for rank indexes
+            // Verify no LegacyWindowedIndexScanMatchCandidate (BY_RANK scans) are created for rank indexes
             long windowedCandidateCount = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof WindowedIndexScanMatchCandidate)
+                    .filter(candidate -> candidate instanceof LegacyWindowedIndexScanMatchCandidate)
                     .count();
 
             assertEquals(0, windowedCandidateCount,
-                    "Should not have any WindowedIndexScanMatchCandidate");
+                    "Should not have any LegacyWindowedIndexScanMatchCandidate");
         }
     }
 
@@ -177,15 +177,15 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
             assertEquals(ImmutableSet.of("rank_by_gender", "simple_rank_score", "BasicRankedRecord$score"), valueIndexCandidateNames,
                     "Should have ValueIndexScanMatchCandidate for both rank indexes");
 
-            // Filter to WindowedIndexScanMatchCandidate with our rank index names
+            // Filter to LegacyWindowedIndexScanMatchCandidate with our rank index names
             final Set<String> windowedIndexCandidateNames = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof WindowedIndexScanMatchCandidate)
+                    .filter(candidate -> candidate instanceof LegacyWindowedIndexScanMatchCandidate)
                     .map(MatchCandidate::getName)
                     .collect(Collectors.toSet());
 
-            // Verify that we have WindowedIndexScanMatchCandidate for rank indexes (BY_RANK scans)
+            // Verify that we have LegacyWindowedIndexScanMatchCandidate for rank indexes (BY_RANK scans)
             assertEquals(ImmutableSet.of("rank_by_gender", "simple_rank_score", "BasicRankedRecord$score"), windowedIndexCandidateNames,
-                    "Should have WindowedIndexScanMatchCandidate for both rank indexes");
+                    "Should have LegacyWindowedIndexScanMatchCandidate for both rank indexes");
         }
     }
 }

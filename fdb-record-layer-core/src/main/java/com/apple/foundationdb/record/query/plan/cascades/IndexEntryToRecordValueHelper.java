@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.TupleSource;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.TrieNode;
@@ -34,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -45,8 +48,26 @@ import java.util.Objects;
 public final class IndexEntryToRecordValueHelper
         extends TrieNode.AbstractTrieNodeBuilder<String, Value, IndexEntryToRecordValueHelper> {
 
+    /**
+     * The correlation a value built here reads the base record from, reserved the way {@link Quantifier#current()} --
+     * which the same value reads the index entry from -- is. Whoever evaluates such a value binds both.
+     */
+    @Nonnull
+    private static final CorrelationIdentifier BASE_RECORD = CorrelationIdentifier.of("___baseRecord");
+
     public IndexEntryToRecordValueHelper() {
         super(null, null);
+    }
+
+    /**
+     * The correlation a default record reads the base record from, to be bound before evaluating a value built with
+     * {@link #toRecordValue(Type.Record, Value)}.
+     *
+     * @return that correlation
+     */
+    @Nonnull
+    public static CorrelationIdentifier baseRecordAlias() {
+        return BASE_RECORD;
     }
 
     @Nonnull
@@ -87,23 +108,72 @@ public final class IndexEntryToRecordValueHelper
      */
     @Nonnull
     public RecordConstructorValue toRecordValue(@Nonnull final Type.Record targetType) {
+        return toRecordValue(targetType, null);
+    }
+
+    /**
+     * A column per field of {@code targetType} as {@link #toRecordValue(Type.Record)} does, except that a field the
+     * entry does not carry is read from {@code defaultRecord} instead of being left absent. This is what lets an entry
+     * answer a query for columns it does not hold: the entry supplies what no record has -- a rank, say -- and the
+     * default record supplies the rest, in one result shape.
+     *
+     * @param targetType the record an entry is read into, which this node stands for
+     * @param defaultRecord a record of {@code targetType}'s own shape supplying the fields the entry does not carry, or
+     *        {@code null} to leave those absent, which makes this behave exactly as {@link #toRecordValue(Type.Record)}
+     *
+     * @return the value computing that record from an entry and the default record
+     */
+    @Nonnull
+    public RecordConstructorValue toRecordValue(@Nonnull final Type.Record targetType,
+                                                @Nullable final Value defaultRecord) {
         final var children = getChildrenMap();
         final var columns = ImmutableList.<Column<? extends Value>>builder();
         for (final var field : targetType.getFields()) {
             final var child = children == null ? null : children.get(field.getFieldName());
             final Value column;
             if (child == null) {
-                column = absent(field.getFieldType());
+                column = uncovered(field, defaultRecord);
             } else if (child.getValue() != null) {
                 column = child.getValue();
             } else if (field.getFieldType() instanceof Type.Record) {
-                column = child.toRecordValue((Type.Record)field.getFieldType());
+                column = child.toRecordValue((Type.Record)field.getFieldType(),
+                        defaultRecord == null ? null : defaultRecordField(defaultRecord, field.getFieldName()));
             } else {
-                column = absent(field.getFieldType());
+                column = uncovered(field, defaultRecord);
             }
             columns.add(Column.of(field, column));
         }
         return RecordConstructorValue.ofColumns(columns.build());
+    }
+
+    /**
+     * What a field the entry does not carry reads: that field of the default record, and {@link #absent} when there is
+     * no default record at all.
+     */
+    @Nonnull
+    private static Value uncovered(@Nonnull final Type.Record.Field field, @Nullable final Value defaultRecord) {
+        if (defaultRecord == null) {
+            return absent(field.getFieldType());
+        }
+        return defaultRecordField(defaultRecord, field.getFieldName());
+    }
+
+    /**
+     * The named field of {@code defaultRecord}. A default record is the target's own shape, so every field is there to
+     * be found and a miss is a caller's bug, not a column that legitimately has no source.
+     *
+     * <p>Fused, so that the projection collapses into whatever the default record reads for the field -- the base record's
+     * column, usually -- leaving no trace of the default record in the value.
+     */
+    @Nonnull
+    private static Value defaultRecordField(@Nonnull final Value defaultRecord, @Nonnull final String fieldName) {
+        final var defaultType = defaultRecord.getResultType();
+        if (!(defaultType instanceof Type.Record)
+                || !((Type.Record)defaultType).getFieldNameFieldMap().containsKey(fieldName)) {
+            throw new RecordCoreException("default record does not have the field an entry leaves uncovered")
+                    .addLogInfo(LogMessageKeys.FIELD_NAME, fieldName);
+        }
+        return FieldValue.ofFieldNameAndFuseIfPossible(defaultRecord, fieldName);
     }
 
     /**

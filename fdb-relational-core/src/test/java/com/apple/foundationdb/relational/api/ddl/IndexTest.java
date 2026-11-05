@@ -1604,4 +1604,89 @@ public class IndexTest {
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, cannot map (base().COL1 AS COL1, base().COL2 AS COL2) to a key expression");
     }
+
+    /**
+     * A rank index ranks one column within a partition, which is the same shape a record layer RANK index stores: the
+     * ranked column grouped by the partitioning ones.
+     */
+    @Test
+    void createRankIndexOverPartition() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp) FROM T1";
+        indexIs(stmt, field("SCORE").groupBy(field("GRP")), IndexTypes.RANK);
+    }
+
+    @Test
+    void createRankIndexOverTwoPartitionColumns() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp1 bigint, grp2 bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp1, grp2) FROM T1";
+        indexIs(stmt, field("SCORE").groupBy(field("GRP1"), field("GRP2")), IndexTypes.RANK);
+    }
+
+    /**
+     * Ranking two columns ranks the pair, so both of them are grouped by the partitioning column.
+     */
+    @Test
+    void createRankIndexOverTwoRankedColumns() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp bigint, score1 bigint, score2 bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score1, score2) OVER (PARTITION BY grp) FROM T1";
+        indexIs(stmt, concat(field("SCORE1"), field("SCORE2")).groupBy(field("GRP")), IndexTypes.RANK);
+    }
+
+    /**
+     * Without a {@code PARTITION BY} the ranking is over the whole table, which is an ungrouped index.
+     */
+    @Test
+    void createRankIndexWithoutPartition() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER () FROM T1";
+        indexIs(stmt, field("SCORE").ungrouped(), IndexTypes.RANK);
+    }
+
+    /**
+     * A column that is neither ranked nor partitioning has nowhere to live: a rank index stores the ranked columns grouped
+     * by the partitioning ones and nothing else.
+     */
+    @Test
+    void createRankIndexWithAnExtraColumnFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp), grp FROM T1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window function has to be the only column of the projection");
+    }
+
+    @Test
+    void createRankIndexOverTwoRankFunctionsFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp), rank(grp) OVER (PARTITION BY score) FROM T1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, more than one window function found");
+    }
+
+    /**
+     * The stored ranking is by the ranked columns, so an {@code ORDER BY} of its own cannot be honoured.
+     */
+    @Test
+    void createRankIndexWithWindowOrderByFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp ORDER BY score) FROM T1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window function cannot have an order by clause in an index definition");
+    }
+
+    @Test
+    void createRankIndexWithFrameFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp ROWS UNBOUNDED PRECEDING) FROM T1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window function cannot have a frame specification in an index definition");
+    }
 }

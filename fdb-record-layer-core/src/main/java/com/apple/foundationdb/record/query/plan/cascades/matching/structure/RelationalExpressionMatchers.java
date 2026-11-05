@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.WindowExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
@@ -272,6 +273,11 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(GroupByExpression.class, only(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<WindowExpression> windowExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(WindowExpression.class, only(downstream));
     }
 
     @Nonnull

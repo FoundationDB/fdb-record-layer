@@ -87,7 +87,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         // the instantiation of the type filter below to create a placeholder for the record type key parameter
         // alias and reuse it here. Similar to what we currently do for primary scans.
         //
-        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createFuseReference(availableRecordTypeNames,
                 queriedRecordTypeNames, baseType, null, accessHint));
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 

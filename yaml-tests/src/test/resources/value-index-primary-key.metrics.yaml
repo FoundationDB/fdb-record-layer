@@ -1,0 +1,60 @@
+value-index-primary-key:
+-   query: EXPLAIN select c, b from t1 where c = 10
+    ref: value-index-primary-key.yamsql:45
+    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [A: KEY:[3], B: KEY:[1],
+        C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)'
+    task_count: 439
+    task_total_time_ms: 222
+    transform_count: 110
+    transform_time_ms: 134
+    transform_yield_count: 34
+    insert_time_ms: 8
+    insert_new_count: 45
+    insert_reused_count: 4
+-   query: EXPLAIN select a, c from t1 where c = 10
+    ref: value-index-primary-key.yamsql:51
+    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [A: KEY:[3], B: KEY:[1],
+        C: KEY:[0]]) | MAP (_.A AS A, _.C AS C)'
+    task_count: 439
+    task_total_time_ms: 54
+    transform_count: 110
+    transform_time_ms: 16
+    transform_yield_count: 34
+    insert_time_ms: 2
+    insert_new_count: 45
+    insert_reused_count: 4
+-   query: EXPLAIN select c, b from t1 where c = 10 and b = 21 and a = 2
+    ref: value-index-primary-key.yamsql:57
+    explain: SCAN([IS T1, EQUALS promote(@c17 AS LONG), EQUALS promote(@c9 AS LONG)])
+        | FILTER _.B EQUALS promote(@c13 AS LONG) | MAP (_.C AS C, _.B AS B)
+    task_count: 511
+    task_total_time_ms: 230
+    transform_count: 120
+    transform_time_ms: 139
+    transform_yield_count: 38
+    insert_time_ms: 8
+    insert_new_count: 55
+    insert_reused_count: 4
+-   query: EXPLAIN select d from t1 where c = 10
+    ref: value-index-primary-key.yamsql:63
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.D AS D)
+    task_count: 380
+    task_total_time_ms: 212
+    transform_count: 102
+    transform_time_ms: 133
+    transform_yield_count: 30
+    insert_time_ms: 8
+    insert_new_count: 38
+    insert_reused_count: 3
+-   query: EXPLAIN select c from t1 where c = 11
+    ref: value-index-primary-key.yamsql:80
+    explain: 'COVERING(I1 [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[3], B: KEY:[1],
+        C: KEY:[0]]) | MAP (_.C AS C)'
+    task_count: 439
+    task_total_time_ms: 221
+    transform_count: 109
+    transform_time_ms: 133
+    transform_yield_count: 34
+    insert_time_ms: 8
+    insert_new_count: 45
+    insert_reused_count: 4

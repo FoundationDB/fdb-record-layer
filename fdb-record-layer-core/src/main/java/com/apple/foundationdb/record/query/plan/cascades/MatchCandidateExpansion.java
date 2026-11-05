@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +74,7 @@ public final class MatchCandidateExpansion {
 
     @Nonnull
     public static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
-        return expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(),
+        return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(),
                 new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
@@ -89,34 +88,25 @@ public final class MatchCandidateExpansion {
     public static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
         // Override the common primary key here. We always want it to be null because the primary key is not
         // included in the expanded aggregate index
-        return expandIndexMatchCandidate(info, false, null,
+        return expandIndexMatchCandidate(info, null,
                 new AggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
     @Nonnull
+    public static Optional<MatchCandidate> expandWindowIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
+        // the only supported window index is the rank index for now.
+        return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(),
+                new WindowIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
+    }
+
+    @Nonnull
     public static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
-                                                                     boolean forRankIndex,
                                                                      @Nullable KeyExpression commonPrimaryKey,
                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         try {
             final var accessHint = new IndexAccessHint(info.getIndexName());
-            final MatchCandidate matchCandidate;
-            if (forRankIndex) {
-                //
-                // Rank indexes require a type filter supplier as they need to create multiple type filter
-                // references when creating the match candidate. Moreover, the current representation of rank indexes
-                // does not support pushing down record type key predicates similar to other index types.
-                // This special handling can be removed once rank indexes are migrated to the new representation
-                // (see https://github.com/FoundationDB/fdb-record-layer/issues/4039).
-                //
-                final Supplier<Quantifier.ForEach> logicalTypeFilterSupplier = () -> Quantifier.forEach(
-                        ExpansionVisitor.createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(),
-                                info.getBaseType(), null, new IndexAccessHint(info.getIndexName())));
-                matchCandidate = expansionVisitor.expand(logicalTypeFilterSupplier, commonPrimaryKey, info.isReverse());
-            } else {
-                matchCandidate = expansionVisitor.expand(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(),
-                        info.getBaseType(), accessHint, commonPrimaryKey, info.isReverse());
-            }
+            final MatchCandidate matchCandidate = expansionVisitor.expand(info.getAvailableRecordTypeNames(),
+                    info.getIndexedRecordTypeNames(), info.getBaseType(), accessHint, commonPrimaryKey, info.isReverse());
             return Optional.of(matchCandidate);
         } catch (final UnsupportedOperationException uOE) {
             // just log and return empty

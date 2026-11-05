@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
@@ -644,6 +645,22 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitWindowSpec(@Nonnull RelationalParser.WindowSpecContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitFrameClauseTest() {
+        testSimple("ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+                RelationalParser::frameClause,
+                DelegatingVisitor::visitFrameClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public WindowFrameSpecification visitFrameClause(@Nonnull RelationalParser.FrameClauseContext ctx) {
                         called.set(true);
                         return null;
                     }

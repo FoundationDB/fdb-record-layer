@@ -247,7 +247,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @API(API.Status.INTERNAL)
     public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
         final Quantifier.ForEach quantifier =
-                Quantifier.forEach(ExpansionVisitor.createBaseRef(metaData.getRecordTypes().keySet(),
+                Quantifier.forEach(ExpansionVisitor.createFuseReference(metaData.getRecordTypes().keySet(),
                         ImmutableSet.of(getName()), metaData.getPlannerType(getName()), null, accessHint));
         return GraphExpansion.builder()
                 .addQuantifier(quantifier)

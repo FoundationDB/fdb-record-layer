@@ -81,7 +81,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
             final var correlatedTo = toBePulledUpValue.getCorrelatedTo();
 
             if (toBePulledUpValue.preOrderStream()
-                    .anyMatch(v -> v instanceof AggregateValue || v instanceof QueriedValue)) {
+                    .anyMatch(v -> v instanceof AggregateValue || v instanceof QueriedValue || v instanceof Value.IndexOnlyValue)) {
                 continue;
             }
 

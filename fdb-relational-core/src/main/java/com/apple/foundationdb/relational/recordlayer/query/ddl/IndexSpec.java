@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CardinalityValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -263,19 +264,48 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
         Assert.thatUnchecked(projection.versionValues().size() <= 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Cannot have index with more than one version column");
 
-        if (projection.aggregate() == null) {
-            Assert.thatUnchecked(getOrderByValues().stream().allMatch(value -> isTranslatableColumn(value)
-                            && !(value instanceof IndexableAggregateValue)),
-                    ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, order by must be a subset of projection list");
-            if (projection.fieldValues().size() > 1) {
-                Assert.thatUnchecked(!getOrderByValues().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
-                        "Unsupported index definition, value indexes must have an order by clause at the top level");
-            }
-        } else {
+        final var windowValues = projection.windowValues();
+        if (!windowValues.isEmpty()) {
+            checkWindowValidity(windowValues);
+            return;
+        }
+
+        if (projection.hasAggregate()) {
             // rejects a covering aggregate index
             aggregateOrderIndex();
+            return;
         }
+
+        Assert.thatUnchecked(getOrderByValues().stream().allMatch(value -> isTranslatableColumn(value)
+                        && !(value instanceof IndexableAggregateValue)),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, order by must be a subset of projection list");
+        if (projection.fieldValues().size() > 1) {
+            Assert.thatUnchecked(!getOrderByValues().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, value indexes must have an order by clause at the top level");
+        }
+    }
+
+    /**
+     * Rejects every window index definition the record layer cannot store. The stored key is the ranked columns grouped by
+     * the partitioning ones, and there is nowhere else in it for a column to go: no column can be carried along, and
+     * anything that would reorder or reframe the ranking cannot be expressed once the index is written.
+     */
+    private void checkWindowValidity(@Nonnull final List<CompileTimeWindowValue> windowValues) {
+        Assert.thatUnchecked(windowValues.size() == 1, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, more than one window function found");
+        final var windowValue = windowValues.get(0);
+        Assert.thatUnchecked(projection().values().size() == 1, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window function has to be the only column of the projection");
+        Assert.thatUnchecked(groupBy == null, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window function cannot be combined with a group by");
+        Assert.thatUnchecked(getOrderByValues().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window index cannot have an order by clause");
+        // An ORDER BY inside the OVER clause is allowed, and is the spelling to prefer: it is where standard SQL puts
+        // the column a ranking function ranks by. The window value normalizes it into its argument list, so the key
+        // expression is the same whichever spelling the definition uses.
+        Assert.thatUnchecked(windowValue.getWindowFrameSpecification().isDefault(), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a window function cannot have a frame specification in an index definition");
     }
 
     /**
@@ -291,7 +321,8 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
         return value instanceof FieldValue
                 || value instanceof IndexableAggregateValue
                 || value instanceof ArithmeticValue
-                || value instanceof CardinalityValue;
+                || value instanceof CardinalityValue
+                || value instanceof CompileTimeWindowValue;
     }
 
     /**
@@ -371,6 +402,22 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
      * @param values the columns, in the order the definition projects them
      */
     public record Projection(@Nonnull List<Value> values) {
+
+        public boolean hasAggregate() {
+            return aggregate() != null;
+        }
+
+        /**
+         * The window functions the index is over, empty if it is not a window index. There is at most one, and it is the
+         * only column of the projection.
+         */
+        @Nonnull
+        public List<CompileTimeWindowValue> windowValues() {
+            return values.stream()
+                    .filter(CompileTimeWindowValue.class::isInstance)
+                    .map(CompileTimeWindowValue.class::cast)
+                    .collect(ImmutableList.toImmutableList());
+        }
 
         /**
          * The aggregate the index is over, or {@code null} if it is not an aggregate index. There is at most one.
@@ -512,7 +559,8 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
                     || value instanceof AggregateValue
                     || value instanceof ArithmeticValue
                     || value instanceof LiteralValue
-                    || value instanceof CardinalityValue;
+                    || value instanceof CardinalityValue
+                    || value instanceof CompileTimeWindowValue;
         }
 
         /**

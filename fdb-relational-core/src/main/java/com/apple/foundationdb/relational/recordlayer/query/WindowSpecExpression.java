@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
@@ -35,6 +36,7 @@ import javax.annotation.Nonnull;
  * <ul>
  *     <li><b>PARTITION BY</b> - Divides the result set into partitions to which the window function is applied independently</li>
  *     <li><b>ORDER BY</b> - Defines the logical order of rows within each partition</li>
+ *     <li><b>ROWS/RANGE/GROUPS</b> - Narrows the rows the function sees within each partition to a frame</li>
  * </ul>
  *
  * <p>Example SQL: {@code ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)}
@@ -50,13 +52,18 @@ public final class WindowSpecExpression {
     private final Iterable<OrderByExpression> orderByExpressions;
 
     @Nonnull
+    private final WindowFrameSpecification frameSpecification;
+
+    @Nonnull
     private final Expressions windowOptions;
 
     private WindowSpecExpression(@Nonnull final Expressions partitions,
                                  @Nonnull final Iterable<OrderByExpression> orderByExpressions,
+                                 @Nonnull final WindowFrameSpecification frameSpecification,
                                  @Nonnull final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
+        this.frameSpecification = frameSpecification;
         this.windowOptions = windowOptions;
     }
 
@@ -65,13 +72,16 @@ public final class WindowSpecExpression {
      *
      * @param partitions the expressions to partition by (corresponds to PARTITION BY clause)
      * @param orderByExpressions the ordering expressions (corresponds to ORDER BY clause)
+     * @param frameSpecification the frame narrowing each partition (corresponds to the ROWS/RANGE/GROUPS clause)
+     * @param windowOptions the window options
      * @return a new OverExpression instance
      */
     @Nonnull
     public static WindowSpecExpression of(@Nonnull final Expressions partitions,
                                           @Nonnull final Iterable<OrderByExpression> orderByExpressions,
+                                          @Nonnull final WindowFrameSpecification frameSpecification,
                                           @Nonnull final Expressions windowOptions) {
-        return new WindowSpecExpression(partitions, orderByExpressions, windowOptions);
+        return new WindowSpecExpression(partitions, orderByExpressions, frameSpecification, windowOptions);
     }
 
     /**
@@ -94,6 +104,16 @@ public final class WindowSpecExpression {
         return orderByExpressions;
     }
 
+    /**
+     * Returns the frame that narrows the rows the window function sees within each partition.
+     *
+     * @return the frame specification (ROWS/RANGE/GROUPS clause)
+     */
+    @Nonnull
+    public WindowFrameSpecification getFrameSpecification() {
+        return frameSpecification;
+    }
+
     @Nonnull
     public Expressions getWindowOptions() {
         return windowOptions;
@@ -101,7 +121,8 @@ public final class WindowSpecExpression {
 
     /**
      * Builds the {@link CallSiteArguments.WindowSpecification} for this {@code OVER} clause: the {@code PARTITION BY}
-     * columns and the {@code ORDER BY} columns (each paired with its sort direction as a {@link WindowOrderingPart}).
+     * columns, the {@code ORDER BY} columns (each paired with its sort direction as a {@link WindowOrderingPart}), and
+     * the frame.
      *
      * @return the window specification to attach to a windowed call site
      */
@@ -112,6 +133,6 @@ public final class WindowSpecExpression {
         final var orderingParts = Streams.stream(orderByExpressions)
                 .map(orderBy -> new WindowOrderingPart(orderBy.getExpression().getUnderlying(), orderBy.toSortOrder()))
                 .collect(ImmutableList.toImmutableList());
-        return new CallSiteArguments.WindowSpecification(partitioningValues, orderingParts);
+        return new CallSiteArguments.WindowSpecification(partitioningValues, orderingParts, frameSpecification);
     }
 }

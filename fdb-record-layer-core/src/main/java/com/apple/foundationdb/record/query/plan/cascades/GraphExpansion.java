@@ -338,6 +338,11 @@ public class GraphExpansion {
     }
 
     @Nonnull
+    public static GraphExpansion ofResultValue(@Nonnull final Value resultValue) {
+        return builder().addResultValue(resultValue).build();
+    }
+
+    @Nonnull
     public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier) {
         final var existsPredicate = new ExistentialValuePredicate(QuantifiedObjectValue.of(existentialQuantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
         return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());

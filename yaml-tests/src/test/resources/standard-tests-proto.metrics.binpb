@@ -1,7 +1,7 @@
 ∑
 j
 	unnamed-2]EXPLAIN select id, col1, col2 from (select * from (select * from T1) as x where ID = 5) as y;»
-íµã£	E ⁄ÿî(0…ß"8@dSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ƒdigraph G {
+ö∆ØüM Íæ(0‚˚-8@dSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -15,8 +15,7 @@ j
 }∑
 j
 	unnamed-2]EXPLAIN select id, col1, col2 from (select * from (select * from T1) as x) as y where ID = 5;»
-í≥˝¢
-E ôì(0ˆŸ$8@dSCAN([EQUALS promote(@c25 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ƒdigraph G {
+öò±®M ®Ã∞(0Ë±.8@dSCAN([EQUALS promote(@c25 AS LONG)]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -30,8 +29,7 @@ j
 }À
 z
 	unnamed-2mEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;Ã
-Çüãä
-_ Ê¥∆(0≈¯8)@¢SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)âdigraph G {
+èîèÑl í⁄¢(0»€$8)@¢SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -51,7 +49,8 @@ z
 }ﬂ
 Å
 	unnamed-2tEXPLAIN select id, col1, col2 from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;ÿ
-©®àï	J Œ∫’(0éç8 @lSCAN([[GREATER_THAN promote(@c23 AS LONG)]]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ãdigraph G {
+¥„îŒ
+U ¡•ã(0≥ '8 @lSCAN([[GREATER_THAN promote(@c23 AS LONG)]]) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

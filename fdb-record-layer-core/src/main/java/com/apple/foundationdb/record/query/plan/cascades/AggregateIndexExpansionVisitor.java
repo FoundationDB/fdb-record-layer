@@ -133,7 +133,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         Verify.verify(ignored == null);
-        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createFuseReference(availableRecordTypeNames,
                 queriedRecordTypeNames, baseType, null, accessHint));
 
         // 0. create a base expansion to resolve the key expression to columns with appropriate quantifiers
@@ -154,8 +154,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 3. construct SELECT-HAVING with SORT on top.
         final var constructSelectHavingResult = constructSelectHaving(groupByQun, placeholders);
-        final var selectHaving = constructSelectHavingResult.getSelectExpression();
-        final var placeHolderAliases = constructSelectHavingResult.getPlaceholderAliases();
+        final var selectHaving = constructSelectHavingResult.selectExpression();
+        final var placeHolderAliases = constructSelectHavingResult.placeholderAliases();
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
@@ -185,7 +185,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
-        // add the SELECT-WHERE part, where we expose grouping and grouped columns, allowing query fragments that governs
+        // add the SELECT-WHERE part, where we expose grouping columns, allowing query fragments that governs
         // only these columns to properly bind to this part, similar to how value indices work.
 
         if (index.hasPredicate()) {
@@ -406,26 +406,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return mapBuilder.build();
     }
 
-    private static class ConstructSelectHavingResult {
-        @Nonnull
-        private final SelectExpression selectExpression;
-        @Nonnull
-        private final List<CorrelationIdentifier> placeholderAliases;
-
-        private ConstructSelectHavingResult(@Nonnull final SelectExpression selectExpression,
-                                            @Nonnull final List<CorrelationIdentifier> placeholderAliases) {
-            this.selectExpression = selectExpression;
-            this.placeholderAliases = placeholderAliases;
-        }
-
-        @Nonnull
-        public SelectExpression getSelectExpression() {
-            return selectExpression;
-        }
-
-        @Nonnull
-        public List<CorrelationIdentifier> getPlaceholderAliases() {
-            return placeholderAliases;
-        }
+    private record ConstructSelectHavingResult(@Nonnull SelectExpression selectExpression,
+                                               @Nonnull List<CorrelationIdentifier> placeholderAliases) {
     }
 }

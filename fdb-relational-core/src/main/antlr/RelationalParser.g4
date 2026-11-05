@@ -1150,7 +1150,8 @@ aggregateLimitClause
 nonAggregateWindowedFunction
     : functionName=(LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
     | functionName=(FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
-    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
+    | functionName=RANK '(' functionArgs? ')' overClause
+    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | ROW_NUMBER) '('')' overClause
     | functionName=NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
     | functionName=NTILE '(' decimalLiteral ')' overClause
     ;
@@ -1164,7 +1165,7 @@ windowName
     ;
 
 windowSpec
-    : windowName? partitionClause? orderByClause? windowOptionsClause?
+    : windowName? partitionClause? orderByClause? frameClause? windowOptionsClause?
     ;
 
 windowOptionsClause
@@ -1175,18 +1176,14 @@ windowOption
     : EF_SEARCH '=' efSearch=DECIMAL_LITERAL
     ;
 
-//commented out until we want to support window functions
-/*
-
-
-
 frameClause
-    : frameUnits frameExtent
+    : frameUnits frameExtent frameExclusion?
     ;
 
 frameUnits
     : ROWS
     | RANGE
+    | GROUPS
     ;
 
 frameExtent
@@ -1204,7 +1201,12 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
-*/
+frameExclusion
+    : EXCLUDE CURRENT ROW
+    | EXCLUDE GROUP
+    | EXCLUDE TIES
+    | EXCLUDE NO OTHERS
+    ;
 
 partitionClause
     : PARTITION BY fullId (',' fullId)*

@@ -2,7 +2,7 @@
 @
 
 enum-tests2EXPLAIN SELECT * From table_a where "name" = 'bar'å
-·ÈΩ—@ é˜«(0◊≈8@)ISCAN(I1 [EQUALS promote(@c7 AS STRING)])√digraph G {
+ÂÍùŒD …ΩŸ(0√∫8@)ISCAN(I1 [EQUALS promote(@c7 AS STRING)])√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

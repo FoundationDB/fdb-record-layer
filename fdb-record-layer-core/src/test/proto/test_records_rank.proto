@@ -30,6 +30,7 @@ message BasicRankedRecord {
   required string name = 1 [(field).primary_key = true];
   optional int32 score = 2 [(field).index = { type: "rank" }];
   optional string gender = 3;
+  optional string description = 4;
 }
 
 message NestedRankedRecord {

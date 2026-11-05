@@ -1,0 +1,40 @@
+rank-planning-tests:
+-   query: EXPLAIN select rank() over (partition by team order by score) as rnk from
+        player where team = 'greeks'
+    ref: rank-planning.yamsql:53
+    explain: ISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3
+        AS RNK)
+    task_count: 560
+    task_total_time_ms: 269
+    transform_count: 158
+    transform_time_ms: 182
+    transform_yield_count: 45
+    insert_time_ms: 18
+    insert_new_count: 62
+    insert_reused_count: 4
+-   query: EXPLAIN select rank() over (partition by team order by score) + 1 as rnk
+        from player where team = 'greeks'
+    ref: rank-planning.yamsql:70
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_._3
+        + @c14 AS RNK)
+    task_count: 560
+    task_total_time_ms: 269
+    transform_count: 158
+    transform_time_ms: 181
+    transform_yield_count: 45
+    insert_time_ms: 17
+    insert_new_count: 62
+    insert_reused_count: 4
+-   query: EXPLAIN select rnk from (select name, rank() over (partition by team order
+        by score) as rnk from player where team = 'greeks') as t where rnk < 2
+    ref: rank-planning.yamsql:87
+    explain: ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [LESS_THAN promote(@c33 AS
+        LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)
+    task_count: 597
+    task_total_time_ms: 269
+    transform_count: 168
+    transform_time_ms: 187
+    transform_yield_count: 47
+    insert_time_ms: 15
+    insert_new_count: 67
+    insert_reused_count: 4

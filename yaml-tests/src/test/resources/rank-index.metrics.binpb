@@ -1,0 +1,183 @@
+ù
+}
+rank-index-resultsgEXPLAIN select rank() over (partition by team order by score) as rank from player where team = 'greeks'õ
+∞»‚éKû é…´2(-0éﬁÀ8>@MISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3 AS RANK)¨digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35._3 AS RANK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS RANK)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS STRING)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}”
+É
+rank-index-resultsmEXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' 
+∞˘¸˘û ∏áé(-0õØÉ8>@\ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ãdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.NAME AS NAME, q35._3 AS RNK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, LONG AS RNK)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS STRING)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}á
+r
+rank-index-results\EXPLAIN select name, team, rank() over (partition by team order by score) as rnk from playerê
+è¥…˙u €˙∑(%0Û±Ö8'@GISCAN(MV1 <,>+rank) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)®digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.NAME AS NAME, q35.TEAM AS TEAM, q35._3 AS RNK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, STRING AS TEAM, LONG AS RNK)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}≥
+â
+rank-of-child-among-siblingsiEXPLAIN select rank() over (partition by parent_id order by id) as position from node where parent_id = 1§
+ÖÜ˛Øë √ñó	(*0¶Óy82@OISCAN(MV2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._3 AS POSITION)¥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35._3 AS POSITION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS POSITION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PARENT_ID, LONG AS ID, STRING AS LABEL, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PARENT_ID, LONG AS ID, STRING AS LABEL, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ˆ
+k
+rank-index-primary-keyQEXPLAIN select rank() over (partition by b order by c) as r from t2 where b = 100Ü
+Ö⁄üØë ’Ö≠	(*0ÃàÖ82@GISCAN(I2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._4 AS R)ùdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35._4 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ω
+q
+rank-index-primary-keyWEXPLAIN select a, c, rank() over (partition by b order by c) as r from t2 where b = 100«
+ÖÊÂ˛ë ≈≤ú	(*0‘±l82@[ISCAN(I2 [EQUALS promote(@c24 AS LONG)]+rank BY_RANK) | MAP (_.A AS A, _.C AS C, _._4 AS R)Àdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.A AS A, q35.C AS C, q35._4 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS C, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c24 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+n
+rank-index-primary-keyTEXPLAIN select d, rank() over (partition by b order by c) as r from t2 where b = 100¶
+ﬁÇ◊å …û”((0Ó˙d8.@QISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.D AS D, _._4 AS R)¥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.D AS D, q35._4 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS D, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+n
+rank-index-primary-keyTEXPLAIN select b, rank() over (partition by b order by c) as r from t2 where b = 200¶
+Ö¬ƒ™ë Àπ¨(*0„¢T82@QISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.B AS B, _._4 AS R)¥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.B AS B, q35._4 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}é
+q
+rank-index-primary-keyWEXPLAIN select b, c, rank() over (partition by b order by c) as r from t2 where b < 200ò
+ÖÉµÙë å‹ë(*0êß`82@XISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)üdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.B AS B, q35.C AS C, q35._4 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c24 AS LONG)]]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}é
+q
+rank-index-primary-keyWEXPLAIN select b, c, rank() over (partition by b order by c) as r from t2 where b < 300ò
+ÖÉµÙë å‹ë(*0êß`82@XISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)üdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.B AS B, q35.C AS C, q35._4 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c24 AS LONG)]]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C, LONG AS A, LONG AS D, LONG AS _4)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+} 
+ç
+rank-index-partitioningrEXPLAIN select z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b = 100 and c = 1000∑
+ÖÁë¨ë û¢ê
+(*0ß‚}82@çISCAN(I3 [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG), EQUALS promote(@c34 AS LONG)]+rank BY_RANK) | MAP (_.Z AS Z, _._5 AS R)àdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.Z AS Z, q35._5 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Z, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG), EQUALS promote(@c34 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ı
+É
+rank-index-partitioninghEXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 200Ï
+ÖÜ¥Ïë ‡ˇÜ(*0⁄‰R82@vISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)’digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.B AS B, q35.Z AS Z, q35._5 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS Z, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ı
+É
+rank-index-partitioninghEXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 300Ï
+ÖÜ¥Ïë ‡ˇÜ(*0⁄‰R82@vISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)’digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.B AS B, q35.Z AS Z, q35._5 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS Z, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¢
+w
+rank-index-partitioning\EXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10¶
+Öùπ√ë ¡äÏ(*0û«F82@SISCAN(I3 [EQUALS promote(@c28 AS LONG)]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)≤digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.B AS B, q35.Z AS Z, q35._5 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS Z, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c28 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ä
+m
+rank-index-partitioningREXPLAIN select a, b, z, rank() over (partition by a, b, c order by z) as r from t3ò
+èö®‡
+u ‡Éú(%0ê˙@8'@BISCAN(I3 <,>+rank) | MAP (_.A AS A, _.B AS B, _.Z AS Z, _._5 AS R)∂digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.A AS A, q35.B AS B, q35.Z AS Z, q35._5 AS R)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS Z, LONG AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS Z, LONG AS ID, LONG AS _5)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}
