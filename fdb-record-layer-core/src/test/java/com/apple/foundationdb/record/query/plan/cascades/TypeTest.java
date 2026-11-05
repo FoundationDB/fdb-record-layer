@@ -1360,4 +1360,22 @@ class TypeTest {
         Assertions.assertSame(function1, function2,
                 "Type.FUNCTION should be a singleton");
     }
+
+    @Test
+    void testEnumWithName() {
+        final var enumType = Type.Enum.fromValuesWithName(
+                "TestEnum",
+                false,
+                List.of(
+                        Type.Enum.EnumValue.from("A", 0),
+                        Type.Enum.EnumValue.from("B", 1)));
+
+        assertThat(enumType.withName("TestEnum"))
+                .isSameAs(enumType)
+                .satisfies(t -> assertThat(t.getName()).isEqualTo("TestEnum"));
+
+        assertThat(enumType.withName("DifferentName"))
+                .isNotSameAs(enumType)
+                .satisfies(t -> assertThat(t.getName()).isEqualTo("DifferentName"));
+    }
 }

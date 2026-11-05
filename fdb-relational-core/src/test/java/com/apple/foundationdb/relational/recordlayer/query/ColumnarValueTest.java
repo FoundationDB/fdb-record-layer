@@ -175,4 +175,11 @@ public class ColumnarValueTest {
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         assertEquals(inner.toValueProto(serCtx), cv.toValueProto(serCtx));
     }
+
+    @Test
+    void getDynamicTypesDelegatesToInner() {
+        final var inner = new LiteralValue<>(42);
+        final var cv = new ColumnarValue(inner, 0);
+        assertEquals(inner.getDynamicTypes(), cv.getDynamicTypes());
+    }
 }
