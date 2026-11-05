@@ -134,6 +134,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
 
     /**
      * Returns an explode of a different collection that preserves its order if and only if this one does.
+     *
      * @param newCollectionValue the new collection
      * @return an explode of the new collection
      */
