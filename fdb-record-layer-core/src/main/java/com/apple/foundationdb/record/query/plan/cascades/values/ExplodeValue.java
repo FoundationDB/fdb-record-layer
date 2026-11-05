@@ -94,6 +94,12 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     @Nonnull
     private final Type elementType;
 
+    /**
+     * Whether the planner must keep the collection in its order. If set, every ordinal this explode produces is the
+     * position of its element in the array, so the collection must not be replaced by a permutation of it, for example
+     * by a sorted one. If not set, the ordinals are not observed and the collection may be reordered. Either way the
+     * explode flows the same {@code (element, ordinal)} struct.
+     */
     private final boolean preserveOrder;
 
     @Nonnull
