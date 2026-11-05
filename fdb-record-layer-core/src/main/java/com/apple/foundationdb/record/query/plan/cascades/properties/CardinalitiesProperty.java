@@ -58,7 +58,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
-import com.apple.foundationdb.record.query.plan.plans.InExplodeSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
@@ -443,10 +442,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             final var inSourcesCardinalitiesOptional =
                     inSources.stream()
                             .map(inSource -> {
-                                if (inSource instanceof InExplodeSource && ((InExplodeSource)inSource).getLiteralValues() != null) {
-                                    final var size = Objects.requireNonNull(((InExplodeSource)inSource).getLiteralValues()).size();
-                                    return new Cardinalities(Cardinality.ofCardinality(size), Cardinality.ofCardinality(size));
-                                } else if (inSource instanceof InParameterSource || inSource instanceof InComparandSource) {
+                                if (inSource instanceof InParameterSource || inSource instanceof InComparandSource) {
                                     return Cardinalities.unknownMaxCardinality();
                                 } else {
                                     Verify.verify(inSource instanceof InValuesSource);

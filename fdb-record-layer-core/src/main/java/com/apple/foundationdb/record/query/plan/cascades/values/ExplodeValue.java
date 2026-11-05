@@ -45,11 +45,9 @@ import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -58,7 +56,6 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -188,41 +185,12 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     private Object structOf(@Nonnull final EvaluationContext context, @Nonnull final Object element, final int ordinal) {
         EvaluationContext elementContext = context
                 .withBinding(Bindings.Internal.CORRELATION, elementAlias,
-                        QueryResult.ofComputed(coerceElement(context.getTypeRepository(), element)));
+                        QueryResult.ofComputed(element));
         if (withOrdinality) {
             elementContext = elementContext.withBinding(Bindings.Internal.CORRELATION, ordinalAlias,
                     QueryResult.ofComputed(ordinal));
         }
         return Objects.requireNonNull(structValue.eval(null, elementContext));
-    }
-
-    /**
-     * Coerces an element to the representation of the element type in the struct. Elements of literal lists, such
-     * as the lists of IN predicates, are plain Java objects that do not necessarily use that representation: numbers
-     * may be narrower than the element type, and enums are Java enums or {@link ProtoUtils.DynamicEnum}s rather than
-     * enum value descriptors.
-     */
-    @Nonnull
-    private Object coerceElement(@Nonnull final TypeRepository typeRepository, @Nonnull final Object element) {
-        if (elementType instanceof Type.Enum) {
-            if (element instanceof ProtocolMessageEnum) {
-                return ((ProtocolMessageEnum)element).getValueDescriptor();
-            }
-            if (element instanceof ProtoUtils.DynamicEnum) {
-                return Objects.requireNonNull(typeRepository.getEnumValue(typeRepository.getProtoTypeName(elementType),
-                        ((ProtoUtils.DynamicEnum)element).getName()));
-            }
-            return element;
-        }
-        if (element instanceof final Number number && elementType.isPrimitive()) {
-            return switch (elementType.getTypeCode()) {
-                case LONG -> element instanceof Long ? element : (Object)number.longValue();
-                case DOUBLE -> element instanceof Double ? element : (Object)number.doubleValue();
-                case FLOAT -> element instanceof Float ? element : (Object)number.floatValue();
-                default -> element;
-            };
-        }
-        return element;
     }
 
     @Nonnull
@@ -231,9 +199,6 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         final int size;
         if (collectionValue instanceof AbstractArrayConstructorValue) {
             size = Iterables.size(collectionValue.getChildren());
-        } else if (collectionValue instanceof LiteralValue<?> &&
-                ((LiteralValue<?>)collectionValue).getLiteralValue() instanceof List<?>) {
-            size = ((List<?>)((LiteralValue<?>)collectionValue).getLiteralValue()).size();
         } else {
             return CardinalitiesProperty.Cardinalities.unknownMaxCardinality();
         }

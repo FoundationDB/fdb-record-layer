@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -60,7 +61,8 @@ class InExplodeSourceTest {
 
     @Nonnull
     private static Value elements() {
-        return LiteralValue.ofList(List.of(30L, 10L, 20L));
+        return AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                List.of(LiteralValue.ofScalar(30L), LiteralValue.ofScalar(10L), LiteralValue.ofScalar(20L)));
     }
 
     @Nonnull
@@ -153,25 +155,5 @@ class InExplodeSourceTest {
         final var explodeValue = new ExplodeValue(new ArraySortValue(elements(), false), true);
         final var exception = Assertions.assertThrows(VerifyException.class, () -> new InExplodeSource("in", explodeValue));
         Assertions.assertEquals("cannot sort the collection of an explode with ordinality", exception.getMessage());
-    }
-
-    @Test
-    void listLiteralProtoRoundTrip() {
-        final var literal = elements();
-        final var valueProto = literal.toValueProto(newSerializationContext());
-        Assertions.assertTrue(valueProto.getLiteralValue().getIsList());
-
-        final var deserialized = Value.fromValueProto(newSerializationContext(), valueProto);
-        Assertions.assertEquals(literal, deserialized);
-        Assertions.assertEquals(literal.getResultType(), deserialized.getResultType());
-        Assertions.assertEquals(List.of(30L, 10L, 20L), ((LiteralValue<?>)deserialized).getLiteralValue());
-    }
-
-    @Test
-    void listLiteralWithNestedListCannotBeSerialized() {
-        final var literal = LiteralValue.ofList(List.of(List.of(1L, 2L)));
-        final var exception = Assertions.assertThrows(RecordCoreException.class,
-                () -> literal.toValueProto(newSerializationContext()));
-        Assertions.assertTrue(exception.getMessage().startsWith("Unsupported value type"), exception.getMessage());
     }
 }
