@@ -109,9 +109,7 @@ public class Search {
     }
 
     /**
-     * Get the configuration of this hnsw.
-     *
-     * @return hnsw configuration
+     * {@return the configuration of this hnsw}
      */
     @Nonnull
     private Config getConfig() {

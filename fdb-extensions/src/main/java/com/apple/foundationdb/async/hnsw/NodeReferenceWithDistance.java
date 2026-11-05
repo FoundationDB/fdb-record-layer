@@ -60,9 +60,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
     }
 
     /**
-     * Gets the distance.
-     *
-     * @return the current distance value
+     * {@return the current distance value}
      */
     public double getDistance() {
         return distance;

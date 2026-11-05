@@ -326,9 +326,8 @@ public class Key {
         }
 
         /**
-         * The empty key expression.
+         * {@return the empty key expression}
          *
-         * @return the empty key expression
          * @see EmptyKeyExpression
          */
         @Nonnull

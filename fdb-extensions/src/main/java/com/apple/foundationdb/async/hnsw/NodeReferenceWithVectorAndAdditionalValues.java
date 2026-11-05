@@ -53,9 +53,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
     }
 
     /**
-     * Gets the additional values for this object.
-     *
-     * @return the additional values
+     * {@return the additional values for this object}
      */
     @Nullable
     public Tuple getAdditionalValues() {
