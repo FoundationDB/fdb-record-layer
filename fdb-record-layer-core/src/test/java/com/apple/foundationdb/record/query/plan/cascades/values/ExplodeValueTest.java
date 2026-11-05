@@ -104,7 +104,7 @@ class ExplodeValueTest {
 
     /**
      * Drains the stream of an explode, returning each struct it produces as the list of its fields, that is
-     * {@code [element]}, or {@code [element, ordinal]} for an explode with ordinality.
+     * {@code [element, ordinal]}.
      */
     @Nonnull
     private static List<List<Object>> explode(@Nonnull final ExplodeValue value, @Nonnull final EvaluationContext context,
@@ -139,29 +139,18 @@ class ExplodeValueTest {
         return explode(value, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
-    @Test
-    void resultTypeIsTheElement() {
-        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b")));
-        Assertions.assertFalse(value.hasOrdinality());
-
-        final var fields = value.getResultType().getFields();
-        Assertions.assertEquals(1, fields.size());
-        Assertions.assertEquals(((Type.Array)value.getCollectionValue().getResultType()).getElementType(), fields.get(0).getFieldType());
-        Assertions.assertEquals("_0", fields.get(0).getFieldName());
-        Assertions.assertTrue(value.getDynamicTypes().contains(value.getResultType()));
-    }
-
-    @Test
-    void resultTypeWithOrdinalityIsTheElementAndItsOrdinal() {
-        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b")), true);
-        Assertions.assertTrue(value.hasOrdinality());
+    @ParameterizedTest
+    @BooleanSource
+    void resultTypeIsTheElementAndItsOrdinal(final boolean withOrdinality) {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b")), withOrdinality);
+        Assertions.assertEquals(withOrdinality, value.hasOrdinality());
 
         final var fields = value.getResultType().getFields();
         Assertions.assertEquals(2, fields.size());
         Assertions.assertEquals(((Type.Array)value.getCollectionValue().getResultType()).getElementType(), fields.get(0).getFieldType());
         Assertions.assertEquals(Type.primitiveType(Type.TypeCode.INT, false), fields.get(1).getFieldType());
         // Both fields are declared anonymous, the way an explode WITH ORDINALITY declares its struct, and are so named
-        // by their position.
+        // by their position. The ordinality does not change the shape.
         Assertions.assertEquals("_0", fields.get(0).getFieldName());
         Assertions.assertEquals("_1", fields.get(1).getFieldName());
 
@@ -169,16 +158,10 @@ class ExplodeValueTest {
         Assertions.assertTrue(value.getDynamicTypes().contains(value.getResultType()));
     }
 
-    @Test
-    void producesEveryElement() {
-        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")));
-        Assertions.assertEquals(List.of(List.of("a"), List.of("b"), List.of("c")),
-                explode(value, contextFor(value)));
-    }
-
-    @Test
-    void producesEveryElementWithItsZeroBasedOrdinal() {
-        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")), true);
+    @ParameterizedTest
+    @BooleanSource
+    void producesEveryElementWithItsZeroBasedOrdinal(final boolean withOrdinality) {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")), withOrdinality);
         Assertions.assertEquals(List.of(List.of("a", 0), List.of("b", 1), List.of("c", 2)),
                 explode(value, contextFor(value)));
     }
@@ -399,7 +382,7 @@ class ExplodeValueTest {
         Assertions.assertEquals(explodeValue.getResultType(), derived.getResultType());
         Assertions.assertTrue(derived instanceof RecordConstructorValue);
         final List<? extends Value> columns = ImmutableList.copyOf(derived.getChildren());
-        Assertions.assertEquals(withOrdinality ? 2 : 1, columns.size());
+        Assertions.assertEquals(2, columns.size());
         Assertions.assertTrue(columns.get(0) instanceof FirstOrDefaultValue);
     }
 
