@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -175,15 +174,13 @@ public class InComparandSource extends InSource {
     @Nonnull
     @Override
     public Type getResultType() {
-        final Value comparandValue = comparison.getValue();
-        return comparandValue == null ? super.getResultType() : comparandValue.getResultType();
+        return Objects.requireNonNull(comparison.getValue()).getResultType();
     }
 
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        final Value comparandValue = comparison.getValue();
-        return comparandValue == null ? super.getDynamicTypes() : comparandValue.getDynamicTypes();
+        return Objects.requireNonNull(comparison.getValue()).getDynamicTypes();
     }
 
     /**
