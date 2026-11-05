@@ -704,11 +704,14 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *
      * @param inComparison whether the inner existential predicate should be an IN or EQUALS predicate
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest
     @BooleanSource
     void testSimpleExistentialPredicateOnSimpleIndex(boolean inComparison) {
         Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(inComparison);
         final Index index = new Index("Restaurant$tag.value", Key.Expressions.field("tags").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("value")));
         CascadesPlanner cascadesPlanner = setUpWithNullableArray(metaDataBuilder -> metaDataBuilder.addIndex("RestaurantRecord", index));
         final var tagValueParam = "t";
@@ -762,9 +765,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testEqualityAndSimpleExistentialPredicate() {
-        Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.abort();
         final Index index = new Index("Restaurant$name-tagValue", Key.Expressions.concat(
                 Key.Expressions.field("name"),
                 Key.Expressions.field("tags").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("value"))
