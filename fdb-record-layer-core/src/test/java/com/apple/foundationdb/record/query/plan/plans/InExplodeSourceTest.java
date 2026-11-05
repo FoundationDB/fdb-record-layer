@@ -27,13 +27,11 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -44,7 +42,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -81,8 +78,8 @@ class InExplodeSourceTest {
     static Stream<Arguments> sources() {
         return Stream.of(
                 Arguments.of(new InExplodeSource("in", new ExplodeValue(elements())), List.of(30L, 10L, 20L)),
-                Arguments.of(new InExplodeSource("in", new ExplodeValue(new ArraySortValue(elements(), false))), List.of(10L, 20L, 30L)),
-                Arguments.of(new InExplodeSource("in", new ExplodeValue(new ArraySortValue(elements(), true))), List.of(30L, 20L, 10L)));
+                Arguments.of(new InExplodeSource("in", new ExplodeValue(elements()).sorted(false)), List.of(10L, 20L, 30L)),
+                Arguments.of(new InExplodeSource("in", new ExplodeValue(elements()).sorted(true)), List.of(30L, 20L, 10L)));
     }
 
     @ParameterizedTest
@@ -126,34 +123,5 @@ class InExplodeSourceTest {
         Assertions.assertEquals(source.isSorted(), deserialized.isSorted());
         Assertions.assertEquals(source.isReverse(), deserialized.isReverse());
         Assertions.assertEquals(expected, elementsOf((InExplodeSource)deserialized));
-    }
-
-    @ParameterizedTest
-    @MethodSource("sources")
-    void arraySortValueProtoRoundTrip(@Nonnull final InExplodeSource source, @Nonnull final List<Object> expected) {
-        final var collectionValue = new ExplodeValue(new ArraySortValue(elements(), source.isReverse())).getCollectionValue();
-        final var valueProto = collectionValue.toValueProto(newSerializationContext());
-        Assertions.assertTrue(valueProto.hasArraySortValue());
-
-        final var deserialized = Value.fromValueProto(newSerializationContext(), valueProto);
-        Assertions.assertInstanceOf(ArraySortValue.class, deserialized);
-        Assertions.assertEquals(collectionValue, deserialized);
-        Assertions.assertEquals(source.isReverse(), ((ArraySortValue)deserialized).isReverse());
-    }
-
-    @Test
-    void arraySortValueRejectsElementsThatCannotBeSorted() {
-        final var records = new LiteralValue<>(new Type.Array(Type.Record.fromFields(List.of(
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"))))), List.of());
-        Assertions.assertThrows(VerifyException.class, () -> new ArraySortValue(records, false));
-        final var bytes = new LiteralValue<>(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false)), List.of());
-        Assertions.assertThrows(VerifyException.class, () -> new ArraySortValue(bytes, false));
-    }
-
-    @Test
-    void sortedCollectionOfAnExplodeThatPreservesOrderIsRejected() {
-        final var explodeValue = new ExplodeValue(new ArraySortValue(elements(), false), true);
-        final var exception = Assertions.assertThrows(VerifyException.class, () -> new InExplodeSource("in", explodeValue));
-        Assertions.assertEquals("cannot sort the collection of an explode that preserves its order", exception.getMessage());
     }
 }

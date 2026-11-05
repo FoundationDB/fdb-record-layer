@@ -288,7 +288,6 @@ message PValue {
     PArrayAggValue array_agg_value = 64;
     PCurrentTimestampValue current_timestamp_value = 65;
     PExplodeValue explode_value = 66;
-    PArraySortValue array_sort_value = 67;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -1414,15 +1413,12 @@ message PRangeValue {
 message PExplodeValue {
   optional PValue collection_value = 1;
   optional bool preserve_order = 2;
+  optional bool sorted = 3;
+  optional bool reverse = 4;
 }
 
 message PArrayDistinctValue {
   optional PValue child_value = 1;
-}
-
-message PArraySortValue {
-  optional PValue child_value = 1;
-  optional bool reverse = 2;
 }
 
 message PParameterObjectValue {
