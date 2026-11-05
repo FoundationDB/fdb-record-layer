@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Helper functions for {@link GeospatialRTreeIndexMaintainer}.
+ *
  * @see GeospatialRTreeIndexMaintainer for the index layout
  */
 @API(API.Status.EXPERIMENTAL)
@@ -51,6 +52,7 @@ public class GeospatialRTreeIndexHelper {
 
     /**
      * Parse the R-tree structural options shared with the multidimensional index.
+     *
      * @param index the index definition
      * @return the parsed config
      * @see MultiDimensionalIndexHelper#getConfig(Index)
@@ -63,6 +65,7 @@ public class GeospatialRTreeIndexHelper {
     /**
      * Fixed-point scale factor ({@code 10^digits}) applied to a {@code double} degree value before it is stored as a
      * {@code long} in the R-tree.
+     *
      * @param index the index definition
      * @return the scale factor
      * @see IndexOptions#GEOSPATIAL_RTREE_PRECISION_DIGITS
@@ -85,6 +88,7 @@ public class GeospatialRTreeIndexHelper {
     /**
      * Number of leading grouping columns, each distinct value of which is backed by its own R-tree. Coordinate columns
      * follow the grouping columns.
+     *
      * @param root the index root key expression
      * @return the grouping (prefix) size, or {@code 0} when the root is not grouped
      */
