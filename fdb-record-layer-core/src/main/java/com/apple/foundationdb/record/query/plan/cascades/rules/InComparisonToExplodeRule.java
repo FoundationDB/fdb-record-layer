@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
@@ -39,8 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArrayDistinctValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -138,13 +135,16 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
 
         final var selectExpression = bindings.get(root);
 
-        final var inPredicatesList = bindings.getAll(inPredicateMatcher);
-        if (inPredicatesList.isEmpty()) {
+        // only an IN over a value comparison is exploded; an IN over a literal list or a parameter stays a predicate
+        final var inPredicates = Sets.<QueryPredicate>newIdentityHashSet();
+        for (final var inPredicate : bindings.getAll(inPredicateMatcher)) {
+            if (inPredicate.getComparison() instanceof Comparisons.ValueComparison) {
+                inPredicates.add(inPredicate);
+            }
+        }
+        if (inPredicates.isEmpty()) {
             return;
         }
-
-        final var inPredicates = Sets.<QueryPredicate>newIdentityHashSet();
-        inPredicates.addAll(inPredicatesList);
 
         final var transformedQuantifiers = ImmutableList.<Quantifier>builder();
         final var transformedPredicates = ImmutableList.<QueryPredicate>builder();
@@ -152,25 +152,9 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
             if (inPredicates.contains(predicate)) {
                 final var valuePredicate = (ValuePredicate)predicate;
                 final var value = valuePredicate.getValue();
-
-                final Type elementType = value.getResultType();
-                final var comparison = valuePredicate.getComparison();
-                Verify.verify(comparison.getType() == Comparisons.Type.IN);
-                final ExplodeValue explodeValue;
-
-                if (comparison instanceof final Comparisons.ValueComparison comparisonValue) {
-                    Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
-                    explodeValue = new ExplodeValue(new ArrayDistinctValue(comparisonValue.getComparandValue()));
-//                } else if (comparison instanceof final Comparisons.ListComparison listComparison) {
-//                    // type the list by the compared value, as the elements need not determine a type, e.g. if they
-//                    // are enums or the list is empty
-//                    explodeValue = new ExplodeValue(new LiteralValue<>(new Type.Array(elementType.notNullable()),
-//                            (List<?>)listComparison.getComparand(null, null)));
-//                } else if (comparison instanceof Comparisons.ParameterComparison) {
-//                    explodeValue = new ExplodeValue(ParameterObjectValue.of(((Comparisons.ParameterComparison)comparison).getParameter(), new Type.Array(elementType)));
-                } else {
-                    throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
-                }
+                final var comparandValue = ((Comparisons.ValueComparison)valuePredicate.getComparison()).getComparandValue();
+                Verify.verify(comparandValue.getResultType().isArray());
+                final ExplodeValue explodeValue = new ExplodeValue(new ArrayDistinctValue(comparandValue));
                 final Quantifier.ForEach newQuantifier =
                         Quantifier.forEach(call.memoizeExploratoryExpression(new TableFunctionExpression(explodeValue)));
                 final Value element = ExplodeValue.elementValue(newQuantifier.getFlowedObjectValue());
