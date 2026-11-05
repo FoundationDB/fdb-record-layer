@@ -56,6 +56,18 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
                FDBRecordStoreQueryTestBase.class.isAssignableFrom(context.getRequiredTestClass());
     }
 
+    /**
+     * Allows a parameterized test that only runs the old planner to provide no invocation contexts of its own, as the
+     * {@link ParameterizedTest} extension already runs it with the old planner.
+     */
+    @Override
+    public boolean mayReturnZeroTestTemplateInvocationContexts(ExtensionContext context) {
+        return AnnotationUtils.isAnnotated(context.getTestMethod(), ParameterizedTest.class) &&
+               AnnotationUtils.findAnnotation(context.getTestMethod(), DualPlannerTest.class)
+                       .map(annotation -> annotation.planner() == DualPlannerTest.Planner.OLD)
+                       .orElse(false);
+    }
+
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
         final Optional<DualPlannerTest> annotationOptional =
@@ -79,7 +91,8 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
             // Create a Cascades invocation context. The non-Cascades planner will be run via the ParameterizedTest
             // extension running the test on its own, which will run the old planner by default.
             // Note that, as a consequence, this means that CASCADES (only) mode does not work with parameterized tests,
-            // and the old planner will always be run.
+            // and the old planner will always be run. OLD (only) mode provides no contexts here, which
+            // mayReturnZeroTestTemplateInvocationContexts allows.
             // See: https://github.com/FoundationDB/fdb-record-layer/issues/2354
             if (annotation.planner() != DualPlannerTest.Planner.OLD) {
                 return nestedProvider.provideTestTemplateInvocationContexts(context).map(existingContext ->
