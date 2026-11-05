@@ -126,6 +126,7 @@ public class ArraySortValue extends AbstractValue implements ValueWithChild {
 
     /**
      * Sorts a list of comparable elements.
+     *
      * @param elements the elements to sort
      * @param reverse whether to sort in descending order
      * @return a sorted copy of the elements

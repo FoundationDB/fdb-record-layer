@@ -79,6 +79,7 @@ public class InExplodeSource extends InComparandSource {
 
     /**
      * Returns the collection the explode of this source ranges over before it is sorted.
+     *
      * @return the unsorted collection
      */
     @Nonnull
@@ -126,6 +127,7 @@ public class InExplodeSource extends InComparandSource {
 
     /**
      * Returns the structs of the elements of the collection.
+     *
      * @param context the evaluation context
      * @return the structs of the elements of the collection
      */
