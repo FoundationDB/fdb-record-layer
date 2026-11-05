@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -171,7 +170,7 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey),
                 primaryKey,
                 postWindowSelectRef.get().getResultValue(),
-                defaultRecord(postWindowSelectRef.get().getResultValue(),
+                baseRcv(postWindowSelectRef.get().getResultValue(),
                         Iterables.getOnlyElement(postWindowSelectExpansion.getQuantifiers()).getAlias(),
                         windowExpression, fuseQunAlias));
     }
@@ -364,32 +363,12 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
         return additionalResultValuesBuilder.build();
     }
 
-    /**
-     * The record a merge value reads the columns an index entry does not carry from: the post-window shape, with every
-     * column expressed over the base record instead of over the candidate's own quantifiers.
-     *
-     * <p>The columns are not rebuilt from the index key. They are the post-window select's own columns, pushed down two
-     * levels -- through the window expression, then through the pre-window select -- so the shape, the order and the
-     * field types all come from the one place that defines them. The second hop is what strips the pre-window select's
-     * single-column indirection, since that select flows the fused output as one {@link QuantifiedObjectValue}.
-     *
-     * <p>The trailing column is the window value, and it is the exception: pushing it down resolves it to the window
-     * function itself, which is an {@link Value.IndexOnlyValue} and throws when evaluated. No record carries a rank,
-     * so it reads as null and only the columns before it are pushed.
-     *
-     * @param postWindowResultValue what the post-window select flows
-     * @param windowAlias the alias of the quantifier the post-window select ranges over
-     * @param windowExpression the window expression underneath it
-     * @param baseAlias the alias the index columns were expanded against
-     *
-     * @return the value reading the post-window shape out of the fetched record
-     */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Value defaultRecord(@Nonnull final Value postWindowResultValue,
-                                       @Nonnull final CorrelationIdentifier windowAlias,
-                                       @Nonnull final WindowExpression windowExpression,
-                                       @Nonnull final CorrelationIdentifier baseAlias) {
+    private static Value baseRcv(@Nonnull final Value postWindowResultValue,
+                                 @Nonnull final CorrelationIdentifier windowAlias,
+                                 @Nonnull final WindowExpression windowExpression,
+                                 @Nonnull final CorrelationIdentifier baseAlias) {
         final var fields = ((Type.Record)postWindowResultValue.getResultType()).getFields();
         final var postWindowColumns = Values.deconstructRecord(postWindowResultValue);
         Verify.verify(postWindowColumns.size() == fields.size(),
@@ -546,8 +525,7 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
         return mapBuilder.build();
     }
 
-    @API(API.Status.INTERNAL)
-    public static boolean supportsWindowIndexType(@Nonnull String indexType) {
+    private static boolean supportsWindowIndexType(@Nonnull String indexType) {
         return windowFunctionsMap.get().containsKey(indexType);
     }
 }

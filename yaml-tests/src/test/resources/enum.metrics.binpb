@@ -2,7 +2,7 @@
 E
 
 enum-tests7EXPLAIN SELECT * From TABLE_A where "mood" = 'CONFUSED'±
-°¡¥û. ∏ØÉ(0“û)8@öSCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)ˆdigraph G {
+£§‘„0 öÅ¢(0Àü 8@öSCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)ˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -15,7 +15,7 @@ enum-tests7EXPLAIN SELECT * From TABLE_A where "mood" = 'CONFUSED'±
 H
 
 enum-tests:EXPLAIN SELECT * From TABLE_A where "mood" > 'INDIFFERENT'Ω
-°Ÿöä. ›∆§(0á∫(8@†SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)¸digraph G {
+£§‘Ê0 ìÜì(0¸Ò 8@†SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -28,7 +28,7 @@ enum-tests:EXPLAIN SELECT * From TABLE_A where "mood" > 'INDIFFERENT'Ω
 I
 
 enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'—
-°÷âé. ÁÅﬂ(0—¥+8@™SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)Üdigraph G {
+£∑Ωú0 ‰† (0∂é(8@™SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -41,7 +41,7 @@ enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'—
 A
 
 enum-tests3EXPLAIN SELECT * From TABLE_A where "mood" < "mood"›
-°É≈í. µ©Û(0Ûº.8@3SCAN([IS TABLE_A]) | FILTER _.mood LESS_THAN _.moodädigraph G {
+£ˇõ≤0 Ãπ…(0∏¯8@3SCAN([IS TABLE_A]) | FILTER _.mood LESS_THAN _.moodädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -56,7 +56,7 @@ E
 
 enum-tests7EXPLAIN SELECT * From TABLE_B where "mood" = 'CONFUSED'Ø
 
-µ‘©éK ≥à˙(0¢‹m8@áISCAN(B$MOOD [EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])á	digraph G {
+∑Ó¢¡M †ßî(0ˇ…M8@áISCAN(B$MOOD [EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])á	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -68,7 +68,7 @@ H
 
 enum-tests:EXPLAIN SELECT * From TABLE_B where "mood" > 'INDIFFERENT'ø
 
-µ¯“ÈL Û‹¥(0–Ñ`8@èISCAN(B$MOOD [[GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])è	digraph G {
+∑é’ÄN Ô˛Å(0”∞d8@èISCAN(B$MOOD [[GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])è	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -79,7 +79,7 @@ enum-tests:EXPLAIN SELECT * From TABLE_B where "mood" > 'INDIFFERENT'ø
 I
 
 enum-tests;EXPLAIN SELECT * From TABLE_A where "mood" != 'INDIFFERENT'π
-°’◊ï. Â·È(0∑¶.8@ûSCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)˙digraph G {
+£§ÇÍ0 É∫©(0≤˝$8@ûSCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)˙digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

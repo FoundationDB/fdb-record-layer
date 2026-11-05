@@ -157,27 +157,10 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         for (final var additionalResultValue : additionalResultValues) {
             columns.add(Column.of(columnName(additionalResultValue, takenNames), additionalResultValue));
         }
-        // the window value reads no field, so it stays unnamed; inventing one could collide with a real column
         columns.add(Column.unnamedOf(windowValue));
         return RecordConstructorValue.ofColumns(columns.build());
     }
 
-    /**
-     * The name a flowed column should carry: the field its value reads, when it reads one.
-     *
-     * <p>Carrying the name matters because a consumer may resolve against this expression's type by name rather than by
-     * ordinal -- {@code PrimaryKeyProperty} translates an index's primary key expression, written in the user's column
-     * names, against the result type of the plan built from this candidate. An unnamed column makes that lookup fail.
-     *
-     * <p>The name is derived from the value itself, so a query and a candidate that flow the same column agree on it.
-     * That symmetry is load-bearing: {@link Type.Record.Field#equals} compares the field name, so two window
-     * expressions naming the same column differently would stop comparing equal and would never match.
-     *
-     * @param value the value the column flows
-     * @param takenNames the names already used by earlier columns, added to as names are handed out
-     *
-     * @return the name to give the column, or empty to leave it unnamed
-     */
     @Nonnull
     private static Optional<String> columnName(@Nonnull final Value value, @Nonnull final Set<String> takenNames) {
         if (!(value instanceof FieldValue)) {
@@ -319,40 +302,39 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         final var candidateWindowExpression = (WindowExpression)candidateExpression;
         final var candidateInnerQuantifier = candidateWindowExpression.getInnerQuantifier();
 
-        if (!(innerQuantifier instanceof Quantifier.ForEach)
-                || !(candidateInnerQuantifier instanceof Quantifier.ForEach)) {
+        if (!(innerQuantifier instanceof Quantifier.ForEach innerForEachQun)
+                || !(candidateInnerQuantifier instanceof Quantifier.ForEach candidateInnerForEachQun)) {
             return ImmutableList.of();
         }
+
         final var candidateAlias = bindingAliasMap.getTarget(innerQuantifier.getAlias());
         if (candidateAlias == null) {
             return ImmutableList.of();
         }
         Verify.verify(candidateAlias.equals(candidateInnerQuantifier.getAlias()));
-        if (((Quantifier.ForEach)innerQuantifier).isNullOnEmpty()
-                != ((Quantifier.ForEach)candidateInnerQuantifier).isNullOnEmpty()) {
+
+        if (innerForEachQun.isNullOnEmpty() != candidateInnerForEachQun.isNullOnEmpty()) {
             return ImmutableList.of();
         }
 
-        final var translationMapOptional =
-                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap,
-                        partialMatchMap);
+        final var translationMapOptional = RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression,
+                bindingAliasMap, partialMatchMap);
         if (translationMapOptional.isEmpty()) {
             return ImmutableList.of();
         }
         final var translationMap = translationMapOptional.get();
-        final var valueEquivalence =
-                ValueEquivalence.fromAliasMap(bindingAliasMap)
+
+        final var valueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
         final var translatedWindowValue = windowValue.translateCorrelations(translationMap, true);
-        final var windowValuesMatch =
-                translatedWindowValue.semanticEquals(candidateWindowExpression.getWindowValue(), valueEquivalence);
+        final var windowValuesMatch = translatedWindowValue.semanticEquals(candidateWindowExpression.getWindowValue(),
+                valueEquivalence);
         if (windowValuesMatch.isFalse()) {
             return ImmutableList.of();
         }
 
-        final var partitioningMatches =
-                partitioningSubsumedBy(candidateWindowExpression, translationMap, valueEquivalence);
+        final var partitioningMatches = partitioningSubsumedBy(candidateWindowExpression, translationMap, valueEquivalence);
         if (partitioningMatches.isFalse()) {
             return ImmutableList.of();
         }
@@ -384,7 +366,7 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         if (partitioningValues.size() != candidatePartitioningValues.size()) {
             return ConstrainedBoolean.falseValue();
         }
-        final var unmatchedCandidateValues = new LinkedHashSet<Value>(candidatePartitioningValues);
+        final var unmatchedCandidateValues = new LinkedHashSet<>(candidatePartitioningValues);
         var result = ConstrainedBoolean.alwaysTrue();
         for (final var partitioningValue : partitioningValues) {
             final var translatedPartitioningValue = partitioningValue.translateCorrelations(translationMap, true);

@@ -1,7 +1,7 @@
 Â
 É
 semantic-search-queriesÁEXPLAIN select docId, title, euclidean_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1‹
-”¢¡—	B ›à€(0õÛ8@ÚISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS _2)…digraph G {
+◊µŸ÷F Èòó(0Õ–8@ÚISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS _2)…digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@
 }®
 ¸
 semantic-search-queries‡EXPLAIN select docId, euclidean_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 3¶
-”≠¶ÿB ªá≠(0™ª8@‡ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)•digraph G {
+◊ﬁçÃF Ùìπ(0Ñ±8@‡ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -22,24 +22,10 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ü
+}®
 ¸
-semantic-search-queries‡EXPLAIN select docId, euclidean_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify 3 >= row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc)ù
-”òç•B ∂ˆ®
-(0ﬂ–A8@‡ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c20}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)údigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.DOCID AS DOCID, (q2.EMBEDDING) euclidean_distance @c7 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DOCID, DOUBLE AS _1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN @c7: @c20</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}û
-˚
-semantic-search-queriesﬂEXPLAIN select docId, euclidean_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify 3 > row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc)ù
-”œØ÷B îı§
-(0§◊\8@◊ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c7: @c20}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)•digraph G {
+semantic-search-queries‡EXPLAIN select docId, euclidean_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify 3 >= row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc)¶
+◊Â €F ú˝ﬁ(0Ò√8@‡ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c20}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -48,10 +34,22 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ï
+˚
+semantic-search-queriesﬂEXPLAIN select docId, euclidean_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify 3 > row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc)î
+◊úá•F ﬁπ (0ÆÒ8@◊ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c7: @c20}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)údigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.DOCID AS DOCID, (q2.EMBEDDING) euclidean_distance @c7 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DOCID, DOUBLE AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]</td></tr><tr><td align="left">distanceRank: DISTANCE_RANK_LESS_THAN @c7: @c20</td></tr><tr><td align="left">scan options: []</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ÿ
 Ú
 semantic-search-queries÷EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 2·
-”©¨…B œÑØ(0ô±8@≈ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)˚digraph G {
+◊ ÷ùF ô›ˇ(0ö˜8@≈ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)˚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -63,7 +61,7 @@
 }∆
 Ò
 semantic-search-queries’EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc options ef_search = 200) < 3œ
-”È›—B îßÁ(0â˙8@ºISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c38}:[hnswEfSearch: 200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Údigraph G {
+◊ä°πF ¢øë(0ﬂ¢8@ºISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c38}:[hnswEfSearch: 200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -75,7 +73,7 @@
 }å
 Ÿ
 semantic-search-queriesΩEXPLAIN select docId from documents where zone = 'zone2' and bookshelf = 'fiction' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) < 2≠
-”´Ù§B ≥ﬁÆ(0õÆ8@´ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c34}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)·digraph G {
+◊∞ÄÆF ®≈Ä(0Œ†8@´ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c34}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)·digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -87,7 +85,7 @@
 }ñ
 ˆ
 semantic-search-queries⁄EXPLAIN select docId, cosine_distance(embedding, ?) from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 2ö
-”≈¶â	B Ø÷≥(0•8@⁄ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c7 AS _1)üdigraph G {
+◊∫ŒáF ‘’•(0Ä˙8@⁄ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c7 AS _1)üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -99,7 +97,7 @@
 }–
 Ô
 semantic-search-queries”EXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc options ef_search = 150) <= 3€
-”Ü˘ÁB ﬂŸπ(0–ÿ8@¬ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch: 150] BY_DISTANCE) | MAP (_.DOCID AS DOCID)¯digraph G {
+◊¯ëÚF Ô≤Ñ(0√Ö8@¬ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch: 150] BY_DISTANCE) | MAP (_.DOCID AS DOCID)¯digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -111,7 +109,7 @@
 }ü
 ⁄
 semantic-search-queriesæEXPLAIN select docId from documents where zone = 'zone2' and bookshelf = 'science' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1ø
-”Â”…B ‹ÒÓ(0¨¯8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
+◊ﬁ˜ªF Ω˝÷(0•“8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -123,7 +121,7 @@
 }ü
 ⁄
 semantic-search-queriesæEXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= ?ø
-”Â”…B ‹ÒÓ(0¨¯8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
+◊ﬁ˜ªF Ω˝÷(0•“8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -135,7 +133,7 @@
 }ü
 ⁄
 semantic-search-queriesæEXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'science' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1ø
-”Â”…B ‹ÒÓ(0¨¯8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
+◊ﬁ˜ªF Ω˝÷(0•“8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -147,7 +145,7 @@
 }ü
 ⁄
 semantic-search-queriesæEXPLAIN select docId from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 5ø
-”Â”…B ‹ÒÓ(0¨¯8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
+◊ﬁ˜ªF Ω˝÷(0•“8@¥ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -159,7 +157,7 @@
 }Á 
 ¿
 semantic-search-queries§EXPLAIN select title from documents where zone = 'zone1' and bookshelf = 'fiction' qualify (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)°
-–à˛ëé ∫™π(10¨Ê?8'@˜ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) ‚à™ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c54: @c36}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)àdigraph G {
+‘Ô¡µí ¨∂Ï(10ı˜#8'@˜ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) ‚à™ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c54: @c36}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -177,7 +175,7 @@
 }•3
 ˛
 semantic-search-queries‚EXPLAIN select r.reviewId, r.rating, d2.docId, d2.title from reviews r join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone = d1.zone and d2.bookshelf = d1.bookshelf where r.reviewId = 'r1' qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc) <= 3°0
-Åò˜ú6≠ áÇ¯(t0¡ºŒ8t@"¶SCAN([IS REVIEWS, EQUALS promote(@c62 AS STRING)]) | FLATMAP q0 -> { SCAN([IS DOCUMENTS]) | FILTER q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING: @c94}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID, q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }ÿ,digraph G {
+ÖﬂπŒ4± ÏÏî(t0¶ñ„8t@"¶SCAN([IS REVIEWS, EQUALS promote(@c62 AS STRING)]) | FLATMAP q0 -> { SCAN([IS DOCUMENTS]) | FILTER q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING: @c94}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID, q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }ÿ,digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -199,17 +197,6 @@
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -220,10 +207,21 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+  {
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
 }á3
 ‚
 semantic-search-queries∆EXPLAIN select r.reviewText, d2.title from reviews r join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 qualify row_number() over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc) <= 2ü0
-≠˘Êè2ù ÔÕÕ(~0ËÃ›8v@5ºSCAN([IS DOCUMENTS]) | FLATMAP q0 -> { ISCAN(DOCUMENTSCOSINEINDEX [EQUALS q0.ZONE, EQUALS promote(@c46 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q0.EMBEDDING: @c85}:[] BY_DISTANCE) | FLATMAP q1 -> { SCAN([IS REVIEWS]) | FILTER _.RATING GREATER_THAN_OR_EQUALS promote(@c53 AS LONG) AND _.ZONE EQUALS q0.ZONE AND _.DOCID EQUALS q0.DOCID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.REVIEWTEXT AS REVIEWTEXT, q3._1.TITLE AS TITLE) }¿,digraph G {
+±Õ‘ø*° üòÁ(~0±íÀ8v@5ºSCAN([IS DOCUMENTS]) | FLATMAP q0 -> { ISCAN(DOCUMENTSCOSINEINDEX [EQUALS q0.ZONE, EQUALS promote(@c46 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q0.EMBEDDING: @c85}:[] BY_DISTANCE) | FLATMAP q1 -> { SCAN([IS REVIEWS]) | FILTER _.RATING GREATER_THAN_OR_EQUALS promote(@c53 AS LONG) AND _.ZONE EQUALS q0.ZONE AND _.DOCID EQUALS q0.DOCID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.REVIEWTEXT AS REVIEWTEXT, q3._1.TITLE AS TITLE) }¿,digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -266,8 +264,8 @@
 }÷3
 á
 semantic-search-queriesÎEXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2…0
-›
-Òó¢'© ⁄∏ˇ(t0ı›è8d@!…SCAN([IS DOCUMENTS]) | FLATMAP q0 -> { SCAN([IS REVIEWS]) | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c56 AS STRING) AND _.DOCID EQUALS q0.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q0.ZONE, EQUALS promote(@c50 AS STRING)]:{DISTANCE_RANK_LESS_THAN q0.EMBEDDING: @c91}:[hnswEfSearch: 100] BY_DISTANCE) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS TITLE) }›,digraph G {
+·
+®ü≥0≠ úÕﬁ(t0’¬Ê8d@!…SCAN([IS DOCUMENTS]) | FLATMAP q0 -> { SCAN([IS REVIEWS]) | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c56 AS STRING) AND _.DOCID EQUALS q0.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q0.ZONE, EQUALS promote(@c50 AS STRING)]:{DISTANCE_RANK_LESS_THAN q0.EMBEDDING: @c91}:[hnswEfSearch: 100] BY_DISTANCE) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS TITLE) }›,digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -289,6 +287,14 @@
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q61> label="q61" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -299,18 +305,11 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
 }Ï
 é
 semantic-search-queriesÚEXPLAIN select docId, title, euclidean_distance(embedding, ?) from multiTypePartitionDocs where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1ÿ
-”ì©´B û¬ø(0‰’8@ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c16 AS LONG), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c16}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS _2)«digraph G {
+◊Ç®ÕF Ω≈∑(0ÀÄ
+8@ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c16 AS LONG), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c16}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS _2)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -322,7 +321,7 @@
 }¶
 Â
 semantic-search-queries…EXPLAIN select docId from multiTypePartitionDocs where zoneId = 1 and bookshelf = 'science' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= 2ª
-”ßÊ“B ÙªÔ(0äœ8@≤ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ëdigraph G {
+◊Ï«¥F ¨—∫(0ÔÊ	8@≤ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)Ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -334,7 +333,7 @@
 }ë
 ‰
 semantic-search-queries»EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) < 2ß
-”ÏÇÿB ú˛≠(0‹„8@®ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c7}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)ﬁdigraph G {
+◊üéœF πÿÿ(0ÑÂ8@®ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c29: @c7}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)ﬁdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -346,7 +345,7 @@
 }ù
 Å
 semantic-search-queriesÂEXPLAIN select docId, cosine_distance(embedding, ?) from multiTypePartitionDocs where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order by cosine_distance(embedding, ?) asc) <= 3ñ
-”ƒ‰ÁB å⁄¬(0ÑË8@ÿISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c14 AS LONG), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c7 AS _1)ùdigraph G {
+◊™∑‰F ‡ÌΩ(0ùü8@ÿISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c14 AS LONG), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c7 AS _1)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -358,7 +357,7 @@
 }‡
 ˝
 semantic-search-queries·EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf = 'science' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 1›
-”™í∫B ŒÊ‰(0Ø8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)˘digraph G {
+◊…ı€F ıÕ’(0üî8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c39}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)˘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -370,7 +369,7 @@
 }·
 Ï
 semantic-search-queries–EXPLAIN select docId, title from multiTypePartitionDocs where zoneId = ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= ?Ô
-”»™˚B °’∆(0ê¯8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c9 AS LONG), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c9}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ãdigraph G {
+◊‹ ˛F ¢ÚÓ(0Ûô8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c9 AS LONG), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c9}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -382,7 +381,7 @@
 }Ì
 ¯
 semantic-search-queries‹EXPLAIN select docId, title from multiTypePartitionDocs where zoneId = ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc nulls first) <= ?Ô
-”·èﬂB Ú∂‘(0åÂ8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c9 AS LONG), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c9}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ãdigraph G {
+◊Ô£’F Â†„(0Æ»8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c9 AS LONG), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c9}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -394,7 +393,7 @@
 }È
 Ù
 semantic-search-queriesÿEXPLAIN select docId, title from multiTypePartitionDocs where zoneId = ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, ?) nulls first) <= ?Ô
-”úöÃB Áø°(0¨π8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c9 AS LONG), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c9}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ãdigraph G {
+◊ëÆ F ëÛŒ(0ÓŸ8@√ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c9 AS LONG), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c9}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
