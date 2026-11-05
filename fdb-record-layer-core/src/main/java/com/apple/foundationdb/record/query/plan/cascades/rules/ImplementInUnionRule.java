@@ -40,8 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InExplodeSource;
@@ -132,10 +130,7 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
         for (final var explodeQuantifier : explodeQuantifiers) {
             final var explodeValue = explodeValues.get(i++);
             final Value explodeCollectionValue = explodeValue.getCollectionValue();
-            if (!(explodeCollectionValue instanceof LiteralValue<?>) &&
-                    !(explodeCollectionValue instanceof QuantifiedObjectValue) &&
-                    !(explodeCollectionValue instanceof ParameterObjectValue) &&
-                    !explodeCollectionValue.isConstant()) {
+            if (!(explodeCollectionValue instanceof QuantifiedObjectValue) && !explodeCollectionValue.isConstant()) {
                 return;
             }
 
