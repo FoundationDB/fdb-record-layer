@@ -44,8 +44,6 @@
 # in-union and the comparison key is computed after it, so a projection narrower than the index shrinks the
 # key. Still total, since NUM_VALUE_UNIQUE alone is unique. The source also asserts no `mapPlan` above the
 # covering scan; SQL always emits one for a projection, so that part is not reproducible either.
-#
-# Lost: `assertDiscardedNone` / `assertDiscardedAtMost(79)`; plan hashes.
 ---
 schema_template:
     create table my_simple_record(
