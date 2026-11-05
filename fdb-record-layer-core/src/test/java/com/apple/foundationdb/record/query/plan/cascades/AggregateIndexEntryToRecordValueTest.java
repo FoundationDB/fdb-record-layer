@@ -194,9 +194,6 @@ class AggregateIndexEntryToRecordValueTest {
     }
 
     /**
-     * Where each column of the given value reads from, as {@code SOURCE[ordinal]}, in target field order.
-     */
-    /**
      * How each column of the given value renders, in target field order, which says where it reads from. This is what
      * the copiers of an {@code IndexKeyValueToPartialRecord} would otherwise be holding.
      */

@@ -203,9 +203,6 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * Two ways it goes wrong: a space does not parse, a dash parses as something else.
-     */
-    /**
      * The declared type is resolved while the DDL is parsed, which is possible because the template's own types are
      * registered by then.
      */
@@ -232,6 +229,9 @@ public class StoredQueryParametersTest {
         Assertions.assertThat(storedQuery.getParameters()).containsEntry("P", "TYPE s1");
     }
 
+    /**
+     * Two ways it goes wrong: a space does not parse, a dash parses as something else.
+     */
     @Test
     void parameterNameThatCannotBeBoundIsRejected() {
         expectFailure("/TEST/SQS_BADNAME", TABLE
