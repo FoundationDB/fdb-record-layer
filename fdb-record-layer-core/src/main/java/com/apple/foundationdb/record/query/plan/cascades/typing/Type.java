@@ -351,7 +351,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
-     * {@return a map from Java {@link Class} to corresponding {@link TypeCode}}
+     * {@return a map from Java {@link Class} to its corresponding {@link TypeCode}}
      */
     @Nonnull
     static Map<Class<?>, TypeCode> getClassToTypeCodeMap() {
@@ -3015,7 +3015,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * {@return the values {@link Type}}
+         * {@return the value's {@link Type}}
          */
         @Nullable
         public Type getInnerType() {

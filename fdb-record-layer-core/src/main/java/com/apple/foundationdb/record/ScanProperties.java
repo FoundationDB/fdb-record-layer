@@ -93,7 +93,7 @@ public class ScanProperties {
     }
 
     /**
-     * {@return execute properties for this scan properties}
+     * {@return the execute properties for this scan properties}
      */
     @Nonnull
     public ExecuteProperties getExecuteProperties() {
@@ -126,7 +126,7 @@ public class ScanProperties {
     }
 
     /**
-     * {@return cursor streaming mode}
+     * {@return the cursor streaming mode}
      */
     @Nonnull
     public CursorStreamingMode getCursorStreamingMode() {

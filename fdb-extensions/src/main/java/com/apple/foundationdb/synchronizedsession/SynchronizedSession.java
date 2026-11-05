@@ -155,7 +155,7 @@ public class SynchronizedSession {
     }
 
     /**
-     * {@return session ID}
+     * {@return the session ID}
      */
     @Nonnull
     public UUID getSessionId() {
