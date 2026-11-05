@@ -31,14 +31,12 @@ import com.apple.foundationdb.record.planprotos.PInExplodeSource;
 import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,9 +49,8 @@ import java.util.Set;
  * the explode itself, it binds the struct of each element of the collection, so the correlated inner plan can read
  * the element and the ordinal the same way it would read them from the explode.
  *
- * <p>The source is sorted if the collection of the explode is an {@link ArraySortValue}. Sorting the collection
- * renumbers the ordinals, which is why only the collections of explodes that do not
- * {@linkplain ExplodeValue#preservesOrder() preserve their order} may be sorted.
+ * <p>The source is sorted if the explode is {@linkplain ExplodeValue#isSorted() sorted}, and reverse if the explode
+ * is {@linkplain ExplodeValue#isReverse() reverse}.
  */
 @API(API.Status.INTERNAL)
 public class InExplodeSource extends InComparandSource {
@@ -72,20 +69,7 @@ public class InExplodeSource extends InComparandSource {
 
     public InExplodeSource(@Nonnull final String bindingName, @Nonnull final ExplodeValue explodeValue) {
         super(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue.getCollectionValue()));
-        Verify.verify(!explodeValue.preservesOrder() || !(explodeValue.getCollectionValue() instanceof ArraySortValue),
-                "cannot sort the collection of an explode that preserves its order");
         this.explodeValue = explodeValue;
-    }
-
-    /**
-     * Returns the collection the explode of this source ranges over before it is sorted.
-     *
-     * @return the unsorted collection
-     */
-    @Nonnull
-    private Value getUnsortedCollectionValue() {
-        final Value collectionValue = explodeValue.getCollectionValue();
-        return collectionValue instanceof ArraySortValue ? ((ArraySortValue)collectionValue).getChild() : collectionValue;
     }
 
     @Override
@@ -101,13 +85,12 @@ public class InExplodeSource extends InComparandSource {
 
     @Override
     public boolean isSorted() {
-        return explodeValue.getCollectionValue() instanceof ArraySortValue;
+        return explodeValue.isSorted();
     }
 
     @Override
     public boolean isReverse() {
-        final Value collectionValue = explodeValue.getCollectionValue();
-        return collectionValue instanceof ArraySortValue && ((ArraySortValue)collectionValue).isReverse();
+        return explodeValue.isReverse();
     }
 
     @Nonnull
@@ -115,13 +98,13 @@ public class InExplodeSource extends InComparandSource {
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
                 new ExplainTokens().addNested(ExplainLevel.ALL_DETAILS,
-                        new Comparisons.ValueComparison(Comparisons.Type.IN, getUnsortedCollectionValue())
+                        new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue.getCollectionValue())
                                 .explain().getExplainTokens(), "...").addNested(explainSuffix()));
     }
 
     @Override
     protected int size(@Nonnull final EvaluationContext context) {
-        final Object collection = getUnsortedCollectionValue().eval(null, context);
+        final Object collection = explodeValue.getCollectionValue().eval(null, context);
         return collection == null ? 0 : ((List<?>)collection).size();
     }
 

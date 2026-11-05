@@ -220,8 +220,8 @@ class ExplodeValueTest {
 
     @ParameterizedTest
     @BooleanSource
-    void theOrdinalsOfASortedCollectionFollowTheSortedOrder(final boolean reverse) {
-        final var value = new ExplodeValue(new ArraySortValue(LiteralValue.ofList(List.of(30, 10, 20)), reverse), true);
+    void sortedExplodeProducesTheElementsSortedAndNumbersThemInThatOrder(final boolean reverse) {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of(30, 10, 20)), false, true, reverse);
         Assertions.assertEquals(reverse
                                 ? List.of(List.of(30, 0), List.of(20, 1), List.of(10, 2))
                                 : List.of(List.of(10, 0), List.of(20, 1), List.of(30, 2)),
@@ -356,9 +356,60 @@ class ExplodeValueTest {
     }
 
     @Test
+    void equalityAndHashingFollowTheSortOrder() {
+        final var collection = LiteralValue.ofList(List.of(1, 2));
+        final var value = new ExplodeValue(collection);
+        final var ascending = value.sorted(false);
+        final var descending = value.sorted(true);
+
+        Assertions.assertNotEquals(value, ascending);
+        Assertions.assertNotEquals(ascending, descending);
+        Assertions.assertEquals(new ExplodeValue(collection, false, true, true), descending);
+        Assertions.assertNotEquals(ascending.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                descending.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        // rebasing the collection keeps the sort order
+        final var otherCollection = LiteralValue.ofList(List.of(3, 4));
+        Assertions.assertEquals(new ExplodeValue(otherCollection, false, true, true),
+                descending.withChildren(List.of(otherCollection)));
+    }
+
+    @Test
+    void rejectsSortingAnExplodeThatPreservesItsOrder() {
+        final var collection = LiteralValue.ofList(List.of(1, 2));
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(collection, true, true, false));
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(collection, true).sorted(false));
+    }
+
+    @Test
+    void rejectsReversingAnExplodeThatIsNotSorted() {
+        Assertions.assertThrows(VerifyException.class,
+                () -> new ExplodeValue(LiteralValue.ofList(List.of(1, 2)), false, false, true));
+    }
+
+    @Test
+    void rejectsSortingElementsThatCannotBeSorted() {
+        final var records = new LiteralValue<>(new Type.Array(Type.Record.fromFields(List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"))))), List.of());
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(records).sorted(false));
+        final var bytes = new LiteralValue<>(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false)), List.of());
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(bytes).sorted(false));
+        // an explode of such elements that is not sorted is fine
+        Assertions.assertFalse(new ExplodeValue(records).isSorted());
+    }
+
+    @Test
     void explainsAsAnExplodeOfTheCollection() {
         final var value = new ExplodeValue(LiteralValue.ofList(List.of(1, 2)));
         Assertions.assertEquals("explode([1, 2])",
+                value.explain().getExplainTokens().render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString());
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void explainsTheSortOrder(final boolean reverse) {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of(1, 2))).sorted(reverse);
+        Assertions.assertEquals(reverse ? "explode([1, 2]) SORTED DESC" : "explode([1, 2]) SORTED",
                 value.explain().getExplainTokens().render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString());
     }
 
@@ -398,5 +449,17 @@ class ExplodeValueTest {
         Assertions.assertEquals(value, deserialized);
         Assertions.assertEquals(value.getResultType(), deserialized.getResultType());
         Assertions.assertEquals(preserveOrder, ((ExplodeValue)deserialized).preservesOrder());
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void protoRoundTripOfASortedExplode(final boolean reverse) {
+        final var value = new ExplodeValue(AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                List.of(LiteralValue.ofScalar(30), LiteralValue.ofScalar(10), LiteralValue.ofScalar(20)))).sorted(reverse);
+        final var deserialized = Value.fromValueProto(newSerializationContext(), value.toValueProto(newSerializationContext()));
+        Assertions.assertEquals(value, deserialized);
+        Assertions.assertTrue(((ExplodeValue)deserialized).isSorted());
+        Assertions.assertEquals(reverse, ((ExplodeValue)deserialized).isReverse());
+        Assertions.assertEquals(explodeAsList(value, contextFor(value)), explodeAsList((ExplodeValue)deserialized, contextFor(value)));
     }
 }

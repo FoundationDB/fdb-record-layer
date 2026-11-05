@@ -59,6 +59,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -77,6 +79,11 @@ import java.util.stream.IntStream;
  * is the position of its element in the array, and the planner must not reorder the collection. Any other explode
  * does not observe its ordinals, so its collection can be replaced by any permutation of it, for example by a sorted
  * one, even though that renumbers the ordinals it produces.
+ *
+ * <p>An explode that is {@linkplain #isSorted() sorted} produces the elements of its collection in ascending order, or
+ * in descending order if it is also {@linkplain #isReverse() reverse}, and numbers the ordinals in that order. The
+ * order is a property of the explode rather than of its collection, so it does not have to be recovered from whatever
+ * computes the collection. Only an explode that does not preserve the order of its collection can be sorted.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -87,6 +94,10 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
 
     @Nonnull
     private static final Type ORDINAL_TYPE = Type.primitiveType(Type.TypeCode.INT, false);
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    private static final Comparator<Object> ELEMENT_COMPARATOR = Comparator.comparing(Comparable.class::cast);
 
     @Nonnull
     private final Value collectionValue;
@@ -102,6 +113,16 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
      */
     private final boolean preserveOrder;
 
+    /**
+     * Whether the explode produces the elements of its collection sorted rather than in the order of the array.
+     */
+    private final boolean sorted;
+
+    /**
+     * Whether a sorted explode sorts in descending rather than ascending order.
+     */
+    private final boolean reverse;
+
     @Nonnull
     private final CorrelationIdentifier elementAlias;
 
@@ -116,10 +137,20 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     public ExplodeValue(@Nonnull final Value collectionValue, final boolean preserveOrder) {
+        this(collectionValue, preserveOrder, false, false);
+    }
+
+    public ExplodeValue(@Nonnull final Value collectionValue, final boolean preserveOrder, final boolean sorted,
+                        final boolean reverse) {
         Verify.verify(collectionValue.getResultType().isArray());
+        Verify.verify(!preserveOrder || !sorted, "cannot sort an explode that preserves its order");
+        Verify.verify(sorted || !reverse, "cannot reverse an explode that is not sorted");
         this.collectionValue = collectionValue;
         this.preserveOrder = preserveOrder;
+        this.sorted = sorted;
+        this.reverse = reverse;
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
+        Verify.verify(!sorted || isSortable(elementType), "cannot sort elements of type %s", elementType);
         this.elementAlias = CorrelationIdentifier.uniqueId();
         this.ordinalAlias = CorrelationIdentifier.uniqueId();
         final ImmutableList.Builder<Column<? extends Value>> columnsBuilder = ImmutableList.builder();
@@ -138,15 +169,49 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         return preserveOrder;
     }
 
+    public boolean isSorted() {
+        return sorted;
+    }
+
+    public boolean isReverse() {
+        return reverse;
+    }
+
     /**
-     * Returns an explode of a different collection that preserves its order if and only if this one does.
+     * Whether elements of a type can be sorted, which needs their representation to be {@link Comparable}.
+     *
+     * @param elementType the type of the elements
+     * @return {@code true} if an explode of an array of such elements can be sorted
+     */
+    public static boolean isSortable(@Nonnull final Type elementType) {
+        if (elementType.isEnum()) {
+            return true;
+        }
+        return elementType.isPrimitive() &&
+                elementType.getTypeCode() != Type.TypeCode.BYTES && elementType.getTypeCode() != Type.TypeCode.VECTOR;
+    }
+
+    /**
+     * Returns an explode of a different collection that preserves its order, and is sorted, if and only if this one
+     * does and is.
      *
      * @param newCollectionValue the new collection
      * @return an explode of the new collection
      */
     @Nonnull
     public ExplodeValue withCollectionValue(@Nonnull final Value newCollectionValue) {
-        return new ExplodeValue(newCollectionValue, preserveOrder);
+        return new ExplodeValue(newCollectionValue, preserveOrder, sorted, reverse);
+    }
+
+    /**
+     * Returns an explode of the same collection that produces its elements sorted.
+     *
+     * @param reverse whether to sort in descending order
+     * @return a sorted explode of the same collection
+     */
+    @Nonnull
+    public ExplodeValue sorted(final boolean reverse) {
+        return new ExplodeValue(collectionValue, preserveOrder, true, reverse);
     }
 
     @Nonnull
@@ -175,12 +240,21 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     /**
-     * Evaluates the collection. A {@code null} collection has no elements.
+     * Evaluates the collection, and sorts it if the explode is sorted. A {@code null} collection has no elements.
      */
     @Nonnull
     private List<?> elementsOf(@Nullable final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context) {
         final Object result = collectionValue.eval(store, context);
-        return result == null ? List.of() : (List<?>)result;
+        if (result == null) {
+            return List.of();
+        }
+        final List<?> elements = (List<?>)result;
+        if (!sorted) {
+            return elements;
+        }
+        final List<Object> sortedElements = new ArrayList<>(elements);
+        sortedElements.sort(reverse ? ELEMENT_COMPARATOR.reversed() : ELEMENT_COMPARATOR);
+        return sortedElements;
     }
 
     @Nonnull
@@ -236,25 +310,37 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("explode",
-                Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
+        final var explainTokens = new ExplainTokens().addFunctionCall("explode",
+                Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens());
+        if (sorted) {
+            explainTokens.addWhitespace().addKeyword("SORTED");
+            if (reverse) {
+                explainTokens.addWhitespace().addKeyword("DESC");
+            }
+        }
+        return ExplainTokensWithPrecedence.of(explainTokens);
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, preserveOrder);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, preserveOrder, sorted,
+                reverse);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, collectionValue, preserveOrder);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, collectionValue, preserveOrder, sorted, reverse);
     }
 
     @Nonnull
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> preserveOrder == ((ExplodeValue)other).preservesOrder());
+                .filter(ignored -> {
+                    final var otherExplodeValue = (ExplodeValue)other;
+                    return preserveOrder == otherExplodeValue.preservesOrder() &&
+                            sorted == otherExplodeValue.isSorted() && reverse == otherExplodeValue.isReverse();
+                });
     }
 
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
@@ -275,6 +361,8 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         return PExplodeValue.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(serializationContext))
                 .setPreserveOrder(preserveOrder)
+                .setSorted(sorted)
+                .setReverse(reverse)
                 .build();
     }
 
@@ -288,7 +376,8 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     public static ExplodeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PExplodeValue explodeValueProto) {
         return new ExplodeValue(Value.fromValueProto(serializationContext,
-                Objects.requireNonNull(explodeValueProto.getCollectionValue())), explodeValueProto.getPreserveOrder());
+                Objects.requireNonNull(explodeValueProto.getCollectionValue())), explodeValueProto.getPreserveOrder(),
+                explodeValueProto.getSorted(), explodeValueProto.getReverse());
     }
 
     /**
