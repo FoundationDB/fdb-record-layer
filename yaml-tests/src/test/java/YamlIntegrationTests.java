@@ -498,8 +498,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void userDefinedFunctionsInMetadata(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("user-defined-functions-in-metadata-tests.yamsql");
+    public void userDefinedFunctionsAndTypesInMetadata(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("user-defined-functions-and-types-in-metadata-tests.yamsql");
     }
 
     @TestTemplate

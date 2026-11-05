@@ -1,6 +1,6 @@
 {
   "records": {
-    "name": "with_user_defined_functions.proto",
+    "name": "with_user_defined_functions_and_types.proto",
     "dependency": ["to_be_imported.proto"],
     "messageType": [{
       "name": "U",
@@ -148,8 +148,28 @@
     }
   }, {
     "sqlFunction": {
-      "name": "macro_func_for_z",
-      "definition": "CREATE FUNCTION \"macro_func_for_z\"(in \"z\" TYPE \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z\") RETURN \"z\".\"a\""
+      "name": "macro_func_for_z1",
+      "definition": "CREATE FUNCTION \"macro_func_for_z1\"(in \"z\" TYPE \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z\") RETURN \"z\".\"a\""
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_returning_z1",
+      "definition": "CREATE FUNCTION \"macro_func_returning_z1\"(in \"a\" bigint) RETURNS \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z\" RETURN (\"a\", 'foo', 'bar')"
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_returning_z2",
+      "definition": "CREATE FUNCTION \"macro_func_returning_z2\"(in \"a\" string) RETURNS \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.Y.Z\" RETURN (\"a\", 'foo', 'bar')"
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_returning_y1",
+      "definition": "CREATE FUNCTION \"macro_func_returning_y1\"(in \"a\" bigint) RETURNS \"Y\" RETURN (\"a\", 'foo')"
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_returning_y2",
+      "definition": "CREATE FUNCTION \"macro_func_returning_y2\"(in \"a\" bigint) RETURNS \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.Y\" RETURN (\"a\", 'foo')"
     }
   }, {
     "userDefinedMacroFunction" : {
@@ -256,12 +276,22 @@
             "type": "TYPE_STRING",
             "oneofIndex": 1,
             "proto3Optional": true
+          },
+          {
+            "name": "c",
+            "number": 3,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING",
+            "oneofIndex": 2,
+            "proto3Optional": true
           }
         ],
         "oneofDecl": [{
           "name": "_a"
         }, {
           "name": "_b"
+        }, {
+          "name": "_c"
         }]
       }],
       "enumType": [{
@@ -277,32 +307,68 @@
           "number": 2
         }]
       }]
+    }, {
+      "name": "Y",
+      "field": [{
+        "name": "a",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "b",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_STRING",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_a"
+      }, {
+        "name": "_b"
+      }],
+      "nestedType": [{
+        "name": "Z",
+        "field": [
+          {
+            "name": "a",
+            "number": 1,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING",
+            "oneofIndex": 0,
+            "proto3Optional": true
+          },
+          {
+            "name": "b",
+            "number": 2,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING",
+            "oneofIndex": 1,
+            "proto3Optional": true
+          },
+          {
+            "name": "c",
+            "number": 3,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING",
+            "oneofIndex": 2,
+            "proto3Optional": true
+          }
+        ],
+        "oneofDecl": [{
+          "name": "_a"
+        }, {
+          "name": "_b"
+        }, {
+          "name": "_c"
+        }]
+      }]
     }],
     "options": {
       "javaOuterClassname": "ToBeImportedProto"
     },
     "syntax": "proto3"
-  }],
-  "auxiliaryTypes": [
-    {
-      "userDefinedName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
-      "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X"
-    },
-    {
-      "userDefinedName": "Y",
-      "recordsDescriptorFullName": "Y"
-    },
-    {
-      "userDefinedName": "Z",
-      "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z"
-    },
-    {
-      "userDefinedName": "Color",
-      "recordsDescriptorFullName": ".Color"
-    },
-    {
-      "userDefinedName": "Number",
-      "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Number"
-    }
-  ]
+  }]
 }
