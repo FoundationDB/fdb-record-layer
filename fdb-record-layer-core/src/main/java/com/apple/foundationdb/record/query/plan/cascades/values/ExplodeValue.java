@@ -204,14 +204,16 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     /**
-     * Returns an explode of the same collection that produces its elements sorted.
+     * Returns an explode of the same collection that produces its elements sorted. Only an explode that does not
+     * preserve the order of its collection can be sorted.
      *
      * @param reverse whether to sort in descending order
      * @return a sorted explode of the same collection
      */
     @Nonnull
     public ExplodeValue sorted(final boolean reverse) {
-        return new ExplodeValue(collectionValue, preserveOrder, true, reverse);
+        Verify.verify(!preserveOrder, "cannot sort an explode that preserves its order");
+        return new ExplodeValue(collectionValue, false, true, reverse);
     }
 
     @Nonnull
