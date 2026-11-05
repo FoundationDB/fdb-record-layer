@@ -45,9 +45,7 @@ public class NodeReference {
     }
 
     /**
-     * Gets the primary key for this object.
-     *
-     * @return the primary key as a {@code Tuple} object, which is guaranteed to be non-null.
+     * {@return the primary key as a {@code Tuple} object, which is guaranteed to be non-null}
      */
     @Nonnull
     public Tuple getPrimaryKey() {
@@ -103,19 +101,11 @@ public class NodeReference {
         return Objects.equals(primaryKey, that.primaryKey);
     }
 
-    /**
-     * Generates a hash code for this object based on the primary key.
-     *
-     * @return a hash code value for this object.
-     */
     @Override
     public int hashCode() {
         return Objects.hashCode(primaryKey);
     }
 
-    /**
-     * {@return a string representation of the object}
-     */
     @Override
     public String toString() {
         return "NR[primaryKey=" + primaryKey + "]";

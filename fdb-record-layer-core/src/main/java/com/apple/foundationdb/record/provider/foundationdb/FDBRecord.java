@@ -38,25 +38,19 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 public interface FDBRecord<M extends Message> {
     /**
-     * Get the primary key for this record.
-     *
-     * @return primary key for this record
+     * {@return the primary key for this record}
      */
     @Nonnull
     Tuple getPrimaryKey();
 
     /**
-     * Get the record type for this record.
-     *
-     * @return record type for this record
+     * {@return the record type for this record}
      */
     @Nonnull
     RecordType getRecordType();
 
     /**
-     * Get the Protobuf message form of this record.
-     *
-     * @return the Protobuf message for this record
+     * {@return the Protobuf message for this record}
      */
     @Nonnull
     M getRecord();

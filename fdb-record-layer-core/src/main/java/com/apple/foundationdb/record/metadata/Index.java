@@ -299,9 +299,8 @@ public class Index {
     }
 
     /**
-     * Returns the type of the index.
+     * {@return the type of the index}
      *
-     * @return the type of the index.
      * @see IndexTypes
      */
     @Nonnull
@@ -525,9 +524,7 @@ public class Index {
     }
 
     /**
-     * Get the number of indexed value columns.
-     *
-     * @return the number of columns
+     * {@return the number of indexed value columns}
      */
     public int getColumnSize() {
         return rootExpression.getColumnSize();
@@ -575,10 +572,9 @@ public class Index {
     }
 
     /**
-     * Get the primary key positions of an index entry.
+     * {@return a list of the primary key positions for an entry of this index}
      *
      * @param primaryKeyLength the number of elements in the primary key for the record
-     * @return a list of the primary key positions for an entry of this index
      */
     @Nonnull
     public List<Integer> getEntryPrimaryKeyPositions(int primaryKeyLength) {
@@ -627,9 +623,7 @@ public class Index {
     }
 
     /**
-     * Returns the predicate associated with the index in case of a filtered (sparse) index.
-     *
-     * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
+     * {@return the predicate associated with the index if the index is filtered (sparse), otherwise {@code null}}
      */
     @Nullable
     public IndexPredicate getPredicate() {

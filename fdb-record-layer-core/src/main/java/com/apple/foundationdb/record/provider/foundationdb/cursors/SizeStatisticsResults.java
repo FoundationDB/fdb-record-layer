@@ -87,9 +87,7 @@ public class SizeStatisticsResults {
     }
 
     /**
-     * Gets protobuf representation of partial stats.
-     *
-     * @return protobuf representation of partial stats.
+     * {@return protobuf representation of partial stats}
      */
     public RecordCursorProto.SizeStatisticsPartialResults toProto() {
         RecordCursorProto.SizeStatisticsPartialResults.Builder pr;
@@ -175,81 +173,63 @@ public class SizeStatisticsResults {
     }
 
     /**
-     * Get the total number of keys in the requested key range.
-     *
-     * @return keyCount the total number of keys in the requested key range.
+     * {@return the total number of keys in the requested key range}
      */
     public long getKeyCount() {
         return keyCount;
     }
 
     /**
-     * Get the total size (in bytes) of all keys in the requested key range.
-     *
-     * @return the size (in bytes) of the requested keys
+     * {@return the total size (in bytes) of all keys in the requested key range}
      */
     public long getKeySize() {
         return keySize;
     }
 
     /**
-     * Get the size (in bytes) of the largest key in the requested key range.
-     *
-     * @return the size (in bytes) of the largest key
+     * {@return the size (in bytes) of the largest key in the requested key range}
      */
     public long getMaxKeySize() {
         return maxKeySize;
     }
 
     /**
-     * Get the total size (in bytes) of all values in the requested key range.
-     *
-     * @return the size (in bytes) of the requested values
+     * {@return the size (in bytes) of the requested values in the requested key range}
      */
     public long getValueSize() {
         return valueSize;
     }
 
     /**
-     * Get the size (in bytes) of the largest value in the requested key range.
-     *
-     * @return the size (in bytes) of the largest value
+     * {@return the size (in bytes) of the largest value in the requested key range}
      */
     public long getMaxValueSize() {
         return maxValueSize;
     }
 
     /**
-     * Get the total size (in bytes) of all keys and values in the requested key range.
-     *
-     * @return the size (in bytes) of the requested keys and values
+     * {@return the size (in bytes) of the requested keys and values in the requested key range}
      */
     public long getTotalSize() {
         return keySize + valueSize;
     }
 
     /**
-     * Get the mean size (in bytes) of keys in the requested key range.
-     *
-     * @return the mean size (in bytes) of all keys
+     * {@return the mean size (in bytes) of all keys in the requested key range}
      */
     public double getAverageKeySize() {
         return keySize * 1.0 / keyCount;
     }
 
     /**
-     * Get the mean size (in bytes) of values in the requested key range.
-     *
-     * @return the mean size (in bytes) of all values
+     * {@return the mean size (in bytes) of all values in the requested key range}
      */
     public double getAverageValueSize() {
         return valueSize * 1.0 / keyCount;
     }
 
     /**
-     * Get the mean size (in bytes) of combined key-value pairs in the requested key range.
-     *
-     * @return the mean size (in bytes) of all key-value pairs
+     * {@return the mean size (in bytes) of all key-value pairs}
      */
     public double getAverage() {
         return getTotalSize() * 1.0 / keyCount;

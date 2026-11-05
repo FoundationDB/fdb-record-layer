@@ -67,9 +67,7 @@ public abstract class IndexMaintainer {
     }
 
     /**
-     * Returns the subspace in which the index data is stored.
-     *
-     * @return subspace for index data
+     * {@return the subspace in which the index data is stored}
      */
     @Nonnull
     public Subspace getIndexSubspace() {
@@ -77,9 +75,7 @@ public abstract class IndexMaintainer {
     }
 
     /**
-     * Returns the secondary subspace in which the index data is stored.
-     *
-     * @return secondary subspace for index data
+     * {@return the secondary subspace in which the index data is stored}
      */
     @Nonnull
     public Subspace getSecondarySubspace() {

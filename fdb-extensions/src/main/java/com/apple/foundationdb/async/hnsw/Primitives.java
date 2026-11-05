@@ -122,9 +122,7 @@ public class Primitives {
     }
 
     /**
-     * Get this hnsw's configuration.
-     *
-     * @return hnsw configuration
+     * {@return this hnsw's configuration}
      */
     @Nonnull
     private Config getConfig() {

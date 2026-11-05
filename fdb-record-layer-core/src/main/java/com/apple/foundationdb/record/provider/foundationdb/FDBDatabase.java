@@ -312,9 +312,7 @@ public class FDBDatabase {
     }
 
     /**
-     * Get the underlying FDB database.
-     *
-     * @return the FDB database
+     * {@return the underlying FDB database}
      */
     @Nonnull
     public Database database() {

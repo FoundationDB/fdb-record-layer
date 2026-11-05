@@ -89,12 +89,6 @@ public class NodeReferenceWithVector extends NodeReference {
         return this;
     }
 
-    /**
-     * Compares this {@code NodeReferenceWithVector} to the specified object for equality.
-     *
-     * @param o the object to compare with this {@code NodeReferenceWithVector}.
-     * @return {@code true} if the objects are equal; {@code false} otherwise.
-     */
     @Override
     public boolean equals(final Object o) {
         if (!super.equals(o)) {
@@ -103,21 +97,11 @@ public class NodeReferenceWithVector extends NodeReference {
         return Objects.equals(vector, ((NodeReferenceWithVector)o).vector);
     }
 
-    /**
-     * Computes the hash code for this object.
-     *
-     * @return a hash code value for this object.
-     */
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), vector);
     }
 
-    /**
-     * Returns a string representation of this object.
-     *
-     * @return a concise string representation of this object.
-     */
     @Override
     public String toString() {
         return "NRV[primaryKey=" + getPrimaryKey() + ";vector=" + vector + "]";

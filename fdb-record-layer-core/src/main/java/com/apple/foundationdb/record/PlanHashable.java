@@ -88,9 +88,7 @@ public interface PlanHashable {
         }
 
         /**
-         * Get the plan hash kind associated with this mode.
-         *
-         * @return the plan hash kind
+         * {@return the plan hash kind associated with this mode}
          */
         public PlanHashKind getKind() {
             return kind;

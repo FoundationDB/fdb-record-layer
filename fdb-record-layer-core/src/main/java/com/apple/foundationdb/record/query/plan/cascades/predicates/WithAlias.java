@@ -30,9 +30,7 @@ import javax.annotation.Nonnull;
 public interface WithAlias {
 
     /**
-     * Returns the alias.
-     *
-     * @return The alias.
+     * {@return the alias}
      */
     @Nonnull
     CorrelationIdentifier getParameterAlias();
