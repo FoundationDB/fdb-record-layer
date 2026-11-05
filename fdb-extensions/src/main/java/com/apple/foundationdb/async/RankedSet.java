@@ -348,9 +348,7 @@ public class RankedSet {
     }
 
     /**
-     * Get the subspace used to store this ranked set.
-     *
-     * @return ranked set subspace
+     * {@return the subspace used to store this ranked set}
      */
     public Subspace getSubspace() {
         return subspace;
@@ -366,9 +364,7 @@ public class RankedSet {
     }
 
     /**
-     * Get this ranked set's configuration.
-     *
-     * @return ranked set configuration
+     * {@return ranked set configuration}
      */
     public Config getConfig() {
         return config;

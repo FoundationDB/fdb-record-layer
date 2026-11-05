@@ -45,9 +45,7 @@ public class NodeReference {
     }
 
     /**
-     * Gets the primary key for this object.
-     *
-     * @return the primary key as a {@code Tuple} object, which is guaranteed to be non-null.
+     * {@return the primary key as a {@code Tuple} object, which is guaranteed to be non-null}
      */
     @Nonnull
     public Tuple getPrimaryKey() {

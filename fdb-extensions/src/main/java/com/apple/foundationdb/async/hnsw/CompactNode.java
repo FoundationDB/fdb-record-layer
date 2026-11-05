@@ -120,9 +120,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     }
 
     /**
-     * Gets the vector of {@code Half} objects.
-     *
-     * @return the non-null vector of {@link Half} objects.
+     * {@return the non-null vector of {@link Half} objects}
      */
     @Nonnull
     public Transformed<RealVector> getVector() {

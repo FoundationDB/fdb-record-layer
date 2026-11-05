@@ -170,9 +170,8 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     }
 
     /**
-     * Get the priority of transactions opened by this runner.
+     * {@return the priority of transactions opened by this runner}
      *
-     * @return the priority of transactions opened by this runner
      * @see FDBRecordContext#getPriority()
      */
     @Nonnull
@@ -304,9 +303,8 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     void setInitialDelayMillis(long initialDelayMillis);
 
     /**
-     * Open a new record context.
+     * {@return a new open record context}
      *
-     * @return a new open record context
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
     @Nonnull

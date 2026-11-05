@@ -182,9 +182,7 @@ public class BooleanPredicateNormalizer {
     }
 
     /**
-     * Get the mode of this normalizer.
-     *
-     * @return the mode used by this normalizer
+     * {@return the mode used by this normalizer}
      */
     @Nonnull
     public Mode getMode() {

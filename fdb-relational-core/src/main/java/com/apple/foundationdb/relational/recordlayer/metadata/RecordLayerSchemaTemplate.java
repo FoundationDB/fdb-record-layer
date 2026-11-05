@@ -373,9 +373,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     /**
-     * Returns the unnested synthetic tables of this template.
-     *
-     * @return the unnested synthetic tables
+     * {@return the unnested synthetic tables of this template}
      */
     @VisibleForTesting
     @Nonnull

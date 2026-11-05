@@ -31,9 +31,7 @@ import javax.annotation.Nonnull;
 public interface Index extends Metadata {
 
     /**
-     * Returns the name of the {@link Table} that owns the {@code index}.
-     *
-     * @return The name of the {@link Table} that owns the {@code index}.
+     * {@return the name of the {@link Table} that owns the {@code index}}
      */
     @Nonnull
     String getTableName();

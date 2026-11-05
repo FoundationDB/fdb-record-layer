@@ -44,9 +44,7 @@ public class NullableArrayTypeUtils {
     }
 
     /**
-     * Get the fieldName of the repeated field.
-     *
-     * @return fieldName of the repeated field
+     * {@return the fieldName of the repeated field}
      */
     @Nonnull
     public static String getRepeatedFieldName() {

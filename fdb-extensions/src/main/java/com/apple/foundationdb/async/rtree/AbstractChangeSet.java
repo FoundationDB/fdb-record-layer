@@ -65,9 +65,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
     }
 
     /**
-     * The node this change set applies to.
-     *
-     * @return the node this change set applies to
+     * {@return the node this change set applies to}
      */
     @Nonnull
     public N getNode() {
