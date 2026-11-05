@@ -305,6 +305,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                                                                   @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
+        if (scanParameters.hasScanComparisons() && scanParameters.getScanComparisons().hasNullEqualityComparand(store, context)) {
+            return RecordCursor.empty();
+        }
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
         return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
@@ -317,6 +320,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
+        if (scanParameters.hasScanComparisons() && scanParameters.getScanComparisons().hasNullEqualityComparand(store, context)) {
+            return RecordCursor.empty();
+        }
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
         if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
             return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));

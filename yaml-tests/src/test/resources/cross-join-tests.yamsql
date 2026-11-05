@@ -143,26 +143,20 @@ test_block:
       - query: select ja.c1 from ja cross join jb where jb.c2 = 2
       - error: UNDEFINED_COLUMN
 
-    # TODO ISSUE #4170: the expected results of the tests below that compare emp.dept_id with dept.id capture the
-    # current behavior. This happens because the join predicate is planned as an index or primary key lookup, and
-    # `ScanComparisons.toTupleRange()` turns a NULL comparand into a scan range that matches NULL keys. Standard SQL
-    # semantics would drop these rows which have NULL = NULL comparisons
     -
-      # CROSS JOIN filtered on the join key; NULL dept_id matches the NULL dept id (see NOTE above)
+      # CROSS JOIN filtered on the join key
       - query: SELECT emp.fname, dept.name FROM emp CROSS JOIN dept WHERE emp.dept_id = dept.id
       - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) AS q1 RETURN (q1.FNAME AS FNAME, q0.NAME AS NAME) }"
       - unorderedResult: [
           { 'Jack', 'Engineering' }, { 'Thomas', 'Engineering' },
-          { 'Chloe', 'Sales' }, { 'Charlotte', 'Sales' },
-          { 'Daniel', 'Top Secret' }, { 'Harry', 'Top Secret' } ]
+          { 'Chloe', 'Sales' }, { 'Charlotte', 'Sales' } ]
     -
       # the equivalent INNER JOIN ... ON should return the same rows
       - query: SELECT emp.fname, dept.name FROM emp INNER JOIN dept ON emp.dept_id = dept.id;
       - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) AS q1 RETURN (q1.FNAME AS FNAME, q0.NAME AS NAME) }"
       - unorderedResult: [
           { 'Jack', 'Engineering' }, { 'Thomas', 'Engineering' },
-          { 'Chloe', 'Sales' }, { 'Charlotte', 'Sales' },
-          { 'Daniel', 'Top Secret' }, { 'Harry', 'Top Secret' } ]
+          { 'Chloe', 'Sales' }, { 'Charlotte', 'Sales' } ]
     -
       # CROSS JOIN + WHERE plans to the same join as the comma syntax
       - query: select ja.c2, jb.c3 from ja cross join jb where ja.c1 = jb.c1
@@ -199,21 +193,21 @@ test_block:
       - query: SELECT count(*) FROM emp CROSS JOIN dept CROSS JOIN project
       - result: [{72}]
     -
-      # (TODO Issue #4170 - fix plan and result) three-way CROSS JOIN with join predicates in WHERE
+      # three-way CROSS JOIN with join predicates in WHERE
       - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept CROSS JOIN project
           WHERE emp.dept_id = dept.id AND project.emp_id = emp.id
-      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }]
     -
       # the WHERE predicate may relate the first and the last table of the chain
       - query: SELECT emp.fname, project.name FROM emp CROSS JOIN dept CROSS JOIN project
           WHERE project.emp_id = emp.id AND dept.id = 3
       - unorderedResult: [{ 'Daniel', 'OLAP' }, { 'Charlotte', 'Feedback' }]
     -
-      # (TODO Issue #4170 - fix plan and result) CROSS JOIN followed by an INNER JOIN ... ON that references the first table
+      # CROSS JOIN followed by an INNER JOIN ... ON that references the first table
       - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept JOIN project ON project.emp_id = emp.id
           WHERE emp.dept_id = dept.id
       - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }"
-      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }]
     -
       # INNER JOIN ... ON followed by a CROSS JOIN
       - query: SELECT emp.fname, project.name, dept.name FROM emp JOIN project ON project.emp_id = emp.id CROSS JOIN dept
@@ -229,20 +223,19 @@ test_block:
       - query: select * from ja cross join jb join jd using(c1)
       - error: AMBIGUOUS_COLUMN
     -
-      # (TODO Issue #4170 - fix plan and result) CROSS JOIN mixed with the comma syntax
+      # CROSS JOIN mixed with the comma syntax
       - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept, project
           WHERE emp.dept_id = dept.id AND project.emp_id = emp.id
       - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }"
-      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }]
     -
-      # (TODO Issue #4170 - fix plan and result) CROSS JOIN followed by a LEFT JOIN: the CROSS JOIN operands are
+      # CROSS JOIN followed by a LEFT JOIN: the CROSS JOIN operands are
       # collapsed before the outer join
       - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept LEFT JOIN project ON project.emp_id = emp.id
           WHERE emp.dept_id = dept.id
       - unorderedResult: [
           { 'Jack', 'Engineering', !null _ }, { 'Thomas', 'Engineering', !null _ },
-          { 'Chloe', 'Sales', !null _ }, { 'Charlotte', 'Sales', 'Feedback' },
-          { 'Daniel', 'Top Secret', 'OLAP' }, { 'Harry', 'Top Secret', !null _ } ]
+          { 'Chloe', 'Sales', !null _ }, { 'Charlotte', 'Sales', 'Feedback' } ]
     -
       # LEFT JOIN followed by a CROSS JOIN
       - query: SELECT emp.fname, project.name, dept.name FROM emp LEFT JOIN project ON project.emp_id = emp.id CROSS JOIN dept
@@ -272,16 +265,16 @@ test_block:
       - query: select * from (select ja.c1 as x, jb.c3 as y from ja cross join jb) as t
       - result: [{x: 1, y: 3}]
     -
-      # CROSS JOIN inside a correlated EXISTS subquery; Daniel's NULL dept_id matches 'Top Secret'
+      # CROSS JOIN inside a correlated EXISTS subquery
       - query: SELECT fname FROM emp WHERE EXISTS (SELECT * FROM dept CROSS JOIN project
           WHERE project.emp_id = emp.id AND dept.id = emp.dept_id)
-      - unorderedResult: [{ 'Charlotte' }, { 'Daniel' }]
+      - unorderedResult: [{ 'Charlotte' }]
     -
-      # (TODO Issue #4170 - fix plan and result) CROSS JOIN inside a correlated NOT EXISTS subquery
+      # CROSS JOIN inside a correlated NOT EXISTS subquery
       - query: SELECT fname FROM emp WHERE NOT EXISTS (SELECT * FROM dept CROSS JOIN project
           WHERE project.emp_id = emp.id AND dept.id = emp.dept_id)
       - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID AS q2 RETURN (q1.ID AS _0, q1.NAME AS _1, q2.ID AS _2, q2.NAME AS _3, q2.DSC AS DSC, q2.EMP_ID AS EMP_ID) } | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q3 RETURN (q0.FNAME AS FNAME) }"
-      - unorderedResult: [{ 'Jack' }, { 'Thomas' }, { 'Chloe' }, { 'Harry' }]
+      - unorderedResult: [{ 'Jack' }, { 'Thomas' }, { 'Chloe' }, { 'Daniel' }, { 'Harry' }]
 
     # Cross Join with Empty tables
     -
@@ -338,17 +331,17 @@ test_block:
   # their plans and results can be compared side by side.
     -
       # Query Type 1
-      # 1.1 three-way join: CROSS JOIN ... WHERE (TODO Issue #4170)
+      # 1.1 three-way join: CROSS JOIN ... WHERE
       - query: SELECT emp.fname, dept.name, project.name FROM emp CROSS JOIN dept CROSS JOIN project
           WHERE emp.dept_id = dept.id AND project.emp_id = emp.id
       - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }"
-      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }]
     -
-      # 1.2 Equivalent: three-way join: INNER JOIN ... ON ... INNER JOIN ... ON (TODO Issue #4170)
+      # 1.2 Equivalent: three-way join: INNER JOIN ... ON ... INNER JOIN ... ON
       - query: SELECT emp.fname, dept.name, project.name FROM emp JOIN dept ON emp.dept_id = dept.id
           JOIN project ON project.emp_id = emp.id
       - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.FNAME AS FNAME, q0.NAME AS _1, q3._1.NAME AS _2) }"
-      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }, { 'Daniel', 'Top Secret', 'OLAP' }]
+      - unorderedResult: [{ 'Charlotte', 'Sales', 'Feedback' }]
     -
       # Query Type 2
       # 2.1 CROSS JOIN ... LEFT JOIN ... WHERE (Sales staff and their projects). The WHERE predicate only

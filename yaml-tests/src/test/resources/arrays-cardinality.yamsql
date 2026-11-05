@@ -173,20 +173,19 @@ test_block:
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NOT NULL
       - explain: "COVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{id: 1}, {id: 2}, {id: 3}]
-    - # WHERE CARDINALITY() = NULL. By SQL semantics this should always return 0 rows (the predicate evaluates to
-      # UNKNOWN). The non-indexed cases get this right (the planner constant-folds the predicate to `null`), but the
-      # indexed nullable case currently exhibits a general planner bug where `«indexed_field» = NULL` is incorrectly
-      # mapped to an IS NULL index range scan. The tests below document the current behavior. See also Issue #4170.
+    - # WHERE CARDINALITY() = NULL. By SQL semantics this always returns 0 rows (the predicate evaluates to UNKNOWN).
+      # The non-indexed cases get this right because the planner constant-folds the predicate to `null`. The indexed
+      # nullable case is planned as an index scan with a NULL comparand, which the scan execution turns into an empty
+      # result.
       - query: SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL
       - explain: "SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)"
       - unorderedResult: []
     - - query: SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") = NULL
       - explain: "SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)"
       - unorderedResult: []
-    - # TODO Issue #4170: This should return [].
-      - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULL
+    - - query: SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULL
       - explain: "COVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)"
-      - unorderedResult: [{id: 0}]
+      - unorderedResult: []
     - - query: SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = NULL
       - explain: "COVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: []
