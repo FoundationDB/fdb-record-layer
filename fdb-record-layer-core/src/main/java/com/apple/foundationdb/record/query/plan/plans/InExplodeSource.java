@@ -52,8 +52,8 @@ import java.util.Set;
  * the element and the ordinal the same way it would read them from the explode.
  *
  * <p>The source is sorted if the collection of the explode is an {@link ArraySortValue}. Sorting the collection
- * renumbers the ordinals, which is why only the collections of explodes whose ordinals are not observed, that is that
- * are not {@linkplain ExplodeValue#hasOrdinality() with ordinality}, may be sorted.
+ * renumbers the ordinals, which is why only the collections of explodes that do not
+ * {@linkplain ExplodeValue#preservesOrder() preserve their order} may be sorted.
  */
 @API(API.Status.INTERNAL)
 public class InExplodeSource extends InComparandSource {
@@ -72,8 +72,8 @@ public class InExplodeSource extends InComparandSource {
 
     public InExplodeSource(@Nonnull final String bindingName, @Nonnull final ExplodeValue explodeValue) {
         super(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue.getCollectionValue()));
-        Verify.verify(!explodeValue.hasOrdinality() || !(explodeValue.getCollectionValue() instanceof ArraySortValue),
-                "cannot sort the collection of an explode with ordinality");
+        Verify.verify(!explodeValue.preservesOrder() || !(explodeValue.getCollectionValue() instanceof ArraySortValue),
+                "cannot sort the collection of an explode that preserves its order");
         this.explodeValue = explodeValue;
     }
 

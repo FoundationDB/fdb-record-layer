@@ -151,9 +151,9 @@ class InExplodeSourceTest {
     }
 
     @Test
-    void sortedCollectionOfAnExplodeWithOrdinalityIsRejected() {
+    void sortedCollectionOfAnExplodeThatPreservesOrderIsRejected() {
         final var explodeValue = new ExplodeValue(new ArraySortValue(elements(), false), true);
         final var exception = Assertions.assertThrows(VerifyException.class, () -> new InExplodeSource("in", explodeValue));
-        Assertions.assertEquals("cannot sort the collection of an explode with ordinality", exception.getMessage());
+        Assertions.assertEquals("cannot sort the collection of an explode that preserves its order", exception.getMessage());
     }
 }
