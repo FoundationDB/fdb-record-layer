@@ -652,9 +652,10 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Renames a record type. This can be used to update any top-level record type defined within the metadata’s
-     * records descriptor, including {@code NESTED} records or the union descriptor. However, it cannot be used to
-     * rename nested messages (i.e., messages defined within other messages) or records defined in imported files.
+     * Renames a record type. This can be used to rename any {@code RECORD}-usage record type defined within the
+     * metadata’s records descriptor, as well as a {@code NESTED} message type or the union descriptor. However, it
+     * cannot be used to rename nested messages (i.e., messages defined within other messages) or record types defined
+     * in imported files.
      *
      * <p>Unlike {@link #renameRecordTypes}, which can only rename {@code RECORD}-usage top-level types, this method
      * can rename any of the three: {@code RECORD}, {@code NESTED}, or the union type itself.
@@ -664,10 +665,10 @@ public class MetaDataProtoEditor {
      * {@code recordTypeName}. Otherwise, renaming the record type to its current name is a no-op, and any other rename
      * is likewise rejected if any of the following holds:
      * <ul>
-     * <li>Another top-level message type or a synthetic record type already has the name {@code newRecordTypeName}.
-     * <li>The type has {@code RECORD} usage, and a record type not backed by a top-level message type in the records
-     *     descriptor (i.e., an imported record type, or one backed by a nested message type) already has the name
-     *     {@code newRecordTypeName}.
+     * <li>The new name {@code newRecordTypeName} is already taken by another top-level message type or by a synthetic
+     *     record type, or, if the type has {@code RECORD} usage, by any other record type. The latter includes a record
+     *     type imported from a dependency file and a record type that is backed by a message type nested within another
+     *     message type.
      * <li>A type other than the union would be renamed to the default union name, or is itself named that way.
      * <li>The union already has a field under the new canonical union field name {@code _newRecordTypeName}.
      * <li>The records descriptor has no union message type, or the union message type declares nested types.
@@ -682,14 +683,14 @@ public class MetaDataProtoEditor {
      * <li>Field types ({@code typeName}) that reference a renamed type are rewritten, whether the reference is direct
      *     or to a nested type of a renamed type.
      * <li>The union usage option is set when the union is renamed.
-     * <li>The canonical {@code _typeName} union field is renamed.
      * <li>If the record type has {@code RECORD} usage, the record type list, indexes, joined record types, and the
-     *     parent constituents of unnested record types are updated.
+     *     parent constituents of unnested record types are updated. Also, its union field is renamed if it carries the
+     *     canonical name {@code _typeName}.
      * </ul>
      *
      * @param metaDataBuilder the metadata builder
-     * @param recordTypeName the name of the existing top-level record type
-     * @param newRecordTypeName the new name to give to the record type
+     * @param recordTypeName the name of the existing top-level message type
+     * @param newRecordTypeName the new name to give to the message type
      * @param dependencies the dependencies of the records file descriptor
      */
     public static void renameRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
