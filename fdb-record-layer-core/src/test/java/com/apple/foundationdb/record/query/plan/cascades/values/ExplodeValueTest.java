@@ -141,16 +141,16 @@ class ExplodeValueTest {
 
     @ParameterizedTest
     @BooleanSource
-    void resultTypeIsTheElementAndItsOrdinal(final boolean withOrdinality) {
-        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b")), withOrdinality);
-        Assertions.assertEquals(withOrdinality, value.hasOrdinality());
+    void resultTypeIsTheElementAndItsOrdinal(final boolean preserveOrder) {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b")), preserveOrder);
+        Assertions.assertEquals(preserveOrder, value.preservesOrder());
 
         final var fields = value.getResultType().getFields();
         Assertions.assertEquals(2, fields.size());
         Assertions.assertEquals(((Type.Array)value.getCollectionValue().getResultType()).getElementType(), fields.get(0).getFieldType());
         Assertions.assertEquals(Type.primitiveType(Type.TypeCode.INT, false), fields.get(1).getFieldType());
         // Both fields are declared anonymous, the way an explode WITH ORDINALITY declares its struct, and are so named
-        // by their position. The ordinality does not change the shape.
+        // by their position. Preserving the order does not change the shape.
         Assertions.assertEquals("_0", fields.get(0).getFieldName());
         Assertions.assertEquals("_1", fields.get(1).getFieldName());
 
@@ -160,8 +160,8 @@ class ExplodeValueTest {
 
     @ParameterizedTest
     @BooleanSource
-    void producesEveryElementWithItsZeroBasedOrdinal(final boolean withOrdinality) {
-        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")), withOrdinality);
+    void producesEveryElementWithItsZeroBasedOrdinal(final boolean preserveOrder) {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")), preserveOrder);
         Assertions.assertEquals(List.of(List.of("a", 0), List.of("b", 1), List.of("c", 2)),
                 explode(value, contextFor(value)));
     }
@@ -193,12 +193,12 @@ class ExplodeValueTest {
 
     @ParameterizedTest
     @BooleanSource
-    void evaluatingAsAListProducesWhatTheStreamProduces(final boolean withOrdinality) {
-        final var literal = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")), withOrdinality);
+    void evaluatingAsAListProducesWhatTheStreamProduces(final boolean preserveOrder) {
+        final var literal = new ExplodeValue(LiteralValue.ofList(List.of("a", "b", "c")), preserveOrder);
         final var literalContext = contextFor(literal);
         Assertions.assertEquals(explode(literal, literalContext), explodeAsList(literal, literalContext));
 
-        final var reviews = new ExplodeValue(reviewsOfRestaurant(), withOrdinality);
+        final var reviews = new ExplodeValue(reviewsOfRestaurant(), preserveOrder);
         final var restaurant = TestRecords4Proto.RestaurantRecord.newBuilder()
                 .setRestNo(1L)
                 .addReviews(review(10L, 5))
@@ -340,19 +340,19 @@ class ExplodeValueTest {
     }
 
     @Test
-    void equalityAndHashingFollowTheOrdinality() {
+    void equalityAndHashingFollowWhetherTheOrderIsPreserved() {
         final var collection = LiteralValue.ofList(List.of(1, 2));
         final var value = new ExplodeValue(collection);
-        final var withOrdinality = new ExplodeValue(collection, true);
+        final var ordered = new ExplodeValue(collection, true);
 
-        Assertions.assertNotEquals(value, withOrdinality);
+        Assertions.assertNotEquals(value, ordered);
         Assertions.assertNotEquals(value.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
-                withOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                ordered.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        // rebasing the collection keeps the ordinality
+        // rebasing the collection keeps preserving the order
         final var otherCollection = LiteralValue.ofList(List.of(3, 4));
-        Assertions.assertEquals(new ExplodeValue(otherCollection, true), withOrdinality.withChildren(List.of(otherCollection)));
-        Assertions.assertEquals(new ExplodeValue(otherCollection, true), withOrdinality.withCollectionValue(otherCollection));
+        Assertions.assertEquals(new ExplodeValue(otherCollection, true), ordered.withChildren(List.of(otherCollection)));
+        Assertions.assertEquals(new ExplodeValue(otherCollection, true), ordered.withCollectionValue(otherCollection));
     }
 
     @Test
@@ -364,12 +364,12 @@ class ExplodeValueTest {
 
     @ParameterizedTest
     @BooleanSource
-    void derivationsOfATableFunctionKeepTheCollectionCorrelationAndTheStruct(final boolean withOrdinality) {
+    void derivationsOfATableFunctionKeepTheCollectionCorrelationAndTheStruct(final boolean preserveOrder) {
         final var sourceAlias = CorrelationIdentifier.of("source");
         final var arrayType = new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false));
         final var sourceType = Type.Record.fromFields(List.of(Type.Record.Field.of(arrayType, Optional.of("arr"))));
         final Value collectionValue = FieldValue.ofFieldName(QuantifiedObjectValue.of(sourceAlias, sourceType), "arr");
-        final var explodeValue = new ExplodeValue(collectionValue, withOrdinality);
+        final var explodeValue = new ExplodeValue(collectionValue, preserveOrder);
 
         final var derivations = new DerivationsProperty.DerivationsVisitor()
                 .visitTableFunctionPlan(new RecordQueryTableFunctionPlan(explodeValue));
@@ -388,8 +388,8 @@ class ExplodeValueTest {
 
     @ParameterizedTest
     @BooleanSource
-    void protoRoundTrip(final boolean withOrdinality) {
-        final var value = new ExplodeValue(reviewsOfRestaurant(), withOrdinality);
+    void protoRoundTrip(final boolean preserveOrder) {
+        final var value = new ExplodeValue(reviewsOfRestaurant(), preserveOrder);
         final var valueProto = value.toValueProto(newSerializationContext());
         Assertions.assertTrue(valueProto.hasExplodeValue());
 
@@ -397,6 +397,6 @@ class ExplodeValueTest {
         Assertions.assertInstanceOf(ExplodeValue.class, deserialized);
         Assertions.assertEquals(value, deserialized);
         Assertions.assertEquals(value.getResultType(), deserialized.getResultType());
-        Assertions.assertEquals(withOrdinality, ((ExplodeValue)deserialized).hasOrdinality());
+        Assertions.assertEquals(preserveOrder, ((ExplodeValue)deserialized).preservesOrder());
     }
 }

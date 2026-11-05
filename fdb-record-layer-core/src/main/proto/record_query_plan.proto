@@ -1413,7 +1413,7 @@ message PRangeValue {
 
 message PExplodeValue {
   optional PValue collection_value = 1;
-  optional bool with_ordinality = 2;
+  optional bool preserve_order = 2;
 }
 
 message PArrayDistinctValue {

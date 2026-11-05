@@ -72,10 +72,11 @@ import java.util.stream.IntStream;
  * anonymous fields: the element, and the 0-based ordinal of the element within the array, akin to SQL's
  * {@code UNNEST ... WITH ORDINALITY}.
  *
- * <p>The struct has the same shape whether or not the explode is {@linkplain #hasOrdinality() with ordinality}. The
- * ordinality only states whether the ordinals are observed. The ordinals of an explode without ordinality are not, so
- * its collection can be replaced by any permutation of it, for example by a sorted one, even though that changes the
- * ordinals it produces.
+ * <p>The struct has the same shape whether or not the explode {@linkplain #preservesOrder() preserves the order} of
+ * its collection. An explode that preserves the order produces the elements in the order of the array, so each ordinal
+ * is the position of its element in the array, and the planner must not reorder the collection. Any other explode
+ * does not observe its ordinals, so its collection can be replaced by any permutation of it, for example by a sorted
+ * one, even though that renumbers the ordinals it produces.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -93,7 +94,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     @Nonnull
     private final Type elementType;
 
-    private final boolean withOrdinality;
+    private final boolean preserveOrder;
 
     @Nonnull
     private final CorrelationIdentifier elementAlias;
@@ -108,10 +109,10 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         this(collectionValue, false);
     }
 
-    public ExplodeValue(@Nonnull final Value collectionValue, final boolean withOrdinality) {
+    public ExplodeValue(@Nonnull final Value collectionValue, final boolean preserveOrder) {
         Verify.verify(collectionValue.getResultType().isArray());
         this.collectionValue = collectionValue;
-        this.withOrdinality = withOrdinality;
+        this.preserveOrder = preserveOrder;
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.elementAlias = CorrelationIdentifier.uniqueId();
         this.ordinalAlias = CorrelationIdentifier.uniqueId();
@@ -127,18 +128,18 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         return collectionValue;
     }
 
-    public boolean hasOrdinality() {
-        return withOrdinality;
+    public boolean preservesOrder() {
+        return preserveOrder;
     }
 
     /**
-     * Returns an explode of a different collection that is with ordinality if and only if this one is.
+     * Returns an explode of a different collection that preserves its order if and only if this one does.
      * @param newCollectionValue the new collection
      * @return an explode of the new collection
      */
     @Nonnull
     public ExplodeValue withCollectionValue(@Nonnull final Value newCollectionValue) {
-        return new ExplodeValue(newCollectionValue, withOrdinality);
+        return new ExplodeValue(newCollectionValue, preserveOrder);
     }
 
     @Nonnull
@@ -234,19 +235,19 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, withOrdinality);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, preserveOrder);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, collectionValue, withOrdinality);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, collectionValue, preserveOrder);
     }
 
     @Nonnull
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> withOrdinality == ((ExplodeValue)other).hasOrdinality());
+                .filter(ignored -> preserveOrder == ((ExplodeValue)other).preservesOrder());
     }
 
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
@@ -266,7 +267,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     public PExplodeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PExplodeValue.newBuilder()
                 .setCollectionValue(collectionValue.toValueProto(serializationContext))
-                .setWithOrdinality(withOrdinality)
+                .setPreserveOrder(preserveOrder)
                 .build();
     }
 
@@ -280,7 +281,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     public static ExplodeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PExplodeValue explodeValueProto) {
         return new ExplodeValue(Value.fromValueProto(serializationContext,
-                Objects.requireNonNull(explodeValueProto.getCollectionValue())), explodeValueProto.getWithOrdinality());
+                Objects.requireNonNull(explodeValueProto.getCollectionValue())), explodeValueProto.getPreserveOrder());
     }
 
     /**
