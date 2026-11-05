@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -101,6 +103,33 @@ class InExplodeSourceTest {
                 new ExplodeValue(ParameterObjectValue.of("p", new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)))));
         Assertions.assertEquals(0, source.size(EvaluationContext.EMPTY.withBinding("p", null)));
         Assertions.assertEquals(2, source.size(EvaluationContext.EMPTY.withBinding("p", List.of(1L, 2L))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sources")
+    void flowsTheStructOfTheExplode(@Nonnull final InExplodeSource source, @Nonnull final List<Object> expected) {
+        final var explodeValue = new ExplodeValue(elements());
+        Assertions.assertEquals(explodeValue.getResultType(), source.getResultType());
+    }
+
+    @ParameterizedTest
+    @MethodSource("sources")
+    void equalSourcesHaveEqualHashCodes(@Nonnull final InExplodeSource source, @Nonnull final List<Object> expected) {
+        final var deserialized = InSource.fromInSourceProto(newSerializationContext(),
+                source.toInSourceProto(newSerializationContext()));
+        Assertions.assertEquals(source, deserialized);
+        Assertions.assertEquals(source.hashCode(), deserialized.hashCode());
+        Assertions.assertNotEquals(source, new InExplodeSource("other", new ExplodeValue(elements())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sources")
+    void explainsTheCollectionAndTheSortOrder(@Nonnull final InExplodeSource source, @Nonnull final List<Object> expected) {
+        final String explained = source.explain().getExplainTokens()
+                .render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString();
+        Assertions.assertTrue(explained.startsWith("IN "), explained);
+        Assertions.assertEquals(source.isSorted(), explained.contains("SORTED"), explained);
+        Assertions.assertEquals(source.isReverse(), explained.contains("DESC"), explained);
     }
 
     @Test

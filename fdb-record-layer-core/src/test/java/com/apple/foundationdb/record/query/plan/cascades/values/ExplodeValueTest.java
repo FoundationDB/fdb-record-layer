@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -310,6 +312,46 @@ class ExplodeValueTest {
 
         Assertions.assertEquals(List.of("a", 0), Objects.requireNonNull(cursor.getNext().get()).getDatum());
         Assertions.assertEquals(1, structsCreated.get());
+    }
+
+    @Test
+    void theCardinalityOfAnExplodeOfAnArrayConstructorIsItsNumberOfElements() {
+        final var value = new ExplodeValue(AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                List.of(LiteralValue.ofScalar(1), LiteralValue.ofScalar(2), LiteralValue.ofScalar(3))));
+        final var cardinalities = value.getCardinalities();
+        Assertions.assertEquals(3, cardinalities.getMinCardinality().getCardinality());
+        Assertions.assertEquals(3, cardinalities.getMaxCardinality().getCardinality());
+    }
+
+    @Test
+    void theMaximumCardinalityOfAnyOtherExplodeIsUnknown() {
+        Assertions.assertTrue(new ExplodeValue(reviewsOfRestaurant()).getCardinalities().getMaxCardinality().isUnknown());
+    }
+
+    @Test
+    void theCursorIsALeafOfTheCursorTree() {
+        final var cursor = new ExplodeValue.Cursor(ForkJoinPool.commonPool(), List.of("a"),
+                (array, ordinal) -> array.get(ordinal), null);
+        final var entered = new AtomicInteger();
+        final var left = new AtomicInteger();
+        final boolean result = cursor.accept(new RecordCursorVisitor() {
+            @Override
+            public boolean visitEnter(final RecordCursor<?> visited) {
+                Assertions.assertSame(cursor, visited);
+                entered.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean visitLeave(final RecordCursor<?> visited) {
+                Assertions.assertSame(cursor, visited);
+                left.incrementAndGet();
+                return true;
+            }
+        });
+        Assertions.assertTrue(result);
+        Assertions.assertEquals(1, entered.get());
+        Assertions.assertEquals(1, left.get());
     }
 
     @Test
