@@ -59,15 +59,13 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Geospa
  * {@link RTree}. Coordinates are converted to fixed-point {@code long}s at the index precision scale so that the
  * R-tree's Hilbert value calculation, which operates on {@code long}s, applies unchanged.
  *
- * <p>
- * The index root key expression yields, in order, zero or more grouping columns followed by exactly two coordinate
+ * <p>The index root key expression yields, in order, zero or more grouping columns followed by exactly two coordinate
  * columns: latitude then longitude. Each distinct grouping tuple is backed by its own R-tree, stored under a subspace
  * keyed by that tuple. The R-tree item's key suffix carries the (trimmed) primary key so that entries map back to
  * records.
  * </p>
  *
- * <p>
- * The scan and maintenance mechanics are shared with {@link MultidimensionalIndexMaintainer} through
+ * <p>The scan and maintenance mechanics are shared with {@link MultidimensionalIndexMaintainer} through
  * {@link RTreeIndexHelper}; this class only supplies the fixed-point encoding/decoding of coordinates.
  * </p>
  *
