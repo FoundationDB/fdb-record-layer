@@ -1,9 +1,9 @@
-¬1
+²1
 Ž
-in-query-or-overlapwEXPLAIN select * from my_simple_record where num_value_unique in (903, 905, 901) or num_value_unique in (906, 905, 904)˜0
+in-query-or-overlapwEXPLAIN select * from my_simple_record where num_value_unique in (903, 905, 901) or num_value_unique in (906, 905, 904)ž0
  Ä=ìÑ¯Õ§
  »Èû¬(—0šªç8š
-@¢ê[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } âˆª [IN arrayDistinct(@c17) SORTED] | INJOIN q1 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q1] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCH†-digraph G {
+@¢ð[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } âˆª [IN arrayDistinct(@c17) SORTED] | INJOIN q1 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q1._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCH†-digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

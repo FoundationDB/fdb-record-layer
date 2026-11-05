@@ -2,9 +2,10 @@ in-query-union-sargable:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
         in ? order by num_value_3_indexed
     ref: in-query-union-sargable.yamsql:62
-    explain: '[IN arrayDistinct(@c7) ⋈ IN arrayDistinct(@c11)] INUNION q0, q1 -> {
-        ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS
-        q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)'
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { ISCAN(NUM_VALUE2_NUM_VALUE3
+        [EQUALS q0._0]) | FLATMAP q1 -> { TF explode(arrayDistinct(@c11)) | FILTER
+        q1.STR_VALUE_INDEXED EQUALS _._0 AS q2 RETURN q1 } } COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO, _.NUM_VALUE_2)'
     task_count: 2179
     task_total_time_ms: 106
     transform_count: 814
@@ -16,9 +17,10 @@ in-query-union-sargable:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
         in ? order by num_value_3_indexed
     ref: in-query-union-sargable.yamsql:103
-    explain: '[IN arrayDistinct(@c7) ⋈ IN arrayDistinct(@c11)] INUNION q0, q1 -> {
-        ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS
-        q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)'
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { ISCAN(NUM_VALUE2_NUM_VALUE3
+        [EQUALS q0._0]) | FLATMAP q1 -> { TF explode(arrayDistinct(@c11)) | FILTER
+        q1.STR_VALUE_INDEXED EQUALS _._0 AS q2 RETURN q1 } } COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO, _.NUM_VALUE_2)'
     task_count: 2179
     task_total_time_ms: 106
     transform_count: 814
@@ -30,9 +32,10 @@ in-query-union-sargable:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
         in ? order by num_value_3_indexed
     ref: in-query-union-sargable.yamsql:143
-    explain: '[IN arrayDistinct(@c7) ⋈ IN arrayDistinct(@c11)] INUNION q0, q1 -> {
-        ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS
-        q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)'
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { ISCAN(NUM_VALUE2_NUM_VALUE3
+        [EQUALS q0._0]) | FLATMAP q1 -> { TF explode(arrayDistinct(@c11)) | FILTER
+        q1.STR_VALUE_INDEXED EQUALS _._0 AS q2 RETURN q1 } } COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO, _.NUM_VALUE_2)'
     task_count: 2179
     task_total_time_ms: 106
     transform_count: 814
