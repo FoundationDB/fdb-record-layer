@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -39,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricColl
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.Supplier;
+import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -110,17 +110,17 @@ class OfflineStoredQueriesProcessorTest {
     }
 
     @Test
-    void planStoredQueriesWithStoreTimerCollectorCountsOnThatTimer() throws Exception {
+    void planStoredQueriesCountsOnTheMetricRegistry() throws Exception {
         final var template = booksTemplate(false, VERSION, QUERY, List.of());
-        final var timer = new StoreTimer();
+        final var registry = new MetricRegistry();
 
         OfflineStoredQueriesProcessor.planStoredQueries(RelationalPlanCache.buildWithDefaults(), template,
-                booksMetaDataWithYearIndex(), StoreTimerMetricCollector.fromStoreTimer(timer), Options.NONE);
+                booksMetaDataWithYearIndex(), StoreTimerMetricCollector.fromMetricRegistry(registry), Options.NONE);
 
-        assertThat(timer.getCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED)).isEqualTo(1);
-        assertThat(timer.getCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED)).isEqualTo(1);
-        assertThat(timer.getCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED)).isEqualTo(1);
-        assertThat(timer.getCount(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP)).isEqualTo(1);
+        assertThat(registry.counter(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED.title()).getCount()).isEqualTo(1);
+        assertThat(registry.counter(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED.title()).getCount()).isEqualTo(1);
+        assertThat(registry.counter(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED.title()).getCount()).isEqualTo(1);
+        assertThat(registry.timer(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP.title()).getCount()).isEqualTo(1);
     }
 
     private static void planWithCache(@Nonnull final RelationalPlanCache cache,
