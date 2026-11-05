@@ -49,6 +49,7 @@ public interface StoredQuery extends Metadata {
 
     /**
      * The SELECT body, as its original verbatim source.
+     *
      * @return the query text.
      */
     @Nonnull
@@ -56,6 +57,7 @@ public interface StoredQuery extends Metadata {
 
     /**
      * The {@code CREATE TEMPORARY FUNCTION} declarations to install before the body is planned.
+     *
      * @return the declaration texts, in the order written.
      */
     @Nonnull
@@ -64,6 +66,7 @@ public interface StoredQuery extends Metadata {
     /**
      * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
      * optionally followed by a nullability clause, exactly as written. Empty if the query declares no parameters.
+     *
      * @return the declared parameters, keyed by name.
      */
     @Nonnull
@@ -73,6 +76,7 @@ public interface StoredQuery extends Metadata {
      * The combinations this query is warmed for, one plan each. Every case here gives every declared parameter a
      * state: one the author left out of the SQL is filled in before it reaches this point. Empty exactly when the query
      * declares no parameters.
+     *
      * @return one map per case, from parameter name to the state it is pinned to.
      */
     @Nonnull
