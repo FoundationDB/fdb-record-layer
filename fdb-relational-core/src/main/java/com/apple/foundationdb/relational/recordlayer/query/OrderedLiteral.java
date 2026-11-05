@@ -154,8 +154,7 @@ public class OrderedLiteral {
     }
 
     /**
-     * Returns whether this literal carries no value, as opposed to carrying the value {@code NULL}.
-     * @return {@code true} if this literal is value-free.
+     * {@return whether this literal carries no value, as opposed to carrying the value {@code NULL}}
      */
     public boolean isValueFree() {
         return valueFree;
