@@ -331,8 +331,7 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
     public int getComplexity() {
         int complexity = getInnerPlan().getComplexity();
         for (InSource values : inSources) {
-            if (values instanceof InValuesSource ||
-                    (values instanceof InExplodeSource && ((InExplodeSource)values).getLiteralValues() != null)) {
+            if (values instanceof InValuesSource) {
                 complexity *= values.size(EvaluationContext.EMPTY);
             }
         }

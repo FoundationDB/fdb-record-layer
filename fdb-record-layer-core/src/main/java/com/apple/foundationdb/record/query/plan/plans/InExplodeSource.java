@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -86,23 +85,6 @@ public class InExplodeSource extends InComparandSource {
     private Value getUnsortedCollectionValue() {
         final Value collectionValue = explodeValue.getCollectionValue();
         return collectionValue instanceof ArraySortValue ? ((ArraySortValue)collectionValue).getChild() : collectionValue;
-    }
-
-    /**
-     * Returns the elements of the literal list this source explodes, in the order the source produces them, if it
-     * explodes a literal list.
-     * @return the elements or {@code null}
-     */
-    @Nullable
-    @SuppressWarnings("unchecked")
-    public List<Object> getLiteralValues() {
-        final Value collectionValue = getUnsortedCollectionValue();
-        if (collectionValue instanceof LiteralValue<?> &&
-                ((LiteralValue<?>)collectionValue).getLiteralValue() instanceof List<?>) {
-            final List<Object> elements = (List<Object>)((LiteralValue<?>)collectionValue).getLiteralValue();
-            return isSorted() ? ArraySortValue.sort(elements, isReverse()) : elements;
-        }
-        return null;
     }
 
     @Override
