@@ -36,8 +36,7 @@ import java.util.List;
  * great-circle distance of a center. Coordinates are ordered latitude (dimension {@code 0}) then longitude (dimension
  * {@code 1}), both stored as fixed-point {@code long}s at the index's precision scale.
  *
- * <p>
- * The query circle is over-approximated by one or more axis-aligned rectangles that together contain it: one in the
+ * <p>The query circle is over-approximated by one or more axis-aligned rectangles that together contain it: one in the
  * common case, two when the circle straddles the antimeridian (±180° longitude), and a full-longitude band when the
  * circle reaches a pole. The disjunction of these rectangles drives R-tree node pruning
  * ({@link #overlapsMbrApproximately}). Because the rectangles over-cover (their corners lie outside the circle),
@@ -87,6 +86,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
 
     /**
      * Create scan bounds selecting points within {@code radiusMeters} of a center.
+     *
      * @param prefixRange range constraining the grouping columns (use {@link TupleRange#ALL} when the index is not
      *        grouped)
      * @param centerLatitude center latitude in degrees, in {@code [-90, 90]}
@@ -109,6 +109,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
 
     /**
      * Convenience overload that does not constrain the key suffix.
+     *
      * @param prefixRange range constraining the grouping columns
      * @param centerLatitude center latitude in degrees
      * @param centerLongitude center longitude in degrees
@@ -145,6 +146,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
      * Test whether a node's minimum bounding rectangle overlaps the query circle's covering rectangles. May report
      * false positives (the corners of a covering rectangle lie outside the circle); those are removed by
      * {@link #containsPosition}.
+     *
      * @param mbr the node minimum bounding rectangle, in fixed-point coordinates
      * @return {@code true} if the R-tree should descend into this node
      */
@@ -163,6 +165,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
 
     /**
      * Test whether a stored point lies within the query circle using the exact great-circle distance.
+     *
      * @param position the stored point, in fixed-point coordinates
      * @return {@code true} if the point is within the radius
      */
@@ -179,6 +182,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
 
     /**
      * Convert a degree value to the fixed-point {@code long} stored in the R-tree.
+     *
      * @param degrees the coordinate in degrees
      * @param scale the index precision scale
      * @return the fixed-point representation
@@ -189,6 +193,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
 
     /**
      * Recover the degree value from its fixed-point {@code long} representation. Lossy below the index precision.
+     *
      * @param fixed the fixed-point coordinate
      * @param scale the index precision scale
      * @return the coordinate in degrees
@@ -199,6 +204,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
 
     /**
      * Great-circle distance between two lat/lon points using the haversine formula. Correct across the antimeridian.
+     *
      * @param latitude1 first point latitude in degrees
      * @param longitude1 first point longitude in degrees
      * @param latitude2 second point latitude in degrees

@@ -45,6 +45,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
 
     /**
      * Serialize this value or parameter reference.
+     *
      * @param serializationContext the serialization context
      * @return the proto message
      */
@@ -53,6 +54,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
 
     /**
      * Deserialize a value or parameter reference.
+     *
      * @param serializationContext the serialization context
      * @param proto the proto message
      * @return the reconstructed value or parameter reference

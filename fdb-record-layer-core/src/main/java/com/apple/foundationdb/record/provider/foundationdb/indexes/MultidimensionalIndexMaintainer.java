@@ -56,8 +56,7 @@ import java.util.concurrent.CompletableFuture;
  * An index maintainer for keeping a multidimensional {@link RTree}. The dimension columns are {@code long}s that are
  * stored directly as R-tree point coordinates.
  *
- * <p>
- * The scan and maintenance mechanics are shared with {@link GeospatialRTreeIndexMaintainer} through
+ * <p>The scan and maintenance mechanics are shared with {@link GeospatialRTreeIndexMaintainer} through
  * {@link RTreeIndexHelper}; this class only supplies the {@link DimensionsKeyExpression}-driven prefix/dimensions
  * split and validation of the coordinate columns.
  * </p>

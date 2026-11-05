@@ -86,6 +86,7 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
 
     /**
      * Build scan comparisons for a within-distance scan.
+     *
      * @param prefixScanComparisons comparisons on the grouping columns, or {@code null} for none
      * @param centerLatitude center latitude in degrees
      * @param centerLongitude center longitude in degrees

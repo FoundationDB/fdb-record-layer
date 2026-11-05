@@ -109,6 +109,7 @@ public class RTreeIndexHelper {
 
     /**
      * The subspace holding the R-tree's node-slot secondary index, derived from the index's secondary subspace.
+     *
      * @param state the maintainer state
      * @return the node-slot index subspace
      */
@@ -186,8 +187,7 @@ public class RTreeIndexHelper {
                             return new LazyCursor<>(state.context.acquireReadLock(new LockIdentifier(rtSubspace))
                                     .thenApply(lock -> new AsyncLockCursor<>(lock, new ItemSlotCursor(executor,
                                             rTree.scan(transaction, lastHilbertValue, lastKey,
-                                                    mbrPredicate,
-                                                    (low, high) -> suffixRange.overlaps(low, high)),
+                                                    mbrPredicate, suffixRange::overlaps),
                                             cursorLimitManager, timer))), executor)
                                     .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
                                                         itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) > 0)

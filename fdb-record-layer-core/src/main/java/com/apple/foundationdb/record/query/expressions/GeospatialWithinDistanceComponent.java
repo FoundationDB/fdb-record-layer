@@ -46,8 +46,7 @@ import java.util.function.Supplier;
  * can be matched against a {@link com.apple.foundationdb.record.metadata.IndexTypes#GEOSPATIAL_RTREE} index whose
  * coordinate columns are that same expression.
  *
- * <p>
- * Distance is measured with the haversine formula (see {@link GeospatialRTreeScanBounds#haversineMeters}), so this
+ * <p>Distance is measured with the haversine formula (see {@link GeospatialRTreeScanBounds#haversineMeters}), so this
  * filter is exactly what such an index evaluates — distinct from the planar {@code GeoPointWithinDistanceComponent} in
  * {@code fdb-record-layer-spatial}, whose distance is in coordinate units.
  * </p>
@@ -67,6 +66,7 @@ public class GeospatialWithinDistanceComponent implements ComponentWithNoChildre
 
     /**
      * Create a within-distance filter over a two-column coordinate expression.
+     *
      * @param centerLatitude center latitude in degrees
      * @param centerLongitude center longitude in degrees
      * @param radiusMeters great-circle radius in meters
