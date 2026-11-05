@@ -179,7 +179,7 @@ test_block:
                group by r.str_value_indexed, sq.x, r.num_value_2
                having sq.x in (0, 2)
                order by max(r.num_value_3_indexed) desc
-      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
       - unorderedResult: [{X: 2, NUM_VALUE_2: 1, M: 47},
                           {X: 2, NUM_VALUE_2: 2, M: 46},
                           {X: 2, NUM_VALUE_2: 0, M: 42}]
@@ -192,7 +192,7 @@ test_block:
                group by r.str_value_indexed, sq.x, r.num_value_2
                having sq.x in (0, 0)
                order by max(r.num_value_3_indexed) desc
-      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
       - unorderedResult: []
 ---
 test_block:
@@ -211,7 +211,7 @@ test_block:
                group by r.str_value_indexed, sq.x, r.num_value_2
                having sq.x in !! !in {[0, 2]} !!
                order by max(r.num_value_3_indexed) desc
-      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
       - unorderedResult: [{X: 2, NUM_VALUE_2: 1, M: 47},
                           {X: 2, NUM_VALUE_2: 2, M: 46},
                           {X: 2, NUM_VALUE_2: 0, M: 42}]
@@ -224,6 +224,6 @@ test_block:
                group by r.str_value_indexed, sq.x, r.num_value_2
                having sq.x in !! !in {[0, 0]} !!
                order by max(r.num_value_3_indexed) desc
-      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2, _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)"
       - unorderedResult: []
 ...

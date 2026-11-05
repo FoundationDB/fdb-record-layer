@@ -1,7 +1,7 @@
-É
+ß
 
-in-query-union-sargableuEXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed in ? order by num_value_3_indexed³
-ƒ±ÐÉ2® ¼à¤(®0âüš8“@é[IN arrayDistinct(@c7) â‹ˆ IN arrayDistinct(@c11)] INUNION q0, q1 -> { ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0]) | FILTER _.STR_VALUE_INDEXED EQUALS q1 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)¥digraph G {
+in-query-union-sargableuEXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed in ? order by num_value_3_indexedÉ
+ƒ±ÐÉ2® ¼à¤(®0âüš8“@ÿ[IN arrayDistinct(@c7)] INUNION q0 -> { ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0]) | FLATMAP q1 -> { TF explode(arrayDistinct(@c11)) | FILTER q1.STR_VALUE_INDEXED EQUALS _._0 AS q2 RETURN q1 } } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
