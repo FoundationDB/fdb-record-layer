@@ -1820,17 +1820,27 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.INTERNAL)
     public void addMarkReadableIfUniquenessResolvedCommitCheck(@Nonnull Index index) {
-        final String commitCheckName = "markReadableIfUniquenessResolved_" + ByteArrayUtil2.toHexString(indexSubspace(index).pack());
-        getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> () -> {
-            if (!getIndexState(index).isReadableUniquePending()) {
-                return AsyncUtil.DONE;
+        final String commitCheckName = "markReadableIfUniquenessResolved_" + ByteArrayUtil2.toHexString(getSubspace().pack());
+        final MarkReadableIfUniquenessResolvedCommitCheck commitCheck = (MarkReadableIfUniquenessResolvedCommitCheck)
+                getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> new MarkReadableIfUniquenessResolvedCommitCheck());
+        commitCheck.indexes.add(index);
+    }
+
+    private class MarkReadableIfUniquenessResolvedCommitCheck implements FDBRecordContext.CommitCheckAsync {
+        // List of READABLE_UNIQUE_PENDING indexes to check
+        private final Set<Index> indexes = ConcurrentHashMap.newKeySet();
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Void> checkAsync() {
+            CompletableFuture<Boolean> anyChanged = AsyncUtil.READY_FALSE;
+            for (Index index : indexes) {
+                anyChanged = anyChanged.thenCompose(changed -> getIndexState(index).isReadableUniquePending()
+                        ? markIndexReadableOrUniquePending(index).thenApply(indexChanged -> changed || indexChanged)
+                        : CompletableFuture.completedFuture(changed));
             }
-            // Commit checks have already been collected, so replaced indexes must be removed here rather than by
-            // the commit check that marking the index readable would normally add
-            return markIndexReadableOrUniquePending(index)
-                    .thenCompose(this::removeReplacedIndexesIfChanged)
-                    .thenApply(ignore -> null);
-        });
+            return anyChanged.thenCompose(FDBRecordStore.this::removeReplacedIndexesIfChanged).thenApply(ignore -> null);
+        }
     }
 
     /**

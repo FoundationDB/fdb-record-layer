@@ -628,6 +628,51 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testMarkReadableWhenViolationsOfTwoIndexesResolvedTogether() {
+        // records 0-9 duplicate both indexes, records 10-11 duplicate only indexB
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 12).mapToObj( val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val)
+                        .setNumValue2((int)(val < 10 ? val % 5 : val))
+                        .setNumValue3Indexed((int)(val < 10 ? val % 5 : 100))
+                        .build()
+        ).toList();
+        final Index indexA = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index indexB = new Index("indexB", field("num_value_3_indexed"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final List<Index> indexes = List.of(indexA, indexB);
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext())  {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowUniquePendingState(true))
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // resolve all the duplications of indexA, and some of indexB, in a single transaction
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexState(indexA).isReadableUniquePending());
+            for (int i = 5; i < 10; i++) {
+                recordStore.deleteRecord(Tuple.from(i));
+            }
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexState(indexA).isReadable());
+            assertTrue(recordStore.getIndexState(indexB).isReadableUniquePending());
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(indexB).getCount().join());
+            context.commit();
+        }
+    }
+
+    @Test
     void testRepeatingAndNewUniquenessViolation() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 20).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 4).build()
