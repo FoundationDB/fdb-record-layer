@@ -108,8 +108,8 @@ public class ProtoUtils {
 
     /**
      * Recursively collect every message and enum type visible from a file descriptor and its dependencies.
-     * <p>
-     * {@code excludedDependencies} doubles as the set of already-visited file descriptors during the recursive
+     *
+     * <p>{@code excludedDependencies} doubles as the set of already-visited file descriptors during the recursive
      * walk and must be mutable. Descriptors in the top level file descriptor are added first to
      * {@code descriptorSetBuilder}, and then the descriptors from each dependency in order.
      *
@@ -147,8 +147,8 @@ public class ProtoUtils {
 
     /**
      * Collect every message and enum type visible from a file descriptor.
-     * <p>
-     * The result covers the types declared directly in {@code fileDescriptor} as well as those declared in its
+     *
+     * <p>The result covers the types declared directly in {@code fileDescriptor} as well as those declared in its
      * transitive dependencies, including nested message and enum types to any depth. File descriptors in
      * {@code excludedDependencies} are not processed, unless it's {@code fileDescriptor} itself, which also
      * excludes any type reachable only through them.

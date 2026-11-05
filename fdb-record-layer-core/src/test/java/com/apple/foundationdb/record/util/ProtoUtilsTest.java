@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecords5Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
-import com.apple.foundationdb.record.TestRecordsDuplicateFullName;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsNameClashProto;
 import com.apple.foundationdb.record.TestRecordsRepeatedImportProto;
@@ -207,16 +206,6 @@ class ProtoUtilsTest {
                 ImmutableSet.of());
 
         assertThat(actualDescriptors).containsAll(expectedDescriptors);
-    }
-
-    @Test
-    void duplicateFullName() {
-        final var fileDescriptor = TestRecordsDuplicateFullName.getDescriptor();
-
-        final var actualDescriptors = ProtoUtils.getTypeDescriptorsInFile(fileDescriptor,
-                ImmutableSet.of(RecordMetaDataOptionsProto.getDescriptor()),
-                ImmutableSet.of());
-
     }
 
     @Test

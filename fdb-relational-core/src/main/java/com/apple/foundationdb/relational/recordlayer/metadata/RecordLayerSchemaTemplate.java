@@ -709,17 +709,17 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         /**
          * Adds an auxiliary type via a supplier, which is only evaluated when the type is needed.
-         * <p>
-         * An auxiliary type is a type that can be referenced later on in a table definition, in other auxiliary
+         *
+         * <p>An auxiliary type is a type that can be referenced later on in a table definition, in other auxiliary
          * types, or in user defined functions. Prefer {@link #addAuxiliaryType(DataType.Named)} when the
          * {@link DataType.Named} instance already exists; use this method when instantiating the type is expensive
          * and the type may not have any references.
-         * <p>
-         * The provided supplier must return a resolved type, that is, {@link DataType#isResolved()} must
+         *
+         * <p>The provided supplier must return a resolved type, that is, {@link DataType#isResolved()} must
          * return {@code true} for the returned value. This is checked when the supplier is evaluated.
          * The returned type's name is expected to equal {@code auxiliaryTypeName}.
-         * <p>
-         * The supplier is evaluated at most once, and only when the type instance is needed:
+         *
+         * <p>The supplier is evaluated at most once, and only when the type instance is needed:
          * <ul>
          *     <li>by {@link #findType(String)} on this builder, or by {@link RecordLayerSchemaTemplate#findTypeByName(String)}
          *         on the built schema template;</li>
@@ -748,8 +748,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         /**
          * Adds a collection of resolved auxiliary type suppliers, keyed by the names to register them under.
-         * <p>
-         * See {@link #addResolvedAuxiliaryTypeSupplier(String, Supplier)} for more details.
+         *
+         * <p>See {@link #addResolvedAuxiliaryTypeSupplier(String, Supplier)} for more details.
          *
          * @param resolvedAuxiliaryTypeSuppliersByName A map of resolved {@link DataType.Named} suppliers keyed by the
          *                                             names to register them under.

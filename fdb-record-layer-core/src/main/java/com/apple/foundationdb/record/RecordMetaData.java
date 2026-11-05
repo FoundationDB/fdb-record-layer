@@ -47,7 +47,6 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -777,8 +776,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Returns the descriptors of all non-record types in this RecordMetaData instance keyed by their Protobuf full name.
-     * <p>
-     * All non-record message and enum types included within the descriptor returned by {@link #getRecordsDescriptor()}
+     *
+     * <p>All non-record message and enum types included within the descriptor returned by {@link #getRecordsDescriptor()}
      * and its dependencies are included, except the special {@code RecordUnionType} descriptor. The returned set
      * contains the non-record types in the {@link #getRecordsDescriptor()} descriptor, followed by the types from each
      * dependency in the declaration order.

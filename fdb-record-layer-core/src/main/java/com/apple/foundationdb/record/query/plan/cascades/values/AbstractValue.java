@@ -122,6 +122,7 @@ public abstract class AbstractValue implements Value {
     protected abstract Iterable<? extends Value> computeChildren();
 
     @Nonnull
+    @Override
     public final Set<Type> getDynamicTypes() {
         return dynamicTypesSupplier.get();
     }

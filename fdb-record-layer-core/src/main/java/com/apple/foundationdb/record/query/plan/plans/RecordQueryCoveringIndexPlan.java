@@ -68,7 +68,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * A query plan that reconstructs records from the entries in a covering index.
