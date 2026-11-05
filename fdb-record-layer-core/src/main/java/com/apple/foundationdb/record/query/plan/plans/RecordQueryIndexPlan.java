@@ -160,7 +160,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Nonnull
     @SuppressWarnings("this-escape")
-    private final Supplier<Set<Comparisons.Comparison>> comparisonsSupplier = Suppliers.memoize(RecordQueryPlanWithComparisons.super::computeComparisons);
+    private final Supplier<Set<Comparisons.Comparison>> comparisonsSupplier = Suppliers.memoize(this::computeComparisons);
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);

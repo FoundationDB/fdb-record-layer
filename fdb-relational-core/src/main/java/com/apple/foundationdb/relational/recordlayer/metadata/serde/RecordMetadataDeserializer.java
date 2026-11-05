@@ -98,7 +98,7 @@ public class RecordMetadataDeserializer {
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
         final Map<String, RecordLayerTable.Builder> nameToTableBuilder = new HashMap<>();
         for (final Descriptors.FieldDescriptor registeredType : registeredTypes) {
-            if (registeredType.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE)) {
+            if (registeredType.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
                 final String storageName = registeredType.getMessageType().getName();
                 final String userName = ProtoUtils.toUserIdentifier(storageName);
                 nameToTableBuilder
