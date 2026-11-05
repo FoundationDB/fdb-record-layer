@@ -118,9 +118,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     Supplier<BiMap<Class<?>, TypeCode>> CLASS_TO_TYPE_CODE_SUPPLIER = Suppliers.memoize(TypeCode::computeClassToTypeCodeMap);
 
     /**
-     * Returns the {@link TypeCode} of the {@link Type} instance.
-     *
-     * @return The {@link TypeCode} of the {@link Type} instance.
+     * {@return the {@link TypeCode} of the {@link Type} instance}
      */
     TypeCode getTypeCode();
 
@@ -353,9 +351,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
-     * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
-     *
-     * @return A map from Java {@link Class} to corresponding {@link TypeCode}.
+     * {@return a map from Java {@link Class} to its corresponding {@link TypeCode}}
      */
     @Nonnull
     static Map<Class<?>, TypeCode> getClassToTypeCodeMap() {
@@ -2753,9 +2749,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field {@link Type}.
-             *
-             * @return The field {@link Type}.
+             * {@return the field {@link Type}}
              */
             @Nonnull
             public Type getFieldType() {
@@ -2812,9 +2806,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field index.
-             *
-             * @return The field index.
+             * {@return the field index}
              */
             @Nonnull
             public Optional<Integer> getFieldIndexOptional() {
@@ -2822,9 +2814,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             /**
-             * Returns the field index.
-             *
-             * @return The field index.
+             * {@return the field index}
              */
             public int getFieldIndex() {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
@@ -3036,9 +3026,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * Returns the values {@link Type}.
-         *
-         * @return The values {@link Type}.
+         * {@return the value's {@link Type}}
          */
         @Nullable
         public Type getInnerType() {
@@ -3233,9 +3221,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
-         * Returns the array element {@link Type}.
-         *
-         * @return The array element {@link Type}.
+         * {@return the array element {@link Type}}
          */
         @Nullable
         public Type getElementType() {

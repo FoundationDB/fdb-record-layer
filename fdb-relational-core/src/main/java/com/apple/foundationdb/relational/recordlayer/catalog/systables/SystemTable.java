@@ -46,9 +46,7 @@ public interface SystemTable {
     String TEMPLATE_VERSION = "TEMPLATE_VERSION";
 
     /**
-     * Returns the name of the system table.
-     *
-     * @return The name of the system table.
+     * {@return the name of the system table}
      */
     @Nonnull
     String getName();

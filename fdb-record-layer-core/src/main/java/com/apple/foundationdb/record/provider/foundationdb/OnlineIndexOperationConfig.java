@@ -253,9 +253,8 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Get the maximum number of records to process in one transaction.
+         * {@return the maximum number of records to process in one transaction}
          *
-         * @return the maximum number of records to process in one transaction
          * @see #setMaxLimit(int)
          */
         public int getMaxLimit() {
@@ -276,9 +275,8 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Get the initial number of records to process in one transaction.
+         * {@return the initial number of records to process in one transaction}
          *
-         * @return the initial number of records to process in one transaction
          * @see #setInitialLimit(int)
          */
         public int getInitialLimit() {
@@ -323,9 +321,8 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Get the maximum number of times to retry a single range rebuild.
+         * {@return the maximum number of times to retry a single range rebuild}
          *
-         * @return the maximum number of times to retry a single range rebuild
          * @see #setMaxRetries(int)
          */
         public int getMaxRetries() {
@@ -347,9 +344,8 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Get the maximum number of records to process in a single second.
+         * {@return the maximum number of records to process in a single second}
          *
-         * @return the maximum number of records to process in a single second
          * @see #setRecordsPerSecond(int)
          */
         public int getRecordsPerSecond() {
@@ -476,9 +472,8 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Get the time quota for a single transaction.
+         * {@return the time quota for a single transaction}
          *
-         * @return the time quota for a single transaction
          * @see #setTransactionTimeLimitMilliseconds(long)
          */
         public long getTransactionTimeLimitMilliseconds() {

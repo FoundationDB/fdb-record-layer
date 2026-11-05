@@ -36,9 +36,7 @@ import java.util.Set;
 public interface SchemaTemplate extends Metadata {
 
     /**
-     * Returns the version of the schema template.
-     *
-     * @return The version of the schema template.
+     * {@return the version of the schema template}
      */
     int getVersion();
 
@@ -56,27 +54,24 @@ public interface SchemaTemplate extends Metadata {
     boolean isStoreRowVersions();
 
     /**
-     * Returns the {@link Table}s inside the schema template.
+     * {@return the {@link Table}s inside the schema template}
      *
-     * @return The {@link Table}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
     @Nonnull
     Set<? extends Table> getTables() throws RelationalException;
 
     /**
-     * Returns the {@link View}s inside the schema template.
+     * {@return the {@link View}s inside the schema template}
      *
-     * @return The {@link View}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
     @Nonnull
     Set<? extends View> getViews() throws RelationalException;
 
     /**
-     * Returns the {@link SyntheticTable}s inside the schema template.
+     * {@return the {@link SyntheticTable}s inside the schema template}
      *
-     * @return The {@link SyntheticTable}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
     @Nonnull
@@ -117,9 +112,8 @@ public interface SchemaTemplate extends Metadata {
     BitSet getIndexEntriesAsBitset(@Nonnull Optional<Set<String>> readableIndexNames) throws RelationalException;
 
     /**
-     * Returns all {@link InvokedRoutine}s defined in this schema template.
+     * {@return a set of all {@link InvokedRoutine}s defined in this schema template}
      *
-     * @return A set of all {@link InvokedRoutine}s defined in this schema template.
      * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
      */
     @Nonnull

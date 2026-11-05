@@ -74,10 +74,9 @@ public class HNSW {
     }
 
     /**
-     * Returns a default {@link Config}.
+     * {@return a new default {@code Config}}
      *
      * @param numDimensions number of dimensions
-     * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
      */
     @Nonnull
@@ -132,9 +131,7 @@ public class HNSW {
     }
 
     /**
-     * Get this hnsw's configuration.
-     *
-     * @return hnsw configuration
+     * {@return this hnsw's configuration}
      */
     @Nonnull
     public Config getConfig() {

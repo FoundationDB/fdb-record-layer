@@ -1069,10 +1069,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Get the maintainer for a given index.
+     * {@return the maintainer for the given index}
      *
      * @param index the required index
-     * @return the maintainer for the given index
      */
     @Nonnull
     @Override

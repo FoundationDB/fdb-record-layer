@@ -851,6 +851,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         /**
          * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
          * optionally followed by a nullability clause, exactly as written. Empty if the query declares no parameters.
+         *
          * @return the declared parameters, keyed by name.
          */
         @Nonnull
@@ -862,6 +863,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
          * The combinations this query is warmed for, one plan each, as a list of maps from parameter name to the
          * canonical token naming its state. The record layer stores these and returns them without interpreting them.
          * Empty if the query declares no parameters.
+         *
          * @return one map per case, keyed by parameter name.
          */
         @Nonnull

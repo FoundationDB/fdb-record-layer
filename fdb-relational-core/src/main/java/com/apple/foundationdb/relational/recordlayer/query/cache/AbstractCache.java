@@ -141,9 +141,7 @@ public abstract class AbstractCache<K, S, T, V> {
                              @Nonnull MetricCollector metricCollector);
 
     /**
-     * Retrieves the statistics of the cache.
-     *
-     * @return The statistics of the cache.
+     * {@return the statistics of the cache}
      */
     public abstract CacheStatistics getStats();
 }
