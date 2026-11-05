@@ -68,13 +68,14 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 /**
- * A {@link StreamingValue} that iterates over the elements of an array. For every element it produces a struct whose
- * first anonymous field is the element. If the explode is {@linkplain #hasOrdinality() with ordinality}, the struct has
- * a second anonymous field that holds the 0-based ordinal of the element within the array, akin to SQL's
+ * A {@link StreamingValue} that iterates over the elements of an array. For every element it produces a struct of two
+ * anonymous fields: the element, and the 0-based ordinal of the element within the array, akin to SQL's
  * {@code UNNEST ... WITH ORDINALITY}.
  *
- * <p>An explode without ordinality does not expose the positions of the elements, so its collection can be replaced by
- * any permutation of it, for example by a sorted one.
+ * <p>The struct has the same shape whether or not the explode is {@linkplain #hasOrdinality() with ordinality}. The
+ * ordinality only states whether the ordinals are observed. The ordinals of an explode without ordinality are not, so
+ * its collection can be replaced by any permutation of it, for example by a sorted one, even though that changes the
+ * ordinals it produces.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -116,9 +117,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         this.ordinalAlias = CorrelationIdentifier.uniqueId();
         final ImmutableList.Builder<Column<? extends Value>> columnsBuilder = ImmutableList.builder();
         columnsBuilder.add(Column.unnamedOf(QuantifiedObjectValue.of(elementAlias, elementType)));
-        if (withOrdinality) {
-            columnsBuilder.add(Column.unnamedOf(QuantifiedObjectValue.of(ordinalAlias, ORDINAL_TYPE)));
-        }
+        columnsBuilder.add(Column.unnamedOf(QuantifiedObjectValue.of(ordinalAlias, ORDINAL_TYPE)));
         this.structValue = RecordConstructorValue.ofColumns(columnsBuilder.build(), false);
         Verify.verify(ELEMENT_FIELD_NAME.equals(structValue.getResultType().getField(0).getFieldName()));
     }
@@ -183,13 +182,9 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
 
     @Nonnull
     private Object structOf(@Nonnull final EvaluationContext context, @Nonnull final Object element, final int ordinal) {
-        EvaluationContext elementContext = context
-                .withBinding(Bindings.Internal.CORRELATION, elementAlias,
-                        QueryResult.ofComputed(element));
-        if (withOrdinality) {
-            elementContext = elementContext.withBinding(Bindings.Internal.CORRELATION, ordinalAlias,
-                    QueryResult.ofComputed(ordinal));
-        }
+        final EvaluationContext elementContext = context
+                .withBinding(Bindings.Internal.CORRELATION, elementAlias, QueryResult.ofComputed(element))
+                .withBinding(Bindings.Internal.CORRELATION, ordinalAlias, QueryResult.ofComputed(ordinal));
         return Objects.requireNonNull(structValue.eval(null, elementContext));
     }
 

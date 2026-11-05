@@ -401,9 +401,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                 final var elementType = Objects.requireNonNull(((Type.Array)explodeValue.getCollectionValue().getResultType()).getElementType());
                 final var columns = ImmutableList.<Column<? extends Value>>builder();
                 columns.add(Column.unnamedOf(new FirstOrDefaultValue(explodeValue.getCollectionValue(), new ThrowsValue(elementType))));
-                if (explodeValue.hasOrdinality()) {
-                    columns.add(Column.unnamedOf(new ThrowsValue(Type.primitiveType(Type.TypeCode.INT, false))));
-                }
+                columns.add(Column.unnamedOf(new ThrowsValue(Type.primitiveType(Type.TypeCode.INT, false))));
                 final var representatives = ImmutableList.<Value>of(RecordConstructorValue.ofColumns(columns.build(), false));
                 return new Derivations(representatives, representatives);
             }
