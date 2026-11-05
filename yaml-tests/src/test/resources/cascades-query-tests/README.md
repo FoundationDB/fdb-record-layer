@@ -40,7 +40,7 @@ and the candidate carries none, so a hinted query cannot fall back to a scan —
 `UNSUPPORTED_QUERY`.
 
 Variant files are named with a suffix describing the index configuration, e.g.
-`and-query-to-intersection-two-covering.yamsql`.
+`in-query-union-intersection-no-nv3.yamsql`.
 
 ### One `schema_template` per file when the file uses `include:`
 
@@ -89,8 +89,7 @@ Expected rows use ordered `result:` only where the row *sequence* is actually de
 - rows that tie on those keys are identical, so the sequence is invariant anyway (e.g. a query that
   projects only its sort column); or
 - the query has no `ORDER BY` but the source asserts a specific order and the plan the run produced
-  determines it — currently `multi-field-index-selection-prefix-scalar.yamsql`,
-  `repeated-field-query-only-index.yamsql` and `covering-index-header-compound-pk.yamsql`; or
+  determines it; or
 - the block is paged with `maxRows:`, where page membership depends on order regardless.
 
 Everywhere else use `unorderedResult:`. **Tie order within equal sort keys is not derivable by
@@ -99,7 +98,7 @@ each leg forward, giving `(col desc, pk asc)`, whereas a reverse index scan give
 desc)`. Asserting a guessed tie order is stronger than the source and produces failures that say
 nothing about the product.
 
-Ordering by a column outside the projection is fine — see `orderby.yamsql:247`,
+Ordering by a column outside the projection is fine — see `orderby.yamsql:256`,
 `select c from t1 order by b`.
 
 ### PERMUTED_MIN / PERMUTED_MAX: the permuted size is derived, not declared
@@ -168,19 +167,32 @@ keeps index orderings contiguous — with the type key in the middle, an orderin
 `(num_value_3_indexed, rec_no)` is not reachable and the query fails to plan. Every file here
 declares exactly one table, so sharing the primary-key space is harmless.
 
-### `equalsParameter` needs no special treatment — but not for the reason you might assume
+### Parameters are injected, in a `statement_type: prepared` block
 
-Write the literal. A source test's `equalsParameter(...)` is covered because **`AstNormalizer` lifts every
-literal into a `ConstantObjectValue`** regardless of statement type — which is why every generated explain
-shows `promote(@c7 AS INT)` rather than an inline constant. The plan is parameterized either way.
+A value the source writes as a literal is written as a literal. **`AstNormalizer` lifts every literal into
+a `ConstantObjectValue`** regardless of statement type, which is why every generated explain shows
+`promote(@c7 AS INT)` rather than an inline constant.
 
-It is **not** because both statement types run. `statement_type` defaults to `BOTH`, but
-`preset: single_repetition_ordered` sets `repetition = 1`, and `TestBlock.getRunAsPreparedMix`
-(`block/TestBlock.java:517-521`) then returns a single `random.nextBoolean()` — so exactly *one* of simple
-or prepared runs, and which one varies per run because the seed defaults to `System.currentTimeMillis()`
-(`TestBlock.java:195`). Even in prepared mode, only explicit `!!…!!` injections become `?`
-(`QueryInterpreter.getInjections`), and none of these files use them, so both modes send byte-identical
-SQL.
+A value the source binds as a parameter — `equalsParameter(...)`, `in("name")`, a list passed through the
+`EvaluationContext` — is written as an explicit injection: `!! 0 !!` or `!! 'les aliments' !!` for a
+scalar, `!! !in {[1, 3]} !!` for an `IN` list. In prepared mode `QueryInterpreter.getInjections` turns each
+injection into a `?` and binds the value, so the query reaches the planner as a parameter, as in the source.
+
+Those queries go in a test block of their own, named `<file>-prepared`, or in the file's only block when
+every query in the file is parameterized. Either way the block sets
+
+```yaml
+  options:
+    statement_type: prepared
+```
+
+The option has to be pinned. `statement_type` defaults to `BOTH`, but `preset: single_repetition_ordered`
+sets `repetition = 1`, and `TestBlock.getRunAsPreparedMix` (`block/TestBlock.java:517-521`) then returns a
+single `random.nextBoolean()` — so exactly *one* of simple or prepared runs, and which one varies per run
+because the seed defaults to `System.currentTimeMillis()` (`TestBlock.java:195`). In simple mode an
+injection is spliced back into the SQL text as a literal, so a `BOTH` block would test the parameter only
+half the time. Literal queries stay in the main block: a source test that has both a literal and a
+parameter variant becomes one query in each block.
 
 ### `preset: single_repetition_ordered` on every block
 
@@ -215,57 +227,20 @@ those six columns.
 - **Unset `ARRAY` columns are `NULL` here, empty lists in the record layer.** A `repeated` proto
   field that was never set reads back as an empty list; a SQL `ARRAY` column omitted from an
   `INSERT` reads back as `NULL`.
-- **`startsWith` becomes `LIKE 'x%'`, which does not bound a scan.** `Query.field(f).startsWith("x")`
-  plans as the prefix range `{[x],[x]}`; `LIKE` plans as a residual filter. The knock-on effect is
-  bigger than the lost range: with nothing left to bound the record scan, the planner may prefer a
-  different access path altogether and the rows then arrive in *that* path's order. Seen in
-  `nested-field-query-hierarchical.yamsql`, where a covering index scan wins and the result had to be
-  relaxed to `unorderedResult`.
 - **The record layer's blanket duplicate removal is gone.** `RecordQuery.removeDuplicates` defaults to
   `true`, so `RelationalExpression.fromRecordQuery:163` wraps every record-layer graph in a
   `LogicalDistinctExpression`. The SQL front end adds no such thing — correctly, since SQL does not
   deduplicate rows. So an `unorderedPrimaryKeyDistinctPlan` in a source assertion is usually *not* a
-  planner decision to reproduce, and where the ported plan lacks it the result can be wrong: see
-  `.out/issue-exists-fanout-no-distinct.md`.
-- **Aggregate indexes over a repeated field always come out as a cross product.** The grouping key is
-  built from the GROUP BY values alone and the aggregated column is appended with `groupBy`, which
-  concatenates the two (`MaterializedViewIndexGenerator:233,438`, `GroupingKeyExpression.of:59-69`).
-  With a fan-out on both sides that is a cross product, so the *entries-together* shape — each key
-  paired with the value from its own entry — has no SQL spelling, however the DDL is written.
-- **Synthetic (unnested) record types have no DDL.** `RecordLayerSchemaTemplate.computeIndexes:285`
-  records the gap, so `addUnnestedRecordType` and `addNestedRecordType` index variants cannot be
-  reproduced. Same reason `FDBCrossRecordQueryTest` stays in JUnit.
-- **Direct-access aggregate reads have no SQL surface.** `evaluateAggregateFunction` with an
-  `IndexAggregateFunction` becomes a `GROUP BY` query, which is a different (and stronger) test:
-  it goes through the planner rather than reading the index directly.
-- **Per-index options are mostly unreachable.** `WITH ATTRIBUTES` offers only
-  `LEGACY_EXTREMUM_EVER` (`RelationalParser.g4` `indexAttribute`), so an `IndexOptions` value like
-  `BITMAP_VALUE_ENTRY_SIZE_OPTION` cannot be set and takes its default. That is what blocks
-  `GroupByTest`'s three bitmap tests, whose expectations are all about a bucket width of 4.
+  planner decision to reproduce.
 - **A SQL `ARRAY` is always the *wrapped* proto form.** `NullableArrayUtils.wrapArray` is applied to
   every generated index key, so a fan-out index ported from a plain `repeated` field is structurally
   the `…List { repeated X values }` variant. Behaviour is identical and the key expression gains a
   `values` hop. It also means a core test that exists to contrast the wrapped and unwrapped shapes —
   `FDBSimpleQueryGraphTest.testSimplePlanGraphWithNullableArray` — has no independent SQL content.
-- **`<struct array> = []` throws at execution.** Comparing an array-of-struct column to an array
-  literal plans fine and then fails per row with an internal `VerifyException`
-  (`PromoteValue.java:265`); only *primitive*-element arrays work. Use an unrestricted select or a
-  scalar predicate instead. See `.out/issue-promotevalue-struct-array-comparison.md`.
 - **`setRequiredResults` is not a projection.** It only steers the covering-index decision; the record
   layer still returns whole records. So a source method that sets it still wants `select *`, and the
   covering difference is unavoidable. Contrast the rule above: it is the *absence* of
   `setRequiredResults` that makes a narrow SQL projection wrong, because that changes the plan.
-- **ORDER BY over an expression containing a literal does not plan.** `order by <c & 4>` against an
-  index over `bitand(c, 4)` gives `UnableToPlanException`
-  (`long-arithmetic-functions-complex.yamsql`, `complexIndex`, both entries parked). Root cause:
-  `AbstractDataAccessRule.satisfiesRequestedOrdering` compares ordering values with plain `equals`
-  (`:801`, `:814`), and SQL's `ConstantObjectValue` is never structurally equal to the index's
-  `LiteralValue` — so every match in the partition is discarded and planning fails outright rather
-  than falling back. Computed values in *predicates* match fine, because that path goes through
-  `Value.semanticEquals` under `ValueEquivalence.constantEquivalenceWithEvaluationContext`. It is the
-  *literal* that breaks it, not the computation and not `select *`: `order by <a + b>` alone plans,
-  because `add(a, b)` holds no constant. Filed upstream 2026-09-07. **Do not drop the sort to make
-  such a query plan** — the sort is what the source tests, so keep it and park the query.
 - **A source test that asserts a full record scan will get an index scan instead.** The relational layer
   hard-wires `IndexScanPreference.PREFER_INDEX` (`PlannerConfiguration.java:160`), and the Cascades cost
   model consults it when comparing an index scan against a primary scan — `PREFER_SCAN` prefers the scan,
@@ -273,11 +248,10 @@ those six columns.
   preference. So `typeFilterPlan(scanPlan(unbounded))` and `typeFilter(anything(), scan(unbounded()))`
   assertions are unreachable whenever *any* index could serve the query, even a worse one: an unfiltered
   `select *` picks an arbitrary index plus a fetch, and a filter on an unindexed column scans an unrelated
-  index with the predicate residual. Affects `returned-record-limit-no-filter.yamsql` (where it costs the
-  whole plan assertion) and `repeated-field-query-prefix-repeated.yamsql` query1 (where the load-bearing
-  half — a *particular* index is not used — survives). A source test does still get the record scan when
-  no index can serve it at all, as `repeated-field-query-prefix-repeated-nested.yamsql` shows. Watch for
-  it as a row-order surprise: the expected order becomes the index key order, not the primary key order.
+  index with the predicate residual. Affects `in-query.yamsql` (`testInQueryNoIndex`), where the IN on the
+  unindexed `NUM_VALUE_2` is a residual filter over a full scan of `MY_SIMPLE_RECORD_STR_VALUE_INDEXED`; the
+  load-bearing half — that no index serves the IN — survives. Watch for it as a row-order surprise: the
+  expected order becomes the index key order, not the primary key order.
   `select * from my_simple_record` with no filter plans as `ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)`
   and emits rows in `(num_value_3_indexed, rec_no)` order.
 - **Store-counter assertions are lost.** `assertDiscardedNone` / `assertDiscardedAtMost` /
@@ -303,8 +277,7 @@ those six columns.
 An index can be put in `WRITE_ONLY` or `DISABLED` state, which is how `markIndexWriteOnly` /
 `markIndexDisabled` port. The directive needs the `database_id` and schema `name` in its JSON
 (`Command.java:189-190`), so the file cannot use an implicit `schema_template` — create the
-template, database and schema by hand and give the test block an explicit `connect:`. See
-`restricted-index-write-only.yamsql`. `store_info.formatVersion` is required (`Command.java:186`);
+template, database and schema by hand and give the test block an explicit `connect:`. `store_info.formatVersion` is required (`Command.java:186`);
 pass 2, as every existing user does. Every `setup:` block in such a file also needs
 `connect: "jdbc:embed:/__SYS?schema=CATALOG"` — with no `schema_template` there is no default
 connection URI and `SetupBlock$ManualSetupBlock.parse:115` resolves one eagerly.
@@ -357,9 +330,6 @@ tests to execute". So:
 | other working queries | the per-query `supported_version` sentinel |
 | only the failing query | `@Disabled` on the suite method — there is no collateral to protect |
 
-`and-query-to-intersection-two-covering`, `in-query-or-overlap` and `nested-field-query-doubly-nested` are
-the second kind, and each says so in the note on its query.
-
 **Verify the skip actually happened.** A sentinel that silently fails to skip looks exactly like a normal
 failing test, and the file will report the real defect as a fresh failure. After adding one, confirm the
 run logs the query as skipped rather than executed.
@@ -398,29 +368,28 @@ Ignore `MAP` — it is a projection artefact, never an access-path decision.
 
 | divergence | why |
 |---|---|
-| SQL plans a full **index** scan where the source plans a full **record** scan | any index whose entries cover the projection is cheaper than reading records; seen in `in-query.yamsql` (`testInQueryNoIndex`), `in-query-or.yamsql` (`testInQueryEmptyList`), `sparse-index-not-implied.yamsql`. The load-bearing assertion in those tests — that a *particular* index is not used — still holds |
-| covering + fetch where the source has a plain index scan, or the reverse | follows the projection. A source query with no `setRequiredResults` returns whole records; write `select *`, not a narrow column list, or the plan legitimately changes. This was a real port error in `multi-field-index-selection-prefix-scalar.yamsql`, fixed 2026-09-07 |
+| SQL plans a full **index** scan where the source plans a full **record** scan | any index whose entries cover the projection is cheaper than reading records; seen in `in-query.yamsql` (`testInQueryNoIndex`) and `in-query-or.yamsql` (`testInQueryEmptyList`). The load-bearing assertion in those tests — that a *particular* index is not used — still holds |
+| covering + fetch where the source has a plain index scan, or the reverse | follows the projection. A source query with no `setRequiredResults` returns whole records; write `select *`, not a narrow column list, or the plan legitimately changes |
 | in-join where the source has an in-union, or the reverse | follows `attemptFailedInJoinAsUnionMaxSize`. The SQL layer pins it at 24; the core tests set it per test (10, 20, …). Not exposed, so not reproducible |
-| the source has `unorderedPrimaryKeyDistinctPlan` and the SQL plan has no distinct | `RecordQuery.removeDuplicates` defaults to `true`, so `RelationalExpression.fromRecordQuery:163` wraps **every** record-layer graph in a `LogicalDistinctExpression`. It is not a planner decision. Sound wherever the fan-out component is equality-bound; where it is range-bounded the rows are actually wrong — see `.out/issue-exists-fanout-no-distinct.md` |
+| the source has `unorderedPrimaryKeyDistinctPlan` and the SQL plan has no distinct | `RecordQuery.removeDuplicates` defaults to `true`, so `RelationalExpression.fromRecordQuery:163` wraps **every** record-layer graph in a `LogicalDistinctExpression`. It is not a planner decision. Sound wherever the fan-out component is equality-bound; where it is range-bounded the rows can differ |
 | unordered-union + distinct where the SQL plan has an ordered union | same root cause as the row above |
-| a residual `FILTER … LIKE` where the source has a prefix range | `startsWith` → `LIKE 'x%'`; `LIKE` cannot bound a scan. Knock-on: with nothing left to bound the record scan the planner may pick a different access path entirely (`nested-field-query-hierarchical.yamsql`) |
-| "not covering because a required field is missing" cannot be reproduced | proto2 `required` has no SQL equivalent — every column is nullable, so nothing defeats the covering scan. `covering-index-header-not-covering.yamsql` keeps the index-choice coverage but has lost the property its source tested |
 
-## Filling in explains
+## Filling in and updating explains
 
-Every query already has an `- explain: ""` placeholder, so use **`CORRECT_EXPECTATIONS`** — not
-`ADD_EXPLAINS`, which only inserts into blocks that have no explain at all. `CORRECT_EXPECTATIONS`
-also switches on metrics correction, which matters here because no `.metrics.binpb` companions exist
-yet and an exact `explain:` enforces planner metrics.
+Every query has an exact `explain:`, and every file has its `<file>.metrics.binpb` and
+`<file>.metrics.yaml` companions, because an exact `explain:` also enforces the planner metrics. A new
+query starts with an `- explain: ""` placeholder; a planner change that moves a plan or its metrics shows
+up as a failure on the existing expectation. Either way, use **`CORRECT_EXPECTATIONS`** — not
+`ADD_EXPLAINS`, which only inserts into blocks that have no explain at all, and does not correct metrics.
 
 Locally only — CI rejects a committed `@MaintainYamlTestConfig`:
 
 1. Add `@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)` to the `@TestTemplate`
    method (or to the class, to do the whole suite at once).
 2. `./gradlew :yaml-tests:quickTest --tests 'CascadesQueryTests'`
-3. The framework rewrites each `- explain: ""` line in place with the actual plan, and writes
-   `<file>.metrics.binpb` and `<file>.metrics.yaml`.
-4. Review each generated explain against the `#` plan comment above the query — that comment is the
+3. The framework rewrites each `explain:` that differs (or is empty) in place with the actual plan, and
+   rewrites `<file>.metrics.binpb` and `<file>.metrics.yaml`.
+4. Review each changed explain against the `#` plan comment above the query — that comment is the
    plan the source test asserted, and the two should describe the same shape.
 5. **Remove the annotation** before committing.
 
@@ -440,6 +409,10 @@ Per-method detail — every source method, the file it landed in, and its curren
 
 ## Stays in JUnit, and why
 
-| Class | Why |
+No source class moves wholesale; the core tests stay where they are (see *Status*). Of the methods
+`MIGRATION.md` maps, one is **not portable** and stays a JUnit test permanently:
+
+| Method | Why |
 |---|---|
+| `FDBInQueryTest.testInQueryParameterBad` | binds a non-list to an `IN` parameter; a SQL `IN` list is always a list |
 
