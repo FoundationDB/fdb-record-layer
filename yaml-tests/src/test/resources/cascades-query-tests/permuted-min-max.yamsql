@@ -72,7 +72,7 @@ test_block:
                group by num_value_2, num_value_3_indexed
                having num_value_2 in (0, 2)
                order by max(num_value_unique) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
       - result: [{NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, M: 1000},
                  {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, M: 998},
                  {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, M: 997},
@@ -92,7 +92,7 @@ test_block:
                group by num_value_2, num_value_3_indexed
                having num_value_2 in (1, 1)
                order by max(num_value_unique) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
       - result: [{NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, M: 999},
                  {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, M: 996},
                  {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, M: 993},
@@ -106,7 +106,7 @@ test_block:
                group by num_value_2, num_value_3_indexed
                having num_value_2 in (-1, -1)
                order by max(num_value_unique) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
       - result: []
 ---
 test_block:
@@ -125,7 +125,7 @@ test_block:
                group by num_value_2, num_value_3_indexed
                having num_value_2 in !! !in {[0, 2]} !!
                order by max(num_value_unique) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
       - result: [{NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, M: 1000},
                  {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, M: 998},
                  {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, M: 997},
@@ -145,7 +145,7 @@ test_block:
                group by num_value_2, num_value_3_indexed
                having num_value_2 in !! !in {[1, 1]} !!
                order by max(num_value_unique) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
       - result: [{NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, M: 999},
                  {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, M: 996},
                  {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, M: 993},
@@ -159,6 +159,6 @@ test_block:
                group by num_value_2, num_value_3_indexed
                having num_value_2 in !! !in {[-1, -1]} !!
                order by max(num_value_unique) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
       - result: []
 ...

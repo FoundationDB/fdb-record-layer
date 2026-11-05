@@ -1,7 +1,7 @@
-Î3
+Ô3
 ›
-"in-query-union-intersection-no-nv3uEXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed in ? order by num_value_3_indexed­2
-‡Ø×ë2Ó Ùßù(’0û Ö8»@ú[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) âˆ© COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)Ž.digraph G {
+"in-query-union-intersection-no-nv3uEXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed in ? order by num_value_3_indexed³2
+‡Ø×ë2Ó Ùßù(’0û Ö8»@€[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) âˆ© COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)Ž.digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

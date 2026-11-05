@@ -5,7 +5,7 @@ permuted-min-max-ordering-keys:
         'other2')
     ref: permuted-min-max-ordering-keys.yamsql:91
     explain: '[IN arrayDistinct(@c25)] | INJOIN q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        [EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
         | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2, _._2 AS
         NUM_VALUE_3_INDEXED) }'
     task_count: 975
@@ -22,8 +22,8 @@ permuted-min-max-ordering-keys:
         'other2') order by max(num_value_unique) desc
     ref: permuted-min-max-ordering-keys.yamsql:137
     explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
-        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3],
+        _3: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
         _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_2,
         _.NUM_VALUE_3_INDEXED)'
     task_count: 564
@@ -40,8 +40,8 @@ permuted-min-max-ordering-keys:
         'other2') order by max(num_value_unique) desc, num_value_2 desc
     ref: permuted-min-max-ordering-keys.yamsql:183
     explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
-        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3],
+        _3: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
         _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.NUM_VALUE_2, _.STR_VALUE_INDEXED,
         _.NUM_VALUE_3_INDEXED)'
     task_count: 544
@@ -59,8 +59,8 @@ permuted-min-max-ordering-keys:
         desc
     ref: permuted-min-max-ordering-keys.yamsql:229
     explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
-        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3],
+        _3: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
         _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED,
         _.STR_VALUE_INDEXED)'
     task_count: 535
@@ -77,7 +77,7 @@ permuted-min-max-ordering-keys-prepared:
         num_value_3_indexed having str_value_indexed in ?
     ref: permuted-min-max-ordering-keys.yamsql:281
     explain: '[IN arrayDistinct(@c25)] | INJOIN q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        [EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
         | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2, _._2 AS
         NUM_VALUE_3_INDEXED) }'
     task_count: 975
@@ -94,8 +94,8 @@ permuted-min-max-ordering-keys-prepared:
         desc
     ref: permuted-min-max-ordering-keys.yamsql:327
     explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
-        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3],
+        _3: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
         _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_2,
         _.NUM_VALUE_3_INDEXED)'
     task_count: 564
@@ -112,8 +112,8 @@ permuted-min-max-ordering-keys-prepared:
         desc, num_value_2 desc
     ref: permuted-min-max-ordering-keys.yamsql:373
     explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
-        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3],
+        _3: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
         _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.NUM_VALUE_2, _.STR_VALUE_INDEXED,
         _.NUM_VALUE_3_INDEXED)'
     task_count: 544
@@ -130,8 +130,8 @@ permuted-min-max-ordering-keys-prepared:
         desc, num_value_2 desc, num_value_3_indexed desc
     ref: permuted-min-max-ordering-keys.yamsql:419
     explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
-        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
-        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3],
+        _3: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
         _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED,
         _.STR_VALUE_INDEXED)'
     task_count: 535

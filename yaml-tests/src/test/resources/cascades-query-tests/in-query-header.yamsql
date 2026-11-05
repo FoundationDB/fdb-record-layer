@@ -156,7 +156,7 @@ test_block:
       - query: select * from my_record
                where header.rec_no = 1
                  and header.path in ('String6', 'String1', 'String25', 'String11')
-      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9 AS LONG), EQUALS q0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } | FETCH"
+      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9 AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } | FETCH"
       - unorderedResult: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _},
                           {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 6}, STR_VALUE: '_6', REPEATED_INT: !null _},
                           {HEADER: {REC_NO: 1, PATH: 'String11', NUM: 11}, STR_VALUE: '_11', REPEATED_INT: !null _},
@@ -168,7 +168,7 @@ test_block:
       - query: select * from my_record
                where header.rec_no in (1, 4)
                  and header.path in ('String6', 'String25', 'String1', 'String34')
-      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN arrayDistinct(@c19)] | INJOIN q1 -> { COVERING(IND [EQUALS q0, EQUALS q1] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH"
+      - explain: "[IN arrayDistinct(@c19)] | INJOIN q0 -> { [IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q1 -> { COVERING(IND [EQUALS q1._0, EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH"
       - unorderedResult: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _},
                           {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 6}, STR_VALUE: '_6', REPEATED_INT: !null _},
                           {HEADER: {REC_NO: 4, PATH: 'String34', NUM: 34}, STR_VALUE: '_34', REPEATED_INT: !null _},
@@ -182,7 +182,7 @@ test_block:
                where header.rec_no in (1, 4)
                  and header.path in ('String6', 'String25', 'String1', 'String34')
                order by header.rec_no, header.path
-      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { [IN arrayDistinct(@c19) SORTED] | INJOIN q1 -> { COVERING(IND [EQUALS q0, EQUALS q1] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH"
+      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { [IN arrayDistinct(@c19) SORTED] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0, EQUALS q1._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH"
       - unorderedResult: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _},
                           {HEADER: {REC_NO: 1, PATH: 'String1', NUM: 51}, STR_VALUE: '_51', REPEATED_INT: !null _},
                           {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 56}, STR_VALUE: '_56', REPEATED_INT: !null _},
@@ -195,7 +195,7 @@ test_block:
       - query: select * from my_record
                where header.rec_no = 1
                  and header.path in ('String6', 'String1', 'String25', 'String11')
-      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9 AS LONG), EQUALS q0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } | FETCH"
+      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9 AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } | FETCH"
       - maxRows: 3
       - result: [{HEADER: {REC_NO: 1, PATH: 'String6', NUM: 56}, STR_VALUE: '_56', REPEATED_INT: !null _},
                  {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 6}, STR_VALUE: '_6', REPEATED_INT: !null _},
@@ -210,7 +210,7 @@ test_block:
       - query: select * from my_record
                where header.rec_no = 1
                  and header.path in ('String1', 'String6', 'String25', 'String11')
-      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9 AS LONG), EQUALS q0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } | FETCH"
+      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9 AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } | FETCH"
       - maxRows: 1
       - result: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _}]
       - result: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 51}, STR_VALUE: '_51', REPEATED_INT: !null _}]
