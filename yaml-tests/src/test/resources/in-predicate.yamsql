@@ -69,12 +69,12 @@ test_block:
     -
       # LONG value matched against IN list of only LONG values
       - query: select a, b from ta where b in (1, 3, 5, 7)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - unorderedResult: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
     -
       # LONG value matched against singleton IN list
       - query: select a, b from ta where b in (6)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - result: [{A: 3, 6}]
     -
       # LONG value matched against empty IN list
@@ -83,17 +83,17 @@ test_block:
     -
       # LONG value matched against IN list with no matches
       - query: select a, b from ta where b in (10, 33, 66)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - result: []
     -
       # LONG value matched against IN list of LONG-resultant arithmetic values
       - query: select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - unorderedResult: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
     -
       # LONG value matched against IN list of repeated LONG values
       - query: select a, b from ta where b in (1, 1, 1, 1)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - result: [{A: 8, 1}]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -102,7 +102,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG values
       - query: select a, b from ta where b in (1, 2, 1, 3)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - unorderedResult: [{A: 6, 3}, {A: 7, 2}, {A: 8, 1}]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -111,7 +111,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG-resultant simple arithmetic values
       - query: select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - result: [{A: 8, 1}]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -120,7 +120,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG-resultant simple expressions
       - query: select a, b from ta where b in (1 + 0, 0 + 1)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG))) | FILTER _ EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - result: [ { A: 8, 1 } ]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -165,48 +165,48 @@ test_block:
     -
       # DOUBLE value matched against IN list of DOUBLE values
       - query: select a, c from ta where c in (4.56, 3.45, 2.34)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER _ EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }"
       - unorderedResult: [{A: 1, 4.56}, {A: 4, 3.45}, {A: 7, 2.34}]
     -
       # DOUBLE value matched against singleton IN list of DOUBLE value
       - query: select a, c from ta where c in (9.01)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER _ EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }"
       - result: [{A: 6, 9.01}]
     -
       # DOUBLE value matched against singleton IN list of DOUBLE-resultant simple expressions
       - query: select a, c from ta where c in (3.01 + 6)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12)) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12)) | FILTER _ EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }"
       - result: [{A: 6, 9.01}]
     -
       # BOOLEAN value matched against IN list of BOOLEAN values
       - query: select a, d from ta where d in (true, false)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER _ EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }"
       - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x},
                     {A: 1, !ignore x}, {A: 3, !ignore x}, {A: 5, !ignore x}, {A: 7, !ignore x}, {A: 9, !ignore x}]
     -
       # BOOLEAN value matched against singleton IN list of BOOLEAN values
       - query: select a, d from ta where d in (true)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER _ EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }"
       - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
     -
       # BOOLEAN value matched against singleton IN list of BOOLEAN-resultant simple expressions
       - query: select a, d from ta where d in (3 < 4)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 lt @c12)) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 lt @c12)) | FILTER _ EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }"
       - unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
     -
       # STRING value matched against IN list of STRING values
       - query: select a, e from ta where e in ('bar', 'doe')
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER _ EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }"
       - unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
     -
       # STRING value matched against singleton IN list of STRING values
       - query: select a, e from ta where e in ('foo')
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER _ EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }"
       - unorderedResult: [ { A: 0, !ignore x }, { A: 6, !ignore x }]
     -
       # STRING value matched against IN list of BOOLEAN-resultant simple expressions
       - query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16)) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16)) | FILTER _ EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }"
       - unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
     -
       # struct value matched against IN list of Tuple values
@@ -391,7 +391,7 @@ test_block:
       # PartiQL join AT on bigint array with IN predicate on the ordinal.
       - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)
       - supported_version: 4.12.5.0
-      - explain: "EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._1 + 1 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }"
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS WITH ORDINALITY | FLATMAP q1 -> { EXPLODE arrayDistinct(@c23) | FILTER _ EQUALS q1._1 + 1 AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q1._0 AS N, q1._1 + 1 AS IDX) }"
       - unorderedResult: [
           {ID: 1, N: 10,  IDX: 1}, {ID: 1, N: 30,  IDX: 3},
           {ID: 2, N: 40,  IDX: 1},

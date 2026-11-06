@@ -1,8 +1,7 @@
 Ã
 ƒ
 in-query-compound-indexhEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by str_value_indexedº
-››Š›
-É Ý’½(I0õßG8H@ç[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH±digraph G {
+¦±äœÊ š¿Ò(J0õßG8I@ç[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

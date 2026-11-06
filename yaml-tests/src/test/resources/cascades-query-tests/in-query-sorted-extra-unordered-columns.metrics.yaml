@@ -1,72 +1,72 @@
 in-query-sorted-extra-unordered-columns:
 -   query: EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record
         where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4) order by num_value_unique
-    ref: in-query-sorted-extra-unordered-columns.yamsql:83
+    ref: in-query-sorted-extra-unordered-columns.yamsql:81
     explain: '[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION
         [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED:
         KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]])
         | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED,
         _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED,
         _.REC_NO)'
-    task_count: 988
-    task_total_time_ms: 245
-    transform_count: 329
-    transform_time_ms: 150
-    transform_yield_count: 117
-    insert_time_ms: 11
-    insert_new_count: 102
-    insert_reused_count: 4
+    task_count: 1010
+    task_total_time_ms: 43
+    transform_count: 331
+    transform_time_ms: 20
+    transform_yield_count: 119
+    insert_time_ms: 2
+    insert_new_count: 104
+    insert_reused_count: 3
 -   query: EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record
         where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4) order by num_value_unique
         desc
-    ref: in-query-sorted-extra-unordered-columns.yamsql:110
+    ref: in-query-sorted-extra-unordered-columns.yamsql:108
     explain: '[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION
         [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0],
         NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4],
         STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE,
         _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY
         (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)'
-    task_count: 988
-    task_total_time_ms: 104
-    transform_count: 329
-    transform_time_ms: 53
-    transform_yield_count: 117
-    insert_time_ms: 5
-    insert_new_count: 102
-    insert_reused_count: 4
+    task_count: 1010
+    task_total_time_ms: 34
+    transform_count: 331
+    transform_time_ms: 18
+    transform_yield_count: 119
+    insert_time_ms: 1
+    insert_new_count: 104
+    insert_reused_count: 3
 in-query-sorted-extra-unordered-columns-prepared:
 -   query: EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record
         where num_value_2 = ? and num_value_3_indexed in ? order by num_value_unique
-    ref: in-query-sorted-extra-unordered-columns.yamsql:144
+    ref: in-query-sorted-extra-unordered-columns.yamsql:142
     explain: '[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION
         [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED:
         KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]])
         | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED,
         _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED,
         _.REC_NO)'
-    task_count: 988
-    task_total_time_ms: 85
-    transform_count: 329
-    transform_time_ms: 44
-    transform_yield_count: 117
-    insert_time_ms: 4
-    insert_new_count: 102
-    insert_reused_count: 4
+    task_count: 1010
+    task_total_time_ms: 33
+    transform_count: 331
+    transform_time_ms: 16
+    transform_yield_count: 119
+    insert_time_ms: 1
+    insert_new_count: 104
+    insert_reused_count: 3
 -   query: EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record
         where num_value_2 = ? and num_value_3_indexed in ? order by num_value_unique
         desc
-    ref: in-query-sorted-extra-unordered-columns.yamsql:171
+    ref: in-query-sorted-extra-unordered-columns.yamsql:169
     explain: '[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION
         [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0],
         NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4],
         STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE,
         _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY
         (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)'
-    task_count: 988
-    task_total_time_ms: 76
-    transform_count: 329
-    transform_time_ms: 39
-    transform_yield_count: 117
-    insert_time_ms: 4
-    insert_new_count: 102
-    insert_reused_count: 4
+    task_count: 1010
+    task_total_time_ms: 27
+    transform_count: 331
+    transform_time_ms: 15
+    transform_yield_count: 119
+    insert_time_ms: 1
+    insert_new_count: 104
+    insert_reused_count: 3
