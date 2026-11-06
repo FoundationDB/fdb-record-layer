@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -321,6 +322,81 @@ public class StructDataMetadataTest {
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
             Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG((T.*))} carry the name of the table’s record type.
+     */
+    @Test
+    void testArrayAggWholeRow1() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG((T.*)) FROM T", resultSet -> {
+            Assertions.assertEquals("T", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG((X.*))} carry the name of the record type rather than the alias.
+     */
+    @Test
+    void testArrayAggWholeRow2() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG((X.*)) FROM T X", resultSet -> {
+            Assertions.assertEquals("T", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG(T)} carry the name of the table’s record type.
+     */
+    @Test
+    void testArrayAggWholeRow3() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG(T) FROM T", resultSet -> {
+            Assertions.assertEquals("T", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of a correlated {@code ARRAY_AGG((C.*))} carry the name of the table’s record type.
+     */
+    @Test
+    void testArrayAggWholeRow4() throws Throwable {
+        canReadStructTypeName("SELECT P.NAME, SQ.C FROM T P, (SELECT ARRAY_AGG((C.*)) AS C FROM T C WHERE C.NAME = P.NAME) SQ", resultSet -> {
+            Assertions.assertEquals("T", resultSet.getArray(2).getMetaData().getElementStructMetaData().getTypeName());
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG} over an explicit record constructor remain anonymous.
+     */
+    @Test
+    void testArrayAggWholeRow5() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG((T.NAME, T.ST1)) FROM T", resultSet -> {
+            Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
+                    resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG} over the nullable side of an outer join remain anonymous. This pins
+     * the current behavior: a nullable row cannot stand in for the non-nullable record constructor over its fields.
+     */
+    @Test
+    void testArrayAggWholeRow6() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG((N.*)) FROM T LEFT JOIN NT N ON T.NAME = N.T_NAME", resultSet -> {
+            Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
+                    resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG} over a derived table remain anonymous, as the derived table has no
+     * stored record type.
+     */
+    @Test
+    void testArrayAggWholeRow7() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG((S.*)) FROM (SELECT NAME FROM T) S", resultSet -> {
+            Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
+                    resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
+        }, 2, 0);
     }
 
     @Test
