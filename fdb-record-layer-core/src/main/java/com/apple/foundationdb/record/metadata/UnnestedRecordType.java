@@ -404,7 +404,8 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
      * Builds the quantifier standing for one constituent: a select over an explode of the constituent's array.
      *
      * <p>The explode is an {@link ExplodeValue}, so it flows an anonymous {@code (element, ordinal)} struct. The ordinal
-     * is needed to reconstruct the {@code __positions} field of a synthetic record.
+     * is needed to reconstruct the {@code __positions} field of a synthetic record, so the explode preserves the order
+     * of the array.
      *
      * @param ownerElementValue the record the array hangs off
      * @param nestingExpression the constituent's nesting expression

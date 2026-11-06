@@ -64,6 +64,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of {@link UnnestedRecordType#expand(AccessHint)}, of {@link JoinedRecordType#expand(AccessHint)}, and of the
@@ -96,7 +97,7 @@ class SyntheticRecordTypeExpansionTest {
     private static final AccessHint ACCESS_HINT = new PrimaryAccessHint();
 
     @Test
-    void expandUnnestsAConstituentWithOrdinality() {
+    void expandUnnestsAConstituentPreservingItsOrder() {
         final RecordMetaData metaData = mapMetaData(metaDataBuilder -> {
             final UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(UNNESTED_MAP);
             typeBuilder.addParentConstituent(PARENT, metaDataBuilder.getRecordType(OUTER));
@@ -119,11 +120,13 @@ class SyntheticRecordTypeExpansionTest {
         assertThat(scan.getAccessHints().getAccessHintSet(), contains(ACCESS_HINT));
         assertEquals(parentQuantifier.getFlowedObjectValue(), columnValue(expansion, PARENT));
 
-        // The nested constituent explodes `parent.map.entry`; the explode flows ordinals, so that positions can be recovered.
+        // The nested constituent explodes `parent.map.entry` in the order of the array, so that positions can be
+        // recovered from the ordinals.
         final Quantifier entryQuantifier = expansion.getQuantifiers().get(1);
         final ExplodeValue explode = assertSelectOverExplode(entryQuantifier);
         assertEquals(FieldValue.ofFieldNames(parentQuantifier.getFlowedObjectValue(), List.of("map", "entry")),
                 explode.getCollectionValue());
+        assertTrue(explode.preservesOrder());
 
         // The constituent's column is the element the explode flows, not the `(element, ordinal)` pair, and it is typed
         // as the synthetic record type declares that constituent, except that an element of an array is never null.
