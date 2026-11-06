@@ -455,20 +455,6 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return result;
     }
 
-    /**
-     * Gives an evaluation context the type repository of the types a plan uses, as executing the plan needs them.
-     * The bindings of the context are kept.
-     *
-     * @param plan the plan to be executed
-     * @param context the context to execute the plan with
-     * @return a context with the bindings of {@code context} and the types the plan uses
-     */
-    @Nonnull
-    protected static EvaluationContext withUsedTypes(@Nonnull RecordQueryPlan plan, @Nonnull EvaluationContext context) {
-        return EvaluationContext.forBindingsAndTypeRepository(context.getBindings(),
-                TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build());
-    }
-
     protected void setupRecordsWithHeader(RecordMetaDataHook recordMetaDataHook,
                                           BiConsumer<Integer, TestRecordsWithHeaderProto.MyRecord.Builder> buildRecord) throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -483,13 +469,18 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
-    protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
-                                          EvaluationContext evaluationContext, byte[] continuation, int limit,
+    protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan, byte[] continuation, int limit,
+                                          TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
+        queryRecordsWithHeader(recordMetaDataHook, plan, continuation, limit, handleResults, context -> { });
+    }
+
+
+    protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan, byte[] continuation, int limit,
                                           TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults,
                                           TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
-            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = plan.execute(recordStore, evaluationContext, continuation, ExecuteProperties.newBuilder()
+            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(limit)
                             .build())
                     .map(r -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(r.getRecord()));
@@ -500,12 +491,16 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
-                                          EvaluationContext evaluationContext,
+                                          TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
+        queryRecordsWithHeader(recordMetaDataHook, plan, handleResults, context -> { });
+    }
+
+    protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
                                           TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults,
                                           TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
-            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = plan.execute(recordStore, evaluationContext)
+            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = recordStore.executeQuery(plan)
                     .map(r -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(r.getRecord()));
             handleResults.accept(cursor);
             checkDiscarded.accept(context);
