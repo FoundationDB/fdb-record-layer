@@ -153,4 +153,17 @@ class TiebreakerImplementationTests {
         assertCompares(inOperatorTiebreaker, inJoinSargedComparisonPlan, filterScanWithInPlan, 0);
         assertCompares(inOperatorTiebreaker, inJoinSargedComparisonPlan, inJoinNonSargedPlan, 0); // anti-symmetry violation!
     }
+
+    @Test
+    void planHashTest() {
+        final Tiebreaker<RecordQueryPlan> planHashTiebreaker = PlanningCostModel.planHashTiebreaker();
+        final RecordQueryPlan low = new RecordQueryPlanWithFixedPlanHash("low", 14);
+        final RecordQueryPlan high = new RecordQueryPlanWithFixedPlanHash("high", 30);
+        final RecordQueryPlan alsoLow = new RecordQueryPlanWithFixedPlanHash("alsoLow", 14);
+
+        assertReflexive(planHashTiebreaker, low);
+        assertCompares(planHashTiebreaker, low, high, -1);
+        assertCompares(planHashTiebreaker, high, low, 1);
+        assertCompares(planHashTiebreaker, low, alsoLow, 0);
+    }
 }
