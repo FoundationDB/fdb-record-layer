@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArraySortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -240,11 +239,11 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
 
             //
             // A sorted source sorts the collection of the explode, which would renumber the ordinals, so only
-            // explodes without ordinality can be sorted. It is sorted by element, so it can only establish the
-            // requested order of a value that is compared to the element itself, which e.g. rules out the fields of
-            // the elements of a record-typed IN.
+            // explodes that do not preserve their order can be sorted. It is sorted by element, so it can only
+            // establish the requested order of a value that is compared to the element itself, which e.g. rules out
+            // the fields of the elements of a record-typed IN.
             //
-            if (explodeValue.hasOrdinality()) {
+            if (explodeValue.preservesOrder()) {
                 return Stream.empty();
             }
             final Value elementValue = ExplodeValue.elementValue(explodeQuantifier.getFlowedObjectValue());
@@ -374,10 +373,10 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                                             }
                                         } else {
                                             for (final var attemptedSortOrder : attemptedSortOrders) {
-                                                // only an explode without ordinality can be sorted, see above
+                                                // only an explode not preserving its order can be sorted
                                                 final InSource inSource =
                                                         computeInSource(explodeValue, explodeQuantifier,
-                                                                explodeValue.hasOrdinality() ? null : attemptedSortOrder);
+                                                                explodeValue.preservesOrder() ? null : attemptedSortOrder);
 
                                                 if (inSource != null) {
                                                     orderingResultsBuilder.add(new OrderingPartWithSource(null, inSource));
@@ -416,10 +415,9 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         if (attemptedSortOrder == null) {
             return new InExplodeSource(bindingName, explodeValue);
         }
-        Verify.verify(!explodeValue.hasOrdinality());
+        Verify.verify(!explodeValue.preservesOrder());
         // TODO needs to distinguish between different descending orders
-        return new InExplodeSource(bindingName, explodeValue.withCollectionValue(
-                new ArraySortValue(explodeValue.getCollectionValue(), attemptedSortOrder.isAnyDescending())));
+        return new InExplodeSource(bindingName, explodeValue.sorted(attemptedSortOrder.isAnyDescending()));
     }
 
     @Nonnull

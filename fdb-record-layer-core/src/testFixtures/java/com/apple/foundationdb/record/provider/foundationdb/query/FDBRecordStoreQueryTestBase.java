@@ -458,6 +458,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     /**
      * Gives an evaluation context the type repository of the types a plan uses, as executing the plan needs them.
      * The bindings of the context are kept.
+     *
      * @param plan the plan to be executed
      * @param context the context to execute the plan with
      * @return a context with the bindings of {@code context} and the types the plan uses
