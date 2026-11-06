@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
@@ -137,8 +138,11 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
         // only an IN over a value comparison is exploded; an IN over a literal list or a parameter stays a predicate
         final var inPredicates = Sets.<QueryPredicate>newIdentityHashSet();
         for (final var inPredicate : bindings.getAll(inPredicateMatcher)) {
-            if (inPredicate.getComparison() instanceof Comparisons.ValueComparison) {
+            final var comparison = inPredicate.getComparison();
+            if (comparison instanceof Comparisons.ValueComparison) {
                 inPredicates.add(inPredicate);
+            } else {
+                throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
             }
         }
         if (inPredicates.isEmpty()) {
