@@ -272,7 +272,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(reverse ? -2004057427 : -2004060309, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(reverse ? 399454035 : 571226247, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 rec -> Tuple.from(rec.getNumValue3Indexed()),
                 reverse,
@@ -306,6 +306,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 ))
                 )
         ));
+        assertEquals(257175491, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(1650081238, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -385,7 +387,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                         .and(isNotReverse())
                                         ))
                         )));
-        final var evaluationContext = withUsedTypes(plan, EvaluationContext.empty());
+        assertEquals(-2082261521, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        final var usedTypes = usedTypes().evaluate(plan);
+        final var evaluationContext =
+                EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
         assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
                 rec -> {
                     assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2)));
@@ -439,7 +444,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         mapPlan(predicatesFilterPlan(typeFilterPlan(scanPlan()))));
         assertEquals(-1783159911, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        final var evaluationContext = withUsedTypes(plan, EvaluationContext.empty());
+        final var usedTypes = usedTypes().evaluate(plan);
+        final var evaluationContext =
+                EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
         assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2))),
                 context -> TestHelpers.assertDiscardedExactly(80, context)));
@@ -521,7 +528,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(reverse ? -2004057427 : -2004060309, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(reverse ? 467383055 : 639155267, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 rec -> Tuple.from(rec.getNumValue3Indexed()),
                 reverse,
@@ -557,7 +564,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(514739864, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         int count = querySimpleRecordStore(NO_HOOK, plan,
-                () -> withUsedTypes(plan, EvaluationContext.forBinding("valueThrees", asList(1, 3, 4))),
+                () -> EvaluationContext.forBinding("valueThrees", asList(1, 3, 4)),
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
                 TestHelpers::assertDiscardedNone);
         assertEquals(60, count);
@@ -592,7 +599,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(reverse ? 342959006 : 514734098, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         int count = querySimpleRecordStore(NO_HOOK, plan,
-                () -> withUsedTypes(plan, EvaluationContext.forBinding("valueThrees", asList(1, 3, 4))),
+                () -> EvaluationContext.forBinding("valueThrees", asList(1, 3, 4)),
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
                 rec -> Tuple.from(rec.getNumValue3Indexed()),
                 reverse,
@@ -636,6 +643,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 .and(isNotReverse())
                 ))
         )));
+
+        assertEquals(reverse ? 257169539 : 257169725, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(reverse ? 1650075286 : 1650075472, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -696,7 +706,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         for (int i = 0; i < 5; i++) {
             final int p = i;
             int count = querySimpleRecordStore(hook, plan,
-                    () -> withUsedTypes(plan, EvaluationContext.forBindings(Bindings.newBuilder().set("p", p).set("valueThrees", List.of(0, 2)).build())),
+                    () -> EvaluationContext.forBindings(Bindings.newBuilder().set("p", p).set("valueThrees", List.of(0, 2)).build()),
                     rec -> {
                         assertEquals(p, rec.getNumValue3Indexed());
                         assertThat(rec.getNumValue2(), anyOf(is(0), is(2)));
@@ -755,7 +765,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         for (int i = 0; i < 5; i++) {
             final int p = i;
             int count = querySimpleRecordStore(hook, plan,
-                    () -> withUsedTypes(plan, EvaluationContext.forBindings(Bindings.newBuilder().set("p", p).set("valueThrees", List.of(0, 2)).build())),
+                    () -> EvaluationContext.forBindings(Bindings.newBuilder().set("p", p).set("valueThrees", List.of(0, 2)).build()),
                     rec -> {
                         assertEquals(p, rec.getNumValue3Indexed());
                         assertThat(rec.getNumValue2(), anyOf(is(0), is(2)));
@@ -869,7 +879,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(reverse ? -2004057427 : -2004060309, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(reverse ? 399454035 : 571226247, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 TestHelpers::assertDiscardedNone));
     }
@@ -975,7 +985,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         }
 
         assertEquals(21, querySimpleRecordStore(hook, plan,
-                () -> withUsedTypes(plan, EvaluationContext.forBindings(Bindings.newBuilder().set(value2Param, 1).set(value3ListParam, List.of(1, 2, 4)).build())),
+                () -> EvaluationContext.forBindings(Bindings.newBuilder().set(value2Param, 1).set(value3ListParam, List.of(1, 2, 4)).build()),
                 rec -> {
                     assertEquals(1, rec.getNumValue2());
                     assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4)));
@@ -1029,6 +1039,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         )
                 ).where(inUnionComparisonValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no"))))
         );
+
+        assertEquals(reverse ? -1792241225 : -1792271016,  plan.planHash(CURRENT_LEGACY));
+        assertEquals(reverse ? -1719624301 : -1714083175, plan.planHash(CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1134,7 +1147,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(972267, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
-        assertEquals(60, querySimpleRecordStore(hook, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(60, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 rec -> Tuple.from(rec.getStrValueIndexed()),
                 false,
@@ -1201,7 +1214,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(340962909, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
-        assertEquals(30, querySimpleRecordStore(hook, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(30, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 rec -> Tuple.from(rec.getStrValueIndexed()),
                 false,
@@ -1298,7 +1311,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         }
 
         assertEquals(21, querySimpleRecordStore(hook, plan,
-                () -> withUsedTypes(plan, EvaluationContext.empty()),
+                EvaluationContext::empty,
                 rec -> {
                     assertEquals(1, rec.getNumValue2());
                     assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4)));
@@ -1353,17 +1366,17 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1407869064, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(30, querySimpleRecordStore(hook, plan,
-                () -> withUsedTypes(plan, EvaluationContext.forBinding("inList", asList(1, 3, 4))),
+                () -> EvaluationContext.forBinding("inList", asList(1, 3, 4)),
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
                 rec -> Tuple.from(rec.getStrValueIndexed()),
                 false,
                 context -> { }));
         assertEquals(0, querySimpleRecordStore(hook, plan,
-                () -> withUsedTypes(plan, EvaluationContext.forBinding("inList", ImmutableList.of())),
+                () -> EvaluationContext.forBinding("inList", ImmutableList.of()),
                 rec -> fail("should not have any records"),
                 context -> { }));
         assertEquals(10, querySimpleRecordStore(hook, plan,
-                () -> withUsedTypes(plan, EvaluationContext.forBinding("inList", ImmutableList.of(3))),
+                () -> EvaluationContext.forBinding("inList", ImmutableList.of(3)),
                 rec -> assertThat(rec.getNumValue3Indexed(), is(3)),
                 rec -> Tuple.from(rec.getStrValueIndexed()),
                 false,
@@ -1445,7 +1458,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1864715405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
-        queryRecordsWithHeader(recordMetaDataHook, plan, withUsedTypes(plan, EvaluationContext.empty()), cursor ->
+        queryRecordsWithHeader(recordMetaDataHook, plan, cursor ->
                         assertEquals(asList( "_56", "_6", "_1", "_51", "_11", "_61"),
                                 cursor.map(TestRecordsWithHeaderProto.MyRecord.Builder::getStrValue).asList().get()),
                 TestHelpers::assertDiscardedNone);
@@ -1502,7 +1515,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1234840472, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
-        queryRecordsWithHeader(recordMetaDataHook, plan, withUsedTypes(plan, EvaluationContext.empty()), cursor ->
+        queryRecordsWithHeader(recordMetaDataHook, plan, cursor ->
                         assertEquals(asList("_56", "_6", "_1", "_51", "_34", "_84"),
                                 cursor.map(TestRecordsWithHeaderProto.MyRecord.Builder::getStrValue).asList().get()),
                 TestHelpers::assertDiscardedNone);
@@ -1555,7 +1568,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-1661991116, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
-        queryRecordsWithHeader(recordMetaDataHook, plan, withUsedTypes(plan, EvaluationContext.empty()), cursor ->
+        queryRecordsWithHeader(recordMetaDataHook, plan, cursor ->
                         assertEquals(asList("1:String1", "1:String1", "1:String6", "1:String6", "4:String34", "4:String34"),
                                 cursor.map(m -> m.getHeader().getRecNo() + ":" + m.getHeader().getPath()).asList().get()),
                 TestHelpers::assertDiscardedNone);
@@ -1604,7 +1617,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1864715405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
-        queryRecordsWithHeader(recordMetaDataHook, plan, withUsedTypes(plan, EvaluationContext.empty()), null, 3, cursor ->
+        queryRecordsWithHeader(recordMetaDataHook, plan, null, 3, cursor ->
                         assertEquals(asList( "_56", "_6", "_1"),
                                 cursor.map(TestRecordsWithHeaderProto.MyRecord.Builder::getStrValue).asList().get()),
                 TestHelpers::assertDiscardedNone);
@@ -1654,15 +1667,14 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // result: [ "_1", "_51", "_56", "_6", "_11", "_61"]
         final Holder<byte[]> continuation = new Holder<>();
-        queryRecordsWithHeader(recordMetaDataHook, plan, withUsedTypes(plan, EvaluationContext.empty()), null, 10,
+        queryRecordsWithHeader(recordMetaDataHook, plan, null, 10,
                 cursor -> {
                     RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
                     assertEquals("_1", Objects.requireNonNull(result.get()).getStrValue());
                     continuation.value = result.getContinuation().toBytes();
                 },
                 TestHelpers::assertDiscardedNone);
-        final RecordQueryPlan plan2 = planQuery(query);
-        queryRecordsWithHeader(recordMetaDataHook, plan2, withUsedTypes(plan2, EvaluationContext.empty()),
+        queryRecordsWithHeader(recordMetaDataHook, planQuery(query),
                 continuation.value, 10,
                 cursor -> {
                     RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
@@ -1682,9 +1694,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         // Note, Since we have two equals operands, the continuation ends up being relative to that
         // and is just the id, so we want the id of the continuation point from before ("_56") to be greater than the
         // first id of the new continuation ("_11")
-        final RecordQueryPlan plan3 = planQuery(query2);
         queryRecordsWithHeader(recordMetaDataHook,
-                plan3, withUsedTypes(plan3, EvaluationContext.empty()),
+                planQuery(query2),
                 continuation.value, 10,
                 cursor -> {
                     RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
@@ -1928,7 +1939,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1116661716, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-924293640, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        assertEquals(53, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(53, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValueUnique(), anyOf(is(901), is(903), is(905), greaterThan(950))),
                 TestHelpers::assertDiscardedNone));
     }
@@ -1966,7 +1977,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(468995802, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         Set<Long> dupes = new HashSet<>();
-        assertEquals(5, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(5, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> {
                     assertTrue(dupes.add(rec.getRecNo()), "should not have duplicated records");
                     assertThat(rec.getNumValueUnique(), anyOf(is(901), is(903), is(904), is(905), is(906)));
@@ -2002,7 +2013,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(224679143, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(2117979117, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> {
                     assertThat(rec.getNumValueUnique(), anyOf(lessThan(910), greaterThan(990)));
                     if (rec.getNumValue3Indexed() > 990) {
@@ -2044,7 +2055,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(468569345, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(1312398381, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        assertEquals(3 + 4 + 4, querySimpleRecordStore(hook, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(3 + 4 + 4, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 rec -> {
                     assertThat(rec.getStrValueIndexed(), is("odd"));
                     assertThat(rec.getNumValue2(), is(0));
@@ -2086,7 +2097,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1826025907, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         Set<Long> dupes = new HashSet<>();
-        assertEquals(50 + 10 + 10, querySimpleRecordStore(NO_HOOK, plan, () -> withUsedTypes(plan, EvaluationContext.empty()),
+        assertEquals(50 + 10 + 10, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> {
                     assertTrue(dupes.add(rec.getRecNo()), "should not have duplicated records");
                     assertTrue(rec.getStrValueIndexed().equals("odd") ||
