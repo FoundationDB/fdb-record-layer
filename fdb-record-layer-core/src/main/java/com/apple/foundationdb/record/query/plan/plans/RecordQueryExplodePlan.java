@@ -142,14 +142,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     /**
-     * Returns the type of the explode result: the element type itself, or an anonymous-field struct holding the
-     * element and, for the {@code WITH ORDINALITY} variant, the ordinal. The {@code WITH ORDINALITY} variant needs the
-     * struct to carry the ordinal; the plain variant takes it only when the plan flows a record constructor.
-     *
-     * @param elementType the element type of the collection being exploded
-     * @param withOrdinality whether ordinals are produced alongside the elements
-     * @param flowsRecordConstructorValue whether the plan flows a record constructor
-     * @return the result type of such an explode
+     * {@return the type of the explode result} This is the element type itself, unless the explode needs a struct to
+     * carry the ordinal or flows a record constructor.
      */
     @Nonnull
     private static Type explodeResultType(@Nonnull final Type elementType, final boolean withOrdinality,
@@ -166,15 +160,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     /**
-     * Returns the value an explode of {@code elementType} flows, of the
-     * {@linkplain #explodeResultType(Type, boolean, boolean) explode result type} either way: one opaque
-     * {@link QueriedValue}, or a {@link RecordConstructorValue} whose columns are the element and, for the
-     * {@code WITH ORDINALITY} variant, the ordinal.
-     *
-     * @param elementType the element type of the collection being exploded
-     * @param withOrdinality whether ordinals are produced alongside the elements
-     * @param flowsRecordConstructorValue whether the element and the ordinal are flowed as a record constructor
-     * @return the value flowed by such an explode
+     * {@return the value an explode flows} This is either one opaque {@link QueriedValue} or a
+     * {@link RecordConstructorValue} of the element and, if requested, the ordinal.
      */
     @Nonnull
     private static Value explodeResultValue(@Nonnull final Type elementType, final boolean withOrdinality,
