@@ -181,10 +181,10 @@ array-join-at:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
         WHERE T1."id" IN (1, 2)
-    ref: array-join-at.yamsql:308
+    ref: array-join-at.yamsql:311
     explain: '[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        T1, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.arr1_nn) AS q2 RETURN
-        (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) }'
+        T1, EQUALS q0._0]) | FLATMAP q1 -> { TF explode(q1.arr1_nn) AS q2 RETURN (q1.id
+        AS id, q2._0 AS val, q2._1 + 1 AS at) } }'
     task_count: 1167
     task_total_time_ms: 30
     transform_count: 452
@@ -195,7 +195,7 @@ array-join-at:
     insert_reused_count: 9
 -   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
         WHERE "at" IN (1, 2)
-    ref: array-join-at.yamsql:320
+    ref: array-join-at.yamsql:323
     explain: SCAN([IS T1]) | FLATMAP q0 -> { TF explode(q0.arr1_nn) | FILTER _._1
         + 1 IN @c19 AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }
     task_count: 1048

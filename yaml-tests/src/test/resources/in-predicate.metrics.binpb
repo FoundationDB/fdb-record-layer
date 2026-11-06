@@ -985,7 +985,7 @@ i
 }‡
 j
 	unnamed-2]EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)˜
-“	‘×šGÆ šîƒ(F0í§8Œ@	Ì[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0._0]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } }¨digraph G {
+“	‘×šGÆ šîƒ(F0í§8Œ@	Ì[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

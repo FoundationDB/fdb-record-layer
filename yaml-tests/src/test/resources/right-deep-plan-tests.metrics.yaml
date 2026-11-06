@@ -2,10 +2,10 @@ array-join-default-planner:
 -   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
         = t2.id WHERE t2.id IN (1000, 2000)
     ref: right-deep-plan-tests.yamsql:37
-    explain: SCAN([IS T1]) | FLATMAP q0 -> { TF explode(q0.T2_REFS) | FLATMAP q1 ->
-        { [IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS
-        T2, EQUALS q2._0]) | FILTER q1._0 EQUALS _.ID } AS q3 RETURN q3 } AS q3 RETURN
-        (q0.NAME AS _0, q3.NAME AS _1) }
+    explain: '[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
+        T2, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS)
+        | FILTER promote(_._0 AS LONG) EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN
+        (q2.NAME AS _0, q1.NAME AS _1) } }'
     task_count: 3327
     task_total_time_ms: 356
     transform_count: 1485
@@ -19,9 +19,9 @@ array-join-right-deep-planner:
         = t2.id WHERE t2.id IN (1000, 2000)
     ref: right-deep-plan-tests.yamsql:56
     explain: '[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        T2, EQUALS q0._0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF
-        explode(q2.T2_REFS) | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN
-        (q2.NAME AS _0, q1.NAME AS _1) }'
+        T2, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS)
+        | FILTER promote(_._0 AS LONG) EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN
+        (q2.NAME AS _0, q1.NAME AS _1) } }'
     task_count: 1855
     task_total_time_ms: 206
     transform_count: 763
@@ -35,9 +35,9 @@ array-join-right-deep-query-option:
         = t2.id WHERE t2.id IN (1000, 2000) OPTIONS (PLAN RIGHT DEEP)
     ref: right-deep-plan-tests.yamsql:76
     explain: '[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        T2, EQUALS q0._0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF
-        explode(q2.T2_REFS) | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN
-        (q2.NAME AS _0, q1.NAME AS _1) }'
+        T2, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS)
+        | FILTER promote(_._0 AS LONG) EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN
+        (q2.NAME AS _0, q1.NAME AS _1) } }'
     task_count: 1855
     task_total_time_ms: 206
     transform_count: 763

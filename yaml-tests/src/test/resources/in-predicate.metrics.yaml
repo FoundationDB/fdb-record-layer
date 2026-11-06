@@ -524,8 +524,8 @@ unnamed-2:
         WHERE t.id IN (2, 4)
     ref: in-predicate.yamsql:405
     explain: '[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        ARRAY_TABLE, EQUALS q0._0]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2
-        RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } }'
+        ARRAY_TABLE, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS
+        q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }'
     task_count: 1171
     task_total_time_ms: 149
     transform_count: 454
