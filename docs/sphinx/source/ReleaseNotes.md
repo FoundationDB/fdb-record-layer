@@ -8,55 +8,6 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.18
 
-{#release-4-18-2-0}
-
-### 4.18.2.0
-
-<h4> New Features </h4>
-
-* Plan stored queries through EmbeddedRelationalDriver - [PR #4735](https://github.com/FoundationDB/fdb-record-layer/pull/4735)
-* Stored query warm-up plans against the caller's record metadata and planner options - [PR #4728](https://github.com/FoundationDB/fdb-record-layer/pull/4728)
-* Warm one plan per prepared case - [PR #4572](https://github.com/FoundationDB/fdb-record-layer/pull/4572)
-* Plan a named parameter from its declared type without a value - [PR #4542](https://github.com/FoundationDB/fdb-record-layer/pull/4542)
-* Add a typed named parameter list and PREPARE FOR to CREATE STORED QUERY - [PR #4528](https://github.com/FoundationDB/fdb-record-layer/pull/4528)
-<h4> Bug Fixes </h4>
-
-* Set supported-version for in-query-or-overlap.yamsql - [PR #4855](https://github.com/FoundationDB/fdb-record-layer/pull/4855)
-
-<details>
-<summary>
-
-<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
-
-</summary>
-
-* Bump sphinx from 9.1.0 to 9.2.0 in /docs/sphinx - [PR #4860](https://github.com/FoundationDB/fdb-record-layer/pull/4860)
-* Bump soupsieve from 3.0.3 to 3.0.4 in /docs/sphinx - [PR #4861](https://github.com/FoundationDB/fdb-record-layer/pull/4861)
-* Bump actions/setup-python from 7.0.0 to 7.1.0 in /actions/setup-base-env - [PR #4859](https://github.com/FoundationDB/fdb-record-layer/pull/4859)
-* Bump sphinxcontrib-jsmath from 1.0.1 to 2.0.0 in /docs/sphinx - [PR #4858](https://github.com/FoundationDB/fdb-record-layer/pull/4858)
-* Enable the `InvalidJavadocPosition` Checkstyle check - [PR #4850](https://github.com/FoundationDB/fdb-record-layer/pull/4850)
-* Enable the `JavadocContentLocation` Checkstyle check - [PR #4849](https://github.com/FoundationDB/fdb-record-layer/pull/4849)
-* Enable the `JavadocMethod` Checkstyle check - [PR #4848](https://github.com/FoundationDB/fdb-record-layer/pull/4848)
-* Add an empty line before @return in stored query Javadoc - [PR #4856](https://github.com/FoundationDB/fdb-record-layer/pull/4856)
-* Tidy up Javadoc comments further - [PR #4847](https://github.com/FoundationDB/fdb-record-layer/pull/4847)
-* Leverage inline `{@return}` tags in further Javadoc comments - [PR #4846](https://github.com/FoundationDB/fdb-record-layer/pull/4846)
-* Port the record query tests affected by ExplodeValue to yamsql - [PR #4843](https://github.com/FoundationDB/fdb-record-layer/pull/4843)
-
-</details>
-
-
-**[Full Changelog (4.18.1.0...4.18.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.1.0...4.18.2.0)**
-
-<h4> Mixed Mode Test Results </h4>
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.14.2.0`, ❌`4.15.1.0`, ❌`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/42223462871)
-
-
-
 {#release-4-18-1-0}
 
 ### 4.18.1.0
