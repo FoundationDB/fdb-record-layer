@@ -33,9 +33,6 @@ jobs:
                 throw new Error("Target must be a patch branch or main, but was: " + context.ref);
             }
           result-encoding: string
-      - name: Print update type
-        shell: bash
-        run: echo "${{steps.update-type.outputs.result}}"
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Summarize release
