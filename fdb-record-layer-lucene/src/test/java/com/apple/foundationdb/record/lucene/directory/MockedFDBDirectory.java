@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
@@ -43,6 +45,7 @@ import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepo
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_LIST_ALL;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_READ_BLOCK;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_WAIT_FOR_DATA_BLOCK;
 
 /**
  * An {@link FDBDirectory} used for testing. It has the ability to delegate calls to the production implementation as well as fail as needed.
@@ -84,6 +87,16 @@ public class MockedFDBDirectory extends FDBDirectory {
                     injectedFailures.checkFailureForCoreException(LUCENE_READ_BLOCK);
                     return bytes;
                 });
+    }
+
+    @Nullable
+    @Override
+    public <T> T asyncToSync(@Nonnull final StoreTimer.Wait event, @Nonnull final CompletableFuture<T> async) {
+        // Unlike a failure in readBlock, this does not fail the future. Like a real timeout, the same data can be read later
+        if (event == LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK) {
+            injectedFailures.checkFailureForCoreException(LUCENE_WAIT_FOR_DATA_BLOCK);
+        }
+        return super.asyncToSync(event, async);
     }
 
     @Nonnull
