@@ -20,6 +20,7 @@
 #
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -86,6 +87,18 @@ def get_version(filename: str) -> tuple[int, int, int, int]:
     return version
 
 
+def release_summary(filename: str, update_type: str, ref: str | None) -> str:
+    new_version = incremented_version(get_version(filename), update_type)
+    lines = [
+        f'## Releasing version `{version_string(new_version)}`',
+        '',
+        f'- Update type: `{update_type}`',
+    ]
+    if ref:
+        lines.append(f'- Ref: `{ref}`')
+    return '\n'.join(lines)
+
+
 def main(argv: list[str]):
     parser = argparse.ArgumentParser(prog='versionutils',
                                      description='Utility to increment the project version stored in a version file')
@@ -94,8 +107,8 @@ def main(argv: list[str]):
     parser.add_argument('-u', '--update-type', type=str, default='BUILD', choices=VERSION_POSITIONS,
                         help='Type of update. Determines which position within the build number is updated')
     parser.add_argument('-c', '--commit', action='store_true', default=False, help='Whether to commit the update or not')
-    parser.add_argument('--next', action='store_true', default=False,
-                        help='Print the version that --increment would produce, without modifying the file')
+    parser.add_argument('--release-summary', action='store_true', default=False,
+                        help='Print a markdown summary of the version that --increment would produce, without modifying the file')
 
     args = parser.parse_args(argv)
     if args.increment:
@@ -106,8 +119,8 @@ def main(argv: list[str]):
             subprocess.check_output(['git', 'commit', '-m', f'Updating version to {version_string(new_version)}'])
             print('Version update committed')
 
-    elif args.next:
-        print(version_string(incremented_version(get_version(args.filename), args.update_type)))
+    elif args.release_summary:
+        print(release_summary(args.filename, args.update_type, os.environ.get('GITHUB_REF')))
     else:
        print(version_string(get_version(args.filename)))
 
