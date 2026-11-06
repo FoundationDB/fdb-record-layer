@@ -16,8 +16,8 @@ in-query-header:
 -   query: EXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path
         in ('String6', 'String25', 'String1', 'String34')
     ref: in-query-header.yamsql:171
-    explain: '[IN arrayDistinct(@c19)] | INJOIN q0 -> { [IN arrayDistinct(promote(@c9
-        AS ARRAY(LONG)))] | INJOIN q1 -> { COVERING(IND [EQUALS q1._0, EQUALS q0._0]
+    explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN
+        arrayDistinct(@c19)] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0, EQUALS q1._0]
         -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH'
     task_count: 2811
     task_total_time_ms: 208

@@ -112,7 +112,7 @@ test_block:
       - query: select * from my_simple_record
                where num_value_unique < 910
                   or (num_value_unique > 990 and num_value_2 in (2, 0))
-      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]]) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 IN @c16 COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO)"
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]]) ∪ [IN arrayDistinct(@c16)] INUNION q0 -> { ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0._0 } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO)"
       - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
                           {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
                           {REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},

@@ -1,7 +1,7 @@
-™.
+ª.
 ‹
-array-join-default-plannermEXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref = t2.id WHERE t2.id IN (1000, 2000)ˆ-
-ÿšÄ™ªÍ ÑÓœ((º0€Äœ8‘@9ƒSCAN([IS T1]) | FLATMAP q0 -> { TF explode(q0.T2_REFS) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T2, EQUALS q2._0]) | FILTER q1._0 EQUALS _.ID } AS q3 RETURN q3 } AS q3 RETURN (q0.NAME AS _0, q3.NAME AS _1) }ß*digraph G {
+array-join-default-plannermEXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref = t2.id WHERE t2.id IN (1000, 2000)™-
+ÿšÄ™ªÍ ÑÓœ((º0€Äœ8‘@9”[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS) | FILTER promote(_._0 AS LONG) EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) } }ß*digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -54,10 +54,10 @@
     rankDir=LR;
     10 -> 2 [ color="red" style="invis" ];
   }
-}š.
+}«.
 Ž
-array-join-right-deep-plannermEXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref = t2.id WHERE t2.id IN (1000, 2000)†-
-¿²ý°bû üÔÄ(l0»”–8â@ƒ[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0._0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS) | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) }ß*digraph G {
+array-join-right-deep-plannermEXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref = t2.id WHERE t2.id IN (1000, 2000)—-
+¿²ý°bû üÔÄ(l0»”–8â@”[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS) | FILTER promote(_._0 AS LONG) EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) } }ß*digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -110,10 +110,10 @@
     rankDir=LR;
     10 -> 2 [ color="red" style="invis" ];
   }
-}º.
+}Ë.
 ®
-"array-join-right-deep-query-option‡EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref = t2.id WHERE t2.id IN (1000, 2000) OPTIONS (PLAN RIGHT DEEP)†-
-¿²ý°bû üÔÄ(l0»”–8â@ƒ[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0._0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS) | FILTER _._0 EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) }ß*digraph G {
+"array-join-right-deep-query-option‡EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref = t2.id WHERE t2.id IN (1000, 2000) OPTIONS (PLAN RIGHT DEEP)—-
+¿²ý°bû üÔÄ(l0»”–8â@”[IN arrayDistinct(promote(@c29 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { TF explode(q2.T2_REFS) | FILTER promote(_._0 AS LONG) EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) } }ß*digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

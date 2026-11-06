@@ -22,7 +22,7 @@
 } 
 ’
 in-query-headerEXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path in ('String6', 'String25', 'String1', 'String34')…
-û´Ö¥cÕ ½’• (Ÿ0»ì8•@(ã[IN arrayDistinct(@c19)] | INJOIN q0 -> { [IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q1 -> { COVERING(IND [EQUALS q1._0, EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCHýdigraph G {
+û´Ö¥cÕ ½’• (Ÿ0»ì8•@(ã[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN arrayDistinct(@c19)] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0, EQUALS q1._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCHýdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -25,10 +25,10 @@ y
     rankDir=LR;
     6 -> 5 [ color="red" style="invis" ];
   }
-}¶(
+}Ÿ)
 ˆ
-in-query-oryEXPLAIN select * from my_simple_record where num_value_unique < 910 or (num_value_unique > 990 and num_value_2 in (2, 0))¨'
- ùX‘äÌùƒ î«‘„(Ü0®‘Ÿ8Ð@þæISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]]) âˆª ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 IN @c16 COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO)š%digraph G {
+in-query-oryEXPLAIN select * from my_simple_record where num_value_unique < 910 or (num_value_unique > 990 and num_value_2 in (2, 0))‘(
+ ùX‘äÌùƒ î«‘„(Ü0®‘Ÿ8Ð@þÏISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]]) âˆª [IN arrayDistinct(@c16)] INUNION q0 -> { ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0._0 } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO)š%digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
