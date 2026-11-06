@@ -32,23 +32,10 @@ import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 class VersionIndexDefinition implements IndexDefinition {
-    private final String indexName = "versionIndex";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         // The version index is over the record version, not any indexed field.
@@ -58,14 +45,15 @@ class VersionIndexDefinition implements IndexDefinition {
     @Override
     public Index buildIndex(final IndexTarget target) {
         // The version is a property of the record as a whole, so the indexed message is not used.
-        return new Index(indexName,
-                IndexScenarioMetaData.prefixed(target.groupingPrefix(), VersionKeyExpression.VERSION),
+        return new Index(ScenarioRecords.INDEX_NAME,
+                target.prefixed(VersionKeyExpression.VERSION),
                 IndexTypes.VERSION);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, scanProperties);
     }
 }

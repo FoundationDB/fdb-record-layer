@@ -33,14 +33,12 @@ import java.util.function.Supplier;
 public class RebuildIndex implements IndexScenario {
 
     @Override
-    public void runTest(final IndexDefinitionFactory definitionFactory,
+    public void runTest(final IndexDefinition definition,
                         Supplier<FDBRecordContext> openContext,
                         FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition();
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
-        model.setupIndex();
         model.saveRecords(records);
 
         List<IndexEntry> fromScratch = model.scanIndex();

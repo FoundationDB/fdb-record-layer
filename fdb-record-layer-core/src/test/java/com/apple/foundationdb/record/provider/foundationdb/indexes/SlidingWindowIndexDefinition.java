@@ -47,8 +47,6 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-
 /**
  * A sliding-window index over the scenario schema.
  * <p>
@@ -63,23 +61,12 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
  * {@code min(windowSize, recordsInPartition)} entries.
  */
 class SlidingWindowIndexDefinition implements IndexDefinition {
-    private final String indexName = "slidingWindowIndex";
     private final int windowSize;
     // A fixed query vector (all zeros) shared by every scan so that the before/after scans are comparable.
     private final HalfRealVector queryVector = new HalfRealVector(zeroComponents());
 
     SlidingWindowIndexDefinition(final int windowSize) {
         this.windowSize = windowSize;
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
     }
 
     @Override
@@ -95,14 +82,11 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
 
     @Override
     public Index buildIndex(final IndexTarget target) {
-        final KeyExpression vectorField = target.indexedField(ScenarioRecords.BYTES_VALUE);
-        final KeyExpression groupingPrefix = target.groupingPrefix();
-        final boolean grouped = groupingPrefix.getColumnSize() > 0;
-        final KeyExpression root = grouped
-                ? new KeyWithValueExpression(concat(groupingPrefix, vectorField), groupingPrefix.getColumnSize())
-                : new KeyWithValueExpression(vectorField, 0);
+        final int prefixSize = target.groupingPrefix().getColumnSize();
+        final KeyExpression root = new KeyWithValueExpression(
+                target.prefixed(target.indexedField(ScenarioRecords.BYTES_VALUE)), prefixSize);
         // The predicate's partition paths have to mirror the key-with-value prefix.
-        final List<List<String>> partitionPaths = grouped
+        final List<List<String>> partitionPaths = prefixSize > 0
                 ? ImmutableList.of(ImmutableList.of(ScenarioRecords.GROUP))
                 : ImmutableList.of();
         final IndexPredicate predicate = new IndexPredicate.RowNumberWindowPredicate(
@@ -110,15 +94,15 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
                 IndexPredicate.RowNumberWindowPredicate.Direction.DESC,
                 windowSize,
                 partitionPaths);
-        return new Index(indexName, root, IndexTypes.VECTOR,
+        return new Index(ScenarioRecords.INDEX_NAME, root, IndexTypes.VECTOR,
                 ImmutableMap.of(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                         IndexOptions.VECTOR_NUM_DIMENSIONS, String.valueOf(ScenarioRecords.VECTOR_DIMENSIONS)),
                 predicate);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        final Index index = store.getRecordMetaData().getIndex(indexName);
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
         // A vector index cannot be scanned through the TupleRange API; the range here is the partition
         // prefix and a large limit makes the nearest-neighbour search effectively exhaustive.
         final VectorIndexScanBounds bounds = new VectorIndexScanBounds(

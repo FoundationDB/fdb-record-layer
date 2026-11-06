@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import java.util.function.Supplier;
 
 public interface IndexScenario {
-    void runTest(IndexDefinitionFactory definitionFactory,
+    void runTest(IndexDefinition definition,
                  Supplier<FDBRecordContext> openContext,
                  FDBRecordStore.Builder storeBuilder) throws Exception;
 }

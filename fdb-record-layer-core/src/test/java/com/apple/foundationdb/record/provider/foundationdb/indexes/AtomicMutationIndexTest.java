@@ -72,7 +72,7 @@ public class AtomicMutationIndexTest {
     @MethodSource
     @Tag(Tags.IndexScenarios)
     void indexScenariosTest(IndexScenario scenario, String indexType) throws Exception {
-        scenario.runTest(() -> new AtomicMutationIndexDefinition(indexType),
+        scenario.runTest(new AtomicMutationIndexDefinition(indexType),
                 () -> {
                     FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                             .setTimer(new FDBStoreTimer())

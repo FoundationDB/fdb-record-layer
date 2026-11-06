@@ -31,7 +31,7 @@ in its definition:
 void indexScenariosTest(IndexScenario scenario) throws Exception {
     scenario.runTest(
             // the index type under test
-            XxxIndexDefinition::new,
+            new XxxIndexDefinition(),
             // how to open a transaction
             () -> database.openContext(config),
             // an appropriate store builder, notably does not set the metadata
@@ -92,8 +92,8 @@ Neither requires touching the shared proto, the other definitions, or the framew
 | Type | Role |
 |---|---|
 | `IndexScenario` / `@IndexScenarios` / `IndexScenariosArgumentsProvider` | A scenario and its ServiceLoader-based discovery/injection as JUnit arguments. |
-| `IndexDefinition` / `IndexDefinitionFactory` | Per-index-type description and its supplier. |
-| `IndexTarget` | Roots a definition's value expression at the indexed sub-message; supplies the grouping prefix. |
+| `IndexDefinition` | Per-index-type description: what to index, how to build the index, and how to scan it. |
+| `IndexTarget` | Roots a definition's value expression at the indexed sub-message; supplies and prepends the grouping prefix. |
 | `IndexScenarioMetaData` | Builds `RecordMetaData` (primary-key alignment, grouping, joined/unnested wiring). |
 | `ScenarioRecords` | Generates records over the shared schema; holds the field/type-name constants. |
 | `IndexScenarioModel` | Wraps a definition + context + store builder; store/index operations and result assertions. |

@@ -46,16 +46,14 @@ public class DeleteWhereGroup implements IndexScenario {
     private static final long GROUP_TO_DELETE = 0L;
 
     @Override
-    public void runTest(final IndexDefinitionFactory definitionFactory,
+    public void runTest(final IndexDefinition definition,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition();
         Assumptions.assumeTrue(definition.supportsGrouping(),
                 "index does not support grouped deleteRecordsWhere");
         final IndexScenarioModel model = IndexScenarioModel.grouped(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(12);
 
-        model.setupIndex();
         model.saveRecords(records);
 
         final List<IndexEntry> before = model.scanIndex();

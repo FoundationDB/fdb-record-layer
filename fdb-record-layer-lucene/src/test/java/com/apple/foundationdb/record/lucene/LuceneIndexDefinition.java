@@ -53,18 +53,6 @@ import java.util.stream.IntStream;
  * {@link IndexTarget} rooting works unchanged.
  */
 class LuceneIndexDefinition implements IndexDefinition {
-    private final String indexName = "luceneIndex";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
@@ -84,13 +72,13 @@ class LuceneIndexDefinition implements IndexDefinition {
         final KeyExpression root = groupingPrefix.getColumnSize() == 0
                 ? text
                 : text.groupBy(groupingPrefix);
-        return new Index(indexName, root, LuceneIndexTypes.LUCENE,
+        return new Index(ScenarioRecords.INDEX_NAME, root, LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        final Index index = store.getRecordMetaData().getIndex(indexName);
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
         if (index.getRootExpression() instanceof GroupingKeyExpression) {
             // A grouped Lucene index has no cross-group scan: every search is scoped to one grouping key.
             // Walk the groups the framework generates and chain the per-group searches together.

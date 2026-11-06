@@ -28,9 +28,6 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-
-import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -57,18 +54,6 @@ public final class IndexScenarioMetaData {
     }
 
     /**
-     * Compose a value expression with a grouping prefix: returns {@code expr} when the prefix is
-     * empty, else {@code concat(prefix, expr)}.
-     *
-     * @param prefix the grouping prefix (possibly empty)
-     * @param expr the value expression
-     * @return the composed expression
-     */
-    public static KeyExpression prefixed(final KeyExpression prefix, final KeyExpression expr) {
-        return prefix.getColumnSize() == 0 ? expr : concat(prefix, expr);
-    }
-
-    /**
      * Build metadata for a normal (non-synthetic) scenario. In {@link GroupingMode#GROUPED} mode the
      * index is grouped by {@code group} and every record type's primary key is prefixed with
      * {@code group}, so {@code deleteRecordsWhere(field("group").equalsValue(...))} can clear whole
@@ -85,16 +70,14 @@ public final class IndexScenarioMetaData {
                 ? field(ScenarioRecords.GROUP) : ScenarioRecords.noPrefix();
         // Normal scenario: the indexed message is the top-level `indexed` field.
         final Index index = definition.buildIndex(
-                target(within -> field(ScenarioRecords.INDEXED).nest(within), groupingPrefix));
-        if (IndexTypes.VERSION.equals(index.getType())) {
-            builder.setStoreRecordVersions(true);
-        }
+                new IndexTarget(within -> field(ScenarioRecords.INDEXED).nest(within), groupingPrefix));
+        maybeStoreVersions(builder, index);
         final KeyExpression primaryKey = mode == GroupingMode.GROUPED
                 ? concat(field(ScenarioRecords.GROUP), field(ScenarioRecords.REC_NO))
                 : field(ScenarioRecords.REC_NO);
         builder.getRecordType(ScenarioRecords.SCENARIO_RECORD).setPrimaryKey(primaryKey);
         builder.getRecordType(ScenarioRecords.OTHER_RECORD).setPrimaryKey(primaryKey);
-        builder.addIndex(definition.getIndexedTypeName(), index);
+        builder.addIndex(ScenarioRecords.SCENARIO_RECORD, index);
         return builder.build();
     }
 
@@ -121,7 +104,7 @@ public final class IndexScenarioMetaData {
             joined.addJoin(ScenarioRecords.SIMPLE_CONSTITUENT, ScenarioRecords.OTHER_REC_NO,
                     ScenarioRecords.OTHER_CONSTITUENT, ScenarioRecords.REC_NO);
             // The simple constituent's indexed message: simple.indexed.
-            index = definition.buildIndex(target(
+            index = definition.buildIndex(new IndexTarget(
                     within -> field(ScenarioRecords.SIMPLE_CONSTITUENT).nest(field(ScenarioRecords.INDEXED).nest(within)),
                     ScenarioRecords.noPrefix()));
             builder.addIndex(ScenarioRecords.JOINED_TYPE, index);
@@ -135,35 +118,12 @@ public final class IndexScenarioMetaData {
                     ScenarioRecords.PARENT_CONSTITUENT,
                     field(ScenarioRecords.REPEATED_INDEXED, KeyExpression.FanType.FanOut));
             // The entry constituent IS an IndexedMessage.
-            index = definition.buildIndex(target(
+            index = definition.buildIndex(new IndexTarget(
                     within -> field(ScenarioRecords.ENTRY_CONSTITUENT).nest(within), ScenarioRecords.noPrefix()));
             builder.addIndex(ScenarioRecords.UNNESTED_TYPE, index);
         }
         maybeStoreVersions(builder, index);
         return builder.build();
-    }
-
-    /**
-     * Create an {@link IndexTarget} from a rooting function (which places a value expression written
-     * relative to an {@code IndexedMessage} at its actual location) and a grouping prefix.
-     *
-     * @param rooting roots a value expression at the indexed message
-     * @param groupingPrefix the grouping prefix (empty for ungrouped / synthetic)
-     * @return the index target
-     */
-    private static IndexTarget target(final Function<KeyExpression, NestingKeyExpression> rooting,
-                                      final KeyExpression groupingPrefix) {
-        return new IndexTarget() {
-            @Override
-            public NestingKeyExpression indexed(final KeyExpression withinIndexedMessage) {
-                return rooting.apply(withinIndexedMessage);
-            }
-
-            @Override
-            public KeyExpression groupingPrefix() {
-                return groupingPrefix;
-            }
-        };
     }
 
     private static void maybeStoreVersions(final RecordMetaDataBuilder builder, final Index index) {

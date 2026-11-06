@@ -35,13 +35,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @AutoService(IndexScenario.class)
 public class InsertWhileWriteOnlyNotIndexed implements IndexScenario {
     @Override
-    public void runTest(final IndexDefinitionFactory definitionFactory,
+    public void runTest(final IndexDefinition definition,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition();
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
-        model.setupIndex();
         model.markIndexDisabled();
         model.markIndexWriteOnly();
 

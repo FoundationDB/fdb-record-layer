@@ -41,20 +41,9 @@ import java.util.Objects;
 
 class AtomicMutationIndexDefinition implements IndexDefinition {
     private final String indexType;
-    private final String indexName = "myIndex";
 
     public AtomicMutationIndexDefinition(final String indexType) {
         this.indexType = indexType;
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
     }
 
     @Override
@@ -70,12 +59,13 @@ class AtomicMutationIndexDefinition implements IndexDefinition {
         final KeyExpression value = Objects.equals(indexType, IndexTypes.COUNT) || Objects.equals(indexType, IndexTypes.COUNT_UPDATES)
                 ? Key.Expressions.empty()
                 : target.indexedField(ScenarioRecords.INT_VALUE);
-        return new Index(indexName, GroupingKeyExpression.of(value, target.groupingPrefix()), indexType);
+        return new Index(ScenarioRecords.INDEX_NAME, GroupingKeyExpression.of(value, target.groupingPrefix()), indexType);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
     }
 }

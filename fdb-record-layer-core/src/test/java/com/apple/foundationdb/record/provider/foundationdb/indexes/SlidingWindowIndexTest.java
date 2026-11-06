@@ -206,7 +206,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @IndexScenarios
     void windowSizeOneIndexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                () -> new SlidingWindowIndexDefinition(1),
+                new SlidingWindowIndexDefinition(1),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));
@@ -235,7 +235,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @IndexScenarios
     void windowLargerThanRecordCountIndexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                () -> new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
+                new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

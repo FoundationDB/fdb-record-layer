@@ -39,16 +39,14 @@ abstract class AbstractSyntheticTypeScenario implements IndexScenario {
     protected abstract SyntheticKind kind();
 
     @Override
-    public void runTest(final IndexDefinitionFactory definitionFactory,
+    public void runTest(final IndexDefinition definition,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition();
         Assumptions.assumeTrue(definition.supportsSynthetic(),
                 "index does not support synthetic record types");
         final IndexScenarioModel model = IndexScenarioModel.synthetic(definition, kind(), openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
-        model.setupIndex();
         model.saveRecords(records);
 
         final List<IndexEntry> fromScratch = model.scanIndex();

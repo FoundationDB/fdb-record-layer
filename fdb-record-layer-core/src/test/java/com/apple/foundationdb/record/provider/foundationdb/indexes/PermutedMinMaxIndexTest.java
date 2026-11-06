@@ -118,7 +118,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
     @MethodSource
     @Tag(Tags.IndexScenarios)
     void indexScenariosTest(IndexScenario scenario, String indexType) throws Exception {
-        scenario.runTest(() -> new PermutedMinMaxIndexDefinition(indexType),
+        scenario.runTest(new PermutedMinMaxIndexDefinition(indexType),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

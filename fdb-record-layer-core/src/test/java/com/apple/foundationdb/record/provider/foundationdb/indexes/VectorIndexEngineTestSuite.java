@@ -97,7 +97,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         // Runs the whole scenario battery against whichever engine the concrete subclass pins, by handing
         // the definition that subclass's index options.
         scenario.runTest(
-                () -> new VectorIndexDefinition(indexOptions()),
+                new VectorIndexDefinition(indexOptions()),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

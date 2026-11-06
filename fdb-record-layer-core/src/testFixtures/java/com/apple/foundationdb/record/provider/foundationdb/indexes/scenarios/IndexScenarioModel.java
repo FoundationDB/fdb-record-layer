@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
@@ -39,13 +40,14 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class IndexScenarioModel {
+public final class IndexScenarioModel {
     private enum RecordSource {
         SCENARIO, JOINED_CONSTITUENTS, UNNESTED_PARENTS
     }
 
     private final IndexDefinition definition;
     private final RecordMetaData metaData;
+    private final Index index;
     private final RecordSource recordSource;
     private final Supplier<FDBRecordContext> openContext;
     private final FDBRecordStore.Builder storeBuilder;
@@ -55,10 +57,12 @@ public class IndexScenarioModel {
                                final FDBRecordStore.Builder storeBuilder) {
         this.definition = definition;
         this.metaData = metaData;
+        this.index = metaData.getIndex(ScenarioRecords.INDEX_NAME);
         this.recordSource = recordSource;
         this.openContext = openContext;
         this.storeBuilder = storeBuilder;
         storeBuilder.setMetaDataProvider(metaData);
+        runAgainstStore(store -> definition.setupIndex(store, index));
     }
 
     /** Ungrouped normal scenario (the default). */
@@ -91,6 +95,10 @@ public class IndexScenarioModel {
         return metaData;
     }
 
+    public Index getIndex() {
+        return index;
+    }
+
     /** Generate the records to save for this scenario's configuration. */
     public List<Message> generateRecords(final int count) {
         switch (recordSource) {
@@ -109,10 +117,6 @@ public class IndexScenarioModel {
         return ScenarioRecords.otherRecords(count);
     }
 
-    public void setupIndex() {
-        runAgainstStore(definition::setupIndex);
-    }
-
     public void assertScanResultsEqual(final List<IndexEntry> expected, final List<IndexEntry> actual) {
         assertTrue(definition.scanResultsEqual(expected, actual),
                 () -> "index scan results differ:\n  expected=" + expected + "\n  actual=" + actual);
@@ -128,19 +132,19 @@ public class IndexScenarioModel {
     }
 
     public List<IndexEntry> scanIndex() {
-        return applyToStore(store -> definition.scanIndex(store, ScanProperties.FORWARD_SCAN).asList().join());
+        return applyToStore(store -> definition.scanIndex(store, index, ScanProperties.FORWARD_SCAN).asList().join());
     }
 
     public IndexState getIndexState() {
-        return applyToStore(store -> store.getIndexState(definition.getIndexName()));
+        return applyToStore(store -> store.getIndexState(index));
     }
 
     public void markIndexDisabled() {
-        runAgainstStore(store -> store.markIndexDisabled(definition.getIndexName()).join());
+        runAgainstStore(store -> store.markIndexDisabled(index).join());
     }
 
     public void markIndexWriteOnly() {
-        runAgainstStore(store -> store.markIndexWriteOnly(definition.getIndexName()).join());
+        runAgainstStore(store -> store.markIndexWriteOnly(index).join());
     }
 
     public void buildIndex() {
@@ -153,7 +157,7 @@ public class IndexScenarioModel {
     public OnlineIndexer.Builder getIndexerBuilder() {
         return OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
-                .addTargetIndex(definition.getIndexName());
+                .addTargetIndex(index);
     }
 
     public <T> T applyToStore(Function<FDBRecordStore, T> consumer) {

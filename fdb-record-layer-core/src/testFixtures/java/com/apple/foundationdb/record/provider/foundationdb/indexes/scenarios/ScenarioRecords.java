@@ -39,6 +39,9 @@ import java.util.stream.IntStream;
  * primary key ({@code rec_no}) and grouping field ({@code group}).
  */
 public final class ScenarioRecords {
+    /** The name every definition gives its index under test. */
+    public static final String INDEX_NAME = "scenarioIndex";
+
     // Record type names.
     public static final String SCENARIO_RECORD = "ScenarioRecord";
     public static final String OTHER_RECORD = "OtherScenarioRecord";

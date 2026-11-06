@@ -38,18 +38,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 import java.util.Collections;
 
 class LeaderboardIndexDefinition implements IndexDefinition {
-    private final String indexName = "LeaderboardIndex";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public boolean supportsGrouping() {
         // A grouped time-window leaderboard cannot be scanned with an all-groups range: the maintainer
@@ -87,21 +75,22 @@ class LeaderboardIndexDefinition implements IndexDefinition {
         final KeyExpression root = target.groupingPrefix().getColumnSize() == 0
                 ? scores.ungrouped()
                 : scores.groupBy(target.groupingPrefix());
-        return new Index(indexName, root, IndexTypes.TIME_WINDOW_LEADERBOARD);
+        return new Index(ScenarioRecords.INDEX_NAME, root, IndexTypes.TIME_WINDOW_LEADERBOARD);
     }
 
     @Override
-    public void setupIndex(final FDBRecordStore store) {
+    public void setupIndex(final FDBRecordStore store, final Index index) {
         // A leaderboard index needs at least one leaderboard (window) to exist before records
         // can be indexed. Create an all-time leaderboard (no explicit time-window specs).
-        store.performIndexOperation(indexName, new TimeWindowLeaderboardWindowUpdate(
+        store.performIndexOperation(index.getName(), new TimeWindowLeaderboardWindowUpdate(
                 System.currentTimeMillis(), true, 0L, true, Collections.emptyList(),
                 TimeWindowLeaderboardWindowUpdate.Rebuild.NEVER));
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new TimeWindowScanRange(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0L, TupleRange.ALL),
                 null, scanProperties);
     }

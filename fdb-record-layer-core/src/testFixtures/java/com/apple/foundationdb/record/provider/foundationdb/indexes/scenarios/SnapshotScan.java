@@ -39,20 +39,18 @@ import java.util.function.Supplier;
 public class SnapshotScan implements IndexScenario {
 
     @Override
-    public void runTest(final IndexDefinitionFactory definitionFactory, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) throws Exception {
-        final IndexDefinition definition = definitionFactory.getDefinition();
+    public void runTest(final IndexDefinition definition, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) throws Exception {
         Assumptions.assumeTrue(definition.supportsSnapshotIsolation(),
                 "index scan does not honour snapshot isolation");
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
-        model.setupIndex();
         model.saveRecords(records.subList(3, 6));
 
         final List<IndexEntry> original = model.scanIndex();
 
         final List<IndexEntry> snapshotScan = model.applyToStore(store -> {
-            final RecordCursor<IndexEntry> snapshotResult = definition.scanIndex(store, new ScanProperties(
+            final RecordCursor<IndexEntry> snapshotResult = definition.scanIndex(store, model.getIndex(), new ScanProperties(
                     ExecuteProperties.newBuilder()
                             .setIsolationLevel(IsolationLevel.SNAPSHOT).build()
             ));

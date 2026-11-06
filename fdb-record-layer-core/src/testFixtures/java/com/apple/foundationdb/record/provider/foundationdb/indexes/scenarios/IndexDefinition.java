@@ -35,11 +35,10 @@ import java.util.List;
  * key, and the grouping field, and wraps the definition's {@link #generateIndexedMessage} content
  * into a {@code ScenarioRecord}. A definition therefore only says <em>what</em> content to index
  * (in the generic {@code IndexedMessage}), <em>what</em> index to build over it, and <em>how</em>
- * to scan it.
+ * to scan it. The framework also owns the index's name ({@link ScenarioRecords#INDEX_NAME}) and the
+ * record type it is added to.
  */
 public interface IndexDefinition {
-    String getIndexName();
-
     /**
      * Produce the indexable content for record {@code index}. The definition fills in only the
      * field(s) of the generic {@code IndexedMessage} that it indexes, with deterministic,
@@ -55,7 +54,8 @@ public interface IndexDefinition {
      * Build the index under test. The {@link IndexTarget} roots the definition's value expression
      * (written relative to an {@code IndexedMessage}) at the correct location for the current
      * scenario (normal / grouped / joined / unnested), and supplies the grouping prefix. The same
-     * method therefore serves every scenario, including synthetic record types.
+     * method therefore serves every scenario, including synthetic record types. The index must be
+     * named {@link ScenarioRecords#INDEX_NAME}.
      *
      * @param target roots value expressions at the indexed message and supplies the grouping prefix
      * @return the index to add to the store
@@ -63,15 +63,14 @@ public interface IndexDefinition {
     Index buildIndex(IndexTarget target);
 
     /**
-     * The record type the index is added to for the normal (non-synthetic) scenarios. Normal
-     * definitions return {@link ScenarioRecords#SCENARIO_RECORD}. (Synthetic scenarios add the index
-     * to the framework-created synthetic type.)
+     * Scan the entire index.
      *
-     * @return the indexed type name
+     * @param store the record store to scan
+     * @param index the index under test, as built by {@link #buildIndex}
+     * @param scanProperties the properties to scan with
+     * @return a cursor over every entry in the index
      */
-    String getIndexedTypeName();
-
-    RecordCursor<IndexEntry> scanIndex(FDBRecordStore store, ScanProperties scanProperties);
+    RecordCursor<IndexEntry> scanIndex(FDBRecordStore store, Index index, ScanProperties scanProperties);
 
     /**
      * Whether this index can be built with a leading {@code group} prefix usable by
@@ -132,8 +131,9 @@ public interface IndexDefinition {
      * (e.g. a time window leaderboard needs a window to be created) can override this.
      *
      * @param store the record store to set up
+     * @param index the index under test, as built by {@link #buildIndex}
      */
-    default void setupIndex(final FDBRecordStore store) {
+    default void setupIndex(final FDBRecordStore store, final Index index) {
         // no-op by default
     }
 

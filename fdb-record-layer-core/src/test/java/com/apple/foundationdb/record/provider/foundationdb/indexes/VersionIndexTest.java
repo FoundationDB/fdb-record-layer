@@ -487,7 +487,7 @@ public class VersionIndexTest {
     @IndexScenarios
     void  indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                () -> new VersionIndexDefinition(),
+                new VersionIndexDefinition(),
                 () -> {
                     FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                             .setTimer(new FDBStoreTimer())

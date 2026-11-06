@@ -38,18 +38,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 import static com.apple.foundationdb.record.IndexScanType.BY_TEXT_TOKEN;
 
 class TextIndexDefinition implements IndexDefinition {
-    private final String indexName = "textScenarioIndex";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
@@ -65,12 +53,13 @@ class TextIndexDefinition implements IndexDefinition {
         final KeyExpression root = target.groupingPrefix().getColumnSize() == 0
                 ? textField
                 : textField.groupBy(target.groupingPrefix());
-        return new Index(indexName, root, IndexTypes.TEXT);
+        return new Index(ScenarioRecords.INDEX_NAME, root, IndexTypes.TEXT);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new IndexScanRange(BY_TEXT_TOKEN, TupleRange.ALL), null, scanProperties);
     }
 }

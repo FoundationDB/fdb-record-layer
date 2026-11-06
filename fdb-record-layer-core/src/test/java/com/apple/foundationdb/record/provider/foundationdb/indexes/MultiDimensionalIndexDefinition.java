@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.google.common.collect.ImmutableList;
@@ -43,18 +42,6 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
 class MultiDimensionalIndexDefinition implements IndexDefinition {
-    private final String indexName = "EventIntervals";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
@@ -69,12 +56,11 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
         // The R-tree always needs a (non-empty) dimensions prefix; use string_value as the base and prepend
         // the group prefix when grouped, so deleteRecordsWhere can clear a whole group (whose column is at
         // the front of, and no longer than, the dimensions prefix).
-        final KeyExpression prefix = IndexScenarioMetaData.prefixed(target.groupingPrefix(),
-                target.indexedField(ScenarioRecords.STRING_VALUE));
+        final KeyExpression prefix = target.prefixed(target.indexedField(ScenarioRecords.STRING_VALUE));
         final KeyExpression dimensions = concat(
                 target.indexedField(ScenarioRecords.LONG_VALUE),
                 target.indexedField(ScenarioRecords.LONG_VALUE_2));
-        return new Index(indexName,
+        return new Index(ScenarioRecords.INDEX_NAME,
                 DimensionsKeyExpression.of(prefix, dimensions),
                 IndexTypes.MULTIDIMENSIONAL,
                 ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
@@ -82,7 +68,8 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
         // Exhaustive scan: every dimension unbounded, so the R-tree returns all entries
         // in (deterministic) Hilbert-value order.
         final MultidimensionalIndexScanBounds.Hypercube hypercube =
@@ -91,7 +78,6 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
                         TupleRange.betweenInclusive(null, null)));
         final MultidimensionalIndexScanBounds bounds =
                 new MultidimensionalIndexScanBounds(TupleRange.ALL, hypercube, TupleRange.ALL);
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
-                bounds, null, scanProperties);
+        return store.scanIndex(index, bounds, null, scanProperties);
     }
 }

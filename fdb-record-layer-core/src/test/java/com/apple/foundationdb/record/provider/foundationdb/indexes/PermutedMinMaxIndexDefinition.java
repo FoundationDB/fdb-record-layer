@@ -34,28 +34,16 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioMetaData;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 import java.util.Collections;
 
 class PermutedMinMaxIndexDefinition implements IndexDefinition {
-    private final String indexName = "permutedIndex";
     private final String indexType;
 
     public PermutedMinMaxIndexDefinition(final String indexType) {
         this.indexType = indexType;
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
     }
 
     @Override
@@ -75,15 +63,15 @@ class PermutedMinMaxIndexDefinition implements IndexDefinition {
                 target.indexedField(ScenarioRecords.STRING_VALUE),
                 target.indexedField(ScenarioRecords.INT_VALUE),
                 target.indexedField(ScenarioRecords.LONG_VALUE));
-        final KeyExpression grouping = new GroupingKeyExpression(
-                IndexScenarioMetaData.prefixed(target.groupingPrefix(), columns), 1);
-        return new Index(indexName, grouping, indexType,
+        final KeyExpression grouping = new GroupingKeyExpression(target.prefixed(columns), 1);
+        return new Index(ScenarioRecords.INDEX_NAME, grouping, indexType,
                 Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
     }
 }

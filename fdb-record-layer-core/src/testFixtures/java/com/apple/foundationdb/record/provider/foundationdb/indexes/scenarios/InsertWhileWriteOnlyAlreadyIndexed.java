@@ -37,14 +37,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @AutoService(IndexScenario.class)
 public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
     @Override
-    public void runTest(final IndexDefinitionFactory definitionFactory,
+    public void runTest(final IndexDefinition definition,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
-        final IndexDefinition definition = definitionFactory.getDefinition();
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
-        model.setupIndex();
         model.saveRecords(records);
         model.markIndexDisabled();
 
@@ -66,7 +64,7 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
         model.markIndexDisabled();
         model.buildIndex();
         // TODO: this is not ideal. Perhaps an early symptom of the eventual challenges ahead
-        if (!model.getMetaData().getIndex(definition.getIndexName()).getType().equals(IndexTypes.COUNT_UPDATES)) {
+        if (!model.getIndex().getType().equals(IndexTypes.COUNT_UPDATES)) {
             model.assertScanResultsEqual(model.scanIndex(), actual);
         }
     }

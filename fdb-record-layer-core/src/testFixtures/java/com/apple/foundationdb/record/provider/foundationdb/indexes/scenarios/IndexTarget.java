@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 
+import java.util.function.Function;
+
 /**
  * Roots a definition's value expression at wherever the {@code IndexedMessage} lives for the current
  * scenario, and supplies the grouping prefix. A definition writes its value expression <em>relative
@@ -38,14 +40,31 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
  * (All of these are {@code field(...).nest(...)}, so they return a {@link NestingKeyExpression},
  * which offers {@code groupBy}/{@code ungrouped} for definitions that need them.)
  */
-public interface IndexTarget {
+public final class IndexTarget {
+    private final Function<KeyExpression, NestingKeyExpression> rooting;
+    private final KeyExpression groupingPrefix;
+
+    /**
+     * Create a target.
+     *
+     * @param rooting roots a value expression, written relative to an {@code IndexedMessage}, at the
+     * indexed message
+     * @param groupingPrefix the grouping prefix (empty for ungrouped / synthetic)
+     */
+    IndexTarget(final Function<KeyExpression, NestingKeyExpression> rooting, final KeyExpression groupingPrefix) {
+        this.rooting = rooting;
+        this.groupingPrefix = groupingPrefix;
+    }
+
     /**
      * Root a value expression, written relative to the {@code IndexedMessage}, at its actual location.
      *
      * @param withinIndexedMessage the value expression relative to the indexed message
      * @return the rooted expression
      */
-    NestingKeyExpression indexed(KeyExpression withinIndexedMessage);
+    public NestingKeyExpression indexed(final KeyExpression withinIndexedMessage) {
+        return rooting.apply(withinIndexedMessage);
+    }
 
     /**
      * Convenience for a single scalar field of the indexed message.
@@ -53,7 +72,7 @@ public interface IndexTarget {
      * @param fieldName the field name within the indexed message
      * @return the rooted field expression
      */
-    default NestingKeyExpression indexedField(final String fieldName) {
+    public NestingKeyExpression indexedField(final String fieldName) {
         return indexed(Key.Expressions.field(fieldName));
     }
 
@@ -64,5 +83,18 @@ public interface IndexTarget {
      *
      * @return the grouping prefix expression
      */
-    KeyExpression groupingPrefix();
+    public KeyExpression groupingPrefix() {
+        return groupingPrefix;
+    }
+
+    /**
+     * Prepend the {@link #groupingPrefix()} to an expression: returns {@code expr} when the prefix is
+     * empty, else {@code concat(groupingPrefix(), expr)}.
+     *
+     * @param expr the expression to prefix
+     * @return the prefixed expression
+     */
+    public KeyExpression prefixed(final KeyExpression expr) {
+        return groupingPrefix.getColumnSize() == 0 ? expr : Key.Expressions.concat(groupingPrefix, expr);
+    }
 }

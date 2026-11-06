@@ -35,18 +35,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 class RankIndexDefinition implements IndexDefinition {
-    private final String indexName = "rankIndex";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
@@ -57,14 +45,15 @@ class RankIndexDefinition implements IndexDefinition {
     @Override
     public Index buildIndex(final IndexTarget target) {
         // groupBy(empty) == ungrouped; groupBy(field("group")) groups the rank set by group.
-        return new Index(indexName,
+        return new Index(ScenarioRecords.INDEX_NAME,
                 target.indexedField(ScenarioRecords.INT_VALUE).groupBy(target.groupingPrefix()),
                 IndexTypes.RANK);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, scanProperties);
     }
 }

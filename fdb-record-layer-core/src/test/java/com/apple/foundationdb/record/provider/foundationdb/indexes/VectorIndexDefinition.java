@@ -41,15 +41,12 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 import javax.annotation.Nonnull;
 import java.util.Map;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-
 /**
  * A vector index over the scenario schema. The engine-specific index options (engine kind, metric,
  * dimensionality) are supplied by the test that owns the engine — see
  * {@link VectorIndexEngineTestSuite} — so the same definition exercises every vector engine.
  */
 class VectorIndexDefinition implements IndexDefinition {
-    private final String indexName = "vectorIndex";
     @Nonnull
     private final Map<String, String> indexOptions;
     // A fixed query vector (all zeros) shared by every scan so that the before/after scans are comparable.
@@ -57,16 +54,6 @@ class VectorIndexDefinition implements IndexDefinition {
 
     VectorIndexDefinition(@Nonnull final Map<String, String> indexOptions) {
         this.indexOptions = indexOptions;
-    }
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
     }
 
     @Override
@@ -79,17 +66,15 @@ class VectorIndexDefinition implements IndexDefinition {
 
     @Override
     public Index buildIndex(final IndexTarget target) {
-        final KeyExpression vectorField = target.indexedField(ScenarioRecords.BYTES_VALUE);
-        final KeyExpression groupingPrefix = target.groupingPrefix();
-        final KeyExpression root = groupingPrefix.getColumnSize() == 0
-                ? new KeyWithValueExpression(vectorField, 0)
-                : new KeyWithValueExpression(concat(groupingPrefix, vectorField), groupingPrefix.getColumnSize());
-        return new Index(indexName, root, IndexTypes.VECTOR, indexOptions);
+        final KeyExpression root = new KeyWithValueExpression(
+                target.prefixed(target.indexedField(ScenarioRecords.BYTES_VALUE)),
+                target.groupingPrefix().getColumnSize());
+        return new Index(ScenarioRecords.INDEX_NAME, root, IndexTypes.VECTOR, indexOptions);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        final Index index = store.getRecordMetaData().getIndex(indexName);
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
         // A large k makes the (approximate) nearest-neighbor search effectively exhaustive for the small
         // number of records the scenarios use. The options are deliberately engine-neutral.
         final VectorIndexScanOptions options = VectorIndexScanOptions.builder()

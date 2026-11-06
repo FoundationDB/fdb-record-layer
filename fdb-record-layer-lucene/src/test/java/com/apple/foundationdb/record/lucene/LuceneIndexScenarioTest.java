@@ -47,7 +47,7 @@ public class LuceneIndexScenarioTest extends FDBRecordStoreConcurrentTestBase {
     @IndexScenarios
     void indexScenariosTest(IndexScenario scenario) throws Exception {
         scenario.runTest(
-                LuceneIndexDefinition::new,
+                new LuceneIndexDefinition(),
                 this::openContext,
                 FDBRecordStore.newBuilder()
                         .setKeySpacePath(path));

@@ -35,18 +35,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 
 class BitmapValueIndexDefinition implements IndexDefinition {
-    private final String indexName = "bitmapIndex";
-
-    @Override
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Override
-    public String getIndexedTypeName() {
-        return ScenarioRecords.SCENARIO_RECORD;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         // The bit position must be a small non-negative integer.
@@ -59,14 +47,15 @@ class BitmapValueIndexDefinition implements IndexDefinition {
     public Index buildIndex(final IndexTarget target) {
         // The grouped column is the bit position; groupBy(empty) is a single bitmap, groupBy(group) is one
         // bitmap per group.
-        return new Index(indexName,
+        return new Index(ScenarioRecords.INDEX_NAME,
                 target.indexedField(ScenarioRecords.INT_VALUE).groupBy(target.groupingPrefix()),
                 IndexTypes.BITMAP_VALUE, BitmapValueIndexTest.SMALL_BITMAP_OPTIONS);
     }
 
     @Override
-    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
-        return store.scanIndex(store.getRecordMetaData().getIndex(indexName),
+    public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
+                                              final ScanProperties scanProperties) {
+        return store.scanIndex(index,
                 new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
     }
 }
