@@ -268,8 +268,8 @@ public final class FDBIndexInput extends IndexInput {
         }
         try {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
-            position++;
             byte[] data = getCurrentData();
+            position++;
             verify(data != null, "current Data is null: " + fileName + " " + fileReference.getId());
             return data[probe];
         } catch (RecordCoreException ex) {

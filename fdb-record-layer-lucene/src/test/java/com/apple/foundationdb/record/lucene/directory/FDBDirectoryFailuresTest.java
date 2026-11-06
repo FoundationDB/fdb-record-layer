@@ -24,12 +24,23 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.test.Tags;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +57,7 @@ import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepo
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_INCREMENT;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_LIST_ALL;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_READ_BLOCK;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_WAIT_FOR_DATA_BLOCK;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -220,6 +232,47 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_RENAME_FILE, 1);
     }
 
+    @Test
+    public void testReadByteFailureDoesNotAdvancePosition() throws Exception {
+        writeFile("testReadByte", CodecUtil.footerLength() + 1);
+        addFailure(LUCENE_READ_BLOCK,
+                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")), 0);
+
+        try (FDBIndexInput input = new FDBIndexInput("testReadByte", directory)) {
+            final IOException ex = assertThrows(IOException.class, input::readByte);
+            assertTrue(ex.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
+            // A byte that failed to read must not be counted as read
+            assertEquals(0, input.getFilePointer());
+        }
+    }
+
+    /**
+     * Open the doc values of a real segment while the first read of data times out. {@code Lucene80DocValuesProducer}
+     * calls {@code CodecUtil.checkFooter} even if reading the header failed. If the failed read advanced the position,
+     * the checksum (which does not include the byte that was not read) does not match the footer, and the timeout is
+     * hidden behind a {@link CorruptIndexException}.
+     */
+    @Test
+    public void testDocValuesTimeoutThrowsTimeoutException() throws Exception {
+        try (IndexWriter writer = new IndexWriter(directory,
+                new IndexWriterConfig(new StandardAnalyzer()).setCodec(LuceneOptimizedCodec.CODEC))) {
+            final Document document = new Document();
+            document.add(new SortedDocValuesField("dv", new BytesRef("value")));
+            writer.addDocument(document);
+            writer.commit();
+        }
+
+        try (DirectoryReader reader = DirectoryReader.open(directory)) {
+            final LeafReader leafReader = reader.leaves().get(0).reader();
+            // Fail the async to sync with a timeout only once
+            injectedFailures.addTransientFailure(LUCENE_WAIT_FOR_DATA_BLOCK,
+                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")), 0, 1);
+            final IOException ex = assertThrows(IOException.class, () -> leafReader.getSortedDocValues("dv"));
+            assertTrue(ex.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException,
+                    () -> "Expected the timeout to be the cause, but got: " + ex);
+        }
+    }
+
     private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {
         assertEquals(expectedValue, timer.getCount(metric),
                 () -> "Incorrect call count for metric " + metric);
@@ -235,6 +288,14 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
     private void assertMetricCountAtMost(StoreTimer.Event metric, int maximumValue) {
         assertThat("Metric " + metric + " should be called at most " + maximumValue + " times",
                 timer.getCount(metric), lessThanOrEqualTo(maximumValue));
+    }
+
+    private void writeFile(final String name, final int length) throws IOException {
+        final byte[] bytes = new byte[length];
+        random.nextBytes(bytes);
+        try (FDBIndexOutput output = new FDBIndexOutput(name, directory)) {
+            output.writeBytes(bytes, bytes.length);
+        }
     }
 
     /*
