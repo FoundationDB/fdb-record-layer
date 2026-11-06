@@ -64,7 +64,7 @@ in-query-or-prepared:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ?
     ref: in-query-or.yamsql:258
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
-        IN promote(@c7 AS ARRAY(INT))
+        IN @c7
     task_count: 1063
     task_total_time_ms: 33
     transform_count: 280

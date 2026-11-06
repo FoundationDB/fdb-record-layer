@@ -366,11 +366,7 @@ public class LogicalOperator {
     }
 
     /**
-     * Converts the fields of a record-typed value into expressions, one per field, each accessing its field of the
-     * value by ordinal. An access of a field of a field is fused into one field value.
-     *
-     * @param recordValue a value of a record type
-     * @return the expressions accessing the fields of the value
+     * {@return one expression per field of a record-typed value, accessing the field by ordinal}
      */
     @Nonnull
     public static Expressions convertToExpressions(@Nonnull Value recordValue) {
