@@ -48,6 +48,7 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * Creates a new runner for operating against a given database.
+     *
      * @param database the underlying databse to open contexts against
      * @param contextConfig configuration for how to open contexts
      */
@@ -59,10 +60,10 @@ public class TransactionalRunner implements AutoCloseable {
     /**
      * Creates a runner for operating against a given database, with a <em>mutable</em>
      * {@link FDBRecordContextConfig.Builder}.
-     * <p>
-     *     You probably don't want to call this, and should probably call
+     *
+     * <p>You probably don't want to call this, and should probably call
      *     {@link #TransactionalRunner(FDBDatabase, FDBRecordContextConfig)} instead.
-     * </p>
+     *
      * @param database the underlying database to open contexts against
      * @param contextConfigBuilder configuration for how to open contexts.
      * Note: The same as FDBDatabaseRunnerImpl, this maintains mutability, but that mutability is not thread safe, so
@@ -78,13 +79,12 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * Run some code with a given context, and commit the context.
-     * <p>
-     *     The context will be committed if the future returned by the runnable is successful, otherwise it will not
+     *
+     * <p>The context will be committed if the future returned by the runnable is successful, otherwise it will not
      *     be committed. If this {@code TransactionalRunner} is closed, so will the context passed to the runnable.
-     * </p>
-     * <p>
-     *     Note: {@code runnable} is run in the current thread.
-     * </p>
+     *
+     * <p>Note: {@code runnable} is run in the current thread.
+     *
      * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
      * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a
      * conflict, because reusing the old read version would just cause it to re-conflict.
@@ -103,6 +103,7 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * A flavor of the {@link #runAsync(boolean, Function)} method that supports read-only transactions.
+     *
      * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
      * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a
      * conflict, because reusing the old read version would just cause it to re-conflict.
@@ -142,11 +143,11 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * Run a function against a context synchronously.
-     * <p>
-     *     Note: since committing the transaction is an inherently async function, this is a blocking call, so if
+     *
+     * <p>Note: since committing the transaction is an inherently async function, this is a blocking call, so if
      *     calling async methods from within {@code runnable}, it is probably better to use
      *     {@link #runAsync(boolean, Function)}.
-     * </p>
+     *
      * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
      * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a
      * conflict, because reusing the old read version would just cause it to re-conflict.
@@ -166,10 +167,10 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * Open a new context with the config attached to this runner, that will be closed when this runner is closed.
-     * <p>
-     *     It is probably preferable to use {@link #run(boolean, Function)} or {@link #runAsync(boolean, Function)}
+     *
+     * <p>It is probably preferable to use {@link #run(boolean, Function)} or {@link #runAsync(boolean, Function)}
      *     over opening transactions directly, but this is exposed because {@link FDBDatabaseRunner} exposes it.
-     * </p>
+     *
      * @return a new context
      */
     @Nonnull

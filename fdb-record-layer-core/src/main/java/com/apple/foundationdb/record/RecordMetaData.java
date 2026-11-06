@@ -36,8 +36,14 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -49,14 +55,16 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Meta-data for Record Layer record stores.
  *
- * Records are represented using Protobuf {@link com.google.protobuf.Message}s.
+ * <p>Records are represented using Protobuf {@link com.google.protobuf.Message}s.
  * Each message {@link com.google.protobuf.Descriptors.Descriptor} corresponds to a {@link RecordType}.
  * All message types in the database come from a single {@link com.google.protobuf.Descriptors.FileDescriptor}.
  * The Protobuf file must also define a union message type (conventionally named {@code RecordTypeUnion}) with fields for
@@ -64,7 +72,7 @@ import java.util.stream.Collectors;
  * When serializing, the record is put in the corresponding field and the whole saved as a byte string.
  * Then when deserializing, the returned record can be of any of the allowed types.
  *
- * Meta-data can also define any number of secondary {@link Index}es for record types.
+ * <p>Meta-data can also define any number of secondary {@link Index}es for record types.
  *
  * @see RecordMetaDataBuilder
  */
@@ -82,6 +90,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final Map<String, SyntheticRecordType<?>> syntheticRecordTypes;
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
+    @Nonnull
+    private final Supplier<Set<Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsSupplier;
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
@@ -104,7 +114,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesLocalRecordsDescriptor;
     private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
-    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = {
+    static final Descriptors.FileDescriptor[] defaultExcludedProtoDependencies = {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
     };
 
@@ -159,6 +169,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
+        this.nonRecordTypeDescriptorsSupplier = Suppliers.memoize(() -> computeNonRecordTypeDescriptorsMap(unionDescriptor, unionFields));
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -172,8 +183,19 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.recordTypesForIndex = new ConcurrentHashMap<>();
     }
 
+    @Nonnull
+    private static Set<Descriptors.GenericDescriptor> computeNonRecordTypeDescriptorsMap(
+            @Nonnull Descriptors.Descriptor unionDescriptor,
+            @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields) {
+        return ProtoUtils.getTypeDescriptorsInFile(
+                unionDescriptor.getFile(),
+                ImmutableSet.copyOf(defaultExcludedProtoDependencies),
+                Sets.union(ImmutableSet.of(unionDescriptor), unionFields.keySet()));
+    }
+
     /**
      * Creates an instance of {@link RecordMetaDataBuilder}.
+     *
      * @return a new builder
      */
     @Nonnull
@@ -226,6 +248,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get the record type that uses the given record type key.
+     *
      * @param recordTypeKey the key used as a prefix for some record type
      * @return the record type
      * @throws MetaDataException if the given key does not correspond to any record type
@@ -271,6 +294,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name as used in an index.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -287,6 +311,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name as used in a query.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -321,6 +346,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get the index that uses the given subspace key.
+     *
      * @param subspaceKey the key used as a prefix for some index
      * @return the index
      * @throws MetaDataException if the given key does not correspond to any index
@@ -371,6 +397,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Get value of the counter used for index subspace keys if the counter-based assignment is used.
+     *
      * @return the value of the counter
      * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
      */
@@ -380,6 +407,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Checks if counter-based subspace key assignment is used.
+     *
      * @return {@code true} if the subspace key counter is used
      * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
      */
@@ -505,7 +533,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Determine whether every record type in this meta-data has {@link RecordType#primaryKeyHasRecordTypePrefix}.
      *
-     * If so, records are strictly partitioned by record type.
+     * <p>If so, records are strictly partitioned by record type.
+     *
      * @return {@code true} if every record type has a record type prefix on the primary key
      */
     public boolean primaryKeyHasRecordTypePrefix() {
@@ -514,6 +543,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     /**
      * Determine whether every record type in this meta-data has the same primary key.
+     *
      * @return the common primary key or {@code null}
      */
     @Nullable
@@ -540,6 +570,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Calculate and return the length common to all the PKs of the given types. The common PK length is calculated by
      * ensuring ALL PKs for the given types have the same length (number of fields). If there is no common length, -1 is
      * returned.
+     *
      * @param recordTypes the (non-null) collection of record types to calculate the common PK length for
      * @return the common length for all given types, -1 if not found
      */
@@ -558,9 +589,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
-     * Get this <code>RecordMetaData</code> instance.
-     *
-     * @return this <code>RecordMetaData</code> instance
+     * {@return this <code>RecordMetaData</code> instance}
      */
     @Nonnull
     @Override
@@ -576,6 +605,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Factory method to deserialize a record meta-data proto. It assumes that the proto contains all of the dependencies
      * and does not process extension options.
+     *
      * @param proto the serialized proto message of the {@code RecordMetaData}
      * @return the {@code RecordMetaData} object
      */
@@ -604,14 +634,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Serializes the record meta-data to a {@code MetaData} proto message. By default, it includes all of the
      * dependencies except {@code TupleFieldsProto}, {@code RecordMetaDataOptionsProto} and {@code RecordMetaDataProto}.
      *
-     * <p>
-     * Note that if this record meta-data object was created with a
+     * <p>Note that if this record meta-data object was created with a
      * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor},
      * then serializing the meta-data to a proto message is disallowed. This is because setting a local file descriptor
      * can change the meta-data in ways that would change its serialization, but it also will not update the meta-data
      * version. This means that if the meta-data were then saved to disk, existing clients would not be informed that
      * the meta-data had been updated.
-     * </p>
      *
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures
@@ -620,7 +648,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
-        return toProto(defaultExcludedDependencies);
+        return toProto(defaultExcludedProtoDependencies);
     }
 
     /**
@@ -717,6 +745,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
             if (!storedQuery.getTempFunctions().isEmpty()) {
                 storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
+            for (final Map.Entry<String, String> parameter : storedQuery.getParameters().entrySet()) {
+                storedQueryBuilder.addParameters(RecordMetaDataProto.PStoredQuery.PStoredQueryParameter.newBuilder()
+                        .setName(parameter.getKey())
+                        .setDeclaredType(parameter.getValue()));
+            }
+            for (final Map<String, String> preparedCase : storedQuery.getPreparedCases()) {
+                final RecordMetaDataProto.PStoredQuery.PPreparedCase.Builder caseBuilder =
+                        RecordMetaDataProto.PStoredQuery.PPreparedCase.newBuilder();
+                for (final Map.Entry<String, String> parameterState : preparedCase.entrySet()) {
+                    caseBuilder.addParameterStates(
+                            RecordMetaDataProto.PStoredQuery.PPreparedCase.PParameterState.newBuilder()
+                                    .setName(parameterState.getKey())
+                                    .setState(parameterState.getValue()));
+                }
+                storedQueryBuilder.addPreparedCases(caseBuilder);
+            }
             builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
@@ -749,6 +793,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
+     * Returns the descriptors of all non-record types in this RecordMetaData instance keyed by their Protobuf full name.
+     *
+     * <p>All non-record message and enum types included within the descriptor returned by {@link #getRecordsDescriptor()}
+     * and its dependencies are included, except the special {@code RecordUnionType} descriptor. The returned set
+     * contains the non-record types in the {@link #getRecordsDescriptor()} descriptor, followed by the types from each
+     * dependency in the declaration order.
+     *
+     * @return An immutable set of all the non-record type descriptors in the records file descriptor and its
+     *         dependencies.
+     */
+    @Nonnull
+    public Set<Descriptors.GenericDescriptor> getNonRecordTypeDescriptors() {
+        return nonRecordTypeDescriptorsSupplier.get();
+    }
+
+    /**
      * A stored query is a SQL SELECT statement persisted in the metadata, optionally accompanied by an
      * list of DDL {@code CREATE [OR REPLACE]? TEMPORARY FUNCTION ...} that must be
      * registered before the SELECT is planned.
@@ -758,10 +818,24 @@ public class RecordMetaData implements RecordMetaDataProvider {
         private final String query;
         @Nonnull
         private final List<String> tempFunctions;
+        @Nonnull
+        private final Map<String, String> parameters;
+        @Nonnull
+        private final List<Map<String, String>> preparedCases;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+            this(storedQuery, tempFunctions, ImmutableMap.of(), ImmutableList.of());
+        }
+
+        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                           @Nonnull final Map<String, String> parameters,
+                           @Nonnull final List<Map<String, String>> preparedCases) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
+            this.parameters = ImmutableMap.copyOf(parameters);
+            this.preparedCases = preparedCases.stream()
+                    .map(ImmutableMap::copyOf)
+                    .collect(ImmutableList.toImmutableList());
         }
 
         @Nonnull
@@ -773,12 +847,52 @@ public class RecordMetaData implements RecordMetaDataProvider {
         public List<String> getTempFunctions() {
             return tempFunctions;
         }
+
+        /**
+         * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
+         * optionally followed by a nullability clause, exactly as written. Empty if the query declares no parameters.
+         *
+         * @return the declared parameters, keyed by name.
+         */
+        @Nonnull
+        public Map<String, String> getParameters() {
+            return parameters;
+        }
+
+        /**
+         * The combinations this query is warmed for, one plan each, as a list of maps from parameter name to the
+         * canonical token naming its state. The record layer stores these and returns them without interpreting them.
+         * Empty if the query declares no parameters.
+         *
+         * @return one map per case, keyed by parameter name.
+         */
+        @Nonnull
+        public List<Map<String, String>> getPreparedCases() {
+            return preparedCases;
+        }
     }
 
-
+    /**
+     * The type the planner sees for the records of the record type with the given name. The name is resolved with
+     * {@link #getRecordType(String)}, which only resolves stored record types.
+     *
+     * @param recordTypeName the name of a stored record type
+     * @return the planner's type for the records of that record type
+     * @throws MetaDataException if there is no stored record type with that name
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
-        final RecordType recordType = getRecordType(recordTypeName);
+        return getPlannerTypeForRecordType(getRecordType(recordTypeName));
+    }
+
+    /**
+     * The type the planner sees for the records of a record type.
+     *
+     * @param recordType the record type to describe
+     * @return the planner's type for the records of {@code recordType}
+     */
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordType(@Nonnull RecordType recordType) {
         Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
         if (storeRecordVersions) {
             plannerType = plannerType.addPseudoFields();
@@ -786,15 +900,39 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return plannerType;
     }
 
+    /**
+     * The type the planner sees for records of any of the record types with the given names. The names are resolved
+     * with {@link #getRecordType(String)}, which only resolves stored record types.
+     *
+     * @param recordTypeNames the names of stored record types
+     * @return the planner's type for records of any of those record types
+     * @throws MetaDataException if there is no stored record type with one of those names
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
         if (recordTypeNames.size() == 1) {
-            final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
-            return getPlannerType(recordTypeName);
+            return getPlannerType(Iterables.getOnlyElement(recordTypeNames));
+        }
+        return getPlannerTypeForRecordTypes(recordTypeNames.stream()
+                .map(this::getRecordType)
+                .toList());
+    }
+
+    /**
+     * The type the planner sees for records of any of several record types: the type of the one record type, or the
+     * union of the fields of all of them.
+     *
+     * @param recordTypes the record types to describe
+     * @return the planner's type for records of any of {@code recordTypes}
+     */
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        if (recordTypes.size() == 1) {
+            return getPlannerTypeForRecordType(Iterables.getOnlyElement(recordTypes));
         }
         // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
-        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypeNames.stream()
-                .map(this::getPlannerType)
+        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypes.stream()
+                .map(this::getPlannerTypeForRecordType)
                 .flatMap(type -> type.getFields().stream())
                 .collect(Collectors.groupingBy(Type.Record.Field::getFieldName,
                         LinkedHashMap::new,

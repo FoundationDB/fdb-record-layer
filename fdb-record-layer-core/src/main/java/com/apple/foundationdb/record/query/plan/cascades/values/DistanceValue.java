@@ -64,12 +64,12 @@ import java.util.function.Supplier;
 
 /**
  * A {@link Value} that applies a distance metric operation on vector expressions.
- * <p>
- * This class handles vector distance calculations such as Euclidean distance, Euclidean square distance,
+ *
+ * <p>This class handles vector distance calculations such as Euclidean distance, Euclidean square distance,
  * cosine distance, and dot product distance. All operations expect to work with vector types
  * ({@link TypeCode#VECTOR}).
- * <p>
- * Distance operations are commonly used in similarity search and nearest neighbor queries,
+ *
+ * <p>Distance operations are commonly used in similarity search and nearest neighbor queries,
  * particularly with vector similarity indexes (such as HNSW indexes).
  */
 @API(API.Status.EXPERIMENTAL)
@@ -85,6 +85,7 @@ public class DistanceValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link DistanceValue}.
+     *
      * @param operator The distance operation.
      * @param leftChild The left child (typically a vector field).
      * @param rightChild The right child (typically a query vector).
@@ -161,7 +162,7 @@ public class DistanceValue extends AbstractValue {
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             DistanceValue otherDistance = (DistanceValue)other;
-            return operator.equals(otherDistance.operator);
+            return operator == otherDistance.operator;
         });
     }
 

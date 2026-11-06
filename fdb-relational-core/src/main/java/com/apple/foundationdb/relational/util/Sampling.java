@@ -35,8 +35,8 @@ public final class Sampling {
 
     /**
      * Samples events based on a psuedo-fixed long-term throughput of samples per time unit.
-     * <p>
-     * Over the long term, this will allow roughly {@code maxSamplesPerUnit} samples every {@code timeUnit} unit
+     *
+     * <p>Over the long term, this will allow roughly {@code maxSamplesPerUnit} samples every {@code timeUnit} unit
      * of time that passes. If the throughput of the events being sampled is lower than this throughput, then all
      * events will be sampled, if it is higher, then some will be rejected. If the event traffic is bursty in time
      * (that is, a bunch of events occur close together in time), they may be sampled at the cost of future
@@ -62,8 +62,8 @@ public final class Sampling {
 
     /**
      * Samples events based on a fixed throughput of samples per events.
-     * <p>
-     * This should provide maxSamplesPerEvent samples/event, gaining one sample every eventRefreshInterval. However,
+     *
+     * <p>This should provide maxSamplesPerEvent samples/event, gaining one sample every eventRefreshInterval. However,
      * because this is event sampling, and not time sampling, the returned sampler will not really allow
      * any burst-sampling, it will more-or-less confine itself to a fixed rate. However, if the events are input
      * in a burst, then this sampler will sample in bursts as well.

@@ -38,19 +38,15 @@ import java.util.concurrent.CompletableFuture;
  * load potential hot keys which can generally degrade cluster performance. Caching this information avoids performing
  * those reads.
  *
- * <p>
- * Note that if the client is connecting to multiple clusters, there should be one cache per cluster. In general, as
+ * <p>Note that if the client is connecting to multiple clusters, there should be one cache per cluster. In general, as
  * there is one {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase FDBDatabase} object per cluster,
  * it is sufficient to provide a {@link FDBRecordStoreStateCacheFactory} to the
  * {@link FDBDatabaseFactory FDBDatabaseFactory}
  * singleton. One can also provide a cache instance to an {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore FDBRecordStore}
  * at build time.
- * </p>
  *
- * <p>
- * Clients should generally not call methods defined on this interface, as they are intended mainly for internal use
+ * <p>Clients should generally not call methods defined on this interface, as they are intended mainly for internal use
  * within the Record Layer.
- * </p>
  *
  * @see FDBDatabaseFactory#setStoreStateCacheFactory(FDBRecordStoreStateCacheFactory)
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.BaseBuilder#setStoreStateCache(FDBRecordStoreStateCache)
@@ -66,13 +62,10 @@ public interface FDBRecordStoreStateCache {
      * differentiated by the manner in which they invalidate data to ensure that the value returned is consistent with
      * this contract.
      *
-     * <p>
-     * This method should generally not be called by clients importing the Record Layer.
-     * </p>
+     * <p>This method should generally not be called by clients importing the Record Layer.
      *
      * @param recordStore the record store to load the store state of
      * @param existenceCheck whether to error if the store does or does not exist
-     *
      * @return a future that will complete with the cached store state
      */
     @API(API.Status.INTERNAL)

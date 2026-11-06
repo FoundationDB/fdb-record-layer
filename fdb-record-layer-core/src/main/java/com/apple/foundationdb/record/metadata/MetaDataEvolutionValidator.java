@@ -71,15 +71,13 @@ import java.util.stream.Collectors;
  *     <li>Any changes to existing indexes do not change the on-disk format.</li>
  * </ul>
  *
- * <p>
- * This is a relatively strict set of requirements that aims to allow anything written by a record store built with the old meta-data
+ * <p>This is a relatively strict set of requirements that aims to allow anything written by a record store built with the old meta-data
  * to be readable from record stores built with the new meta-data. Some of the validation rules, however, are stricter
  * than necessary and are instead intended to prevent the user from accidentally changing the meta-data in a way that
  * will require significant work. For example, it is assumed that any change that requires that an existing index be rebuilt
  * is a mistake, but there are legitimate use cases for which this is actually the desired behavior. The user can disable
  * those checks by creating a new validator and allowing laxer standards. For example, one can create a validator that
  * allows format-incompatible changes to existing indexes by calling:
- * </p>
  *
  * <pre>{@code
  *     MetaDataEvolutionValidator.newBuilder()
@@ -87,10 +85,8 @@ import java.util.stream.Collectors;
  *         .build();
  * }</pre>
  *
- * <p>
- * See the <a href="https://foundationdb.github.io/fdb-record-layer/SchemaEvolution.html">Schema Evolution Guidelines</a>
+ * <p>See the <a href="https://foundationdb.github.io/fdb-record-layer/SchemaEvolution.html">Schema Evolution Guidelines</a>
  * in our documentation for more details on what changes may be safely made to the meta-data and why.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class MetaDataEvolutionValidator {
@@ -195,13 +191,13 @@ public class MetaDataEvolutionValidator {
         final Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors = new HashSet<>();
 
         for (FieldDescriptor oldUnionField : oldUnionDescriptor.getFields()) {
-            if (!oldUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+            if (oldUnionField.getType() != FieldDescriptor.Type.MESSAGE) {
                 throw new MetaDataException("field in union is not a message type", LogMessageKeys.FIELD_NAME, oldUnionField.getName());
             }
             int fieldNumber = oldUnionField.getNumber();
             FieldDescriptor newUnionField = newUnionDescriptor.findFieldByNumber(fieldNumber);
             if (newUnionField != null) {
-                if (!newUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+                if (newUnionField.getType() != FieldDescriptor.Type.MESSAGE) {
                     throw new MetaDataException("field in new union is not a message type", LogMessageKeys.FIELD_NAME, newUnionField.getName());
                 }
                 Descriptor oldRecord = oldUnionField.getMessageType();
@@ -275,7 +271,7 @@ public class MetaDataEvolutionValidator {
 
     private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
         if (!oldDescriptor.getFile().toProto().getSyntax().equals(newDescriptor.getFile().toProto().getSyntax())
-                || !oldDescriptor.getFile().toProto().getEdition().equals(newDescriptor.getFile().toProto().getEdition())) {
+                || oldDescriptor.getFile().toProto().getEdition() != newDescriptor.getFile().toProto().getEdition()) {
             throw new MetaDataException("message descriptor proto syntax changed",
                     LogMessageKeys.RECORD_TYPE, oldDescriptor.getName());
         }
@@ -303,7 +299,7 @@ public class MetaDataEvolutionValidator {
             throw new MetaDataException("field is no longer deprecated",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
-        if (!oldFieldDescriptor.getType().equals(newFieldDescriptor.getType())) {
+        if (oldFieldDescriptor.getType() != newFieldDescriptor.getType()) {
             validateTypeChange(oldFieldDescriptor, newFieldDescriptor);
         }
         if (oldFieldDescriptor.isRequired() && !newFieldDescriptor.isRequired()) {
@@ -316,10 +312,10 @@ public class MetaDataEvolutionValidator {
             throw new MetaDataException("field changed whether default values are stored if set explicitly",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
-        if (oldFieldDescriptor.getType().equals(FieldDescriptor.Type.ENUM)) {
+        if (oldFieldDescriptor.getType() == FieldDescriptor.Type.ENUM) {
             validateEnum(newFieldDescriptor.getName(), oldFieldDescriptor.getEnumType(), newFieldDescriptor.getEnumType());
         }
-        if (oldFieldDescriptor.getType().equals(FieldDescriptor.Type.GROUP) || oldFieldDescriptor.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+        if (oldFieldDescriptor.getType() == FieldDescriptor.Type.GROUP || oldFieldDescriptor.getType() == FieldDescriptor.Type.MESSAGE) {
             // Message types need to be validated against each other as well.
             final Descriptor oldMessageType = oldFieldDescriptor.getMessageType();
             final Descriptor newMessageType = newFieldDescriptor.getMessageType();
@@ -330,8 +326,8 @@ public class MetaDataEvolutionValidator {
     private void validateTypeChange(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor) {
         // Allowed changes: Going from a variable length 32 bit integer to a variable length 64 bit integer
         // Other changes either change the Protobuf or the Tuple serialization of the field or can lead to a loss of precision.
-        if (!(oldFieldDescriptor.getType().equals(FieldDescriptor.Type.INT32) && newFieldDescriptor.getType().equals(FieldDescriptor.Type.INT64)) &&
-                !(oldFieldDescriptor.getType().equals(FieldDescriptor.Type.SINT32) && newFieldDescriptor.getType().equals(FieldDescriptor.Type.SINT64))) {
+        if (!(oldFieldDescriptor.getType() == FieldDescriptor.Type.INT32 && newFieldDescriptor.getType() == FieldDescriptor.Type.INT64) &&
+                !(oldFieldDescriptor.getType() == FieldDescriptor.Type.SINT32 && newFieldDescriptor.getType() == FieldDescriptor.Type.SINT64)) {
             throw new MetaDataException("field type changed",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName(),
                     LogMessageKeys.OLD_FIELD_TYPE, oldFieldDescriptor.getType(),
@@ -762,10 +758,8 @@ public class MetaDataEvolutionValidator {
      * are set in only one version and keys in both where the value has changed. It ignores
      * any options that are in the {@code ignoredIndexOptions} set.
      *
-     * <p>
-     * This returns a mutable set. This is important, as it is handed to {@link IndexValidator#validateChangedOptions(Index, Set)},
+     * <p>This returns a mutable set. This is important, as it is handed to {@link IndexValidator#validateChangedOptions(Index, Set)},
      * which requires in its contract that the set it is given is mutable.
-     * </p>
      *
      * @param oldIndex an older version of the index
      * @param newIndex a newer version of the same index
@@ -841,18 +835,14 @@ public class MetaDataEvolutionValidator {
      * {@code true}, then this will allow fields to be renamed, and it will validate that all record primary keys and
      * index root expressions have been updated to use the new names.
      *
-     * <p>
-     * If field renames are allowed, this performs a best-effort validation to ensure that all usages of modified fields have
+     * <p>If field renames are allowed, this performs a best-effort validation to ensure that all usages of modified fields have
      * been updated. Some parts of the meta-data, like user-defined functions and views, cannot be validated at this
      * level as it would require parsing the SQL, so if this option is enabled, there is some onus on the user to
      * update those definitions.
-     * </p>
      *
-     * <p>
-     * Note that this is a strictly more permissive setting than
+     * <p>Note that this is a strictly more permissive setting than
      * {@linkplain #allowsDeprecatedFieldRenames() allowing deprecated field renames}. If this is set to {@code true},
      * then that other setting is effectively ignored.
-     * </p>
      *
      * @return whether this validator allows field names to change
      * @see #allowsDeprecatedFieldRenames()
@@ -873,8 +863,7 @@ public class MetaDataEvolutionValidator {
      * then this also allows deprecated fields to be renamed in the same change in which they are
      * marked as no longer deprecated.
      *
-     * <p>
-     * One reason that a user may want to allow renaming deprecating fields is to support recreating
+     * <p>One reason that a user may want to allow renaming deprecating fields is to support recreating
      * an existing field. For example, there are certain incompatible changes that a user may want
      * to make to a field (e.g., modifying its Protobuf type from {@code sfixed32} to {@code sfixed64}).
      * To accomplish this, the user can deprecate the old field, rename it, and then create a new field
@@ -883,13 +872,10 @@ public class MetaDataEvolutionValidator {
      * any index referencing the field, and they may need to populate the new field with data from the
      * deprecated field), but it may be something that a user wants to do while iterating on a test
      * meta-data. However, this should generally be avoided in production use cases.
-     * </p>
      *
-     * <p>
-     * Note that this is a strictly less permissive setting than more generally
+     * <p>Note that this is a strictly less permissive setting than more generally
      * {@linkplain #allowsFieldRenames() allowing field renames}. If that configuration is set to {@code true}, then
      * this configuration option is effectively ignored.
-     * </p>
      *
      * @return whether this validator allows deprecated fields to be renamed
      * @see #allowsFieldRenames()
@@ -1008,10 +994,8 @@ public class MetaDataEvolutionValidator {
      * bookkeeping purposes, they may need to configure this validator to ignore any changes to
      * those index options.
      *
-     * <p>
-     * This returns an immutable collection. The caller should not attempt to add or remove elements
+     * <p>This returns an immutable collection. The caller should not attempt to add or remove elements
      * from the returned set.
-     * </p>
      *
      * @return the set of index options that this validator ignores any changes to
      * @see IndexValidator#validateChangedOptions(Index, Set)
@@ -1118,6 +1102,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Set whether the validator will allow the evolved meta-data to have the same version as the old meta-data.
+         *
          * @param allowNoVersionChange whether the validator will allow the evolved meta-data to have the same version as the old meta-data
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsNoVersionChange()
@@ -1131,6 +1116,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Whether the validator will allow the evolved meta-data to have same version as the old meta-data.
+         *
          * @return whether the validator will allow the evolved meta-data to have the same version as the old meta-data
          * @see MetaDataEvolutionValidator#allowsNoVersionChange()
          */
@@ -1236,6 +1222,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Set whether the validator will allow changes to indexes that require rebuilds.
+         *
          * @param allowIndexRebuilds whether the validator will allow changes to indexes that require rebuilds
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsIndexRebuilds()
@@ -1249,6 +1236,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Whether the validator will allow changes to indexes that require rebuilds.
+         *
          * @return whether the validator will allow changes to index that require rebuilds
          * @see MetaDataEvolutionValidator#allowsIndexRebuilds()
          */
@@ -1258,6 +1246,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Set whether the validator will allow former indexes to drop the name of the index they replace.
+         *
          * @param allowMissingFormerIndexNames whether the validator will allow former indexes to drop the name of the index they replace
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsMissingFormerIndexNames()
@@ -1271,6 +1260,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Whether the validator will allow former indexes to drop the name of the index they replace.
+         *
          * @return whether the validator will allow former indexes to drop the name of the index they replace
          * @see MetaDataEvolutionValidator#allowsMissingFormerIndexNames()
          */
@@ -1371,10 +1361,8 @@ public class MetaDataEvolutionValidator {
         /**
          * Get the set of index options that are ignored when validating an index's evolution.
          *
-         * <p>
-         * This returns an immutable collection. The caller should not attempt to add or remove elements
+         * <p>This returns an immutable collection. The caller should not attempt to add or remove elements
          * from the returned set.
-         * </p>
          *
          * @return the set of index options that this validator ignores any changes to
          * @see MetaDataEvolutionValidator#getIgnoredIndexOptions()

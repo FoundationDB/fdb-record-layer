@@ -30,15 +30,13 @@ import java.util.Optional;
  */
 public interface CommonCascadesRuleCall {
     /**
-     * Returns the current {@link PlannerPhase}.
-     * @return the current {@link PlannerPhase}
+     * {@return the current {@link PlannerPhase}}
      */
     @Nonnull
     PlannerPhase getPlannerPhase();
 
     /**
-     * Returns the root {@link Reference} of the expression DAG.
-     * @return the root {@link Reference} of the expression DAG
+     * {@return the root {@link Reference} of the expression DAG}
      */
     @Nonnull
     Reference getRoot();
@@ -46,6 +44,7 @@ public interface CommonCascadesRuleCall {
     /**
      * Returns a newly constructed alias resolver based upon the current memoization structures. This allows callers
      * to find referencing expressions of expressions, etc.
+     *
      * @return a newly constructed alias resolver
      */
     @Nonnull
@@ -62,6 +61,7 @@ public interface CommonCascadesRuleCall {
 
     /**
      * Returns the value for a given planner constraint if it exists.
+     *
      * @param plannerConstraint the planner constraint
      * @param <T> the type of the constraint value
      * @return {@code Optional.of(...)} the current value for the requested constraint if it exists, otherwise
@@ -72,6 +72,7 @@ public interface CommonCascadesRuleCall {
 
     /**
      * Push a constraint to the {@link Reference} passed in.
+     *
      * @param reference the reference this constraint should be pushed to
      * @param plannerConstraint the constraint to push
      * @param constraintValue the constraint value
@@ -89,6 +90,7 @@ public interface CommonCascadesRuleCall {
      * no timing information is derived and made available. Note that the caller should never emit events using
      * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location#BEGIN} and
      * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location#END}.
+     *
      * @param location the location to be used for the event to be emitted.
      */
     void emitEvent(@Nonnull Location location);

@@ -21,18 +21,20 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A context for query evaluation.
- * <p>
- * The primary state of an evaluation context is a set of parameter {@link Bindings}.
- * </p>
+ *
+ * <p>The primary state of an evaluation context is a set of parameter {@link Bindings}.
+ *
  * @see com.apple.foundationdb.record.query.expressions.QueryComponent#eval
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute
  */
@@ -48,6 +50,7 @@ public class EvaluationContext {
 
     /**
      * Get an empty evaluation context.
+     *
      * @return an evaluation context with no bindings
      */
     @SuppressWarnings("squid:S1845") // The field and the function mean the same thing.
@@ -63,6 +66,7 @@ public class EvaluationContext {
     /**
      * Create a new {@link EvaluationContext} around a given set of {@link Bindings}
      * from parameter names to values.
+     *
      * @param bindings a mapping from parameter name to values
      * @return a new evaluation context with the bindings
      */
@@ -74,6 +78,7 @@ public class EvaluationContext {
     /**
      * Create a new {@link EvaluationContext} around a given set of {@link Bindings} and a {@link TypeRepository}.
      * from parameter names to values.
+     *
      * @param bindings a mapping from parameter name to values
      * @param typeRepository a type repository
      * @return a new evaluation context with the bindings and the schema.
@@ -128,7 +133,6 @@ public class EvaluationContext {
      *
      * @param type the type of the parameter
      * @param alias the correlation identifier
-     *
      * @return the value bound to the given parameter
      */
     public Object getBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
@@ -172,6 +176,19 @@ public class EvaluationContext {
         return constantsMap.containsKey(constantId);
     }
 
+    /**
+     * Whether the given constant is value-free, that is, planned without a value.
+     *
+     * @param alias the alias of the constant map
+     * @param constantId the identity of the constant within the map
+     * @return whether the constant is value-free
+     */
+    public boolean isValueFreeConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
+        if (!containsBinding(Bindings.Internal.VALUE_FREE, alias)) {
+            return false;
+        }
+        return ((Set<?>)getBinding(Bindings.Internal.VALUE_FREE, alias)).contains(constantId);
+    }
 
     /**
      * Dereferences the constant.
@@ -179,11 +196,18 @@ public class EvaluationContext {
      * @param alias the correlation identifier
      * @param constantId the constant id
      * @return de-referenced constant
+     * @throws Bindings.MissingBindingException if the constant is value-free
      */
     @Nullable
     public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
         final var constantsMap = getConstantsMap(alias);
-        return constantsMap.get(constantId);
+        final var value = constantsMap.get(constantId);
+        // Checked only for a null value, so a bound constant pays nothing.
+        if (value == null && isValueFreeConstant(alias, constantId)) {
+            throw new Bindings.MissingBindingException("value-free constant has no value")
+                    .addLogInfo(LogMessageKeys.NAME, constantId);
+        }
+        return value;
     }
 
     @SuppressWarnings("unchecked")
@@ -244,7 +268,6 @@ public class EvaluationContext {
      * @param type the type of the binding.
      * @param alias the alias determining the binding name to add
      * @param value the value to bind the name to
-     *
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {

@@ -562,7 +562,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
      *
      * <p>{@link #testTwoSimultaneousInitializationsDoNotConflict()} exercises a subset of this
      * same path via {@code StoreCatalogProvider.getCatalog}; this test additionally covers every
-     * synchronous-succeed combination on each side.</p>
+     * synchronous-succeed combination on each side.
      */
     @ParameterizedTest
     @MethodSource

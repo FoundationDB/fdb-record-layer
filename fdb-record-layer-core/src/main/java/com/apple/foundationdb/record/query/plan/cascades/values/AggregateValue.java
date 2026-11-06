@@ -44,7 +44,6 @@ public interface AggregateValue extends Value {
      *
      * @param typeRepository dynamic schema
      * @param initialState initial state of the accumulator
-     *
      * @return a new {@link Accumulator} for aggregating values for this Value.
      */
     @Nonnull

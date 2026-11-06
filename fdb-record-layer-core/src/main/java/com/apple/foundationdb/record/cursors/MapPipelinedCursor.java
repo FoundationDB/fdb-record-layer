@@ -40,10 +40,9 @@ import java.util.function.Function;
 /**
  * A cursor that applies an asynchronous function to the elements of another cursor.
  *
- * <p>
- * The cursor is <i>pipelined</i>, that is, it maintains up to a specified number of pending futures ahead of what it has returned,
+ * <p>The cursor is <i>pipelined</i>, that is, it maintains up to a specified number of pending futures ahead of what it has returned,
  * so that work is done in parallel.
- * </p>
+ *
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function and completing the future it returns
  */
@@ -128,6 +127,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     /**
      * Take items from inner cursor and put in pipeline until no more or a mapping result is available.
+     *
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {

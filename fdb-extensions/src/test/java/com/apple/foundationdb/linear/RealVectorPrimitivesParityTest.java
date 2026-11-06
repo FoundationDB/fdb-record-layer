@@ -42,12 +42,12 @@ import static org.assertj.core.api.Assertions.within;
 /**
  * Asserts that every primitive in {@link RealVectorPrimitives} produces results equivalent to the
  * scalar implementation ({@link ScalarBackend}) across a representative range of vector sizes.
- * <p>
- * Comparison uses absolute and relative tolerances rather than bit-exact equality because SIMD
+ *
+ * <p>Comparison uses absolute and relative tolerances rather than bit-exact equality because SIMD
  * reductions sum partial lanes in a different order than scalar accumulation; small differences in
  * the low-order bits are expected and not a bug.
- * <p>
- * The test runs against whichever backend {@link RealVectorPrimitives} resolves — so under the
+ *
+ * <p>The test runs against whichever backend {@link RealVectorPrimitives} resolves — so under the
  * default {@code test} task it validates SIMD-vs-scalar parity, and under
  * {@code scalarFallbackTest} it degenerates into scalar-vs-scalar (still a useful smoke check of
  * the new {@code double[]} primitives).

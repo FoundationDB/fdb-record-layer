@@ -33,8 +33,10 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctReco
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
@@ -49,14 +51,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * if necessary. In particular, it will only add that wrapping expression if the underlying plan itself might
  * produce duplicate results.
  *
- * <p>
- * This rule is somewhat suspect. In particular, if the inner plan that it matches against does not produce duplicates,
+ * <p>This rule is somewhat suspect. In particular, if the inner plan that it matches against does not produce duplicates,
  * this rule will then return that plan. This is fine unless the plan is later modified in such a way that it then
  * <em>can</em> produce duplicates. At the moment, none of the rules modify a {@link RecordQueryPlan} once it has
  * been produced, but a future rule that does so may cause errors where plans erroneously produce duplicate records.
  * To address that, the plan is to add a mechanism for enforcing properties (e.g., distinctness or sort order)
  * on the plans produced by the planner. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/635">Issue #653</a>.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -70,8 +70,11 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+
+    @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
-            logicalDistinctExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
+            logicalDistinctExpression(only(innerQuantifierMatcher));
 
     public ImplementDistinctRule() {
         super(root);
@@ -79,17 +82,19 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
-            call.yieldPlans(innerPlanPartition.getPlans());
-        } else {
-            // these create duplicates
-            call.yieldPlan(
-                    new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                            Quantifier.physical(
-                                    call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans()))));
+        // If the inner plans create duplicates, wrap a `RecordQueryUnorderedPrimaryKeyDistinctPlan` around.
+        Set<RecordQueryPlan> plans = innerPlanPartition.getPlans();
+        if (!innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
+            final Reference innerPlansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
+            final Quantifier.Physical innerPhysicalQuantifier = Quantifier.physical(innerPlansReference);
+            plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
         }
+
+        final var builder = innerQuantifier.applyGlue(call, call.memoizePlansBuilder(plans));
+        call.yieldPlans(builder.members());
     }
 }

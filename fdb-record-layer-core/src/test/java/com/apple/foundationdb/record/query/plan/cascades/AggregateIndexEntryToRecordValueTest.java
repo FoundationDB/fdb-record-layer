@@ -69,11 +69,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Experiment for <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2907">issue 2907</a>: reading an
  * aggregate index entry into a record by evaluating a single {@link RecordConstructorValue}, rather than by running the
  * copiers of an {@code IndexKeyValueToPartialRecord} over a protobuf builder.
- * <p>
- * Both indexes here are defined over the very same key expression, so the only thing separating them is the index type,
+ *
+ * <p>Both indexes here are defined over the very same key expression, so the only thing separating them is the index type,
  * and with it where each column physically lands in the entry. The same builder produces a value for either, and both
  * evaluate to the same logical record — which is the property that would let one translator serve both.
- * </p>
  * <pre>
  *   record: recNo = 1, numValue2 = 10, numValue3Indexed = 20, numValueUnique = 100
  *
@@ -159,10 +158,9 @@ class AggregateIndexEntryToRecordValueTest {
      * The value has to survive a round trip through its serialized form, because a plan holding one is serialized into
      * continuations. It does not: writing it loses whether its result type is nullable, and reading it back verifies
      * that the field is present.
-     * <p>
-     * Needs no record store despite this class being tagged as requiring one -- it is only a value being written and
+     *
+     * <p>Needs no record store despite this class being tagged as requiring one -- it is only a value being written and
      * read.
-     * </p>
      */
     @Test
     void theValueSurvivesSerialization() {
@@ -195,9 +193,6 @@ class AggregateIndexEntryToRecordValueTest {
         return QuantifiedObjectValue.of(Quantifier.current(), TARGET_TYPE);
     }
 
-    /**
-     * Where each column of the given value reads from, as {@code SOURCE[ordinal]}, in target field order.
-     */
     /**
      * How each column of the given value renders, in target field order, which says where it reads from. This is what
      * the copiers of an {@code IndexKeyValueToPartialRecord} would otherwise be holding.

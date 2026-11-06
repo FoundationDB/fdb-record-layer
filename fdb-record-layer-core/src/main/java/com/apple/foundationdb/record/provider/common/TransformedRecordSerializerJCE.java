@@ -34,6 +34,7 @@ import java.security.SecureRandom;
 
 /**
  * An extension of {@link TransformedRecordSerializer} to use JCE to encrypt and decrypt records.
+ *
  * @param <M> type of {@link Message} that underlying records will use
  */
 @API(API.Status.UNSTABLE)
@@ -193,6 +194,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * will be compressed before they are encrypted.
          * If enabled, the user must also call {@link #setEncryptionKey(Key)}
          * to specify the encryption key.
+         *
          * @param encryptWhenSerializing <code>true</code> if records should be encrypted and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
@@ -225,6 +227,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * is encountered when attempting to deserialize a record,
          * then deserialization will fail with a
          * {@link RecordSerializationException}.
+         *
          * @param encryptionKey key to supply to encryption method
          * @return this <code>Builder</code>
          */
@@ -237,6 +240,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * Specifies the cipher algorithm used to encrypt or
          * decrypt a record. If this is not specified, the default
          * is <code>AES/CBC/PKCS5Padding</code>.
+         *
          * @param cipherName name of the cipher algorithm to use
          * @return this <code>Builder</code>
          */
@@ -248,6 +252,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         /**
          * Clears a previously specified key and provider that
          * might have been passed to this <code>Builder</code>.
+         *
          * @return this <code>Builder</code>
          */
         public Builder<M> clearEncryption() {
@@ -261,6 +266,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * cryptographic operations. If none is specified but
          * encryption is enabled, then a new one will be created
          * when the {@link TransformedRecordSerializerJCE} is built.
+         *
          * @param secureRandom a secure random number generator
          * @return this <code>Builder</code>
          */
@@ -272,6 +278,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         /**
          * Clears a previously set secure random number generator
          * that might have been passed to this <code>Builder</code>.
+         *
          * @return this <code>Builder</code>
          */
         public Builder<M> clearSecureRandom() {
@@ -281,6 +288,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
 
         /**
          * Sets the key manager used during cryptographic operations.
+         *
          * @param keyManager key manager to use for encrypting and decrypting
          * @return this <code>Builder</code>
          */
@@ -292,6 +300,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         /**
          * Clears a previously set key manager
          * that might have been passed to this <code>Builder</code>.
+         *
          * @return this <code>Builder</code>
          */
         public Builder<M> clearKeyManager() {
@@ -304,6 +313,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
          * with an {@link RecordCoreArgumentException}.
+         *
          * @return a {@link TransformedRecordSerializerJCE} from this <code>Builder</code>
          * @throws RecordCoreArgumentException if encryption is enabled when serializing but no encryption is specified
          */

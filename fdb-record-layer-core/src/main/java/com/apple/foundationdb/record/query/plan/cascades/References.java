@@ -57,6 +57,7 @@ public class References {
      * predicates, select list expressions and others. Furthermore, the logic in this method attempts to not copy
      * a sub-graph unless it is necessary to do so, i.e. uncorrelated sub-graphs are shared between the original graph
      * and the translated one.
+     *
      * @param refs a list of {@link Reference}s. They can share common sub-graphs
      * @param memoizer a {@link Memoizer}. If used outside the planner rules, use
      *        {@link Memoizer#noMemoization(PlannerStage)}
@@ -108,6 +109,7 @@ public class References {
      * predicates, select list expressions and others. Furthermore, the logic in this method attempts to not copy
      * a sub-graph unless it is necessary to do so, i.e. uncorrelated sub-graphs are shared between the original graph
      * and the translated one.
+     *
      * @param refs a list of {@link Reference}s. They can share common sub-graphs
      * @param memoizer a {@link Memoizer}. If used outside the planner rules, use
      *        {@link Memoizer#noMemoization(PlannerStage)}

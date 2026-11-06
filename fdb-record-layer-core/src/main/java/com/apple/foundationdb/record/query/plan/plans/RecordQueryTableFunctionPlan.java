@@ -164,10 +164,9 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
+    protected Set<Type> computeDynamicTypes() {
         return value.getDynamicTypes();
     }
-
 
     @Nonnull
     @Override

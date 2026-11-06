@@ -70,6 +70,7 @@ public class MoreHalfTest {
 
     /**
      * Method to return if two doubles have the same sign including {@code Inf, -Inf, NaN, +-0}, etc.
+     *
      * @param a a double
      * @param b another double
      * @return {@code true} iff {@code a} and {@code b} have the same sign

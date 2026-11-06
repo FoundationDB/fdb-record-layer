@@ -233,13 +233,12 @@ public class YamlMetricsMaintainer {
     @Nonnull
     private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resource.getPath()));
-        final var resultMapBuilder =
-                ImmutableMap.<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>builder();
-        if (fis == null) {
-            return resultMapBuilder.build();
-        }
-        try {
+        try (var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resource.getPath()))) {
+            final var resultMapBuilder =
+                    ImmutableMap.<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>builder();
+            if (fis == null) {
+                return resultMapBuilder.build();
+            }
             while (true) {
                 final var entry = PlannerMetricsProto.Entry.parseDelimitedFrom(fis);
                 if (entry == null) {

@@ -79,6 +79,7 @@ public class BrowserHelper {
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
+     *
      * @param htmlAsResource path to a resource containing an html template
      * @param insertMap a map from a placeholder in the template resource to a string to be replaced with something
      *        dynamic

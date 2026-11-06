@@ -32,8 +32,7 @@ import javax.annotation.Nonnull;
  * and the streaming pagination cursor) stay direct arguments of the search methods; everything that only trades latency
  * against recall lives here so it can travel as one value and grow without widening every signature.
  *
- * <p>
- * There is deliberately no built-in "default" instance: good values depend on the dataset, its size, the index
+ * <p>There is deliberately no built-in "default" instance: good values depend on the dataset, its size, the index
  * topology, and the recall target, so picking them is the caller's (or the test harness's) responsibility. The
  * {@code DEFAULT_*} constants exist only as the {@link SearchConfigBuilder}'s per-field fallbacks, so a caller can set
  * just the knobs it cares about and leave the rest at a reasonable starting point.

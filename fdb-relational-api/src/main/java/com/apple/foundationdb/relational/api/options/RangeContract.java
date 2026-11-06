@@ -30,6 +30,7 @@ import java.sql.SQLException;
 
 /**
  * Helper to check that parameters passed as options are within a given range.
+ *
  * @param <T> the type of the parameter being checked
  */
 @API(API.Status.EXPERIMENTAL)

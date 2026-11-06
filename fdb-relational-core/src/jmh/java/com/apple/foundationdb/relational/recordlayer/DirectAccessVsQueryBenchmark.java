@@ -62,7 +62,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Microbenchmark comparing the Direct Access API ({@code executeGet}, {@code executeScan}) against
- * equivalent SQL queries ({@code executeQuery}) for three access patterns:
+ * equivalent SQL queries ({@code executeQuery}). It tests three access patterns:
  * <ol>
  *   <li>Single-row PK lookup</li>
  *   <li>Prefix range scan (partial PK match)</li>

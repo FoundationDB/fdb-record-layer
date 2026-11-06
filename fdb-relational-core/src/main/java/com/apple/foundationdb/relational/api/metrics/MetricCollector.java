@@ -31,12 +31,12 @@ import java.util.Locale;
  * MetricCollector provides a utility API to register events and counts while performing operations in the Relational
  * system.
  *
- * The probable implementations of it is supposed to be backed by a store/registry of some sort that can hold the
+ * <p>The probable implementations of it is supposed to be backed by a store/registry of some sort that can hold the
  * metric data and can decide what needs to be done with it. The implementation can also decide on the lifetime of a
  * collector instance - ranging from a singleton object for the system instance to being transaction-bound and
  * short-lived.
  *
- * Given the lifetime variability, the getters in this interface should be carefully implemented to respect the
+ * <p>Given the lifetime variability, the getters in this interface should be carefully implemented to respect the
  * contract.
  * */
 public interface MetricCollector {

@@ -37,6 +37,7 @@ public class GeophileBoxLatLon {
 
     /**
      * Get a box with possible wraparound.
+     *
      * @param latLo low latitude value
      * @param latHi high latitude value
      * @param lonLo low longitude value
@@ -53,9 +54,9 @@ public class GeophileBoxLatLon {
         lonHi = fixLon(lonHi);
         try {
             return
-                lonLo <= lonHi
-                ? new Box(latLo, latHi, lonLo, lonHi)
-                : new GeophileBoxLatLonWithWraparound(latLo, latHi, lonLo, lonHi);
+                    lonLo <= lonHi
+                    ? new Box(latLo, latHi, lonLo, lonHi)
+                    : new GeophileBoxLatLonWithWraparound(latLo, latHi, lonLo, lonHi);
         } catch (IllegalArgumentException ex) {
             throw new RecordCoreArgumentException("cannot make box", ex)
                     .addLogInfo("latLo", latLo)

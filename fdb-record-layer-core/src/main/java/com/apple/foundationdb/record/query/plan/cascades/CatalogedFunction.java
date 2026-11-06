@@ -168,10 +168,10 @@ public abstract class CatalogedFunction {
      * window specification. Options are declared per function rather than centrally, so a function owns the names and
      * value types of its own options and two unrelated functions may declare an option of the same name with different
      * value types.
-     * <p>
-     * The default is to declare no options at all, which means any option supplied at a call site is rejected rather
+     *
+     * <p>The default is to declare no options at all, which means any option supplied at a call site is rejected rather
      * than silently ignored. Option names must be unique within the returned set.
-     * </p>
+     *
      * @return the options this function understands
      */
     @Nonnull
@@ -206,6 +206,7 @@ public abstract class CatalogedFunction {
      * Validates the function invocation using named arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
      * permissible implicit promotions to the actual function invocation.
+     *
      * @param namedArgumentsTypeMap a list of named arguments.
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
@@ -240,6 +241,7 @@ public abstract class CatalogedFunction {
      * Validates the function invocation using unnamed arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
      * permissible implicit promotions to the actual function invocation.
+     *
      * @param unnamedArguments a list of named arguments.
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
@@ -260,8 +262,8 @@ public abstract class CatalogedFunction {
 
     /**
      * Resolves the list of {@link Value}s to be passed to this function from an unnamed (positional) argument list.
-     * <p>
-     * Each positional argument is matched to the parameter at the same index. If fewer arguments are supplied than
+     *
+     * <p>Each positional argument is matched to the parameter at the same index. If fewer arguments are supplied than
      * the function declares parameters, the remaining parameters must have default values; otherwise a
      * {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException} is thrown. Each resolved argument
      * is promoted to the declared parameter type when necessary (see {@link #promoteArgumentValueIfNeeded}).
@@ -290,12 +292,12 @@ public abstract class CatalogedFunction {
 
     /**
      * Resolves the list of {@link Value}s to be passed to this function from a named argument map.
-     * <p>
-     * Arguments are matched to parameters by name. The function must support named arguments; otherwise a
+     *
+     * <p>Arguments are matched to parameters by name. The function must support named arguments; otherwise a
      * {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException} is thrown. Parameters absent from the
      * map must have default values; otherwise the same exception is thrown as well. Each resolved argument is promoted
      * to the declared parameter type when necessary (see {@link #promoteArgumentValueIfNeeded}).
-     * </p>
+     *
      * @param namedArguments a map from parameter name to argument value provided to the function call
      * @return a list of {@link Value}s, one per declared parameter
      */
@@ -324,11 +326,11 @@ public abstract class CatalogedFunction {
 
     /**
      * Promotes {@code providedArgumentValue} to {@code parameterType} when the two types differ.
-     * <p>
-     * Throws a {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException}
+     *
+     * <p>Throws a {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException}
      * if the argument cannot be promoted to the parameter type. When promotion is not needed the original value is
      * returned unchanged.
-     * </p>
+     *
      * @param providedArgumentValue the call-site argument value
      * @param parameterType the declared parameter type
      * @return {@link Value} that is the same as providedArgumentValue if no promotion is needed, otherwise a promoted {@link Value}.

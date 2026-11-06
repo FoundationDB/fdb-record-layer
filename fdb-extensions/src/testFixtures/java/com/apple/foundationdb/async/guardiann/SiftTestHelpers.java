@@ -29,8 +29,10 @@ package com.apple.foundationdb.async.guardiann;
  * the same dataset locations.
  */
 public class SiftTestHelpers {
-    /** Path to the SIFT-small base vectors {@code .fvecs} file (10k × 128). Produced by the
-     *  gradle {@code extractSiftSmall} task. */
+    /**
+     * Path to the SIFT-small base vectors {@code .fvecs} file (10k × 128). Produced by the gradle
+     * {@code extractSiftSmall} task.
+     */
     public static final String SIFT_SMALL_BASE_PATH = ".out/extracted/siftsmall/siftsmall_base.fvecs";
 
     /** Path to the SIFT-small query vectors {@code .fvecs} file (100 × 128). */
@@ -39,8 +41,10 @@ public class SiftTestHelpers {
     /** Path to the SIFT-small ground-truth top-k indices {@code .ivecs} file. */
     public static final String SIFT_SMALL_GROUNDTRUTH_PATH = ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs";
 
-    /** Path to the SIFT-1M base vectors {@code .fvecs} file (1M × 128). Downloaded by gradle to
-     *  {@code .out/downloads/sift_base.fvecs}. */
+    /**
+     * Path to the SIFT-1M base vectors {@code .fvecs} file (1M × 128). Downloaded by gradle to
+     * {@code .out/downloads/sift_base.fvecs}.
+     */
     public static final String SIFT_1M_BASE_PATH = ".out/downloads/sift_base.fvecs";
 
     /** Path to the SIFT-1M query vectors {@code .fvecs} file (10k × 128). */

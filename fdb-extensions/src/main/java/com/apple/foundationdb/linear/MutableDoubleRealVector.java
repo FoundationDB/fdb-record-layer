@@ -318,8 +318,8 @@ public class MutableDoubleRealVector extends DoubleRealVector {
     /**
      * Creates a {@link MutableDoubleRealVector} from the serialized form produced by
      * {@link DoubleRealVector#getRawData()}.
-     * <p>
-     * The input is interpreted as a leading type byte followed by a sequence of 64-bit big-endian
+     *
+     * <p>The input is interpreted as a leading type byte followed by a sequence of 64-bit big-endian
      * IEEE-754 doubles; each 8-byte run becomes one component of the resulting vector. The
      * returned instance owns a fresh backing array; the byte array is read but not retained.
      *

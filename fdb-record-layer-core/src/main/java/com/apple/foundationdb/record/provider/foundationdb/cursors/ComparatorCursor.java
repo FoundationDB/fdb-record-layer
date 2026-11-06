@@ -109,9 +109,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param abortOnComparisonFailure whether to abort the execution and throw an exception when encountering a comparison failure
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
-     *
      * @return a cursor containing same records in all child cursors
-     *
      * @see #create(Function, List, byte[], FDBStoreTimer, int, boolean, Supplier, Supplier)
      */
     @Nonnull
@@ -142,13 +140,11 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * perform the comparison. Additionally, the provided comparison key function should not have
      * any side-effects and should produce the same output every time it is applied to the same input.
      *
-     * <p>
-     * The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
+     * <p>The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
      * These functions should create a new <code>RecordCursor</code> instance with a given
      * continuation appropriate for that cursor type. The value of that continuation will be determined
      * by this function from the <code>continuation</code> parameter for the
      * cursor as a whole.
-     * </p>
      *
      * @param <T> the type of elements returned by this cursor
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
@@ -159,7 +155,6 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param abortOnComparisonFailure whether to abort the execution and throw an exception when encountering a comparison failure
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
-     *
      * @return a cursor that contains the same records as the reference cursor (Note the side effect of logging comparison errors).
      */
     @Nonnull
@@ -290,7 +285,6 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param comparisonKey the key to apply to the record
      * @param message the message
      * @param <M> the type of encoding for the record
-     *
      * @return the result of applying the key to the record, for the purpose of comparison to other records
      */
     @Nonnull

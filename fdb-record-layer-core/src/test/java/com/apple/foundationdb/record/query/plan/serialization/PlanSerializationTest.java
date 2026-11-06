@@ -110,10 +110,8 @@ public class PlanSerializationTest {
      * Base64.getEncoder().encode(value.toValueProto(PlanSerializationContext.newForCurrentMode())
      * }</pre>
      *
-     * <p>
-     * This can then be added to the set of test cases above. If someone then tries to re-use the field number,
+     * <p>This can then be added to the set of test cases above. If someone then tries to re-use the field number,
      * this test case will then fail.
-     * </p>
      *
      * @param valueString a serialized value that has since been removed from the {@code PValue} specific case list
      * @throws InvalidProtocolBufferException if parsing the Protobuf fails

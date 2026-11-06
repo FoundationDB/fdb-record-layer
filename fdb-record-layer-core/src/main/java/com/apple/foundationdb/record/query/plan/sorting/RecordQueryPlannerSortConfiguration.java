@@ -52,9 +52,10 @@ public class RecordQueryPlannerSortConfiguration {
     /**
      * Get whether the planner is allowed to use an in-memory sort plan.
      *
-     * This method returns {@code true}.
+     * <p>This method returns {@code true}.
      *
-     * A subclass can override this method to use more complex criteria to decide.
+     * <p>A subclass can override this method to use more complex criteria to decide.
+     *
      * @return whether to allow non-index sorting
      */
     public boolean shouldAllowNonIndexSort() {
@@ -69,8 +70,9 @@ public class RecordQueryPlannerSortConfiguration {
     /**
      * Get the sort key for the given key expression and direction.
      *
-     * A subclass can override this method to return a subclass of {@link RecordQuerySortKey} and thereby affect
+     * <p>A subclass can override this method to return a subclass of {@link RecordQuerySortKey} and thereby affect
      * the {@link RecordQuerySortAdapter} used.
+     *
      * @param key required sort key
      * @param reverse whether to sort in reverse
      * @return a new sort key instance

@@ -32,6 +32,7 @@ public class CloseableUtils {
      * Note that {@link CloseException} is used to wrap any exception thrown during the closing process. The reason for
      * that is the compiler fails to compile a {@link AutoCloseable#close()} implementation that throws a generic
      * {@link Exception} (due to {@link InterruptedException} issue) - We therefore have to catch and wrap all exceptions.
+     *
      * @param closeables the given sequence of {@link AutoCloseable}
      * @throws CloseException in case any exception was caught during the process. The first exception will be added
      * as a {@code cause}. In case more than one exception was caught, it will be added as Suppressed.

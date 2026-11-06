@@ -54,16 +54,15 @@ import java.util.function.Supplier;
 /**
  * A specialized match candidate for vector similarity search queries backed by vector similarity indexes
  * (such as HNSW - Hierarchical Navigable Small World indexes <a href="https://arxiv.org/abs/1603.09320">https://arxiv.org/abs/1603.09320</a>).
- * <p>
- * This class represents a potential query plan option that uses a vector index to efficiently perform
+ *
+ * <p>This class represents a potential query plan option that uses a vector index to efficiently perform
  * K-nearest neighbor (K-NN) searches and similarity-based filtering. It extends the standard index scan
  * matching framework to handle the unique characteristics of vector similarity searches, particularly
  * the notion of distance-based ranking and specialized comparison types.
- * </p>
  *
  * <h2>Vector Similarity Search Pattern</h2>
- * <p>
- * This match candidate is designed to recognize and optimize queries following the pattern:
+ *
+ * <p>This match candidate is designed to recognize and optimize queries following the pattern:
  * <pre>
  * SELECT ... FROM table
  * WHERE partition_key = value
@@ -75,11 +74,10 @@ import java.util.function.Supplier;
  * The query planner transforms such queries into patterns involving {@link Comparisons.DistanceRankValueComparison}
  * predicates (via {@link com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue#transformComparisonMaybe}),
  * which this match candidate can then satisfy using the vector index.
- * </p>
  *
  * <h2>Comparison Handling</h2>
- * <p>
- * The class distinguishes between two types of comparisons:
+ *
+ * <p>The class distinguishes between two types of comparisons:
  * <ul>
  *   <li><strong>Partition/Filter Comparisons:</strong> Standard equality and inequality comparisons
  *       on partition keys and other indexed fields (e.g., {@code zone = 'us-west'})</li>
@@ -88,7 +86,6 @@ import java.util.function.Supplier;
  * </ul>
  * The {@link #toVectorIndexScanComparisons} method separates these comparison types and constructs
  * appropriate {@link VectorIndexScanComparisons} that the execution engine can process.
- * </p>
  *
  * <h2>Constraints and Limitations</h2>
  * <ul>

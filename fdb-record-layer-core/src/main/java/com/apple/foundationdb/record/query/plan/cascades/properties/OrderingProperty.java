@@ -765,7 +765,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return expression.getQuantifiers()
                     .stream()
                     .map(quantifier -> {
-                        if (quantifier instanceof Quantifier.Existential) {
+                        if (quantifier instanceof Quantifier.AtMostOne) {
                             return Ordering.empty();
                         }
                         return evaluateForReference(quantifier.getRangesOver());

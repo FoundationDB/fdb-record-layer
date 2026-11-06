@@ -545,9 +545,7 @@ class RenameFieldsVisitorTest {
      * the field numbers in the two Protobuf descriptors in order to establish field equivalency, and
      * it is in this way supposed to reflect rewrites to the fields.
      *
-     * <p>
-     * This takes a {@code depth} parameter to avoid infinite recursion. It has three purposes:
-     * </p>
+     * <p>This takes a {@code depth} parameter to avoid infinite recursion. It has three purposes:
      *
      * <ul>
      *     <li>

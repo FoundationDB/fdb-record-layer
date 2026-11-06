@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 /**
  * Interface for tree-like structures and helpers for folds and traversals on these tree-like structures of node type
  * {@link T}.
+ *
  * @param <T> type parameter of the node
  */
 public interface TreeLike<T extends TreeLike<T>> {
@@ -52,6 +53,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * any implementor should implement {@code class Tree implements TreeLike<Tree> ...} meaning that the implementor is
      * {@code T} for those cases. Providing a narrowing method to get {@code this} from the implementor avoids an
      * unchecked cast.
+     *
      * @return {@code this} of type {@code T}.
      */
     @Nonnull
@@ -59,6 +61,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method to retrieve a list of children values.
+     *
      * @return a list of children
      */
     @Nonnull
@@ -66,6 +69,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Recreate the current treelike object with a new list of children.
+     *
      * @param newChildren new children
      * @return a copy of {@code this} using the new children passed in
      */
@@ -73,8 +77,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     T withChildren(Iterable<? extends T> newChildren);
 
     /**
-     * Returns an iterator that traverse the nodes in pre-order.
-     * @return an iterator that traverse the nodes in pre-order.
+     * {@return an iterator that traverse the nodes in pre-order}
      */
     @Nonnull
     default PreOrderIterator<T> preOrderIterator() {
@@ -86,8 +89,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * Returns a {@link Stream} that traverses the nodes in pre-order.
-     * @return a {@link Stream} that traverses the nodes in pre-order.
+     * {@return a {@link Stream} that traverses the nodes in pre-order}
      */
     @Nonnull
     default Stream<T> preOrderStream() {
@@ -96,6 +98,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
+     *
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
@@ -105,6 +108,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
+     *
      * @param descentIntoPredicate a predicate that determines of the traversal enters the subtree underneath the
      *        current node
      * @return an {@link Iterable} of nodes
@@ -115,8 +119,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * Returns a {@link Stream} that traverses the nodes in post-order.
-     * @return a {@link Stream} that traverses the nodes in post-order.
+     * {@return a {@link Stream} that traverses the nodes in post-order}
      */
     @Nonnull
     default Stream<T> postOrderStream() {
@@ -125,6 +128,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method that returns an {@link Iterable} of nodes as encountered in post-order traversal of this tree-like.
+     *
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
@@ -142,6 +146,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Note that this variant of fold does not permit {@code null} values to be produced and consumed by the map and
      * fold functions passed in. In return this method guarantees that the result of the folding the tree rooted at
      * {@code this} is well-defined and not {@code null}.
+     *
      * @param mapFunction a mapping {@link Function} that computes a scalar value of type {@code M} from a node of type {@code T}.
      * @param foldFunction a folding {@link Function} that computes the result of the fold of a node {@code n} given
      *        an instance of type {@code M} (which is the result of applying {@code mapFunction})
@@ -175,6 +180,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * of the absence of a well-defined fold for the respective subtree that is being considered at the time.
      * However, this method does not enforce this view meaning that callers can react to and pass on {@code null}s as
      * they see fit (by means of the provided lambdas for map and fold functions).
+     *
      * @param mapFunction a mapping {@link Function} that computes a scalar value of type {@code M} from a node of type {@code T}.
      * @param foldFunction a folding {@link Function} that computes the result of the fold of a node {@code n} given
      *        an instance of type {@code M} (which is the result of applying {@code mapFunction})
@@ -203,6 +209,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * This method is normally used when an immutable tree-like structure needs to be <em>modified</em> in a
      * persistent (copy-on-write) way meaning that parts or even all of the original tree rooted at {@code this}
      * needs to be recreated using the {@link #withChildren(Iterable)} method.
+     *
      * @param foldFunction a fold function that returns tree-like structures
      * @param <V> type parameter constraint to {@code TreeLike<V>}
      * @return an {@link Optional} of a new tree-like object that is result of the tree-map operation if the fold of the
@@ -217,6 +224,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Method that maps the tree-like rooted at {@code this} to another tree-like of the same type. Unlike the other
      * methods providing generic tree folds and maps, this method provides an easy way to mutate the leaves of the
      * tree-like rooted at {@code this}, newly added leaves will not be passed again to the {@code replaceOperator}.
+     *
      * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
      *        {@code T}.
      * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
@@ -231,6 +239,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Method that maps the tree-like rooted at {@code this} to another tree-like of the same type. Unlike the other
      * methods providing generic tree folds and maps, this method provides an easy way to mutate the leaves of the
      * tree-like rooted at {@code this}.
+     *
      * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
      *        {@code T}.
      * @param visitNewLeaves if {@code true}, passes new leaves to the {@code replaceOperator}, otherwise it will not.
@@ -267,13 +276,14 @@ public interface TreeLike<T extends TreeLike<T>> {
      * It traverses the tree in pre-order fashion, and is CoW, i.e. it is guaranteed to only make a copy of a node's
      * children iff one of the children is replaced by the replacement operator, otherwise, no allocation is made.
      * <br>
+     *
      * @param replacementOperator The replacement operator defined by the user, the operator is called on every node of
      *        the tree, and is expected to return the node itself if no changes to be made, this is
      *        necessary for replacement algorithm to avoid unnecessary allocations.
      * @return potentially a new tree which originates from {@code this} but having its nodes replaced with new ones,
      *         if no changes are made, {@code this} is returned.
-     * <br>
-     * Note: This can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
+     *
+     * <p>Note: This can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
      *       function domain is of the same type because that enables us to perform copy-on-write optimization.
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
@@ -318,6 +328,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * returns the height of the tree rooted at {@code this} {@code TreeLike}.
+     *
      * @return the height of the tree.
      */
     default int height() {
@@ -338,8 +349,8 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Calculates the diameter of the tree, incorporating the number of children of each node in the calculation.
-     * <p>
-     * Unlike a standard diameter calculation, this method considers <em>all</em> edges between a node and its children
+     *
+     * <p>Unlike a standard diameter calculation, this method considers <em>all</em> edges between a node and its children
      * when determining the diameter. This means that when calculating the diameter at a node 'n', the edges connecting
      * 'n' to its left and right subtrees are included, as well as the edges *within* those subtrees.  Effectively, this
      * adds the "level" or "depth" of the node to the diameter calculation.
@@ -352,16 +363,16 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Calculates the diameter of the tree, which is the longest path between any two leaves.
-     * <p>
-     * This method provides flexibility in how the root node connects to the heights of its left and right subtrees
+     *
+     * <p>This method provides flexibility in how the root node connects to the heights of its left and right subtrees
      * when computing the overall diameter.  By default, this connection is assumed to be a fixed cost (e.g., the number
      * of edges required to connect the left and right heights through the root).
-     * <p>
-     * However, the {@code customConnectingEdgeFunc} parameter allows for overriding this default behavior.  This is
+     *
+     * <p>However, the {@code customConnectingEdgeFunc} parameter allows for overriding this default behavior.  This is
      * useful for scenarios where the connection cost should be dynamically adjusted based on other factors, such as the
      * tree's width or other relevant properties.
-     * <p>
-     * Using a custom connection function can be beneficial for scoring or evaluating the tree based on criteria beyond
+     *
+     * <p>Using a custom connection function can be beneficial for scoring or evaluating the tree based on criteria beyond
      * the traditional diameter definition.  However, be aware that modifying the connection cost may cause the returned
      * value to deviate from the strictly defined diameter of the tree.
      *
@@ -397,6 +408,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Functional interface for a function whose result is not nullable.
+     *
      * @param <T> argument type
      * @param <R> result type
      */
@@ -415,6 +427,7 @@ public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Functional interface for a bi-function whose result is not nullable.
+     *
      * @param <T> argument type of the first argument to the function
      * @param <U> argument type of the second argument to the function
      * @param <R> result type

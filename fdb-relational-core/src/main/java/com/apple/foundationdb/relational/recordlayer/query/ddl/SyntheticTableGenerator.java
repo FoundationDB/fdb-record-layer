@@ -29,8 +29,8 @@ import javax.annotation.Nonnull;
  * Generator for synthetic table an index is defined on - for the index definitions that need one.
  *
  * <p>Each kind decides for itself whether a definition needs it, what it cannot express, and how the index key reads
- * against it. {@link SyntheticTableGeneratorFactory} is the one place that picks between them. Unnesting is the only
- * kind so far.
+ * against it. {@link SyntheticTableGeneratorFactory} is the one place that picks between them, and they are mutually
+ * exclusive: unnesting within a join does not compose yet.
  */
 interface SyntheticTableGenerator {
 
@@ -47,7 +47,6 @@ interface SyntheticTableGenerator {
      * re-expressed in the synthetic table's coordinates, so that they translate as ordinary field paths.
      *
      * @param spec what the index is made of, resolved against the stored records
-     *
      * @return the {@link IndexSpec}, in the synthetic table's coordinates
      */
     @Nonnull

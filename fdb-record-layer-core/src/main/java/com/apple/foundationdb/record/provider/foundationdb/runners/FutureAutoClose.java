@@ -30,17 +30,17 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A helper that completes futures once closed.
- * <p>
- * This is meant to be used together with other {@link FDBDatabaseRunner}s and help manage any {@link CompletableFuture} instances
+ *
+ * <p>This is meant to be used together with other {@link FDBDatabaseRunner}s and help manage any {@link CompletableFuture} instances
  * once the runner closes. This helper should be lifecycle coupled to the runners it accompanies.
- * <p>
- * Futures created externally can be registered with this class. This class can also create new futures (and register them).
+ *
+ * <p>Futures created externally can be registered with this class. This class can also create new futures (and register them).
  * When {@link #close()} is called, any registered {@link CompletableFuture} which is still incomplete will be completed exceptionally
  * with a {@link FDBDatabaseRunner.RunnerClosed} exception.
- * <p>
- * It is the responsibility of the users of the runner to ensure futures that it creates are registered.
- * <p>
- * Normally, only the top level (root) of the future chain needs registration. Completing this future
+ *
+ * <p>It is the responsibility of the users of the runner to ensure futures that it creates are registered.
+ *
+ * <p>Normally, only the top level (root) of the future chain needs registration. Completing this future
  * will cause the completion to trickle down to the dependent futures.
  */
 @API(API.Status.INTERNAL)

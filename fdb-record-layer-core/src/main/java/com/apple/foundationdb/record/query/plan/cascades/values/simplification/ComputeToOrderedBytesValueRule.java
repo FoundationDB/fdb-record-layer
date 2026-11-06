@@ -41,6 +41,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that computes the underlying order of a {@link Value} tree rooted at a {@link ToOrderedBytesValue}.
+ *
  * @param <O> type variable for sort order
  * @param <P> type variable for ordering part
  *

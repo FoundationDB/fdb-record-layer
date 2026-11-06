@@ -71,8 +71,7 @@ import java.util.Objects;
  * had an index on <code>concat(x, y)</code>, then scanning over all index entries beginning with
  * <code>(1, 2)</code> would satisfy the query.
  *
- * <p>
- * There are two methods that attempt to match the query to a key expression. The first is the
+ * <p>There are two methods that attempt to match the query to a key expression. The first is the
  * {@link #matchesSatisfyingQuery(KeyExpression, FilterSatisfiedMask) matchesSatisfyingQuery()}
  * method. This should be used if one wants to make sure that one can use the given key expression
  * to retrieve all records that match the given query (i.e., the whether the fields included in the
@@ -81,17 +80,14 @@ import java.util.Objects;
  * The other mode is the {@link #matchesCoveringKey(KeyExpression, FilterSatisfiedMask) matchesCoveringKey()}
  * method. This attempts to find a list of comparisons such that every column of the key expression has been set
  * by some component of the filter. However, there may be components of the filter that are unsatisfied.
- * </p>
  *
- * <p>
- * By way of example, if the filter is <code>WHERE x = 1 AND y = 2</code> and the expression
+ * <p>By way of example, if the filter is <code>WHERE x = 1 AND y = 2</code> and the expression
  * is just on field <code>x</code>, then if one calls the <code>matchesSatisfyingQuery</code> method,
  * the matcher will return <code>NO_MATCH</code>, but it will return <code>[EQUALS 1]</code> if the
  * <code>matchesCoveringKey</code> method is called. By contrast, if the filter is <code>WHERE x = 1 AND y = 2</code>
  * and the expression is <code>concat(x, y, z)</code>, then calling <code>matchesSatisfyingQuery</code>
  * will return <code>[EQUALS 1, EQUALS 2]</code>, but calling <code>matchesCoveringKey</code> will
  * return <code>NO_MATCH</code>.
- * </p>
  */
 @API(API.Status.INTERNAL)
 public class QueryToKeyMatcher {
@@ -303,8 +299,8 @@ public class QueryToKeyMatcher {
             }
         }
 
-        if (matchingMode.equals(MatchingMode.SATISFY_QUERY) && !localMask.allSatisfied()
-                || matchingMode.equals(MatchingMode.COVER_KEY) && comparisons.size() < keyChildSize) {
+        if (matchingMode == MatchingMode.SATISFY_QUERY && !localMask.allSatisfied()
+                || matchingMode == MatchingMode.COVER_KEY && comparisons.size() < keyChildSize) {
             // Either we do not have enough comparisons to have covered the full key, or there are some
             // filters that have not yet been satisfied.
             return Match.none();
@@ -324,7 +320,7 @@ public class QueryToKeyMatcher {
         } else if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
+            if (children.isEmpty() || matchingMode == MatchingMode.COVER_KEY) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
@@ -341,7 +337,7 @@ public class QueryToKeyMatcher {
         if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
+            if (children.isEmpty() || matchingMode == MatchingMode.COVER_KEY) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
@@ -359,7 +355,7 @@ public class QueryToKeyMatcher {
         if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
+            if (children.isEmpty() || matchingMode == MatchingMode.COVER_KEY) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
@@ -456,7 +452,7 @@ public class QueryToKeyMatcher {
     private Match matches(@Nonnull RecordTypeKeyComparison query, @Nonnull KeyExpression key,
                           @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
         if (!(key instanceof RecordTypeKeyExpression ||
-                (matchingMode.equals(MatchingMode.SATISFY_QUERY) && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
+                (matchingMode == MatchingMode.SATISFY_QUERY && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
             return noMatchOrUnexpected(key);
         }
         if (filterMask != null) {

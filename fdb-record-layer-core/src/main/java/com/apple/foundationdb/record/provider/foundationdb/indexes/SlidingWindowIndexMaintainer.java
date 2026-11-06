@@ -81,13 +81,13 @@ import java.util.function.Supplier;
  *
  * <p>Currently, only vector indexes are supported as the delegate. This restriction is enforced
  * by {@link SlidingWindowIndexMaintainerFactory#isSlidingWindowIndex(Index)} and validated by
- * {@link SlidingWindowIndexMaintainerFactory}.</p>
+ * {@link SlidingWindowIndexMaintainerFactory}.
  *
  * <p>The sliding window subspace is organized as {@code <partition...> / <region> / ...} where
  * the partition prefix comes from the {@code PARTITION BY} clause in the
- * {@link IndexPredicate.RowNumberWindowPredicate}. When there is no partition, the prefix is empty.</p>
+ * {@link IndexPredicate.RowNumberWindowPredicate}. When there is no partition, the prefix is empty.
  *
- * <p>Within each partition, there are two logical regions:</p>
+ * <p>Within each partition, there are two logical regions:
  * <ul>
  *     <li>Entries (key 0): {@code [windowKey..., primaryKey...] → primaryKey packed} — all tracked records, sorted by window key</li>
  *     <li>Meta (key 1): {@code [3] → long} (window count), {@code [4] → packed entry key} (boundary pointer)</li>
@@ -96,10 +96,10 @@ import java.util.function.Supplier;
  * <p>All entries live in a single sorted subspace per partition. The boundary pointer marks the
  * worst entry currently in the window. Entries on the "good" side of the boundary are in the
  * window (present in the delegate index); entries on the "bad" side are overflow (not in the
- * delegate). Eviction and re-election shift the boundary pointer without moving data.</p>
+ * delegate). Eviction and re-election shift the boundary pointer without moving data.
  *
  * <p>{@code deleteWhere} is only supported when the window is partitioned. It clears the entire
- * partition group from the sliding window subspace and delegates to the inner index.</p>
+ * partition group from the sliding window subspace and delegates to the inner index.
  */
 @API(API.Status.EXPERIMENTAL)
 public class SlidingWindowIndexMaintainer extends IndexMaintainer {
@@ -561,8 +561,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             return tr.get(metaSubspace.pack(BOUNDARY_KEY)).thenCompose(boundaryBytes -> {
                 validateOrThrowEx(boundaryBytes != null, "sliding window boundary is missing but entry exists, possible corruption");
                 return extremumType.isInWindow(key.entriesKey(), Tuple.fromBytes(boundaryBytes))
-                       ? instrument(SlidingWindowEvent.SW_DELEGATE_INSERT, delegateInsert.get())
-                       : AsyncUtil.DONE;
+                        ? instrument(SlidingWindowEvent.SW_DELEGATE_INSERT, delegateInsert.get())
+                        : AsyncUtil.DONE;
             });
         });
     }

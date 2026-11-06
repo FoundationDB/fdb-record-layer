@@ -70,8 +70,8 @@ import java.util.stream.Stream;
  * Tests on the text processing of the Lucene Highlight functionality. The intent here is to bypass
  * the expensive query planning process in order to ensure that the highlight matching functionality
  * works as expected.
- * <p>
- * As a side effect of the verification of highlighting, this test also
+ *
+ * <p>As a side effect of the verification of highlighting, this test also
  * outlines the behavior of the various different analyzers on text matching (so, for example, tests
  * here will fail if a given analyzer fails to match a specific query).
  */

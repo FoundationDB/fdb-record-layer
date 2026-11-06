@@ -41,11 +41,10 @@ import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
 import org.apache.lucene.codecs.perfield.PerFieldPostingsFormat;
 
 /**
- *
  * Codec with a few optimizations for speeding up compound files
  * sitting on FoundationDB.
  *
- * Optimizations:
+ * <p>Optimizations:
  * - .cfe file references are not stored
  * - .cfe file data is serialized as entries on the current compound file reference (.cfs)
  * - .si file references are not stored
@@ -53,7 +52,7 @@ import org.apache.lucene.codecs.perfield.PerFieldPostingsFormat;
  * - .si diagnostic information is not stored
  * - Removed checksum validation on Compound File Reader
  *
- * Forwards/backwards compatibility is not supported during transition from the {@link Lucene87Codec} to this implementation unfortunately.
+ * <p>Forwards/backwards compatibility is not supported during transition from the {@link Lucene87Codec} to this implementation unfortunately.
  * Indexes need to rebuilt before handling search requests.
  *
  */
@@ -88,9 +87,8 @@ public class LuceneOptimizedCodec extends Codec {
 
     /**
      * Instantiates a new codec.
-     * <p>
-     *     The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
-     * </p>
+     *
+     * <p>The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
      */
     public LuceneOptimizedCodec() {
         super("RL");

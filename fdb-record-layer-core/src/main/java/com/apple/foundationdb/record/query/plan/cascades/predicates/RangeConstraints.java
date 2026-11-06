@@ -225,6 +225,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     /**
      * checks whether the range is known to be empty at compile-time or not.
+     *
      * @param evaluationContext The evaluation context required for compiling this range.
      * @return if the range is compile-time it returns {@code true} if it is empty or {@code false} if it is not
      * otherwise {@code false}, under a given evaluation context.
@@ -243,8 +244,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     /**
      * checks whether {@code this} range encloses another {@link RangeConstraints} under an {@link EvaluationContext}.
-     * <br>
-     * <b>Examples</b>:
+     *
+     * <p><b>Examples</b>:
      * <ul>
      * <li>{@code this = [1, 10), other = (2, 5) => this.encloses(other) = true}</li>
      * <li>{@code this = [1, 10), other = (0, 5) => this.encloses(other) = false}</li>
@@ -602,6 +603,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
         /**
          * Evaluates {@code this} into a {@link Range} under the provided {@link EvaluationContext}.
+         *
          * @param evaluationContext The evaluation contextn.
          * @return a compiled {@link Range}, if no compilable ranges are found, it returns {@code null}.
          */

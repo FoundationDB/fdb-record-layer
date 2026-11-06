@@ -127,7 +127,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         }
         if (currentCursor.terminatedEarly()) {
             return Continuation.Reason.TRANSACTION_LIMIT_REACHED;
-        } else if (currentCursor.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
+        } else if (currentCursor.getNoNextReason() == RecordCursor.NoNextReason.RETURN_LIMIT_REACHED) {
             return Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED;
         } else {
             return Continuation.Reason.CURSOR_AFTER_LAST;

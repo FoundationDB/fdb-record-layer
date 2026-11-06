@@ -29,11 +29,13 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A single logical vector option, identified by a stable set of wire names: one <em>canonical</em> name plus zero or
@@ -41,11 +43,11 @@ import java.util.function.Supplier;
  * pairing is declared; readers resolve any name to this key (preferring the canonical) and writers emit only the
  * canonical name, so a value stored long ago under a legacy name is still read while new values are written under the
  * current name.
- * <p>
- * The key bundles both halves of the string round-trip for its value type {@code T}: a {@link Function parser}
+ *
+ * <p>The key bundles both halves of the string round-trip for its value type {@code T}: a {@link Function parser}
  * (string &rarr; {@code T}) used when reading, and a serializer ({@code T} &rarr; string) used when writing.
- * <p>
- * The same key type serves both option surfaces:
+ *
+ * <p>The same key type serves both option surfaces:
  * <ul>
  * <li><b>index-time options</b> — index metadata values are strings, so {@link #read(Index)} resolves the option off an
  *     {@link Index} and parses it to {@code T} using the {@link Function parser} bundled with the key's type;</li>
@@ -90,6 +92,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
 
     /**
      * The canonical wire name — the only name ever written.
+     *
      * @return the canonical name
      */
     @Nonnull
@@ -100,6 +103,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
     /**
      * The canonical wire name. Alias of {@link #getCanonicalName()} kept for the scan-option surface, whose callers
      * historically read an option's serialized name via {@code getOptionName()}.
+     *
      * @return the canonical name
      */
     @Nonnull
@@ -109,6 +113,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
 
     /**
      * The value type of the option, used by the scan-option surface to cast and (de)serialize stored values.
+     *
      * @return the value type
      */
     @Nonnull
@@ -119,6 +124,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
     /**
      * All wire names for this option — the canonical name first, then any legacy aliases. Used to register every name
      * that must resolve to this key and to enumerate the names to inspect when validating option changes.
+     *
      * @return the canonical name followed by the aliases
      */
     @Nonnull
@@ -219,6 +225,17 @@ public final class VectorOptionKey<T> implements PlanHashable {
                                                    @Nonnull final String... aliases) {
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Double.class, Double::parseDouble,
                 String::valueOf);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static VectorOptionKey<List<Double>> ofDoubleList(@Nonnull final String canonicalName) {
+        // Comma-separated on the wire; the serializer joins with "," so the stored form round-trips through the parser.
+        // No legacy aliases: list-valued options postdate the renaming that the other factories' aliases cover.
+        return new VectorOptionKey<>(canonicalName, ImmutableList.of(), (Class<List<Double>>)(Class<?>)List.class,
+                value -> Arrays.stream(value.split(",")).map(String::trim).map(Double::parseDouble)
+                        .collect(ImmutableList.toImmutableList()),
+                values -> values.stream().map(String::valueOf).collect(Collectors.joining(",")));
     }
 
     @Nonnull

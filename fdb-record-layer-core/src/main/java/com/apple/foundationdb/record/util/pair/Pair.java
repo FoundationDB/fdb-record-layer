@@ -37,17 +37,13 @@ import java.util.Map;
 @API(API.Status.INTERNAL)
 public interface Pair<L, R> extends Map.Entry<L, R> {
     /**
-     * Get the left element of the pair.
-     *
-     * @return the left element of the pair
+     * {@return the left element of the pair}
      */
     @Nullable
     L getLeft();
 
     /**
-     * Get the right element of the pair.
-     *
-     * @return the right element of the pair
+     * {@return the right element of the pair}
      */
     @Nullable
     R getRight();

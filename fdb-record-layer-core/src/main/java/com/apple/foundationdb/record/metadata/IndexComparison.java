@@ -95,6 +95,7 @@ public abstract class IndexComparison {
 
     /**
      * Converts this {@link IndexComparison} into a corresponding protobuf message.
+     *
      * @return an equivalent protobuf message.
      */
     @Nonnull
@@ -102,6 +103,7 @@ public abstract class IndexComparison {
 
     /**
      * Converts this {@link IndexComparison} into an equivalent {@link Comparisons.Comparison}.
+     *
      * @return An equivalent {@link Comparisons.Comparison}.
      */
     @Nonnull
@@ -312,7 +314,7 @@ public abstract class IndexComparison {
 
         @VisibleForTesting
         public NullComparison(@Nonnull final Comparisons.NullComparison comparison) {
-            this.isNull = comparison.getType().equals(Comparisons.Type.IS_NULL);
+            this.isNull = comparison.getType() == Comparisons.Type.IS_NULL;
         }
 
         public boolean isNull() {

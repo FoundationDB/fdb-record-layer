@@ -45,18 +45,15 @@ import java.util.function.BiFunction;
  * integers (which is true for position lists). This allows it to delta compress the integers
  * in its list, which can be a significant space savings.
  *
- * <p>
- * Keys are serialized using default {@link Tuple} packing. Bunches are serialized as follows:
+ * <p>Keys are serialized using default {@link Tuple} packing. Bunches are serialized as follows:
  * each bunch begins with a prefix (that can be used to version the serialization format), and
  * then each entry in the bunch is serialized by writing the length of the key (using a base-128
  * variable length integer encoding) followed by the serialized key bytes followed by the length
  * of the serialized position list followed by the (delta compressed) entries of each position
  * list. Additionally, the key of the first entry in the bunch is omitted as that can be determined
  * by using the sign-post key within the <code>BunchedMap</code>.
- * </p>
  *
- * <p>
- * For example, suppose one attempts to serialize two entries into a single bunch, one
+ * <p>For example, suppose one attempts to serialize two entries into a single bunch, one
  * with key <code>(1066,)</code> and value <code>[1, 3, 5, 8]</code> and another with key
  * <code>(1415,)</code> and value <code>[0, 600, 605]</code>. The tuple <code>(1066,)</code>
  * serializes to <code>16 04 2A</code> (in hex), and the tuple <code>(1415,)</code>
@@ -65,17 +62,15 @@ import java.util.function.BiFunction;
  * the lower order groups of 7 bits into their own bytes and then using the most significant
  * bit as a continuation flag, so it becomes <code>10000100 01011000 = 84 58</code>.
  * So, the full entry is (with <code>20</code> as the prefix):
- * </p>
  * <pre><code>
  *     20 (04 (01 02 02 03)) (03 (16 05 87) 04 (00 (84 58) 05))
  * </code></pre>
- * <p>
- * The parentheses are added for clarity and separate each entry as well as grouping variable
+ *
+ * <p>The parentheses are added for clarity and separate each entry as well as grouping variable
  * length integers together. Note that to add a new entry to the end of a serialized list,
  * one can take the serialized entry and append it to the end of that list rather than
  * deserializing the entry list, appending the new entry, and then serializing
  * the new list.
- * </p>
  *
  * @see TextIndexMaintainer
  * @see com.apple.foundationdb.map.BunchedMap BunchedMap

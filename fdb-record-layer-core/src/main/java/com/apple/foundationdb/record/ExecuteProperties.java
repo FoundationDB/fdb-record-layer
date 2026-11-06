@@ -120,6 +120,7 @@ public class ExecuteProperties {
 
     /**
      * Get the limit on the number of rows that will be returned as it would be passed to FDB.
+     *
      * @return the limit or {@link ReadTransaction#ROW_LIMIT_UNLIMITED} if there is no limit.
      */
     public int getReturnedRowLimit() {
@@ -128,6 +129,7 @@ public class ExecuteProperties {
 
     /**
      * Set the limit on the number of rows that will be returned.
+     *
      * @param rowLimit the limit or {@link ReadTransaction#ROW_LIMIT_UNLIMITED} or {@link Integer#MAX_VALUE} for no limit
      * @return a new <code>ExecuteProperties</code> with the given limit
      */
@@ -179,6 +181,7 @@ public class ExecuteProperties {
 
     /**
      * Build a new <code>ExecuteProperties</code> with the given <code>ExecuteState</code>.
+     *
      * @param newState the new state
      * @return a new properties object with the new state
      */
@@ -189,6 +192,7 @@ public class ExecuteProperties {
 
     /**
      * Build a new <code>ExecuteProperties</code> with an empty state.
+     *
      * @return a new properties object with an empty state
      */
     @Nonnull
@@ -198,6 +202,7 @@ public class ExecuteProperties {
 
     /**
      * Get whether reaching the scan limit throws an exception.
+     *
      * @return {@code true} if the scan limit throws an exception when reached,
      * {@code false} if the scan returns early with {@link com.apple.foundationdb.record.RecordCursor.NoNextReason#SCAN_LIMIT_REACHED}
      */
@@ -222,6 +227,7 @@ public class ExecuteProperties {
 
     /**
      * Clear the returned row limit and time limit. Does not clear the skip.
+     *
      * @return a new <code>ExecuteProperties</code> without the returned row and time limits
      */
     @Nonnull
@@ -234,6 +240,7 @@ public class ExecuteProperties {
 
     /**
      * Clear the skip and returned row limit, but no other limits.
+     *
      * @return a new <code>ExecuteProperties</code> without the skip and returned row limit
      */
     @Nonnull
@@ -246,6 +253,7 @@ public class ExecuteProperties {
 
     /**
      * Remove any skip count and adjust the limit to include enough rows that we can skip those and then apply the current limit.
+     *
      * @return a new properties without skip and with an adjusted limit
      */
     @Nonnull
@@ -259,6 +267,7 @@ public class ExecuteProperties {
 
     /**
      * Get the limit on the number of rows that will be returned as could be used for counting.
+     *
      * @return the limit or {@link Integer#MAX_VALUE} if there is no limit.
      */
     public int getReturnedRowLimitOrMax() {
@@ -268,6 +277,7 @@ public class ExecuteProperties {
     /**
      * Merge these limits with the ones specified in <code>other</code>, using the limit specified by <code>other</code>
      * except where it is unlimited, in which case the limit from this <code>ExecuteProperties</code> is used instead.
+     *
      * @param other the <code>ExecuteProperties</code> to the take the limits from
      * @return an <code>ExecuteProperties</code> with limits merged as described above
      */
@@ -290,6 +300,7 @@ public class ExecuteProperties {
 
     /**
      * Get the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+     *
      * @return the default streaming mode
      */
     public CursorStreamingMode getDefaultCursorStreamingMode() {
@@ -298,6 +309,7 @@ public class ExecuteProperties {
 
     /**
      * Set the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+     *
      * @param defaultCursorStreamingMode default streaming mode
      * @return a new <code>ExecuteProperties</code> with the given default streaming mode
      */
@@ -310,6 +322,7 @@ public class ExecuteProperties {
 
     /**
      * Reset the stateful parts of the properties to their "original" values, creating an independent mutable state.
+     *
      * @see ExecuteState#reset()
      * @return an {@code ExecuteProperties} with an independent mutable state
      */
@@ -320,6 +333,7 @@ public class ExecuteProperties {
 
     /**
      * Create a new instance with these fields, copying any additional fields from subclasses.
+     *
      * @param skip skip count
      * @param rowLimit returned row limit
      * @param timeLimit time limit
@@ -373,7 +387,7 @@ public class ExecuteProperties {
     @Override
     public String toString() {
         final List<String> components = new ArrayList<>();
-        if (!isolationLevel.equals(IsolationLevel.SERIALIZABLE)) {
+        if (isolationLevel != IsolationLevel.SERIALIZABLE) {
             components.add(isolationLevel.toString());
         }
         if (skip != 0) {
@@ -504,6 +518,7 @@ public class ExecuteProperties {
          * Set the limit on the number of records that may be scanned.
          * Note that at most one of {@link #scannedRecordsLimit} and {@link #executeState} may be set at the same time,
          * since the {@link ExecuteState} contains a shared {@link RecordScanLimiter}.
+         *
          * @param limit the maximum number of records to scan
          * @return an updated builder
          */
@@ -566,6 +581,7 @@ public class ExecuteProperties {
         /**
          * Set how scan limit reached is handled.
          * This setting has no effect if {@link #setScannedRecordsLimit(int)} is not also set.
+         *
          * @param failOnScanLimitReached {@code true} to throw an exception, {@code false} to return early
          * @return an updated builder
          */
@@ -585,6 +601,7 @@ public class ExecuteProperties {
 
         /**
          * Set the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+         *
          * @param defaultCursorStreamingMode default streaming mode
          * @return an updated builder
          */

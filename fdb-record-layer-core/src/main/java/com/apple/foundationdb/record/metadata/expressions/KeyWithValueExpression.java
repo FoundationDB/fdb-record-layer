@@ -193,6 +193,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     /**
      * Given a <code>Key.Evaluated</code> returned from the evaluation of this expression, splits out
      * the portion of that expression that should be used to represent the key of a covering index.
+     *
      * @param wholeKey the whole key with both key and value
      * @return the key portion of the given key
      */
@@ -204,6 +205,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     /**
      * Given a <code>Key.Evaluated</code> returned from the evaluation of this expression, splits out
      * the portion of that expression that should be used to represent the value of a covering index.
+     *
      * @param wholeKey the whole key with both key and value
      * @return the value portion of the given key
      */

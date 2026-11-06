@@ -1,0 +1,301 @@
+in-query-multi-index:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:61
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 190
+    transform_count: 206
+    transform_time_ms: 108
+    transform_yield_count: 67
+    insert_time_ms: 10
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:81
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 190
+    transform_count: 206
+    transform_time_ms: 108
+    transform_yield_count: 67
+    insert_time_ms: 10
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:100
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 190
+    transform_count: 206
+    transform_time_ms: 108
+    transform_yield_count: 67
+    insert_time_ms: 10
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:119
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 190
+    transform_count: 206
+    transform_time_ms: 108
+    transform_yield_count: 67
+    insert_time_ms: 10
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:139
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 190
+    transform_count: 206
+    transform_time_ms: 108
+    transform_yield_count: 67
+    insert_time_ms: 10
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:158
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 59
+    transform_count: 206
+    transform_time_ms: 25
+    transform_yield_count: 67
+    insert_time_ms: 3
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:178
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 59
+    transform_count: 206
+    transform_time_ms: 25
+    transform_yield_count: 67
+    insert_time_ms: 3
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:197
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 59
+    transform_count: 206
+    transform_time_ms: 25
+    transform_yield_count: 67
+    insert_time_ms: 3
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:216
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 59
+    transform_count: 206
+    transform_time_ms: 25
+    transform_yield_count: 67
+    insert_time_ms: 3
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = ? and
+        num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:236
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 720
+    task_total_time_ms: 59
+    transform_count: 206
+    transform_time_ms: 25
+    transform_yield_count: 67
+    insert_time_ms: 3
+    insert_new_count: 72
+    insert_reused_count: 2
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:255
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 46
+    transform_count: 204
+    transform_time_ms: 26
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:275
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 46
+    transform_count: 204
+    transform_time_ms: 26
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:294
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 46
+    transform_count: 204
+    transform_time_ms: 26
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:313
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 46
+    transform_count: 204
+    transform_time_ms: 26
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique
+    ref: in-query-multi-index.yamsql:333
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 46
+    transform_count: 204
+    transform_time_ms: 26
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:352
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 42
+    transform_count: 204
+    transform_time_ms: 22
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:372
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 42
+    transform_count: 204
+    transform_time_ms: 22
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:391
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 42
+    transform_count: 204
+    transform_time_ms: 22
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:410
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 42
+    transform_count: 204
+    transform_time_ms: 22
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_3_indexed
+        = ? and num_value_2 in ? order by num_value_unique desc
+    ref: in-query-multi-index.yamsql:430
+    explain: '[IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MULTI_INDEX [EQUALS
+        promote(@c7 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE) } COMPARE BY (_.NUM_VALUE_UNIQUE)'
+    task_count: 528
+    task_total_time_ms: 42
+    transform_count: 204
+    transform_time_ms: 22
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 40
+    insert_reused_count: 1

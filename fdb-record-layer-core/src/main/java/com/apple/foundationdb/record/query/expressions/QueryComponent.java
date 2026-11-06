@@ -55,12 +55,13 @@ public interface QueryComponent extends PlanHashable {
      * checking whether the value f is greater than 3, it will probably want to return null. Other types of
      * component will naturally handle a value of null, such as isNull.
      *
-     * Excepting for some outer
+     * <p>Excepting for some outer
      * wrapping components (e.g. isNull), a null return value should not be included in results.
      *
      *
-     * Implementations should override {@link #evalMessage} instead of this one, even if they do not deal with
+     * <p>Implementations should override {@link #evalMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     *
      * @param <M> the type of records
      * @param store the record store from which the record came
      * @param context context against which evaluation takes place
@@ -77,14 +78,15 @@ public interface QueryComponent extends PlanHashable {
     /**
      * Return whether or not the given record matches this component.
      *
-     * The message might be the Protobuf form of a record or a piece of that record.
+     * <p>The message might be the Protobuf form of a record or a piece of that record.
      * If the key expression is meaningful against a subrecord, it should evaluate against the message.
      * Otherwise, it should evaluate against the record and ignore what part of that record is being considered.
      *
-     * There should not be any reason to call this method outside of the implementation of another {@code evalMessage}.
+     * <p>There should not be any reason to call this method outside of the implementation of another {@code evalMessage}.
      * Under ordinary circumstances, if {@code record} is {@code null}, then {@code message} will be {@code null}.
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
+     *
      * @see #eval
      * @param <M> the type of record
      * @param store the record store from which the record came
@@ -100,6 +102,7 @@ public interface QueryComponent extends PlanHashable {
 
     /**
      * Asynchronous version of {@code eval}.
+     *
      * @param <M> the type of records
      * @param store the record store from which the record came
      * @param context context against which evaluation takes place
@@ -115,6 +118,7 @@ public interface QueryComponent extends PlanHashable {
 
     /**
      * Asynchronous version of {@code evalMessage}.
+     *
      * @see #eval
      * @param <M> the type of record
      * @param store the record store from which the record came
@@ -131,6 +135,7 @@ public interface QueryComponent extends PlanHashable {
 
     /**
      * Get whether this component is asynchronous.
+     *
      * @return {@code true} if this component is better executed asynchronously
      */
     default boolean isAsync() {
@@ -140,6 +145,7 @@ public interface QueryComponent extends PlanHashable {
     /**
      * Validate that the given descriptor is consistent with this component. e.g. it has all the fields defined that
      * this component wants to inspect.
+     *
      * @param descriptor a record type descriptor, or a submessage descriptor
      * @throws Query.InvalidExpressionException if the descriptor is not consistent with this component
      */
@@ -148,6 +154,7 @@ public interface QueryComponent extends PlanHashable {
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
+     *
      * @param baseQuantifier a quantifier that flows the data for this level of expansion
      * @param outerQuantifierSupplier a supplier that creates additional base accesses for the purpose of
      *        creating semi joins with the actual outer base referred to by means of {@code baseAlias}
@@ -162,6 +169,7 @@ public interface QueryComponent extends PlanHashable {
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
+     *
      * @param baseQuantifier a quantifier that flows the data for this level of expansion
      * @param outerQuantifierSupplier a supplier that can create additional base accesses for the purpose of
      *        constructing semi joins with the actual outer base referred to by means of {@code baseAlias}

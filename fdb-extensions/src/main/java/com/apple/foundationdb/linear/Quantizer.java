@@ -25,15 +25,15 @@ import javax.annotation.Nonnull;
 /**
  * Defines the contract for a quantizer, a component responsible for encoding data vectors into a different, ideally
  * a more compact, representation.
- * <p>
- * Quantizers are typically used in machine learning and information retrieval to transform raw data into a format that
+ *
+ * <p>Quantizers are typically used in machine learning and information retrieval to transform raw data into a format that
  * is more suitable for processing, such as a compressed representation.
  */
 public interface Quantizer {
     /**
      * Returns the {@code DistanceEstimator} instance associated with this object.
-     * <p>
-     * The estimator is responsible for performing the primary distance estimation or calculation logic. This method
+     *
+     * <p>The estimator is responsible for performing the primary distance estimation or calculation logic. This method
      * provides access to that underlying component.
      *
      * @return the {@link DistanceEstimator} instance, which is guaranteed to be non-null.
@@ -48,8 +48,8 @@ public interface Quantizer {
 
     /**
      * Encodes the given data vector into another vector representation.
-     * <p>
-     * This method transforms the raw input data into a different, quantized format, which is often a vector more
+     *
+     * <p>This method transforms the raw input data into a different, quantized format, which is often a vector more
      * suitable for processing/storing the data. The specifics of the encoding depend on the implementation of the class.
      *
      * @param vector the input {@link RealVector} to be encoded. Must not be {@code null} and is assumed to have been
@@ -62,8 +62,8 @@ public interface Quantizer {
 
     /**
      * Creates a no-op {@code Quantizer} that does not perform any data transformation.
-     * <p>
-     * The returned quantizer's {@link Quantizer#encode(RealVector)} method acts as an
+     *
+     * <p>The returned quantizer's {@link Quantizer#encode(RealVector)} method acts as an
      * identity function, returning the input vector without modification. The
      * {@link Quantizer#estimator()} is created directly from the distance function
      * of the provided {@link Metric}. This can be useful for baseline comparisons

@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanC
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.codahale.metrics.MetricFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Map;
 
 public class StoredQueriesTest {
 
@@ -110,6 +113,37 @@ public class StoredQueriesTest {
                     " AS SELECT * FROM sq1(10)";
 
 
+    /**
+     * Both halves of the parameter's domain: a plan with the null bound, and a value-free one.
+     */
+    private static final String SCHEMA_TEMPLATE_TWO_CASES =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_col1(p bigint)" +
+                    "   PREPARE FOR (p IS NOT NULL), (p IS NULL)" +
+                    " AS select * from t1 where col1 = p";
+
+    /** A boolean pinned to each of its values, which is what gives a plan per value rather than one generic plan. */
+    private static final String SCHEMA_TEMPLATE_BOOLEAN_CASES =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, flag boolean, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_flag(b boolean)" +
+                    "   PREPARE FOR (b = TRUE), (b = FALSE)" +
+                    " AS select * from t1 where flag = b";
+
+    /**
+     * The first query's parameter type cannot be resolved at warm-up; the second must still be warmed. A template type
+     * in a parameter list is written {@code TYPE s1} — unlike a column definition, the keyword is required.
+     */
+    private static final String SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE =
+            "CREATE TYPE AS STRUCT s1(f1 bigint)" +
+                    " CREATE TABLE t1(id bigint, col1 bigint, st s1, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_struct(p TYPE s1)" +
+                    "   PREPARE FOR (p IS NOT NULL)" +
+                    " AS select * from t1 where st = p" +
+                    " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10";
+
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
@@ -152,8 +186,10 @@ public class StoredQueriesTest {
             embeddedConnection.setAutoCommit(true);
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(2, storedQueries.size());
-            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1").getQuery());
-            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID").getQuery());
+            Assertions.assertEquals("select * from t1 where col1 = 10",
+                    schemaTemplate.findStoredQueryByName("BY_COL1").orElseThrow().getQuery());
+            Assertions.assertEquals("select * from t1 where id = 1",
+                    schemaTemplate.findStoredQueryByName("BY_ID").orElseThrow().getQuery());
             Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
@@ -446,8 +482,7 @@ public class StoredQueriesTest {
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(1, storedQueries.size());
 
-            final var sq = storedQueries.get("BY_X");
-            Assertions.assertNotNull(sq);
+            final var sq = schemaTemplate.findStoredQueryByName("BY_X").orElseThrow();
             Assertions.assertEquals("SELECT * FROM sq1(10)", sq.getQuery());
             Assertions.assertEquals(1, sq.getTempFunctions().size());
             final var tempFuncSource = sq.getTempFunctions().get(0);
@@ -586,6 +621,193 @@ public class StoredQueriesTest {
                                 .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void storedQueryWithCurrentTimestampFunction() throws Exception {
+        final var schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY with_current_timestamp AS select current_timestamp() AS ts, id from t1";
+        final String dbUri = "/TEST/STORED_QUERY_WITH_TIMESTAMP";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10), (2, 20)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            Assertions.assertEquals(Long.valueOf(1),
+                    connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var stmt = c.createStatement()) {
+                    final RelationalResultSet rs = stmt.executeQuery("select current_timestamp() AS ts, id from t1");
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("ID", 1L);
+
+                    final var firstTimestamp = rs.getLong("TS");
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumns(Map.of("ID",  2L, "TS", firstTimestamp))
+                            .hasNoNextRow();
+                }
+            });
+
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+        }
+    }
+
+    /**
+     * One stored query, two prepared cases, two plans.
+     */
+    @Test
+    void eachPreparedCaseWarmsItsOwnPlan() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_CASES_DB"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TWO_CASES)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            Assertions.assertEquals(Long.valueOf(2), new ConnectionUtils(engineDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
+            // Counts plans, not queries: one stored query, two cases, two plans.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
+        }
+    }
+
+    /**
+     * Both warmed plans are reachable from a client. An unchanged cached-plan count is the proof of a hit: a miss would
+     * plan afresh and insert. The failure mode here is a silent miss, correct rows either way.
+     */
+    @Test
+    void clientBindingHitsThePlanWarmedForItsCase() throws Exception {
+        final String dbUri = "/TEST/SQ_CASES_HIT_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TWO_CASES)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A non-null binding must match the plan warmed value-free with a non-nullable type.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 = ?P")) {
+                    ps.setLong("P", 20L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A null binding must match the plan built with the null already bound: no row satisfies `col1 = NULL`.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 = ?P")) {
+                    ps.setNull("P", Types.BIGINT);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    /**
+     * A boolean pinned to each of its values gets a plan per value, and each binding finds its own.
+     */
+    @Test
+    void eachBooleanCaseWarmsAndIsHit() throws Exception {
+        final String dbUri = "/TEST/SQ_BOOL_CASES_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_BOOLEAN_CASES)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1, true)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2, false)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            for (final boolean bound : new boolean[]{true, false}) {
+                final long expectedId = bound ? 1L : 2L;
+                connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                    try (var ps = c.prepareStatement("select * from t1 where flag = ?B")) {
+                        ps.setBoolean("B", bound);
+                        try (RelationalResultSet rs = ps.executeQuery()) {
+                            Assertions.assertTrue(rs.next());
+                            Assertions.assertEquals(expectedId, rs.getLong("ID"));
+                            Assertions.assertFalse(rs.next());
+                        }
+                    }
+                });
+                Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            }
+        }
+    }
+
+    /**
+     * The built template keeps no named types, so that stored query is skipped and the next one still warms.
+     */
+    @Test
+    void parameterTypeWarmUpCannotResolveSkipsOnlyThatQuery() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_UNRESOLVABLE_DB"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(engineDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
+            // Plan counters are per case, query counters per query — and here the two cases belong to different queries.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
+        }
     }
 
 }

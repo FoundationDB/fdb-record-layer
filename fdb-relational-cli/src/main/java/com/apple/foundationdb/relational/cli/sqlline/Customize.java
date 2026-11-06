@@ -52,6 +52,7 @@ public class Customize extends sqlline.Application {
      * Override to fix a bug in sqlline customization; an oversight prevents us being able to set the
      * CONNECT_INTERACTION_MODE default so we do the below ugly intercept instead. Relational does not support
      * login yet so do the below to stop user being challenged for a username/password on each connect.
+     *
      * @return Our options instance.
      */
     @Override

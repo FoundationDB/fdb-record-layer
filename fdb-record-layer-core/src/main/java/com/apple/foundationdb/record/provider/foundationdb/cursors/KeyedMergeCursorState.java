@@ -32,6 +32,7 @@ import java.util.function.Function;
 
 /**
  * Adds a comparison key and a comparison function to the {@link MergeCursorState} class.
+ *
  * @param <T> the type of element returned by the underlying cursor
  */
 class KeyedMergeCursorState<T> extends MergeCursorState<T> {

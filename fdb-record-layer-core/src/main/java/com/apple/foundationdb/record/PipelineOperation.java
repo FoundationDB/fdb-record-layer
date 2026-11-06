@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 /**
  * Kind of asynchronous pipelined operation being performed.
  *
- * This isn't an enum so clients can define more of them for their own pipeline operations.
+ * <p>This isn't an enum so clients can define more of them for their own pipeline operations.
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.PipelineSizer
  * @see RecordCursor#mapPipelined
@@ -58,6 +58,8 @@ public class PipelineOperation {
     public static final PipelineOperation DELETE = new PipelineOperation("DELETE");
     @Nonnull
     public static final PipelineOperation INSERT = new PipelineOperation("INSERT");
+    @Nonnull
+    public static final PipelineOperation TRACKING_TABLE_READ = new PipelineOperation("TRACKING_TABLE_READ");
 
     private final String name;
 

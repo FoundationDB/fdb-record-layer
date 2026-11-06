@@ -197,12 +197,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     }
                     return Optional.of(Assert.castUnchecked(result, LogicalOperator.class));
                 });
-        {
-            getDelegate().pushPlanFragment();
-            recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
-                    queryName, getDelegate()::visitFullId, memoized, this);
-            getDelegate().popPlanFragment();
-        }
+        getDelegate().pushPlanFragment();
+        recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
+                queryName, getDelegate()::visitFullId, memoized, this);
+        getDelegate().popPlanFragment();
         Assert.thatUnchecked(recursiveQueryType.isPresent(), ErrorCode.INVALID_RECURSION, "recursive CTE does not contain non-recursive term");
         final var type = recursiveQueryType.get();
         final var currentPlanFragment = getDelegate().pushPlanFragment();
@@ -459,7 +457,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param leftOperators the left-side operators to resolve column names against
      * @param rightTableSource the right-side table source
      * @param uidList the parsed {@code <uidList>} list of identifiers (must be non-empty per the grammar)
-     *
      * @return a pair of the (possibly updated) right table source and the combined equality expression
      */
     @Nonnull
@@ -819,8 +816,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
         return typeMaybe == null
-               ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
-               : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
+                ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
+                : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
     }
 
     @Override

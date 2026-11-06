@@ -33,6 +33,7 @@ import java.util.concurrent.Executor;
 
 /**
  * Base cursor for {@link IteratorCursor} and {@link AsyncIteratorCursor}.
+ *
  * @param <T> the type of elements of the cursor
  * @param <C> the type of {@link Iterator}
  */

@@ -30,10 +30,8 @@ import javax.annotation.Nonnull;
  * passed to the {@link FDBDatabaseFactory#setTraceFormat(FDBTraceFormat)} method in order to
  * control the client's behavior.
  *
- * <p>
- * This class is {@link API.Status#UNSTABLE}. However, additional values to this enum may be added
+ * <p>This class is {@link API.Status#UNSTABLE}. However, additional values to this enum may be added
  * if more trace format options become available.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public enum FDBTraceFormat {

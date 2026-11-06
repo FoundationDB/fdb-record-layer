@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -368,6 +369,21 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
     @Nonnull
     @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        return indexPlan.getComparisons();
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(indexPlan.getDynamicTypes())
+                .build();
+    }
+
+    @Nonnull
+    @Override
     public ScanComparisons getScanComparisons() {
         return indexPlan.getScanComparisons();
     }
@@ -406,7 +422,6 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                     .setToRecord(toRecord.toProto(serializationContext))
                     .setResultType(resultValue.getResultType().toTypeProto(serializationContext))
                     .setConstraint(constraint.toProto(serializationContext));
-            default -> throw new RecordCoreException("unsupported plan hash mode");
         };
         if (indexEntryToRecordValue != null) {
             builder.setIndexEntryToRecordValue(indexEntryToRecordValue.toValueProto(serializationContext));

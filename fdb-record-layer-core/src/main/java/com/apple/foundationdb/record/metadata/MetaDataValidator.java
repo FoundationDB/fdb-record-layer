@@ -33,6 +33,7 @@ import java.util.Map;
 
 /**
  * Validator for {@link RecordMetaData}.
+ *
  * @see MetaDataException
  */
 @API(API.Status.UNSTABLE)
@@ -130,6 +131,11 @@ public class MetaDataValidator implements RecordMetaDataProvider {
             throw new MetaDataException("Index " + index.getName() + " has last modified version " +
                                         index.getLastModifiedVersion() + " which is greater than the meta-data version " +
                                         metaData.getVersion());
+        }
+        if (index.getAddedVersion() > index.getLastModifiedVersion()) {
+            throw new MetaDataException("Index " + index.getName() + " has added version " +
+                                        index.getAddedVersion() + " which is greater than the last modified version " +
+                                        index.getLastModifiedVersion());
         }
         final List<String> replacementIndexNames = index.getReplacedByIndexNames();
         if (!replacementIndexNames.isEmpty()) {

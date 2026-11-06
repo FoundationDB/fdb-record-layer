@@ -56,7 +56,7 @@ import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_S
  * Concrete class that reads docId(maybe frq,pos,offset,payloads) list
  * with postings format.
  *
- * Borrowed from Lucene.
+ * <p>Borrowed from Lucene.
  * This implementation skips the reading and validation of checksums to limit the data required to be read to process a
  * query.
  *
@@ -346,9 +346,9 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
         public boolean canReuse(IndexInput docIn, FieldInfo fieldInfo) {
             return docIn == startDocIn &&
-                   indexHasFreq == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0) &&
-                   indexHasPos == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0) &&
-                   indexHasPayloads == fieldInfo.hasPayloads();
+                    indexHasFreq == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0) &&
+                    indexHasPos == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0) &&
+                    indexHasPayloads == fieldInfo.hasPayloads();
         }
 
         public PostingsEnum reset(IntBlockTermState termState, int flags) throws IOException {
@@ -658,8 +658,8 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
         public boolean canReuse(IndexInput docIn, FieldInfo fieldInfo) {
             return docIn == startDocIn &&
-                   indexHasOffsets == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0) &&
-                   indexHasPayloads == fieldInfo.hasPayloads();
+                    indexHasOffsets == (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0) &&
+                    indexHasPayloads == fieldInfo.hasPayloads();
         }
 
         public EverythingEnum reset(IntBlockTermState termState, int flags) throws IOException {

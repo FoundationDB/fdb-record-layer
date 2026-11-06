@@ -21,7 +21,7 @@
 /**
  * The Relational Client API.
  *
- * Code in this package (and it's subpackages) is the code which should be used by clients as they interact
+ * <p>Code in this package (and it's subpackages) is the code which should be used by clients as they interact
  * with the Relational system.
  */
 package com.apple.foundationdb.relational.api;

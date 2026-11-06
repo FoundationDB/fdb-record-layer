@@ -71,7 +71,8 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         super(r, executor);
     }
 
-    /** Lower-level search API.
+    /**
+     * Lower-level search API.
      *
      * <p>{@link LeafCollector#collect(int)} is called for every matching document.
      *
@@ -100,17 +101,14 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
     /**
      * Lower-level search API.
      *
-     * This is optimized into an attempt to parallelize database access in FDB, for each collector in {@code collectorManager}.
+     * <p>This is optimized into an attempt to parallelize database access in FDB, for each collector in {@code collectorManager}.
      *
-     * <p>
-     * {@link LeafCollector#collect(int)} is called for every document. <br>
+     * <p>{@link LeafCollector#collect(int)} is called for every document. <br>
      *
-     * <p>
-     * NOTE: this method executes the searches on all given leaves exclusively.
+     * <p>NOTE: this method executes the searches on all given leaves exclusively.
      * To search across all the searchers leaves use {@link #leafContexts}.
      *
-     * <p>
-     * most of this code is copied verbatim from {@link IndexSearcher#search(Query, CollectorManager)}, the
+     * <p>most of this code is copied verbatim from {@link IndexSearcher#search(Query, CollectorManager)}, the
      * refactored code is, as explained above, takes care of parallelizing database access in FDB for each collector in
      * {@code collectorManager}.
      *
@@ -120,7 +118,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      *          manager of collectors that receive hits
      */
     @Override
-    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.PreserveStackTrace"})
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.PreserveStackTrace", "PMD.ForLoopCanBeForeach"})
     public <C extends Collector, T> T search(Query query, CollectorManager<C, T> collectorManager) throws IOException {
         final var leafSlices = getSlices();
         final var executor = getExecutor();
@@ -189,12 +187,12 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
 
     /**
      * An optimized version that performs the search on parallel.
+     *
      * @param executor The task executor.
      * @param weight Weight of the query.
      * @param leaves List of leaves reader contexts.
      * @param collector Collector that gathers the results.
      * @return a {@code Future} that can be waited upon for the parallel search tasks to finish.
-     *
      * @implNote it is possible that an {@link IOException} is thrown during parallel execution of task. Since Java does
      * not permit throwing a checked exception from a lambda, and we need to cascade this exception to the caller, we wrap
      * it using a custom, unchecked {@link WrapperException} and rethrow it. Therefore, the caller of this method should catch

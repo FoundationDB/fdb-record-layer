@@ -37,9 +37,7 @@ public final class Clocks {
     }
 
     /**
-     * Get a clock which reads nano time from the System clock.
-     *
-     * @return a clock which reads from the system clock.
+     * {@return a clock which reads nano time from the system clock}
      */
     public static Clock systemClock() {
         return SYSTEM_CLOCK;
@@ -47,8 +45,8 @@ public final class Clocks {
 
     /**
      * Get a logical clock based off the specified underlying ticker object.
-     * <p>
-     * When using a logical ticker, it is important that the clock not be set backwards (otherwise, algorithms
+     *
+     * <p>When using a logical ticker, it is important that the clock not be set backwards (otherwise, algorithms
      * may have weird results). This is a problem with all clocks, but is much more easily produced using logical clocks
      * like this.
      *

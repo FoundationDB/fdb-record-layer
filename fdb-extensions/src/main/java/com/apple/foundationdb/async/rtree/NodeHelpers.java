@@ -51,6 +51,7 @@ public class NodeHelpers {
     /**
      * Method to create a new node identifier. This method uses {@link UUID#randomUUID()} and should be used in
      * production to avoid conflicts.
+     *
      * @return a new 16-byte byte array containing a new unique node identifier
      */
     @Nonnull
@@ -68,6 +69,7 @@ public class NodeHelpers {
      * Method to create a new node identifier. This method uses an internal static {@link AtomicLong} that is
      * incremented. This method creates monotonically increasing node identifiers which can be shortened when printed
      * or logged. This way of creating node identifiers should only be used for testing and debugging purposes.
+     *
      * @return a new 16-byte byte array containing a new unique node identifier
      */
     @Nonnull
@@ -83,6 +85,7 @@ public class NodeHelpers {
 
     /**
      * Helper method to format bytes as hex strings for logging and debugging.
+     *
      * @param bytes an array of bytes
      * @return a {@link String} containing the hexadecimal representation of the byte array passed in
      */
@@ -99,6 +102,7 @@ public class NodeHelpers {
 
     /**
      * Helper method to format the node ids of an insert/update path as a string.
+     *
      * @param node a node that is usually linked up to its parents to form an insert/update path
      * @return a {@link String} containing the string presentation of the insert/update path starting at {@code node}
      */
@@ -120,6 +124,7 @@ public class NodeHelpers {
     /**
      * Compute the minimum bounding rectangle (mbr) of a list of slots. This method is used when a node's secondary
      * attributes need to be recomputed.
+     *
      * @param slots an {@link Iterable} of slots
      * @return a {@link RTree.Rectangle} representing the mbr of the {@link RTree.Point}s of the given slots.
      */

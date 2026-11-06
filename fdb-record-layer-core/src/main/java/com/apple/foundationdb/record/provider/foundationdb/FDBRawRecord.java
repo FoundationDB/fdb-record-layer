@@ -86,7 +86,7 @@ public class FDBRawRecord implements FDBStoredSizes {
         }
 
         return this.keyCount == that.keyCount && this.keySize == that.keySize && this.valueSize == that.valueSize
-               && this.split == that.split && this.versionedInline == that.versionedInline;
+                && this.split == that.split && this.versionedInline == that.versionedInline;
     }
 
     @Override
@@ -95,8 +95,7 @@ public class FDBRawRecord implements FDBStoredSizes {
     }
 
     /**
-     * Get the primary key for this record.
-     * @return the primary key for this record
+     * {@return the primary key for this record}
      */
     @Nonnull
     public Tuple getPrimaryKey() {
@@ -117,8 +116,7 @@ public class FDBRawRecord implements FDBStoredSizes {
     }
 
     /**
-     * Get whether this record has a non-<code>null</code> version.
-     * @return whether this record has a non-<code>null</code> version
+     * {@return whether this record has a non-<code>null</code> version}
      */
     public boolean hasVersion() {
         return version != null;
@@ -127,6 +125,7 @@ public class FDBRawRecord implements FDBStoredSizes {
     /**
      * Get the version associated with this record. This might be
      * <code>null</code>.
+     *
      * @return the version associated with this record
      */
     @Nullable

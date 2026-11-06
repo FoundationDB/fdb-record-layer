@@ -74,7 +74,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  *
- * where pred' is rebased along the translation from qun to newQun.
+ * <p>where pred' is rebased along the translation from qun to newQun.
  */
 public class PushDistinctBelowFilterRule extends AbstractCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> implements ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull

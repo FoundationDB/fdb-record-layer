@@ -77,7 +77,7 @@ import java.util.concurrent.CompletableFuture;
  *     }
  * </pre>
  *
- * Here, we have created two wrappers, one around the <code>employee</code> directory and another around its
+ * <p>Here, we have created two wrappers, one around the <code>employee</code> directory and another around its
  * <code>phone</code> subdirectory.  Each of these wrappers will automatically wrap the actual path entry that is
  * returned when these directories are accessed and each decorate the path entry with methods that allow you to
  * explicitly refer to directories by method name and to perform type validate at compile time.  For example:

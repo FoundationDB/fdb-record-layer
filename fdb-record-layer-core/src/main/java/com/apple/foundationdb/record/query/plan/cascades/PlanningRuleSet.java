@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveProjectionR
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
@@ -150,6 +151,7 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new MergeFetchIntoCoveringIndexRule(),
             new PushInJoinThroughFetchRule<>(RecordQueryInValuesJoinPlan.class),
             new PushInJoinThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
+            new PushInJoinThroughFetchRule<>(RecordQueryInComparandJoinPlan.class),
             new PushMapThroughFetchRule(),
             new PushFilterThroughFetchRule(),
             new PushDistinctThroughFetchRule(),

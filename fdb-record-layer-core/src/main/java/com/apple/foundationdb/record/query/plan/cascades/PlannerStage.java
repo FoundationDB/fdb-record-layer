@@ -106,6 +106,7 @@ public enum PlannerStage {
 
     /**
      * Returns iff the {@link PlannerStage} passed in directly precedes this stage.
+     *
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in directly precedes this stage.
      */
@@ -115,6 +116,7 @@ public enum PlannerStage {
 
     /**
      * Returns iff the {@link PlannerStage} passed in precedes this stage.
+     *
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in precedes this stage.
      */
@@ -125,6 +127,7 @@ public enum PlannerStage {
 
     /**
      * Returns iff the {@link PlannerStage} passed in directly succeeds this stage.
+     *
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in succeeds this stage.
      */
@@ -134,6 +137,7 @@ public enum PlannerStage {
 
     /**
      * Returns iff the {@link PlannerStage} passed in succeeds this stage.
+     *
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in directly succeeds this stage.
      */

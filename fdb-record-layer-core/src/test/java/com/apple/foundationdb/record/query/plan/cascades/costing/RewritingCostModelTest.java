@@ -75,7 +75,6 @@ class RewritingCostModelTest {
     /**
      * Test that the push-down of a single query predicate with other predicates left at the same level is preferred.
      * The following query:
-     * </p>
      * <pre>{@code
      * SELECT a FROM sq (SELECT a, b FROM T WHERE a = 42) WHERE EXISTS (SELECT alpha FROM TAU)
      * }</pre>
@@ -83,7 +82,6 @@ class RewritingCostModelTest {
      * <pre>{@code
      * SELECT a FROM sq (SELECT a, b FROM T) WHERE a = 42 AND EXISTS (SELECT alpha FROM TAU)
      * }</pre>
-     * <p>
      */
     @Test
     void costModelsPrefersPushedDownPredicates() {
@@ -118,9 +116,7 @@ class RewritingCostModelTest {
      * <pre>{@code
      * SELECT a FROM T WHERE a = 42
      * }</pre>
-     * <p>
      * should be preferred over the query:
-     * </p>
      * <pre>{@code
      * SELECT a FROM T WHERE a = 42 and a = 42
      * }</pre>
@@ -150,9 +146,7 @@ class RewritingCostModelTest {
      * <pre>{@code
      * SELECT a FROM T WHERE false
      * }</pre>
-     * <p>
      * should be preferred over the query:
-     * </p>
      * <pre>{@code
      * SELECT a FROM T WHERE a IS NULL
      * }</pre>
@@ -178,7 +172,6 @@ class RewritingCostModelTest {
     /**
      * Test that an expression with a simplified query predicate at a deeper level is preferred.
      * The following query:
-     * </p>
      * <pre>{@code
      * SELECT a FROM sq (SELECT a, b FROM T WHERE a = 42) WHERE EXISTS (SELECT alpha FROM TAU)
      * }</pre>
@@ -192,7 +185,6 @@ class RewritingCostModelTest {
      * )
      * WHERE EXISTS (SELECT alpha FROM TAU).
      * }</pre>
-     * <p>
      */
     @Test
     void costModelPrefersSimplifiedPredicatesAtDeeperLevels() {

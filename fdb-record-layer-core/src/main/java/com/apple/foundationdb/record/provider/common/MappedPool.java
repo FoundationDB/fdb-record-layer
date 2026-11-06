@@ -36,7 +36,7 @@ import java.util.concurrent.ExecutionException;
  * This class can be used for objects that require thread safety but are expensive to create.
  * The number of keys in the ConcurrentHashMap is unbounded but the queue for each key is bounded to 64.
  *
- *  Examples include Ciphers and Compressors
+ * <p>Examples include Ciphers and Compressors
  *
  * @param <K> key
  * @param <V> value type to be pooled

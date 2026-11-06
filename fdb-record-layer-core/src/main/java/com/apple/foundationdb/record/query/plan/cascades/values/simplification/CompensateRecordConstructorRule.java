@@ -40,8 +40,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that computes compensation for a record constructor and all matched values for children of this record
  * constructor.
- * <br>
- * For instance, for a record constructor {@code (_.a as x, _.b)} where {@code _.a} is already matched using some
+ *
+ * <p>For instance, for a record constructor {@code (_.a as x, _.b)} where {@code _.a} is already matched using some
  * compensation, this rule composes the existing compensation with additional compensation that navigated through
  * the {@code x} accessor.
  */

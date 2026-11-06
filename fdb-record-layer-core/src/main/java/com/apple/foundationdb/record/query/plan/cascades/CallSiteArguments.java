@@ -48,6 +48,7 @@ public sealed interface CallSiteArguments {
      * Returns the call-site arguments as a {@link List}. For {@link NamedArguments} the ordering follows the
      * underlying map's iteration order; callers that rely on positional semantics should only use this on
      * positional invocations.
+     *
      * @return the arguments as a list
      */
     @Nonnull
@@ -76,6 +77,7 @@ public sealed interface CallSiteArguments {
     /**
      * Reads a call-site option. This is the typed way to get at an option: the value is handed back as the option's
      * declared type, so no caller needs to cast.
+     *
      * @param option the option to read
      * @param <T> the option's value type
      * @return the option's value, or {@link Optional#empty()} if the option was not supplied at this call site
@@ -87,6 +89,7 @@ public sealed interface CallSiteArguments {
 
     /**
      * Returns call-site arguments with {@code option} set to {@code value}, in addition to any options already set.
+     *
      * @param option the option to set
      * @param value the option's value
      * @param <T> the option's value type
@@ -175,18 +178,16 @@ public sealed interface CallSiteArguments {
     /**
      * A typed key for a single option that may be supplied at a function call site, e.g. the {@code ef_search} of
      * {@code row_number() OVER (... OPTIONS ef_search = 100)}.
-     * <p>
-     * Options are <em>not</em> a global namespace: a function declares the options it understands through
+     *
+     * <p>Options are <em>not</em> a global namespace: a function declares the options it understands through
      * {@link CatalogedFunction#getSupportedOptions()}, and the keys it declares are the only authority on an option's
      * name and value type. Two unrelated functions are therefore free to declare an option of the same name with
      * different value types, because an option is only ever resolved against the declared options of the function
      * actually being called.
-     * </p>
-     * <p>
-     * Keys are value-typed on their {@link #getName() name}: two keys are equal iff their names are equal. Names must
+     *
+     * <p>Keys are value-typed on their {@link #getName() name}: two keys are equal iff their names are equal. Names must
      * therefore be unique within one function's declared option set. Instances are meant to be declared once as
      * {@code static final} constants next to the function that accepts them.
-     * </p>
      *
      * @param <T> the value type of the option
      */
@@ -206,6 +207,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * The name this option is supplied under at a call site.
+         *
          * @return the option name
          */
         @Nonnull
@@ -215,6 +217,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * The value type of the option.
+         *
          * @return the value type
          */
         @Nonnull
@@ -227,9 +230,9 @@ public sealed interface CallSiteArguments {
          * option's type is returned as-is; otherwise the option's type-specific conversion is applied, which accepts
          * the neighbouring representations a front end may produce (e.g. a {@code Long} literal for an
          * {@link #ofInteger} option) as long as the value is exactly representable.
-         * <p>
-         * The conversion is idempotent, so it is safe to apply on every read as well as once up front.
-         * </p>
+         *
+         * <p>The conversion is idempotent, so it is safe to apply on every read as well as once up front.
+         *
          * @param rawValue the raw value supplied at the call site
          * @return the value converted to this option's type
          */
@@ -298,6 +301,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Creates an option with a bespoke conversion, for value types the typed factories do not cover.
+         *
          * @param name the option name
          * @param type the option's value type
          * @param coercer the conversion from a raw call-site value to the option's value type
@@ -404,12 +408,14 @@ public sealed interface CallSiteArguments {
 
         /**
          * Converts a raw value supplied at a call site to an option's value type.
+         *
          * @param <T> the option's value type
          */
         @FunctionalInterface
         public interface Coercer<T> {
             /**
              * Converts {@code rawValue} to the option's value type.
+             *
              * @param optionName the name of the option being converted, for diagnostics
              * @param rawValue the raw value supplied at the call site
              * @return the converted value
@@ -424,13 +430,12 @@ public sealed interface CallSiteArguments {
      * front end that only has a name and a literal at parse time, under a name through
      * {@link Builder#putRaw(String, Object)}) and come out through an {@link Option}, so no caller performs an
      * unchecked cast.
-     * <p>
-     * Options are held by name and resolved against the called function's declared options when the call is
+     *
+     * <p>Options are held by name and resolved against the called function's declared options when the call is
      * encapsulated (see {@link CatalogedFunction#getSupportedOptions()}). Holding them by name rather than by key is
      * what keeps options decentralized: a front end builds a call site's options before the function has even been
      * looked up, so resolving a name to a key at that point would require a global registry of every option that every
      * function might accept.
-     * </p>
      */
     final class Options {
         private static final Options EMPTY_OPTIONS = new Options(ImmutableMap.of());
@@ -444,6 +449,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * The empty set of options.
+         *
          * @return options with nothing set
          */
         @Nonnull
@@ -453,6 +459,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Creates a builder for a new set of options.
+         *
          * @return a new builder
          */
         @Nonnull
@@ -462,6 +469,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Creates a builder pre-populated with these options.
+         *
          * @return a new builder
          */
         @Nonnull
@@ -482,6 +490,7 @@ public sealed interface CallSiteArguments {
         /**
          * The names the options are set under. Useful for diagnostics and for validating a call site against the
          * options a function declares.
+         *
          * @return the option names
          */
         @Nonnull
@@ -491,6 +500,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Whether {@code option} is set.
+         *
          * @param option the option to look for
          * @return {@code true} if the option is set
          */
@@ -500,6 +510,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Reads an option, converting the stored value to the option's declared type.
+         *
          * @param option the option to read
          * @param <T> the option's value type
          * @return the option's value, or {@link Optional#empty()} if the option is not set
@@ -512,6 +523,7 @@ public sealed interface CallSiteArguments {
 
         /**
          * Reads an option, falling back to {@code defaultValue} when it is not set.
+         *
          * @param option the option to read
          * @param defaultValue the value to return when the option is not set
          * @param <T> the option's value type
@@ -596,6 +608,7 @@ public sealed interface CallSiteArguments {
 
             /**
              * Sets an option to a value of the option's declared type.
+             *
              * @param option the option to set
              * @param value the option's value
              * @param <T> the option's value type
@@ -610,6 +623,7 @@ public sealed interface CallSiteArguments {
              * Sets an option by name to a value that has not been type-checked yet. This is for front ends that only
              * have an option's name and its literal value at parse time; the value is type-checked against the called
              * function's declared options when the call is encapsulated.
+             *
              * @param name the option name
              * @param rawValue the raw option value
              * @return this builder
@@ -624,6 +638,7 @@ public sealed interface CallSiteArguments {
 
             /**
              * Builds the options.
+             *
              * @return the options
              */
             @Nonnull
@@ -660,10 +675,9 @@ public sealed interface CallSiteArguments {
      * which pair each ordering value with its sort direction). Carrying these here lets a windowed function receive
      * its partitioning and ordering columns directly, rather than encoded positionally as an array of arrays. Use
      * {@link #NONE} for non-windowed call sites.
-     * <p>
-     * A {@code WindowFrameSpecification} component is intentionally omitted for now and can be added later without
+     *
+     * <p>A {@code WindowFrameSpecification} component is intentionally omitted for now and can be added later without
      * disturbing existing call sites.
-     * </p>
      *
      * @param partitioningValues the {@code PARTITION BY} columns
      * @param orderingParts the {@code ORDER BY} columns paired with their sort directions

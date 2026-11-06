@@ -55,7 +55,7 @@ import java.util.function.Function;
  * <p>Writes ({@link #increment}, {@link #clock}) resolve the timer per call and no-op if the
  * lookup returns {@code null}. Reads ({@link #getAverageTimeMicrosForEvent},
  * {@link #getCountsForCounter}, {@link #hasCounter}) resolve the timer per call too; they throw
- * or return {@code false} if the lookup returns {@code null}.</p>
+ * or return {@code false} if the lookup returns {@code null}.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class StoreTimerMetricCollector implements MetricCollector {
@@ -73,7 +73,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
      * delayed timer while all others use the normal timer.
      *
      * <p>If {@code context} has no timer attached (e.g. a transaction-bound database context),
-     * the lookup returns {@code null} and the collector silently drops writes; reads throw.</p>
+     * the lookup returns {@code null} and the collector silently drops writes; reads throw.
      */
     @Nonnull
     public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {

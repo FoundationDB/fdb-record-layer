@@ -35,8 +35,7 @@ import java.util.Objects;
  * {@link StorageTransform} that is applied before insertion/before deletion and after retrieval (if necessary). It is
  * neither schema/metadata nor the stored vector data itself.
  *
- * <p>
- * The transform exists to make RaBitQ quantization more effective; when RaBitQ is not in use it is the identity and
+ * <p>The transform exists to make RaBitQ quantization more effective; when RaBitQ is not in use it is the identity and
  * these parameters carry no rotation and no centroid. RaBitQ's distance estimates are tightest when a vector's
  * information is spread evenly across its dimensions and when its magnitude is small, and the two operations below
  * attempt exactly that:
@@ -67,6 +66,7 @@ record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
     /**
      * Returns the negated centroid and enforces non-nullness. Callers should always probe {@link #canUseRaBitQ()}
      * before accessing this field.
+     *
      * @return a vector which is the negated centroid used for translation
      */
     @Nonnull

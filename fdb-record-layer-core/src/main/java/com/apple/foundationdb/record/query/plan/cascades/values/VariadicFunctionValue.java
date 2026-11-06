@@ -85,6 +85,7 @@ public class VariadicFunctionValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link VariadicFunctionValue}.
+     *
      * @param operator The physical operator implementing the comparison function.
      * @param children The children.
      * @param resultType The result type, which must be consistent with the children's types.
@@ -99,6 +100,7 @@ public class VariadicFunctionValue extends AbstractValue {
 
     /**
      * Creates a new instance of {@link VariadicFunctionValue}, deriving the result type from the given children.
+     *
      * @param operator The physical operator implementing the comparison function.
      * @param children The children, of which there must be at least two.
      * @return a new {@link VariadicFunctionValue}
@@ -365,6 +367,7 @@ public class VariadicFunctionValue extends AbstractValue {
 
         /**
          * Computes whether the result of this function is nullable, given its arguments.
+         *
          * @param arguments the arguments this function is applied to
          * @return {@code true} if the result of this function is nullable, {@code false} otherwise
          */

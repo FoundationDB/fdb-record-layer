@@ -155,6 +155,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
 
     /**
      * {@inheritDoc}
+     *
      * <p>The “partial” for {@code ARRAY_AGG()} is simply the element to be collected for the current row.
      */
     @Nullable

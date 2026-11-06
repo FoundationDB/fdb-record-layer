@@ -62,12 +62,12 @@ import java.util.function.Supplier;
 
 /**
  * This class captures an ordering property.
- * <br>
- * Traditionally, an ordering is a list of ordering parts that define the actual ordering of
+ *
+ * <p>Traditionally, an ordering is a list of ordering parts that define the actual ordering of
  * records that flow at runtime of a plan. Modelling an ordering in the planner using a list of ordering parts,
  * however, turns out to be inadequate.
- * <br>
- * Most plans are ordered in many different ways at the same time:
+ *
+ * <p>Most plans are ordered in many different ways at the same time:
  * <ul>
  *     <li>
  *          A result set satisfying an ordering of {@code a, b, c} is automatically also ordered by {@code a, b} and
@@ -84,8 +84,8 @@ import java.util.function.Supplier;
  *          ordered by {@code a, d, c} (in addition to the orderings above).
  *     </li>
  * </ul>
- * <br>
- * It turns out that an ordering is much more naturally represented by a {@link PartiallyOrderedSet} that can model
+ *
+ * <p>It turns out that an ordering is much more naturally represented by a {@link PartiallyOrderedSet} that can model
  * the different dependencies between the ordering parts. A more formal definition for the dependencies in that
  * partially ordered set is:
  * <ul>
@@ -107,12 +107,12 @@ import java.util.function.Supplier;
  * </ul>
  * Using a partially-ordered set, we can enumerate all traditional orderings by enumerating all topologically-sound
  * permutations of that partially-ordered set.
- * <br>
- * In addition to just using a {@link PartiallyOrderedSet} of {@link Value}s, we also keep a multimap for the domain of
+ *
+ * <p>In addition to just using a {@link PartiallyOrderedSet} of {@link Value}s, we also keep a multimap for the domain of
  * those {@link Value}s to {@link Binding}s. A {@link Binding} indicates if a {@link Value} is ascending, descending,
  * or if it is bound to one or multiple special {@link Value} via a {@link Comparison}.
- * <br>
- * Instances of this class are used to communicate properties of plans.
+ *
+ * <p>Instances of this class are used to communicate properties of plans.
  */
 public class Ordering {
     @Nonnull
@@ -197,6 +197,7 @@ public class Ordering {
 
     /**
      * Primary constructor. Protected from the outside world.
+     *
      * @param bindingMap a multimap of bindings
      * @param orderingSet a {@link PartiallyOrderedSet} of {@link Value}s
      * @param isDistinct an indicator if this ordering is strict
@@ -274,6 +275,7 @@ public class Ordering {
      * Method to derive {@link RequestedOrdering}s from this {@link Ordering}. This logic is needed when a set operation
      * uses the provided ordering of one leg of the set operation to find compatible orderings among the other legs of
      * that operation.
+     *
      * @param requestedOrdering the {@link RequestedOrdering} of the set operation itself
      * @return a set of {@link RequestedOrdering}s that can be pushed down the legs of the set operation
      */
@@ -324,6 +326,7 @@ public class Ordering {
      *         e↑, a↑, c↑
      *     }
      * </pre>
+     *
      * @param requestedOrdering the set of values which needs to match a prefix of a valid sequence
      * @return the result of satisfiability of set of values in the ordering
      */
@@ -377,6 +380,7 @@ public class Ordering {
      *         a↑, x↕, b↓, c↑
      *     }
      * </pre>
+     *
      * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
      * @return boolean result of the compatibility check.
      */
@@ -435,6 +439,7 @@ public class Ordering {
      *     It should be possible to satisfy {a, c, e} as a and e are independent and c depends on a.
      *     }
      * </pre>
+     *
      * @param requestedGroupingValues the set of values which needs to match a prefix of a valid sequence
      * @return the result of satisfiability of set of values in the ordering
      */
@@ -623,8 +628,8 @@ public class Ordering {
 
     /**
      * Method to compute the {@link PartiallyOrderedSet} based on a binding map and a sequence of {@link Value}s.
-     * <br>
-     * The partially ordered set is created in a way that we insert a dependency for each element and it predecessor in
+     *
+     * <p>The partially ordered set is created in a way that we insert a dependency for each element and it predecessor in
      * the ordering sequence that is passed in. For example, passing in {@code [a, b, c]} as ordering sequence without
      * any fixed bindings we create a partially ordered set {@code (a, b, c), (a ← b, b ← c)}.
      *
@@ -670,11 +675,12 @@ public class Ordering {
      *         impossible to see e.g. multiple {@code ASCENDING}s in the binding set.).
      *     </li>
      * </ul>
-     * <br>
-     * Callers that create orderings are supposed to ensure that the binding map is already normalized. This method
+     *
+     * <p>Callers that create orderings are supposed to ensure that the binding map is already normalized. This method
      * just double-checks that that is indeed the case (as part of a sanity check). This method is public and can be
      * called by a client prior to creating an ordering, however, without a proper reason it is discouraged to do so
      * as that may lead to poorly understood conditions in the callers logic.
+     *
      * @param bindingMap a binding map that is potentially not normalized.
      * @return a normalized binding map which may just be the copy of the binding map passed in if that binding had
      *         already been normalized
@@ -747,6 +753,7 @@ public class Ordering {
      * dependencies from or to a particular element contained in the set if that element is also has a binding that is
      * fixed. If an element is fixed, that is, it is constant for all practical purposes, it is in also independent with
      * respect to all other elements in the set.
+     *
      * @param bindingMap a multimap relating values and equality comparisons
      * @param orderingSet a partially ordered set representing the ordering set of an ordering
      * @return a new (normalized) partially ordered set representing the dependencies between elements in an ordering
@@ -873,7 +880,7 @@ public class Ordering {
      * }
      * </pre>
      *
-     * If they are compatible, however, it is not clear per se what the resulting comparison key should
+     * <p>If they are compatible, however, it is not clear per se what the resulting comparison key should
      * be, though.
      *
      * <pre>
@@ -884,7 +891,7 @@ public class Ordering {
      * }
      * </pre>
      *
-     * It is unclear as to what the common ordering should be. It could be just
+     * <p>It is unclear as to what the common ordering should be. It could be just
      * <pre>
      * {@code
      *   common ordering: ordering keys: (rec_id) fixed bindings: ∅
@@ -902,15 +909,15 @@ public class Ordering {
      * As the merge operation behaves slightly differently between different set operations, the caller needs to pass
      * in a {@link MergeOperator} that implements the behavior that is specific to the particular set-operation
      * we compute the merged ordering for.
-     * <br>
-     * In particular this method always returns a subclass of {@link SetOperationsOrdering}. The merge operator passed
+     *
+     * <p>In particular this method always returns a subclass of {@link SetOperationsOrdering}. The merge operator passed
      * in determines the particular kind that is returned. While it is not permissible for a regular {@link Ordering}
      * to return hold multiple fixed bindings for a {@link Value}, {@link SetOperationsOrdering} do allow exactly that.
      * Depending on the subclass of {@link SetOperationsOrdering} the multitude of these bindings needs to be
      * interpreted differently. For {@link Union}, multiple fixed bindings are thought to be or-ed, while for an
      * {@link Intersection}, multiple fixed bindings are thought to be and-ed.
-     * <br>
-     * {@link SetOperationsOrdering} defines methods that can only be applied to orderings that are produced by a
+     *
+     * <p>{@link SetOperationsOrdering} defines methods that can only be applied to orderings that are produced by a
      * merge operation. For most of these methods, the caller needs to pass in a {@link RequestedOrdering} in order
      * to fix the ambiguities of the {@link SetOperationsOrdering} at hand. Most prominently,
      * {@link SetOperationsOrdering#applyComparisonKey(List)} can take a {@link SetOperationsOrdering},
@@ -1018,6 +1025,7 @@ public class Ordering {
     /**
      * Union the bindings of a {@link Value} common to two orderings.  This method implements a merge
      * operator's {@link MergeOperator#combineBindings(Set, Set)}.
+     *
      * @param leftBindings set of bindings of the left ordering
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
@@ -1057,6 +1065,7 @@ public class Ordering {
     /**
      * Intersect the bindings of a {@link Value} common to two orderings. This method implements a merge
      * operator's {@link MergeOperator#combineBindings(Set, Set)}.
+     *
      * @param leftBindings set of bindings of the left ordering
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
@@ -1106,6 +1115,7 @@ public class Ordering {
 
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
+     *
      * @param orderings a collection of orderings
      * @return a new ordering representing a concatenation of the given left and right ordering
      */
@@ -1119,6 +1129,7 @@ public class Ordering {
 
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
+     *
      * @param leftOrdering an {@link Ordering}
      * @param rightOrdering another {@link Ordering} to be concatenated to {@code leftOrdering}
      * @return a new {@link Ordering}
@@ -1450,6 +1461,7 @@ public class Ordering {
         /**
          * Method that reduces this set-operation ordering to only directional ordering parts by using a
          * comparison key, a {@link RequestedOrdering} and a default.
+         *
          * @param comparisonKeyValues list of {@link Value}s representing the comparison key
          * @param requestedOrdering a requested ordering
          * @param defaultProvidedSortOrder a default sort order to be applied if the requested ordering does not
@@ -1468,6 +1480,7 @@ public class Ordering {
         /**
          * Method that reduces this set-operation ordering to only directional ordering parts by using a
          * comparison key, a {@link RequestedOrdering} and a default.
+         *
          * @param comparisonKeyValues list of {@link Value}s representing the comparison key
          * @param valueRequestedSortOrderMap a requested ordering as map
          * @param defaultProvidedSortOrder a default sort order to be applied if the requested ordering does not
@@ -1543,6 +1556,7 @@ public class Ordering {
 
     /**
      * Merge operator for orderings.
+     *
      * @param <O> the type of the resulting ordering
      */
     public interface MergeOperator<O extends SetOperationsOrdering> {

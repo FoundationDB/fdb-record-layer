@@ -27,9 +27,8 @@ import javax.annotation.Nonnull;
 /**
  * A configuration that runs an underlying configuration, but heals expected explains in YAML files where
  * expected and actual explains differ.
- * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_METRICS}.
- * </p>
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_CORRECT_METRICS}.
  */
 public class CorrectMetrics extends ConfigWithOptions {
     public CorrectMetrics(@Nonnull final YamlTestConfig underlying) {

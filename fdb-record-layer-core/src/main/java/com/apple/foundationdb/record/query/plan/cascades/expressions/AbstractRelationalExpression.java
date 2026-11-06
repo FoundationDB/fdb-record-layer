@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -29,7 +30,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Abstract implementation of {@link RelationalExpression} that provides memoization of correlatedTo sets.
+ * Abstract implementation of {@link RelationalExpression} that provides memoization of correlatedTo and dynamicTypes
+ * sets.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractRelationalExpression implements RelationalExpression {
@@ -41,6 +43,10 @@ public abstract class AbstractRelationalExpression implements RelationalExpressi
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Type>> dynamicTypesSupplier = Suppliers.memoize(this::computeDynamicTypes);
 
     protected AbstractRelationalExpression() {
     }
@@ -60,4 +66,15 @@ public abstract class AbstractRelationalExpression implements RelationalExpressi
     }
 
     public abstract int computeHashCodeWithoutChildren();
+
+    @Nonnull
+    @Override
+    public final Set<Type> getDynamicTypes() {
+        return dynamicTypesSupplier.get();
+    }
+
+    @Nonnull
+    protected Set<Type> computeDynamicTypes() {
+        return getResultValue().getDynamicTypes();
+    }
 }

@@ -51,8 +51,8 @@ import static org.assertj.core.api.Assertions.fail;
 /**
  * Tests for {@link VectorIndexMaintainer#mergeIndex()} against the Guardiann engine, which pays down the deferred
  * maintenance backlog (split/merge/reassign/collapse tasks) that inserts and deletes only nibble at.
- * <p>
- * The cluster-size knobs are tightened well below production so a modest write load forces many splits — and hence a
+ *
+ * <p>The cluster-size knobs are tightened well below production so a modest write load forces many splits — and hence a
  * queue of deferred tasks (and their follow-ups) that inserts cannot keep up with — giving merge something real to
  * drain. Draining runs to completion by re-invoking {@code mergeIndex()} across transactions, because executing a task
  * can enqueue follow-up tasks, so the queue converges over several passes rather than in one.

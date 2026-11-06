@@ -55,6 +55,7 @@ public class TupleFieldsHelper {
 
     /**
      * Test whether a message field's descriptor is one of the special ones.
+     *
      * @param descriptor message descriptor for the field
      * @return {@code true} if the field is decoded into a single item in a {@code Tuple}.
      */
@@ -64,6 +65,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a field's value from a message to a {@link com.apple.foundationdb.tuple.Tuple} item.
+     *
      * @param value value for the field
      * @param descriptor message descriptor for the field
      * @return an object suitable for storing in a {@code Tuple}
@@ -94,6 +96,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code UUID} to a Java {@link UUID}.
+     *
      * @param proto the value of a Protobuf {@code UUID} field
      * @return the decoded Java {@code UUID}
      */
@@ -104,6 +107,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableDouble} to a Java {@code double}.
+     *
      * @param proto the value of a Protobuf {@code NullableDouble} field
      * @return the decoded Java {@code double}
      */
@@ -113,6 +117,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableFloat} to a Java {@code float}.
+     *
      * @param proto the value of a Protobuf {@code NullableFloat} field
      * @return the decoded Java {@code float}
      */
@@ -122,6 +127,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableInt32} to a Java {@code int}.
+     *
      * @param proto the value of a Protobuf {@code NullableInt32} field
      * @return the decoded Java {@code int}
      */
@@ -131,6 +137,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableInt64} to a Java {@code long}.
+     *
      * @param proto the value of a Protobuf {@code NullableInt64} field
      * @return the decoded Java {@code long}
      */
@@ -140,6 +147,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableBool} to a Java {@code boolean}.
+     *
      * @param proto the value of a Protobuf {@code NullableBool} field
      * @return the decoded Java {@code boolean}
      */
@@ -149,6 +157,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableString} to a Java {@link String}.
+     *
      * @param proto the value of a Protobuf {@code NullableString} field
      * @return the decoded Java {@code String}
      */
@@ -159,6 +168,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Protobuf {@code NullableBytes} to a Java {@link ByteString}.
+     *
      * @param proto the value of a Protobuf {@code NullableBytes} field
      * @return the decoded Java {@code ByteString}
      */
@@ -169,6 +179,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a field's value from a {@link com.apple.foundationdb.tuple.Tuple} item to a message.
+     *
      * @param value value for the field
      * @param descriptor message descriptor for the field
      * @return an object suitable for storing in the field
@@ -199,6 +210,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@link UUID} to a Protobuf {@code UUID}.
+     *
      * @param uuid the Java {@code UUID}
      * @return a message to set as the value of a Protobuf {@code UUID} field
      */
@@ -212,6 +224,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@code double} to a Protobuf {@code NullableDouble}.
+     *
      * @param value the Java {@code double}
      * @return a message to set as the value of a Protobuf {@code NullableDouble} field
      */
@@ -222,6 +235,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@code float} to a Protobuf {@code NullableFloat}.
+     *
      * @param value the Java {@code float}
      * @return a message to set as the value of a Protobuf {@code NullableFloat} field
      */
@@ -232,6 +246,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@code int} to a Protobuf {@code NullableInt32}.
+     *
      * @param value the Java {@code int}
      * @return a message to set as the value of a Protobuf {@code NullableInt32} field
      */
@@ -242,6 +257,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@code long} to a Protobuf {@code NullableInt64}.
+     *
      * @param value the Java {@code long}
      * @return a message to set as the value of a Protobuf {@code NullableInt64} field
      */
@@ -252,6 +268,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@code boolean} to a Protobuf {@code NullableBool}.
+     *
      * @param value the Java {@code boolean}
      * @return a message to set as the value of a Protobuf {@code NullableBool} field
      */
@@ -262,6 +279,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@link String} to a Protobuf {@code NullableString}.
+     *
      * @param value the Java {@code String}
      * @return a message to set as the value of a Protobuf {@code NullableString} field
      */
@@ -272,6 +290,7 @@ public class TupleFieldsHelper {
 
     /**
      * Convert a Java {@link ByteString} to a Protobuf {@code NullableBytes}.
+     *
      * @param value the Java {@code ByteString}
      * @return a message to set as the value of a Protobuf {@code NullableBytes} field
      */
@@ -287,16 +306,26 @@ public class TupleFieldsHelper {
             return null;
         }
 
-        switch (expectedResultType.getTypeCode()) {
-            case INT:
-                return ((Long)valueFromTuple).intValue();
-            case BYTES:
-                return ZeroCopyByteString.wrap((byte[])valueFromTuple);
-            case ENUM:
-                return (Internal.EnumLite)() -> ((Long)valueFromTuple).intValue();
-            default:
-                return valueFromTuple;
-        }
+        return switch (expectedResultType.getTypeCode()) {
+            case INT -> {
+                Long longFromTuple = (Long) valueFromTuple;
+                yield longFromTuple.intValue();
+            }
+            case BYTES -> {
+                byte[] bytesFromTuple = (byte[]) valueFromTuple;
+                yield ZeroCopyByteString.wrap(bytesFromTuple);
+            }
+            case ENUM -> {
+                Long longFromTuple = (Long) valueFromTuple;
+                yield new Internal.EnumLite() {
+                    @Override
+                    public int getNumber() {
+                        return longFromTuple.intValue();
+                    }
+                };
+            }
+            default -> valueFromTuple;
+        };
     }
 
     private TupleFieldsHelper() {

@@ -26,10 +26,9 @@ import javax.annotation.Nonnull;
 
 /**
  * A configuration that corrects all expected values in YAML files: explains, planner metrics, and result metadata.
- * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN}, {@link YamlExecutionContext#OPTION_CORRECT_METRICS},
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN}, {@link YamlExecutionContext#OPTION_CORRECT_METRICS},
  *     and {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA}.
- * </p>
  */
 public class CorrectExpectations extends ConfigWithOptions {
     public CorrectExpectations(@Nonnull final YamlTestConfig underlying) {

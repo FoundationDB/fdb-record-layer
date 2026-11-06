@@ -49,13 +49,11 @@ import java.util.function.Function;
  * also return records ordered by primary key. This cursor removes any duplicates (relying solely on the comparison key
  * to indicate that two elements are equal), and it returns results ordered by the comparison key.
  *
- * <p>
- * If <i>any</i> child of this cursor stops because it hits a limit, then this cursor will also stop. This differs from the
+ * <p>If <i>any</i> child of this cursor stops because it hits a limit, then this cursor will also stop. This differs from the
  * behavior of the {@link UnorderedUnionCursor}. This cursor requires <i>all</i> of its children have returned a value
  * before it can determine which value to return next (as otherwise, it does not know what the minimum value is
  * according to the comparison key). If it were to continue returning results, there may be anomalies in the order of
  * returned results across continuation boundaries.
- * </p>
  *
  * @param <T> the type of elements returned by the cursor
  */
@@ -270,13 +268,11 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
      * perform the union. Additionally, the provided comparison key function should not have
      * any side-effects and should produce the same output every time it is applied to the same input.
      *
-     * <p>
-     * The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
+     * <p>The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
      * These functions should create a new <code>RecordCursor</code> instance with a given
      * continuation appropriate for that cursor type. The value of that continuation will be determined
      * by this function from the <code>continuation</code> parameter for the union
      * cursor as a whole.
-     * </p>
      *
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
      * @param reverse whether records are returned in descending or ascending order by the comparison key

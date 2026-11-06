@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A cache for {@link FDBDirectory} blocks that can be shared between record contexts.
  *
- * The scope is the record store. Each directory cache is keyed by the index subspace's suffix relative to the record store plus
+ * <p>The scope is the record store. Each directory cache is keyed by the index subspace's suffix relative to the record store plus
  * any grouping key.
  * Additionally, the cache is per directory sequence number. Any transaction that changes the directory must also advance this
  * counter. Only the latest sequence number's cache is retained by this manager, although it is possible that multiple older
@@ -72,8 +72,9 @@ public class FDBDirectorySharedCacheManager {
     /**
      * Get any shared cache manager for the given context.
      *
-     * Note that attaching the cache manager to the context means that the context cannot perform Lucene queries against
+     * <p>Note that attaching the cache manager to the context means that the context cannot perform Lucene queries against
      * multiple record stores.
+     *
      * @param context the record context in which to find the shared cache manager
      * @return the shared cache manager set in the context or {@code null} if none has been set
      * @see #setForContext
@@ -85,6 +86,7 @@ public class FDBDirectorySharedCacheManager {
 
     /**
      * Set the given shared cache manager in the given context.
+     *
      * @param context the record context in which to put the shared cache manager
      */
     public void setForContext(@Nonnull FDBRecordContext context) {
@@ -101,6 +103,7 @@ public class FDBDirectorySharedCacheManager {
 
     /**
      * Get a cache for a directory.
+     *
      * @param key the directory key, including the index prefix and any grouping keys
      * @param sequenceNumber the sequence number of the directory as read in the current transaction
      * @return a shared cache of {@code null} if the sequence number is too old

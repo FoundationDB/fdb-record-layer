@@ -21,6 +21,6 @@
 /**
  * A RecordLayer-based implementation of the relational API.
  *
- * This implementation is directly embedded (so no rpc calls).
+ * <p>This implementation is directly embedded (so no rpc calls).
  */
 package com.apple.foundationdb.relational.recordlayer;

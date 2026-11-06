@@ -28,8 +28,8 @@ import java.util.List;
 /**
  * Interface to allow {@link RelationalExpression}s to rewrite their own
  * explain graph representation.
- * <br>
- * This particular class allows {@link RelationalExpression}s to specify
+ *
+ * <p>This particular class allows {@link RelationalExpression}s to specify
  * how a {@link PlannerGraph} is modified when we use the {@link PlannerGraphVisitor} when explaining a plan
  * to an end-user.
  */

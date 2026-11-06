@@ -111,6 +111,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     /**
      * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
+     *
      * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
      *                   (and non-null if preparedstatement).
      * @return ResultSet object that contains the data produced by the given query; never null
@@ -131,6 +132,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     /**
      * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
+     *
      * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
      *                   (and non-null if preparedstatement).
      * @return either (1) the row count for SQL Data Manipulation Language (DML) statements or (2) 0 for SQL statements
@@ -146,6 +148,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     /**
      * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
+     *
      * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
      *                   (and non-null if preparedstatement).
      * @return true if the execution produced a result set, false otherwise
@@ -161,6 +164,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     /**
      * Engine to run sql for both updates and executes.
+     *
      * @param sql SQL to execute.
      * @param options Options to use executing <code>sql</code>
      * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute

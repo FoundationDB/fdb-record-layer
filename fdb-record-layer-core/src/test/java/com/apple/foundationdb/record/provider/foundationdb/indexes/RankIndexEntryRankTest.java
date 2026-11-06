@@ -59,19 +59,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Scanning a rank index through {@link RankScanBounds} reports each entry's rank in the entry's value, which a rank
  * index otherwise leaves empty.
- * <p>
- * Every test runs over the same seven records, {@code num_value_3_indexed} ranked within groups of {@code num_value_2}:
- * </p>
+ *
+ * <p>Every test runs over the same seven records, {@code num_value_3_indexed} ranked within groups of {@code num_value_2}:
  * <pre>
  *   recNo:  1    2    3    4    5  |  6   7
  *   group: 10   10   10   10   10  | 20  20
  *   score: 100  200  200  300  400 | 50  60
  *   rank:    0    1    1    2    3 |  0   1
  * </pre>
- * <p>
- * Group 10 ties on score 200, so its ranks are dense over distinct scores rather than over records: both tied records
+ *
+ * <p>Group 10 ties on score 200, so its ranks are dense over distinct scores rather than over records: both tied records
  * are rank 1 and the next distinct score is rank 2, not 3.
- * </p>
  */
 @Tag(Tags.RequiresFDB)
 class RankIndexEntryRankTest {

@@ -59,10 +59,9 @@ import java.util.Set;
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons#EMPTY}. Unlike a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}, a {@code FullUnorderedScanExpression}
  * is not implicitly ordered by the primary key.
- * <p>
- * This expression is useful as the source of records for the initial planner expression produced from a
+ *
+ * <p>This expression is useful as the source of records for the initial planner expression produced from a
  * {@link com.apple.foundationdb.record.query.RecordQuery}.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class FullUnorderedScanExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {

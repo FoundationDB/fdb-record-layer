@@ -37,13 +37,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A matcher that matches if any of its downstream matchers produce bindings. This matcher is
  * intended to be used to express a logical <em>or</em> between matchers on an object.
  *
- * As an example
+ * <p>As an example
  *
  * {@code
  * matchingAnyOf(greaterThan(0), divisibleBy(2)).matches(2))
  * }
  *
- * produces a stream of one binding which binds to {@code 2}.
+ * <p>produces a stream of one binding which binds to {@code 2}.
  *
  * @param <T> the type that this matcher binds to
  */

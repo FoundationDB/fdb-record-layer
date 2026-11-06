@@ -53,8 +53,7 @@ import java.util.concurrent.Executor;
  * target clusters. Guardiann uses it after a split or merge so that the reassignment of the newly created clusters
  * only runs once all tasks they depend on have finished.
  *
- * <p>
- * Rather than passively re-enqueueing itself until its dependencies happen to drain, a bounce actively drives
+ * <p>Rather than passively re-enqueueing itself until its dependencies happen to drain, a bounce actively drives
  * progress: each time it reaches the top of the task queue it runs one still-outstanding dependency itself (chosen at
  * random, see {@link #runTask}) before re-enqueueing itself for the rest. A dependent task therefore completes in one
  * of two ways:
@@ -241,8 +240,7 @@ class BounceTask extends AbstractDeferredTask {
      * Enqueues the follow-up task for a single target cluster, if appropriate. {@link #enqueueFollowUpTasks} invokes
      * this once per target cluster, passing that cluster's freshly fetched centroid entry and metadata.
      *
-     * <p>
-     * The follow-up is a {@code finalTaskKind} task ({@link SplitMergeTask} or {@link ReassignTask}) seeded at the
+     * <p>The follow-up is a {@code finalTaskKind} task ({@link SplitMergeTask} or {@link ReassignTask}) seeded at the
      * cluster's centroid. It is skipped in two cases:
      * <ul>
      *   <li>{@code resultEntry} is {@code null} — the centroid is gone from the centroid HNSW because the cluster was
