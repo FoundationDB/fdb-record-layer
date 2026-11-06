@@ -92,10 +92,10 @@ w
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ë
+}—
 U
-in-query-or-prepared=EXPLAIN select * from my_simple_record where num_value_2 in ?é
-ßÙ⁄ﬂò Çµ˛(_0É•ç8ù@bISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN promote(@c7 AS ARRAY(INT))âdigraph G {
+in-query-or-prepared=EXPLAIN select * from my_simple_record where num_value_2 in ?˜
+ßÙ⁄ﬂò Çµ˛(_0É•ç8ù@KISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN @c7âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -255,6 +255,6 @@ test_block:
       # testInQueryEmptyList — an empty IN list matches nothing and cannot be turned into an in-union, so
       # it stays a residual filter over a scan.
       - query: select * from my_simple_record where num_value_2 in !! !in {[]} !!
-      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN promote(@c7 AS ARRAY(INT))"
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN @c7"
       - unorderedResult: []
 ...
