@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -105,6 +106,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -871,8 +873,10 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(914843935, plan.planHash(PlanHashable.CURRENT_LEGACY));
             }
 
+            final var evaluationContext =
+                    EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build());
             assertEquals(Arrays.asList(800L, 1776L),
-                    plan.execute(recordStore, withUsedTypes(plan, EvaluationContext.empty()))
+                    plan.execute(recordStore, evaluationContext)
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join());
@@ -903,7 +907,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                         unorderedPrimaryKeyDistinctPlan(
                                 indexPlan().where(indexName("onetwo$element")).and(scanComparisons(range("([A],>")))));
             }
-            assertThat(plan.execute(recordStore, withUsedTypes(plan, EvaluationContext.empty()))
+            assertThat(recordStore.executeQuery(plan)
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join(),
