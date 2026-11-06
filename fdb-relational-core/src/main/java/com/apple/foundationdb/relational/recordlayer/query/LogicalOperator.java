@@ -312,8 +312,8 @@ public class LogicalOperator {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
-        // The explode produces a struct (element) for every element of the array, or (element, ordinal) if the
-        // ordinal is needed for an `AT` alias.
+        // The explode produces a struct (element, ordinal) for every element of the array. It is with ordinality if the
+        // ordinal is needed for an `AT` alias, so that the planner does not renumber the ordinals.
         final var explodeValue = new ExplodeValue(expression.getUnderlying(), atAlias.isPresent());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(explodeValue)));
         final Value elementValue = ExplodeValue.elementValue(resultingQuantifier.getFlowedObjectValue());
