@@ -655,6 +655,42 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
+     * Tests that a batch that swaps two names must succeed even when a higher-numbered, non-canonically named union
+     * field also references one of the types. In the fixture, {@code _T1} (number 1) and {@code _T2} (number 2) are
+     * canonical, while {@code T1_v2} (number 3) also references {@code T1}. The canonical fields swap their names, and
+     * records of each type are still written under the same field number.
+     */
+    @Test
+    void renameRecordTypesAllowsSwappingTwoNamesWithHigherNumberedField() throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
+        for (final DescriptorProtos.DescriptorProto.Builder messageType :
+                builder.getRecordsBuilder().getMessageTypeBuilderList()) {
+            if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setName("T1_v2")
+                        .setNumber(3)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName("T1"));
+            }
+        }
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        MetaDataProtoEditor.renameRecordTypes(builder,
+                name -> name.equals("T1") ? "T2" : name.equals("T2") ? "T1" : name,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+        final RecordMetaData renamed = RecordMetaData.build(builder.build());
+        final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+        // The old T1 is now called T2, and vice versa. Its canonical field followed it, and T1_v2 kept its name.
+        assertEquals(1, union.findFieldByName("_T2").getNumber());
+        assertEquals(2, union.findFieldByName("_T1").getNumber());
+        assertSame(renamed.getRecordType("T2").getDescriptor(), union.findFieldByName("T1_v2").getMessageType());
+        assertEquals(originalMetaData.getUnionFieldForRecordType(originalMetaData.getRecordType("T1")).getNumber(),
+                renamed.getUnionFieldForRecordType(renamed.getRecordType("T2")).getNumber());
+        assertEquals(originalMetaData.getUnionFieldForRecordType(originalMetaData.getRecordType("T2")).getNumber(),
+                renamed.getUnionFieldForRecordType(renamed.getRecordType("T1")).getNumber());
+    }
+
+    /**
      * Tests that a batch that swaps two names must succeed even when neither type has a canonically named union field,
      * so that no union field name changes and only their {@code typeName} references are swapped.
      */
@@ -726,6 +762,40 @@ public class MetaDataProtoEditorUnitTest {
                 union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
         assertSame(renamedT1, union.findFieldByName("_" + simpleRename("T1")).getMessageType());
         assertSame(renamedT1, union.findFieldByName("_T1_1").getMessageType());
+        // Records of the renamed type are still written under the canonically named field, number 3.
+        assertEquals(3, renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
+    }
+
+    /**
+     * Tests that the canonically named union field is renamed along with its type even when another union field with
+     * a higher number references the same type. In the fixture, {@code _T1} (number 1) is canonical for {@code T1},
+     * while {@code T1_v2} (number 3) also references {@code T1}.
+     */
+    @Test
+    void renameUpdatesTheCanonicalUnionFieldDespiteHigherNumberedField() throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
+        for (final DescriptorProtos.DescriptorProto.Builder messageType :
+                builder.getRecordsBuilder().getMessageTypeBuilderList()) {
+            if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setName("T1_v2")
+                        .setNumber(3)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName("T1"));
+            }
+        }
+        final RecordMetaData renamed = runRename(builder.build(),
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+        final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+        final Descriptors.Descriptor renamedT1 = getMessage(renamed, simpleRename("T1"));
+        assertEquals(Set.of("_" + simpleRename("T1"), "T1_v2", "_" + simpleRename("T2")),
+                union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+        assertSame(renamedT1, union.findFieldByName("_" + simpleRename("T1")).getMessageType());
+        assertSame(renamedT1, union.findFieldByName("T1_v2").getMessageType());
+        // Records of the renamed type are still written under the canonically named field, number 1, rather than
+        // under the higher-numbered T1_v2.
+        assertEquals(1, renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
     }
 
     /**
@@ -1516,16 +1586,12 @@ public class MetaDataProtoEditorUnitTest {
         // this is exactly the kind of scenario where one-by-one renaming is *not* expected to match the batched
         // renaming, so we use `runRenameBatchedOnly()` here rather than `runRename()`.
         final String prefix = "__Q_";
-        final RecordMetaData withConflict = runRenameBatchedOnly(loadMetaData("TwoBoringTypes.json").build(),
-                oldName -> {
-                    if (t1Conflicts) {
-                        return !oldName.equals("T1") ? prefix + "T1" : oldName;
-                    } else {
-                        return oldName.equals("T1") ? prefix + "T2" : oldName;
-                    }
-                },
-                newName -> newName.startsWith(prefix) ? newName.substring(prefix.length()) : newName);
         final String conflicting = t1Conflicts ? "T1" : "T2";
+        final String other = t1Conflicts ? "T2" : "T1";
+        final RecordMetaData withConflict = runRenameBatchedOnly(loadMetaData("TwoBoringTypes.json").build(),
+                oldName -> oldName.equals(other) ? prefix + conflicting : oldName,
+                // The type now holding the prefixed name of the conflicting one used to be the other one.
+                newName -> newName.equals(prefix + conflicting) ? other : newName);
         assertEquals(Set.of(conflicting, prefix + conflicting), withConflict.getRecordTypes().keySet());
 
         final RecordMetaData prefixed = runRenameBatchedOnly(withConflict.toProto(),
@@ -1710,9 +1776,11 @@ public class MetaDataProtoEditorUnitTest {
                 renamed.getRecordTypes().values().stream().map(RecordType::getName)
                         .collect(Collectors.toSet()));
         for (final RecordType type : renamed.getRecordTypes().values()) {
-            assertEquals(type.getAllIndexes(),
-                    originalMetaData.getRecordType(undoRename.apply(type.getName()))
-                            .getAllIndexes());
+            final RecordType originalType = originalMetaData.getRecordType(undoRename.apply(type.getName()));
+            assertEquals(type.getAllIndexes(), originalType.getAllIndexes());
+            // Records of the type must still be written under the same union field.
+            assertEquals(originalMetaData.getUnionFieldForRecordType(originalType).getNumber(),
+                    renamed.getUnionFieldForRecordType(type).getNumber());
         }
         assertEquals(originalMetaData.getUniversalIndexes(), renamed.getUniversalIndexes());
         return renamed;
