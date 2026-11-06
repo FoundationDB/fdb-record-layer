@@ -132,11 +132,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * Creates a quantifier over an explode of a collection, that is, a {@link TableFunctionExpression} over an
-     * {@link ExplodeValue}. Read the elements through {@link #elementOf(Quantifier)}.
-     *
-     * @param collectionValue the collection to explode
-     * @return a quantifier over the explode
+     * {@return a quantifier over an explode of the collection}
      */
     @Nonnull
     public static Quantifier.ForEach explode(@Nonnull Value collectionValue) {
@@ -144,10 +140,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * Returns the element an explode quantifier flows.
-     *
-     * @param explodeQun a quantifier over an explode
-     * @return the element of the {@code (element, ordinal)} struct the quantifier flows
+     * {@return the element an explode quantifier flows}
      */
     @Nonnull
     public static Value elementOf(@Nonnull Quantifier explodeQun) {
