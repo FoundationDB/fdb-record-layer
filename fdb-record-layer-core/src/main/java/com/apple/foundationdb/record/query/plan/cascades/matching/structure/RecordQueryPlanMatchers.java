@@ -254,6 +254,7 @@ public class RecordQueryPlanMatchers {
 
     /**
      * Matches an IN-join over an {@link InExplodeSource}.
+     *
      * @param downstream the matcher for the inner plan
      * @return a matcher for IN-joins over explodes
      */

@@ -312,8 +312,8 @@ public class LogicalOperator {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
-        // The explode produces a struct (element, ordinal) for every element of the array. It is with ordinality if the
-        // ordinal is needed for an `AT` alias, so that the planner does not renumber the ordinals.
+        // The explode produces a struct (element, ordinal) for every element of the array. It preserves the order of
+        // the array if the ordinal is needed for an `AT` alias, so that the planner does not renumber the ordinals.
         final var explodeValue = new ExplodeValue(expression.getUnderlying(), atAlias.isPresent());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(explodeValue)));
         final Value elementValue = ExplodeValue.elementValue(resultingQuantifier.getFlowedObjectValue());
@@ -362,19 +362,7 @@ public class LogicalOperator {
 
     @Nonnull
     public static Expressions convertToExpressions(@Nonnull Quantifier quantifier) {
-        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
-        int colCount = 0;
-        final var columns = quantifier.getFlowedColumns();
-        for (final var column : columns) {
-            final var field = column.getField();
-            final var value = column.getValue();
-            final var attributeName = field.getFieldNameOptional().map(Identifier::of);
-            final var attributeType = DataTypeUtils.toRelationalType(value.getResultType());
-            final var attributeExpression = FieldValue.ofOrdinalNumber(quantifier.getFlowedObjectValue(), colCount);
-            attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
-            colCount++;
-        }
-        return Expressions.of(attributesBuilder.build());
+        return convertToExpressions(quantifier.getFlowedObjectValue());
     }
 
     /**
