@@ -598,27 +598,30 @@ public final class PlanGenerator {
      * Create a plan generator for offline DQL planning &mdash; does not require an open record store
      * or a database connection. Suitable for SELECT-only planning where DDL paths are not exercised.
      *
-     * <p>Internally builds a {@link PlanContext} from the schema template and store state, with
+     * <p>Internally builds a {@link PlanContext} from the record metadata and store state, with
      * no-op DDL factories and a placeholder {@code embed:offline} URI.
      * The default {@link IndexMaintainerFactoryRegistryImpl} singleton is used &mdash; the same
      * registry production paths use.
      *
      * @param cache             optional plan cache
-     * @param schemaTemplate    schema template; {@link RecordMetaData} is derived via
-     *                          {@link RecordLayerSchemaTemplate#toRecordMetadata()}
+     * @param schemaTemplate    schema template used to resolve names in the query
+     * @param metaData          record metadata to plan against, as the record store would supply it at runtime
      * @param recordStoreState  record store state (index readability, store header, etc.)
      * @param metricCollector   metric collector &mdash; required at runtime by {@link #getPlan(String)}
      * @param options           planner options
+     * @param preparedParams    prepared parameters; for warm-up, values are absent and each parameter carries a
+     *                          declared type instead
      * @return a new plan generator
      * @throws RelationalException if creation fails
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
                                        @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordMetaData metaData,
                                        @Nonnull final RecordStoreState recordStoreState,
                                        @Nonnull final MetricCollector metricCollector,
-                                       @Nonnull final Options options) throws RelationalException {
-        final var metaData = schemaTemplate.toRecordMetadata();
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
                 .withSchemaTemplate(schemaTemplate)
@@ -626,6 +629,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withPreparedParameters(preparedParams)
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
@@ -637,18 +641,23 @@ public final class PlanGenerator {
      * the result of the query to the new {@link RecordLayerSchemaTemplate}.
      *
      * @param schemaTemplate            schema template used to resolve names in the function body
+     * @param metaData                  record metadata to plan against, as the record store would supply it at
+     *                                  runtime
      * @param metadataOperationsFactory caller-provided factory for DDL
      * @param metricCollector           metric collector
      * @param options                   planner options
+     * @param preparedParams            prepared parameters; for warm-up, values are absent and each parameter carries
+     *                                  a declared type instead
      * @return a new plan generator
      * @throws RelationalException if creation fails
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordMetaData metaData,
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                        @Nonnull final MetricCollector metricCollector,
-                                       @Nonnull final Options options) throws RelationalException {
-        final var metaData = schemaTemplate.toRecordMetadata();
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var recordStoreState = new RecordStoreState(null, null);
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
@@ -657,6 +666,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(metadataOperationsFactory)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withPreparedParameters(preparedParams)
                 .build();
         return create(Optional.empty(), planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
