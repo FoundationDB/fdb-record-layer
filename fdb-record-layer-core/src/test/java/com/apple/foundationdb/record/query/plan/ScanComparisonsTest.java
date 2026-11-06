@@ -27,6 +27,8 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link ScanComparisons}.
@@ -156,4 +158,29 @@ public class ScanComparisonsTest {
         checkRange("([null, null],[null, xxx, yyy])", comparisons, context());
     }
 
+
+    /**
+     * Tests that an equality comparison whose parameter is bound to {@code null} is reported as a null comparand.
+     */
+    @Test
+    public void hasNullEqualityComparand1() {
+        ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
+        comparisons.addEqualityComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "abc"));
+        comparisons.addEqualityComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "p1"));
+        final EvaluationContext nullContext = EvaluationContext.forBindings(Bindings.newBuilder().set("p1", null).build());
+        assertTrue(comparisons.build().hasNullEqualityComparand(null, nullContext));
+    }
+
+    /**
+     * Tests that equality comparisons with non-null comparands, and inequality comparisons, are not reported as null
+     * comparands.
+     */
+    @Test
+    public void hasNullEqualityComparand2() {
+        ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
+        comparisons.addEqualityComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "abc"));
+        comparisons.addEqualityComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "p1"));
+        comparisons.addInequalityComparison(new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, "p2"));
+        assertFalse(comparisons.build().hasNullEqualityComparand(null, context("p1", "xyz", "p2", "zzz")));
+    }
 }

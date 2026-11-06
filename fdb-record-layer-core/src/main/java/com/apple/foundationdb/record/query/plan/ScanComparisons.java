@@ -313,6 +313,27 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return rangeCombiner.toTupleRange();
     }
 
+    /**
+     * Determine whether an equality comparison of type {@link Comparisons.Type#EQUALS} evaluates to {@code null}
+     * under the given context. Such a comparison is never true, but would be turned into a tuple range that matches
+     * {@code null} index entries.
+     * @param store the record store
+     * @param context the evaluation context
+     * @return {@code true} if the scan cannot return any rows because of a {@code null} comparand
+     */
+    public boolean hasNullEqualityComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        for (Comparisons.Comparison comparison : equalityComparisons) {
+            if (comparison.getType() != Comparisons.Type.EQUALS) {
+                continue;
+            }
+            final Object comparand = comparison.getComparand(store, context);
+            if (comparand == null || (comparison.hasMultiColumnComparand() && ((Tuple)comparand).getItems().contains(null))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Nullable
     public TupleRange toTupleRangeWithoutContext() {
         try {

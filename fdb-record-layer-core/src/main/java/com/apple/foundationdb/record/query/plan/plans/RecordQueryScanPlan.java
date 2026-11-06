@@ -191,6 +191,9 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        if (comparisons.hasNullEqualityComparand(store, context)) {
+            return RecordCursor.empty();
+        }
         final TupleRange range = comparisons.toTupleRange(store, context);
         return store.scanRecords(
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
