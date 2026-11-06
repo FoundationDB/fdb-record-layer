@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArrayDistinctValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
@@ -47,6 +48,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -139,8 +141,10 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
         final var inPredicates = Sets.<QueryPredicate>newIdentityHashSet();
         for (final var inPredicate : bindings.getAll(inPredicateMatcher)) {
             final var comparison = inPredicate.getComparison();
-            if (comparison instanceof Comparisons.ValueComparison) {
-                inPredicates.add(inPredicate);
+            if (comparison instanceof final Comparisons.ValueComparison valueComparison) {
+                if (!Objects.requireNonNull(((Type.Array)valueComparison.getComparandValue().getResultType()).getElementType()).isUnresolved()) {
+                    inPredicates.add(inPredicate);
+                }
             } else {
                 throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
             }
