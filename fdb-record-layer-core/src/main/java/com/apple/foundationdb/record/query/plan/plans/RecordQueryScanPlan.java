@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryScanPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -95,11 +96,13 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     @Nullable
     private final KeyExpression commonPrimaryKey;
     @Nonnull
-    private final ScanComparisons comparisons;
+    private final ScanComparisons scanComparisons;
     private final boolean reverse;
     private final boolean strictlySorted;
     @Nonnull
     private final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional;
+    @Nonnull
+    private final Supplier<Set<Comparisons.Comparison>> comparisonsSupplier;
     @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
 
@@ -107,11 +110,11 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * Overloaded constructor.
      * Use other overloaded constructor to also pass in a set of record types.
      *
-     * @param comparisons comparisons to be applied by the operator
+     * @param scanComparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
-    public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
-        this(null, new Type.Any(), null, comparisons, reverse, false, Optional.empty());
+    public RecordQueryScanPlan(@Nonnull ScanComparisons scanComparisons, boolean reverse) {
+        this(null, new Type.Any(), null, scanComparisons, reverse, false, Optional.empty());
     }
 
     /**
@@ -120,17 +123,17 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @param recordTypes a super set of record types of the records that this scan operator can produce
      * @param flowedType type of scan elements
      * @param commonPrimaryKey primary key of scanned records
-     * @param comparisons comparisons to be applied by the operator
+     * @param scanComparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      * @param strictlySorted whether scan is strictly sorted for original query
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
                                @Nonnull Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
+                               @Nonnull ScanComparisons scanComparisons,
                                boolean reverse,
                                boolean strictlySorted) {
-        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.empty());
+        this(recordTypes, flowedType, commonPrimaryKey, scanComparisons, reverse, strictlySorted, Optional.empty());
     }
 
     /**
@@ -139,7 +142,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @param recordTypes a super set of record types of the records that this scan operator can produce
      * @param flowedType type of scan elements
      * @param commonPrimaryKey primary key of scanned records
-     * @param comparisons comparisons to be applied by the operator
+     * @param scanComparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      * @param strictlySorted whether scan is strictly sorted for original query
      * @param matchCandidate a match candidate that was matched and resulted in this scan plan
@@ -147,11 +150,11 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
                                @Nonnull Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
+                               @Nonnull ScanComparisons scanComparisons,
                                boolean reverse,
                                boolean strictlySorted,
                                @Nonnull final WithPrimaryKeyMatchCandidate matchCandidate) {
-        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
+        this(recordTypes, flowedType, commonPrimaryKey, scanComparisons, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
     /**
@@ -160,27 +163,29 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @param recordTypes a super set of record types of the records that this scan operator can produce
      * @param flowedType type of scan elements
      * @param commonPrimaryKey primary key of scanned records
-     * @param comparisons comparisons to be applied by the operator
+     * @param scanComparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      * @param strictlySorted whether scan is strictly sorted for original query
      * @param matchCandidateOptional a match candidate optional that if not empty contains the match candidate that was
      *        matched and resulted in this scan plan
      */
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
                                @Nonnull Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
+                               @Nonnull ScanComparisons scanComparisons,
                                boolean reverse,
                                boolean strictlySorted,
                                @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;
-        this.comparisons = comparisons;
+        this.scanComparisons = scanComparisons;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
+        this.comparisonsSupplier = Suppliers.memoize(RecordQueryPlanWithComparisons.super::computeComparisons);
         this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     }
 
@@ -191,7 +196,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final TupleRange range = comparisons.toTupleRange(store, context);
+        final TupleRange range = scanComparisons.toTupleRange(store, context);
         return store.scanRecords(
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
@@ -214,8 +219,14 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Nonnull
     @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        return comparisonsSupplier.get();
+    }
+
+    @Nonnull
+    @Override
     public ScanComparisons getScanComparisons() {
-        return comparisons;
+        return scanComparisons;
     }
 
     @Nonnull
@@ -226,7 +237,16 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Nonnull
     private ComparisonRanges computeComparisonRanges() {
-        return ComparisonRanges.from(comparisons);
+        return ComparisonRanges.from(scanComparisons);
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RecordQueryPlanWithComparisons.super.computeDynamicTypesFromComparisons())
+                .build();
     }
 
     @Override
@@ -242,7 +262,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     @Override
     public boolean hasFullRecordScan() {
         // full record scan happens iff the bounds of the scan fields are unlimited
-        return comparisons.isEmpty();
+        return scanComparisons.isEmpty();
     }
 
     @Override
@@ -258,8 +278,8 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Override
     public int maxCardinality(@Nonnull RecordMetaData metaData) {
-        if (comparisons.isEquality() &&
-                metaData.getRecordTypes().values().stream().allMatch(t -> t.getPrimaryKey().getColumnSize() <= comparisons.size())) {
+        if (scanComparisons.isEquality() &&
+                metaData.getRecordTypes().values().stream().allMatch(t -> t.getPrimaryKey().getColumnSize() <= scanComparisons.size())) {
             return 1;
         } else {
             return UNKNOWN_MAX_CARDINALITY;
@@ -273,7 +293,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Override
     public RecordQueryScanPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
-        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, true, matchCandidateOptional);
+        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, scanComparisons, reverse, true, matchCandidateOptional);
     }
 
     @Nonnull
@@ -302,7 +322,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
-        return comparisons.getCorrelatedTo();
+        return scanComparisons.getCorrelatedTo();
     }
 
     @Nonnull
@@ -316,8 +336,8 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
             return this;
         }
         final var translatedComparisons =
-                comparisons.translateCorrelations(translationMap, shouldSimplifyValues);
-        if (translatedComparisons == comparisons) {
+                scanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
+        if (translatedComparisons == scanComparisons) {
             return this;
         }
 
@@ -339,7 +359,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     @Override
     public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
-        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted,
+        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, scanComparisons, reverse, strictlySorted,
                 Optional.empty());
     }
 
@@ -364,7 +384,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                 flowedType.equals(otherExpression.getResultValue().getResultType()) &&
                 Objects.equals(commonPrimaryKey, that.commonPrimaryKey) &&
                 reverse == that.reverse &&
-                Objects.equals(comparisons, that.comparisons);
+                Objects.equals(scanComparisons, that.scanComparisons);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -380,16 +400,16 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse);
+        return Objects.hash(recordTypes, flowedType, commonPrimaryKey, scanComparisons, reverse);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
-                return comparisons.planHash(mode) + (reverse ? 1 : 0);
+                return scanComparisons.planHash(mode) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisons, reverse, recordTypes, commonPrimaryKey);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanComparisons, reverse, recordTypes, commonPrimaryKey);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
@@ -416,7 +436,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
-        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+        @Nullable final TupleRange tupleRange = scanComparisons.toTupleRangeWithoutContext();
 
         final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Attribute> additionalAttributes = ImmutableMap.builder();
@@ -427,7 +447,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
             additionalAttributes.put("high", Attribute.dot(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
         } else {
             detailsBuilder.add("comparisons: {{comparisons}}");
-            additionalAttributes.put("comparisons", Attribute.dot(comparisons.toString()));
+            additionalAttributes.put("comparisons", Attribute.dot(scanComparisons.toString()));
         }
 
         if (reverse) {
@@ -481,7 +501,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
-        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+        @Nullable final TupleRange tupleRange = scanComparisons.toTupleRangeWithoutContext();
 
         final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Attribute> additionalAttributes = ImmutableMap.builder();
@@ -492,7 +512,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
             additionalAttributes.put("high", Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
         } else {
             detailsBuilder.add("comparisons: {{comparisons}}");
-            additionalAttributes.put("comparisons", Attribute.gml(comparisons.toString()));
+            additionalAttributes.put("comparisons", Attribute.gml(scanComparisons.toString()));
         }
 
         if (reverse) {
@@ -537,7 +557,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         if (commonPrimaryKey != null) {
             builder.setCommonPrimaryKey(commonPrimaryKey.toKeyExpression());
         }
-        builder.setComparisons(comparisons.toProto(serializationContext));
+        builder.setComparisons(scanComparisons.toProto(serializationContext));
         builder.setReverse(reverse);
         builder.setStrictlySorted(strictlySorted);
         return builder.build();

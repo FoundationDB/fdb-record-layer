@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -91,6 +92,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -156,6 +158,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Nonnull
     private final QueryPlanConstraint constraint;
 
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Comparisons.Comparison>> comparisonsSupplier = Suppliers.memoize(this::computeComparisons);
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
@@ -597,6 +602,12 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Nonnull
     @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        return comparisonsSupplier.get();
+    }
+
+    @Nonnull
+    @Override
     public ScanComparisons getScanComparisons() {
         Verify.verify(hasScanComparisons());
         return scanParameters.getScanComparisons();
@@ -633,6 +644,15 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
 
         return ComparisonRanges.from(getScanComparisons());
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RecordQueryPlanWithComparisons.super.computeDynamicTypesFromComparisons())
+                .build();
     }
 
     @Override

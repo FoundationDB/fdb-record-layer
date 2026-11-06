@@ -166,9 +166,9 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
+    protected Set<Type> computeDynamicTypes() {
         return ImmutableSet.<Type>builder()
-                .addAll(RecordQueryPlanWithChild.super.getDynamicTypes())
+                .addAll(super.computeDynamicTypes())
                 .addAll(inSource.getDynamicTypes())
                 .build();
     }

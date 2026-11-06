@@ -55,4 +55,6 @@ public interface Visitor {
     void visit(@Nonnull SyntheticTable syntheticTable);
 
     void visit(@Nonnull StoredQuery storedQuery);
+
+    void visit(@Nonnull DataType auxiliaryType);
 }

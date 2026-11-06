@@ -262,4 +262,15 @@ public class NoOpSchemaTemplateTests {
         assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         assertEquals("NoOpSchemaTemplate doesn't have stored queries!", exception.getMessage());
     }
+
+    @Test
+    void testFindTypeByNameThrowsException() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+
+        final RelationalException exception = assertThrows(RelationalException.class,
+                () -> template.findTypeByName("some_type"));
+
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+        assertEquals("NoOpSchemaTemplate doesn't have types!", exception.getMessage());
+    }
 }

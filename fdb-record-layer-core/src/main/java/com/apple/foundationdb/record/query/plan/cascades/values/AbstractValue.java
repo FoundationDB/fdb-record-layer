@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
@@ -56,6 +57,10 @@ public abstract class AbstractValue implements Value {
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Type>> dynamicTypesSupplier = Suppliers.memoize(this::computeDynamicTypes);
 
     protected AbstractValue() {
     }
@@ -115,6 +120,36 @@ public abstract class AbstractValue implements Value {
 
     @Nonnull
     protected abstract Iterable<? extends Value> computeChildren();
+
+    @Nonnull
+    @Override
+    public final Set<Type> getDynamicTypes() {
+        return dynamicTypesSupplier.get();
+    }
+
+    /**
+     * Iterates over the entire expression tree collecting a set of all dynamically-generated types.
+     *
+     * @return A set of dynamically-generated {@link Type} by this {@link Value} and all of its children.
+     */
+    @Nonnull
+    @SuppressWarnings("java:S4738")
+    protected Set<Type> computeDynamicTypes() {
+        return fold(p -> {
+            final Type resultType = p.getResultType();
+            if (!resultType.isPrimitive() && !resultType.isUuid()) {
+                return ImmutableSet.of(resultType);
+            }
+            return ImmutableSet.<Type>of();
+        }, (thisTypes, childTypeSets) -> {
+            final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
+            for (final Set<Type> childTypes : childTypeSets) {
+                nestedBuilder.addAll(childTypes);
+            }
+            nestedBuilder.addAll(thisTypes);
+            return nestedBuilder.build();
+        });
+    }
 
     @Override
     public String toString() {
