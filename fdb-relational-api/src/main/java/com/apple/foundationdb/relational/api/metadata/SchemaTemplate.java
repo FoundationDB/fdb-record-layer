@@ -150,6 +150,16 @@ public interface SchemaTemplate extends Metadata {
     @Nonnull
     Optional<? extends StoredQuery> findStoredQueryByName(@Nonnull String storedQueryName) throws RelationalException;
 
+    /**
+     * Retrieves a {@link DataType}, which can either be the underlying type of a {@link Table}
+     * or a user-defined struct/enum type, by looking up its name.
+     *
+     * @param typeName The name of the type.
+     * @return An {@link Optional} containing the {@link DataType} if it is found, otherwise {@code Empty}.
+     */
+    @Nonnull
+    Optional<DataType> findTypeByName(@Nonnull String typeName) throws RelationalException;
+
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;
 

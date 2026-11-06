@@ -1855,6 +1855,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return name;
         }
 
+        @Nonnull
+        public Enum withName(@Nonnull final String name) {
+            if (name.equals(this.name)) {
+                return this;
+            }
+            return new Enum(isNullable, enumValues, name, ProtoUtils.toProtoBufCompliantName(name));
+        }
+
         @Nullable
         public String getStorageName() {
             return storageName;
@@ -2224,6 +2232,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public Record withName(@Nonnull final String name) {
+            if (name.equals(this.name)) {
+                return this;
+            }
             return new Record(name, ProtoUtils.toProtoBufCompliantName(name), isNullable, fields);
         }
 

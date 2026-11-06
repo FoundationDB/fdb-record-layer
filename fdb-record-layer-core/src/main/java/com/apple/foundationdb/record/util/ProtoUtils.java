@@ -22,12 +22,18 @@ package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -98,6 +104,73 @@ public class ProtoUtils {
     public static String uniqueName(String prefix) {
         final var safeUuid = UUID.randomUUID().toString().replace('-', '_');
         return prefix + safeUuid;
+    }
+
+    /**
+     * Recursively collect every message and enum type visible from a file descriptor and its dependencies.
+     *
+     * <p>{@code excludedDependencies} doubles as the set of already-visited file descriptors during the recursive
+     * walk and must be mutable. Descriptors in the top level file descriptor are added first to
+     * {@code descriptorSetBuilder}, and then the descriptors from each dependency in order.
+     *
+     * @param fileDescriptor The {@link Descriptors.FileDescriptor} whose types, and whose dependencies' types, are
+     *                       collected.
+     * @param descriptorSetBuilder The {@link ImmutableSet.Builder} to add the collected descriptors to.
+     * @param excludedDependencies A set of {@link Descriptors.FileDescriptor} dependencies that should not be processed.
+     * @param excludedDescriptors A set of {@link Descriptors.GenericDescriptor} that should not be added to
+     *                            {@code descriptorSetBuilder}.
+     */
+    private static void addAllTypesInFileDescriptorToSet(
+            @Nonnull Descriptors.FileDescriptor fileDescriptor,
+            @Nonnull ImmutableSet.Builder<Descriptors.GenericDescriptor> descriptorSetBuilder,
+            @Nonnull HashSet<Descriptors.FileDescriptor> excludedDependencies,
+            @Nonnull Set<Descriptors.GenericDescriptor> excludedDescriptors) {
+        final Deque<Descriptors.GenericDescriptor> namedTypesToProcess = new ArrayDeque<>(fileDescriptor.getMessageTypes());
+        namedTypesToProcess.addAll(fileDescriptor.getEnumTypes());
+        while (!namedTypesToProcess.isEmpty()) {
+            final var namedType = namedTypesToProcess.pop();
+            if (!excludedDescriptors.contains(namedType)) {
+                descriptorSetBuilder.add(namedType);
+            }
+            if (namedType instanceof Descriptors.Descriptor descriptor) {
+                namedTypesToProcess.addAll(descriptor.getNestedTypes());
+                namedTypesToProcess.addAll(descriptor.getEnumTypes());
+            }
+        }
+
+        for (final var dependency : fileDescriptor.getDependencies()) {
+            if (excludedDependencies.add(dependency)) {
+                addAllTypesInFileDescriptorToSet(dependency, descriptorSetBuilder, excludedDependencies, excludedDescriptors);
+            }
+        }
+    }
+
+    /**
+     * Collect every message and enum type visible from a file descriptor.
+     *
+     * <p>The result covers the types declared directly in {@code fileDescriptor} as well as those declared in its
+     * transitive dependencies, including nested message and enum types to any depth. File descriptors in
+     * {@code excludedDependencies} are not processed, unless it's {@code fileDescriptor} itself, which also
+     * excludes any type reachable only through them.
+     *
+     * @param fileDescriptor The {@link Descriptors.FileDescriptor} to collect types from, along with its transitive
+     *                       dependencies.
+     * @param excludedDependencies A set of dependency {@link Descriptors.FileDescriptor} to prune from the walk.
+     * @param excludedDescriptors A set of {@link Descriptors.GenericDescriptor} to exclude from the returned set.
+     * @return An immutable set of {@link Descriptors.GenericDescriptor}s collected from {@code fileDescriptor}.
+     */
+    @Nonnull
+    public static Set<Descriptors.GenericDescriptor> getTypeDescriptorsInFile(
+            @Nonnull Descriptors.FileDescriptor fileDescriptor,
+            @Nonnull Set<Descriptors.FileDescriptor> excludedDependencies,
+            @Nonnull Set<Descriptors.GenericDescriptor> excludedDescriptors) {
+        final var descriptorByFullNameMapBuilder = ImmutableSet.<Descriptors.GenericDescriptor>builder();
+        addAllTypesInFileDescriptorToSet(
+                fileDescriptor,
+                descriptorByFullNameMapBuilder,
+                new HashSet<>(excludedDependencies),
+                excludedDescriptors);
+        return descriptorByFullNameMapBuilder.build();
     }
 
     /**

@@ -190,7 +190,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
-        return lookupType(ctx.customType, ctx.primitiveType(), true, ctx.ARRAY() != null);
+        // Lookup the type in the schema template since functions can be created against an existing
+        // schema template.
+        return lookupTypeInSchemaTemplate(ctx.customType,
+                ctx.primitiveType(), true, ctx.ARRAY() != null);
     }
 
     /**
@@ -232,7 +235,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         // Note: For an ARRAY column, `isNullable` pertains to the array type; the element type yielded by
         // `lookupType()` is always *not nullable*.
-        final DataType columnType = lookupType(colType.customType, colType.primitiveType(), isNullable, isArray);
+        // Also, this needs to look the type up from the meta-data builder rather than the schema template
+        // to ensure that it injects the nullable array wrapper.
+        final DataType columnType = lookupTypeInMetadataBuilder(colType.customType,
+                colType.primitiveType(), isNullable, isArray);
 
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
@@ -613,7 +619,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                                                 @Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
                                                                 @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
                                                                 @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
-        // parse the index SQL query using the newly constructed metadata.
+        // parse the SQL function using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
         final var isTemporary = functionCtx instanceof RelationalParser.CreateTempFunctionContext;
@@ -859,7 +865,34 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public DataType visitReturnsType(@Nonnull RelationalParser.ReturnsTypeContext ctx) {
         Assert.isNullUnchecked(ctx.returnsTableType(), ErrorCode.UNSUPPORTED_OPERATION,
                 "table return type is not supported");
-        return lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
+        // Lookup the type in the schema template since functions can be created against an existing
+        // schema template.
+        return lookupTypeInSchemaTemplate(ctx.columnType().customType,
+                ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
+    }
+
+    @Nonnull
+    private DataType lookupTypeInSchemaTemplate(@Nullable RelationalParser.UidContext customType,
+                                                @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                                                boolean isNullable,
+                                                boolean isRepeated) {
+        return getDelegate().lookupType(customType,
+                primitiveTypeContext,
+                isNullable,
+                isRepeated,
+                getDelegate().getSchemaTemplate()::findTypeByName);
+    }
+
+    @Nonnull
+    private DataType lookupTypeInMetadataBuilder(@Nullable RelationalParser.UidContext customType,
+                                                 @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                                                 boolean isNullable,
+                                                 boolean isRepeated) {
+        return getDelegate().lookupType(customType,
+                primitiveTypeContext,
+                isNullable,
+                isRepeated,
+                metadataBuilder::findType);
     }
 
     /**
@@ -875,15 +908,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     private <T> T visitWithDisabledLiteralProcessing(@Nonnull ParserRuleContext ctx, @Nonnull Class<T> resultClass) {
         final Object result = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visit(ctx));
         return Assert.castUnchecked(result, resultClass);
-    }
-
-    @Nonnull
-    private DataType lookupType(@Nullable RelationalParser.UidContext customType,
-                                @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
-                                boolean isNullable,
-                                boolean isRepeated) {
-        return getDelegate().lookupType(customType, primitiveTypeContext, isNullable, isRepeated,
-                metadataBuilder::findType);
     }
 
     // TODO: remove
@@ -981,7 +1005,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var typeCtx = param.storedQueryParameterType();
             final var columnTypeCtx = typeCtx.parameterType;
             final boolean isNullable = typeCtx.nullNotnull() == null || typeCtx.nullNotnull().NOT() == null;
-            final var dataType = lookupType(columnTypeCtx.customType, columnTypeCtx.primitiveType(), isNullable,
+            final var dataType = lookupTypeInMetadataBuilder(columnTypeCtx.customType, columnTypeCtx.primitiveType(), isNullable,
                     columnTypeCtx.ARRAY() != null);
             Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNKNOWN_TYPE,
                     () -> "unknown type for stored query parameter '" + parameterName + "'");

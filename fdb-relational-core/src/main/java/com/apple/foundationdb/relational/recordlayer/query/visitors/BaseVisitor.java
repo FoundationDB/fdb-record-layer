@@ -52,7 +52,6 @@ import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationRe
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Function;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
@@ -61,6 +60,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * This class is a composition of different, specialized AST visitors. It holds that visitation and some other

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.metadata.Column;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
@@ -93,6 +94,11 @@ public class SkeletonVisitor implements Visitor {
 
     @Override
     public void visit(@Nonnull final StoredQuery storedQuery) {
+        // no-op
+    }
+
+    @Override
+    public void visit(@Nonnull final DataType auxiliaryType) {
         // no-op
     }
 }
