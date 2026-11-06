@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.TupleSource;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -195,6 +196,46 @@ class IndexEntryColumnValueTest {
                 Type.primitiveType(Type.TypeCode.BYTES));
 
         assertThat(bytesColumn.eval(null, context)).isEqualTo(ByteString.copyFrom(new byte[] {1, 2}));
+    }
+
+    /**
+     * Tests that the value is found in a value tree no matter how deeply it is nested, and not found in a tree that
+     * does not contain it.
+     */
+    @Test
+    void testIndexEntryColumnValue11() {
+        final var keyColumn0 = columnValue(TupleSource.KEY, 0);
+        final var sum = (Value)new ArithmeticValue.AddFn().encapsulate(
+                CallSiteArguments.ofPositional(keyColumn0, LiteralValue.ofScalar(1)));
+
+        assertThat(IndexEntryColumnValue.occursIn(keyColumn0)).isTrue();
+        assertThat(IndexEntryColumnValue.occursIn(sum)).isTrue();
+        assertThat(IndexEntryColumnValue.occursIn(QuantifiedObjectValue.of(ALIAS, INT_TYPE))).isFalse();
+        assertThat(IndexEntryColumnValue.occursIn(LiteralValue.ofScalar(1))).isFalse();
+    }
+
+    /**
+     * Tests that two values reading the same element of an index entry through quantifiers that an alias map maps to
+     * each other are semantically equal under that map, and that they are not if the map does not map the quantifiers,
+     * or if they read a different element.
+     */
+    @Test
+    void testIndexEntryColumnValue12() {
+        final var aliasMap = AliasMap.ofAliases(ALIAS, OTHER_ALIAS);
+        final var keyColumn0 = columnValue(TupleSource.KEY, 0);
+        final var otherKeyColumn0 =
+                new IndexEntryColumnValue(OTHER_ALIAS, TupleSource.KEY, ImmutableIntArray.of(0), INT_TYPE);
+
+        assertThat(keyColumn0.semanticEquals(otherKeyColumn0, aliasMap)).isTrue();
+        assertThat(otherKeyColumn0.semanticEquals(keyColumn0, aliasMap.inverse())).isTrue();
+        assertThat(keyColumn0.semanticEquals(otherKeyColumn0, AliasMap.emptyMap())).isFalse();
+
+        final var otherValueColumn0 =
+                new IndexEntryColumnValue(OTHER_ALIAS, TupleSource.VALUE, ImmutableIntArray.of(0), INT_TYPE);
+        final var otherKeyColumn1 =
+                new IndexEntryColumnValue(OTHER_ALIAS, TupleSource.KEY, ImmutableIntArray.of(1), INT_TYPE);
+        assertThat(keyColumn0.semanticEquals(otherValueColumn0, aliasMap)).isFalse();
+        assertThat(keyColumn0.semanticEquals(otherKeyColumn1, aliasMap)).isFalse();
     }
 
     @Nonnull
