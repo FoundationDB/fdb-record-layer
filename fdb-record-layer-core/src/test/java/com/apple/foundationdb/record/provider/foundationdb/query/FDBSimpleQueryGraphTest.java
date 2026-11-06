@@ -943,8 +943,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final var plan = verifySerialization(plannedPlan);
 
-        // the explode now flows an (element, ordinal) struct, which tips the join order towards scanning the
-        // reviewers on the outside
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
                         typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
