@@ -37,12 +37,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisit
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,17 +57,11 @@ final class QuantifierValues {
     private final Map<CorrelationIdentifier, Value> valuesByQuantifier;
 
     /**
-     * The array each explode of the plan ranges over, in the order they were found. An explode's {@link AnnotatedAccessor}
-     * marker <em>is</em> its position here.
+     * The array each explode of the plan ranges over, by the quantifier ranging over the explode, in the order they were
+     * found. An explode's {@link AnnotatedAccessor} marker <em>is</em> its position here.
      */
     @Nonnull
-    private final List<FieldValue> explodes;
-
-    /**
-     * The result type of the explode each quantifier ranging over an explode ranges over.
-     */
-    @Nonnull
-    private final Map<CorrelationIdentifier, Type> explodeTypes;
+    private final ImmutableMap<CorrelationIdentifier, FieldValue> explodes;
 
     /**
      * The stored table behind each type-filter quantifier, by the correlation it is bound to: the storage name of its
@@ -82,15 +74,11 @@ final class QuantifierValues {
     private final boolean hasOuterJoin;
 
     private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
-                             @Nonnull final List<FieldValue> explodes,
-                             @Nonnull final Map<CorrelationIdentifier, Type> explodeTypes,
+                             @Nonnull final Map<CorrelationIdentifier, FieldValue> explodes,
                              @Nonnull final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents,
                              final boolean hasOuterJoin) {
         this.valuesByQuantifier = valuesByQuantifier;
-        this.explodes = explodes.stream()
-                .map(explode -> (FieldValue)throughExplodedElements(explode, explodeTypes))
-                .collect(ImmutableList.toImmutableList());
-        this.explodeTypes = explodeTypes;
+        this.explodes = ImmutableMap.copyOf(explodes);
         this.constituents = ImmutableMap.copyOf(constituents);
         this.hasOuterJoin = hasOuterJoin;
     }
@@ -118,7 +106,7 @@ final class QuantifierValues {
      */
     @Nonnull
     public List<FieldValue> getExplodes() {
-        return explodes;
+        return explodes.values().asList();
     }
 
     /**
@@ -130,30 +118,21 @@ final class QuantifierValues {
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
         final var collector = new Collector();
-        return new QuantifierValues(collector.visit(expression), collector.explodes, collector.explodeTypes,
+        return new QuantifierValues(collector.visit(expression), collector.explodes,
                 collector.constituents, collector.hasOuterJoin);
     }
 
     /**
-     * Rewrites an access of the element of an explode's {@code (element, ordinal)} struct into an access of the
-     * quantifier ranging over the explode itself, which stands for the collection being unnested. An array unnested
-     * through another one is reached through the element of the outer explode, and this keeps its path the path
-     * of fields it has in the stored record.
-     *
-     * @param value a value written in terms of the plan's quantifiers
-     * @param explodeTypes the result type of the explode each quantifier ranging over an explode ranges over
-     *
-     * @return the value with an access of the element of an explode skipped, or the value itself
+     * {@return the field value with an access of the element of an explode's {@code (element, ordinal)} struct
+     * rewritten into an access of the quantifier itself, or the field value unchanged} The quantifier stands for the
+     * collection being unnested, so this keeps the path the one the field has in the stored record.
      */
     @Nonnull
-    private static Value throughExplodedElements(@Nonnull final Value value,
-                                                 @Nonnull final Map<CorrelationIdentifier, Type> explodeTypes) {
-        // the type tells an access of the struct apart from an access of the element this has already skipped to
-        if (!(value instanceof final FieldValue field) ||
-                !(field.getChild() instanceof final QuantifiedObjectValue quantified) ||
-                !quantified.getResultType().equals(explodeTypes.get(quantified.getAlias())) ||
+    private Value throughExplodedElement(@Nonnull final FieldValue field) {
+        if (!(field.getChild() instanceof final QuantifiedObjectValue quantified) ||
+                !explodes.containsKey(quantified.getAlias()) ||
                 field.getFieldOrdinals().get(0) != 0) {
-            return value;
+            return field;
         }
         final var element = QuantifiedObjectValue.of(quantified.getAlias(), field.getFieldPathTypes().get(0));
         final var accessors = field.getFieldPath().getFieldAccessors();
@@ -194,8 +173,10 @@ final class QuantifierValues {
         @Nonnull
         @Override
         public Value visitFieldValue(@Nonnull final FieldValue element) {
-            final var throughElements = throughExplodedElements(element, explodeTypes);
-            return throughElements == element ? visitDefault(element) : visit(throughElements);
+            // descend below the rewritten value rather than visit it, so that an access of the element is not taken
+            // for an access of the struct
+            final var throughElement = throughExplodedElement(element);
+            return throughElement instanceof FieldValue ? visitDefault(throughElement) : visit(throughElement);
         }
 
         @Nonnull
@@ -218,18 +199,12 @@ final class QuantifierValues {
     private static final class Collector implements SimpleExpressionVisitor<Map<CorrelationIdentifier, Value>> {
 
         /**
-         * The array each explode ranges over, in the order they were found. A position doubles as the explode's marker,
-         * which only has to be distinct -- it numbers the unnestings so two unnestings of one array field compare
-         * unequal, and never reaches the key expression.
+         * The array each explode ranges over, by the quantifier ranging over the explode, in the order they were found. A
+         * position doubles as the explode's marker, which only has to be distinct -- it numbers the unnestings so two
+         * unnestings of one array field compare unequal, and never reaches the key expression.
          */
         @Nonnull
-        private final List<FieldValue> explodes = new ArrayList<>();
-
-        /**
-         * The result type of the explode each quantifier ranging over an explode ranges over.
-         */
-        @Nonnull
-        private final Map<CorrelationIdentifier, Type> explodeTypes = new HashMap<>();
+        private final Map<CorrelationIdentifier, FieldValue> explodes = new LinkedHashMap<>();
 
         @Nonnull
         private final Map<CorrelationIdentifier, NonnullPair<String, RelationalExpression>> constituents = new LinkedHashMap<>();
@@ -256,8 +231,7 @@ final class QuantifierValues {
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
                 if (rangesOver instanceof final TableFunctionExpression tableFunction &&
                         tableFunction.getValue() instanceof final ExplodeValue explode) {
-                    explodeTypes.put(quantifier.getAlias(), explode.getResultType());
-                    merged.put(quantifier.getAlias(), unnestedCollectionValue(explode));
+                    merged.put(quantifier.getAlias(), unnestedCollectionValue(quantifier.getAlias(), explode));
                 } else {
                     merged.put(quantifier.getAlias(), rangesOver.getResultValue());
                 }
@@ -273,17 +247,22 @@ final class QuantifierValues {
         }
 
         @Nonnull
-        private Value unnestedCollectionValue(@Nonnull final ExplodeValue explode) {
+        private Value unnestedCollectionValue(@Nonnull final CorrelationIdentifier alias,
+                                              @Nonnull final ExplodeValue explode) {
             final var collectionValue = explode.getCollectionValue();
             if (!(collectionValue instanceof final FieldValue field)) {
                 return collectionValue;
+            }
+            final var collected = explodes.get(alias);
+            if (collected != null) {
+                return collected;
             }
             final var marker = explodes.size();
             final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
             fieldAccessors.set(fieldAccessors.size() - 1,
                     AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), marker));
             final var annotated = FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
-            explodes.add(annotated);
+            explodes.put(alias, annotated);
             return annotated;
         }
 
