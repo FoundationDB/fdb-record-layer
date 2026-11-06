@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ConditionalCascadesRule
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ExpandWindowExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRule;
@@ -68,6 +69,7 @@ public class RewritingRuleSet extends CascadesRuleSet {
 
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES =
             ImmutableSet.of(
+                    new ExpandWindowExpressionsRule(),
                     selectMergeThenPushDown,
                     new FinalizeExpressionsRule());
 

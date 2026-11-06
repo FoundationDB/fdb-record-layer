@@ -482,6 +482,28 @@ public class Index {
         this.primaryKeyComponentPositions = primaryKeyComponentPositions;
     }
 
+    /**
+     * Remove the primary key components that are already present in the index key.
+     * The given list must contain one element per primary key component, in primary key order; each element
+     * whose position is covered by the index key (that is, each position for which
+     * {@link #getPrimaryKeyComponentPositions()} holds a non-negative value) is removed. What remains is the
+     * portion of the primary key that has to be appended to the index key when serializing an index entry, as
+     * those components cannot be recovered from the index key itself. If this index does not share any
+     * components with the primary key, the list is left untouched.
+     *
+     * <p>For example, consider a record type with primary key
+     * {@code Key.Expressions.concatenateFields("a", "b", "c", "d")} and an index defined on
+     * {@code Key.Expressions.concatenateFields("c", "x", "a", "y")}. The index key already contains {@code c}
+     * at position 0 and {@code a} at position 2, so the primary key component positions are
+     * {@code {2, -1, 0, -1}} and a list {@code [a, b, c, d]} is trimmed down to {@code [b, d]}. The index entry
+     * key is therefore {@code (c, x, a, y, b, d)} rather than the na&iuml;ve {@code (c, x, a, y, a, b, c, d)}.
+     * Note that the shared components need be neither contiguous nor in the same order in the two expressions.
+     *
+     * <p>Note that this modifies the given list in place, so callers must pass a mutable list that they own.
+     *
+     * @param primaryKeys a mutable list of the primary key components, trimmed in place
+     * @see #getPrimaryKeyComponentPositions()
+     */
     @API(API.Status.INTERNAL)
     public void trimPrimaryKey(List<?> primaryKeys) {
         if (primaryKeyComponentPositions != null) {

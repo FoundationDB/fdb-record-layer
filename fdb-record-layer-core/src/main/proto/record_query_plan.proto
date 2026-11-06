@@ -287,6 +287,8 @@ message PValue {
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
     PCurrentTimestampValue current_timestamp_value = 65;
+    PCompileTimeWindowValue compile_time_window_value = 66;
+    PRankWindowValue rank_window_value = 67;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -1396,6 +1398,67 @@ message PWindowedValue {
   repeated PValue argument_values = 2;
 }
 
+message PWindowFrameSpecification {
+  enum PFrameType {
+    ROW = 1;
+    RANGE = 2;
+    GROUPS = 3;
+  }
+
+  enum PExclusion {
+    NO_OTHER = 1;
+    CURRENT_ROW = 2;
+    GROUP = 3;
+    TIES = 4;
+  }
+
+  message PFrameBoundary {
+    oneof boundary {
+      bool unbounded = 1;
+      PValue bounded_limit = 2;
+      bool current_row = 3;
+    }
+  }
+
+  optional PFrameType frame_type = 1;
+  optional PFrameBoundary left = 2;
+  optional PFrameBoundary right = 3;
+  optional PExclusion exclusion = 4;
+}
+
+message PWindowOrderingPart {
+  enum PSortOrder {
+    ASCENDING = 1;
+    DESCENDING = 2;
+    ASCENDING_NULLS_LAST = 3;
+    DESCENDING_NULLS_FIRST = 4;
+    ANY = 5;
+  }
+  optional PValue value = 1;
+  optional PSortOrder sort_order = 2;
+}
+
+message PCompileTimeWindowValue {
+  enum PWindowFunction {
+    RANK = 1;
+  }
+  repeated PValue partitioning_values = 1;
+  repeated PValue argument_values = 2;
+  repeated PWindowOrderingPart ordering_parts = 3;
+  optional PWindowFrameSpecification frame_specification = 4;
+  optional PWindowFunction window_function = 5;
+}
+
+// the state every window value shares; a concrete window value embeds this as its super message
+message PWindowValue {
+  repeated PValue argument_values = 1;
+  optional PWindowFrameSpecification frame_specification = 2;
+}
+
+message PRankWindowValue {
+  optional PWindowValue super = 1;
+}
+
 message PCollateValue {
   optional string collator_registry = 1;
   optional PValue string_child = 2;
@@ -1948,6 +2011,9 @@ message PRecordQueryIndexPlan {
   optional bool strictly_sorted = 7;
   optional PType result_type = 8;
   optional PQueryPlanConstraint constraint = 9;
+  // When set, the columns this index's entries carry beyond the record they point to are merged into the fetched
+  // record by evaluating this value against the entry, and result_type describes the merged shape.
+  optional PValue index_entry_to_record_value = 10;
 }
 
 //
@@ -1965,6 +2031,7 @@ message PIndexScanParameters {
     PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
     PTimeWindowScanComparisons time_window_scan_comparisons = 4;
     PVectorIndexScanComparisons vector_index_scan_comparisons = 5;
+    PRankScanComparisons rank_scan_comparisons = 6;
   }
 }
 
@@ -1998,6 +2065,11 @@ message PTimeWindowForFunction {
 message PTimeWindowScanComparisons {
  optional PIndexScanComparisons super = 1;
  optional PTimeWindowForFunction time_window = 2;
+}
+
+message PRankScanComparisons {
+  optional PIndexScanComparisons super = 1;
+  optional bool include_rank_as_value = 2;
 }
 
 message PVectorIndexScanComparisons {

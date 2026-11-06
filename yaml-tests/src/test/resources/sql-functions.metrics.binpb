@@ -1,7 +1,7 @@
 ç
 R
 basic-sql-function-tests6EXPLAIN select col1, col2 from f1(a => 103, b => 'b');∂
-üú«3Å íÎº(`0Ôã≈8é@	ôCOVERING(T1_IDX1 [EQUALS @c13, [LESS_THAN promote(@c9 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
+Ç	Ë´À ì ˆØò	(`0‡áô8é@	ôCOVERING(T1_IDX1 [EQUALS @c13, [LESS_THAN promote(@c9 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,8 @@ digraph G {
 }ç
 R
 basic-sql-function-tests6EXPLAIN select col1, col2 from f1(b => 'b', a => 103);∂
-∫Å›4Å œ¶Å(`0çå–8é@	ôCOVERING(T1_IDX1 [EQUALS @c9, [LESS_THAN promote(@c13 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
+Ç	€–À+ì ˙ÿÎ
+(`0ˇ˘∫8é@	ôCOVERING(T1_IDX1 [EQUALS @c9, [LESS_THAN promote(@c13 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -27,7 +28,8 @@ digraph G {
 }Å
 H
 basic-sql-function-tests,EXPLAIN select col1, col2 from f1(103, 'b');¥
-Ãı£5Å Åè¥(`0Æ⁄œ8é@	òCOVERING(T1_IDX1 [EQUALS @c9, [LESS_THAN promote(@c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
+Ç	Ï›·)ì àìÆ
+(`0‘∏∞8é@	òCOVERING(T1_IDX1 [EQUALS @c9, [LESS_THAN promote(@c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -37,10 +39,11 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, STRING AS COL2, INT AS COL3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q178> label="q178" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}À
+} 
 M
-basic-sql-function-tests1EXPLAIN select col1 + 10, col2 from f1(103, 'b');˘
-ÿ‘ı◊, Œ…∂(V0⁄Áõ8z@iISCAN(T1_IDX1 [EQUALS @c11, [LESS_THAN promote(@c9 AS LONG)]]) | MAP (_.COL1 + @c3 AS _0, _.COL2 AS COL2)Ó
+basic-sql-function-tests1EXPLAIN select col1 + 10, col2 from f1(103, 'b');¯
+Í∂Õí!Ç ®µç
+(V0ìﬂw8z@iISCAN(T1_IDX1 [EQUALS @c11, [LESS_THAN promote(@c9 AS LONG)]]) | MAP (_.COL1 + @c3 AS _0, _.COL2 AS COL2)Ó
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -53,7 +56,7 @@ digraph G {
 }¯
 ?
 basic-sql-function-tests#EXPLAIN select * from f1(103, 'b');¥
-µ‚Ö@Å ¶Ûù(`0ô≈Ú8é@	òCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
+Ç	ò¶≠!ì ö¬¸	(`0≥âû8é@	òCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -66,7 +69,7 @@ digraph G {
 }π
 O
 basic-sql-function-tests3EXPLAIN select * from f1(103, 'b') where col1 = 101Â
-§	ñáı6å ü§á(b0ïç◊8ñ@
+∂	€®Å,û †ã˚	(b0âÃª8ñ@
 √COVERING(T1_IDX4 [EQUALS promote(@c12 AS LONG), EQUALS @c7] -> [COL1: KEY:[0], COL2: KEY:[1], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c5 AS LONG) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˛digraph G {
   fontname=courier;
   rankdir=BT;
@@ -81,7 +84,7 @@ O
 }π
 O
 basic-sql-function-tests3EXPLAIN select * from f1(103, 'c') where col1 = 104Â
-§	ñáı6å ü§á(b0ïç◊8ñ@
+∂	€®Å,û †ã˚	(b0âÃª8ñ@
 √COVERING(T1_IDX4 [EQUALS promote(@c12 AS LONG), EQUALS @c7] -> [COL1: KEY:[0], COL2: KEY:[1], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c5 AS LONG) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˛digraph G {
   fontname=courier;
   rankdir=BT;
@@ -96,7 +99,8 @@ O
 }á
 B
 basic-sql-function-tests&EXPLAIN select * from f1(103 + 1, 'b')¿
-Õ›Á<Å •±≤(`0À‘Ö8é@	ûCOVERING(T1_IDX1 [EQUALS @c9, [LESS_THAN promote(@c5 + @c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˛
+Ç	’Ó›%ì ¥‘Ä
+(`0∞…Ø8é@	ûCOVERING(T1_IDX1 [EQUALS @c9, [LESS_THAN promote(@c5 + @c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˛
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -109,7 +113,8 @@ digraph G {
 }ˇ
 h
 basic-sql-function-testsLEXPLAIN select * from (select * from f1(103 + 1, 'b')) as x where col1 < 105í
-á	Õí¢Bá £¨ã(b0Ü’á8í@	√COVERING(T1_IDX1 [EQUALS @c13, [LESS_THAN promote(@c21 AS LONG) && LESS_THAN promote(@c9 + @c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)´digraph G {
+ú	éèÖ&ú ã˚ê
+(b0ü»∞8í@	√COVERING(T1_IDX1 [EQUALS @c13, [LESS_THAN promote(@c21 AS LONG) && LESS_THAN promote(@c9 + @c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -118,10 +123,10 @@ h
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, STRING AS COL2, INT AS COL3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q181> label="q181" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}·
+}‡
 ó
-basic-sql-function-tests{EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1ƒ
-Ê¬Ü™ïÈ ¿ûô6(‡0Ì¿≈8ü@≤ISCAN(T1_IDX1 [EQUALS @c29, [LESS_THAN promote(@c27 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c29, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c27 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }Ïdigraph G {
+basic-sql-function-tests{EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1√
+áÓÌïqä Ò·®+(‡0Ì¶Ò8ü@≤ISCAN(T1_IDX1 [EQUALS @c29, [LESS_THAN promote(@c27 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c29, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c27 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }Ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -146,10 +151,10 @@ h
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ˆ
+}ı
 ¨
-basic-sql-function-testsèEXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1ƒ
-Ê©‘…¶È ¯Ì∑9(‡0é∂Ù8ü@≤ISCAN(T1_IDX1 [EQUALS @c33, [LESS_THAN promote(@c29 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c33, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c29 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }Ïdigraph G {
+basic-sql-function-testsèEXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1√
+áïı”nä ∑ıÇ)(‡0È¥ﬂ8ü@≤ISCAN(T1_IDX1 [EQUALS @c33, [LESS_THAN promote(@c29 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c33, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c29 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }Ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -177,7 +182,7 @@ h
 }ï
 j
 basic-sql-function-testsNEXPLAIN with x(y, z) as (select * from f1(b => 'b', a => 103)) select * from x¶
-á	»Ö·-Ü è˘ (b0öï‚8í@	îCOVERING(T1_IDX1 [EQUALS @c16, [LESS_THAN promote(@c20 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)Ó
+ú	ﬂµ˚"õ ∂“ã	(b0„»ü8í@	îCOVERING(T1_IDX1 [EQUALS @c16, [LESS_THAN promote(@c20 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)Ó
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -190,7 +195,7 @@ digraph G {
 }ã
 `
 basic-sql-function-testsDEXPLAIN with x(y, z) as (select * from f1(103, 'b')) select * from x¶
-á	öó˚2Ü ¢≠Ü(b0ﬁ«∆8í@	îCOVERING(T1_IDX1 [EQUALS @c16, [LESS_THAN promote(@c14 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)Ó
+ú	Äó∆(õ ßπÎ	(b0ˇØÆ8í@	îCOVERING(T1_IDX1 [EQUALS @c16, [LESS_THAN promote(@c14 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)Ó
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -200,10 +205,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, STRING AS COL2, INT AS COL3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q183> label="q183" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Û!
+}Ú!
 Z
-basic-sql-function-tests>EXPLAIN select * from t2 where exists (select * from f2(t2.z))î!
-Å≈Ÿÿ.å “øñ(r0†Óà8ê@ôISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }◊digraph G {
+basic-sql-function-tests>EXPLAIN select * from t2 where exists (select * from f2(t2.z))ì!
+ï®úÔ$† Î›ˇ(r0√≠y8ê@ôISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }◊digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -233,10 +238,10 @@ Z
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}¯!
+}˜!
 _
-basic-sql-function-testsCEXPLAIN select * from t2 where exists (select * from f2(k => t2.z))î!
-Åù˜Õ8å ≈ùï(r0ø≥ù8ê@ôISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }◊digraph G {
+basic-sql-function-testsCEXPLAIN select * from t2 where exists (select * from f2(k => t2.z))ì!
+ïæ˝û'† À±√(r0™Ωr8ê@ôISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }◊digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -266,10 +271,10 @@ _
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}‡
+}ﬂ
 A
-basic-sql-function-tests%EXPLAIN select * from f3(103, 'b', 4)ö
-ı∫Êªõñ ÕŸ˝6(⁄0õüñ8∆@‚ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }ídigraph G {
+basic-sql-function-tests%EXPLAIN select * from f3(103, 'b', 4)ô
+‚∑”’sÉ ûÂ†%(⁄0ıû∆8∆@‚ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -295,7 +300,7 @@ A
 }ë
 D
 basic-sql-function-tests(EXPLAIN select * from f4(103, 'b', 2, 2)»
-Œ ¯∆˙Âõ ˘Ìæt(É0Û˚ö8Á@g˘ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9 AS LONG) + promote(@c9 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }©digraph G {
+ã#Â¿Öéÿ	 ⁄ü‘((É0˚ù›	8Á@g˘ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9 AS LONG) + promote(@c9 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -321,7 +326,7 @@ D
 }´
 X
 basic-sql-function-tests<EXPLAIN select * from f4(a => 103, b => 'b', c => 2, d => 2)Œ
-Œ ûáäÏõ ª„y(É0óØü8Á@g¸ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c15 AS LONG) + promote(@c15 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS @c11, [LESS_THAN promote(@c7 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }¨digraph G {
+ã#∫¨≈Úÿ	 ´‹∆I(É0Ô¿î8Á@g¸ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c15 AS LONG) + promote(@c15 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS @c11, [LESS_THAN promote(@c7 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -347,7 +352,7 @@ X
 }û
 7
 basic-sql-function-testsEXPLAIN select * from f5();‚
-˛Å–œ8Ü çˆ£(b0⁄ﬂÏ8í@	´COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(103 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ìdigraph G {
+í	çùáö ‚©Â(b0∆˜è8í@	´COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(103 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -359,7 +364,8 @@ X
 }°
 :
 basic-sql-function-testsEXPLAIN select * from f5(103);‚
-˛–´ë5Ü Üûò(b0åõÀ8í@	´COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ìdigraph G {
+í	ÉóÙ'ö î∞Œ
+(b0 ˆº8í@	´COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -371,7 +377,8 @@ X
 }¯
 ?
 basic-sql-function-tests#EXPLAIN select * from f5(b => 'b');¥
-º¬Î3Å ¢∑ê(`0Ô◊÷8é@	òCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(103 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
+Ç	åÚƒ)ì ˛ùè
+(`0ÎÂ±8é@	òCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(103 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -384,7 +391,8 @@ digraph G {
 }Ñ
 I
 basic-sql-function-tests-EXPLAIN select * from f5(b => 'b', a => 103);∂
-ıìñ4Å  É(`0ì¯À8é@	ôCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
+Ç	™Ù‹+ì ı–≈
+(`0Åœª8é@	ôCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -397,7 +405,8 @@ digraph G {
 }Ñ
 I
 basic-sql-function-tests-EXPLAIN select * from f5(b => 'b', a => 102);∂
-ıìñ4Å  É(`0ì¯À8é@	ôCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
+Ç	™Ù‹+ì ı–≈
+(`0Åœª8é@	ôCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -410,7 +419,8 @@ digraph G {
 }Ñ
 I
 basic-sql-function-tests-EXPLAIN select * from f5(b => 'a', a => 102);∂
-ıìñ4Å  É(`0ì¯À8é@	ôCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
+Ç	™Ù‹+ì ı–≈
+(`0Åœª8é@	ôCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c11 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -423,7 +433,7 @@ digraph G {
 }Ñ
 I
 basic-sql-function-tests-EXPLAIN select * from f5(a => 102, b => 'a');∂
-…ñ…6Å ˆ¬ˆ(`0⁄Î÷8é@	ôCOVERING(T1_IDX1 [EQUALS @c11, [LESS_THAN promote(@c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
+Ç	≠‘∞(ì ÷æï	(`0ƒ»®8é@	ôCOVERING(T1_IDX1 [EQUALS @c11, [LESS_THAN promote(@c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)˘
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -436,7 +446,8 @@ digraph G {
 }°
 :
 basic-sql-function-testsEXPLAIN select * from f5(102);‚
-˛–´ë5Ü Üûò(b0åõÀ8í@	´COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ìdigraph G {
+í	ÉóÙ'ö î∞Œ
+(b0 ˆº8í@	´COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -448,7 +459,7 @@ digraph G {
 }¯
 ?
 basic-sql-function-tests#EXPLAIN select * from f5(102, 'a');¥
-Ü«˜4Å √”Ñ(`0µ¿÷8é@	òCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
+Ç	±‰¬&ì £ïﬂ(`0◊Ø•8é@	òCOVERING(T1_IDX1 [EQUALS @c7, [LESS_THAN promote(@c5 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¯
 digraph G {
   fontname=courier;
   rankdir=BT;

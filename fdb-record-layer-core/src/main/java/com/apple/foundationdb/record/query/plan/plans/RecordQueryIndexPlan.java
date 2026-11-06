@@ -155,6 +155,14 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     private final Type resultType;
     @Nonnull
     private final QueryPlanConstraint constraint;
+    /**
+     * The value reading the columns an index entry carries beyond the record it points to, or {@code null} when the
+     * fetched record is the whole answer. The entry still routes to a record, which is fetched as usual; this merges
+     * what only the entry knows into the flowed result -- the rank a {@code RankScanBounds} asks to be reported, say,
+     * which sits in the entry's value and in no record.
+     */
+    @Nullable
+    private final Value indexEntryToRecordValue;
 
     @Nonnull
     @SuppressWarnings("this-escape")
@@ -200,7 +208,10 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 recordQueryIndexPlanProto.getStrictlySorted(),
                 Optional.empty(),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getResultType())),
-                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())));
+                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())),
+                recordQueryIndexPlanProto.hasIndexEntryToRecordValue()
+                ? Value.fromValueProto(serializationContext, recordQueryIndexPlanProto.getIndexEntryToRecordValue())
+                : null);
     }
 
     @VisibleForTesting
@@ -214,7 +225,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW);
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted,
+                matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW, null);
     }
 
     @VisibleForTesting
@@ -230,6 +242,46 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint,
                                 @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted,
+                matchCandidateOptional, resultType, constraint, serializationMode, null);
+    }
+
+    /**
+     * Creates a plan that merges the columns only its index entries carry into the records it fetches.
+     *
+     * @param indexEntryToRecordValue the value reading those columns from an entry, or {@code null} for none
+     */
+    @VisibleForTesting
+    @SuppressWarnings("this-escape")
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType,
+                                @Nonnull final QueryPlanConstraint constraint,
+                                @Nullable final Value indexEntryToRecordValue) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted,
+                matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW, indexEntryToRecordValue);
+    }
+
+    @VisibleForTesting
+    @SuppressWarnings("this-escape")
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType,
+                                @Nonnull final QueryPlanConstraint constraint,
+                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode,
+                                @Nullable final Value indexEntryToRecordValue) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -247,6 +299,13 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
         this.constraint = constraint;
         this.serializationMode = serializationMode;
+        this.indexEntryToRecordValue = indexEntryToRecordValue;
+    }
+
+    @Nullable
+    @Override
+    public Value getIndexEntryToRecordValue() {
+        return indexEntryToRecordValue;
     }
 
     @Nonnull
@@ -308,7 +367,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
         return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
-                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord));
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord, store,
+                        indexEntryToRecordValue));
     }
 
     @Nonnull
@@ -465,7 +525,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Override
     public RecordQueryIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
-        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType, constraint);
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType, constraint, indexEntryToRecordValue);
     }
 
     @Override
@@ -502,13 +562,14 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         Verify.verify(newQuantifiers.isEmpty());
         return new RecordQueryIndexPlan(indexName, commonPrimaryKey, scanParameters, indexFetchMethod,
                 fetchIndexRecords, reverse, strictlySorted, Optional.empty(), resultType,
-                constraint);
+                constraint, indexEntryToRecordValue);
     }
 
     @Nonnull
     protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
         return new RecordQueryIndexPlan(indexName, commonPrimaryKey, newIndexScanParameters, indexFetchMethod,
-                fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint);
+                fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint,
+                indexEntryToRecordValue);
     }
 
     @Nonnull
@@ -539,7 +600,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 indexFetchMethod == that.indexFetchMethod &&
                 fetchIndexRecords == that.fetchIndexRecords &&
                 Objects.equals(indexName, that.indexName) &&
-                Objects.equals(scanParameters, that.scanParameters);
+                Objects.equals(scanParameters, that.scanParameters) &&
+                Objects.equals(indexEntryToRecordValue, that.indexEntryToRecordValue);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -556,7 +618,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Override
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(indexName, scanParameters, indexFetchMethod.name(), fetchIndexRecords.name(),
-                reverse, strictlySorted);
+                reverse, strictlySorted, indexEntryToRecordValue);
     }
 
     @Override
@@ -747,6 +809,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         builder.setStrictlySorted(strictlySorted);
         builder.setResultType(resultType.toTypeProto(serializationContext));
         builder.setConstraint(constraint.toProto(serializationContext));
+        if (indexEntryToRecordValue != null) {
+            builder.setIndexEntryToRecordValue(indexEntryToRecordValue.toValueProto(serializationContext));
+        }
         return builder.build();
     }
 

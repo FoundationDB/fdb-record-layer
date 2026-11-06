@@ -5,9 +5,9 @@ exists-in-projection:
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
         q0.ID | MAP (@c6 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, exists(q1)
         AS HAS_T2) }
-    task_count: 323
-    task_total_time_ms: 3
-    transform_count: 99
+    task_count: 327
+    task_total_time_ms: 4
+    transform_count: 103
     transform_time_ms: 2
     transform_yield_count: 28
     insert_time_ms: 0
@@ -20,10 +20,10 @@ exists-in-projection:
         q1 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q1.ID | MAP (@c8 AS _0) | DEFAULT
         NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, exists(q3._1)
         AS HAS_T2) }
-    task_count: 839
-    task_total_time_ms: 10
-    transform_count: 301
-    transform_time_ms: 4
+    task_count: 843
+    task_total_time_ms: 14
+    transform_count: 305
+    transform_time_ms: 6
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 86
@@ -35,9 +35,9 @@ exists-in-projection:
         q1 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]])
         | MAP (@c14 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3
         RETURN (q3._0.ID AS ID, q0.ID AS T2_ID, exists(q3._1) AS HAS_T3) }'
-    task_count: 958
-    task_total_time_ms: 13
-    transform_count: 311
+    task_count: 962
+    task_total_time_ms: 14
+    transform_count: 315
     transform_time_ms: 5
     transform_yield_count: 75
     insert_time_ms: 0
@@ -53,12 +53,12 @@ exists-in-projection:
         NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS
         _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL
         AS LABEL, exists(q5._2) AS HAS_COL1_10) }
-    task_count: 6386
-    task_total_time_ms: 169
-    transform_count: 2495
-    transform_time_ms: 47
+    task_count: 6390
+    task_total_time_ms: 162
+    transform_count: 2499
+    transform_time_ms: 44
     transform_yield_count: 343
-    insert_time_ms: 13
+    insert_time_ms: 11
     insert_new_count: 1014
     insert_reused_count: 123
 -   query: EXPLAIN select t1.id, t2.id as t2_id, t3.label, exists (select 1 from t1
@@ -71,12 +71,12 @@ exists-in-projection:
         AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0
         AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS
         T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_SIBLING) }
-    task_count: 2768
-    task_total_time_ms: 58
-    transform_count: 1097
-    transform_time_ms: 18
+    task_count: 2772
+    task_total_time_ms: 59
+    transform_count: 1101
+    transform_time_ms: 19
     transform_yield_count: 168
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 383
     insert_reused_count: 31
 -   query: EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id
@@ -88,9 +88,9 @@ exists-in-projection:
         } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP
         q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c38 AS _0) } | DEFAULT
         NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }
-    task_count: 1296
+    task_count: 1302
     task_total_time_ms: 16
-    transform_count: 422
+    transform_count: 428
     transform_time_ms: 6
     transform_yield_count: 93
     insert_time_ms: 0
@@ -106,9 +106,9 @@ exists-in-projection:
         q0.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q4 RETURN (q4 AS _0, q3 AS _1) }
         AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3)
         }
-    task_count: 988
+    task_count: 994
     task_total_time_ms: 12
-    transform_count: 315
+    transform_count: 321
     transform_time_ms: 5
     transform_yield_count: 80
     insert_time_ms: 0
@@ -122,9 +122,9 @@ exists-in-projection:
         KEY:[0]]) | MAP (@c39 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS
         _1) } AS q3 RETURN (q0.ID AS T1_ID, q3._0.ID AS T2_ID, exists(q3._1) AS HAS_T3)
         }'
-    task_count: 821
-    task_total_time_ms: 11
-    transform_count: 256
+    task_count: 825
+    task_total_time_ms: 12
+    transform_count: 260
     transform_time_ms: 4
     transform_yield_count: 70
     insert_time_ms: 0
@@ -136,9 +136,9 @@ exists-in-projection:
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS
         q0.ID | MAP (@c7 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID AS ID, NOT exists(q1)
         AS NO_T2) }
-    task_count: 323
+    task_count: 327
     task_total_time_ms: 3
-    transform_count: 99
+    transform_count: 103
     transform_time_ms: 1
     transform_yield_count: 28
     insert_time_ms: 0
@@ -151,10 +151,10 @@ exists-in-projection:
         [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c26 AS _0) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID])
         AS q3 RETURN (q3.ID AS ID, q0.ID AS T2_ID) }'
-    task_count: 1259
-    task_total_time_ms: 19
-    transform_count: 419
-    transform_time_ms: 6
+    task_count: 1263
+    task_total_time_ms: 16
+    transform_count: 423
+    transform_time_ms: 5
     transform_yield_count: 89
     insert_time_ms: 1
     insert_new_count: 164
@@ -166,12 +166,12 @@ exists-in-projection:
         [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c27 AS _0) | DEFAULT NULL | FILTER
         NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID])
         AS q3 RETURN (q3.ID AS ID, q0.ID AS T2_ID) }'
-    task_count: 1259
-    task_total_time_ms: 15
-    transform_count: 421
+    task_count: 1263
+    task_total_time_ms: 18
+    transform_count: 425
     transform_time_ms: 6
     transform_yield_count: 89
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 164
     insert_reused_count: 15
 -   query: EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id
@@ -183,9 +183,9 @@ exists-in-projection:
         q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP
         q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c39 AS _0) } | DEFAULT
         NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }
-    task_count: 1296
-    task_total_time_ms: 16
-    transform_count: 424
+    task_count: 1302
+    task_total_time_ms: 21
+    transform_count: 430
     transform_time_ms: 7
     transform_yield_count: 93
     insert_time_ms: 1
@@ -197,9 +197,9 @@ exists-in-projection:
     explain: ISCAN(T3_T2_ID [EQUALS promote(@c33 AS LONG)]) | FLATMAP q0 -> { SCAN([IS
         T2, EQUALS q0.T2_ID]) | MAP (@c12 AS _0) | DEFAULT NULL AS q1 RETURN (q0.ID
         AS ID, q0.LABEL AS LABEL, exists(q1) AS HAS_T2) }
-    task_count: 587
-    task_total_time_ms: 7
-    transform_count: 168
+    task_count: 591
+    task_total_time_ms: 8
+    transform_count: 172
     transform_time_ms: 3
     transform_yield_count: 51
     insert_time_ms: 0

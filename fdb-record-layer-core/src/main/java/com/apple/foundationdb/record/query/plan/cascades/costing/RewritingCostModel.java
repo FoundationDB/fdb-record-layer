@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.CompileTimeOnlyValueCountProperty.compileTimeOnlyValueCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.outerJoinCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
@@ -50,6 +51,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     private static final Tiebreaker<RelationalExpression> tiebreaker =
             Tiebreaker.combineTiebreakers(ImmutableList.of(
                     lowestNumOuterJoinsTiebreaker(),
+                    lowestNumCompileTimeOnlyValuesTiebreaker(),
                     lowestNumSelectExpressionsTiebreaker(),
                     lowestNumTableFunctionsTiebreaker(),
                     fewestNormalizedConjunctsTiebreaker(),
@@ -85,6 +87,11 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     @Nonnull
     static LowestNumOuterJoinsTiebreaker lowestNumOuterJoinsTiebreaker() {
         return LowestNumOuterJoinsTiebreaker.INSTANCE;
+    }
+
+    @Nonnull
+    static LowestNumCompileTimeOnlyValuesTiebreaker lowestNumCompileTimeOnlyValuesTiebreaker() {
+        return LowestNumCompileTimeOnlyValuesTiebreaker.INSTANCE;
     }
 
     @Nonnull
@@ -125,6 +132,26 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
             int aOuterJoins = outerJoinCount().evaluate(a);
             int bOuterJoins = outerJoinCount().evaluate(b);
             return Integer.compare(aOuterJoins, bOuterJoins);
+        }
+    }
+
+    static class LowestNumCompileTimeOnlyValuesTiebreaker implements Tiebreaker<RelationalExpression> {
+        private static final LowestNumCompileTimeOnlyValuesTiebreaker INSTANCE = new LowestNumCompileTimeOnlyValuesTiebreaker();
+
+        @Override
+        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
+                           @Nonnull final PlanOpsMap opsMapA,
+                           @Nonnull final PlanOpsMap opsMapB,
+                           @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+            //
+            // Penalize any surviving compile-time-only value next, for the same reason as an outer join: a rewrite is
+            // expected to eliminate it, and the expression it rewrites to costs an extra select box, which the later
+            // lowestNumSelectExpressions() tie-breaker would otherwise hold against it. A window function, say,
+            // becomes a window expression between two selects.
+            //
+            final int aCompileTimeOnlyValues = compileTimeOnlyValueCount().evaluate(a);
+            final int bCompileTimeOnlyValues = compileTimeOnlyValueCount().evaluate(b);
+            return Integer.compare(aCompileTimeOnlyValues, bCompileTimeOnlyValues);
         }
     }
 

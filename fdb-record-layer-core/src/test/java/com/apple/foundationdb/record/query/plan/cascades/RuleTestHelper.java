@@ -163,6 +163,22 @@ public class RuleTestHelper {
         return Memoizer.noMemoization(PlannerStage.PLANNED);
     }
 
+    /**
+     * Applies the rule under test and hands back the execution so that the caller can make its own assertions about
+     * what was yielded. Unlike {@link #assertYields(RelationalExpression, RelationalExpression...)} this makes no claim
+     * about the result, which is what a rule that introduces a new intermediate {@link Reference} needs: the caller
+     * cannot pre-build an expected expression whose child reference is the one the rule created.
+     *
+     * @param original the expression to apply the rule to
+     *
+     * @return the execution of the rule
+     */
+    @CanIgnoreReturnValue
+    @Nonnull
+    public TestRuleExecution apply(RelationalExpression original) {
+        return run(original, EvaluationContext.EMPTY);
+    }
+
     @Nonnull
     public TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
         // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of

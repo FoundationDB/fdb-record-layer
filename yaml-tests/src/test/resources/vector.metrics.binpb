@@ -1,7 +1,7 @@
 Ø
 l
 vector-tests\EXPLAIN select cast([1.2f, 4.3f, 5.9f] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100æ
-ÃŸ˝ä9 ≠Î=(0ﬁå8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
+Œ¬Ò√; ∂æ^(0õﬂ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@ l
 }Æ
 k
 vector-tests[EXPLAIN select cast([1.2f, 4.3f, 5.9f] as VECTOR(3, HALF)) from tDoubleVector where a = 100æ
-Ã∏ÕÜ9 ◊º:(0®ê8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
+ŒÆ˛·; ÍÒq(0∆õ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -22,10 +22,10 @@ k
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(64, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}™
+}´
 h
-vector-testsXEXPLAIN select cast([1.2, 4.3, 5.9] as VECTOR(3, HALF)) from tDoubleVector where a = 100Ω
-Ãä◊z9 ßı1(0ßÁ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
+vector-testsXEXPLAIN select cast([1.2, 4.3, 5.9] as VECTOR(3, HALF)) from tDoubleVector where a = 100æ
+Œµ∆…; Â…c(0Û©8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -37,7 +37,7 @@ h
 }•
 b
 vector-testsREXPLAIN select cast([1, 4, 5] as VECTOR(3, HALF)) from tDoubleVector where a = 100æ
-Ã£ÍÄ9 ß¨7(0 Ü8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
+ŒÕÅµ; ä”W(0˙™8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -49,7 +49,7 @@ b
 }®
 e
 vector-testsUEXPLAIN select cast([1L, 4L, 5L] as VECTOR(3, HALF)) from tDoubleVector where a = 100æ
-Ã¿ÁÅ9 ÿø5(0ﬂ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
+ŒÚ—”; ˚íi(0ØÕ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -61,7 +61,7 @@ e
 }¨
 i
 vector-testsYEXPLAIN select cast([1.2, 4.3, 5.9] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100æ
-ÃÔ©å9 ¶µ>(0⁄∏8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
+Œ˝ãÃ; Ê†b(0˚¬8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -73,7 +73,7 @@ i
 }¶
 c
 vector-testsSEXPLAIN select cast([1, 4, 5] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100æ
-ÃÁÃÜ9 Ÿπ;(0ﬂ®8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
+Œõ·÷; £˘h(0’Î8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -82,10 +82,10 @@ c
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(64, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}®
+}©
 f
-vector-testsVEXPLAIN select cast([1L, 4L, 5L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100Ω
-Ã’•z9 Ã©4(0©Ù8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
+vector-testsVEXPLAIN select cast([1L, 4L, 5L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100æ
+ŒﬁÌ«; √æf(0©›8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -97,7 +97,7 @@ f
 }ß
 d
 vector-testsTEXPLAIN select cast([1, 4, 5] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100æ
-Ãä›ë9 º B(0åÌ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(64, 3)) AS _0)Ødigraph G {
+Œ∫ﬂ‘; “˝j(0€±8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(64, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -109,7 +109,7 @@ d
 }™
 g
 vector-testsWEXPLAIN select cast([1L, 4L, 5L] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100æ
-Ãƒéà9 „∂;(0øâ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(64, 3)) AS _0)Ødigraph G {
+Œ›¯∫; ∞\(0Úπ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(64, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -121,7 +121,7 @@ g
 }ı
 e
 vector-testsUEXPLAIN select cast([1, 2.5, 3L] as VECTOR(3, HALF)) from tDoubleVector where a = 100ã
-ÃêØà9 Õ≈=(0≥å8@ñSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4 AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(16, 3)) AS _0)’digraph G {
+ŒÖƒΩ; Œ„](0Ú«8@ñSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4 AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(16, 3)) AS _0)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -130,10 +130,10 @@ e
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(64, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ı
+}ˆ
 f
-vector-testsVEXPLAIN select cast([1, 2.5, 3L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100ä
-Ãˆ˝z9 Êí4(0≈œ8@ñSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4 AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(32, 3)) AS _0)’digraph G {
+vector-testsVEXPLAIN select cast([1, 2.5, 3L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100ã
+ŒÂé ; ÚÜe(0¬ÿ8@ñSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(promote(@c4 AS DOUBLE), @c6, promote(@c8 AS DOUBLE)) AS VECTOR(32, 3)) AS _0)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -145,7 +145,7 @@ f
 }±
 n
 vector-tests^EXPLAIN select cast([1000L, 2000L, 3000L] as VECTOR(3, HALF)) from tDoubleVector where a = 100æ
-Ã¿ÁÅ9 ÿø5(0ﬂ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
+ŒÚ—”; ˚íi(0ØÕ8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(16, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -154,10 +154,10 @@ n
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(64, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∫
+}ª
 x
-vector-testshEXPLAIN select cast([1000000L, 2000000L, 3000000L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100Ω
-Ã’•z9 Ã©4(0©Ù8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
+vector-testshEXPLAIN select cast([1000000L, 2000000L, 3000000L] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100æ
+ŒﬁÌ«; √æf(0©›8@pSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c23 AS LONG)]) | MAP (CAST(array(@c4, @c6, @c8) AS VECTOR(32, 3)) AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -169,7 +169,7 @@ x
 }∞
 k
 vector-tests[EXPLAIN select cast([-1.5, -2.5, -3.5] as VECTOR(3, HALF)) from tDoubleVector where a = 100¿
-Ã•∏Ü9 àØ:(0∞õ8@qSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4, @c7, @c10) AS VECTOR(16, 3)) AS _0)∞digraph G {
+Œ◊Í…; Ì°f(0‰ˆ8@qSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4, @c7, @c10) AS VECTOR(16, 3)) AS _0)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -178,10 +178,10 @@ k
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(64, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≥
+}¥
 o
-vector-tests_EXPLAIN select cast([-1.5f, -2.5f, -3.5f] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100ø
-Ã≠Ÿ~9 ò√6(0Í≤8@qSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4, @c7, @c10) AS VECTOR(32, 3)) AS _0)∞digraph G {
+vector-tests_EXPLAIN select cast([-1.5f, -2.5f, -3.5f] as VECTOR(3, FLOAT)) from tDoubleVector where a = 100¿
+Œºµ‘; ∂◊m(0›¢8@qSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4, @c7, @c10) AS VECTOR(32, 3)) AS _0)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -190,10 +190,10 @@ o
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(64, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}±
+}≤
 m
-vector-tests]EXPLAIN select cast([-100, -200, -300] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100ø
-Ãî˘|9 Ù›5(0˘ü8@qSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4, @c7, @c10) AS VECTOR(64, 3)) AS _0)∞digraph G {
+vector-tests]EXPLAIN select cast([-100, -200, -300] as VECTOR(3, DOUBLE)) from tDoubleVector where a = 100¿
+Œ¢Ö¥; ÖûW(0Ω¢8@qSCAN([IS TDOUBLEVECTOR, EQUALS promote(@c26 AS LONG)]) | MAP (CAST(array(@c4, @c7, @c10) AS VECTOR(64, 3)) AS _0)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -205,7 +205,7 @@ m
 }∆
 F
 vector-tests6EXPLAIN select b = null from tHalfVector where a = 100˚
-Ã‹íé9 Ãﬁ:(0Íì8@QSCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (_.B equals NULL AS _0)ãdigraph G {
+ŒÓòÕ; Äë\(0öµ8@QSCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (_.B equals NULL AS _0)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -214,10 +214,10 @@ F
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TWITHSTRUCT, TFLOATVECTOR, TDOUBLEVECTOR, TWITHGROUPEDSTRUCT, THALFVECTOR]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, VECTOR(16, 3) AS B)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≈
+}∆
 F
-vector-tests6EXPLAIN select null = b from tHalfVector where a = 100˙
-Ã«~9 îã1(0ª¥8@QSCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (NULL equals _.B AS _0)ãdigraph G {
+vector-tests6EXPLAIN select null = b from tHalfVector where a = 100˚
+Œæ®≈; ê∏V(0∞€8@QSCAN([IS THALFVECTOR, EQUALS promote(@c9 AS LONG)]) | MAP (NULL equals _.B AS _0)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -229,7 +229,7 @@ F
 }œ
 G
 vector-tests7EXPLAIN select b != null from tHalfVector where a = 100É
-Ã‰˘ò9 öã?(0π≤8@USCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (_.B notEquals NULL AS _0)èdigraph G {
+ŒøÄ—; Ùπ](0åŸ8@USCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (_.B notEquals NULL AS _0)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -241,7 +241,7 @@ G
 }œ
 G
 vector-tests7EXPLAIN select null != b from tHalfVector where a = 100É
-Ãà£ê9 ©„;(0ÌÖ8@USCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (NULL notEquals _.B AS _0)èdigraph G {
+ŒÎÅ£; ôØF(0˙ç8@USCAN([IS THALFVECTOR, EQUALS promote(@c10 AS LONG)]) | MAP (NULL notEquals _.B AS _0)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -253,7 +253,7 @@ G
 }œ
 @
 vector-tests0EXPLAIN select a from tHalfVector where b = nullä
-⁄¸ñâ@ Ê·5(0Çæ8@5SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)∂digraph G {
+ﬁÿ˜ªD ü»N(0µ˙	8@5SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)∂digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -267,7 +267,7 @@ G
 }Ú
 B
 vector-tests2EXPLAIN select a from tFloatVector where b != null´
-⁄ƒËÅ@ ‚≈6(0Û¸8@ESCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)«digraph G {
+ﬁ¯∞ D ﬁì_(0é◊8@ESCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -281,7 +281,7 @@ B
 }œ
 @
 vector-tests0EXPLAIN select a from tHalfVector where null = bä
-⁄‘ÑÄ@ åë1(0˘ñ8@5SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)∂digraph G {
+ﬁ†÷ùD üÂA(0À∞8@5SCAN([IS THALFVECTOR]) | FILTER null | MAP (_.A AS A)∂digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -295,7 +295,7 @@ B
 }Ú
 B
 vector-tests2EXPLAIN select a from tFloatVector where null != b´
-⁄≤ﬁÜ@ Ï±7(0ñä8@ESCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)«digraph G {
+ﬁÏÓ†D ÅÿC(0©Á8@ESCAN([IS TFLOATVECTOR]) | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -309,7 +309,7 @@ B
 }è
 Q
 vector-testsAEXPLAIN select a from tDoubleVector where b is distinct from nullπ
-ÃÁ∂é; ∂´D(0¶ø8@LSCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)Œdigraph G {
+ŒÍ√•= ΩπL(0õÍ8@LSCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -323,7 +323,7 @@ Q
 }ï
 U
 vector-testsEEXPLAIN select a from tDoubleVector where b is not distinct from nullª
-Ã”ôê; æ§A(0Øº8@MSCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)œdigraph G {
+ŒÄúò= ≠¸E(0Õ¡8@MSCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -337,7 +337,7 @@ U
 }è
 Q
 vector-testsAEXPLAIN select a from tDoubleVector where null is distinct from bπ
-Ãü˜›; ˘{(0ÏÅ8@LSCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)Œdigraph G {
+Œˆ©ñ= Ó∏F(0Ò—8@LSCAN([IS TDOUBLEVECTOR]) | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -351,8 +351,7 @@ Q
 }ï
 U
 vector-testsEEXPLAIN select a from tDoubleVector where null is not distinct from bª
-ÃòË«; ≤Äe(0ΩŸ
-8@MSCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)œdigraph G {
+Œà∆ù= °ÔG(0Êã8@MSCAN([IS TDOUBLEVECTOR]) | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

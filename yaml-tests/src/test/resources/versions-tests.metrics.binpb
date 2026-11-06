@@ -1,22 +1,22 @@
 ÿ&
 X
 versions-dmlHEXPLAIN UPDATE t3 SET col2 = col2 + 1 WHERE col1 = 'a' RETURNING "new".*˚%
-•è‹≤à Ï”•(%0œ€8=@êCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c11 AS STRING) | FETCH | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | DISTINCT BY PK | UPDATE T3 | MAP ((_.new).ID AS ID, (_.new).COL1 AS COL1, (_.new).COL2 AS COL2)…#digraph G {
+´ë‡Ûé …Î©(%0≤ô 8=@êCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c11 AS STRING) | FETCH | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | DISTINCT BY PK | UPDATE T3 | MAP ((_.new).ID AS ID, (_.new).COL1 AS COL1, (_.new).COL2 AS COL2)…#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((q6.new).ID AS ID, (q6.new).COL1 AS COL1, (q6.new).COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">UPDATE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2 AS old, LONG AS ID, STRING AS COL1, LONG AS COL2 AS new)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">T3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2 AS old, LONG AS ID, STRING AS COL1, LONG AS COL2 AS new)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">T3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2 AS old, LONG AS ID, STRING AS COL1, LONG AS COL2 AS new)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q46.ID AS ID, q46.COL1 AS COL1, q46.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, VERSION AS __ROW_VERSION)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q48.COL1 EQUALS promote(@c11 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, VERSION AS __ROW_VERSION)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, VERSION AS __ROW_VERSION)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_VERSION_WITH_COL1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, VERSION AS __ROW_VERSION)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q75> label="q75" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q75> label="q75" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ label=<&nbsp;q50> label="q50" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -25,12 +25,12 @@ X
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }
 _
 versions-queriesKEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;å
-πâ≠Ö≥ Çéß(:0≈ÄU8L@[ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)êdigraph G {
+ªà≤≥µ íÛù(:0ÜI8L@[ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -42,7 +42,7 @@ _
 }Œ
 
 versions-querieskEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is not null; 
-˜Òÿ˘π Õ•˘(=0ﬁ´d8S@zISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), [NOT_NULL]]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)Ødigraph G {
+˘¸ƒŒª ÄÜ‚(=0ÑûN8S@zISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), [NOT_NULL]]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -54,7 +54,7 @@ _
 }ƒ
 {
 versions-queriesgEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is null;ƒ
-⁄ÜÕ≤≠ ﬂæª(90Ï±`8Q@wISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), IS_NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)¨digraph G {
+‹·êÀØ ’Óõ(90õ≈P8Q@wISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), IS_NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -66,7 +66,7 @@ _
 }Ê
 â
 versions-queriesuEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is distinct from null;◊
-˜ÍªÉª ‘¬Ú(<0ıár8T@äISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | FILTER _.__ROW_VERSION IS_DISTINCT_FROM NULL | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)´digraph G {
+˘˝ÕóΩ ¿îË(<0ÚƒL8T@äISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | FILTER _.__ROW_VERSION IS_DISTINCT_FROM NULL | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -80,7 +80,7 @@ _
 }ˆ
 ç
 versions-queriesyEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is not distinct from null;„
-⁄™ËÂ≠ ΩÙà(90˚õ88Q@ÜISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), NOT_DISTINCT_FROM NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)ªdigraph G {
+‹’∂˚Ø ≈ë°(90åûM8Q@ÜISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), NOT_DISTINCT_FROM NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -92,7 +92,7 @@ _
 }÷
 @
 versions-queries,EXPLAIN select t1.* from t1 where col1 = 10;ë
-πã⁄…≥ ÕË‹(:0¨∏S8L@ZISCAN(I1 [EQUALS promote(@c9 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ñdigraph G {
+ªÍπúµ Á≥®(:0˙¸F8L@ZISCAN(I1 [EQUALS promote(@c9 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -104,7 +104,7 @@ _
 }”
 =
 versions-queries)EXPLAIN select * from t1 where col1 = 10;ë
-π“–‰≥ Î„‰(:0üøi8L@ZISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ñdigraph G {
+ª≈≤¡µ ÷Ó (:0øÄL8L@ZISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -116,7 +116,7 @@ _
 }
 B
 versions-queries.EXPLAIN select (t1.*) from t1 where col1 = 10;©
-πÁá∆≥ ª“î(:0êñf8L@cISCAN(I1 [EQUALS promote(@c11 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)•digraph G {
+ª˚¶≤µ ¯â¬(:0å‹T8L@cISCAN(I1 [EQUALS promote(@c11 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -128,7 +128,7 @@ B
 }ﬁ
 F
 versions-queries2EXPLAIN select a.* from t1 as a where a.col1 = 10;ì
-πø¸Ø≥  Û⁄(:0ŸS8L@[ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ódigraph G {
+ª¥¡éµ òõê(:0öâ@8L@[ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -140,7 +140,7 @@ F
 }Û
 H
 versions-queries4EXPLAIN select (a.*) from t1 as a where a.col1 = 10;¶
-πÄçÕ≥ ú≤˘(:0˛∞d8L@bISCAN(I1 [EQUALS promote(@c15 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS A)£digraph G {
+ª¶åÀµ È·£(:0®ÃV8L@bISCAN(I1 [EQUALS promote(@c15 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS A)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -152,8 +152,7 @@ H
 }Î
 ?
 versions-queries+EXPLAIN select (*) from t1 where col1 = 10;ß
-πæÑâ!≥ Ò∏§
-(:0∫Óm8L@bISCAN(I1 [EQUALS promote(@c9 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)§digraph G {
+ª÷Ç∑µ Ñæè(:0éﬂJ8L@bISCAN(I1 [EQUALS promote(@c9 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -162,10 +161,10 @@ H
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¥
+}≥
 8
-versions-queries$EXPLAIN select t1_v.* from t1_v(10);˜
-ø™›–+— Ñ◊É(G0Û¬ƒ8i@|ISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ÿdigraph G {
+versions-queries$EXPLAIN select t1_v.* from t1_v(10);ˆ
+—‡∂è„ Ù¨Ì(G0¥êh8i@|ISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -177,7 +176,7 @@ H
 }û
 å
 versions-queriesxEXPLAIN select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;å
-–ﬁüõ∏ –üö(<0™Ça8P@[ISCAN(I1 [EQUALS promote(@c25 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)êdigraph G {
+’âÄ°Ω á•Ç(<0„˙N8P@[ISCAN(I1 [EQUALS promote(@c25 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -189,7 +188,7 @@ H
 }•
 Å
 versions-queriesmEXPLAIN select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;û
-–≈˚£∏ ‚Ä˛(<0ö˙[8P@aISCAN(I1 [EQUALS promote(@c21 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)údigraph G {
+’È©õΩ ÅÃî(<0¢¿M8P@aISCAN(I1 [EQUALS promote(@c21 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -201,7 +200,7 @@ H
 }ö
 Ñ
 versions-queriespEXPLAIN select s.version, s.col2 from (select "__ROW_VERSION" as version, t1_v.col2 as col2 from t1_v(10)) AS s;ê
-÷‹ˇ¡÷ ﬂ∑≥	(I0æ˜x8m@[ISCAN(I1 [EQUALS promote(@c23 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)îdigraph G {
+Î¢ü”Î óåµ(I0∑¶n8m@[ISCAN(I1 [EQUALS promote(@c23 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -213,7 +212,7 @@ H
 }¡
 \
 versions-queriesHEXPLAIN select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;‡
-πÕÌ‡≥ Ò∆◊(:0¬òd8L@wISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)»digraph G {
+ª€¸Êµ £˜ﬁ(:0ŒÁD8L@wISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -225,7 +224,7 @@ H
 }Ÿ
 ^
 versions-queriesJEXPLAIN select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;ˆ
-π˚íê≥ ∆Œó	(:0¡Øa8L@ISCAN(I1 [EQUALS promote(@c15 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)÷digraph G {
+ªƒ˘µ Ç„‚(:0⁄ëV8L@ISCAN(I1 [EQUALS promote(@c15 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)÷digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -237,7 +236,7 @@ H
 }»
 Q
 versions-queries=EXPLAIN select "__ROW_VERSION", t1.* from t1 where col1 = 20;Ú
-π∆ﬂÃ≥ ÑëŸ(:0¿∑_8L@}ISCAN(I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)‘digraph G {
+ªòﬂﬂµ ¿¡Õ(:0¢ùO8L@}ISCAN(I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -249,7 +248,7 @@ Q
 }·
 S
 versions-queries?EXPLAIN select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;â
-πﬂª÷≥ Î ä(:0ï«g8L@ÖISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)‚digraph G {
+ªæÁÍµ ·¢ô(:0Œ‹Q8L@ÖISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1)‚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -261,7 +260,7 @@ S
 }¨
 B
 versions-queries.EXPLAIN select col1, id from t1 order by col1;Â
-ªÂ êL ÷èÃ((0∆‘&8!@SCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | MAP (_.COL1 AS COL1, _.ID AS ID)Ú
+ΩÊƒ∞N Äâ‰((0ÁÛ!8!@SCOVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | MAP (_.COL1 AS COL1, _.ID AS ID)Ú
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -274,7 +273,8 @@ digraph G {
 }Ï
 S
 versions-queries?EXPLAIN select col1, id, "__ROW_VERSION" from t1 order by col1;î
-É√ÿÑD íÂÚ($0ù≥8@RISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)¢digraph G {
+Öﬁçò
+F ñ¿Ü($0®ê 8@RISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)¢digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -286,7 +286,7 @@ S
 }√
 g
 versions-queriesSEXPLAIN select t1.id, t1.col1, t1.col2, t1."__ROW_VERSION" from t1 where col1 = 20;◊
-Ô≈ƒ˙ç Ù‘¡(<0§¨O8D@(ISCAN(I1 [EQUALS promote(@c21 AS LONG)])édigraph G {
+Ò¡◊àè ≠©ã(<0¡ƒ:8D@(ISCAN(I1 [EQUALS promote(@c21 AS LONG)])édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -296,7 +296,7 @@ g
 }Â
 _
 versions-queriesKEXPLAIN select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;Å
-ÃÈº9 Àæ‰( 0–Á8@PISCAN(T1_VERSION_INDEX <,>) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)ëdigraph G {
+ŒÇ»°; ß€ı( 0˜«8@PISCAN(T1_VERSION_INDEX <,>) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -308,7 +308,7 @@ _
 }£
 c
 versions-queriesOEXPLAIN select t1."__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" DESC;ª
-Ã∂¶Ñ	9 ùÍê( 0∂8@XISCAN(T1_VERSION_INDEX <,> REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)√digraph G {
+ŒüÂÒ; ≥ÜØ( 0—≠8@XISCAN(T1_VERSION_INDEX <,> REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -320,7 +320,7 @@ c
 }∞
 r
 versions-queries^EXPLAIN select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" ASC;π
-›î»›e ﬂµñ('0ˇ√!8!@pISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)©digraph G {
+ﬂë™Àg ôâı('0âÒ8!@pISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)©digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -332,7 +332,7 @@ r
 }Ø
 l
 versions-queriesXEXPLAIN select t1_v."__ROW_VERSION", t1_v.id from t1_v(20) order by "__ROW_VERSION" ASC;æ
-„Ìë™É ÄÚú(40π€88>@pISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)≠digraph G {
+ıÑ∏≠ï µ„ª(40∑∆68>@pISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -344,7 +344,7 @@ l
 }Ë
 p
 versions-queries\EXPLAIN select "__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" DESC;Û
-›‰ı˙e ∆ø¸('0«˘8!@xISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)€digraph G {
+ﬂ–Ô˝	g ÿ¸ÿ('0°’8!@xISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -356,7 +356,7 @@ p
 }–
 [
 versions-queriesGEXPLAIN select * from t1 where col1 = 10 order by "__ROW_VERSION" desc;
-é¶ﬂ”e ˙©£(+0É‹8%@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)€digraph G {
+í˜Ïßi à ±(+0¢Ú8%@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -368,7 +368,8 @@ p
 }•	
 l
 versions-queriesXEXPLAIN select *, "__ROW_VERSION" from t1 where col1 = 10 order by "__ROW_VERSION" desc;¥
-∏ßÏ›R ÷£⁄((0˝Î8@BISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE)“digraph G {
+∫Ô≥ù
+T Î Ÿ((0πÈ8@BISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE)“digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -378,7 +379,7 @@ l
 }¡
 l
 versions-queriesXEXPLAIN select "__ROW_VERSION", * from t1 where col1 = 10 order by "__ROW_VERSION" desc;–
-›π≈≤e „Æ›('0„ã$8!@óISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)òdigraph G {
+ﬂ∑˙¿g À¬ú('0…≈8!@óISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -390,7 +391,8 @@ l
 }˘
 v
 versions-queriesbEXPLAIN select (t1."__ROW_VERSION", (t1.*)) from t1 where col1 = 10 order by "__ROW_VERSION" desc;˛
-›òõöe ö∂Â('0±Ì%8!@®ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c17 AS LONG)] REVERSE) | MAP ((_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1) AS _0)µdigraph G {
+ﬂ◊¿”
+g ´˚å('0§«8!@®ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c17 AS LONG)] REVERSE) | MAP ((_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS T1) AS _0)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -402,7 +404,7 @@ v
 }’
 `
 versions-queriesLEXPLAIN select * from t1 as b where col1 = 10 order by "__ROW_VERSION" desc;
-é˚⁄ÿe âßá(+0ﬁù8%@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)€digraph G {
+íä–∏i ﬁ–µ(+0úß8%@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -414,7 +416,7 @@ v
 }ù
 ä
 versions-queriesvEXPLAIN select (b."__ROW_VERSION", (b.*) as "t2_data") from t1 as b where b.col1 = 10 order by b."__ROW_VERSION" desc;ç
-›ûÕ≤e †Õù('0€¸%8!@≠ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c23 AS LONG)] REVERSE) | MAP ((_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS t2_data) AS _0)ødigraph G {
+ﬂˇé’g ˝Ùæ('0¥™8!@≠ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c23 AS LONG)] REVERSE) | MAP ((_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS t2_data) AS _0)ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -426,7 +428,8 @@ v
 }˝
 
 versions-querieskEXPLAIN select "__ROW_VERSION", col1, t1.id from t1 where col1 > 10 order by col1 asc, "__ROW_VERSION" asc;˘
-∑Èö»U Ù˙(%0Ë∏8@àISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c13 AS LONG)]]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)–digraph G {
+πÀ∂ŒW Â€ç(%0—∂
+8@àISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c13 AS LONG)]]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -438,7 +441,7 @@ v
 }¶
 x
 versions-queriesdEXPLAIN select "__ROW_VERSION", id, col1 from t4 where exists (select 1 from t4.col4 where col4 = 3)©
-¥∑¯Ù"ÿ ˘˜æ(@0∞Â?8P@zISCAN(T4_COL4_VERSION [EQUALS promote(@c20 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)édigraph G {
+∏˝∞Á‹ ⁄ÀÜ	(@0À¶,8P@zISCAN(T4_COL4_VERSION [EQUALS promote(@c20 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -450,7 +453,7 @@ x
 }ñ
 W
 versions-queriesCEXPLAIN select "__ROW_VERSION", id, col1 from t4 where 3 in t4.col4∫
-Üß–Ò¿ •ÍÀ(40˚ÖR8M@ªISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }›digraph G {
+àº∫â¬ æñ•	(40ÙÙI8M@ªISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -477,7 +480,7 @@ W
 }Å
 ó
 versions-queriesÇEXPLAIN select "__ROW_VERSION", id, col1 from t4 where exists (select 1 from t4.col4 where col4 = 3) order by "__ROW_VERSION" desc‰
-ãŒ…¸Ö øŸ∏(.0˚Ω8@ ÇISCAN(T4_COL4_VERSION [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)¿digraph G {
+èéÃ∞	â °Ãé(.0äÔ8@ ÇISCAN(T4_COL4_VERSION [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -489,7 +492,7 @@ W
 }√
 J
 versions-queries6EXPLAIN select * from unindexed_t where col2 = 'even';Ù
-⁄üï∆@ Ω˘Î(0é‘8@wSCAN([IS UNINDEXED_T]) | FILTER _.COL2 EQUALS promote(@c7 AS STRING) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)›digraph G {
+ﬁÚÓ°D öä•(0ô 8@wSCAN([IS UNINDEXED_T]) | FILTER _.COL2 EQUALS promote(@c7 AS STRING) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -503,7 +506,7 @@ J
 }å
 b
 versions-queriesNEXPLAIN select "__ROW_VERSION", id, col1 from unindexed_t where col2 = 'even';•
-⁄∏Ú»@ ’ÈÂ(0´õ8@äSCAN([IS UNINDEXED_T]) | FILTER _.COL2 EQUALS promote(@c11 AS STRING) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)˙digraph G {
+ﬁ’ËÚD ˆè–(0ÖÇ8@äSCAN([IS UNINDEXED_T]) | FILTER _.COL2 EQUALS promote(@c11 AS STRING) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)˙digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -517,7 +520,7 @@ b
 }Á
 `
 versions-queriesLEXPLAIN select * from unindexed_t_v(30) where col2 = 'odd' or col2 = 'even';Ç
-ËË‡∫a ÏûÆ(0˝∑A88@ÏSCAN([IS UNINDEXED_T]) | FILTER (_.COL2 EQUALS promote(@c10 AS STRING) OR _.COL2 EQUALS promote(@c14 AS STRING)) AND _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ıdigraph G {
+˝Ûµ’	v Â›é(0Â´'88@ÏSCAN([IS UNINDEXED_T]) | FILTER (_.COL2 EQUALS promote(@c10 AS STRING) OR _.COL2 EQUALS promote(@c14 AS STRING)) AND _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -528,10 +531,10 @@ b
   3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q50> label="q50" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+}Û
 y
-versions-querieseEXPLAIN select "__ROW_VERSION", (a.*), (b.*) from t1 as a, (select * from t2) b where a.col2 = b.col1ˆ
-‡ÙØØU˘ ⁄Ú™&(X0∏ÇÙ8Ñ@ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 <,>) | FILTER q0.COL2 EQUALS _.COL1 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS A, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS B) }‚digraph G {
+versions-querieseEXPLAIN select "__ROW_VERSION", (a.*), (b.*) from t1 as a, (select * from t2) b where a.col2 = b.col1ı
+Ââ·Ø:˛ ˛ƒΩ(X0ùû]8Ñ@ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 <,>) | FILTER q0.COL2 EQUALS _.COL1 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS A, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS B) }‚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -557,8 +560,8 @@ y
 }≠(
 ÿ
 versions-queries√EXPLAIN select t3."__ROW_VERSION" AS version3, t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' AND t4.col1 = 'b' AND t4.col2 = t3.col2œ&
-∞
-ÿ™V‚ ±©°#(r0Áæ’8∫@ÊCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }≈#digraph G {
+¥
+∏äµCÊ æÿ˙(r0éû©8∫@ÊCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }≈#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -588,10 +591,10 @@ y
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-}¶)
+}•)
 â
-versions-queriesÙEXPLAIN select t3."__ROW_VERSION" AS version3, t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)ó'
-—‰ΩË´¡ “’¯A(æ0©ÿÿ8Î@"âCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c69 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }Ë#digraph G {
+versions-queriesÙEXPLAIN select t3."__ROW_VERSION" AS version3, t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)ñ'
+◊ÖöÁz« ˙òÙ2(æ0∏€«8Î@"âCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c69 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c41 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }Ë#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -624,7 +627,7 @@ y
 }µ(
 È
 versions-queries‘EXPLAIN select t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)∆&
-—∏í°ß¿ ÏΩœ=(æ0´ û8Î@"ÎCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c35 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c63 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c35 AS STRING) AS q1 RETURN (q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }µ#digraph G {
+◊Ω¡√Ö∆ °¢à3(æ0–—Ê8Î@"ÎCOVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c35 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c63 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c35 AS STRING) AS q1 RETURN (q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }µ#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -657,7 +660,7 @@ y
 }ª(
 ÿ
 versions-queries√EXPLAIN select a.version AS version3, a.r.id AS id3, b.version AS version4, b.r.id AS id4, a.r.col2, b.r.col4 from t3_by_col1('b') a, t4_by_col1('b') b where 2 in b.r.col4 and b.r.col2 = a.r.col2›&
-ëÏÜ±˘ñ ÷éÌY(‚0€∑¯8˙@*‰COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS @c43 | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS @c43 AND promote(@c53 AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }”#digraph G {
+≤ÇΩ∫«∑ ﬂìäN(‚0Ë˛ﬁ8˙@*‰COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS @c43 | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS @c43 AND promote(@c53 AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }”#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -690,8 +693,8 @@ y
 }¢
 b
 versions-queriesNEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5)ª
-˚
-‚∞ÜHä Õ·á(h0ïÖ†8ª@ EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }Õdigraph G {
+˝
+≥óØ>å äÔö(h0Òß±8ª@ EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -713,7 +716,7 @@ b
 }å
 p
 versions-queries\EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3ó
-≠¬¯Ç8Å ’ﬂ∫(F0˙Æe8U@¬[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }≥digraph G {
+Øò√ñ#É ƒÆù(F0ÅÑ;8U@¬[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }≥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -734,7 +737,7 @@ p
 }·
 ä
 versions-queriesvEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3 asc, "__ROW_VERSION" desc—
-ﬂèÍ≈$ª ¢é˚(50 Ø.8"@  [IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }Âdigraph G {
+·∂˝ãΩ ﬂ›ó(50ﬂ∑8"@  [IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -755,7 +758,7 @@ p
 }ñ 
 c
 versions-queriesOEXPLAIN select (t2.*), (t3.*) from t2, t3 where t2.col2 = 'b' and t3.col1 = 'b'Æ
-∏öÈÊ7Œ …ôà(D0·ìz8s@
+º•ˇê*“ ¬ƒÑ(D0¡ªb8s@
 ªISCAN(T2_COL2 [EQUALS promote(@c21 AS STRING)]) | FLATMAP q0 -> { COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c21 AS STRING) | FETCH AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS T2, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS T3) }—digraph G {
   fontname=courier;
   rankdir=BT;
@@ -781,7 +784,7 @@ c
 }í
 è
 versions-queries{EXPLAIN select (t2.*), (t3.*) from t2, t3 where t2.col2 = 'b' and t3.col1 = 'b' and t2."__ROW_VERSION" > t3."__ROW_VERSION"˝
-®	ˆ…ËF∂ ôˇ‚([0∂ëª8°@¿ISCAN(T2_COL2 [EQUALS promote(@c21 AS STRING)]) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL1 EQUALS promote(@c21 AS STRING) AND q0.__ROW_VERSION GREATER_THAN _.__ROW_VERSION AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS T2, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS T3) }ôdigraph G {
+¨	ÃêÄ9∫ öﬂ’([0ëëñ8°@¿ISCAN(T2_COL2 [EQUALS promote(@c21 AS STRING)]) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL1 EQUALS promote(@c21 AS STRING) AND q0.__ROW_VERSION GREATER_THAN _.__ROW_VERSION AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS T2, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS T3) }ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -807,8 +810,8 @@ c
 }Ÿ$
 e
 versions-queriesQEXPLAIN select (A.*), (B.*) from t2_v(2) as A, t3_v(2) as B where A.col2 = B.col1Ô#
-û
-Õ’ O‡ “°Î (n0√°Ã8ƒ@	ÌISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c15 AS LONG) | FLATMAP q0 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c15 AS LONG) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B) }ﬁ digraph G {
+ø
+Ëøê9Å Ç≈Ì(n0à˛ì8ƒ@	ÌISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c15 AS LONG) | FLATMAP q0 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c15 AS LONG) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B) }ﬁ digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -826,13 +829,13 @@ e
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    2 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    2 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
@@ -842,8 +845,8 @@ e
 }≠<
 û
 versions-queriesâEXPLAIN select (A.*) as A, (B.*) as B, (C.*) as C from t2_v(2) as A, t3_v(2) as B, t4_v(2) as C where A.col2 = B.col1 AND B.col1 = C.col1â;
-◊©™—Èæ
- Ä˚ùi(Ç0â·ˆ8Ú@A˚ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) AND q0.COL1 EQUALS _.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c27 AS LONG) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS C) }Ë5digraph G {
+á õÿ∑ﬁÓ
+ ÀÔﬂ_(Ç0≈Å©8Ú@A˚ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) AND q0.COL1 EQUALS _.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c27 AS LONG) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS C) }Ë5digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -869,17 +872,6 @@ e
   11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q154> label="q154" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    7 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 7 [ color="red" style="invis" ];
-  }
-  {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -892,5 +884,16 @@ e
     rank=same;
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
+  }
+  {
+    6 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    7 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 7 [ color="red" style="invis" ];
   }
 }

@@ -1,0 +1,82 @@
+#
+# value-index-primary-key.yamsql
+#
+# Debugging aid: how are the primary key components processed when a VALUE index match candidate is
+# generated? The schema is chosen so the primary key PARTIALLY overlaps the index key, which is the only
+# case where the interesting code runs.
+#
+#   table t1   primary key (a, c)
+#   index i1   key (c, b)
+#
+# So in ValueIndexExpansionVisitor:
+#
+#   trimmedPrimaryKeys = index.trimPrimaryKey([a, c])  ->  [a]
+#       c is dropped: it is already index-key column 0, and is therefore sargable in its own right
+#       a survives: it is appended after the index key
+#
+#   each surviving part is expanded at ordinal keySize + i  ->  a sits at ordinal 2
+#   each surviving part's expansion is .removeAllResultColumns()
+#       so an appended primary key component contributes a PLACEHOLDER but NO result column
+#
+# Entry layout therefore: (c, b, a).  Index.getPrimaryKeyComponentPositions() should read [-1, 0] --
+# a was appended, c is at index-key position 0.
+#
+# The probes below are ordered so that each one isolates one consequence. P2 and P4 are the pair worth
+# watching: both select a column the entry physically carries, but only one of them is a result column.
+---
+schema_template:
+    create table t1(a bigint, b bigint, c bigint, d bigint, primary key(a, c))
+    create index i1 as select c, b from t1 order by c, b
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 20, 10, 100),
+               (2, 21, 10, 101),
+               (3, 22, 11, 102)
+---
+test_block:
+  name: value-index-primary-key
+  tests:
+    -
+      # P1 -- index key columns only, prefix bound. Should be covering: both columns are result columns
+      # of the key expansion.
+      - query: select c, b from t1 where c = 10
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [A: KEY:[3], B: KEY:[1], C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)"
+      - result: [{C: 10, B: 20}, {C: 10, B: 21}]
+    -
+      # P2 -- selects the APPENDED primary key component. The entry carries "a" at ordinal 2, but the
+      # expansion removed its result column, so watch whether this still needs a fetch.
+      - query: select a, c from t1 where c = 10
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [A: KEY:[3], B: KEY:[1], C: KEY:[0]]) | MAP (_.A AS A, _.C AS C)"
+      - result: [{A: 1, C: 10}, {A: 2, C: 10}]
+    -
+      # P3 -- binds the whole entry key, appended primary key component included: (c, b, a). This is the
+      # one that shows whether the appended component is sargable at its ordinal.
+      - query: select c, b from t1 where c = 10 and b = 21 and a = 2
+      - explain: "SCAN([IS T1, EQUALS promote(@c17 AS LONG), EQUALS promote(@c9 AS LONG)]) | FILTER _.B EQUALS promote(@c13 AS LONG) | MAP (_.C AS C, _.B AS B)"
+      - result: [{C: 10, B: 21}]
+    -
+      # P4 -- selects a column in neither the index key nor the primary key. Must fetch; the contrast
+      # with P2 is the point.
+      - query: select d from t1 where c = 10
+      - explain: "ISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.D AS D)"
+      - result: [{D: 100}, {D: 101}]
+    # P5 -- PARKED. Ordering over the whole entry key, appended primary key component included, with
+    # nothing bound, does NOT plan:
+    #
+    #   UnableToPlanException: Cascades planner could not plan query
+    #
+    # Worth chasing: the appended component is advertised as a sargable placeholder (P3 shows it binds),
+    # so the question is whether it is also advertised as an ORDERING column. If it is not, the index can
+    # be searched on (c, b, a) but not read in that order.
+    #
+    #   - query: select a, b, c from t1 order by c, b, a
+    #     result: [{A: 1, B: 20, C: 10}, {A: 2, B: 21, C: 10}, {A: 3, B: 22, C: 11}]
+    -
+      # P6 -- the TRIMMED primary key component on its own. "c" is bound here as index-key column 0, not
+      # as a primary key component, because trimPrimaryKey dropped it.
+      - query: select c from t1 where c = 11
+      - explain: "COVERING(I1 [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[3], B: KEY:[1], C: KEY:[0]]) | MAP (_.C AS C)"
+      - result: [{C: 11}]
+...

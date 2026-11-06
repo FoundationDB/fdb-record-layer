@@ -1,0 +1,51 @@
+#
+# max-index.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The aggregate-index counterpart of rank-index.yamsql: same table, same rows, and a grouping column that is also the
+# column the predicate is on, so the two files differ only in whether mv1 aggregates or ranks. An aggregate index needs
+# no version gate, but this pins to the current version anyway to keep the two files running the same number of times.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table player(name string, team string, score bigint, primary key(name))
+    create index mv1 as select max(score) from player group by team
+---
+setup:
+  steps:
+    - query: INSERT INTO PLAYER
+        VALUES ('achilles', 'greeks', 100),
+               ('patroclus', 'greeks', 80),
+               ('odysseus', 'greeks', 60),
+               ('hector', 'trojans', 90),
+               ('paris', 'trojans', 70)
+---
+test_block:
+  name: max-index-tests
+  tests:
+    -
+      # No predicate, so nothing binds mv1's single placeholder: the scan covers every group, in grouping-key order
+      - query: select max(score) as max_score from player group by team
+      - result: [{MAX_SCORE: 100}, {MAX_SCORE: 90}]
+    -
+      # The predicate is on the grouping column, so it binds that placeholder to an equality and becomes the scan prefix
+      - query: select max(score) as max_score from player where team = 'greeks' group by team
+      - result: [{MAX_SCORE: 100}]
+...

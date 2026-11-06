@@ -110,6 +110,8 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
                 .setTableType(tableType)
                 .setUnique(options.unique())
                 .setIndexType(indexType);
+        // whatever the translated columns ask of the index beyond its type, such as how a window function's skip list counts
+        translation.indexOptions().forEach(indexBuilder::setOption);
         final var predicate = spec.predicate();
         if (predicate != null) {
             indexBuilder.setPredicate(IndexPredicate.fromQueryPredicate(
@@ -117,11 +119,13 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         }
 
         var keyExpression = translation.keyExpression();
-        if (spec.projection().aggregate() == null) {
-            keyExpression = splitKeyFromValue(spec, keyExpression, options.emptyKeyAllowed());
-        } else {
+        if (spec.projection().hasAggregate()) {
             addAggregatePermutationOptions(indexBuilder, spec, indexType);
+        } else if (spec.projection().windowValues().isEmpty()) {
+            // only a flat key is split; the key of a window index is a grouping the record layer stores as it is
+            keyExpression = splitKeyFromValue(spec, keyExpression, options.emptyKeyAllowed());
         }
+
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
         return new IndexGenerationResult(indexBuilder, spec.source().syntheticTableBuilder());
@@ -139,7 +143,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     @Nonnull
     private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull IndexSpec spec, boolean allowCollapsing) {
         final var projectionValue = RecordConstructorValue.ofUnnamed(spec.rootValues());
-        final var orderingFunctions = spec.projection().aggregate() != null ?
+        final var orderingFunctions = spec.projection().hasAggregate() ?
                                       Map.<Value, String>of() :
                                       spec.getOrderingFunctions();
         return ValueToKeyExpressionVisitor.translate(projectionValue, orderingFunctions,

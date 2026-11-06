@@ -1,0 +1,108 @@
+#
+# rank-planning.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Planning-side probes for SQL RANK() over a rank index. Where rank-index.yamsql checks one query's
+# results, this file puts RANK in as many syntactic positions as the parser accepts and pins the plan
+# each one produces, so that planner changes that silently stop using the BY_RANK scan get caught.
+#
+# Every expected rank here is ZERO-BASED, which is what the engine returns today: the ranked set
+# behind mv1 counts from 0, while SQL RANK() is one-based. That gap is #4694 and is deliberately out
+# of scope -- when it is fixed, every rank value in this file shifts up by one.
+#
+# supported_version is !current_version because a rank index is new: no released server can define one.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table player(name string, team string, score bigint, primary key(name))
+    create index mv1 as select rank() over (partition by team order by score) from player
+---
+setup:
+  steps:
+    - query: INSERT INTO PLAYER
+        VALUES ('achilles', 'greeks', 100),
+               ('patroclus', 'greeks', 80),
+               ('odysseus', 'greeks', 60),
+               ('hector', 'trojans', 90),
+               ('paris', 'trojans', 70)
+---
+test_block:
+  name: rank-planning-tests
+  tests:
+    -
+      # Baseline: the predicate binds mv1's grouping placeholder, so the partition becomes the scan
+      # prefix and the scan runs in rank order within it.
+      - query: select rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3 AS RNK)"
+      - result: [{RNK: 0}, {RNK: 1}, {RNK: 2}]
+    # No PARTITION BY. mv1 is partitioned by team, so there is no candidate whose grouping prefix is
+    # empty, and the planner gives up rather than ranking over the whole table some other way:
+    #   UnableToPlanException: Cascades planner could not plan query
+    # Ranking a whole table would need a second, unpartitioned rank index to match against.
+    # - query: select rank() over (order by score) as rnk from player
+    #   result: [{RNK: 0}, {RNK: 1}, {RNK: 2}, {RNK: 3}, {RNK: 4}]
+    -
+      # The primary key alongside the rank. TEAM and SCORE are entry key columns; NAME is not, so it comes
+      # from the record the entry points to, which is fetched alongside it.
+      - query: select name, team, score, rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+      - result: [{NAME: 'odysseus', TEAM: 'greeks', SCORE: 60, RNK: 0}, {NAME: 'patroclus', TEAM: 'greeks', SCORE: 80, RNK: 1}, {NAME: 'achilles', TEAM: 'greeks', SCORE: 100, RNK: 2}]
+    -
+      # RANK inside arithmetic: the window value should compose into an expression above the scan
+      # rather than blocking the match. Note this expression is exactly the #4694 fix, spelled by hand.
+      - query: select rank() over (partition by team order by score) + 1 as rnk from player where team = 'greeks'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_._3 + @c14 AS RNK)"
+      - result: [{RNK: 1}, {RNK: 2}, {RNK: 3}]
+    # RANK in ORDER BY. The BY_RANK scan is already in rank order, but the planner does not recognise
+    # that a window function in the sort key is satisfied by the scan it would already pick:
+    #   UnableToPlanException: Cascades planner could not plan query
+    # This is the clearest planning gap the file found -- the ordering is there for free and is not used.
+    # - query: select name from player where team = 'greeks' order by rank() over (partition by team order by score)
+    #   result: [{NAME: 'odysseus'}, {NAME: 'patroclus'}, {NAME: 'achilles'}]
+    -
+      # RANK filtered from an outer query. SQL forbids a window function in WHERE, hence the nesting.
+      # Answer to the question this probe exists to ask: rnk < 2 DOES push down. It becomes a second
+      # component of the BY_RANK scan range -- [EQUALS team, [LESS_THAN 2]] -- so the scan stops after
+      # two entries rather than reading the partition and filtering above it. There is no filter in
+      # the plan at all. That is the property most worth protecting from regression here: if this
+      # explain ever grows a filter operator, rank predicates have silently stopped pushing down.
+      # NAME is deliberately not selected here: it would come back NULL, per the parked probe above.
+      - query: select rnk from (select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks') as t where rnk < 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [LESS_THAN promote(@c33 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)"
+      - result: [{RNK: 0}, {RNK: 1}]
+    # Two RANKs in one select list, over different partitionings. Fails, and notably not the way the
+    # unpartitioned probe above does -- instead of declining to plan, it plans and then crashes:
+    #   RecordCoreException: compile-time value can not be evaluated at runtime
+    # Worth a closer look: a query that cannot be served should be refused at plan time, not at
+    # execution time.
+    # - query: select rank() over (partition by team order by score) as by_team, rank() over (order by score) as overall from player where team = 'greeks'
+    #   result: [{BY_TEAM: 0, OVERALL: 0}, {BY_TEAM: 1, OVERALL: 2}, {BY_TEAM: 2, OVERALL: 4}]
+    # Descending ORDER BY inside OVER. Rejected at parse time, as intended:
+    #   "provided sort specification not supported with window function"  (UNSUPPORTED_SORT)
+    # ExpressionVisitor.visitNonAggregateWindowedFunction:297-299 allows only ASCENDING/ANY, because a
+    # rank index materializes one direction only.
+    # - query: select rank() over (partition by team order by score desc) as rnk from player where team = 'greeks'
+    #   result: [{RNK: 0}, {RNK: 1}, {RNK: 2}]
+    # A named window reference. The WINDOW w AS (...) definition clause is commented out of the
+    # grammar (RelationalParser.g4:575), so only the OVER w reference form at :1162 parses at all --
+    # and that is rejected by ExpressionVisitor.visitOverClause:315:
+    #   "named window functions not supported"  (UNSUPPORTED_QUERY)
+    # - query: select rank() over w as rnk from player where team = 'greeks'
+    #   result: [{RNK: 0}, {RNK: 1}, {RNK: 2}]
+...

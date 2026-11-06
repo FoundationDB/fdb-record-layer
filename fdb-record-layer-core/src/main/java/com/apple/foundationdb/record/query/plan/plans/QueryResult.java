@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ProtoSerializable;
@@ -29,10 +30,14 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.IndexEntryToRecordValueHelper;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -259,22 +264,50 @@ public class QueryResult implements ProtoSerializable {
      */
     @Nonnull
     public static QueryResult fromQueriedRecord(@Nonnull Type resultType, @Nonnull EvaluationContext evaluationContext, @Nullable final FDBQueriedRecord<?> queriedRecord) {
+        return fromQueriedRecord(resultType, evaluationContext, queriedRecord, null, null);
+    }
+
+    /**
+     * Create a new queriedRecord as {@link #fromQueriedRecord(Type, EvaluationContext, FDBQueriedRecord)} does, merging
+     * in the columns the index entry the record was reached through carries beyond the record itself.
+     *
+     * @param resultType type of final value to construct
+     * @param evaluationContext context to use (mainly for the type repository)
+     * @param queriedRecord the given queriedRecord
+     * @param store the store the query runs against, for evaluating {@code indexEntryToRecordValue}
+     * @param indexEntryToRecordValue a value reading those columns off the index entry, or {@code null} when the record
+     *        is the whole answer, which makes this behave exactly as the three-argument overload
+     * @param <M> Protobuf class for the record message type
+     * @return the newly created query queriedRecord
+     */
+    @Nonnull
+    public static <M extends Message> QueryResult fromQueriedRecord(@Nonnull Type resultType,
+                                                                    @Nonnull EvaluationContext evaluationContext,
+                                                                    @Nullable final FDBQueriedRecord<?> queriedRecord,
+                                                                    @Nullable final FDBRecordStoreBase<M> store,
+                                                                    @Nullable final Value indexEntryToRecordValue) {
         if (queriedRecord == null) {
             return new QueryResult(null, null, null);
         }
 
         final TypeRepository typeRepository = evaluationContext.getTypeRepository();
         final Message datum;
-        if (!typeRepository.containsType(resultType) || !(resultType instanceof Type.Record)) {
+        if (!typeRepository.containsType(resultType) || !(resultType instanceof final Type.Record recordType)) {
             // Type not in repository. Just return underlying queriedRecord
             datum = queriedRecord.getRecord();
         } else {
-            // Copy over data from the underlying message
+            //
+            // Copy over data from the underlying message, or -- when the entry carries columns the record does not --
+            // from the merge of the two the value computes, which reads what only the entry has from the entry and
+            // everything else from the record.
+            //
             final Message.Builder builder = Objects.requireNonNull(typeRepository.newMessageBuilder(resultType));
-            MessageHelpers.deepCopyMessage(builder, queriedRecord.getRecord());
+            MessageHelpers.deepCopyMessage(builder,
+                    indexEntryToRecordValue == null
+                    ? queriedRecord.getRecord()
+                    : mergeEntryAndRecord(store, evaluationContext, indexEntryToRecordValue, queriedRecord));
 
             // Extract any pseudo-fields
-            Type.Record recordType = (Type.Record) resultType;
             for (PseudoField pseudoField : PseudoField.values()) {
                 pseudoField.fillInIfApplicable(recordType, queriedRecord, builder);
             }
@@ -283,6 +316,33 @@ public class QueryResult implements ProtoSerializable {
         }
 
         return new QueryResult(datum, queriedRecord, queriedRecord.getPrimaryKey());
+    }
+
+    /**
+     * Evaluates {@code indexEntryToRecordValue}, which computes one record out of the index entry {@code queriedRecord}
+     * was reached through and the record itself. The value reads the entry off {@link Quantifier#current()} and the
+     * record off {@link IndexEntryToRecordValueHelper#baseRecordAlias()}, so both are bound here first.
+     */
+    @Nonnull
+    private static <M extends Message> Message mergeEntryAndRecord(@Nullable final FDBRecordStoreBase<M> store,
+                                                                   @Nonnull final EvaluationContext evaluationContext,
+                                                                   @Nonnull final Value indexEntryToRecordValue,
+                                                                   @Nonnull final FDBQueriedRecord<?> queriedRecord) {
+        final IndexEntry indexEntry = queriedRecord.getIndexEntry();
+        if (indexEntry == null) {
+            throw new RecordCoreException("cannot merge index entry columns into a record not reached through an index")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, queriedRecord.getRecordType().getName());
+        }
+        final EvaluationContext mergeContext = evaluationContext
+                .withBinding(Bindings.Internal.CORRELATION, Quantifier.current(), indexEntry)
+                .withBinding(Bindings.Internal.CORRELATION, IndexEntryToRecordValueHelper.baseRecordAlias(),
+                        QueryResult.ofComputed(queriedRecord.getRecord()));
+        final Object merged = indexEntryToRecordValue.eval(store, mergeContext);
+        if (!(merged instanceof Message)) {
+            throw new RecordCoreException("merge of an index entry and its record must evaluate to a message")
+                    .addLogInfo(LogMessageKeys.INDEX_NAME, indexEntry.getIndex().getName());
+        }
+        return (Message)merged;
     }
 
     @Nonnull

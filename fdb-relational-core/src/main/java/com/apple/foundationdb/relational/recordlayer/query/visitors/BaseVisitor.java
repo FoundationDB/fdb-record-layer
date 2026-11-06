@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -1554,6 +1555,30 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
         return expressionVisitor.visitPartitionClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
+        return expressionVisitor.visitFrameClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameType visitFrameUnits(final RelationalParser.FrameUnitsContext ctx) {
+        return expressionVisitor.visitFrameUnits(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameBoundary visitFrameRange(final RelationalParser.FrameRangeContext ctx) {
+        return expressionVisitor.visitFrameRange(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.Exclusion visitFrameExclusion(final RelationalParser.FrameExclusionContext ctx) {
+        return expressionVisitor.visitFrameExclusion(ctx);
     }
 
     @Nonnull

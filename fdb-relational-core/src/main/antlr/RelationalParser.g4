@@ -1171,7 +1171,8 @@ aggregateLimitClause
 nonAggregateWindowedFunction
     : functionName=(LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
     | functionName=(FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
-    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
+    | functionName=RANK '(' functionArgs? ')' overClause
+    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | ROW_NUMBER) '('')' overClause
     | functionName=NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
     | functionName=NTILE '(' decimalLiteral ')' overClause
     ;
@@ -1185,7 +1186,7 @@ windowName
     ;
 
 windowSpec
-    : windowName? partitionClause? orderByClause? windowOptionsClause?
+    : windowName? partitionClause? orderByClause? frameClause? windowOptionsClause?
     ;
 
 windowOptionsClause
@@ -1196,18 +1197,14 @@ windowOption
     : EF_SEARCH '=' efSearch=DECIMAL_LITERAL
     ;
 
-//commented out until we want to support window functions
-/*
-
-
-
 frameClause
-    : frameUnits frameExtent
+    : frameUnits frameExtent frameExclusion?
     ;
 
 frameUnits
     : ROWS
     | RANGE
+    | GROUPS
     ;
 
 frameExtent
@@ -1225,7 +1222,12 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
-*/
+frameExclusion
+    : EXCLUDE CURRENT ROW
+    | EXCLUDE GROUP
+    | EXCLUDE TIES
+    | EXCLUDE NO OTHERS
+    ;
 
 partitionClause
     : PARTITION BY fullId (',' fullId)*
@@ -1381,9 +1383,9 @@ keywordsCanBeId
     | DISABLE | DISCARD | DISK | DO | DUMPFILE | DUPLICATE
     | DYNAMIC | ENABLE | ENCRYPTION | ENCRYPTION_KEY_ADMIN | END | ENDS | ENGINE | ENGINE_ATTRIBUTE | ENGINES
     | ERROR | ERRORS | ESCAPE | EUR | EVEN | EVENT | EVENTS | EVERY | EXCEPT
-    | EXCHANGE | EXCLUSIVE | EXIT | EXPIRE | EXPORT | EXTENDED | EXTENT_SIZE | FAST | FAULTS
+    | EXCHANGE | EXCLUDE | EXCLUSIVE | EXIT | EXPIRE | EXPORT | EXTENDED | EXTENT_SIZE | FAST | FAULTS
     | FIELDS | FILE_BLOCK_SIZE | FILTER | FIREWALL_ADMIN | FIREWALL_USER | FIRST | FIXED | FLUSH
-    | FOLLOWS | FOUND | FULL | FUNCTION | GENERAL | GLOBAL | GRANTS | GROUP | GROUP_CONCAT
+    | FOLLOWS | FOUND | FULL | FUNCTION | GENERAL | GLOBAL | GRANTS | GROUP | GROUPS | GROUP_CONCAT
     |  HANDLER | HASH | HELP | HOST | HOSTS | IDENTIFIED
     | IGNORED | IGNORE_SERVER_IDS | IMPORT | INCARNATION | INCREMENT | INDEX | INDEXES | INITIAL_SIZE
     | INNODB_REDO_LOG_ARCHIVE | INPLACE | INSERT_METHOD | INSTALL | INSTANCE | INSTANT | INTERNAL | INVOKER | IO
@@ -1404,11 +1406,11 @@ keywordsCanBeId
     | MIN | MIN_ROWS | MODE | MODIFY | MUTEX | MYSQL | MYSQL_ERRNO | NAME | NAMES
     | NCHAR | NDB_STORED_USER | NEVER | NEXT | NO | NOCOPY | NODEGROUP | NOCACHE | NONE | NOWAIT | NUMBER | ODBC | OFFLINE | OFFSET
     | OF | OJ | OLD_PASSWORD | ONE | ONLINE | ONLY | OPEN | OPTIMIZER_COSTS
-    | OPTIONAL | OPTIONS | ORDER | OWNER | PACK_KEYS | PAGE | PARSER | PARTIAL
+    | OPTIONAL | OPTIONS | ORDER | OTHERS | OWNER | PACK_KEYS | PAGE | PARSER | PARTIAL
     | PARTITIONING | PARTITIONS | PASSWORD | PERSIST_RO_VARIABLES_ADMIN | PHASE | PLUGINS
     | PLUGIN_DIR | PLUGIN | PORT | PRECEDES | PREPARE | PRESERVE | PREV
     | PROCESSLIST | PROFILE | PROFILES | PROXY | QUERY | QUICK
-    | REBUILD | RECOVER | REDO_BUFFER_SIZE | REDUNDANT
+    | RANGE | REBUILD | RECOVER | REDO_BUFFER_SIZE | REDUNDANT
     | RELAY | RELAYLOG | RELAY_LOG_FILE | RELAY_LOG_POS | REMOVE
     | REORGANIZE | REPAIR 
     | RESET
@@ -1424,7 +1426,7 @@ keywordsCanBeId
     | STATS_SAMPLE_PAGES | STATUS | STD | STDDEV | STDDEV_POP | STDDEV_SAMP | STOP | STORAGE
     | SUBCLASS_ORIGIN | SUBJECT | SUBPARTITION | SUBPARTITIONS | SUM | SUSPEND | SWAPS
     | SWITCHES | SYSTEM_VARIABLES_ADMIN | TABLE_NAME | TABLESPACE | TABLE_ENCRYPTION_ADMIN
-    | TEXT | TEMPORARY | TEMPTABLE | THAN | TRADITIONAL
+    | TEXT | TEMPORARY | TEMPTABLE | THAN | TIES | TRADITIONAL
     | TRANSACTION | TRANSACTIONAL | TRIGGERS | TRUNCATE | UNDEFINED | UNDOFILE
     | UNDO_BUFFER_SIZE | UNINSTALL | UNKNOWN | UNTIL | UPGRADE | USA | USER | USE_FRM | USER_RESOURCES
     | VALIDATION | VALUE | VAR_POP | VAR_SAMP | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT

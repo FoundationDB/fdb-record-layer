@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
@@ -200,14 +199,7 @@ public class MetaDataPlanContext implements PlanContext {
 
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (final var index : indexList) {
-            if (IndexTypes.RANK.equals(index.getType())) {
-                final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, false);
-                // For rank() we still want to create the match candidate for BY_VALUE scans.
-                MatchCandidateExpansion.expandValueIndexMatchCandidate(info)
-                        .ifPresent(matchCandidatesBuilder::add);
-            } else {
-                matchCandidatesBuilder.addAll(matchCandidateRegistry.createMatchCandidates(metaData, index, false));
-            }
+            matchCandidatesBuilder.addAll(matchCandidateRegistry.createMatchCandidates(metaData, index, false));
         }
 
         for (final var recordType : queriedRecordTypes) {

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -1534,6 +1535,42 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
         return getDelegate().visitPartitionClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
+        return getDelegate().visitFrameClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameType visitFrameUnits(final RelationalParser.FrameUnitsContext ctx) {
+        return getDelegate().visitFrameUnits(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitFrameExtent(final RelationalParser.FrameExtentContext ctx) {
+        return getDelegate().visitFrameExtent(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitFrameBetween(final RelationalParser.FrameBetweenContext ctx) {
+        return getDelegate().visitFrameBetween(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameBoundary visitFrameRange(final RelationalParser.FrameRangeContext ctx) {
+        return getDelegate().visitFrameRange(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.Exclusion visitFrameExclusion(final RelationalParser.FrameExclusionContext ctx) {
+        return getDelegate().visitFrameExclusion(ctx);
     }
 
     @Nonnull

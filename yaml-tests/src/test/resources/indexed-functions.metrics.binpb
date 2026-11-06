@@ -1,7 +1,7 @@
 ï
 5
 	unnamed-2(EXPLAIN select * from t where b + c > 7;€
-ﬁÌ·â'ï ˘¢≠(C0çòx8H@3ISCAN(BPLUSC [[GREATER_THAN promote(@c9 AS LONG)]])ádigraph G {
+‡Öô¯ó ⁄ßÿ(C0úù~8H@3ISCAN(BPLUSC [[GREATER_THAN promote(@c9 AS LONG)]])ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -11,7 +11,7 @@
 }ª
 T
 	unnamed-2GEXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;‚
-˜îÚªn Ö®‰(/0Ø¥K8%@TISCAN(BPLUSCBYE [EQUALS promote(@c13 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)Ó
+˚ª›œr õ◊Ÿ(/0Ôñ;8%@TISCAN(BPLUSCBYE [EQUALS promote(@c13 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)Ó
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -21,10 +21,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">BPLUSCBYE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C, LONG AS D, STRING AS E)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ü
+}Ö
 5
-	unnamed-2(EXPLAIN select * from t where d & 1 = 0;Ã
-ﬁ±ãÙ%ñ é€Œ(C0¨ñ•8H@+ISCAN(DMASK1 [EQUALS promote(@c9 AS LONG)])ˇdigraph G {
+	unnamed-2(EXPLAIN select * from t where d & 1 = 0;À
+‡Ø≥’ò …≤å(C0≤åx8H@+ISCAN(DMASK1 [EQUALS promote(@c9 AS LONG)])ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -34,7 +34,7 @@ digraph G {
 }Ö
 5
 	unnamed-2(EXPLAIN select * from t where d & 2 = 0;À
-ﬁÈ°Ø&ñ üö¨(C0◊“k8H@+ISCAN(DMASK2 [EQUALS promote(@c9 AS LONG)])ˇdigraph G {
+‡Ù≠ïò òÓŸ(C0çæy8H@+ISCAN(DMASK2 [EQUALS promote(@c9 AS LONG)])ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

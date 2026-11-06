@@ -1,0 +1,257 @@
+# rank-index.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# SQL RANK() over a rank index, end to end. Where rank-planning.yamsql pins the plan each syntactic
+# position produces, this file checks what the queries return and which scan serves them.
+#
+# Four schemas, one per question the file asks:
+#
+#   player / mv1   partition by a plain column, rank by another -- ranks, ties, and scanning every group
+#   node   / mv2   partition by a self-reference, rank by the primary key -- a row's position among siblings
+#   t2     / i2    a primary key that PARTLY overlaps the index key -- how entry columns are read back
+#   t3     / i3    several partitioning columns -- how much of the prefix a query has to bind
+#
+# Two things recur across the blocks and are worth stating once.
+#
+# Ranks are ZERO-BASED throughout: the ranked set counts from 0, while SQL RANK() is one-based.
+#
+# A BY_RANK scan turns a rank range into a score range, and to do that it has to consult one ranked set,
+# so it needs the group pinned down: every partitioning column bound by EQUALITY. See
+# WindowIndexScanMatchCandidate.scanTypeFor. Anything less -- a short prefix, or an inequality anywhere in
+# the prefix -- is read as a plain key range over the index's primary subspace, which is BY_VALUE and shows
+# in the plans below as "+rank" without a scan type. Both traversals return the same entries and report the
+# rank the same way, per entry from that entry's own group, so a scan spanning several partitions still
+# ranks each row within its own partition.
+#
+# supported_version is !current_version because a rank index is new: no released server can define one.
+#
+# Query shapes that do not work yet are listed at the bottom of the file, with what each one raises.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table player(name string, team string, score bigint, primary key(name))
+    create index mv1 as select rank() over (partition by team order by score) from player
+    create table node(id bigint, parent_id bigint, label string, primary key(id))
+    create index mv2 as select rank() over (partition by parent_id order by id) from node
+    create table t2(a bigint, b bigint, c bigint, d bigint, primary key(a, c))
+    create index i2 as select rank() over (partition by b order by c) from t2
+    create table t3(id bigint, a bigint, b bigint, c bigint, z bigint, primary key(id))
+    create index i3 as select rank() over (partition by a, b, c order by z) from t3
+    WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO PLAYER
+        VALUES ('achilles', 'greeks', 100),
+               ('patroclus', 'greeks', 80),
+               ('odysseus', 'greeks', 60),
+               ('hector', 'trojans', 90),
+               ('paris', 'trojans', 70),
+               ('menelaus', 'trojans', 70)
+    - query: INSERT INTO NODE
+        VALUES (1, 0, 'root-a'),
+               (2, 0, 'root-b'),
+               (10, 1, 'a-first'),
+               (20, 1, 'a-second'),
+               (30, 1, 'a-third'),
+               (40, 2, 'b-first'),
+               (50, 2, 'b-second')
+    - query: INSERT INTO T2
+        VALUES (1, 100, 10, 1000),
+               (2, 100, 20, 1001),
+               (3, 100, 30, 1002),
+               (4, 200, 15, 1003)
+    # the ids start at 101 because INTERMINGLE_TABLES puts every table in one keyspace, so a single-column
+    # primary key must not collide with node's
+    - query: INSERT INTO T3
+        VALUES (101, 10, 100, 1000, 5),
+               (102, 10, 100, 1000, 7),
+               (103, 10, 100, 1000, 9),
+               (104, 10, 200, 1000, 6),
+               (105, 20, 100, 1000, 8)
+---
+test_block:
+  name: rank-index-results
+  preset: single_repetition_ordered
+  tests:
+    -
+      # One partition, bound by equality: the partition becomes the scan prefix and the scan runs in rank
+      # order within it.
+      - query: select rank() over (partition by team order by score) as rank from player where team = 'greeks'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3 AS RANK)"
+      - result: [{RANK: 0}, {RANK: 1}, {RANK: 2}]
+    -
+      # Ties. paris and menelaus both scored 70, so they share a rank and RANK() then SKIPS one: hector is
+      # the third row of the partition, so it ranks 2 and not 1. A rank index behaves that way only when
+      # its ranked set counts duplicates -- without IndexOptions.RANK_COUNT_DUPLICATES a duplicate score is
+      # never inserted and ranks count distinct values, which is DENSE_RANK rather than RANK.
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: [{NAME: 'menelaus', RNK: 0}, {NAME: 'paris', RNK: 0}, {NAME: 'hector', RNK: 2}]
+    -
+      # No predicate, so nothing binds mv1's grouping placeholder and the scan has no group prefix. A rank
+      # range cannot be converted to a score range without a group, so this has to be scanned BY_VALUE
+      # across every group; the rank still arrives in the entry value, because the maintainer looks it up
+      # per entry from that entry's own group rather than from the scan range.
+      #
+      # Rows come back in entry key order, which is (team, score, name).
+      - query: select name, team, rank() over (partition by team order by score) as rnk from player
+      - explain: "ISCAN(MV1 <,>+rank) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)"
+      - result: [{NAME: 'odysseus', TEAM: 'greeks', RNK: 0}, {NAME: 'patroclus', TEAM: 'greeks', RNK: 1}, {NAME: 'achilles', TEAM: 'greeks', RNK: 2},
+                 {NAME: 'menelaus', TEAM: 'trojans', RNK: 0}, {NAME: 'paris', TEAM: 'trojans', RNK: 0}, {NAME: 'hector', TEAM: 'trojans', RNK: 2}]
+---
+test_block:
+  name: rank-of-child-among-siblings
+  preset: single_repetition_ordered
+  tests:
+    -
+      # A row's position among its siblings, which is a rank partitioned by a self-reference. Ranking by
+      # the primary key puts the ranked column inside the primary key, so the expansion has to recover it
+      # through Index.getPrimaryKeyComponentPositions rather than append it to the entry.
+      - query: select rank() over (partition by parent_id order by id) as position from node where parent_id = 1
+      - explain: "ISCAN(MV2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._3 AS POSITION)"
+      - result: [{POSITION: 0}, {POSITION: 1}, {POSITION: 2}]
+---
+# How the primary key's components are read back when it PARTLY overlaps the index key.
+#
+#   table t2   primary key (a, c)          -- really (recordTypeKey, a, c) for a relational table
+#   index i2   rank() over (partition by b order by c)   -> index key (b, c)
+#
+# So "c" is inside the index key (it is the ranked column) and "a" plus the recordTypeKey are appended:
+#
+#   entry key (b, c, recordTypeKey, a)
+#   index.getPrimaryKeyComponentPositions() == [-1, -1, 1]
+#
+# The candidate flows those columns in the order the entry carries them -- (b, c, a, d, rank) -- so the
+# record type key, which no column of the record corresponds to, is the one entry column never read.
+test_block:
+  name: rank-index-primary-key
+  preset: single_repetition_ordered
+  tests:
+    -
+      # P1 -- baseline. Partition bound by equality, rank only.
+      - query: select rank() over (partition by b order by c) as r from t2 where b = 100
+      - explain: "ISCAN(I2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._4 AS R)"
+      - result: [{R: 0}, {R: 1}, {R: 2}]
+    -
+      # P2 -- the rank alongside BOTH kinds of primary key component: "c" is inside the index key, "a" is
+      # appended after it.
+      - query: select a, c, rank() over (partition by b order by c) as r from t2 where b = 100
+      - explain: "ISCAN(I2 [EQUALS promote(@c24 AS LONG)]+rank BY_RANK) | MAP (_.A AS A, _.C AS C, _._4 AS R)"
+      - result: [{A: 1, C: 10, R: 0}, {A: 2, C: 20, R: 1}, {A: 3, C: 30, R: 2}]
+    -
+      # P3 -- a column in neither the index key nor the primary key, so the record has to be fetched and
+      # merged with the entry's rank.
+      - query: select d, rank() over (partition by b order by c) as r from t2 where b = 100
+      - explain: "ISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.D AS D, _._4 AS R)"
+      - result: [{D: 1000, R: 0}, {D: 1001, R: 1}, {D: 1002, R: 2}]
+    -
+      # P4 -- the partitioning column itself, which is not a primary key component here.
+      - query: select b, rank() over (partition by b order by c) as r from t2 where b = 200
+      - explain: "ISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.B AS B, _._4 AS R)"
+      - result: [{B: 200, R: 0}]
+    -
+      # P5 -- an INEQUALITY on the partitioning column, so the partition is not pinned down and this has to
+      # be a plain key range rather than a BY_RANK scan. The rank is still per partition.
+      - query: select b, c, rank() over (partition by b order by c) as r from t2 where b < 200
+      - explain: "ISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)"
+      - result: [{B: 100, C: 10, R: 0}, {B: 100, C: 20, R: 1}, {B: 100, C: 30, R: 2}]
+    -
+      # P6 -- the same, widened so the scan spans both partitions. The ranks must restart at the partition
+      # boundary even though one scan reads across it.
+      - query: select b, c, rank() over (partition by b order by c) as r from t2 where b < 300
+      - explain: "ISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)"
+      - result: [{B: 100, C: 10, R: 0}, {B: 100, C: 20, R: 1}, {B: 100, C: 30, R: 2}, {B: 200, C: 15, R: 0}]
+---
+# How much of the PARTITION BY prefix a query has to bind, and how, walked one step at a time.
+#
+#   table t3   primary key (id)
+#   index i3   rank() over (partition by a, b, c order by z)   -> index key (a, b, c, z), grouping count 3
+test_block:
+  name: rank-index-partitioning
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Q1 -- the whole PARTITION BY prefix bound by equality. This is the only shape a BY_RANK scan can take.
+      - query: select z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b = 100 and c = 1000
+      - explain: "ISCAN(I3 [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG), EQUALS promote(@c34 AS LONG)]+rank BY_RANK) | MAP (_.Z AS Z, _._5 AS R)"
+      - result: [{Z: 5, R: 0}, {Z: 7, R: 1}, {Z: 9, R: 2}]
+    -
+      # Q2 -- an inequality on the second partitioning column. The group is no longer pinned down, so this
+      # cannot be a BY_RANK scan however much of the prefix precedes it.
+      - query: select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 200
+      - explain: "ISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{B: 100, Z: 5, R: 0}, {B: 100, Z: 7, R: 1}, {B: 100, Z: 9, R: 2}]
+    -
+      # Q3 -- the same inequality, but widened so the scan spans two partitions. The ranks must restart:
+      # both groups are read by one scan, and each row is still ranked inside its own.
+      - query: select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 300
+      - explain: "ISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{B: 100, Z: 5, R: 0}, {B: 100, Z: 7, R: 1}, {B: 100, Z: 9, R: 2}, {B: 200, Z: 6, R: 0}]
+    -
+      # Q4 -- a strict prefix of the partitioning columns, all by equality. Short of the group, so BY_VALUE.
+      - query: select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10
+      - explain: "ISCAN(I3 [EQUALS promote(@c28 AS LONG)]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{B: 100, Z: 5, R: 0}, {B: 100, Z: 7, R: 1}, {B: 100, Z: 9, R: 2}, {B: 200, Z: 6, R: 0}]
+    -
+      # Q5 -- nothing bound at all. Every partition, every row.
+      - query: select a, b, z, rank() over (partition by a, b, c order by z) as r from t3
+      - explain: "ISCAN(I3 <,>+rank) | MAP (_.A AS A, _.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{A: 10, B: 100, Z: 5, R: 0}, {A: 10, B: 100, Z: 7, R: 1}, {A: 10, B: 100, Z: 9, R: 2}, {A: 10, B: 200, Z: 6, R: 0}, {A: 20, B: 100, Z: 8, R: 0}]
+...
+#
+# ---------------------------------------------------------------------------------------------------
+# Not supported yet
+# ---------------------------------------------------------------------------------------------------
+#
+# (1) A window function over a JOIN. Reaching the same sibling positions through the parent, rather than
+#     naming the partition directly, does not plan:
+#
+#       UnableToPlanException: Cascades planner could not plan query
+#
+#     The join itself is fine -- without the window function it plans as a primary-key scan of the parent
+#     feeding a correlated scan of mv2 per parent row, which is already the right data access. The window
+#     candidate is expanded over a single base quantifier, so it does not match when the window sits above
+#     a join of two. It is not about where the predicate sits: moving it from the parent to the child, so
+#     that no transitive reasoning is needed, fails identically.
+#
+#     The join is safe to see through, for the same reason a predicate on a partitioning column is safe.
+#     parent.id is the primary key and is bound by equality, so every child row joins to exactly one
+#     parent row; the join selects one whole partition and never removes rows from within it, which is the
+#     condition under which the stored ranks stay correct.
+#
+#       - query: select rank() over (partition by child.parent_id order by child.id) as position
+#           from node as parent
+#           join node as child on child.parent_id = parent.id
+#           where parent.id = 1
+#         result: [{POSITION: 0}, {POSITION: 1}, {POSITION: 2}]
+#
+# (2) A predicate on a NON-partitioning column, which is refused and should be:
+#
+#       UnableToPlanException: Cascades planner could not plan query
+#
+#     WHERE runs before the window, so the ranks have to be computed over the surviving rows only -- greeks
+#     keeps 80 and 100 and ranks them 0 and 1, trojans keeps 90 alone at 0. The stored ranks say otherwise,
+#     so matching mv1 here would be wrong. There is no alternative plan either, because a window over a
+#     filtered population needs a streaming window operator that does not exist yet. This is a gap rather
+#     than a bug, and it is the query that would start passing the day that operator lands.
+#
+#       - query: select name, rank() over (partition by team order by score) as rnk from player where score > 70
+#         result: [{NAME: 'patroclus', RNK: 0}, {NAME: 'achilles', RNK: 1}, {NAME: 'hector', RNK: 0}]

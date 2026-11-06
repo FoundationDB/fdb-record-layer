@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordFunction;
@@ -2007,4 +2008,77 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Where a column that is neither ranked nor part of the partition can live in a RANK index. There is no value half
+     * to carry it in: it has to join either the ranked tuple or the grouping, and both change what the rank means.
+     */
+    @Test
+    void anExtraColumnHasNowhereToLiveInARankIndex() throws Exception {
+        fdb = dbExtension.getDatabase();
+
+        // (a) as the value half of a keyWithValue, via the (root, value) constructor -- the root is no longer a
+        // GroupingKeyExpression, which is what the rank index requires
+        assertEquals("InvalidExpressionException: index type requires grouping",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_as_value",
+                                field("score").groupBy(field("gender")),
+                                field("description"),
+                                IndexTypes.RANK, IndexOptions.EMPTY_OPTIONS))));
+
+        // (b) the same thing spelled out
+        assertEquals("InvalidExpressionException: index type requires grouping",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_as_key_with_value",
+                                Key.Expressions.keyWithValue(
+                                        Key.Expressions.concat(field("gender"), field("score"), field("description")), 2),
+                                IndexTypes.RANK))));
+
+        // (c) inside the ranked tuple: ranks run over (score, description), so hector's 75 sorts before achilles' 100
+        assertEquals("[Field { 'gender' None}, Field { 'score' None}, Field { 'description' None}] group 2  ->  "
+                        + "[key=(\"M\", 75, \"trojan\", \"hector\") value=(), "
+                        + "key=(\"M\", 100, \"greek\", \"achilles\") value=()]",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_in_ranked_tuple",
+                                Key.Expressions.concat(field("gender"), field("score"), field("description")).group(2),
+                                IndexTypes.RANK))));
+
+        // (d) as another grouping column: one ranked set per (gender, description), so the entries sort by description
+        assertEquals("[Field { 'gender' None}, Field { 'description' None}, Field { 'score' None}] group 1  ->  "
+                        + "[key=(\"M\", \"greek\", 100, \"achilles\") value=(), "
+                        + "key=(\"M\", \"trojan\", 75, \"hector\") value=()]",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_as_grouping",
+                                Key.Expressions.concat(field("gender"), field("description"), field("score")).group(1),
+                                IndexTypes.RANK))));
+    }
+
+    /**
+     * Opens a store with the given index, writes two records and reports either the failure or the index entries.
+     */
+    @Nonnull
+    private String describe(@Nonnull final RecordMetaDataHook hook) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+            final var index = recordStore.getRecordMetaData().getAllIndexes().stream()
+                    .filter(i -> i.getName().startsWith("extra_")).findFirst().orElseThrow();
+            recordStore.rebuildIndex(index).join();
+            recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                    .setName("achilles").setScore(100).setGender("M").setDescription("greek").build());
+            recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                    .setName("hector").setScore(75).setGender("M").setDescription("trojan").build());
+            final var entries = new ArrayList<String>();
+            try (RecordCursorIterator<IndexEntry> cursor =
+                         recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                                 ScanProperties.FORWARD_SCAN).asIterator()) {
+                while (cursor.hasNext()) {
+                    final var entry = cursor.next();
+                    entries.add("key=" + entry.getKey() + " value=" + entry.getValue());
+                }
+            }
+            return index.getRootExpression() + "  ->  " + entries;
+        } catch (final Exception e) {
+            return e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
 }

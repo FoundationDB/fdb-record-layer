@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
@@ -201,6 +202,30 @@ class ValueToKeyExpressionVisitorTest {
     }
 
     @Test
+    void rankPartitionedByOneColumn() {
+        assertThat(translate(rank(List.of(col("COL3")), List.of(col("COL1")))))
+                .isEqualTo(field("COL3").groupBy(field("COL1")));
+    }
+
+    @Test
+    void rankOverTwoColumnsPartitionedByOneColumn() {
+        assertThat(translate(rank(List.of(col("COL2"), col("COL3")), List.of(col("COL1")))))
+                .isEqualTo(concat(field("COL2"), field("COL3")).groupBy(field("COL1")));
+    }
+
+    @Test
+    void rankWithoutAPartitionIsUngrouped() {
+        assertThat(translate(rank(List.of(col("COL3")), List.of()))).isEqualTo(field("COL3").ungrouped());
+    }
+
+    @Test
+    void rankBesideAnotherColumnIsRejected() {
+        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class,
+                () -> translate(rank(List.of(col("COL3")), List.of(col("COL1"))), col("COL2")));
+        assertThat(thrown.unwrap().getErrorCode()).isEqualTo(ErrorCode.UNSUPPORTED_OPERATION);
+    }
+
+    @Test
     void twoAggregatesAreRejected() {
         final var thrown = Assertions.assertThrows(UncheckedRelationalException.class,
                 () -> translate(sum(col("COL2")), max(col("COL3")), col("COL1")));
@@ -240,6 +265,12 @@ class ValueToKeyExpressionVisitorTest {
     }
 
     @Test
+    void rankImpliesRankIndex() {
+        assertThat(indexType(ExtremumEverStorage.TUPLE, rank(List.of(col("COL3")), List.of(col("COL1")))))
+                .isEqualTo(IndexTypes.RANK);
+    }
+
+    @Test
     void minEverImpliesTupleBasedIndex() {
         assertThat(indexType(ExtremumEverStorage.TUPLE, minEver(col("COL3")), col("COL1"))).isEqualTo(IndexTypes.MIN_EVER_TUPLE);
     }
@@ -247,6 +278,12 @@ class ValueToKeyExpressionVisitorTest {
     @Test
     void minEverImpliesLongBasedIndexWithLegacyExtremumEver() {
         assertThat(indexType(ExtremumEverStorage.LONG, minEver(col("COL3")), col("COL1"))).isEqualTo(IndexTypes.MIN_EVER_LONG);
+    }
+
+    @Nonnull
+    private static Value rank(@Nonnull final List<Value> argumentValues,
+                              @Nonnull final List<Value> partitioningValues) {
+        return new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK, argumentValues, partitioningValues);
     }
 
     @Nonnull

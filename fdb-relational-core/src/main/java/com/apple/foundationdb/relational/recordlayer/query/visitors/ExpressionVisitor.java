@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -300,10 +301,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
 
         // The partitioning and ordering columns are carried on the window specification; the window options (e.g.
-        // ef_search) are carried on the call-site arguments' options map. The window function itself takes no direct
-        // positional arguments.
+        // ef_search) are carried on the call-site arguments' options map. Window functions that take direct positional
+        // arguments -- RANK over the expressions whose rank is computed -- pass them through as ordinary arguments;
+        // the others declare no argument list at all in the grammar.
+        final var arguments = windowedFunctionContext.functionArgs() == null
+                              ? Expressions.empty()
+                              : visitFunctionArgs(windowedFunctionContext.functionArgs());
         return getDelegate().getSemanticAnalyzer()
-                .resolveWindowFunction(functionName, true, windowSpecExpression, Expressions.empty());
+                .resolveWindowFunction(functionName, true, windowSpecExpression, arguments);
     }
 
     @Nonnull
@@ -324,7 +329,76 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
 
-        return WindowSpecExpression.of(partitions, orderByExpressions, windowOptions);
+        @Nullable final var frameClause = ctx.windowSpec().frameClause();
+        final WindowFrameSpecification frameSpecification = frameClause == null
+                                                            ? WindowFrameSpecification.defaultSpecification()
+                                                            : getDelegate().visitFrameClause(frameClause);
+
+        return WindowSpecExpression.of(partitions, orderByExpressions, frameSpecification, windowOptions);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification visitFrameClause(@Nonnull final RelationalParser.FrameClauseContext ctx) {
+        final var frameType = getDelegate().visitFrameUnits(ctx.frameUnits());
+        final var exclusion = ctx.frameExclusion() == null
+                              ? WindowFrameSpecification.Exclusion.NO_OTHER
+                              : getDelegate().visitFrameExclusion(ctx.frameExclusion());
+
+        final var extent = ctx.frameExtent();
+        final WindowFrameSpecification.FrameBoundary left;
+        final WindowFrameSpecification.FrameBoundary right;
+        if (extent.frameBetween() == null) {
+            // a frame extent without BETWEEN names the start of the frame only; the frame then ends at the current row
+            left = getDelegate().visitFrameRange(extent.frameRange());
+            right = new WindowFrameSpecification.CurrentRow();
+        } else {
+            final var between = extent.frameBetween();
+            left = getDelegate().visitFrameRange(between.frameRange(0));
+            right = getDelegate().visitFrameRange(between.frameRange(1));
+        }
+
+        return new WindowFrameSpecification(frameType, left, right, exclusion);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameType visitFrameUnits(@Nonnull final RelationalParser.FrameUnitsContext ctx) {
+        if (ctx.ROWS() != null) {
+            return WindowFrameSpecification.FrameType.ROW;
+        } else if (ctx.RANGE() != null) {
+            return WindowFrameSpecification.FrameType.RANGE;
+        }
+        Assert.notNullUnchecked(ctx.GROUPS());
+        return WindowFrameSpecification.FrameType.GROUPS;
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameBoundary visitFrameRange(@Nonnull final RelationalParser.FrameRangeContext ctx) {
+        if (ctx.CURRENT() != null) {
+            return new WindowFrameSpecification.CurrentRow();
+        } else if (ctx.UNBOUNDED() != null) {
+            return WindowFrameSpecification.Unbounded.INSTANCE;
+        }
+        final var limit = parseChild(ctx).getUnderlying();
+        Assert.thatUnchecked(limit.isConstant(), ErrorCode.UNSUPPORTED_QUERY,
+                "window frame boundary must be a constant");
+        return new WindowFrameSpecification.Bounded(limit);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.Exclusion visitFrameExclusion(@Nonnull final RelationalParser.FrameExclusionContext ctx) {
+        if (ctx.CURRENT() != null) {
+            return WindowFrameSpecification.Exclusion.CURRENT_ROW;
+        } else if (ctx.GROUP() != null) {
+            return WindowFrameSpecification.Exclusion.GROUP;
+        } else if (ctx.TIES() != null) {
+            return WindowFrameSpecification.Exclusion.TIES;
+        }
+        Assert.notNullUnchecked(ctx.OTHERS());
+        return WindowFrameSpecification.Exclusion.NO_OTHER;
     }
 
     @Nonnull

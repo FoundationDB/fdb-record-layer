@@ -1,7 +1,7 @@
 Ù
 ›
 (vector-engine-preference-default-plannerîEXPLAIN select docId, euclidean_distance(embedding, ?) as distance from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 3¸
-³€Æ[ ª—('0˜Œ,8@æISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)±digraph G {
+·´ý¦_ ÀÐÊ('0þâ 8@æISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,8 @@
 }Œ$
 ¸
 (vector-engine-preference-default-planner‹EXPLAIN select docId as id from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 2 union all select articleId as id from articles where zone = 'zone1' and section = 'news' qualify row_number() over ( partition by zone, section order by euclidean_distance(embedding, ?) asc ) <= 2Î 
-â¶¶²¹ ¯…Õ(O0°ö989@åISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) âŠŽ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)Çdigraph G {
+êÜüïÁ ½ø‹
+(O0ì—289@åISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) âŠŽ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -33,7 +34,7 @@
 }Ë
 —
 $vector-engine-preference-prefer-hnswîEXPLAIN select docId, euclidean_distance(embedding, ?) as distance from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 3®
-³ìŠÞ[ »äÚ('0—¤8@áISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)¬digraph G {
+·°Áí	_ œÆå('0¾8@áISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -45,7 +46,7 @@ $vector-engine-preference-prefer-hnswîEXPLAIN select docId, euclidean_distance
 }þ#
 ´
 $vector-engine-preference-prefer-hnsw‹EXPLAIN select docId as id from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 2 union all select articleId as id from articles where zone = 'zone1' and section = 'news' qualify row_number() over ( partition by zone, section order by euclidean_distance(embedding, ?) asc ) <= 2Ä 
-âÅÉ¹ „ÊÉ(O0‰÷!89@àISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) âŠŽ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)Âdigraph G {
+êžÑ‚Á ¤±é(O0ëÅ'89@àISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) âŠŽ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -65,7 +66,7 @@ $vector-engine-preference-prefer-hnsw‹EXPLAIN select docId as id from document
 }ƒ
 ó
 $vector-engine-preference-prefer-hnswÊEXPLAIN select docId as id from guardiannOnly where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 2Š
-ÇÖÖ> “´ó(0 û8@¬ISCAN(GUARDIANNONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)½digraph G {
+ËÙ£ßB ¤É„(0‡¯8@¬ISCAN(GUARDIANNONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)½digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -77,7 +78,7 @@ $vector-engine-preference-prefer-hnswÊEXPLAIN select docId as id from guardian
 }›
 ï
 $vector-engine-preference-prefer-hnswÆEXPLAIN select docId as id from mixedMetrics where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by cosine_distance(embedding, ?) asc ) <= 2¦
-Óð‰ñB –ï·(0ìÐ8@ºISCAN(MIXEDMETRICSGUARDIANNCOSINEINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)Ëdigraph G {
+×ˆ¡íF Ó•£(0»ì8@ºISCAN(MIXEDMETRICSGUARDIANNCOSINEINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)Ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -89,7 +90,7 @@ $vector-engine-preference-prefer-hnswÆEXPLAIN select docId as id from mixedMet
 }Ú
 œ
 )vector-engine-preference-prefer-guardiannîEXPLAIN select docId, euclidean_distance(embedding, ?) as distance from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 3¸
-³õÌü[ ªÆþ('0š¼8@æISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)±digraph G {
+·¿Ø”_ ò‰¹('0òû8@æISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -101,7 +102,7 @@ $vector-engine-preference-prefer-hnswÆEXPLAIN select docId as id from mixedMet
 }—$
 ¹
 )vector-engine-preference-prefer-guardiann‹EXPLAIN select docId as id from documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 2 union all select articleId as id from articles where zone = 'zone1' and section = 'news' qualify row_number() over ( partition by zone, section order by euclidean_distance(embedding, ?) asc ) <= 2Ø 
-â²Ù°	¹ È×(O0¤´+89@êISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) âŠŽ ISCAN(ARTICLESGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)Ìdigraph G {
+ê ÄÆÁ šÌ½(O0ÍÂ'89@êISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) âŠŽ ISCAN(ARTICLESGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)Ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -121,7 +122,7 @@ $vector-engine-preference-prefer-hnswÆEXPLAIN select docId as id from mixedMet
 }ù
 ó
 )vector-engine-preference-prefer-guardiannÅEXPLAIN select docId as id from hnswOnly where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 2€
-ÇÅÂÊ> ª¿Ñ(0ÿš8@§ISCAN(HNSWONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)¸digraph G {
+ËÑª¯B «íü(0Ó‹8@§ISCAN(HNSWONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -133,7 +134,7 @@ $vector-engine-preference-prefer-hnswÆEXPLAIN select docId as id from mixedMet
 }Ÿ
 ÷
 )vector-engine-preference-prefer-guardiannÉEXPLAIN select docId as id from mixedMetrics where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over ( partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc ) <= 2¢
-Ó¸ ¬	B ØðÁ(0¢8@¸ISCAN(MIXEDMETRICSHNSWEUCLIDEANINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)Édigraph G {
+×ü“÷F ñú°(0Å8@¸ISCAN(MIXEDMETRICSHNSWEUCLIDEANINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -145,7 +146,7 @@ $vector-engine-preference-prefer-hnswÆEXPLAIN select docId as id from mixedMet
 }Þ
 q
 )vector-engine-preference-prefer-guardiannDEXPLAIN select docId from documents where title = 'The Great Gatsby'è
-Û€¼£x þ¼Ï(00Ä×381@†COVERING(DOCUMENTSBYTITLE [EQUALS promote(@c7 AS STRING)] -> [DOCID: KEY:[3], TITLE: KEY:[0], ZONE: KEY:[2]]) | MAP (_.DOCID AS DOCID)Ádigraph G {
+ßÑî| çÂ÷(00ì‹181@†COVERING(DOCUMENTSBYTITLE [EQUALS promote(@c7 AS STRING)] -> [DOCID: KEY:[3], TITLE: KEY:[0], ZONE: KEY:[2]]) | MAP (_.DOCID AS DOCID)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
