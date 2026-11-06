@@ -426,6 +426,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                         .map((supplier) -> (DataType)supplier.get()));
     }
 
+    @Nonnull
+    @Override
     public Optional<? extends StoredQuery> findStoredQueryByName(@Nonnull final String storedQueryName) {
         return storedQueries.stream().filter(query -> query.getName().equals(storedQueryName)).findFirst();
     }
