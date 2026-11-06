@@ -1045,7 +1045,7 @@ l
 }ó
 G
 agg-index-tests4EXPLAIN select sum(col3) as s from T2 where col2 = 2§
-ö¢ËÛ=¥ Ãú‰(e0¤êÀ8@ÖAISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)­digraph G {
+”	¦­#ª ¢Å(g0¤êÀ8„@ÖAISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)­digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1063,7 +1063,7 @@ G
 }ô
 H
 agg-index-tests5EXPLAIN select sum(col3) as s from T2 where col2 = 90§
-ö¢ËÛ=¥ Ãú‰(e0¤êÀ8@ÖAISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)­digraph G {
+”	¦­#ª ¢Å(g0¤êÀ8„@ÖAISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)­digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

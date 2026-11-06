@@ -117,27 +117,27 @@ not-distinct-from-tests:
     insert_new_count: 50
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from t1 WHERE null is not distinct from null
-    ref: distinct-from.yamsql:95
+    ref: distinct-from.yamsql:97
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM
         NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS
         _0)'
-    task_count: 840
-    task_total_time_ms: 54
-    transform_count: 206
-    transform_time_ms: 20
-    transform_yield_count: 60
+    task_count: 870
+    task_total_time_ms: 28
+    transform_count: 211
+    transform_time_ms: 9
+    transform_yield_count: 62
     insert_time_ms: 1
-    insert_new_count: 93
+    insert_new_count: 96
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10
-    ref: distinct-from.yamsql:99
+    ref: distinct-from.yamsql:101
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM
         @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
-    task_count: 840
-    task_total_time_ms: 42
-    transform_count: 206
-    transform_time_ms: 13
-    transform_yield_count: 60
+    task_count: 870
+    task_total_time_ms: 15
+    transform_count: 211
+    transform_time_ms: 5
+    transform_yield_count: 62
     insert_time_ms: 3
-    insert_new_count: 93
+    insert_new_count: 96
     insert_reused_count: 5
