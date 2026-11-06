@@ -134,8 +134,8 @@ r
   2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Å
 Æ
-rank-index-qualifyóEXPLAIN select name, team, rank() over (partition by team order by score) as rnk from player qualify rank() over (partition by team order by score) = 0Õ
-Æ¡∞ê{ êñŸ(&0Å◊e8+@rISCAN(MV1 <,>+rank) | FILTER _._3 EQUALS promote(@c35 AS LONG) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)ªdigraph G {
+rank-index-qualifyóEXPLAIN select name, team, rank() over (partition by team order by score) as rnk from player qualify rank() over (partition by team order by score) = 1Õ
+ÆÄ“˙{ ˇ¯Ä(&0¬èq8+@rISCAN(MV1 <,>+rank) | FILTER _._3 EQUALS promote(@c35 AS LONG) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -145,6 +145,43 @@ r
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
   3 -> 2 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ó
+Ω
+rank-index-ties©EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' qualify rank() over (partition by team order by score) >= 2´
+ªå¥»ü àˇù
+(-0π…É8?@åISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)¸digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.NAME AS NAME, q35._3 AS RNK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, LONG AS RNK)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}«
+º
+rank-index-ties®EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' qualify rank() over (partition by team order by score) = 2Ö
+ªøú˜† ¢≈ﬂ	(-0†„t8?@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.NAME AS NAME, q35._3 AS RNK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, LONG AS RNK)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}«
+º
+rank-index-ties®EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' qualify rank() over (partition by team order by score) = 1Ö
+ªøú˜† ¢≈ﬂ	(-0†„t8?@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35.NAME AS NAME, q35._3 AS RNK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, LONG AS RNK)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_RANK</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]</td></tr><tr><td align="left">+rank()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }≥
 â

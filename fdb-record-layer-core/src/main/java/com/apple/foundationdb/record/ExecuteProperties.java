@@ -75,9 +75,14 @@ public class ExecuteProperties {
 
     private final CursorStreamingMode defaultCursorStreamingMode;
 
+    // whether operations that have both a legacy and an ANSI SQL behavior should use the latter
+    @Nonnull
+    private final ExecutionMode executionMode;
+
     @SuppressWarnings("java:S107")
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
+                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun,
+                              @Nonnull ExecutionMode executionMode) {
         this.skip = skip;
         this.rowLimit = rowLimit;
         this.isolationLevel = isolationLevel;
@@ -86,6 +91,7 @@ public class ExecuteProperties {
         this.failOnScanLimitReached = failOnScanLimitReached;
         this.defaultCursorStreamingMode = defaultCursorStreamingMode;
         this.isDryRun = isDryRun;
+        this.executionMode = executionMode;
     }
 
     @Nonnull
@@ -102,7 +108,7 @@ public class ExecuteProperties {
         if (skip == this.skip) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     public boolean isDryRun() {
@@ -114,7 +120,7 @@ public class ExecuteProperties {
         if (isDryRun == this.isDryRun) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
 
@@ -139,7 +145,7 @@ public class ExecuteProperties {
         if (newLimit == this.rowLimit) {
             return this;
         }
-        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -187,7 +193,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties setState(@Nonnull ExecuteState newState) {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -197,7 +203,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties clearState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -214,7 +220,7 @@ public class ExecuteProperties {
         if (failOnScanLimitReached == this.failOnScanLimitReached) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     @Nonnull
@@ -222,7 +228,7 @@ public class ExecuteProperties {
         if (getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -235,7 +241,7 @@ public class ExecuteProperties {
         if (getTimeLimit() == UNLIMITED_TIME && getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -248,7 +254,7 @@ public class ExecuteProperties {
         if (skip == 0 && rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -262,7 +268,7 @@ public class ExecuteProperties {
             return this;
         }
         return copy(0, rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? ReadTransaction.ROW_LIMIT_UNLIMITED : rowLimit + skip,
-                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -317,7 +323,7 @@ public class ExecuteProperties {
         if (defaultCursorStreamingMode == this.defaultCursorStreamingMode) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -328,7 +334,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties resetState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
     }
 
     /**
@@ -347,8 +353,38 @@ public class ExecuteProperties {
     @SuppressWarnings("java:S107")
     @Nonnull
     protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
-                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
-        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun,
+                                     @Nonnull ExecutionMode executionMode) {
+        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
+    }
+
+    /**
+     * Which behaviour to use where a legacy one and an ANSI SQL one differ.
+     *
+     * @return the execution mode
+     */
+    @Nonnull
+    public ExecutionMode getExecutionMode() {
+        return executionMode;
+    }
+
+    @Nonnull
+    public ExecuteProperties setExecutionMode(@Nonnull ExecutionMode executionMode) {
+        if (executionMode == this.executionMode) {
+            return this;
+        }
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
+    }
+
+    /**
+     * Which of two behaviors an operation should choose where the Record Layer's historical one and the one ANSI SQL
+     * requires differ. The default is {@link #LEGACY}, so nothing changes for a caller that does not ask.
+     */
+    public enum ExecutionMode {
+        /** The behavior the Record Layer has always had. */
+        LEGACY,
+        /** The behavior ANSI SQL requires, which the relational layer asks for. */
+        ANSI_SQL
     }
 
     @Nonnull
@@ -423,6 +459,7 @@ public class ExecuteProperties {
         private boolean failOnScanLimitReached = false;
         private boolean isDryRun = false;
         private CursorStreamingMode defaultCursorStreamingMode = CursorStreamingMode.ITERATOR;
+        private ExecutionMode executionMode = ExecutionMode.LEGACY;
 
         private Builder() {
         }
@@ -436,6 +473,13 @@ public class ExecuteProperties {
             this.failOnScanLimitReached = executeProperties.failOnScanLimitReached;
             this.defaultCursorStreamingMode = executeProperties.defaultCursorStreamingMode;
             this.isDryRun = executeProperties.isDryRun;
+            this.executionMode = executeProperties.executionMode;
+        }
+
+        @Nonnull
+        public Builder setExecutionMode(@Nonnull ExecutionMode executionMode) {
+            this.executionMode = executionMode;
+            return this;
         }
 
         @Nonnull
@@ -624,7 +668,7 @@ public class ExecuteProperties {
             } else {
                 state = new ExecuteState(RecordScanLimiterFactory.enforce(scannedRecordsLimit), ByteScanLimiterFactory.enforce(scannedBytesLimit));
             }
-            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, executionMode);
         }
     }
 }

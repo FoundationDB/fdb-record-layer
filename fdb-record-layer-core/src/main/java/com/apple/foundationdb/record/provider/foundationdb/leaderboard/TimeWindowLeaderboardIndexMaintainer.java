@@ -31,6 +31,7 @@ import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -222,8 +223,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace leaderboardSubspace = extraSubspace.subspace(leaderboard.getSubspaceKey());
                 final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
+                // a leaderboard rank is its own thing and has no SQL surface, so it keeps the legacy reading
                 return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize,
-                        leaderboardSubspace, leaderboardConfig, leaderboardRange);
+                        leaderboardSubspace, leaderboardConfig, leaderboardRange,
+                        ExecuteProperties.ExecutionMode.LEGACY);
             });
         }
         // Add leaderboard's key to the front and take it off of the results.

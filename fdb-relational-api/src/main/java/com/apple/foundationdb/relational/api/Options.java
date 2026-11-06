@@ -183,6 +183,12 @@ public final class Options {
         VECTOR_INDEX_ENGINE_PREFERENCE,
 
         /**
+         * Which behaviour to use where the Record Layer's historical one and the one ANSI SQL requires differ.
+         * Scope: Connection
+         */
+        EXECUTION_MODE,
+
+        /**
          * A boolean indicating if a query should be logged or not.
          * Scope: Connection, Query
          */
@@ -294,6 +300,7 @@ public final class Options {
 
         /**
          * A fixed Unix epoch timestamp in milliseconds to use in current datetime value functions.
+         * Scope: Testing (only).
          */
         FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS
 
@@ -310,6 +317,16 @@ public final class Options {
      * Mirrors {@code com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference}, which this module cannot
      * reference directly.
      */
+    /**
+     * Which behaviour to use where the Record Layer's historical one and the one ANSI SQL requires differ, for the
+     * {@link Name#EXECUTION_MODE} option. Mirrors {@code ExecuteProperties.ExecutionMode}, which this module cannot
+     * reference directly.
+     */
+    public enum ExecutionMode {
+        LEGACY,
+        ANSI_SQL
+    }
+
     public enum VectorIndexEnginePreference {
         NO_PREFERENCE,
         PREFER_HNSW,
@@ -332,6 +349,7 @@ public final class Options {
         builder.put(Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
         builder.put(Name.DISABLE_PLANNER_REWRITING, false);
         builder.put(Name.VECTOR_INDEX_ENGINE_PREFERENCE, VectorIndexEnginePreference.NO_PREFERENCE);
+        builder.put(Name.EXECUTION_MODE, ExecutionMode.ANSI_SQL);
         builder.put(Name.DISABLED_PLANNER_RULES, ImmutableSet.of());
         builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 1024);
         builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10_000L);
@@ -587,6 +605,7 @@ public final class Options {
         data.put(Name.INDEX_FETCH_METHOD, List.of(TypeContract.of(IndexFetchMethod.class, IndexFetchMethod::valueOf)));
         data.put(Name.DISABLE_PLANNER_REWRITING, List.of(TypeContract.booleanType()));
         data.put(Name.VECTOR_INDEX_ENGINE_PREFERENCE, List.of(TypeContract.of(VectorIndexEnginePreference.class, VectorIndexEnginePreference::valueOf)));
+        data.put(Name.EXECUTION_MODE, List.of(TypeContract.of(ExecutionMode.class, ExecutionMode::valueOf)));
         data.put(Name.DISABLED_PLANNER_RULES, List.of(new CollectionContract<>(TypeContract.stringType())));
         data.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
         data.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));

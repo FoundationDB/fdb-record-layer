@@ -98,7 +98,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -466,6 +468,168 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+
+    /** An index that counts duplicates, so a tie occupies two slots of the ranked set. */
+    @Nonnull
+    private RecordMetaDataHook tieIndex() {
+        return md -> {
+            md.removeIndex("BasicRankedRecord$score");
+            md.addIndex("BasicRankedRecord", new Index("score_count_dupes", field("score").ungrouped(),
+                    IndexTypes.RANK, Collections.singletonMap(IndexOptions.RANK_COUNT_DUPLICATES, "true")));
+        };
+    }
+
+    @Nonnull
+    private static ScanProperties scanIn(@Nonnull ExecuteProperties.ExecutionMode mode) {
+        return ExecuteProperties.newBuilder().setExecutionMode(mode).build().asScanProperties(false);
+    }
+
+    /** The names a rank range returns, in scan order. */
+    @Nonnull
+    private List<String> namesForRankRange(@Nonnull TupleRange range,
+                                           @Nonnull ExecuteProperties.ExecutionMode mode) throws Exception {
+        final List<String> names = new ArrayList<>();
+        try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor =
+                     recordStore.scanIndexRecords("score_count_dupes", IndexScanType.BY_RANK, range, null,
+                             scanIn(mode)).asIterator()) {
+            while (cursor.hasNext()) {
+                final TestRecordsRankProto.BasicRankedRecord.Builder rec =
+                        TestRecordsRankProto.BasicRankedRecord.newBuilder();
+                rec.mergeFrom(cursor.next().getRecord());
+                names.add(rec.getName());
+            }
+        }
+        return names;
+    }
+
+    @Nonnull
+    private static TupleRange inclusiveRanks(long low, long high) {
+        return new TupleRange(Tuple.from(low), Tuple.from(high),
+                EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+    }
+
+    private void buildTieIndex() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("score_count_dupes")).join();
+            commit(context);
+        }
+    }
+
+    /**
+     * Under {@link ExecuteProperties.ExecutionMode#LEGACY} a rank range is a range over ordinal positions in the
+     * ranked set. The scores are 75, 100, 200, 200, 300, so positions 3 and 4 are the second 200 and the 300 — but a
+     * position is reached through a score bound, which cannot separate one member of a tie from the other, so the
+     * first 200 comes back as well. Asserted so the ANSI SQL behaviour cannot change it by accident.
+     */
+    @Test
+    void legacyRankScanOverPositionsIncludesAWholeTie() throws Exception {
+        buildTieIndex();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            assertEquals(List.of("helen", "penelope", "laodice"),
+                    namesForRankRange(inclusiveRanks(3L, 4L), ExecuteProperties.ExecutionMode.LEGACY));
+        }
+    }
+
+    /**
+     * Under {@link ExecuteProperties.ExecutionMode#ANSI_SQL} the same bounds mean SQL ranks: one-based, shared by a
+     * tie, and skipping afterwards, so the same scores rank 1, 2, 3, 3, 5 with nothing at rank 4.
+     */
+    @Test
+    void ansiSqlRankScanSelectsWholeTies() throws Exception {
+        buildTieIndex();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            final ExecuteProperties.ExecutionMode ansi = ExecuteProperties.ExecutionMode.ANSI_SQL;
+            assertEquals(List.of("laodice"), namesForRankRange(inclusiveRanks(4L, 5L), ansi));
+            assertEquals(List.of("helen", "penelope"), namesForRankRange(inclusiveRanks(3L, 3L), ansi));
+            assertEquals(List.of(), namesForRankRange(inclusiveRanks(4L, 4L), ansi));
+        }
+    }
+
+    /**
+     * Every rank range over every tie arrangement, checked against ranks computed outside the index.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("tieArrangements")
+    void ansiSqlRankRangesMatchComputedRanks(String name, long[] scores) throws Exception {
+        final List<String> names = new ArrayList<>();
+        for (int i = 0; i < scores.length; i++) {
+            names.add(String.format("r%02d", i));
+        }
+        final Map<String, Long> ranks = new HashMap<>();
+        for (int i = 0; i < scores.length; i++) {
+            long smaller = 0;
+            for (long other : scores) {
+                if (other < scores[i]) {
+                    smaller++;
+                }
+            }
+            ranks.put(names.get(i), smaller + 1L);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            recordStore.deleteAllRecords();
+            for (int i = 0; i < scores.length; i++) {
+                recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                        .setName(names.get(i)).setScore((int)scores[i]).setGender("x").build());
+            }
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("score_count_dupes")).join();
+            commit(context);
+        }
+
+        final Long[] bounds = {null, 0L, 1L, 2L, 3L, 4L, 5L, 6L};
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            for (Long low : bounds) {
+                for (Long high : bounds) {
+                    for (boolean lowInclusive : new boolean[] {true, false}) {
+                        for (boolean highInclusive : new boolean[] {true, false}) {
+                            if ((low == null && !lowInclusive) || (high == null && !highInclusive)) {
+                                continue;
+                            }
+                            final List<String> expected = names.stream()
+                                    .filter(n -> rankInRange(ranks.get(n), low, lowInclusive, high, highInclusive))
+                                    .sorted(Comparator.<String, Long>comparing(ranks::get).thenComparing(n -> n))
+                                    .collect(Collectors.toList());
+                            final TupleRange range = new TupleRange(
+                                    low == null ? null : Tuple.from(low),
+                                    high == null ? null : Tuple.from(high),
+                                    low == null ? EndpointType.TREE_START
+                                                : lowInclusive ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE,
+                                    high == null ? EndpointType.TREE_END
+                                                 : highInclusive ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE);
+                            assertEquals(expected,
+                                    namesForRankRange(range, ExecuteProperties.ExecutionMode.ANSI_SQL),
+                                    () -> String.format("%s, rank %s%s, %s%s", name,
+                                            lowInclusive ? "[" : "(", low == null ? "-inf" : low,
+                                            high == null ? "+inf" : high, highInclusive ? "]" : ")"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean rankInRange(long rank, Long low, boolean lowInclusive, Long high, boolean highInclusive) {
+        if (low != null && (lowInclusive ? rank < low : rank <= low)) {
+            return false;
+        }
+        return high == null || (highInclusive ? rank <= high : rank < high);
+    }
+
+    static Stream<Arguments> tieArrangements() {
+        return Stream.of(
+                Arguments.of("no ties", new long[] {10, 20, 30, 40, 50}),
+                Arguments.of("tie at the low bound", new long[] {10, 10, 30, 40, 50}),
+                Arguments.of("tie in the middle", new long[] {10, 20, 20, 40, 50}),
+                Arguments.of("tie at the high bound", new long[] {10, 20, 30, 50, 50}),
+                Arguments.of("two separate ties", new long[] {10, 10, 30, 30, 50}),
+                Arguments.of("triple tie", new long[] {10, 20, 20, 20, 50}),
+                Arguments.of("every score tied", new long[] {10, 10, 10, 10, 10}));
+    }
 
     @Test
     void checkUpdateWithTies() throws Exception {

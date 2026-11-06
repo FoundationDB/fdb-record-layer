@@ -27,6 +27,7 @@ import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
@@ -114,15 +115,41 @@ public class RankedSetIndexHelper {
     private RankedSetIndexHelper() {
     }
 
+    /**
+     * Translates a one-based SQL rank into the zero-based ordinal position the ranked set speaks.
+     *
+     * @param sqlRank a one-based rank
+     *
+     * @return the corresponding zero-based position
+     */
+    public static long sqlRankToPosition(long sqlRank) {
+        return sqlRank - 1L;
+    }
+
+    /**
+     * Translates a zero-based ordinal position into the one-based rank SQL expects.
+     *
+     * @param position a zero-based position
+     *
+     * @return the corresponding one-based rank
+     */
+    public static long positionToSqlRank(long position) {
+        return position + 1L;
+    }
+
     @Nonnull
     public static CompletableFuture<TupleRange> rankRangeToScoreRange(@Nonnull IndexMaintainerState state,
                                                                       int groupPrefixSize,
                                                                       @Nonnull Subspace rankSubspace,
                                                                       @Nonnull RankedSet.Config config,
-                                                                      @Nonnull TupleRange rankRange) {
+                                                                      @Nonnull TupleRange rankRange,
+                                                                      @Nonnull ExecuteProperties.ExecutionMode executionMode) {
         final Tuple prefix = groupPrefix(groupPrefixSize, rankRange, rankSubspace);
         if (prefix != null) {
             rankSubspace = rankSubspace.subspace(prefix);
+        }
+        if (executionMode == ExecuteProperties.ExecutionMode.ANSI_SQL) {
+            return sqlRankRangeToScoreRange(state, groupPrefixSize, rankSubspace, config, rankRange, prefix);
         }
 
         // Map low and high ranks to scores and scan main index with those.
@@ -164,6 +191,87 @@ public class RankedSetIndexHelper {
                     scoreRange = scoreRange.prepend(prefix);
                 }
                 return scoreRange;
+            });
+        });
+    }
+
+    /**
+     * Converts a rank range into a score range under SQL {@code RANK()} semantics.
+     *
+     * <p>The incoming bounds are one-based ranks, so they are first normalized into an inclusive range over
+     * zero-based positions. The high bound then needs nothing: a position inside a tie block always has a rank no
+     * greater than that position, so including the whole block only admits rows whose rank is already in range.
+     *
+     * <p>The low bound is the one that can be wrong. If the position it names falls inside a tie block rather than at
+     * its start -- that is, if the rank of the score found there is below the bound -- then every row of that block
+     * ranks below the range and the block must be dropped whole. Making the score bound exclusive does exactly that,
+     * and lands on the next distinct score without a further lookup.
+     *
+     * @param state the index maintainer state
+     * @param groupPrefixSize the number of grouping columns
+     * @param rankSubspace the ranked set subspace, already narrowed to the group
+     * @param config the ranked set configuration
+     * @param rankRange the requested range over one-based ranks
+     * @param prefix the group prefix, or {@code null} if the index is ungrouped
+     *
+     * @return a future for the score range to scan, or one completing to {@code null} if the range is empty
+     */
+    @Nonnull
+    private static CompletableFuture<TupleRange> sqlRankRangeToScoreRange(@Nonnull IndexMaintainerState state,
+                                                                          int groupPrefixSize,
+                                                                          @Nonnull Subspace rankSubspace,
+                                                                          @Nonnull RankedSet.Config config,
+                                                                          @Nonnull TupleRange rankRange,
+                                                                          @Nullable Tuple prefix) {
+        final Number lowRankNum = extractRank(groupPrefixSize, rankRange.getLow());
+        final Number highRankNum = extractRank(groupPrefixSize, rankRange.getHigh());
+
+        long lowPosition = lowRankNum == null ? 0L : sqlRankToPosition(lowRankNum.longValue());
+        if (lowRankNum != null && rankRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE) {
+            lowPosition++;
+        }
+        if (lowPosition < 0L) {
+            lowPosition = 0L;
+        }
+        Long highPosition = null;
+        if (highRankNum != null) {
+            highPosition = sqlRankToPosition(highRankNum.longValue());
+            if (rankRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE) {
+                highPosition--;
+            }
+            if (highPosition < lowPosition) {
+                return CompletableFuture.completedFuture(null);
+            }
+        }
+
+        final long low = lowPosition;
+        final Long high = highPosition;
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, config);
+        return init(state, rankedSet).thenCompose(v -> {
+            final CompletableFuture<Tuple> highScoreFuture = high == null
+                                                             ? CompletableFuture.completedFuture(null)
+                                                             : scoreForRank(state, rankedSet, high, null);
+            return scoreForRank(state, rankedSet, low, null).thenCompose(lowScore -> {
+                if (lowScore == null) {
+                    // the low bound is past the end of the group, so nothing can match
+                    return CompletableFuture.completedFuture(null);
+                }
+                return rankForScore(state, rankedSet, lowScore, true).thenCombine(highScoreFuture,
+                        (lowScoreRank, highScore) -> {
+                            final EndpointType lowEndpoint =
+                                    lowScoreRank != null && lowScoreRank < low
+                                    ? EndpointType.RANGE_EXCLUSIVE // rank is lower than score, skip.
+                                    : EndpointType.RANGE_INCLUSIVE;
+                            final EndpointType highEndpoint =
+                                    highScore != null || prefix != null
+                                    ? EndpointType.RANGE_INCLUSIVE
+                                    : EndpointType.TREE_END;
+                            TupleRange scoreRange = new TupleRange(lowScore, highScore, lowEndpoint, highEndpoint);
+                            if (prefix != null) {
+                                scoreRange = scoreRange.prepend(prefix);
+                            }
+                            return scoreRange;
+                        });
             });
         });
     }

@@ -519,7 +519,16 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 .setScannedBytesLimit(options.getOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT))
                 .setScannedRecordsLimit(options.getOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT))
                 .setFailOnScanLimitReached(false)
+                .setExecutionMode(executionMode())
                 .build();
+    }
+
+    @Nonnull
+    private ExecuteProperties.ExecutionMode executionMode() {
+        final Options.ExecutionMode mode = options.getOption(Options.Name.EXECUTION_MODE);
+        return mode == Options.ExecutionMode.ANSI_SQL
+                ? ExecuteProperties.ExecutionMode.ANSI_SQL
+                : ExecuteProperties.ExecutionMode.LEGACY;
     }
 
     private void checkOpen() throws SQLException {
