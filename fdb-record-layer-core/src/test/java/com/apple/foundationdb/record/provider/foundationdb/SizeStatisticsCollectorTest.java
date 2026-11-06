@@ -273,7 +273,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * This includes records, indexes, and other meta-data.
          *
          * @param store the store from which to collect statistics on key and value sizes
-         * @return a statistics collector of that store
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull FDBRecordStore store) {
@@ -286,7 +285,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param store a store with the given index
          * @param indexName the name of the index to collect statistics on key and value sizes
-         * @return a statistics collector of the given index
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull FDBRecordStore store, @Nonnull String indexName) {
@@ -299,7 +297,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param store a store with the given index
          * @param index the index to collect statistics on key and value sizes
-         * @return a statistics collector of the given index
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull FDBRecordStore store, @Nonnull Index index) {
@@ -310,7 +307,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * Create a statistics collector of all keys used by index within a given {@link Subspace}.
          *
          * @param subspace the subspace to collect statistics on key and value sizes
-         * @return a statistics collector of the given subspace
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull Subspace subspace) {

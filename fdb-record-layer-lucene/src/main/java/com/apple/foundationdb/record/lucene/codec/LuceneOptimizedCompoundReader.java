@@ -146,9 +146,11 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         return res;
     }
 
-    /** Returns the length of a file in the directory.
+    /**
+     * Returns the length of a file in the directory.
      *
-     * @throws IOException if the file does not exist */
+     * @throws IOException if the file does not exist
+     */
     @Override
     public long fileLength(String name) throws IOException {
         ensureOpen();
