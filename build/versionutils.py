@@ -94,6 +94,8 @@ def main(argv: list[str]):
     parser.add_argument('-u', '--update-type', type=str, default='BUILD', choices=VERSION_POSITIONS,
                         help='Type of update. Determines which position within the build number is updated')
     parser.add_argument('-c', '--commit', action='store_true', default=False, help='Whether to commit the update or not')
+    parser.add_argument('--next', action='store_true', default=False,
+                        help='Print the version that --increment would produce, without modifying the file')
 
     args = parser.parse_args(argv)
     if args.increment:
@@ -104,6 +106,8 @@ def main(argv: list[str]):
             subprocess.check_output(['git', 'commit', '-m', f'Updating version to {version_string(new_version)}'])
             print('Version update committed')
 
+    elif args.next:
+        print(version_string(incremented_version(get_version(args.filename), args.update_type)))
     else:
        print(version_string(get_version(args.filename)))
 

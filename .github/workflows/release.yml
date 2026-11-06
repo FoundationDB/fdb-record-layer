@@ -36,6 +36,20 @@ jobs:
       - name: Print update type
         shell: bash
         run: echo "${{steps.update-type.outputs.result}}"
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Calculate release version
+        shell: bash
+        run: |
+          version="$(python3 build/versionutils.py gradle.properties \
+            --next \
+            -u "${{ steps.update-type.outputs.result }}")"
+          {
+            echo "## Releasing version \`${version}\`"
+            echo ""
+            echo "- Update type: \`${{ steps.update-type.outputs.result }}\`"
+            echo "- Ref: \`${{ github.ref }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # 2. In parallel, we run:
   #   a) all static checks
