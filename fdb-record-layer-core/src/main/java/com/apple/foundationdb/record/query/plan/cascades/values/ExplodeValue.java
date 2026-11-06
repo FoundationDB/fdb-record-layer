@@ -234,10 +234,11 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     /**
-     * Returns the 0-based ordinal of a struct produced by an explode {@linkplain #hasOrdinality() with ordinality}.
+     * Returns the 0-based ordinal of a struct produced by an explode. Only the ordinals of an explode
+     * {@linkplain #hasOrdinality() with ordinality} are meaningful, as those of any other explode may be renumbered.
      *
-     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode with ordinality,
-     *        typically the flowed object value of a quantifier ranging over the explode
+     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode, typically the
+     *        flowed object value of a quantifier ranging over the explode
      * @return the ordinal the struct carries
      */
     @Nonnull

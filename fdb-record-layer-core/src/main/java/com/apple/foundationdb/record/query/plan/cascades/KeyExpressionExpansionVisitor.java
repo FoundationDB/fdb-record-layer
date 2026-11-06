@@ -379,10 +379,11 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     }
 
     /**
-     * Adds a quantifier ranging over an explode to the builder and pulls up the columns of the exploded element, rather
-     * than the columns of the struct the explode flows. The struct holds the element in its first column, so pulling up
-     * the struct would yield a single opaque column for the element where a query's select over the same explode
-     * flows the element's fields, which then do not line up with each other.
+     * Adds a quantifier ranging over an explode to the builder and pulls up the columns of the exploded element followed
+     * by the ordinal, rather than the columns of the struct the explode flows. The struct holds the element in its first
+     * column, so pulling up the struct would yield a single opaque column for the element where a query's select over
+     * the same explode flows the element's fields, which then do not line up with each other. The ordinal is pulled up
+     * too, so that a query's select that flows the whole struct can still form it from the columns.
      *
      * @param builder the builder to add to
      * @param explodeQuantifier a quantifier ranging over an {@link ExplodeValue}
@@ -401,6 +402,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         } else {
             builder.addResultColumn(Column.unnamedOf(elementValue));
         }
+        builder.addResultColumn(Column.unnamedOf(ExplodeValue.ordinalValue(explodeQuantifier.getFlowedObjectValue())));
         return builder;
     }
 
