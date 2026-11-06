@@ -263,8 +263,6 @@ public class RecordQueryPlanMatchers {
         return childrenPlans(RecordQueryInComparandJoinPlan.class, all(downstream));
     }
 
-
-
     @Nonnull
     public static BindingMatcher<RecordQueryInValuesJoinPlan> inValuesJoin(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(RecordQueryInValuesJoinPlan.class, any(downstream));
@@ -660,8 +658,6 @@ public class RecordQueryPlanMatchers {
                 downstream);
     }
     
-
-
     @Nonnull
     public static BindingMatcher<InParameterSource> inUnionInParameter(@Nonnull BindingMatcher<String> downstream) {
         return typedWithDownstream(InParameterSource.class,
