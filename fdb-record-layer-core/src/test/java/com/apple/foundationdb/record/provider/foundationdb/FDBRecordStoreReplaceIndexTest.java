@@ -513,6 +513,59 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void originalRemovedAtCommitWhenUniquePendingReplacementResolved(boolean resolveByUpdate) {
+        final Index origIndex = new Index("origIndexBeingReplaced", Key.Expressions.field("num_value_2"));
+        final Index replacementUnique = new Index("replacementUniqueIndex", Key.Expressions.field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+
+        // Start with the original index readable and populated with two records that share a num_value_2 value
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, addIndexHook(RECORD_TYPE, origIndex));
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1L).setNumValue2(10).setNumValueUnique(901).build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(10).setNumValueUnique(902).build());
+            commit(context);
+        }
+
+        // Introduce the unique replacement, and build it over the duplicate data into READABLE_UNIQUE_PENDING
+        final RecordMetaDataHook withReplacementHook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origIndex, replacementUnique), bumpMetaDataVersionHook());
+        try (FDBRecordContext context = openContext()) {
+            openWithChecker(context, withReplacementHook, new SelectiveUserVersionChecker(ImmutableMap.of(replacementUnique.getName(), IndexState.WRITE_ONLY)));
+            commit(context);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setTargetIndexes(List.of(replacementUnique))
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().allowUniquePendingState())
+                    .build()) {
+                indexer.buildIndex();
+            }
+        }
+
+        // Resolve the duplication. The replacement becomes readable, and the original is dropped, at commit.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementHook);
+            assertTrue(recordStore.getIndexState(replacementUnique).isReadableUniquePending());
+            assertTrue(recordStore.getIndexState(origIndex).isReadable());
+            if (resolveByUpdate) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(11).setNumValueUnique(902).build());
+            } else {
+                recordStore.deleteRecord(Tuple.from(2L));
+            }
+            assertTrue(recordStore.getIndexState(origIndex).isReadable(), "original is not dropped until the transaction commits");
+            commit(context);
+        }
+
+        // Reopen with the SAME version (no additional bump), so checkVersion does not trigger removeReplacedIndexes.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementHook);
+            assertTrue(recordStore.getIndexState(replacementUnique).isReadable());
+            assertTrue(recordStore.getIndexState(origIndex).isDisabled());
+            assertThat(scanIndex(replacementUnique), hasSize(resolveByUpdate ? 2 : 1));
+            commit(context);
+        }
+        assertOriginalIndexDataCleared(origIndex, replacementUnique);
+    }
+
     /**
      * When the last replacement index is built and marked readable, the original index is dropped as part of that same
      * commit (via a commit check), not only on a later {@code checkVersion}. The final reopen uses the SAME meta-data

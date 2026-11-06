@@ -36,9 +36,11 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -583,8 +585,9 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         assertReadable(indexes);
     }
 
-    @Test
-    void testMarkReadableWhenLastViolationResolved() {
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void testMarkReadableWhenLastViolationResolved(boolean resolveByUpdate) {
         final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
@@ -608,7 +611,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // resolve all but the last duplication, one per transaction - the index should remain unique pending
         for (int i = 5; i < 9; i++) {
             try (FDBRecordContext context = openContext()) {
-                recordStore.deleteRecord(Tuple.from(i));
+                resolveDuplication(i, resolveByUpdate);
                 context.commit();
             }
             try (FDBRecordContext context = openContext()) {
@@ -620,15 +623,16 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // resolve the last duplication - the index should become readable
         try (FDBRecordContext context = openContext()) {
-            recordStore.deleteRecord(Tuple.from(9));
+            resolveDuplication(9, resolveByUpdate);
             context.commit();
         }
         scrubAndValidate(List.of(index));
         assertReadable(index);
     }
 
-    @Test
-    void testMarkReadableWhenViolationsOfTwoIndexesResolvedTogether() {
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void testMarkReadableWhenViolationsOfTwoIndexesResolvedTogether(boolean resolveByUpdate) {
         // records 0-9 duplicate both indexes, records 10-11 duplicate only indexB
         final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 12).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val)
@@ -659,7 +663,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getIndexState(indexA).isReadableUniquePending());
             for (int i = 5; i < 10; i++) {
-                recordStore.deleteRecord(Tuple.from(i));
+                resolveDuplication(i, resolveByUpdate);
             }
             context.commit();
         }
@@ -669,6 +673,77 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             assertTrue(recordStore.getIndexState(indexB).isReadableUniquePending());
             assertEquals(2, (int)recordStore.scanUniquenessViolations(indexB).getCount().join());
             context.commit();
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void testMarkTwoIndexesReadableTogether(boolean resolveByUpdate) {
+        // records 0-9 duplicate both indexes, so resolving a duplication resolves it for both
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val)
+                        .setNumValue2((int)val % 5)
+                        .setNumValue3Indexed((int)val % 5)
+                        .build()
+        ).toList();
+        final Index indexA = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index indexB = new Index("indexB", field("num_value_3_indexed"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final List<Index> indexes = List.of(indexA, indexB);
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext())  {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowUniquePendingState(true))
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // resolve all but the last duplication - both indexes should remain unique pending
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 5; i < 9; i++) {
+                resolveDuplication(i, resolveByUpdate);
+            }
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            for (Index index : indexes) {
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+                assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            }
+            context.commit();
+        }
+
+        // a single record change resolves the last duplication of both indexes - both should become readable
+        try (FDBRecordContext context = openContext()) {
+            resolveDuplication(9, resolveByUpdate);
+            context.commit();
+        }
+        scrubAndValidate(indexes);
+        assertReadable(indexes);
+    }
+
+    /**
+     * Resolve the duplications a record is part of, either by deleting it or by updating it to unique values.
+     * @param recNo the record to change
+     * @param resolveByUpdate if true, update the record, otherwise delete it
+     */
+    private void resolveDuplication(long recNo, boolean resolveByUpdate) {
+        if (resolveByUpdate) {
+            // offset the values so they cannot collide with any existing record's values
+            final int uniqueValue = 1000 + (int)recNo;
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo)
+                    .setNumValue2(uniqueValue)
+                    .setNumValue3Indexed(uniqueValue)
+                    .build());
+        } else {
+            recordStore.deleteRecord(Tuple.from(recNo));
         }
     }
 
