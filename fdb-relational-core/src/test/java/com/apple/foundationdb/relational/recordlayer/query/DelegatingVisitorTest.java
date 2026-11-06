@@ -474,7 +474,7 @@ public class DelegatingVisitorTest {
                     Assertions.assertThat(ctx).isInstanceOf(RelationalParser.GeospatialIndexDefinitionContext.class);
                     visitor.visitGeospatialIndexDefinition((RelationalParser.GeospatialIndexDefinitionContext) ctx);
                 },
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
@@ -490,7 +490,7 @@ public class DelegatingVisitorTest {
         testSimple("GROUP BY (col1)",
                 RelationalParser::indexGroupingClause,
                 DelegatingVisitor::visitIndexGroupingClause,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitIndexGroupingClause(@Nonnull RelationalParser.IndexGroupingClauseContext ctx) {
@@ -505,7 +505,7 @@ public class DelegatingVisitorTest {
         testSimple("OPTIONS (precision_digits = 10)",
                 RelationalParser::geospatialIndexOptions,
                 DelegatingVisitor::visitGeospatialIndexOptions,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitGeospatialIndexOptions(@Nonnull RelationalParser.GeospatialIndexOptionsContext ctx) {
@@ -520,7 +520,7 @@ public class DelegatingVisitorTest {
         testSimple("precision_digits = 10",
                 RelationalParser::geospatialIndexOption,
                 DelegatingVisitor::visitGeospatialIndexOption,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitGeospatialIndexOption(@Nonnull RelationalParser.GeospatialIndexOptionContext ctx) {
@@ -535,7 +535,7 @@ public class DelegatingVisitorTest {
         testSimple("10",
                 RelationalParser::geospatialIndexOptionValue,
                 DelegatingVisitor::visitGeospatialIndexOptionValue,
-                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitGeospatialIndexOptionValue(@Nonnull RelationalParser.GeospatialIndexOptionValueContext ctx) {
