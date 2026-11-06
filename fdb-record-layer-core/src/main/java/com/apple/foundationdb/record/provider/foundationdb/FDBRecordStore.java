@@ -3069,8 +3069,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     private boolean addRemoveReplacedIndexesCommitCheckIfChanged(boolean changed) {
         if (changed) {
-            final String commitCheckName = "removeReplacedIndexes_" + ByteArrayUtil2.toHexString(getSubspace().pack());
-            getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> this::removeReplacedIndexes);
+            IndexStateCommitCheck.markIndexStatesChanged(this);
         }
         return changed;
     }

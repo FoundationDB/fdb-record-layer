@@ -567,6 +567,68 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
+     * Resolving the last uniqueness violation of a {@link IndexState#READABLE_UNIQUE_PENDING} index that is being
+     * replaced, in the same transaction that marks its replacement readable. Both index state updates happen at
+     * commit time, and they must run sequentially: first the original is marked readable, then it is dropped because
+     * its replacement is readable.
+     */
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void uniquePendingOriginalResolvedWhenReplacementMarkedReadable(boolean resolveByUpdate) {
+        final Index origUnique = new Index("origUniqueIndexBeingReplaced", Key.Expressions.field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index newIndex = new Index("replacementIndex", Key.Expressions.field("num_value_2"));
+
+        // Start with two records that share a num_value_2 value, and the replacement present but disabled
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, addIndexHook(RECORD_TYPE, newIndex));
+            assertTrue(disableIndex(newIndex));
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1L).setNumValue2(10).setNumValueUnique(901).build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(10).setNumValueUnique(902).build());
+            commit(context);
+        }
+
+        // Introduce the unique original, and build it over the duplicate data into READABLE_UNIQUE_PENDING
+        try (FDBRecordContext context = openContext()) {
+            openWithChecker(context, composeHooks(addIndexHook(RECORD_TYPE, newIndex), addIndexHook(RECORD_TYPE, origUnique), bumpMetaDataVersionHook()),
+                    new SelectiveUserVersionChecker(ImmutableMap.of(origUnique.getName(), IndexState.WRITE_ONLY)));
+            commit(context);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setTargetIndexes(List.of(origUnique))
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().allowUniquePendingState())
+                    .build()) {
+                indexer.buildIndex();
+            }
+        }
+
+        // Mark the original as replaced, then resolve its duplication and build the replacement in one transaction
+        final RecordMetaDataHook withReplacementHook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origUnique, newIndex), bumpMetaDataVersionHook(), bumpMetaDataVersionHook());
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementHook);
+            assertTrue(recordStore.getIndexState(origUnique).isReadableUniquePending());
+            assertTrue(recordStore.getIndexState(newIndex).isDisabled());
+            if (resolveByUpdate) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(11).setNumValueUnique(902).build());
+            } else {
+                recordStore.deleteRecord(Tuple.from(2L));
+            }
+            buildIndex(newIndex);
+            assertTrue(recordStore.getIndexState(origUnique).isReadableUniquePending(), "original is not changed until the transaction commits");
+            commit(context);
+        }
+
+        // Reopen with the SAME version (no additional bump), so checkVersion does not trigger removeReplacedIndexes.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementHook);
+            assertTrue(recordStore.getIndexState(newIndex).isReadable());
+            assertTrue(recordStore.getIndexState(origUnique).isDisabled());
+            assertThat(scanIndex(newIndex), hasSize(resolveByUpdate ? 2 : 1));
+            commit(context);
+        }
+        assertOriginalIndexDataCleared(origUnique, newIndex);
+    }
+
+    /**
      * When the last replacement index is built and marked readable, the original index is dropped as part of that same
      * commit (via a commit check), not only on a later {@code checkVersion}. The final reopen uses the SAME meta-data
      * version (no bump), so {@code checkVersion} does not run {@code removeReplacedIndexes}: the original being disabled
