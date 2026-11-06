@@ -308,7 +308,7 @@ test_block:
       - query: SELECT "id", "val", "at"
                  FROM T1, T1."arr1_nn" AS "val" AT "at"
                 WHERE T1."id" IN (1, 2)
-      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T1, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.arr1_nn) AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) }"
+      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T1, EQUALS q0._0]) | FLATMAP q1 -> { TF explode(q1.arr1_nn) AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } }"
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},

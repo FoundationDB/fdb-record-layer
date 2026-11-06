@@ -423,7 +423,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     Assumptions.assumeTrue(nv2List.equals(List.of(-1, -1)));
                     return Bindings.EMPTY_BINDINGS;
                 }, -1983342670, 1663559830),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, 22778079)
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, -18129281)
         );
     }
 
@@ -510,7 +510,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     Assumptions.assumeTrue(strValueList.equals(List.of("even", "odd")));
                     return Bindings.EMPTY_BINDINGS;
                 }, -1932450623, -560907506),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, -930689758)
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, -971597118)
         );
     }
 
@@ -656,7 +656,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     Assumptions.assumeTrue(strValueList.equals(List.of(0, 0)));
                     return Bindings.EMPTY_BINDINGS;
                 }, 645291999, -1551783029),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, 1102371764)
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, 1061464404)
         );
     }
 
@@ -770,7 +770,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     Assumptions.assumeTrue(strValueList.equals(literalStrList));
                     return Bindings.EMPTY_BINDINGS;
                 }, -1774357479, -520083103),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), -1774357479, 1468538803)
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), -1774357479, 1427631443)
         );
     }
 

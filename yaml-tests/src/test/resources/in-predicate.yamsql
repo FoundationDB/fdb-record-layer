@@ -402,7 +402,7 @@ test_block:
       # PartiQL join AT on bigint array with IN predicate on the primary key.
       - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)
       - supported_version: 4.12.5.0
-      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0._0]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } }"
+      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }"
       - unorderedResult: [
           {ID: 2, N: 40, IDX: 1}, {ID: 2, N: 50, IDX: 2},
           {ID: 4, N: 80, IDX: 1}]
