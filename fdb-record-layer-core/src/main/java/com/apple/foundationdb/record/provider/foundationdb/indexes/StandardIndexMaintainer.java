@@ -67,6 +67,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKey
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.MarkReadableIfUniquenessResolvedCommitCheck;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingTrackingTable;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -643,9 +644,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return uniquenessViolationEntries.getCount().thenAccept(count -> {
             if (count == 1) {
                 state.context.clear(Range.startsWith(uniqueValueSubspace.pack()));
-                if (state.store.getIndexState(state.index).isReadableUniquePending()) {
-                    state.store.addMarkReadableIfUniquenessResolvedCommitCheck(state.index);
-                }
+                MarkReadableIfUniquenessResolvedCommitCheck.addIfUniquePending(state.store, state.index);
             }
         });
     }

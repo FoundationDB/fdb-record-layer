@@ -1812,40 +1812,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Add a commit check that marks a {@link IndexState#READABLE_UNIQUE_PENDING} index as {@link IndexState#READABLE}
-     * if no uniqueness violations remain. This is deferred to commit time because the index state cannot be modified
-     * while records are being updated, and so that many resolved violations in one transaction cost a single check.
-     *
-     * @param index the index whose uniqueness violations may have been resolved
-     */
-    @API(API.Status.INTERNAL)
-    public void addMarkReadableIfUniquenessResolvedCommitCheck(@Nonnull Index index) {
-        final String commitCheckName = "markReadableIfUniquenessResolved_" + ByteArrayUtil2.toHexString(getSubspace().pack());
-        final MarkReadableIfUniquenessResolvedCommitCheck commitCheck = (MarkReadableIfUniquenessResolvedCommitCheck)
-                getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> new MarkReadableIfUniquenessResolvedCommitCheck());
-        commitCheck.indexes.add(index);
-    }
-
-    private class MarkReadableIfUniquenessResolvedCommitCheck implements FDBRecordContext.CommitCheckAsync {
-        // List of READABLE_UNIQUE_PENDING indexes to check
-        private final Set<Index> indexes = ConcurrentHashMap.newKeySet();
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Void> checkAsync() {
-            CompletableFuture<Boolean> anyChanged = AsyncUtil.READY_FALSE;
-            for (Index index : indexes) {
-                anyChanged = anyChanged.thenCompose(changed -> getIndexState(index).isReadableUniquePending()
-                        ? updateIndexStateToReadable(index, true).thenApply(indexChanged -> changed || indexChanged)
-                        : CompletableFuture.completedFuture(changed));
-            }
-            // This runs while the commit checks are being run, so remove the replaced indexes directly (and only once)
-            // rather than adding another commit check
-            return anyChanged.thenCompose(FDBRecordStore.this::removeReplacedIndexesIfChanged).thenApply(ignore -> null);
-        }
-    }
-
-    /**
      * Return a future that is ready when all uniqueness commit checks for the given index have completed.
      * This is needed because the uniqueness checks happen in the background, and if we rebuild an index in a
      * single transaction, we need to make sure that those checks have completed prior to trying to mark the
@@ -3124,7 +3090,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
      */
     @Nonnull
-    private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
+    CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
         if (changed) {
             return removeReplacedIndexes().thenApply(vignore -> true);
         } else {
@@ -4129,7 +4095,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> updateIndexStateToReadable(@Nonnull Index index, boolean allowUniquePending) {
+    CompletableFuture<Boolean> updateIndexStateToReadable(@Nonnull Index index, boolean allowUniquePending) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> updateIndexStateToReadable(index, allowUniquePending));
         }
