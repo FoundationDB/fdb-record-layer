@@ -503,6 +503,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     /**
      * Save the given records, then add the given unique indexes and build them into
      * {@link IndexState#READABLE_UNIQUE_PENDING}.
+     *
      * @param records records that violate the uniqueness of the indexes
      * @param indexes the unique indexes to add
      * @return the meta-data with the indexes
@@ -544,6 +545,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
     /**
      * Resolve the duplications a record is part of, either by deleting it or by updating it to unique values.
+     *
      * @param recNo the record to change
      * @param resolveByUpdate if true, update the record, otherwise delete it
      */
