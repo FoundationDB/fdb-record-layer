@@ -1178,7 +1178,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                             @Nonnull final List<RelationalParser.UidContext> references) {
         if (tree instanceof RelationalParser.FullColumnNameContext) {
             final var uids = ((RelationalParser.FullColumnNameContext)tree).fullId().uid();
-            if (uids.size() == 1 && declaredNames.contains(visitUid(uids.get(0)).getName())) {
+            if (declaredNames.contains(visitUid(uids.get(0)).getName())) {
                 references.add(uids.get(0));
                 return;
             }
