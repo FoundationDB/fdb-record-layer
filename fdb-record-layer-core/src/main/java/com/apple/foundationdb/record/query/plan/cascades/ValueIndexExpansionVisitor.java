@@ -88,8 +88,8 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         }
         final RecordType indexedRecordType = Iterables.getOnlyElement(indexedRecordTypes);
         return indexedRecordType instanceof final SyntheticRecordType<?> syntheticRecordType
-               ? Optional.of(syntheticRecordType)
-               : Optional.empty();
+                ? Optional.of(syntheticRecordType)
+                : Optional.empty();
     }
 
     /**
