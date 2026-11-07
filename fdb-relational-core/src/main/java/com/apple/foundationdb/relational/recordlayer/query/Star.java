@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -155,9 +156,10 @@ public final class Star extends Expression {
         final RecordConstructorValue rcv = RecordConstructorValue.ofColumns(expansion.underlyingAsColumns());
         if (rcv.getResultType().equals(possibleValue.getResultType())) {
             return possibleValue;
-        } else {
-            return rcv;
         }
+        // The expansion may be every field of a value other than the proposed one, such as the element of an explode,
+        // whose quantifier flows the element together with its ordinal. Use that value rather than the RCV.
+        return Values.collapseSimpleSelectMaybe(rcv).orElse(rcv);
     }
 
     @Nonnull

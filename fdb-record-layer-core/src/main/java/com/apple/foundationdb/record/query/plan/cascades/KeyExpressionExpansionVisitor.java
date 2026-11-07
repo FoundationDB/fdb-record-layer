@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionV
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
@@ -145,8 +147,13 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
-                value = state.registerValue(childBase.getFlowedObjectValue());
-                column = Column.unnamedOf(value);
+                value = state.registerValue(ExplodeValue.elementValue(childBase.getFlowedObjectValue()));
+                //
+                // The select over the explode flows the explode's whole (element, ordinal) struct rather than just the
+                // element, so that a query's select over the explode matches it whether it flows the element or the
+                // struct. The element is then accessed on the struct to form the column of this expansion.
+                //
+                column = Column.unnamedOf(childBase.getFlowedObjectValue());
                 final GraphExpansion childExpansion;
                 if (state.isKey() && !state.isInternalExpansion()) {
                     childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
@@ -161,7 +168,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion.Sealed sealedChildExpansion = childExpansion.seal();
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders()
-                        .pullUpQuantifier(childQuantifier)
+                        .addQuantifier(childQuantifier)
+                        .addResultColumn(Column.unnamedOf(ExplodeValue.elementValue(
+                                FieldValue.ofOrdinalNumber(childQuantifier.getFlowedObjectValue(), 0))))
                         .build();
             case Concatenate:
             case None:
@@ -311,12 +320,12 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
-                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier).withFieldNamePrefix(ImmutableList.of()))));
+                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier)
+                                .withFieldNamePrefix(ImmutableList.of(ExplodeValue.ELEMENT_FIELD_NAME)))));
                 final GraphExpansion baseAndChildExpansion;
                 if (state.isSelectStar()) {
                     final GraphExpansion baseExpansion =
-                            GraphExpansion.builder()
-                                    .pullUpQuantifier(childBaseQuantifier)
+                            pullUpExplodedElement(GraphExpansion.builder(), childBaseQuantifier)
                                     .build();
                     baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
 
@@ -339,7 +348,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                             GraphExpansion.builder()
                                     .addAllPredicates(childExpansion.getPredicates())
                                     .addAllPlaceholders(childExpansion.getPlaceholders());
-                    baseAndChildExpansionBuilder.pullUpQuantifier(childBaseQuantifier);
+                    pullUpExplodedElement(baseAndChildExpansionBuilder, childBaseQuantifier);
                     childExpansion.getQuantifiers()
                             .forEach(baseAndChildExpansionBuilder::pullUpQuantifier);
                     baseAndChildExpansion = baseAndChildExpansionBuilder.build();
@@ -367,6 +376,34 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    /**
+     * Adds a quantifier ranging over an explode to the builder and pulls up the columns of the exploded element followed
+     * by the ordinal, rather than the columns of the struct the explode flows. The struct holds the element in its first
+     * column, so pulling up the struct would yield a single opaque column for the element where a query's select over
+     * the same explode flows the element's fields, which then do not line up with each other. The ordinal is pulled up
+     * too, so that a query's select that flows the whole struct can still form it from the columns.
+     *
+     * @param builder the builder to add to
+     * @param explodeQuantifier a quantifier ranging over an {@link ExplodeValue}
+     * @return the {@code builder}
+     */
+    @Nonnull
+    private static GraphExpansion.Builder pullUpExplodedElement(@Nonnull final GraphExpansion.Builder builder,
+                                                                @Nonnull final Quantifier.ForEach explodeQuantifier) {
+        builder.addQuantifier(explodeQuantifier);
+        final Value elementValue = ExplodeValue.elementValue(explodeQuantifier.getFlowedObjectValue());
+        if (elementValue.getResultType() instanceof Type.Record) {
+            final var fields = Objects.requireNonNull(((Type.Record)elementValue.getResultType()).getFields());
+            for (int i = 0; i < fields.size(); i++) {
+                builder.addResultColumn(Column.of(fields.get(i), FieldValue.ofOrdinalNumberAndFuseIfPossible(elementValue, i)));
+            }
+        } else {
+            builder.addResultColumn(Column.unnamedOf(elementValue));
+        }
+        builder.addResultColumn(Column.unnamedOf(ExplodeValue.ordinalValue(explodeQuantifier.getFlowedObjectValue())));
+        return builder;
     }
 
     @Nonnull

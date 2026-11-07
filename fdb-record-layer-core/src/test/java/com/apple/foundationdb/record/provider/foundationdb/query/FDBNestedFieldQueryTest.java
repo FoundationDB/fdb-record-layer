@@ -366,10 +366,10 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                             predicatesFilterPlan(anyPlan())
                                                     .where(predicates(
                                                             SetMatcher.exactlyInAnyOrder(
-                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
-                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
-            assertEquals(421777963, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1395511816, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
+            assertEquals(739807064, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-467806067, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> TestHelpers.assertDiscardedAtMost(5, context)));
@@ -659,11 +659,11 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                             predicatesFilterPlan(anyPlan())
                                                     .where(predicates(
                                                             SetMatcher.exactlyInAnyOrder(
-                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
-                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("_0.value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
 
-            assertEquals(-981888014, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(2030491452, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(1775342811, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1249589059, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 

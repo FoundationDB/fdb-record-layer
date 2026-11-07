@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -105,6 +106,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -868,11 +870,13 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
                 // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
                 // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                assertEquals(-1152849777, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                assertEquals(914843935, plan.planHash(PlanHashable.CURRENT_LEGACY));
             }
 
+            final var evaluationContext =
+                    EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build());
             assertEquals(Arrays.asList(800L, 1776L),
-                    recordStore.executeQuery(plan)
+                    plan.execute(recordStore, evaluationContext)
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join());

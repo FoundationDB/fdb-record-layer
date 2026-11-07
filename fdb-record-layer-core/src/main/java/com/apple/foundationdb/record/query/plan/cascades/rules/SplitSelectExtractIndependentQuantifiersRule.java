@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -42,8 +43,9 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.explodeValue;
 
 /**
  * A rule that splits a {@link SelectExpression} into two {@link SelectExpression}s if one or more quantifiers this
@@ -55,8 +57,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *     <li>
  *         the quantifier ranges over a sub expression of limited cardinality. That means that the maximum
  *         cardinality of the sub expression should have an explicit upper bound. In reality this means that
- *         the subexpression is an {@link ExplodeExpression} over a parameter as we do not properly derive a maximum
- *         cardinality property (yet).
+ *         the subexpression is a {@link TableFunctionExpression} over an {@link ExplodeValue}, as we do not
+ *         properly derive a maximum cardinality property for explodes over parameters (yet).
  *     </li>
  * </ul>
  *
@@ -72,10 +74,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
-    private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
+    private static final BindingMatcher<ExplodeValue> explodeValueMatcher = explodeValue();
     // Match any for-each quantifier, as the rewrite moves the extracted quantifiers unchanged into the upper SELECT,
     // which honors their semantics.
-    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
+    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(tableFunctionExpression(explodeValueMatcher)));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);

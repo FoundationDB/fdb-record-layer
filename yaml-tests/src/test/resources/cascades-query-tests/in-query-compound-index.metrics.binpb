@@ -1,8 +1,8 @@
-Ã
+Æ
 ƒ
-in-query-compound-indexhEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by str_value_indexedº
+in-query-compound-indexhEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by str_value_indexed½
 ››Š›
-É Ý’½(I0õßG8H@ç[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH±digraph G {
+É Ý’½(I0õßG8H@ê[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -20,10 +20,10 @@
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}¤
+}§
 À
-in-query-compound-index¤EXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) and str_value_indexed > 'bar' and str_value_indexed < 'foo' order by str_value_indexedÞ
-ª¥¾®‚ ¥³¬(_0‡¼_8k@´[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0, [GREATER_THAN promote(@c17 AS STRING) && LESS_THAN promote(@c21 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCHˆdigraph G {
+in-query-compound-index¤EXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) and str_value_indexed > 'bar' and str_value_indexed < 'foo' order by str_value_indexedá
+ª¥¾®‚ ¥³¬(_0‡¼_8k@·[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0._0, [GREATER_THAN promote(@c17 AS STRING) && LESS_THAN promote(@c21 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCHˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -41,10 +41,10 @@
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}¥
+}¨
 Á
- in-query-compound-index-preparedœEXPLAIN select * from my_simple_record where num_value_3_indexed in ? and str_value_indexed > 'bar' and str_value_indexed < 'foo' order by str_value_indexedÞ
-ª‹Ž‚ Äî‹(_0 Î[8k@´[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0, [GREATER_THAN promote(@c11 AS STRING) && LESS_THAN promote(@c15 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCHˆdigraph G {
+ in-query-compound-index-preparedœEXPLAIN select * from my_simple_record where num_value_3_indexed in ? and str_value_indexed > 'bar' and str_value_indexed < 'foo' order by str_value_indexedá
+ª‹Ž‚ Äî‹(_0 Î[8k@·[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0._0, [GREATER_THAN promote(@c11 AS STRING) && LESS_THAN promote(@c15 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCHˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
