@@ -307,8 +307,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                     .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
         }
         return anySynthetic
-               ? RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.SYNTHETIC_CONSTITUENTS
-               : RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
+                ? RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.SYNTHETIC_CONSTITUENTS
+                : RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
     }
 
     @Override
