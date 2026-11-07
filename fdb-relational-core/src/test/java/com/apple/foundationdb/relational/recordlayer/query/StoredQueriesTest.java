@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -132,17 +133,15 @@ public class StoredQueriesTest {
                     " AS select * from t1 where flag = b";
 
     /**
-     * The first query's parameter type cannot be resolved at warm-up; the second must still be warmed. A template type
-     * in a parameter list is written {@code TYPE s1} — unlike a column definition, the keyword is required.
+     * A query with a struct parameter of a custom type. A struct type in a parameter list is written {@code TYPE s1}.
      */
-    private static final String SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE =
+    private static final String SCHEMA_TEMPLATE_CUSTOM_STRUCT_TYPE =
             "CREATE TYPE AS STRUCT s1(f1 bigint)" +
                     " CREATE TABLE t1(id bigint, col1 bigint, st s1, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE STORED QUERY by_struct(p TYPE s1)" +
                     "   PREPARE FOR (p IS NOT NULL)" +
-                    " AS select * from t1 where st = p" +
-                    " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10";
+                    " AS select * from t1 where st.f1 = P.F1";
 
     @RegisterExtension
     @Order(0)
@@ -790,24 +789,45 @@ public class StoredQueriesTest {
      * The built template keeps no named types, so that stored query is skipped and the next one still warms.
      */
     @Test
-    void parameterTypeWarmUpCannotResolveSkipsOnlyThatQuery() throws Exception {
+    void storedQueryWithCustomStructTypeParameter() throws Exception {
+        final var dbName = "/TEST/SQ_CUSTOM_STRUCT_DB";
         try (var ddl = Ddl.builder()
-                .database(URI.create("/TEST/SQ_UNRESOLVABLE_DB"))
+                .database(URI.create(dbName))
                 .relationalExtension(relationalExtension)
-                .schemaTemplate(SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE)
+                .schemaTemplate(SCHEMA_TEMPLATE_CUSTOM_STRUCT_TYPE)
                 .build()) {
+
             final String templateName = ddl.getSchemaTemplateName();
             final var engineDriver = relationalExtension.getDriver(
                     com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
 
             Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(engineDriver).getFromCatalog(
                     conn -> countCachedPlans(conn, templateName)));
-            // Plan counters are per case, query counters per query — and here the two cases belong to different queries.
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED));
-            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
+
+            final var connection = ddl.setSchemaAndGetConnection();
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, (1L))");
+            }
+
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            connectionUtils.runAgainstConnection(dbName, connection.getSchema(), c -> {
+                try (var ps = c.prepareStatement("select * from t1 where st.f1 = ?P.F1")) {
+                    ps.setObject("P", EmbeddedRelationalStruct.newBuilder()
+                            .addLong("F1", 1L)
+                            .build());
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        ResultSetAssert.assertThat(rs)
+                                .hasNextRow()
+                                .hasColumn("ID", 1L)
+                                .hasColumn("col1", 10L)
+                                .hasNoNextRow();
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+
         }
     }
-
 }
