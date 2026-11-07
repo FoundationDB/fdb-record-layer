@@ -513,6 +513,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
     @Test
     void testMarkReadableOrUniquePendingUnchanged() {
+        // markIndexReadableOrUniquePending does not change a unique pending index while violations remain, nor after
+        // resolving them, which marks the index readable on its own
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
@@ -570,12 +572,12 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // assert change after resolving
+        // resolving the last violation should have marked the index readable
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
-                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+                assertTrue(recordStore.getIndexState(index).isReadable());
                 boolean changed = recordStore.markIndexReadableOrUniquePending(index).join();
-                assertTrue(changed);
+                assertFalse(changed);
             }
             context.commit();
         }

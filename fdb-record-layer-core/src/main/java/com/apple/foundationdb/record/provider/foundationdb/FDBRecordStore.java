@@ -3069,8 +3069,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     private boolean addRemoveReplacedIndexesCommitCheckIfChanged(boolean changed) {
         if (changed) {
-            final String commitCheckName = "removeReplacedIndexes_" + ByteArrayUtil2.toHexString(getSubspace().pack());
-            getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> this::removeReplacedIndexes);
+            IndexStateCommitCheck.markIndexStatesChanged(this);
         }
         return changed;
     }
@@ -3090,7 +3089,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
      */
     @Nonnull
-    private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
+    CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
         if (changed) {
             return removeReplacedIndexes().thenApply(vignore -> true);
         } else {
@@ -4091,8 +4090,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index, boolean allowUniquePending) {
+        return updateIndexStateToReadable(index, allowUniquePending).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
+    }
+
+    @Nonnull
+    CompletableFuture<Boolean> updateIndexStateToReadable(@Nonnull Index index, boolean allowUniquePending) {
         if (recordStoreStateRef.get() == null) {
-            return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index, allowUniquePending));
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> updateIndexStateToReadable(index, allowUniquePending));
         }
 
         addIndexStateReadConflict(index.getName());
@@ -4109,7 +4113,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
+            }).whenComplete((b, t) -> endRecordStoreStateWrite());
             haveFuture = true;
             return future;
         } finally {
