@@ -121,7 +121,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.firstOrDefaultPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inExplodeJoinPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inParameterJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
@@ -817,7 +817,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan,
                 flatMapPlan(
                         fetchFromPartialRecordPlan(
-                                inExplodeJoinPlan(
+                                inParameterJoinPlan(
                                         coveringIndexPlan()
                                                 .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(equalities(exactly(anyValueComparison()))))))
                                 )
