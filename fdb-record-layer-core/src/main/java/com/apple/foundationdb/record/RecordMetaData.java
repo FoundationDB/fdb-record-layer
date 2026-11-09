@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -258,6 +259,26 @@ public class RecordMetaData implements RecordMetaDataProvider {
             throw new MetaDataException("Unknown synthetic record type " + name);
         }
         return recordType;
+    }
+
+    /**
+     * Get the synthetic record types whose records are all generated from records of the given stored record types.
+     * That is the case if every stored constituent of the synthetic record type is of one of the given types.
+     *
+     * @param recordTypes the stored record types records are read from
+     * @return the synthetic record types whose records are all generated from records of {@code recordTypes}
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public List<SyntheticRecordType<?>> getSyntheticRecordTypesFromRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        final List<SyntheticRecordType<?>> result = new ArrayList<>();
+        for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
+            final Set<RecordType> storedRecordTypes = syntheticRecordType.getStoredRecordTypes();
+            if (!storedRecordTypes.isEmpty() && recordTypes.containsAll(storedRecordTypes)) {
+                result.add(syntheticRecordType);
+            }
+        }
+        return result;
     }
 
     @Nonnull
