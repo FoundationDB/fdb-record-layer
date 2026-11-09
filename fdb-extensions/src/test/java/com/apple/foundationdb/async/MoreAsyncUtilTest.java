@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -569,6 +570,72 @@ public class MoreAsyncUtilTest {
         final List<String> result = AsyncUtil.collect(
                 MoreAsyncUtil.dedupIterable(EXECUTOR, iterableOf(null, null, "a", "a")), EXECUTOR).join();
         assertEquals(Arrays.asList(null, null, "a"), result);
+    }
+
+    @Test
+    void concatIterablesAsListConcatenatesInOrder() {
+        final AsyncIterable<Integer> concatenated = concat(iterableOf(1, 2), iterableOf(3), iterableOf(4, 5));
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5), concatenated.asList().join());
+    }
+
+    @Test
+    void concatIterablesAsListOfNothingIsEmpty() {
+        assertTrue(MoreAsyncUtilTest.<String>concat().asList().join().isEmpty());
+    }
+
+    @Test
+    void concatIterablesAsListOfSingleIterable() {
+        assertEquals(Arrays.asList(1, 2, 3), concat(iterableOf(1, 2, 3)).asList().join());
+    }
+
+    @Test
+    void concatIterablesSkipsEmptyIterables() {
+        final AsyncIterable<Integer> concatenated = concat(
+                iterableOf(), iterableOf(1), iterableOf(), iterableOf(), iterableOf(2), iterableOf());
+        assertEquals(Arrays.asList(1, 2), concatenated.asList().join());
+    }
+
+    @Test
+    void concatIterablesIteratesSynchronouslyInOrder() {
+        try (CloseableAsyncIterator<Integer> iterator = concatIterator(iterableOf(1, 2), iterableOf(3))) {
+            final List<Integer> expected = Arrays.asList(1, 2, 3);
+            int i = 0;
+            while (iterator.hasNext()) {
+                assertEquals(expected.get(i), iterator.next());
+                i++;
+            }
+            assertEquals(expected.size(), i, "Array should be exhausted");
+            assertFalse(iterator.hasNext(), "an exhausted iterator has no more elements");
+            assertThrows(NoSuchElementException.class, iterator::next);
+        }
+    }
+
+    @Test
+    void concatIterablesIteratesAsynchronouslyInOrder() {
+        try (CloseableAsyncIterator<Integer> iterator = concatIterator(iterableOf(1, 2), iterableOf(), iterableOf(3))) {
+            final List<Integer> expected = Arrays.asList(1, 2, 3);
+            int i = 0;
+            while (iterator.onHasNext().join()) {
+                assertEquals(expected.get(i), iterator.next());
+                i++;
+            }
+            assertEquals(expected.size(), i, "Array should be exhausted");
+            assertFalse(iterator.onHasNext().join(), "an exhausted iterator has no more elements");
+            assertThrows(NoSuchElementException.class, iterator::next);
+        }
+    }
+
+    @SafeVarargs
+    @SuppressWarnings("varargs") // passing the non-reifiable T[] through trips -Xlint:varargs; the helper is safe
+    private static <T> AsyncIterable<T> concat(final AsyncIterable<T>... iterables) {
+        return MoreAsyncUtil.concatIterables(EXECUTOR, iterables);
+    }
+
+    @SafeVarargs
+    @SuppressWarnings("varargs") // see concat
+    private static <T> CloseableAsyncIterator<T> concatIterator(final AsyncIterable<T>... iterables) {
+        // concatIterables returns an iterable whose iterators are closeable, but declares only AsyncIterator.
+        return (CloseableAsyncIterator<T>)concat(iterables).iterator();
     }
 
     @SafeVarargs

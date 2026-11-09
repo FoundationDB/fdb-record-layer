@@ -442,9 +442,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         QueryPlanConstraint.noConstraint());
 
         final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
-                indexEntryToLogicalRecord.getQueriedRecordType().getName(),
+                indexEntryToLogicalRecord.queriedRecordType().getName(),
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
-                indexEntryToLogicalRecord.getIndexKeyValueToPartialRecord());
+                indexEntryToLogicalRecord.indexKeyValueToPartialRecord());
 
         return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
@@ -462,7 +462,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 baseAlias,
                 sourceAlias,
                 targetAlias,
-                indexEntryToLogicalRecord.getLogicalKeyValues());
+                indexEntryToLogicalRecord.logicalKeyValues());
     }
 
     @Nonnull

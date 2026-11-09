@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -81,7 +80,7 @@ public class IndexTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(IndexTest.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -93,17 +92,9 @@ public class IndexTest {
         Utils.enableCascadesDebugger();
     }
 
-    void shouldFailWith(@Nonnull final String query, @Nonnull final ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
-        connection.setAutoCommit(false);
-        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
-        final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest").getPlan(query));
-        Assertions.assertEquals(errorCode, ve.getErrorCode());
-        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT,
-                "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
-        connection.rollback();
-        connection.setAutoCommit(true);
+    void shouldFailWith(@Nonnull final String query, @Nonnull final ErrorCode errorCode,
+                        @Nonnull final String errorMessage) throws Exception {
+        DdlTestUtil.shouldFailWith(connection, database.getSchemaTemplateName(), "/IndexTest", query, errorCode, errorMessage);
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
@@ -112,7 +103,8 @@ public class IndexTest {
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         Assertions.assertDoesNotThrow(() ->
                 DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest", metadataOperationsFactory).getPlan(query));
+                        "/IndexTest", metadataOperationsFactory)
+                        .getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -284,6 +276,21 @@ public class IndexTest {
                                 field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))
                         ))),
                 IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithChainedUnnestingAdjacentKeepsFanOut() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT Q(y bigint, y2 bigint) " +
+                "CREATE TYPE AS STRUCT P(x bigint, x2 bigint, q Q array) " +
+                "CREATE TABLE A(k bigint, p P array, primary key(k)) " +
+                "CREATE INDEX mv1 AS SELECT b.x, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, c.y";
+        indexIs(stmt, field("P", KeyExpression.FanType.None)
+                .nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut)
+                        .nest(concat(field("X"), field("Q", KeyExpression.FanType.None)
+                                .nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut)
+                                        .nest(field("Y")))))), IndexTypes.VALUE);
     }
 
     /**
@@ -508,18 +515,31 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.p1,Y.p2 FROM (SELECT p1, a1,c1 FROM T1) X, (SELECT p2, b2 FROM T2) Y order by x.p1, y.p2";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "the joined tables must be selected from directly rather than through a subquery");
     }
 
+    /**
+     * A join of two tables is supported (see {@code JoinedSyntheticTypeParsingTest}), but only with a condition
+     * relating them — without one the index would cover the full cross product.
+     */
     @Test
-    void createIndexWithJoiningMoreThanOneTableIsNotSupported() throws Exception {
+    void createIndexJoiningTablesWithoutAJoinConditionIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT * FROM T1, T2 order by t1.p1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "requires a join condition relating them");
+    }
+
+    /** A definition that reads no table has nothing to index, and is told so rather than that it scans too much. */
+    @Test
+    void createIndexOverNoTableIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p bigint, a bigint, primary key(p)) " +
+                "CREATE INDEX mv1 AS SELECT 1 AS c";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "it does not read from any table");
     }
 
     @Test
@@ -724,7 +744,7 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 bigint, c1 string, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 bigint, b2 string, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.a1,X.c1, Y.b2 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "the joined tables must be selected from directly rather than through a subquery");
     }
 
     @Test
@@ -737,6 +757,20 @@ public class IndexTest {
     }
 
     @Test
+    void createIndexOverNestedRepeatedUnderPathAdjacentKeepsFanOut() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT S1(a string, b string) " +
+                "CREATE TYPE AS STRUCT S2(x S1 array, y S1) " +
+                "CREATE TYPE AS STRUCT S3(alpha S2, beta S2) " +
+                "CREATE TABLE T(id bigint, fizz S3, buzz bigint, primary key(id)) " +
+                "CREATE INDEX mv1 AS SELECT u.a, u.b, T.buzz " +
+                "FROM T, (SELECT a, b FROM T.fizz.alpha.x) AS u ORDER BY u.a, u.b, T.buzz";
+        indexIs(stmt, concat(field("FIZZ").nest(field("ALPHA").nest(field("X")
+                        .nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("A", "B"))))),
+                field("BUZZ")), IndexTypes.VALUE);
+    }
+
+    @Test
     void createIndexWithNestedRepeatedCartesianProduct() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
@@ -746,21 +780,60 @@ public class IndexTest {
     }
 
     @Test
-    void createIndexWithRepeatedNestedSplitByField() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
-                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
-    }
-
-    @Test
     void createIndexWithRepeatedNestedCartesianSplitByField() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT Y.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X, (SELECT col2 FROM T1.A) Y ORDER BY Y.col2, T1.col5, X.col3";
         indexIs(stmt, keyWithValue(concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL2")), field("COL5"), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 3), IndexTypes.VALUE);
+    }
+
+    /**
+     * The same columns and the same predicate as
+     * {@link UnnestedSyntheticTableIndexTest#createIndexWithPredicateOverUnnestedSyntheticTableIsNotSupported()}, but
+     * with the two columns of {@code X} made adjacent. That is expressible as a fan-out, so no synthetic type is needed
+     * and the predicate is accepted -- reordering the key alone decides whether the predicate is allowed.
+     */
+    @Test
+    void createIndexWithPredicateIsSupportedWhenUnnestingNeedsNoSyntheticTable() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, X.col3, T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col2, X.col3, T1.col5";
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut)
+                        .nest(concatenateFields("COL2", "COL3"))), field("COL5")), IndexTypes.VALUE,
+                index -> assertThat(index.getPredicate()).isEqualTo(greaterThanTen("COL5")));
+    }
+
+    /**
+     * The same predicate is fine when the shape does not need a synthetic type: one column per unnesting
+     * keeps the index on the stored table with a fan-out.
+     */
+    @Test
+    void createIndexWithPredicateOverUnnestingIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3, T1.col5 FROM T1, (SELECT col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col3, T1.col5";
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL3")),
+                        field("COL5")), IndexTypes.VALUE,
+                index -> assertThat(index.getPredicate()).isEqualTo(greaterThanTen("COL5")));
+    }
+
+    @Nonnull
+    private static Predicate greaterThanTen(@Nonnull final String column) {
+        return Predicate.newBuilder()
+                .setValuePredicate(ValuePredicate.newBuilder().addValue(column)
+                        .setComparison(Comparison.newBuilder()
+                                .setSimpleComparison(SimpleComparison.newBuilder()
+                                        .setType(ComparisonType.GREATER_THAN)
+                                        .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                        .build())
+                                .build())
+                        .build())
+                .build();
     }
 
     @Test
@@ -925,16 +998,6 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT t1.\"__ROW_VERSION\", X.col3, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X ORDER BY t1.\"__ROW_VERSION\", X.col3 " +
                 "WITH OPTIONS(store_row_versions=true)";
         indexIs(stmt, keyWithValue(concat(version(), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 2), IndexTypes.VERSION);
-    }
-
-    @Test
-    void createVersionIndexWithRepeatedNestedSplitByVersion() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
-                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT X.col2, T1.\"__ROW_VERSION\", X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.\"__ROW_VERSION\", X.col3 " +
-                "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
     }
 
     @Test
@@ -1198,7 +1261,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M order by M.x) SQ";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is not supported in a subquery");
     }
 
     @Test
@@ -1207,7 +1270,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t where exists (select M.x from t.a AS M order by M.x)";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is not supported in a subquery");
     }
 
     @Test

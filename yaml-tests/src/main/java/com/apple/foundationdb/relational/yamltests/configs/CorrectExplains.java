@@ -27,9 +27,8 @@ import javax.annotation.Nonnull;
 /**
  * A configuration that runs an underlying configuration, but heals expected explains in YAML files where
  * expected and actual explains differ.
- * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN}.
- * </p>
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN}.
  */
 public class CorrectExplains extends ConfigWithOptions {
     public CorrectExplains(@Nonnull final YamlTestConfig underlying) {

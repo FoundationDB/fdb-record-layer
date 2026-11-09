@@ -63,13 +63,14 @@ class EliminateNullOnEmptyRuleTest {
     }
 
     /**
-     * Tests the rule against the following QGM:
+     * Tests that we can eliminate a single null on empty. Initial QGM:
      * <pre>{@code
      *   Select [q.a = 42]
      *     └── q: ƒ (nullOnEmpty)
      *          └── Select [b > 'hello']
      *                └── ƒ ── BaseScan(T)
      * }</pre>
+     *
      * <p>The predicate {@code q.a = 42} rejects the null tuple injected by the null-on-empty quantifier, so the rule
      * replaces {@code q} with a normal {@code ForEach}.
      */
@@ -115,6 +116,7 @@ class EliminateNullOnEmptyRuleTest {
      *     └── q3: ƒ
      *           └── BaseScan(T)
      * }</pre>
+     *
      * <p>The predicate references {@code q1.a} only; so the rule fires once with {@code q1} bound and replaces it with
      * a normal {@code ForEach}, while leaving {@code q2} and {@code q3} unchanged.
      */
@@ -171,6 +173,7 @@ class EliminateNullOnEmptyRuleTest {
      *           └── Select [b > 'hello'] → (a, b, c)
      *                 └── ƒ ── BaseScan(T)
      * }</pre>
+     *
      * <p>Both predicates reject the null tuple at their respective alias, so the rule fires once and replaces both
      * {@code q1} and {@code q2} with normal {@code ForEach} quantifiers in a single yielded expression.
      */
@@ -267,6 +270,7 @@ class EliminateNullOnEmptyRuleTest {
      *     │           └── ƒ ── BaseScan(T)
      *     └── r: ƒ ── BaseScan(T)
      * }</pre>
+     *
      * <p>{@link SelectExpression} flattens the non-atomic top-level {@code AND} into separate conjuncts at
      * construction, so the rule sees {@code q.a = 42} on its own and, since it provably rejects null, eliminates the
      * null-on-empty.

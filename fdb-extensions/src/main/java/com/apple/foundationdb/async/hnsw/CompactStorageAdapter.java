@@ -48,8 +48,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * The {@code CompactStorageAdapter} class is a concrete implementation of {@link StorageAdapter} for managing HNSW
  * graph data in a compact format.
- * <p>
- * It handles the serialization and deserialization of graph nodes to and from a persistent data store. This
+ *
+ * <p>It handles the serialization and deserialization of graph nodes to and from a persistent data store. This
  * implementation is optimized for space efficiency by storing nodes with their accompanying vector data and by storing
  * just neighbor primary keys. It extends {@link AbstractStorageAdapter} to inherit common storage logic.
  */
@@ -82,8 +82,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Asynchronously fetches a node from the database for a given layer and primary key.
-     * <p>
-     * This internal method constructs a raw byte key from the {@code layer} and {@code primaryKey} within the store's
+     *
+     * <p>This internal method constructs a raw byte key from the {@code layer} and {@code primaryKey} within the store's
      * data subspace. It then uses the provided {@link ReadTransaction} to retrieve the raw value. If a value is found,
      * it is deserialized into a {@link AbstractNode} object using the {@code nodeFromRaw} method.
      *
@@ -92,7 +92,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *        into the current storage space
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
-     *
      * @return a future that will complete with the fetched {@link AbstractNode} or {@code null} if the node cannot
      *         be fetched
      */
@@ -114,8 +113,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Deserializes a raw key-value byte array pair into a {@code Node}.
-     * <p>
-     * This method first converts the {@code valueBytes} into a {@link Tuple} and then,
+     *
+     * <p>This method first converts the {@code valueBytes} into a {@link Tuple} and then,
      * along with the {@code primaryKey}, constructs the final {@code Node} object.
      * It also notifies any registered {@link OnReadListener} about the raw key-value
      * read and the resulting node creation.
@@ -126,7 +125,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param primaryKey the primary key for the node
      * @param keyBytes the raw byte representation of the node's key
      * @param valueBytes the raw byte representation of the node's value, which will be deserialized
-     *
      * @return a non-null, deserialized {@link AbstractNode} object
      */
     @Nonnull
@@ -143,8 +141,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Constructs a compact {@link AbstractNode} from its representation as stored key and value tuples.
-     * <p>
-     * This method deserializes a node by extracting its components from the provided tuples. It verifies that the
+     *
+     * <p>This method deserializes a node by extracting its components from the provided tuples. It verifies that the
      * node is of type {@link NodeKind#COMPACT} before delegating the final construction to
      * {@link #compactNodeFromTuples(StorageTransform, Tuple, Tuple, Tuple, Tuple)}. The {@code valueTuple} is expected
      * to have a specific structure: the serialized node kind at index 0, a nested tuple for the vector at index 1,
@@ -154,9 +152,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *        into the storage space that is currently being used
      * @param primaryKey the tuple representing the primary key of the node
      * @param valueTuple the tuple containing the serialized node data, including kind, vector, and neighbors
-     *
      * @return the reconstructed compact {@link AbstractNode}
-     *
      * @throws com.google.common.base.VerifyException if the node kind encoded in {@code valueTuple} is not
      *         {@link NodeKind#COMPACT}
      */
@@ -176,19 +172,17 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Creates a compact in-memory representation of a graph node from its constituent storage tuples.
-     * <p>
-     * This method deserializes the raw data stored in {@code Tuple} objects into their
+     *
+     * <p>This method deserializes the raw data stored in {@code Tuple} objects into their
      * corresponding in-memory types. It extracts the vector, constructs a list of
      * {@link NodeReference} objects for the neighbors, and then uses a factory to
      * assemble the final {@code Node} object.
-     * </p>
      *
      * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
      * @param primaryKey the tuple representing the node's primary key
      * @param vectorTuple the tuple containing the node's vector data
      * @param neighborsTuple the tuple containing a list of nested tuples, where each nested tuple represents a neighbor
-     *
      * @return a new {@code Node} instance containing the deserialized data from the input tuples
      */
     @Nonnull
@@ -273,15 +267,14 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Constructs the raw database key for a node based on its layer and primary key.
-     * <p>
-     * This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
+     *
+     * <p>This key is created by packing a tuple containing the specified {@code layer} and the node's {@code primaryKey}
      * within the data subspace. The resulting byte array is suitable for use in direct database lookups and preserves
      * the sort order of the components.
      *
      * @param layer the layer index where the node resides
      * @param primaryKey the primary key that uniquely identifies the node within its layer,
      * encapsulated in a {@link Tuple}
-     *
      * @return a byte array representing the packed key for the specified node
      */
     @Nonnull
@@ -291,23 +284,26 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
     /**
      * Scans a given layer for nodes, returning an iterable over the results.
-     * <p>
-     * This method reads a limited number of nodes from a specific layer in the underlying data store.
+     *
+     * <p>This method reads a limited number of nodes from a specific layer in the underlying data store.
      * The scan can be started from a specific point using the {@code lastPrimaryKey} parameter, which is
      * useful for paginating through the nodes in a large layer.
      *
      * @param readTransaction the transaction to use for reading data; must not be {@code null}
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param layer the layer to scan for nodes
      * @param lastPrimaryKey the primary key of the last node from a previous scan. If {@code null},
      * the scan starts from the beginning of the layer.
      * @param maxNumRead the maximum number of nodes to read in this scan
-     *
      * @return an {@link Iterable} of {@link AbstractNode} objects found in the specified layer,
      * limited by {@code maxNumRead}
      */
     @Nonnull
     @Override
-    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction,
+                                                                @Nonnull final StorageTransform storageTransform,
+                                                                int layer,
                                                                 @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
         final Range range =
@@ -322,7 +318,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             final byte[] key = keyValue.getKey();
             final byte[] value = keyValue.getValue();
             final Tuple primaryKey = getDataSubspace().unpack(key).getNestedTuple(1);
-            return nodeFromRaw(StorageTransform.identity(), layer, primaryKey, key, value);
+            return nodeFromRaw(storageTransform, layer, primaryKey, key, value);
         });
     }
 }

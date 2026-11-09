@@ -33,6 +33,7 @@ final class ReplTestUtil {
 
     /**
      * Return a key and a value colored using the same colors used in {@link PlannerRepl} as a {@link String}.
+     *
      * @param key key to include in return string
      * @param value value to include in return string
      * @return a {@link String} with {@code key} and {@code value} concatenated with the expected colors.

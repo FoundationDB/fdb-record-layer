@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
@@ -43,6 +44,9 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -155,6 +159,58 @@ public class TransactionBoundDatabaseTest {
                 // Assertions.assertThat(engine.getPlanCache().getStats().numEntries()).isEqualTo(1L);
             }
         }
+    }
+
+    /**
+     * A stored query warmed through the driver is a cache hit for the same query on a connection.
+     */
+    @Test
+    void planStoredQueriesWarmsPlanThatConnectionHitsfuf() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final String query = "SELECT * FROM RESTAURANT WHERE REST_NO > 10";
+        final var schemaTemplate = (RecordLayerSchemaTemplate) getSchemaTemplate(embeddedConnection);
+        final var warmUpTemplate = schemaTemplate.toBuilder()
+                .addStoredQuery("BY_REST_NO", query, List.of(), Map.of(), List.of())
+                .build();
+        final var engine = new TransactionBoundEmbeddedRelationalEngine(Options.NONE);
+
+        new EmbeddedRelationalDriver(engine).planStoredQueries(warmUpTemplate,
+                getStore(embeddedConnection).getRecordMetaData(), NoOpMetricCollector.INSTANCE, Options.NONE);
+
+        Assertions.assertThat(engine.getPlanCache().getStats().getAllSecondaryKeys(schemaTemplate.getName())).hasSize(1);
+
+        final FDBStoreTimer timer;
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            timer = context.getTimer();
+            Assertions.assertThat(timer).isNotNull();
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                withTransactionBoundConnection(engine, transaction, context, conn -> {
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        try (RelationalResultSet resultSet = statement.executeQuery(query)) {
+                            Assertions.assertThat(resultSet.next()).isFalse();
+                        }
+                    }
+                });
+            }
+        }
+        Assertions.assertThat(timer.getCount(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS)).isZero();
+        Assertions.assertThat(timer.getCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isEqualTo(1);
+    }
+
+    @Test
+    void planStoredQueriesWithoutPlanCacheDoesNothing() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var schemaTemplate = (RecordLayerSchemaTemplate) getSchemaTemplate(embeddedConnection);
+        final var warmUpTemplate = schemaTemplate.toBuilder()
+                .addStoredQuery("BY_REST_NO", "SELECT * FROM RESTAURANT WHERE REST_NO > 10", List.of(), Map.of(),
+                        List.of())
+                .build();
+        final var engine = new TransactionBoundEmbeddedRelationalEngine(
+                Options.builder().withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 0).build());
+        Assertions.assertThat(engine.getPlanCache()).isNull();
+
+        new EmbeddedRelationalDriver(engine).planStoredQueries(warmUpTemplate,
+                getStore(embeddedConnection).getRecordMetaData(), NoOpMetricCollector.INSTANCE, Options.NONE);
     }
 
     @Test
@@ -341,12 +397,12 @@ public class TransactionBoundDatabaseTest {
                 store -> {
                     saveSimpleRecord(store, "First");
                     saveSimpleRecord(store, "Second");
-                });
+                }, true);
         final KeySpacePath sourcePath2 = sourcePath.add("schema2");
         withStore(embeddedConnection, sourcePath2, metadata, store1 -> {
             saveSimpleRecord(store1, "Alpha");
             saveSimpleRecord(store1, "Beta");
-        });
+        }, true);
         // export the data
         final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
@@ -357,25 +413,26 @@ public class TransactionBoundDatabaseTest {
                 store -> {
                     assertSimpleRecordExists(store, "First");
                     assertSimpleRecordExists(store, "Second");
-                });
+                }, false);
 
         withStore(embeddedConnection, destPath.add("schema2"), metadata,
                 store -> {
                     assertSimpleRecordExists(store, "Alpha");
                     assertSimpleRecordExists(store, "Beta");
-                });
+                }, false);
     }
 
     private static void withStore(final EmbeddedRelationalConnection embeddedConnection,
                                   final KeySpacePath path,
                                   final RecordMetaData metadata,
-                                  final Consumer<FDBRecordStore> action) throws RelationalException {
+                                  final Consumer<FDBRecordStore> action,
+                                  final boolean newStore) throws RelationalException {
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final FDBRecordStore store = FDBRecordStore.newBuilder()
+            final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                     .setKeySpacePath(path)
                     .setMetaDataProvider(() -> metadata)
-                    .setContext(context)
-                    .build();
+                    .setContext(context);
+            final FDBRecordStore store = newStore ? storeBuilder.create() : storeBuilder.open();
             action.accept(store);
             context.commit();
         }

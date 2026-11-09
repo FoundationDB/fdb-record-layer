@@ -102,6 +102,7 @@ public final class PlanValidator {
     /**
      * Attempts to resolve the correct {@link PlanHashMode} that corresponds to the {@link RecordQueryPlan}
      * passed in given the continuation presented by the client.
+     *
      * @param plan the {@link RecordQueryPlan}
      * @param continuation this continuation
      * @param currentPlanHashMode the current plan hash mode

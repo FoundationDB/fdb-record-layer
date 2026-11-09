@@ -23,9 +23,11 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.async.common.VectorEncodingConfig;
 import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Configuration for the Guardiann vector structure.
@@ -63,8 +65,12 @@ import javax.annotation.Nonnull;
  * @param deleteConcurrency concurrency for parallel operations during delete
  * @param splitNumNearestClusters number of nearest clusters fetched from HNSW for split candidate evaluation
  * @param mergeNumNearestClusters number of nearest clusters fetched from HNSW for merge candidate evaluation
- * @param kMeansMaxIterations maximum Lloyd's iterations per k-means restart
- * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
+ * @param kMeansMaxIterations maximum Lloyd's iterations per k-means run
+ * @param kMeansNumRuns number of runs per k-means fit of a split or merge (see
+ *        {@link com.apple.foundationdb.kmeans.KMeans#fit}); at least 1
+ * @param kMeansBalancingLadder relative size-balancing strengths a split tries in order, moving on to the next one
+ *        only when no candidate clears {@link #minChildFraction()} (see
+ *        {@link com.apple.foundationdb.kmeans.KMeans#fit}); non-empty, finite, non-negative and strictly increasing
  * @param reassignNumNeighboringClusters outer clusters considered as replication/migration targets during reassign
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
@@ -74,6 +80,24 @@ import javax.annotation.Nonnull;
  * @param constructionSearchConfig centroid-walk tuning ({@link SearchConfig}) for the non-search insert/delete/maintenance
  *        paths, which probe the centroid HNSW without a per-query {@code SearchConfig}; only its {@code centroidEf*}
  *        knobs are consulted there
+ * @param mergeMaxEverFraction fraction of a cluster's max-ever primary count below which it becomes merge-eligible,
+ *        floored by {@link #primaryClusterMin()}; see {@link ClusterMetadata#mergeThreshold(Config)}, which combines
+ *        the two. Must be in {@code [0, 1)}; {@code 0} disables the peak-relative term, leaving
+ *        {@link #primaryClusterMin()} as the whole trigger
+ * @param minChildFraction floor on the smallest child's share of the population being repartitioned, below which a
+ *        split or merge candidate is rejected outright. Guards against producing a cluster born small enough to be
+ *        immediately merge-eligible, and is the <em>only</em> gate that rejects rather than merely disfavours, so
+ *        raising it is what risks leaving a split with no admissible candidate. A plain fraction rather than one
+ *        scaled by {@code k}, since it stands in for an absolute vector count; note that the population being
+ *        repartitioned is itself larger for a wider split (which draws in a neighbouring cluster), so the same
+ *        fraction is a somewhat stricter absolute floor there
+ * @param maxRelativeImbalance ceiling on how uneven a candidate's cluster sizes may be, expressed as a fraction of
+ *        the worst imbalance achievable for that number of clusters, so one value means the same thing for a 2-way
+ *        and a 3-way partitioning. {@code 1} disables the check; a merge to a single cluster is perfectly balanced
+ *        by definition and always passes
+ * @param splitImbalancePenalty weight of the imbalance term when scoring a <em>split</em>, which biases the choice
+ *        between otherwise comparable candidates toward the more balanced one. Merges keep the evaluator's default
+ *        weight, since their shape is dictated by the clusters they are handed
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -104,7 +128,8 @@ public record Config(@Nonnull Metric metric,
                      int splitNumNearestClusters,
                      int mergeNumNearestClusters,
                      int kMeansMaxIterations,
-                     int kMeansMaxRestarts,
+                     int kMeansNumRuns,
+                     @Nonnull List<Double> kMeansBalancingLadder,
                      // reassign
                      int reassignNumNeighboringClusters,
                      // collapse
@@ -115,12 +140,24 @@ public record Config(@Nonnull Metric metric,
                      int collapseConcurrency,
                      int bounceConcurrency,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
-                     @Nonnull SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
+                     @Nonnull SearchConfig constructionSearchConfig,
+                     // merge trigger (hysteresis relative to a cluster's max-ever primary count)
+                     double mergeMaxEverFraction,
+                     double minChildFraction,
+                     double maxRelativeImbalance,
+                     double splitImbalancePenalty) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
-    public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
+    public static final int DEFAULT_PRIMARY_CLUSTER_MIN = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_PRIMARY_CLUSTER_HARD_MAX = 2 * DEFAULT_PRIMARY_CLUSTER_MAX;
+    public static final double DEFAULT_MERGE_MAX_EVER_FRACTION = 1.0d / 5.0d;
+    public static final double DEFAULT_MIN_CHILD_FRACTION =
+            DEFAULT_PRIMARY_CLUSTER_MIN / (double)DEFAULT_PRIMARY_CLUSTER_MAX;
+    public static final double DEFAULT_MAX_RELATIVE_IMBALANCE = 0.36d;
+    // Weight of the imbalance term when scoring a split; above the evaluator's default of 1.0 so that, between
+    // otherwise comparable candidates, the more balanced one wins.
+    public static final double DEFAULT_SPLIT_IMBALANCE_PENALTY = 3.0d;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -150,7 +187,9 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS = 32;
     public static final int DEFAULT_MERGE_NUM_NEAREST_CLUSTERS = 11;
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
-    public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
+    public static final int DEFAULT_KMEANS_NUM_RUNS = 4;
+    @Nonnull
+    public static final List<Double> DEFAULT_KMEANS_BALANCING_LADDER = ImmutableList.of(0.0d, 0.016d, 0.16d);
     // reassign
     public static final int DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS = 31;
     // collapse
@@ -169,6 +208,28 @@ public record Config(@Nonnull Metric metric,
                 "collapseMinDuplicates must be < primaryClusterMax");
         Preconditions.checkArgument(primaryClusterHardMax > primaryClusterMax,
                 "primaryClusterHardMax must be > primaryClusterMax");
+        // Zero is legal: it disables the peak-relative term, leaving primaryClusterMin as the whole trigger.
+        Preconditions.checkArgument(mergeMaxEverFraction >= 0.0d && mergeMaxEverFraction < 1.0d,
+                "mergeMaxEverFraction must be in [0, 1)");
+        // Anything at or above 1/k makes every k-way candidate unsatisfiable; 0.5 is the loosest value that still
+        // admits a two-way split, and the caller is responsible for staying below 1/k for the widest split it wants.
+        Preconditions.checkArgument(minChildFraction >= 0.0d && minChildFraction < 0.5d,
+                "minChildFraction must be in [0, 0.5)");
+        Preconditions.checkArgument(maxRelativeImbalance >= 0.0d && maxRelativeImbalance <= 1.0d,
+                "maxRelativeImbalance must be in [0, 1]");
+        Preconditions.checkArgument(splitImbalancePenalty >= 0.0d,
+                "splitImbalancePenalty must be >= 0");
+        Preconditions.checkArgument(kMeansNumRuns >= 1, "kMeansNumRuns must be >= 1");
+        Preconditions.checkArgument(!kMeansBalancingLadder.isEmpty(), "kMeansBalancingLadder must not be empty");
+        double previousStrength = -1.0d;
+        for (final double strength : kMeansBalancingLadder) {
+            Preconditions.checkArgument(strength >= 0.0d && Double.isFinite(strength),
+                    "kMeansBalancingLadder values must be finite and >= 0");
+            Preconditions.checkArgument(strength > previousStrength,
+                    "kMeansBalancingLadder must be strictly increasing");
+            previousStrength = strength;
+        }
+        kMeansBalancingLadder = ImmutableList.copyOf(kMeansBalancingLadder);
     }
 
     @Nonnull
@@ -181,11 +242,12 @@ public record Config(@Nonnull Metric metric,
                 sampleBatchSize(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNumNearestClusters(), mergeNumNearestClusters(),
-                kMeansMaxIterations(), kMeansMaxRestarts(),
+                kMeansMaxIterations(), kMeansNumRuns(), kMeansBalancingLadder(),
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
-                constructionSearchConfig());
+                constructionSearchConfig(), mergeMaxEverFraction(), minChildFraction(), maxRelativeImbalance(),
+                splitImbalancePenalty());
     }
 
     @Override
@@ -212,7 +274,8 @@ public record Config(@Nonnull Metric metric,
                 ", splitNumNearestClusters=" + splitNumNearestClusters() +
                 ", mergeNumNearestClusters=" + mergeNumNearestClusters() +
                 ", kMeansMaxIterations=" + kMeansMaxIterations() +
-                ", kMeansMaxRestarts=" + kMeansMaxRestarts() +
+                ", kMeansNumRuns=" + kMeansNumRuns() +
+                ", kMeansBalancingLadder=" + kMeansBalancingLadder() +
                 ", reassignNumNeighboringClusters=" + reassignNumNeighboringClusters() +
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
                 ", splitMergeConcurrency=" + splitMergeConcurrency() +
@@ -220,6 +283,10 @@ public record Config(@Nonnull Metric metric,
                 ", collapseConcurrency=" + collapseConcurrency() +
                 ", bounceConcurrency=" + bounceConcurrency() +
                 ", constructionSearchConfig=" + constructionSearchConfig() +
+                ", mergeMaxEverFraction=" + mergeMaxEverFraction() +
+                ", minChildFraction=" + minChildFraction() +
+                ", maxRelativeImbalance=" + maxRelativeImbalance() +
+                ", splitImbalancePenalty=" + splitImbalancePenalty() +
                 "]";
     }
 
@@ -263,7 +330,9 @@ public record Config(@Nonnull Metric metric,
         private int splitNumNearestClusters = DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS;
         private int mergeNumNearestClusters = DEFAULT_MERGE_NUM_NEAREST_CLUSTERS;
         private int kMeansMaxIterations = DEFAULT_KMEANS_MAX_ITERATIONS;
-        private int kMeansMaxRestarts = DEFAULT_KMEANS_MAX_RESTARTS;
+        private int kMeansNumRuns = DEFAULT_KMEANS_NUM_RUNS;
+        @Nonnull
+        private List<Double> kMeansBalancingLadder = DEFAULT_KMEANS_BALANCING_LADDER;
         // reassign
         private int reassignNumNeighboringClusters = DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS;
         // collapse
@@ -276,6 +345,12 @@ public record Config(@Nonnull Metric metric,
         // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
         @Nonnull
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
+        // merge trigger
+        private double mergeMaxEverFraction = DEFAULT_MERGE_MAX_EVER_FRACTION;
+        // repartitioning balance gates
+        private double minChildFraction = DEFAULT_MIN_CHILD_FRACTION;
+        private double maxRelativeImbalance = DEFAULT_MAX_RELATIVE_IMBALANCE;
+        private double splitImbalancePenalty = DEFAULT_SPLIT_IMBALANCE_PENALTY;
 
         public ConfigBuilder() {
         }
@@ -294,13 +369,18 @@ public record Config(@Nonnull Metric metric,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
                              final int splitNumNearestClusters, final int mergeNumNearestClusters,
                              final int kMeansMaxIterations,
-                             final int kMeansMaxRestarts,
+                             final int kMeansNumRuns,
+                             @Nonnull final List<Double> kMeansBalancingLadder,
                              final int reassignNumNeighboringClusters,
                              final int collapseMinDuplicates,
                              final int splitMergeConcurrency, final int reassignConcurrency,
                              final int collapseConcurrency,
                              final int bounceConcurrency,
-                             @Nonnull final SearchConfig constructionSearchConfig) {
+                             @Nonnull final SearchConfig constructionSearchConfig,
+                             final double mergeMaxEverFraction,
+                             final double minChildFraction,
+                             final double maxRelativeImbalance,
+                             final double splitImbalancePenalty) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -325,7 +405,8 @@ public record Config(@Nonnull Metric metric,
             this.splitNumNearestClusters = splitNumNearestClusters;
             this.mergeNumNearestClusters = mergeNumNearestClusters;
             this.kMeansMaxIterations = kMeansMaxIterations;
-            this.kMeansMaxRestarts = kMeansMaxRestarts;
+            this.kMeansNumRuns = kMeansNumRuns;
+            this.kMeansBalancingLadder = kMeansBalancingLadder;
             this.reassignNumNeighboringClusters = reassignNumNeighboringClusters;
             this.collapseMinDuplicates = collapseMinDuplicates;
             this.splitMergeConcurrency = splitMergeConcurrency;
@@ -333,6 +414,10 @@ public record Config(@Nonnull Metric metric,
             this.collapseConcurrency = collapseConcurrency;
             this.bounceConcurrency = bounceConcurrency;
             this.constructionSearchConfig = constructionSearchConfig;
+            this.mergeMaxEverFraction = mergeMaxEverFraction;
+            this.minChildFraction = minChildFraction;
+            this.maxRelativeImbalance = maxRelativeImbalance;
+            this.splitImbalancePenalty = splitImbalancePenalty;
         }
 
         @Nonnull
@@ -355,6 +440,50 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setPrimaryClusterMin(final int primaryClusterMin) {
             this.primaryClusterMin = primaryClusterMin;
+            return this;
+        }
+
+        public double getMergeMaxEverFraction() {
+            return mergeMaxEverFraction;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setMergeMaxEverFraction(final double mergeMaxEverFraction) {
+            this.mergeMaxEverFraction = mergeMaxEverFraction;
+            return this;
+        }
+
+        public double getMinChildFraction() {
+            return minChildFraction;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setMinChildFraction(final double minChildFraction) {
+            this.minChildFraction = minChildFraction;
+            return this;
+        }
+
+        public double getMaxRelativeImbalance() {
+            return maxRelativeImbalance;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setMaxRelativeImbalance(final double maxRelativeImbalance) {
+            this.maxRelativeImbalance = maxRelativeImbalance;
+            return this;
+        }
+
+        public double getSplitImbalancePenalty() {
+            return splitImbalancePenalty;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setSplitImbalancePenalty(final double splitImbalancePenalty) {
+            this.splitImbalancePenalty = splitImbalancePenalty;
             return this;
         }
 
@@ -600,14 +729,26 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getKMeansMaxRestarts() {
-            return kMeansMaxRestarts;
+        public int getKMeansNumRuns() {
+            return kMeansNumRuns;
         }
 
         @CanIgnoreReturnValue
         @Nonnull
-        public ConfigBuilder setKMeansMaxRestarts(final int kMeansMaxRestarts) {
-            this.kMeansMaxRestarts = kMeansMaxRestarts;
+        public ConfigBuilder setKMeansNumRuns(final int kMeansNumRuns) {
+            this.kMeansNumRuns = kMeansNumRuns;
+            return this;
+        }
+
+        @Nonnull
+        public List<Double> getKMeansBalancingLadder() {
+            return kMeansBalancingLadder;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setKMeansBalancingLadder(@Nonnull final List<Double> kMeansBalancingLadder) {
+            this.kMeansBalancingLadder = kMeansBalancingLadder;
             return this;
         }
 
@@ -701,11 +842,12 @@ public record Config(@Nonnull Metric metric,
                     getSampleBatchSize(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNumNearestClusters(), getMergeNumNearestClusters(),
-                    getKMeansMaxIterations(), getKMeansMaxRestarts(),
+                    getKMeansMaxIterations(), getKMeansNumRuns(), getKMeansBalancingLadder(),
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
-                    getConstructionSearchConfig());
+                    getConstructionSearchConfig(), getMergeMaxEverFraction(), getMinChildFraction(),
+                    getMaxRelativeImbalance(), getSplitImbalancePenalty());
         }
     }
 }

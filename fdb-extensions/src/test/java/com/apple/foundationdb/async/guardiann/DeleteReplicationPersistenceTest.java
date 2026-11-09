@@ -57,14 +57,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * deleted vector's own copies (its primary plus its replicas in neighboring clusters), and the deferred-task
  * cascade it triggers (merges, reassigns, bounces) must re-establish replication for the vectors that remain — so a
  * bordered, multi-cluster structure stays replicated end to end.
- * <p>
- * The test inserts enough near-duplicates of a single SIFT base that the cluster overflows {@code primaryClusterMax}
+ *
+ * <p>The test inserts enough near-duplicates of a single SIFT base that the cluster overflows {@code primaryClusterMax}
  * and splits into several close sub-clusters (whose border vectors get replicas), then deletes a moderate fraction.
  * Those deletes <em>do</em> reorganize the structure (the delete-phase tasks logged below typically include merges,
  * reassigns and bounces), but because a single base keeps the surviving clusters close, borders — and therefore
  * replication — remain. The test asserts the end state still has multiple clusters with valid replicas.
- * <p>
- * This complements {@code DeterministicReplayTest}, whose heavy delete-everything workload legitimately ends with
+ *
+ * <p>This complements {@code DeterministicReplayTest}, whose heavy delete-everything workload legitimately ends with
  * zero replicas because its deletes merge the only borders away into well-separated single clusters.
  */
 public class DeleteReplicationPersistenceTest implements BaseTest {
@@ -125,24 +125,22 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         final List<PrimaryKeyAndVector> inserts = buildInserts(seed);
 
         final Subspace runSubspace = getSubspace();
-        final Config config = Guardiann.newConfigBuilder()
+        final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, CLUSTER_MAX,
+                        PRIMARY_CLUSTER_MIN)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(CLUSTER_MAX)
                 .setCollapseMinDuplicates(CLUSTER_MAX / 2)
-                .setPrimaryClusterMin(PRIMARY_CLUSTER_MIN)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.65d)
                 .setReplicatedClusterTarget(40)
                 .setReplicatedClusterMaxWrites(200)
                 .build(128);
-        final TestHelpers.TestOnWriteListener onWriteListener = new TestHelpers.TestOnWriteListener();
+        final GuardiannTestHelpers.TestOnWriteListener onWriteListener = new GuardiannTestHelpers.TestOnWriteListener();
         final Guardiann guardiann = new Guardiann(runSubspace,
                 TestExecutors.defaultThreadPool(),
                 config,
                 onWriteListener,
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnReadListener());
 
         // ---- Phase 1: insert near-duplicates; the oversized cluster splits into bordered sub-clusters. ----
         onWriteListener.pushFrame();

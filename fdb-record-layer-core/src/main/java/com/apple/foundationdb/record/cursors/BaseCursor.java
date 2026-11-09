@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursor;
  * Generally, base cursors do not wrap other cursors, although
  * {@link com.apple.foundationdb.record.provider.foundationdb.SplitHelper.KeyValueUnsplitter} is an exception.
  * Base cursors are responsible for implementing low level limiting behavior.
+ *
  * @see CursorLimitManager
  * @param <T> the type of elements of the cursor
  */

@@ -34,6 +34,7 @@ import java.util.Set;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ *
  * @param <A> the type of argument that rules in this set consume
  * @param <R> the type of result that rules in this set (or subclasses thereof) produce
  */
@@ -73,6 +74,7 @@ public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet
     /**
      * Holder class to easily transform simplification rules and their dependencies into computation rules and
      * their dependencies.
+     *
      * @param <A> argument type parameter
      * @param <R> result type parameter
      */

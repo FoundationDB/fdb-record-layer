@@ -34,6 +34,7 @@ import java.util.Set;
  * A sub interface of {@link KeyExpressionVisitor} that fixes the return type to be a {@link GraphExpansion} and
  * adds an API to cause the expansion of a metadata-based data access structure to a data flow graph that can then
  * be used for matching.
+ *
  * @param <S> the type of the state object whose actual type depends on the implementation of the concrete visitor
  */
 @SuppressWarnings("java:S3252")
@@ -49,7 +50,6 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @param accessHint the access hint indicating the desired scan type (e.g., index scan, primary scan)
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
-     *
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
     @Nonnull
@@ -71,7 +71,6 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
-     *
      * @return a new {@link MatchCandidate} that can be used for matching.
      * @throws UnsupportedOperationException if the visitor does not support this expand overload
      */

@@ -373,6 +373,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
      * Returns arguments for the tests with sorts. This returns a pair of arguments with the first
      * argument being the field to sort on and the second field being whether to sort in forward or
      * reverse order.
+     *
      * @return a stream of arguments to use for parameterized tests with sorts
      */
     @Nonnull
@@ -419,10 +420,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
      * Test whether sorts on the primary key work when restricted to a single record type. This should
      * scan over only the records in question (because of the record type restriction).
      *
-     * <p>
-     * This test is currently disabled as the planner is not yet sophisticated enough to handle this case.
+     * <p>This test is currently disabled as the planner is not yet sophisticated enough to handle this case.
      * See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/744">Issue #744</a> for more details.
-     * </p>
      *
      * @param sortExpr the expression to sort by
      * @param reverse whether to sort in reverse

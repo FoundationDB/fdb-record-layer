@@ -166,11 +166,9 @@ public class StringUtils {
      *     replaceEach("abbb", Map.of("ab", "x", "bb", "y")) = "xy";
      * }</pre>
      *
-     * <p>
-     * If one replacement key is a prefix of another key, then the <em>longer</em> key will be preferred when
+     * <p>If one replacement key is a prefix of another key, then the <em>longer</em> key will be preferred when
      * the longer string is present. (If the other choice was taken, it would never process the longer key, as
      * any time the longer key is found, the shorter key would also be found.) For example:
-     * </p>
      *
      * <pre>{@code
      *     replaceEach("abc", Map.of("ab", "x", "abc", "y")) = "y";

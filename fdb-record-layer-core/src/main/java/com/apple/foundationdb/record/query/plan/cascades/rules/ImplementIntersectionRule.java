@@ -91,7 +91,9 @@ public class ImplementIntersectionRule extends AbstractCascadesRule<LogicalInter
         //
         final ImmutableList<Quantifier.Physical> newQuantifiers =
                 Streams.zip(planPartitionsByQuantifier.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) ->
+                                        quantifier.applyGlue(call,
+                                                call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans())))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 

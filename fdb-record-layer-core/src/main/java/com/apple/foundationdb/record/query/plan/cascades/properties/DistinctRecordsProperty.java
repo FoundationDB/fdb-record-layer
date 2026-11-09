@@ -25,13 +25,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -160,6 +160,17 @@ public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+            final var indexPlan = coveringIndexPlan.getIndexPlan();
+            if (!(indexPlan instanceof RecordQueryIndexPlan)) {
+                return false;
+            }
+
+            return visitIndexPlan((RecordQueryIndexPlan)indexPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
             final var indexPlan = coveringIndexPlan.getIndexPlan();
             if (!(indexPlan instanceof RecordQueryIndexPlan)) {
                 return false;
@@ -427,12 +438,7 @@ public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
         private List<Boolean> distinctRecordsFromChildren(@Nonnull final RelationalExpression expression) {
             return expression.getQuantifiers()
                     .stream()
-                    .map(quantifier -> {
-                        if (quantifier instanceof Quantifier.Existential) {
-                            return true;
-                        }
-                        return evaluateForReference(quantifier.getRangesOver());
-                    })
+                    .map(quantifier -> evaluateForReference(quantifier.getRangesOver()))
                     .collect(ImmutableList.toImmutableList());
         }
 

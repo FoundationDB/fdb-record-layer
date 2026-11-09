@@ -43,8 +43,7 @@ import java.util.Map;
  * that class. The factory class can then be picked up by a {@link TextTokenizerRegistry}
  * and used by the {@link TextIndexMaintainer} to tokenize text while indexing.
  *
- * <p>
- * To correctly maintain indexes, it is important that each tokenizer be deterministic for a
+ * <p>To correctly maintain indexes, it is important that each tokenizer be deterministic for a
  * given input, and that the tokenizing logic be frozen once data are written to the database with
  * that tokenizer. To support backwards-incompatible tokenizer updates (for example, adding or removing
  * stop words or making different normalization decisions), one can create a new "version" of that
@@ -53,7 +52,6 @@ import java.util.Map;
  * such time as all data that were written with the old version have been migrated to the
  * new version. At that time, one can drop support for the older version by increasing the value
  * returned by {@link #getMinVersion()} to exclude the older tokenizers.
- * </p>
  *
  * @see TextTokenizerRegistry
  * @see com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer
@@ -120,12 +118,10 @@ public interface TextTokenizer {
      * to bump the version of this tokenizer so that the old behavior can be reliably
      * replicated at a future date.
      *
-     * <p>
-     * The {@link com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer TextIndexMaintainer}
+     * <p>The {@link com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer TextIndexMaintainer}
      * will use this method to tokenize a document into a map and place each entry into
      * the database. This method is not used by queries (which instead use the
      * <code>tokenize</code> method instead).
-     * </p>
      *
      * @param text source text to tokenize
      * @param version version of the tokenizer to use

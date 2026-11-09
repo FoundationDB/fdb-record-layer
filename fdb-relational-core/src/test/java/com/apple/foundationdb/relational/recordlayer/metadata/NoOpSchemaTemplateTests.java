@@ -97,6 +97,17 @@ public class NoOpSchemaTemplateTests {
     }
 
     @Test
+    public void testGetSyntheticTablesThrowsException() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+
+        final RelationalException exception = assertThrows(RelationalException.class,
+                template::getSyntheticTables);
+
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+        assertEquals("NoOpSchemaTemplate doesn't have synthetic tables!", exception.getMessage());
+    }
+
+    @Test
     public void testFindTableByNameThrowsException() {
         final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
 
@@ -241,5 +252,25 @@ public class NoOpSchemaTemplateTests {
         final RelationalException exception = assertThrows(RelationalException.class,
                 template::getStoredQueries);
         assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+    }
+
+    @Test
+    public void testFindStoredQueryByNameThrows() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+        final RelationalException exception = assertThrows(RelationalException.class,
+                () -> template.findStoredQueryByName("some_query"));
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+        assertEquals("NoOpSchemaTemplate doesn't have stored queries!", exception.getMessage());
+    }
+
+    @Test
+    void testFindTypeByNameThrowsException() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+
+        final RelationalException exception = assertThrows(RelationalException.class,
+                () -> template.findTypeByName("some_type"));
+
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+        assertEquals("NoOpSchemaTemplate doesn't have types!", exception.getMessage());
     }
 }

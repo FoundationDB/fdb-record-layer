@@ -250,7 +250,36 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid storedQueryParameterList? storedQueryPreparedCases? declareBlock? AS storedQuery=query
+    ;
+
+storedQueryParameterList
+    : '(' (storedQueryParameter (',' storedQueryParameter)*)? ')'
+    ;
+
+storedQueryParameter
+    : parameterName=uid storedQueryParameterType
+    ;
+
+// A declared parameter's type, as written after the parameter name. Its own rule so that the persisted form of a type
+// is parsed by the very rule that accepted it, rather than by a second copy of the same syntax that could drift.
+// Parsed on its own when a declared type has to be resolved from metadata rather than from a statement being planned;
+// QueryParser checks there that nothing follows it.
+storedQueryParameterType
+    : parameterType=functionColumnType nullNotnull?
+    ;
+
+storedQueryPreparedCases
+    : PREPARE FOR storedQueryPreparedCase (',' storedQueryPreparedCase)*
+    ;
+
+storedQueryPreparedCase
+    : '(' storedQueryParameterState (',' storedQueryParameterState)* ')'
+    ;
+
+storedQueryParameterState
+    : parameterName=uid IS nullNotnull
+    | parameterName=uid EQUAL_SYMBOL booleanLiteral
     ;
 
 declareBlock
@@ -507,11 +536,12 @@ inlineTableDefinition
     ;
 
 joinPart
-    : (INNER | CROSS)? JOIN tableSourceItem
+    : (INNER)? JOIN tableSourceItem
       (
         ON expression
         | USING '(' uidList ')'
-      )?                                                            #innerJoin
+      )                                                             #innerJoin
+    | CROSS JOIN tableSourceItem                                    #crossJoin
     | STRAIGHT_JOIN tableSourceItem (ON expression)?                #straightJoin
     | (LEFT | RIGHT) OUTER? JOIN tableSourceItem
         (
@@ -597,6 +627,8 @@ statementOption
     | LOG QUERY
     | DRY RUN
     | PLAN RIGHT DEEP
+    | PLAN CACHE WRITE ONLY
+    | ISOLATION LEVEL SNAPSHOT
     ;
 
 // Transaction's Statements
@@ -836,6 +868,8 @@ constant
     | booleanLiteral      #booleanConstant // done
     | BIT_STRING          #bitStringConstant // done (unsupported)
     | NOT? nullLiteral    #nullConstant // done (unsupported) - if NOT exists.
+//    TODO: enable this once intervals have their own data type (#4738)
+//    | intervalLiteral   #intervalConstant // done
     ;
 
 
@@ -973,15 +1007,7 @@ userVariables
 //    Common Expressons
 
 defaultValue
-    : (NULL_LITERAL | unaryOperator? constant | currentTimestamp | '(' expression ')') (ON UPDATE currentTimestamp)?
-    ;
-
-currentTimestamp
-    :
-    (
-      (CURRENT_TIMESTAMP | LOCALTIME | LOCALTIMESTAMP) ('(' decimalLiteral? ')')?
-      | NOW '(' decimalLiteral? ')'
-    )
+    : (NULL_LITERAL | unaryOperator? constant | datetimeValueFunction | '(' expression ')') (ON UPDATE datetimeValueFunction)?
     ;
 
 expressionOrDefault
@@ -1005,16 +1031,18 @@ functionCall
     : aggregateWindowedFunction                                                   #aggregateFunctionCall // done (supported)
     | nonAggregateWindowedFunction                                                #nonAggregateFunctionCall // done
     | specificFunction                                                            #specificFunctionCall //
+    | datetimeValueFunction                                                       #datetimeValueFunctionCall // done
     | scalarFunctionName '(' functionArgs? ')'                                    #scalarFunctionCall // done (unsupported)
     | userDefinedScalarFunctionName '(' namedOrUnnamedFunctionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
+datetimeValueFunction
+    :
+      functionName=(CURRENT_TIMESTAMP | NOW) ('(' ')')?
+    ;
+
 specificFunction
-    : (
-      CURRENT_DATE | CURRENT_TIME | CURRENT_TIMESTAMP
-      | CURRENT_USER | LOCALTIME
-      ) ('(' ')')?                                                  #simpleFunctionCall
-    | CONVERT '(' expression separator=',' convertedDataType ')'    #dataTypeFunctionCall
+    : CONVERT '(' expression separator=',' convertedDataType ')'    #dataTypeFunctionCall
     | CONVERT '(' expression USING charsetName ')'                  #dataTypeFunctionCall
     | CAST '(' expression AS convertedDataType ')'                  #dataTypeFunctionCall
     | VALUES '(' fullColumnName ')'                                 #valuesFunctionCall
@@ -1214,9 +1242,8 @@ partitionClause
 scalarFunctionName
     : functionNameBase
     | functionNameKeyword
-    | ASCII | CURDATE | CURRENT_DATE | CURRENT_TIME
-    | CURRENT_TIMESTAMP | CURTIME | DATE_ADD | DATE_SUB
-    | IF | INSERT | LOCALTIME | LOCALTIMESTAMP | MID | NOW
+    | ASCII | DATE_ADD | DATE_SUB
+    | IF | INSERT | MID
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     | JAVA_CALL
@@ -1262,11 +1289,31 @@ expressionAtom
     | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
     | recordConstructor                                                                   #recordConstructorExpressionAtom // done
     | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
+    | datetimeIntervalMathExpression                                                      #datetimeIntervalArithmeticExpression
     | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
     | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom // done
     | left=expressionAtom mathOperator right=expressionAtom                               #mathExpressionAtom // done
     | left=expressionAtom comparisonOperator right=expressionAtom                         #binaryComparisonPredicate // done
     ;
+
+// TODO: this should be a part of the expressionAtom rule once intervals and datetime values
+//       have their own data types (#4738).
+datetimeIntervalMathExpression
+  : left=datetimeValueFunction operator=(PLUS | MINUS) right=intervalLiteral       #datetimePlusMinusIntervalExpression
+  | left=intervalLiteral operator=PLUS right=datetimeValueFunction                 #intervalPlusDatetimeExpression
+  ;
+
+intervalLiteral
+    : INTERVAL direction=(PLUS | MINUS)? value=stringLiteral intervalQualifier
+    ;
+
+intervalQualifier
+    : startField=dayTimeIntervalField (TO endField=dayTimeIntervalField)?         #dayTimeIntervalQualifier
+    ;
+
+dayTimeIntervalField
+     : DAY | HOUR | MINUTE | SECOND
+     ;
 
 inList
     : '(' (queryExpressionBody | expressions) ')'

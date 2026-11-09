@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 /**
  * Concatenate several {@linkplain SyntheticRecordFromStoredRecordPlan plan} outputs together.
  * 
- * Similar to {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}.
+ * <p>Similar to {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}.
  */
 class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-Concat-Plan");

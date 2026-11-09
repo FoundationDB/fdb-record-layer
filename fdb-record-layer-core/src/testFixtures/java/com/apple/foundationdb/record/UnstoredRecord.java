@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 
 /**
  * An {@link FDBRecord} that doesn't actually link to any record store.
+ *
  * @param <M> record Message type
  *
  * For evaluation unit tests.

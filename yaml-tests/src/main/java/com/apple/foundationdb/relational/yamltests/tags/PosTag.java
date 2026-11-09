@@ -32,8 +32,8 @@ import javax.annotation.Nonnull;
 
 /**
  * YAML tag for ignoring column name validation in result sets.
- * <br>
- * Usage: !pos {position of the column, 1-based}
+ *
+ * <p>Usage: !pos {position of the column, 1-based}
  */
 @AutoService(CustomTag.class)
 public final class PosTag implements CustomTag {

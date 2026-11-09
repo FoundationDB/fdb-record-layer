@@ -668,9 +668,7 @@ public class PlannerRepl implements Debugger {
     private interface SupplierWithException<T> {
 
         /**
-         * Gets a result.
-         *
-         * @return a result
+         * {@return a result}
          */
         T get() throws Exception;
     }
@@ -821,7 +819,7 @@ public class PlannerRepl implements Debugger {
                 return false;
             }
             final OnEventTypeBreakPoint that = (OnEventTypeBreakPoint)o;
-            return getShorthand().equals(that.getShorthand()) &&
+            return getShorthand() == that.getShorthand() &&
                    Objects.equals(getReferenceName(), that.getReferenceName()) &&
                    getLocation() == that.getLocation();
         }
@@ -874,7 +872,7 @@ public class PlannerRepl implements Debugger {
             plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("plannerPhase",
-                    (getPlannerPhase() == null ? getPlannerPhase().name() : "any").toLowerCase(Locale.ROOT));
+                    (getPlannerPhase() == null ? "any" : getPlannerPhase().name()).toLowerCase(Locale.ROOT));
         }
 
         @Override
@@ -886,7 +884,7 @@ public class PlannerRepl implements Debugger {
                 return false;
             }
             final var that = (OnPhaseBreakPoint)o;
-            return getShorthand().equals(that.getShorthand()) &&
+            return getShorthand() == that.getShorthand() &&
                     getLocation() == that.getLocation() &&
                     getPlannerPhase() == that.getPlannerPhase();
         }
@@ -1058,7 +1056,7 @@ public class PlannerRepl implements Debugger {
             }
             final OnRuleBreakPoint that = (OnRuleBreakPoint)o;
             return ruleNamePrefix.equals(that.ruleNamePrefix) &&
-                   location == that.location;
+                    location == that.location;
         }
 
         @Override
@@ -1119,7 +1117,7 @@ public class PlannerRepl implements Debugger {
             }
             final OnRuleCallBreakPoint that = (OnRuleCallBreakPoint)o;
             return ruleNamePrefix.equals(that.ruleNamePrefix) &&
-                   location == that.location;
+                    location == that.location;
         }
 
         @Override

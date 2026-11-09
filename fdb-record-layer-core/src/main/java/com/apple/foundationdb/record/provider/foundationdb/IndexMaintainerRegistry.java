@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A registry of {@link IndexMaintainer}s.
+ *
  * @see IndexMaintainerFactory
  */
 @API(API.Status.UNSTABLE)

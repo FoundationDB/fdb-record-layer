@@ -23,14 +23,19 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.HNSW;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,8 +46,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the cluster topology is internally consistent (every primary unique and accounted for, no dangling replicas, and
  * the soft replication invariants within tolerance). Lives in {@code testFixtures} so both the fdb-extensions
  * guardiann tests and the record-layer's vector-index tests can run the same corruption checks against a shared
- * source of truth. The public {@code assertGuardiannInvariants*} umbrellas are the intended entry points; the
- * individual quiescence/snapshot/invariant helpers are exposed package-privately for tests that want finer control.
+ * source of truth. The public {@code assertGuardiannInvariants*} umbrellas are the intended entry points, together with
+ * the end-of-workload checks {@code assertOnlyPrimaryKeysRemain} and {@code assertDrainedToSingleEmptyCluster} and the
+ * {@code describeStructure} checkpoint summary; the individual quiescence/snapshot/invariant helpers are exposed
+ * package-privately for tests that want finer control.
  */
 public class GuardiannStructureAsserts {
     private static final Logger logger = LoggerFactory.getLogger(GuardiannStructureAsserts.class);
@@ -60,14 +67,14 @@ public class GuardiannStructureAsserts {
     /**
      * Drains all pending deferred tasks from {@code guardiann} by repeatedly fetching one task
      * and executing it in its own transaction until the tasks subspace is empty.
-     * <p>
-     * Insertions and deletions piggy-back deferred-task execution onto themselves (one task per
+     *
+     * <p>Insertions and deletions piggy-back deferred-task execution onto themselves (one task per
      * op, via {@link Primitives#executeDeferredTasks}). Once those producer ops stop, pending
      * tasks remain in the tasks subspace until something pulls them out — this method is that
      * something. Tests typically call it before checking post-condition invariants so the
      * structure is observed at a quiescent state.
-     * <p>
-     * Note that {@link BounceTask} is a state machine: each invocation executes one of its
+     *
+     * <p>Note that {@link BounceTask} is a state machine: each invocation executes one of its
      * dependent tasks and then either re-enqueues a new BounceTask with the remaining
      * dependents OR fires the final task once the last dependent has run. Draining therefore
      * takes roughly N+1 iterations per BounceTask (N dependents + the final task), and
@@ -125,8 +132,8 @@ public class GuardiannStructureAsserts {
     /**
      * Snapshots the current Guardiann cluster topology via {@link Search#snapshotStructure}. Returns
      * {@code null} if the structure is empty (no clusters yet — common before the first insert).
-     * <p>
-     * Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own internal
+     *
+     * <p>Implementation: scan the centroid HNSW for cluster ids and centroids (this uses its own internal
      * transactions), then in one follow-up read transaction delegate to {@link Search#snapshotStructure}, which
      * fetches every cluster's metadata and vector references and assembles the snapshot.
      */
@@ -185,6 +192,237 @@ public class GuardiannStructureAsserts {
     }
 
     /**
+     * For a test that has deleted <em>all</em> of its records: asserts that every reference still present in the
+     * structure is an <em>orphan</em> — the vector behind it has genuinely been deleted (no live per-vector
+     * {@link VectorMetadata} record for its primary key). This confirms the deletes were actually carried out even
+     * where their cluster references were left un-reaped: a lingering reference is acceptable garbage, but a lingering
+     * reference whose vector is still alive means a delete was missed. Collapsed representatives (keyed by
+     * {@code Tuple.from(signature)}) satisfy this trivially — they never have a per-vector metadata record.
+     */
+    static void assertAllReferencesAreOrphaned(@Nonnull final Database db, @Nonnull final Guardiann guardiann,
+                                               @Nullable final StructureSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        final Subspace metadataSubspace = guardiann.getLocator().primitives().getVectorMetadataSubspace();
+        // One range scan of the per-vector metadata subspace gives the set of primary keys whose vector is still live.
+        final Set<Tuple> liveMetadataKeys = db.run(transaction -> {
+            final Set<Tuple> keys = new HashSet<>();
+            for (final var keyValue : transaction.getRange(metadataSubspace.range()).asList().join()) {
+                keys.add(metadataSubspace.unpack(keyValue.getKey()));
+            }
+            return keys;
+        });
+
+        final List<VectorId> liveReferences = Lists.newArrayList();
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            for (final VectorReference reference : cv.references()) {
+                if (liveMetadataKeys.contains(reference.id().primaryKey())) {
+                    liveReferences.add(reference.id());
+                }
+            }
+        }
+        assertThat(liveReferences)
+                .as("after deleting all records, every remaining cluster reference must be an orphan (its vector's "
+                        + "metadata is gone); a reference whose vector is still alive means its delete was missed")
+                .isEmpty();
+    }
+
+    /**
+     * Asserts that the primary keys of the vectors in {@code guardiann} are exactly {@code expectedPrimaryKeys} — e.g.
+     * after an interleaved insert/delete run, that only the inserted set remains. Takes one snapshot of the
+     * structure, which must not be empty.
+     *
+     * @param db the database
+     * @param guardiann the structure under test
+     * @param expectedPrimaryKeys the primary keys that must remain, and nothing else
+     */
+    public static void assertOnlyPrimaryKeysRemain(@Nonnull final Database db,
+                                                   @Nonnull final Guardiann guardiann,
+                                                   @Nonnull final Set<Tuple> expectedPrimaryKeys) {
+        final StructureSnapshot snapshot = snapshotStructure(db, guardiann);
+        assertThat(snapshot)
+                .as("structure snapshot must be non-null after the run")
+                .isNotNull();
+        final Set<Tuple> presentPks = Objects.requireNonNull(snapshot).primaryOwners().keySet().stream()
+                .map(VectorId::primaryKey)
+                .collect(ImmutableSet.toImmutableSet());
+        assertThat(presentPks)
+                .as("only the expected primary keys must remain after the run")
+                .isEqualTo(expectedPrimaryKeys);
+    }
+
+    /**
+     * For a test that has deleted <em>all</em> of its records and quiesced: asserts that the structure has drained to
+     * a single, empty cluster. Every reference still present must be an orphan (see
+     * {@link #assertAllReferencesAreOrphaned}), no primaries may remain, and exactly one cluster must be left.
+     *
+     * @param db the database
+     * @param guardiann the structure under test
+     */
+    public static void assertDrainedToSingleEmptyCluster(@Nonnull final Database db,
+                                                         @Nonnull final Guardiann guardiann) {
+        final StructureSnapshot snap = snapshotStructure(db, guardiann);
+        // Confirm the deletes actually happened: any reference still in the structure must be an orphan (its vector's
+        // metadata is gone), not a live vector that escaped deletion. This isolates a genuine delete miss from a mere
+        // failure to reap the (already-deleted) reference, and reports it with a sharper message than the bare
+        // counts below.
+        assertAllReferencesAreOrphaned(db, guardiann, snap);
+
+        final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
+        final int remainingClusters = snap == null ? 0 : snap.numClusters();
+        logger.info("fully drained: totalPrimaries={}, numClusters={}", remainingPrimaries, remainingClusters);
+        // No test-side reconciliation sweep here on purpose: reaching the empty state must be the *production*
+        // maintenance path's job (the hysteresis merge trigger plus the merge enqueued after a reassign), since
+        // nothing sweeps idle clusters in a real deployment. A merge dissolves the target into a neighbor, and the
+        // reassign it drives drops references whose per-vector metadata is gone, so the orphans a delete left behind
+        // in clusters it never revisited are reaped as the structure consolidates.
+        assertThat(remainingPrimaries)
+                .as("deleting every record must leave no primaries once deferred maintenance has quiesced")
+                .isZero();
+        assertThat(remainingClusters)
+                .as("a fully drained structure bottoms out at exactly one (empty) cluster: a merge needs a mergeable "
+                        + "neighbor (centroid cardinality MULTIPLE), so the final cluster is never merged away")
+                .isEqualTo(1);
+    }
+
+    /**
+     * Summarizes the structure for a checkpoint log line: cluster sizes and how they sit relative to their merge
+     * thresholds (from the snapshot itself), plus the orphaned-reference share (which needs a database read).
+     *
+     * <p>The two halves answer different questions. {@code wantMerge} staying high while {@code clusters} does not fall
+     * would mean merges are being triggered but not landing; {@code wantMerge} at zero means no merge is due, and the
+     * threshold statistics say why. The orphan share is what the search's candidate pool pays for, so it explains any
+     * {@code Insufficient data to form result set} warnings.
+     *
+     * @param db the database
+     * @param guardiann the structure to describe
+     * @return a one-line summary of the structure
+     */
+    @Nonnull
+    public static String describeStructure(@Nonnull final Database db, @Nonnull final Guardiann guardiann) {
+        final StructureSnapshot snapshot = snapshotStructure(db, guardiann);
+        if (snapshot == null) {
+            return "structure empty";
+        }
+        final Config config = guardiann.getConfig();
+        final var primaries = snapshot.primaryCountStatistics();
+        final var thresholds = snapshot.mergeThresholdStatistics(config);
+        return String.format("clusters=%d, primaries/cluster=[%d..%d] mean=%.0f, mergeThreshold=[%d..%d] mean=%.0f"
+                        + ", wantMerge=%d, pendingSplitMerge=%d, %s",
+                snapshot.numClusters(),
+                primaries.getMin(), primaries.getMax(), primaries.getAverage(),
+                thresholds.getMin(), thresholds.getMax(), thresholds.getAverage(),
+                snapshot.numClustersWantingMerge(config),
+                snapshot.numClustersInState(ClusterMetadata.State.SPLIT_MERGE),
+                censusOrphans(db, guardiann, snapshot));
+    }
+
+    /**
+     * How many of the structure's references point at a vector that no longer exists.
+     *
+     * @param numPrimaries total primary references
+     * @param numReplicas total replica references
+     * @param numOrphanPrimaries primary references whose vector metadata is gone
+     * @param numOrphanReplicas replica references whose vector metadata is gone
+     * @param maxClusterOrphanFraction the highest orphan fraction of any single cluster holding at least
+     *        {@code MIN_CLUSTER_SIZE_FOR_WORST_CASE} references. Reported separately from the overall fraction
+     *        because a search draws its candidate pool from the nearest few clusters rather than uniformly, so
+     *        concentrated orphans cost a query far more than the average suggests
+     */
+    public record OrphanCensus(int numPrimaries, int numReplicas, int numOrphanPrimaries, int numOrphanReplicas,
+                               double maxClusterOrphanFraction) {
+        /** Ignore tiny clusters when reporting the worst case; a 1-of-2-orphaned cluster is not informative. */
+        private static final int MIN_CLUSTER_SIZE_FOR_WORST_CASE = 20;
+
+        public int numReferences() {
+            return numPrimaries + numReplicas;
+        }
+
+        public int numOrphans() {
+            return numOrphanPrimaries + numOrphanReplicas;
+        }
+
+        /** Returns the overall orphan share of the reference population, or {@code 0} if there are no references. */
+        public double orphanFraction() {
+            return numReferences() == 0 ? 0.0d : (double)numOrphans() / numReferences();
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return String.format("orphans=%d/%d (%.1f%%; primaries %d, replicas %d), worstCluster=%.1f%%",
+                    numOrphans(), numReferences(), 100.0d * orphanFraction(),
+                    numOrphanPrimaries(), numOrphanReplicas(), 100.0d * maxClusterOrphanFraction());
+        }
+    }
+
+    /**
+     * Counts how many cluster references point at a vector whose per-vector {@link VectorMetadata} record is gone.
+     * Needs a database read rather than just a {@link StructureSnapshot}, since liveness lives in the per-vector
+     * metadata subspace which the snapshot does not carry; the purely structural questions (cluster sizes, merge
+     * thresholds, pending states) are answered by the snapshot itself.
+     *
+     * <p>This is the quantity the search path pays for: {@code Search.enrichResults} builds a candidate pool of
+     * {@code candidatePoolFactor * k} references and then discards those whose metadata has disappeared, so an orphan
+     * share above the pool's headroom is what makes a k-nearest-neighbour query return fewer than {@code k} results.
+     * It is a lower bound on what the search discards — the search additionally drops references whose metadata
+     * exists but carries a different UUID (the vector was replaced), which this census cannot see from keys alone.
+     *
+     * <p>Collapsed representatives are excluded: they are keyed by content signature rather than by primary key and
+     * never have a per-vector metadata record, so counting them would report 100% orphaned regardless of health.
+     *
+     * @param db the database to read from
+     * @param guardiann the structure the snapshot came from
+     * @param snapshot the snapshot to census
+     * @return the census
+     */
+    @Nonnull
+    public static OrphanCensus censusOrphans(@Nonnull final Database db, @Nonnull final Guardiann guardiann,
+                                             @Nonnull final StructureSnapshot snapshot) {
+        final Subspace metadataSubspace = guardiann.getLocator().primitives().getVectorMetadataSubspace();
+        final Set<Tuple> liveMetadataKeys = db.run(transaction -> {
+            final Set<Tuple> keys = new HashSet<>();
+            for (final var keyValue : transaction.getRange(metadataSubspace.range()).asList().join()) {
+                keys.add(metadataSubspace.unpack(keyValue.getKey()));
+            }
+            return keys;
+        });
+
+        int numPrimaries = 0;
+        int numReplicas = 0;
+        int numOrphanPrimaries = 0;
+        int numOrphanReplicas = 0;
+        double maxClusterOrphanFraction = 0.0d;
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            int clusterRefs = 0;
+            int clusterOrphans = 0;
+            for (final VectorId id : cv.primaries()) {
+                numPrimaries++;
+                clusterRefs++;
+                if (!liveMetadataKeys.contains(id.primaryKey())) {
+                    numOrphanPrimaries++;
+                    clusterOrphans++;
+                }
+            }
+            for (final VectorId id : cv.replicas()) {
+                numReplicas++;
+                clusterRefs++;
+                if (!liveMetadataKeys.contains(id.primaryKey())) {
+                    numOrphanReplicas++;
+                    clusterOrphans++;
+                }
+            }
+            if (clusterRefs >= OrphanCensus.MIN_CLUSTER_SIZE_FOR_WORST_CASE) {
+                maxClusterOrphanFraction =
+                        Math.max(maxClusterOrphanFraction, (double)clusterOrphans / clusterRefs);
+            }
+        }
+        return new OrphanCensus(numPrimaries, numReplicas, numOrphanPrimaries, numOrphanReplicas,
+                maxClusterOrphanFraction);
+    }
+
+    /**
      * Tolerances (as fractions of the relevant vector population) and the deep-check size gate for the soft
      * replication invariants. The deep, per-vector check (invariant 3) runs only when the structure has at most
      * {@link #deepCheckMaxVectors} primaries, so large runs stay fast.
@@ -221,7 +459,6 @@ public class GuardiannStructureAsserts {
          * enough that border replicas are expected (so a near-zero replica count signals broken replication).
          *
          * @param newMinReplicatedFraction the minimum replica fraction to require
-         *
          * @return a copy of these invariants with the given replica floor
          */
         @Nonnull
@@ -399,8 +636,8 @@ public class GuardiannStructureAsserts {
      * <em>without deletes</em> (inserts, repartitions, reassigns, etc.). Runs the deferred-task
      * queue to quiescence, verifies nothing remains pending, then snapshots and validates every
      * structural invariant — <em>including</em> {@link #assertReplicasReferenceLivePrimaries}.
-     * <p>
-     * Equivalent to the explicit sequence:
+     *
+     * <p>Equivalent to the explicit sequence:
      * <pre>{@code
      * runToQuiescence(db, guardiann);
      * assertQuiescence(db, guardiann);
@@ -409,8 +646,8 @@ public class GuardiannStructureAsserts {
      * assertReplicasReferenceLivePrimaries(s);
      * }</pre>
      * but bundled into one call so scenario tests don't have to repeat the boilerplate.
-     * <p>
-     * <b>Do not use this after deletes.</b> Deleting a primary can legitimately leave dangling
+     *
+     * <p><b>Do not use this after deletes.</b> Deleting a primary can legitimately leave dangling
      * replica vectors behind (replicas are not necessarily reaped), so
      * {@link #assertReplicasReferenceLivePrimaries} would spuriously fail. Delete-involving tests
      * should call {@link #assertGuardiannInvariantsAfterDeletes} instead. Tests that want finer

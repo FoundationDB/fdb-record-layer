@@ -208,12 +208,12 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         @Override
         public String toString() {
             return "OrQueryParams{" +
-                   "deferFetch=" + deferFetch +
-                   ", omitPrimaryKeyInOrderingKey=" + omitPrimaryKeyInOrderingKey +
-                   ", sortReverse=" + sortReverse +
-                   ", removeDuplicates=" + removeDuplicates +
+                    "deferFetch=" + deferFetch +
+                    ", omitPrimaryKeyInOrderingKey=" + omitPrimaryKeyInOrderingKey +
+                    ", sortReverse=" + sortReverse +
+                    ", removeDuplicates=" + removeDuplicates +
                     ", normalizeNestedFields=" + normalizeNestedFields +
-                   '}';
+                    '}';
         }
 
         @Nonnull
@@ -1157,6 +1157,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that the same index can be matched for multiple legs of an OR query, even if there are (compatible) ordering
      * constraints.
+     *
      * @throws Exception from test set up
      */
     @DualPlannerTest
@@ -1248,13 +1249,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * SELECT * FROM type WHERE a = ?foo OR a = ?bar ORDER BY b
      * }</pre>
      *
-     * <p>
-     * The thing that makes this case a little tricky is that the planner has to notice that that extra {@code c}
+     * <p>The thing that makes this case a little tricky is that the planner has to notice that that extra {@code c}
      * field doesn't get in the way. Note that an index on {@code (a, c, b)} would <em>not</em> be okay, because now
      * the {@code c} field is interfering with the order. Likewise, if {@code c} is a repeated field, then we're also
      * in trouble, because results may not show up the correct number of times in the index (or may be missing
      * completely if {@code c} is empty).
-     * </p>
      *
      * @throws Exception from underlying test set up
      * @see <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2336">Issue #2336</a>

@@ -100,16 +100,14 @@ public class LuceneIndexOptions {
     /**
      * Whether a separate B-tree index gives a direct mapping of live documents to segment by record primary key, that
      * utilizes an optimized stored fields to manage merges.
-     * <p>
-     * Boolean string ({@code true} or {@code false}).
-     * </p>
-     * <p>
-     * This is incompatible with {@link #PRIMARY_KEY_SEGMENT_INDEX_ENABLED}, and thus only one can be enabled on an
+     *
+     * <p>Boolean string ({@code true} or {@code false}).
+     *
+     * <p>This is incompatible with {@link #PRIMARY_KEY_SEGMENT_INDEX_ENABLED}, and thus only one can be enabled on an
      * index.
      * This implies {@link #OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED}, and thus
      * {@code OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED} cannot be set (to {@code true} or {@code false}) if this is
      * enabled.
-     * </p>
      */
     public static final String PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED = "primaryKeySegmentIndexV2Enabled";
     /**
@@ -132,6 +130,7 @@ public class LuceneIndexOptions {
 
     /**
      * Parse an option's value to a key-value map.
+     *
      * @param optionValue the raw string for option's value
      * @return the map
      */
@@ -149,6 +148,7 @@ public class LuceneIndexOptions {
 
     /**
      * Parse an option's value to a set of strings.
+     *
      * @param optionValue the raw string for option's value
      * @return map
      */
@@ -163,6 +163,7 @@ public class LuceneIndexOptions {
 
     /**
      * Validate the raw string for an option's value has valid format for a key-value map.
+     *
      * @param optionValue the raw string for option's value
      * @param exceptionToThrow the exception to throw if it is invalid
      */
@@ -185,6 +186,7 @@ public class LuceneIndexOptions {
 
     /**
      * Validate the raw string for an option's value has valid format for multiple-elements.
+     *
      * @param optionValue the raw string for option's value
      * @param exceptionToThrow the exception to throw if it is invalid
      */

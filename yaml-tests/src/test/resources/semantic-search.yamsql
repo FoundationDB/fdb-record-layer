@@ -114,6 +114,26 @@ test_block:
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c42}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.14147317261689443}, {'d3', 0.28294634523378887}]
     -
+      # Variant with `3 >= row_number()` instead of the `row_number() <= 3` above. When the operands of the QUALIFY
+      # comparison are reversed, the comparison must be swapped appropriately so that this gets translated to a
+      # DISTANCE_RANK_LESS_THAN_OR_EQUAL scan as well and returns the same 3 rows.
+      - query:
+          select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify 3 >= row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc)
+      - supported_version: 4.16.3.0
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c20}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)"
+      - result: [{'d1', 0.0}, {'d2', 0.14147317261689443}, {'d3', 0.28294634523378887}]
+    -
+      # As above, but with a strict inequality: `3 > row_number()` means `row_number() < 3`, hence 2 rows.
+      - query:
+          select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify 3 > row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc)
+      - supported_version: 4.16.3.0
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c14 AS STRING), EQUALS promote(@c18 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c7: @c20}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS _1)"
+      - result: [{'d1', 0.0}, {'d2', 0.14147317261689443}]
+    -
       - query:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'science'
@@ -192,6 +212,10 @@ test_block:
           select docId from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+      # Gated to the current version: d3 and d5 sit 1.7e-4 apart here, which is inside the
+      # one-ulp gap between the old truncating HALF encoding and the new rounded one, so a
+      # mixed-version run can order them d4,d5,d3,d2,d1 instead.
+      - supported_version: 4.16.4.0
       - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
       - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
     -
@@ -252,8 +276,10 @@ test_block:
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - supported_version: 4.9.6.0
-      - result: [{'d1', 'The Great Gatsby', 9.9945068359375E-4}]
+      # The expected distance is the encoding of the 0.001 literal itself. Gated to the current version and
+      # updated accordingly: older versions truncate it to 9.9945068359375E-4 rather than rounding to nearest.
+      - supported_version: 4.16.4.0
+      - result: [{'d1', 'The Great Gatsby', 0.0010004043579101562}]
     -
       - query:
           select r.reviewId, d2.docId, d2.title

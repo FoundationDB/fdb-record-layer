@@ -135,6 +135,7 @@ public class RelationalMetric {
         PLAN_CACHE_SECONDARY_MISS("secondary cache miss", false),
         PLAN_CACHE_TERTIARY_MISS("tertiary cache miss", false),
         PLAN_CACHE_TERTIARY_HIT("cache hit", false),
+        PLAN_CACHE_WRITE_ONLY_STORE("plan stored without a cache lookup", false),
         PLAN_CACHE_PRIMARY_LRU_EVICTION("primary cache LRU eviction", false),
         PLAN_CACHE_SECONDARY_LRU_EVICTION("secondary cache LRU eviction", false),
         PLAN_CACHE_TERTIARY_LRU_EVICTION("tertiary cache LRU eviction", false),
@@ -144,6 +145,8 @@ public class RelationalMetric {
         OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED("schema templates successfully processed by offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_QUERIES_PROCESSED("stored queries successfully planned by offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_QUERIES_FAILED("stored queries that failed to plan during offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_PLANS_WARMED("plans inserted into the cache by offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_PLANS_FAILED("plans that failed to build during offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED("temporary functions successfully planned by offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED("temporary functions that failed to plan during offline stored-queries warm-up", false)
         ;

@@ -77,7 +77,7 @@ public interface ComparableExpressionTrait<P extends DataType, T extends Express
         allArgumentsBuilder.addAll(arguments);
         final var allArguments = allArgumentsBuilder.build();
         for (final var argument : allArguments) {
-            Assert.thatUnchecked(argument.getType().getCode().equals(allArguments.get(0).getType().getCode()),
+            Assert.thatUnchecked(argument.getType().getCode() == allArguments.get(0).getType().getCode(),
                     "all items must have the same type");
         }
         return new ComparableFunction<>(arguments.get(0).getType(), Operation.GREATEST, allArguments);

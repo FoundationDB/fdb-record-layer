@@ -49,10 +49,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Object responsible for translating record saves and deletes into updates to a secondary index.
  *
- * This class is essentially an interface, implementing only the storage of an {@link IndexMaintainerState}.
+ * <p>This class is essentially an interface, implementing only the storage of an {@link IndexMaintainerState}.
  * A functional base class is provided by {@link com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer}.
  *
- * An {@code IndexMaintainer} instance is associated with a particular record store and index meta-data.
+ * <p>An {@code IndexMaintainer} instance is associated with a particular record store and index meta-data.
  * Implementers should assume that the same maintainer might be used to perform multiple record updates,
  * even though this never happens today.
  *
@@ -67,8 +67,7 @@ public abstract class IndexMaintainer {
     }
 
     /**
-     * Returns the subspace in which the index data is stored.
-     * @return subspace for index data
+     * {@return the subspace in which the index data is stored}
      */
     @Nonnull
     public Subspace getIndexSubspace() {
@@ -76,8 +75,7 @@ public abstract class IndexMaintainer {
     }
 
     /**
-     * Returns the secondary subspace in which the index data is stored.
-     * @return secondary subspace for index data
+     * {@return the secondary subspace in which the index data is stored}
      */
     @Nonnull
     public Subspace getSecondarySubspace() {
@@ -89,6 +87,7 @@ public abstract class IndexMaintainer {
      * from the secondary subspace, used exclusively by {@code SlidingWindowIndexMaintainer}
      * for window/overflow/count bookkeeping, so it does not collide with delegate index
      * types that also use the secondary subspace.
+     *
      * @return sliding window subspace for index data
      */
     @Nonnull
@@ -98,6 +97,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Scan entries in the index.
+     *
      * @param scanType the {@link IndexScanType type} of scan to perform
      * @param range the range to scan
      * @param continuation any continuation from a previous scan invocation
@@ -112,6 +112,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Scan entries in the index.
+     *
      * @param scanBounds the {@link IndexScanBounds bounds} of the scan to perform
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
@@ -126,6 +127,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Update associated index for a changed record.
+     *
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
@@ -153,12 +155,23 @@ public abstract class IndexMaintainer {
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                      @Nullable FDBIndexableRecord<M> newRecord);
 
+    /**
+     * Update associated index for a scanned record during online indexing.
+     *
+     * @param newRecord a scanned record that needs to be indexed.
+     * @param <M> type of message
+     * @return a future that is complete when the index update is done
+     */
+    @Nonnull
+    public <M extends Message> CompletableFuture<Void> updateFromIndexer(@Nullable FDBIndexableRecord<M> newRecord) {
+        return update(null, newRecord);
+    }
 
     /**
      * Serialize the old/new record pair into an {@link com.google.protobuf.Any}-packed message describing the deferred
      * index update. The data will be later provided to {@link #updateFromQueue(Any)} to implement the index update.
-     * <p>
-     * This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
+     *
+     * <p>This is only called for maintainers that allow pending write queue (see {@link #isPendingWriteQueueAllowed()}); the
      * caller is responsible for checking that before invoking this method.
      *
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
@@ -189,17 +202,16 @@ public abstract class IndexMaintainer {
 
     /**
      * Scans through the list of uniqueness violations within the database.
-     * <p>
-     *     It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
+     *
+     * <p>It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
      *     return the primary key of the record causing a problem and {@link IndexEntry#getValue() getValue()} will
      *     return the index value that is being duplicated.
-     * </p>
-     * <p>
-     *     Implementors <em>should</em> store all relevant data, and nothing else in
+     *
+     * <p>Implementors <em>should</em> store all relevant data, and nothing else in
      *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, but this requirement was not
      *     clearly stated, so it's possible there are implementations that store information about uniqueness violations
      *     in another range.
-     * </p>
+     *
      * @param range range of tuples to read
      * @param continuation any continuation from a previous invocation
      * @param scanProperties row limit and other scan properties
@@ -210,15 +222,14 @@ public abstract class IndexMaintainer {
 
     /**
      * Clear the list of uniqueness violations.
-     * <p>
-     *     This should only be called when the index is no longer unique, and implementations should throw a
+     *
+     * <p>This should only be called when the index is no longer unique, and implementations should throw a
      *     {@link com.apple.foundationdb.record.RecordCoreException} if the index is unique.
-     * </p>
-     * <p>
-     *     This should be as simple as clearing the
+     *
+     * <p>This should be as simple as clearing the
      *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, as that should be where all data
      *     about the violations should be stored.
-     * </p>
+     *
      * @return a future that will complete when the violations have been cleared
      */
     public CompletableFuture<Void> clearUniquenessViolations() {
@@ -239,7 +250,7 @@ public abstract class IndexMaintainer {
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
      * the implementation of the index.
      *
-     * It is not responsible for metadata validation, which is defined in
+     * <p>It is not responsible for metadata validation, which is defined in
      * {@link com.apple.foundationdb.record.metadata.IndexValidator}.
      *
      * @param continuation any continuation from a previous validation invocation
@@ -253,6 +264,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Return <code>true</code> if this index be used to evaluate the given record function.
+     *
      * @param function requested function
      * @return {@code true} if this index can be used to evaluate the given function
      */
@@ -260,6 +272,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Apply the key and value expressions to a <code>record</code>.
+     *
      * @param <M> the message type of the record
      * @param record the record from which the index will extract its key and value
      * @return a list of index keys and values
@@ -269,6 +282,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Similar to {@link #evaluateIndex(FDBRecord)}, but returns null if the record should be filtered out.
+     *
      * @param <M> the message type of the record
      * @param savedRecord the indexable record from which the index will extract its key and value
      * @return a list of index keys and values
@@ -278,6 +292,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Evaluate a record function on the given record.
+     *
      * @param <T> the result type of the function
      * @param <M> the message type of the record
      * @param context context for evaluation
@@ -297,6 +312,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Get whether this index can be used to evaluate the given aggregate function.
+     *
      * @param function the requested aggregate function
      * @return <code>true</code> if this index be used to evaluate the given aggregate function
      */
@@ -304,6 +320,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Evaluate an aggregate function over the given range using this index.
+     *
      * @param function the aggregate function to evaluate
      * @param range the range over which to accumulate the aggregate
      * @param isolationLevel the isolation level at which to perform the scan
@@ -324,6 +341,7 @@ public abstract class IndexMaintainer {
      * index updates in the normal case are idempotent as long as the index update and the
      * record insertion or deletion is atomic. However, certain indexes (mostly aggregate
      * indexes) have the property that the index update on its own are not idempotent.
+     *
      * @return whether updating this index is idempotent
      */
     public abstract boolean isIdempotent();
@@ -335,6 +353,7 @@ public abstract class IndexMaintainer {
      * index directly, and the online indexer drains that queue as it builds.
      * Maintainers that cannot correctly defer and later replay updates should return {@code false} to refuse this state;
      * this is the default, so maintainers that do support the queue must opt in by overriding this method.
+     *
      * @return whether this index may be built with a pending write queue
      */
     @API(API.Status.EXPERIMENTAL)
@@ -348,6 +367,7 @@ public abstract class IndexMaintainer {
      * write-only index with a new key. If the key is in some range, then it means that one should update the index
      * as it is based off of stale data. If the key is not in some range, then it means that one should not update
      * the index, as the rebuild job will handle it later.
+     *
      * @param primaryKey the record key of the record to check
      * @return a future that will be <code>true</code> if some range contains the record and <code>false</code> otherwise
      */
@@ -356,6 +376,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Get whether this index scan delete records matching a particular key query.
+     *
      * @param matcher the key query
      * @param evaluated parameters to the key query
      * @return <code>true</code> if this index accommodate a <code>whereRecordsWhere</code>
@@ -364,6 +385,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Clear index storage associated with the given key prefix.
+     *
      * @param tr transaction in which to access the database
      * @param prefix prefix of primary key to clear
      * @return a future that is complete when the given prefix has been cleared from this index
@@ -373,6 +395,7 @@ public abstract class IndexMaintainer {
     /**
      * Perform a type-specific operation on index. 
      * Allowed operations will vary by index type.
+     *
      * @param operation the requested operation
      * @return a future that completes with the result of the operation
      */
@@ -380,6 +403,7 @@ public abstract class IndexMaintainer {
 
     /**
      * Use the getMappedRange scan method to return a range scan with the dereferenced record for each index entry.
+     *
      * @param scanBounds the index range to scan
      * @param continuation the continuation to use
      * @param scanProperties the scan properties to use
@@ -398,6 +422,7 @@ public abstract class IndexMaintainer {
 
     /**
      * If the index is merge'Able, perform an index merge (within a single transaction limit).
+     *
      * @return a future that completes the merge operation
      */
     @API(API.Status.EXPERIMENTAL)

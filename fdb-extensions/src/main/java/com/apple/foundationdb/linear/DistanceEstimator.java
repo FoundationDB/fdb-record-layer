@@ -26,8 +26,8 @@ import javax.annotation.Nonnull;
  * Computes a distance between two vectors. Implementations are typically tied to a specific
  * {@link Metric} but may add behavior on top of the raw metric — for example, applying a
  * quantization-aware fast path when one or both vectors are encoded.
- * <p>
- * Search and clustering algorithms drive vector comparisons through this interface so they can
+ *
+ * <p>Search and clustering algorithms drive vector comparisons through this interface so they can
  * stay agnostic of how distances are actually computed (raw metric, rabitq estimator, etc.).
  */
 public interface DistanceEstimator {
@@ -52,8 +52,8 @@ public interface DistanceEstimator {
      * {@code vector2} on a metric-specific fast path that bypasses the raw metric. For example,
      * a quantization-aware estimator may report {@code true} when at least one of the vectors
      * is in the encoded form it knows how to consume directly.
-     * <p>
-     * Default {@link #ofMetric ofMetric}-built estimators have no fast path and always return
+     *
+     * <p>Default {@link #ofMetric ofMetric}-built estimators have no fast path and always return
      * {@code false}. Callers can use this hint to skip work that is only worthwhile for the
      * generic path (e.g. avoiding decode of an encoded vector if both will go through the
      * estimator's fast path anyway).
@@ -79,8 +79,8 @@ public interface DistanceEstimator {
     /**
      * Calculates the distance between two vectors that have already been transformed into the
      * estimator's coordinate system.
-     * <p>
-     * Both arguments must already have been rotated/translated as expected by the estimator
+     *
+     * <p>Both arguments must already have been rotated/translated as expected by the estimator
      * before calling this method — implementations do <em>not</em> apply any preprocessing.
      * Implementations may reject distance values that are not finite (depending on the metric
      * and on whether the inputs are zero vectors, etc.) by throwing an

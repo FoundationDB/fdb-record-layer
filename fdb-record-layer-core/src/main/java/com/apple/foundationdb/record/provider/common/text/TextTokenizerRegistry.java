@@ -35,14 +35,12 @@ import java.util.Map;
  * "{@value IndexOptions#TEXT_TOKENIZER_NAME_OPTION}" option. The registry
  * will then be queried for the tokenizer that has that name at index- and query-time.
  *
- * <p>
- * Note that there are two ways of adding elements to the tokenizer registry. The first
+ * <p>Note that there are two ways of adding elements to the tokenizer registry. The first
  * is to use the {@link com.google.auto.service.AutoService AutoService} annotation to mark
  * a {@link TextTokenizerFactory} implementation as one that should be loaded into
  * the registry. The other is to call {@link #register(TextTokenizerFactory) register()}
  * on this interface to register that tokenizer manually. This second way is useful
  * for tokenizers that are built on the fly from configuration parameters, for example.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public interface TextTokenizerRegistry {
@@ -70,6 +68,7 @@ public interface TextTokenizerRegistry {
 
     /**
      * Returns all registered tokenizers.
+     *
      * @return a map from tokenizer name to {@link TextTokenizerFactory}
      */
     @Nonnull

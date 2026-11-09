@@ -47,6 +47,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3000L);
         builder = builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 4);
         builder = builder.withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 2000L);
+        builder = builder.withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, true);
         builder = builder.withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true);
         builder = builder.withOption(Options.Name.LOG_QUERY, true);
         builder = builder.withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1000000L);
@@ -65,7 +66,9 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, "mypass");
         builder = builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, false);
         builder = builder.withOption(Options.Name.PLAN_RIGHT_DEEP, true);
+        builder = builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true);
         builder = builder.withOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE, Options.VectorIndexEnginePreference.PREFER_GUARDIANN);
+        builder = builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, 1791893873000L);
         Options options = builder.build();
         for (Options.Name name : Options.Name.values()) {
             if (name != Options.Name.CONTINUATION) {    // See above on why CONTINUATION was skipped.

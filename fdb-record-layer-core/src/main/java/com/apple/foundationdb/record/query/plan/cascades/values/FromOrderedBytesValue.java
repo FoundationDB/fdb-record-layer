@@ -80,6 +80,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
 
     /**
      * Constructs a new {@link FromOrderedBytesValue} instance.
+     *
      * @param child The child expression.
      */
     public FromOrderedBytesValue(@Nonnull final Value child,

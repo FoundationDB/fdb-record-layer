@@ -47,18 +47,18 @@ import java.util.function.Function;
  * A cursor that repeatedly executes its children until reaching a fix-point. Specifically, it returns the results
  * of an {@code initial} cursor as-is until it finishes, and then it repeatedly execute the other, {@code recursive} cursor
  * until it is done, in a way, it is similar to {@link ConcatCursor} but it is much more involved.
- * <br>
- * The union cursor has two children cursors: the {@code initial} cursor and the {@code recursive} cursor. The {@code initial}
+ *
+ * <p>The union cursor has two children cursors: the {@code initial} cursor and the {@code recursive} cursor. The {@code initial}
  * cursor is used to seed the recursion (base case), while the {@code recursive} cursor is executed repeatedly until it
  * reaches a fix-point.
- * <br>
- * During execution, the cursor reads from a child cursor and writes into a {@link TempTable}, at
+ *
+ * <p>During execution, the cursor reads from a child cursor and writes into a {@link TempTable}, at
  * the end of the recursive step, its swaps that {@link TempTable} with another {@link TempTable} that is used by the
  * recursive scan to set up the <i>next</i> recursive step. The fix-point is reached by checking whether the
  * {@link TempTable}, that the recursive scan is supposed to read, is empty or not, in other words, whether recursive
  * step {@code n-1} produced any results for the current step {@code n}. If not, the recursion stops immediately.
- * <br>
- * The state management of this cursor is mostly handled one level above by the {@link RecordQueryRecursiveLevelUnionPlan}. For example,
+ *
+ * <p>The state management of this cursor is mostly handled one level above by the {@link RecordQueryRecursiveLevelUnionPlan}. For example,
  * the manipulation of the read and write {@link TempTable} is handled there through manipulation of the {@link EvaluationContext}.
  * A {@link RecursiveStateManager} represents all the aspects related to state management, this abstraction offers a well-defined API
  * that enables probing (e.g. for the purpose of creating a {@link Continuation}) and manipulating the recursive state
@@ -93,6 +93,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      *     cursor to iterate over the items of the new recursive step.</li>
      *     <li>decide to stop the recursive execution, signalling to the underlying cursor that it should now be exhausted.</li>
      * </ul>
+     *
      * @return the next cursor item of the underlying active state cursor.
      */
     @Nonnull
@@ -208,6 +209,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         /**
          * Creates a new {@link Continuation} instance from a serialized continuation protobuf message and a temporary
          * table deserializer.
+         *
          * @param message The serialized continuation protobuf message.
          * @param tempTableDeserializer a {@link TempTable} deserializer.
          * @return a new {@link Continuation} instance.
@@ -266,6 +268,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      * Interface for recursive state management, the caller is expected to invoke respective callbacks when certain
      * events occur so the internal state mutates accordingly, it also offers a set of methods that enable examining
      * current state and whether the execution can proceed to a subsequent recursive state or not.
+     *
      * @param <T> The type of the cursor elements.
      */
     public interface RecursiveStateManager<T> {
@@ -278,6 +281,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         /**
          * Checks whether it is possible to transition from current recursive step {@code n} to next step {@code n + 1}.
+         *
          * @return {@code True} if it is possible to transition from current recursive step {@code n} to next step {@code n + 1},
          * otherwise {@code false}.
          */
@@ -285,20 +289,21 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         /**
          * Retrieve the currently active cursor, an active cursor is either the {@code initial} cursor or the {@code recursive} cursor.
+         *
          * @return The currently active cursor.
          */
         @Nonnull
         RecordCursor<T> getActiveStateCursor();
 
         /**
-         * Retrieve the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
-         * @return The {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
+         * {@return the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}}
          */
         @Nonnull
         TempTable getRecursiveUnionTempTable();
 
         /**
          * Checks whether the execution is still in the initial phase or not.
+         *
          * @return {@code True} if the execution is still in the initial phase, otherwise {@code false}, i.e. the execution
          * is in the recursive phase.
          */

@@ -27,7 +27,7 @@ import java.sql.SQLException;
 /**
  * Generator function for generating a field type.
  *
- * This allows us to generate fields of arbitrary type, according to whatever rules
+ * <p>This allows us to generate fields of arbitrary type, according to whatever rules
  * we like.
  */
 public interface FieldGenerator {

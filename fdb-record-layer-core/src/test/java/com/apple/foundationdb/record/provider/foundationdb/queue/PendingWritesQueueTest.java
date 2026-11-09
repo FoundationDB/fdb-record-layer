@@ -442,7 +442,7 @@ class PendingWritesQueueTest extends FDBRecordStoreTestBase {
      * snapshot isolation regardless of what the caller passes in {@code scanProperties}. The
      * close-out emptiness assertion uses {@link
      * PendingWritesQueue#isQueueEmpty} (which IS conflict-installing) and is
-     * covered separately by {@link #testIsEmptyConflictsConcurrentEnqueue}.</p>
+     * covered separately by {@link #testIsEmptyConflictsConcurrentEnqueue}.
      */
     @Test
     void testDrainScanAndClearDoesNotConflictWithConcurrentEnqueue() {

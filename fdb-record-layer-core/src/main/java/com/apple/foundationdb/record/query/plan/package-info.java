@@ -21,9 +21,7 @@
 /**
  * Query planner classes.
  *
- * <p>
- * A {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} transforms a logical {@link com.apple.foundationdb.record.query.RecordQuery}
+ * <p>A {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} transforms a logical {@link com.apple.foundationdb.record.query.RecordQuery}
  * into an executable {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, which can be run against a record store
- * </p>
  */
 package com.apple.foundationdb.record.query.plan;

@@ -215,9 +215,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
-        Verify.verify(leftChild instanceof BooleanValue);
-        Verify.verify(rightChild instanceof BooleanValue);
-        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(typeRepository, localAliases);
+        final Optional<QueryPredicate> leftPredicateOptional = BooleanValue.toQueryPredicate(leftChild, typeRepository, localAliases);
         if (leftPredicateOptional.isPresent()) {
             final QueryPredicate leftPredicate = leftPredicateOptional.get();
             if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
@@ -226,7 +224,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
             if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
                 return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
-            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(typeRepository, localAliases);
+            final Optional<QueryPredicate> rightPredicateOptional = BooleanValue.toQueryPredicate(rightChild, typeRepository, localAliases);
             if (rightPredicateOptional.isPresent()) {
                 final QueryPredicate rightPredicate = rightPredicateOptional.get();
                 if (operator == Operator.AND && rightPredicate.equals(ConstantPredicate.FALSE)) {
@@ -235,10 +233,11 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                 if (operator == Operator.OR && rightPredicate.equals(ConstantPredicate.TRUE)) {
                     return rightPredicateOptional;
                 }
-                if (leftPredicate.equals(ConstantPredicate.NULL) || rightPredicate.equals(ConstantPredicate.NULL)) {
-                    return Optional.of(ConstantPredicate.NULL);
-                }
                 if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
+                    // FALSE (for AND) and TRUE (for OR) were short-cut above, so any remaining NULL makes the result NULL.
+                    if (leftPredicate.equals(ConstantPredicate.NULL) || rightPredicate.equals(ConstantPredicate.NULL)) {
+                        return Optional.of(ConstantPredicate.NULL);
+                    }
                     if (operator == Operator.AND) {
                         return Optional.of((leftPredicate.isTautology() && rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);
                     } else {
@@ -258,7 +257,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     @Nonnull
     @Override
     public AndOrValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 2);
+        Verify.verify(Iterables.size(newChildren) == 2, "AndOrValue.withChildren() requires exactly 2 children");
         return new AndOrValue(this.functionName,
                 Iterables.get(newChildren, 0),
                 Iterables.get(newChildren, 1),
@@ -304,7 +303,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
-            Verify.verify(Iterables.size(arguments) == 2);
+            Verify.verify(Iterables.size(arguments) == 2, "AND expects exactly 2 arguments");
             return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.AND);
         }
     }
@@ -322,7 +321,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
-            Verify.verify(Iterables.size(arguments) == 2);
+            Verify.verify(Iterables.size(arguments) == 2, "OR expects exactly 2 arguments");
             return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.OR);
         }
     }

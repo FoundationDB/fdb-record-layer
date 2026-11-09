@@ -44,7 +44,7 @@ public class DataTypeUtils {
     /**
      * Converts a Record Layer {@link Type} into a Relational {@link DataType}.
      *
-     * Note: This method is expensive, use with care, i.e. try to cache its result as much as possible.
+     * <p>Note: This method is expensive, use with care, i.e. try to cache its result as much as possible.
      *
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.
@@ -93,7 +93,7 @@ public class DataTypeUtils {
     /**
      * Converts a given Relational {@link DataType} into a corresponding Record Layer {@link Type}.
      *
-     * Note: This method is expensive, use with care, i.e. try to cache its result as much as possible.
+     * <p>Note: This method is expensive, use with care, i.e. try to cache its result as much as possible.
      *
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.

@@ -43,6 +43,7 @@ import java.util.function.Function;
 
 /**
  * Sort records in memory and / or in files, then return them in order.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */

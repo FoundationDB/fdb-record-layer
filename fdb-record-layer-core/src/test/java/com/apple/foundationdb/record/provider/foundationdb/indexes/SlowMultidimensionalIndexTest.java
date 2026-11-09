@@ -138,6 +138,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
      * That is intentionally done in a way that the seed itself is handed over to the test case which causes that seed
      * to be reported. If a testcase fails, the particular seed reported can be used here to recreate the exact
      * conditions of the failure.
+     *
      * @return a stream of arguments
      */
     static Stream<Arguments> argumentsForIndexReadWithIn() {
@@ -168,6 +169,12 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
+    void basicReadWithOverwrites(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+        super.basicReadWithOverwritesTest(true, storage, storeHilbertValues, useNodeSlotIndex);
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForBasicReads")
     void deleteWhereTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.deleteWhereTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
@@ -191,6 +198,13 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     void indexReadWithNullsTest(final long seed, final int numRecords, @Nonnull final String storage,
                                 final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithNullsTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForIndexReads")
+    void indexReadWithOverwritesTest(final long seed, final int numRecords, @Nonnull final String storage,
+                                     final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+        super.indexReadWithOverwritesTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest

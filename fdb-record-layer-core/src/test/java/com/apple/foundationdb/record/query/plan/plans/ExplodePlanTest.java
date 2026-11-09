@@ -32,13 +32,17 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -245,8 +249,10 @@ public class ExplodePlanTest {
     // Pinned hash values for the `planHashIsStable()` test.
     private static final int WITHOUT_ORDINALITY_LEGACY_HASH = -1251896027;
     private static final int WITHOUT_ORDINALITY_FOR_CONTINUATION_HASH = -1251896027;
-    private static final int WITH_ORDINALITY_LEGACY_HASH = -154069942;
-    private static final int WITH_ORDINALITY_FOR_CONTINUATION_HASH = -154069942;
+    private static final int WITH_ORDINALITY_LEGACY_HASH = -481199675;
+    private static final int WITH_ORDINALITY_FOR_CONTINUATION_HASH = -481199675;
+    private static final int WITHOUT_ORDINALITY_VC1_HASH = -154069936;
+    private static final int WITH_ORDINALITY_VC1_HASH = -154069942;
 
     @Test
     void planHashIsStable() {
@@ -268,6 +274,18 @@ public class ExplodePlanTest {
         Assertions.assertNotEquals(
                 withoutOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
                 withOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        // VC1 hashes whether the explode is WITH ORDINALITY for both variants, and no longer hashes the 0-based
+        // ordinality flag, so both variants hash differently than under VC0.
+        Assertions.assertEquals(WITHOUT_ORDINALITY_VC1_HASH, withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
+        Assertions.assertEquals(WITH_ORDINALITY_VC1_HASH, withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
+        Assertions.assertNotEquals(withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC0),
+                withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
+        Assertions.assertNotEquals(withOrdinality.planHash(PlanHashable.PlanHashMode.VC0),
+                withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
+        // Sanity check: The two variants must still hash differently under VC1.
+        Assertions.assertNotEquals(withoutOrdinality.planHash(PlanHashable.PlanHashMode.VC1),
+                withOrdinality.planHash(PlanHashable.PlanHashMode.VC1));
     }
 
     @Test
@@ -321,5 +339,252 @@ public class ExplodePlanTest {
 
         final var withoutOrdinality = new ExplodeExpression(collectionValue, false);
         Assertions.assertFalse(withoutOrdinality.getDynamicTypes().contains(structType));
+    }
+
+    /**
+     * Runs an {@code EXPLODE ... WITH ORDINALITY} over the given elements and returns the ordinals it flows.
+     */
+    @Nonnull
+    @SuppressWarnings("DataFlowIssue") // explode transposes a constant array Value, it does not need a record store
+    private static List<Object> ordinalsOf(@Nonnull final List<Integer> elements) {
+        final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), true);
+        final var resultType = plan.getExplodeResultType();
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(plan.getDynamicTypes()).build();
+        final var descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
+        final var elementField = descriptor.getFields().get(0);
+        final var ordinalField = descriptor.getFields().get(1);
+        final var cursor = plan.executePlan(null, EvaluationContext.forTypeRepository(typeRepository), null,
+                ExecuteProperties.newBuilder().build());
+        final var ordinals = ImmutableList.builder();
+        for (final var element : elements) {
+            final var result = cursor.getNext();
+            Assertions.assertTrue(result.hasNext());
+            final var message = (Message)Objects.requireNonNull(result.get()).getDatum();
+            Assertions.assertEquals(element, message.getField(elementField));
+            ordinals.add(message.getField(ordinalField));
+        }
+        Assertions.assertFalse(cursor.getNext().hasNext());
+        return ordinals.build();
+    }
+
+    @Test
+    void explodeWithOrdinalityFlowsZeroBasedOrdinals() {
+        // Ordinals denote the position within the repeated field that the record layer stores an index entry under, so
+        // they count from zero. The 1-based ordinals SQL `WITH ORDINALITY` and `AT` expose are the caller's concern.
+        Assertions.assertEquals(List.of(0, 1, 2), ordinalsOf(List.of(100, 200, 300)));
+    }
+
+    @Test
+    void protoMarksTheOrdinalsOfAWithOrdinalityPlanZeroBased() {
+        final var sourceAlias = CorrelationIdentifier.of("source");
+        final var arrayType = new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false));
+        final var recordType = Type.Record.fromFields(List.of(
+                Type.Record.Field.of(arrayType, Optional.of("arr"))));
+        final var qov = QuantifiedObjectValue.of(sourceAlias, recordType);
+        final Value collectionValue = FieldValue.ofFieldName(qov, "arr");
+
+        // 4.16 still reads the ordinal base off the field and rejects a WITH ORDINALITY plan without it, so a WITH
+        // ORDINALITY plan keeps setting it.
+        final RecordQueryExplodePlan withOrdinality = new RecordQueryExplodePlan(collectionValue, true);
+        final PRecordQueryExplodePlan withOrdinalityProto = withOrdinality.toProto(newSerializationContext());
+        Assertions.assertTrue(withOrdinalityProto.getZeroBasedOrdinality());
+        Assertions.assertEquals(withOrdinality,
+                RecordQueryExplodePlan.fromProto(newSerializationContext(), withOrdinalityProto));
+
+        // A plain explode produces no ordinals to base, and says nothing about them.
+        final PRecordQueryExplodePlan plainProto =
+                new RecordQueryExplodePlan(collectionValue, false).toProto(newSerializationContext());
+        Assertions.assertFalse(plainProto.hasZeroBasedOrdinality());
+
+        // The field is no longer read, so a plan that leaves it unset, or sets it to false, deserializes to the same
+        // plan: ordinals are 0-based regardless.
+        final PRecordQueryExplodePlan unsetProto = PRecordQueryExplodePlan.newBuilder()
+                .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
+                .setWithOrdinality(true)
+                .build();
+        Assertions.assertEquals(withOrdinality, RecordQueryExplodePlan.fromProto(newSerializationContext(), unsetProto));
+
+        final PRecordQueryExplodePlan falseProto = PRecordQueryExplodePlan.newBuilder()
+                .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
+                .setWithOrdinality(true)
+                .setZeroBasedOrdinality(false)
+                .build();
+        Assertions.assertEquals(withOrdinality, RecordQueryExplodePlan.fromProto(newSerializationContext(), falseProto));
+    }
+
+    @Test
+    void theFlagDecidesTheShapeOfTheFlowedValue() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+        final var elementValue = new RecordQueryExplodePlan(collectionValue, false).getResultValue();
+
+        // The shape existing plans get: one opaque value standing for the whole struct, with nothing inside it reachable.
+        final var opaque = new RecordQueryExplodePlan(collectionValue, true);
+        Assertions.assertFalse(opaque.flowsRecordConstructorValue());
+        Assertions.assertInstanceOf(QueriedValue.class, opaque.getResultValue());
+
+        // As a record constructor, which is what makes the element reachable as its first column -- and so relatable to
+        // what a plain explode over the same collection flows.
+        final var recordConstructor = new RecordQueryExplodePlan(collectionValue, true, true);
+        final var columns = Assertions.assertInstanceOf(RecordConstructorValue.class, recordConstructor.getResultValue())
+                .getColumns();
+        Assertions.assertEquals(2, columns.size());
+        Assertions.assertEquals(elementValue, columns.get(0).getValue());
+
+        // Either shape is of the type the plan looks its protobuf descriptor up by at run time.
+        Assertions.assertEquals(opaque.getExplodeResultType(), opaque.getResultValue().getResultType());
+        Assertions.assertEquals(opaque.getExplodeResultType(), recordConstructor.getResultValue().getResultType());
+
+        Assertions.assertTrue(opaque.getDynamicTypes().contains(opaque.getExplodeResultType()));
+        Assertions.assertTrue(recordConstructor.getDynamicTypes().contains(recordConstructor.getExplodeResultType()));
+    }
+
+    @Test
+    void theShapeOfTheFlowedValueIsPartOfIdentity() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+
+        // Two plans that flow the same data in different shapes are not interchangeable, since what is reachable in the
+        // value each flows differs, and neither may be substituted for the other under a continuation.
+        final var opaque = new RecordQueryExplodePlan(collectionValue, true);
+        final var recordConstructor = new RecordQueryExplodePlan(collectionValue, true, true);
+        Assertions.assertNotEquals(opaque, recordConstructor);
+        Assertions.assertNotEquals(opaque.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                recordConstructor.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        // The same holds of the plain variant, where the shape decides the type the plan flows as well.
+        final var plainElement = new RecordQueryExplodePlan(collectionValue, false);
+        final var plainRecordConstructor = new RecordQueryExplodePlan(collectionValue, false, true);
+        Assertions.assertNotEquals(plainElement, plainRecordConstructor);
+        Assertions.assertNotEquals(plainElement.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                plainRecordConstructor.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    }
+
+    @Test
+    void theShapeOfTheFlowedValueEntersTheSemanticHash() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+
+        Assertions.assertEquals(new ExplodeExpression(collectionValue, true, true).semanticHashCode(),
+                new ExplodeExpression(collectionValue, true, true).semanticHashCode());
+
+        Assertions.assertNotEquals(new ExplodeExpression(collectionValue, true).semanticHashCode(),
+                new ExplodeExpression(collectionValue, true, true).semanticHashCode());
+        Assertions.assertNotEquals(new ExplodeExpression(collectionValue).semanticHashCode(),
+                new ExplodeExpression(collectionValue, false, true).semanticHashCode());
+    }
+
+    @Test
+    void plainExplodeCanFlowARecordConstructorToo() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+
+        // The shape existing plans get: the element itself, which is also the plan's result type.
+        final var element = new RecordQueryExplodePlan(collectionValue, false);
+        final var elementValue = element.getResultValue();
+        Assertions.assertInstanceOf(QueriedValue.class, elementValue);
+        Assertions.assertEquals(element.getElementType(), element.getExplodeResultType());
+
+        // As a record constructor, the element is the only column, and the plan flows the struct holding it.
+        final var recordConstructor = new RecordQueryExplodePlan(collectionValue, false, true);
+        final var columns = Assertions.assertInstanceOf(RecordConstructorValue.class, recordConstructor.getResultValue())
+                .getColumns();
+        Assertions.assertEquals(1, columns.size());
+        Assertions.assertEquals(elementValue, columns.get(0).getValue());
+        Assertions.assertEquals(
+                Type.Record.fromFields(List.of(Type.Record.Field.of(element.getElementType(), Optional.empty()))),
+                recordConstructor.getExplodeResultType());
+        Assertions.assertEquals(recordConstructor.getExplodeResultType(),
+                recordConstructor.getResultValue().getResultType());
+
+        // Unlike WITH ORDINALITY, where the struct is the result type either way, the shape decides the plain variant's
+        // result type.
+        Assertions.assertNotEquals(element.getExplodeResultType(), recordConstructor.getExplodeResultType());
+        Assertions.assertEquals(new RecordQueryExplodePlan(collectionValue, true).getExplodeResultType(),
+                new RecordQueryExplodePlan(collectionValue, true, true).getExplodeResultType());
+        Assertions.assertTrue(recordConstructor.getDynamicTypes().contains(recordConstructor.getExplodeResultType()));
+
+        // An expression flows what the plan implementing it flows.
+        final var expression = new ExplodeExpression(collectionValue, false, true);
+        Assertions.assertTrue(expression.flowsRecordConstructorValue());
+        Assertions.assertEquals(recordConstructor.getExplodeResultType(), expression.getExplodeResultType());
+        Assertions.assertEquals(recordConstructor.getResultValue(), expression.getResultValue());
+    }
+
+    /**
+     * Runs a plain {@code EXPLODE} that flows a record constructor over the given elements, and returns the elements it
+     * produces, read out of the struct each datum is.
+     */
+    @Nonnull
+    @SuppressWarnings("DataFlowIssue") // explode transposes a constant array Value, it does not need a record store
+    private static List<Object> structuredElementsOf(@Nonnull final List<Integer> elements) {
+        final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), false, true);
+        final var resultType = plan.getExplodeResultType();
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(plan.getDynamicTypes()).build();
+        final var descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
+        Assertions.assertEquals(1, descriptor.getFields().size());
+        final var elementField = descriptor.getFields().get(0);
+        final var cursor = plan.executePlan(null, EvaluationContext.forTypeRepository(typeRepository), null,
+                ExecuteProperties.newBuilder().build());
+        final var flowedElements = ImmutableList.builder();
+        for (int i = 0; i < elements.size(); i++) {
+            final var result = cursor.getNext();
+            Assertions.assertTrue(result.hasNext());
+            final var message = (Message)Objects.requireNonNull(result.get()).getDatum();
+            flowedElements.add(message.getField(elementField));
+        }
+        Assertions.assertFalse(cursor.getNext().hasNext());
+        return flowedElements.build();
+    }
+
+    @Test
+    void plainExplodeFlowingARecordConstructorProducesStructs() {
+        // The plain variant produces the bare elements -- see explodeWithSkipAndLimitWorks -- unless it flows a record
+        // constructor, in which case each element comes wrapped in the struct that value declares.
+        Assertions.assertEquals(List.of(100, 200, 300), structuredElementsOf(List.of(100, 200, 300)));
+    }
+
+    @Test
+    void protoRoundTripPreservesTheShapeOfTheFlowedValue() {
+        final var sourceAlias = CorrelationIdentifier.of("source");
+        final var arrayType = new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false));
+        final var recordType = Type.Record.fromFields(List.of(
+                Type.Record.Field.of(arrayType, Optional.of("arr"))));
+        final var qov = QuantifiedObjectValue.of(sourceAlias, recordType);
+        final Value collectionValue = FieldValue.ofFieldName(qov, "arr");
+
+        final var recordConstructor = new RecordQueryExplodePlan(collectionValue, true, true);
+        final var recordConstructorProto = recordConstructor.toProto(newSerializationContext());
+        Assertions.assertTrue(recordConstructorProto.getFlowsRecordConstructorValue());
+        final var deserializedRecordConstructor =
+                RecordQueryExplodePlan.fromProto(newSerializationContext(), recordConstructorProto);
+        Assertions.assertTrue(deserializedRecordConstructor.flowsRecordConstructorValue());
+        Assertions.assertEquals(recordConstructor, deserializedRecordConstructor);
+
+        // A plan flowing the opaque value must not set the field at all, so that it serializes to exactly the bytes it
+        // serialized to before the field existed.
+        final var opaque = new RecordQueryExplodePlan(collectionValue, true);
+        final var opaqueProto = opaque.toProto(newSerializationContext());
+        Assertions.assertFalse(opaqueProto.hasFlowsRecordConstructorValue());
+
+        // ... and a plan serialized by such a version, which cannot have the field, deserializes to the opaque value.
+        final var legacyProto = PRecordQueryExplodePlan.newBuilder()
+                .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
+                .setWithOrdinality(true)
+                .setZeroBasedOrdinality(true)
+                .build();
+        final var legacy = RecordQueryExplodePlan.fromProto(newSerializationContext(), legacyProto);
+        Assertions.assertFalse(legacy.flowsRecordConstructorValue());
+        Assertions.assertEquals(opaque, legacy);
+
+        // The plain variant round-trips the same way, where the field decides whether a struct is flowed at all.
+        final var plainRecordConstructor = new RecordQueryExplodePlan(collectionValue, false, true);
+        final var plainRecordConstructorProto = plainRecordConstructor.toProto(newSerializationContext());
+        Assertions.assertTrue(plainRecordConstructorProto.getFlowsRecordConstructorValue());
+        Assertions.assertEquals(plainRecordConstructor,
+                RecordQueryExplodePlan.fromProto(newSerializationContext(), plainRecordConstructorProto));
+
+        final var plainElement = new RecordQueryExplodePlan(collectionValue, false);
+        Assertions.assertFalse(plainElement.toProto(newSerializationContext()).hasFlowsRecordConstructorValue());
+        Assertions.assertEquals(plainElement, RecordQueryExplodePlan.fromProto(newSerializationContext(),
+                PRecordQueryExplodePlan.newBuilder()
+                        .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
+                        .build()));
     }
 }

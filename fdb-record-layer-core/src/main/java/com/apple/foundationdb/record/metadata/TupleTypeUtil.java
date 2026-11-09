@@ -53,9 +53,7 @@ class TupleTypeUtil {
      *      == Arrays.equals(Tuple.fromList(toTupleAppropriateList(list1)).pack(), Tuple.fromList(toTupleAppropriateList(list2)).pack())
      * }</pre>
      *
-     * <p>
-     * for any two lists {@code list1} and {@code list2}.
-     * </p>
+     * <p>for any two lists {@code list1} and {@code list2}.
      *
      * @param values the list of values to normalized
      * @return a new list containing the normalized elements of {@code values}
@@ -82,14 +80,10 @@ class TupleTypeUtil {
      *     == Arrays.equals(Tuple.from(value1).pack(), Tuple.from(value2).pack())
      * }</pre>
      *
-     * <p>
-     * for any two values {@code value1} and {@code value2}.
-     * </p>
+     * <p>for any two values {@code value1} and {@code value2}.
      *
-     * <p>
-     * This will only return {@code null} if {@link #toTupleAppropriateValue(Object)} would return {@code null}
+     * <p>This will only return {@code null} if {@link #toTupleAppropriateValue(Object)} would return {@code null}
      * on the same input. If the object is already in
-     * </p>
      *
      * @param obj the value to normalize
      * @return a value that has the same representation when {@link Tuple}-encoded

@@ -52,7 +52,6 @@ public final class ConstantPredicateFoldingUtil {
      *
      * @param operand The operand {@link Value} on the left-hand side of the predicate.
      * @param comparison The comparison, including both the operator and the operand on the right-hand side.
-     *
      * @return An {@code Optional} containing the simplified {@link QueryPredicate} if both the operand and comparison
      * evaluate to constant values. Returns an empty {@code Optional} otherwise.
      */
@@ -114,13 +113,13 @@ public final class ConstantPredicateFoldingUtil {
 
         switch (comparisonType) {
             case EQUALS:
-                if (lhsOperand.equals(rhsOperand)) {
+                if (lhsOperand == rhsOperand) {
                     return PredicateCategory.SINGLETON_TRUE;
                 } else {
                     return PredicateCategory.SINGLETON_FALSE;
                 }
             case NOT_EQUALS:
-                if (!lhsOperand.equals(rhsOperand)) {
+                if (lhsOperand != rhsOperand) {
                     return PredicateCategory.SINGLETON_TRUE;
                 } else {
                     return PredicateCategory.SINGLETON_FALSE;
@@ -171,7 +170,6 @@ public final class ConstantPredicateFoldingUtil {
      * @param predicate the predicate to analyze
      * @param alias the quantifier alias to substitute with null
      * @param evaluationContext the context in which any remaining parameter references should be resolved
-     *
      * @return the determined {@link EffectiveConstant}
      */
     public static EffectiveConstant foldPredicateAtNull(@Nonnull final QueryPredicate predicate,
@@ -192,8 +190,8 @@ public final class ConstantPredicateFoldingUtil {
                 ImmutableSet.of(),
                 ConstantFoldingRuleSet.ofSimplificationRules()).get();
         return (simplifiedPredicate instanceof ConstantPredicate constantPredicate)
-               ? toEffectiveConstant(constantPredicate)
-               : EffectiveConstant.UNKNOWN;
+                ? toEffectiveConstant(constantPredicate)
+                : EffectiveConstant.UNKNOWN;
     }
 
     /**

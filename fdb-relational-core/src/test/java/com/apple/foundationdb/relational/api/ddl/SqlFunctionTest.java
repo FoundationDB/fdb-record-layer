@@ -64,7 +64,7 @@ public class SqlFunctionTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(SqlFunctionTest.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -337,5 +337,17 @@ public class SqlFunctionTest {
                 "CREATE TABLE U(a BIGINT, b BIGINT, primary key(a))"))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
                 .containsInMessage("table with name 'U' already exists");
+    }
+
+    @Test
+    void functionWithStructArgumentsWork() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TYPE AS STRUCT ST1(a string, b string) " +
+                        "CREATE TABLE T(a BIGINT, b ST1, primary key(a)) " +
+                        "CREATE FUNCTION SQ1(IN Q TYPE ST1) AS SELECT * FROM T WHERE b.a = Q.a " +
+                        "CREATE FUNCTION SQ2(IN Q TYPE ST1) AS Q.a"),
+                containsRoutinesInAnyOrder(
+                        routine("SQ1", "CREATE FUNCTION SQ1(IN Q TYPE ST1) AS SELECT * FROM T WHERE b.a = Q.a"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN Q TYPE ST1) AS Q.a")));
     }
 }

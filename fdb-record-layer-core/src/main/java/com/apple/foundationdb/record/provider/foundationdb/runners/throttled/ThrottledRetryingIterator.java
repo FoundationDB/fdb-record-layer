@@ -57,8 +57,8 @@ import java.util.function.Consumer;
  * This class iterates over an inner cursor, applying resource controls (# of ops per transaction and per time), and
  * retrying failed operations. The iterator will build its own transactions and stores so that it can handle long-running
  * operations.
- * <p>
- * The iterator currently controls Read and Delete operations . If any other use case is required, it can
+ *
+ * <p>The iterator currently controls Read and Delete operations . If any other use case is required, it can
  * be extended by adding additional limits per transaction/second.
  *
  * @param <T> The iterated item type
@@ -124,10 +124,11 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
     /**
      * Iterate over the inner cursor.
-     * <p>
-     * This is the main entry point for the class: This method would return a future that, when complete normally, signifies the
+     *
+     * <p>This is the main entry point for the class: This method would return a future that, when complete normally, signifies the
      * completion of the iteration over the inner cursor. The iteration will create its own transactions for the actual
      * data access, and so this can be done outside the scope of a transaction.
+     *
      * @param storeBuilder the store builder to use for the iteration
      * @return a future that, when complete normally, means the iteration is complete
      */
@@ -365,6 +366,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Increment deleted item number by count.
+         *
          * @param count the number of items to increment deleted count by
          */
         public void deleteCountAdd(int count) {
@@ -447,6 +449,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         /**
          * Set the amount of time for each transaction before committing and starting another.
          * Defaults to 4000.
+         *
          * @param transactionTimeQuotaMillis the maximum duration of a transaction.
          * @return this builder
          */
@@ -460,6 +463,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * This parameter will control the delay between transactions (not within a single transaction). Once a transaction
          * has been committed, this will govern whether the iterator will delay starting the next one.
          * Defaults to 0 (no limit).
+         *
          * @param maxRecordsScannedPerSec the number of items scanned (on average) per second by the iterator
          * @return this builder
          */
@@ -473,6 +477,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * This parameter will control the delay between transactions (not within a single transaction). Once a transaction
          * has been committed, this will govern whether the iterator will delay starting the next one.
          * Defaults to 0 (no limit).
+         *
          * @param maxRecordsDeletesPerSec the number of items deleted (on average) per second by the iterator
          * @return this builder
          */
@@ -483,6 +488,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Set the callback to invoke on transaction commit.
+         *
          * @param transactionSuccessNotification the callback invoked every time a transaction is successfully committed
          * Defaults to null (no callback).
          * @return this builder
@@ -494,6 +500,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Set the callback to invoke on transaction start.
+         *
          * @param transactionInitNotification the callback invoked every time a transaction is created
          * Defaults to null (no callback).
          * @return this builder
@@ -509,6 +516,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * of deletes is determined by the {@link QuotaManager#deletesCount}, affected by the {@link #singleItemHandler}
          * implementation.
          * Defaults to 0 (no limit).
+         *
          * @param maxRecordsDeletesPerTransaction the maximum number of items scanned in a transaction
          * @return this builder
          */
@@ -523,6 +531,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * before failing the iteration.
          * This counter gets reset upon the next successful commit.
          * Defaults to 100.
+         *
          * @param numOfRetries the maximum number of retries for transaction
          * @return this builder
          */
@@ -536,6 +545,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * Setting this to TRUE will commit every transaction created before creating a new one. Setting to FALSE will
          * roll back the transactions.
          * Defaults to TRUE.
+         *
          * @param commitWhenDone whether to commit or roll back the transactions created
          * @return this builder
          */
@@ -549,6 +559,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * This MDC context will be carried out into the runner and executor and will allow them to pass that down to
          * LOGGER calls used by the item handlers.
          * Defaults to empty context.
+         *
          * @param mdcContext the MDC context to use
          * @return this builder
          */
@@ -559,6 +570,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Create the iterator.
+         *
          * @return the newly minted iterator
          */
         public ThrottledRetryingIterator<T> build() {

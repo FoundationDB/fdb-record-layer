@@ -57,13 +57,13 @@ import java.util.stream.Collectors;
 
 /**
  * Generator for creating indexes using the {@code INDEX ON} syntax.
- * <p>
- * This class is responsible for processing and generating {@link RecordLayerIndex} instances from the
+ *
+ * <p>This class is responsible for processing and generating {@link RecordLayerIndex} instances from the
  * {@code INDEX ON} DDL syntax, which allows creating indexes directly on table sources with explicit
  * column specifications. This is in contrast to the {@code INDEX AS} syntax which defines indexes through
  * arbitrary SELECT queries.
- * <p>
- * The {@code INDEX ON} syntax follows this form:
+ *
+ * <p>The {@code INDEX ON} syntax follows this form:
  * <pre>
  * [UNIQUE] INDEX index_name ON table_name (
  *     column1 [ASC|DESC] [NULLS FIRST|NULLS LAST],
@@ -73,8 +73,8 @@ import java.util.stream.Collectors;
  * [INCLUDE (value_column1, value_column2, ...)]
  * [OPTIONS (option_name, ...)]
  * </pre>
- * <p>
- * The index definition consists of:
+ *
+ * <p>The index definition consists of:
  * <ul>
  *     <li><b>Key columns:</b> The ordered list of columns in the index key, specified in the main column list.
  *         Each column can have optional ordering modifiers (ASC/DESC, NULLS FIRST/LAST).</li>
@@ -86,20 +86,20 @@ import java.util.stream.Collectors;
  *     <li><b>Index options:</b> Optional configuration flags such as LEGACY_EXTREMUM_EVER or USE_NULLABLE_ARRAYS
  *         that affect index behavior and storage.</li>
  * </ul>
- * <p>
- * Example usage:
+ *
+ * <p>Example usage:
  * <pre>
  * CREATE UNIQUE INDEX idx_user_email ON users (email ASC)
  *     INCLUDE (first_name, last_name)
  *     OPTIONS (LEGACY_EXTREMUM_EVER);
  * </pre>
- * <p>
- * The generator transforms the source table query into a properly ordered and projected logical plan,
+ *
+ * <p>The generator transforms the source table query into a properly ordered and projected logical plan,
  * then delegates to {@link MaterializedViewIndexGenerator} to produce the final index structure. The
  * generated index maintains the specified column ordering and can leverage the query planner for
  * efficient index-based query execution.
- * <p>
- * This class is typically constructed via its {@link Builder} pattern, which validates that all required
+ *
+ * <p>This class is typically constructed via its {@link Builder} pattern, which validates that all required
  * components (index name, source query, and at least one key column) are provided before generation.
  *
  * @see MaterializedViewIndexGenerator
@@ -144,8 +144,8 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
 
     /**
      * Generates a {@link RecordLayerIndex} based on the configured source query and index columns.
-     * <p>
-     * This method first extracts key and value column identifiers from the configured columns, ensuring value
+     *
+     * <p>This method first extracts key and value column identifiers from the configured columns, ensuring value
      * columns don't duplicate key columns. It then retrieves the top-level logical operator from the source query
      * plan and builds a mapping of column identifiers to their underlying {@link Column} representations, pushing
      * down values through the query plan. A projection is created containing all key and value columns in order,
@@ -154,15 +154,16 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
      * preserving the original quantifiers and predicates. Finally, a sorted logical plan is generated based on
      * the ORDER BY expressions, and the method delegates to {@link MaterializedViewIndexGenerator} to produce
      * the final index structure.
-     * <p>
-     * The generated index will be ordered according to the key columns and can optionally enforce uniqueness
+     *
+     * <p>The generated index will be ordered according to the key columns and can optionally enforce uniqueness
      * if configured via {@link IndexGenerationOptions#unique()} flag.
      *
-     * @return a fully configured {@link RecordLayerIndex} ready to be added to the schema
+     * @return the generated index, together with the unnested synthetic table to define it on when the
+     *         source unnests a struct array in a way a fan-out cannot express
      */
     @Nonnull
     @Override
-    public RecordLayerIndex.Builder generate() {
+    public IndexGenerationResult generate() {
         final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::identifier).collect(ImmutableList.toImmutableList());
         final var keyIdentifiersAsSet = ImmutableSet.copyOf(keyIdentifiers);
         final var valueIdentifiers = valueColumns.stream().map(IndexedColumn::identifier)
@@ -219,17 +220,17 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
         final var indexGenerator = MaterializedViewIndexGenerator.newInstance(
                 indexPlan.getQuantifier().getRangesOver().get(), metadataBuilder, indexName.toString(),
                 options);
-        final var indexMetadata = indexGenerator.generate();
-        indexMetadata.addAllOptions(indexOptions);
-        return indexMetadata;
+        final var result = indexGenerator.generate();
+        result.indexBuilder().addAllOptions(indexOptions);
+        return result;
     }
 
     public record IndexedColumn(@Nonnull Identifier identifier, boolean isDescending, boolean isNullsLast) {
 
         /**
          * Parses an index column specification from a parser context into an {@link IndexedColumn}.
-         * <p>
-         * This method extracts the column identifier and optional ordering information (ASC/DESC and NULLS FIRST/LAST)
+         *
+         * <p>This method extracts the column identifier and optional ordering information (ASC/DESC and NULLS FIRST/LAST)
          * from the parser context. If no order clause is specified, defaults to ascending order with nulls first.
          * When an order clause is present but nulls ordering is not explicitly specified, the default behavior is:
          * <ul>
@@ -239,7 +240,6 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
          *
          * @param columnSpec the parser context containing the column specification
          * @param identifierVisitor the visitor used to extract the column identifier
-         *
          * @return an {@link IndexedColumn} representing the parsed column specification
          */
         @Nonnull

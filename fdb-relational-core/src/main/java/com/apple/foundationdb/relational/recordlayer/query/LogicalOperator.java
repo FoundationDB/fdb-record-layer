@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableIn
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -88,8 +89,8 @@ import java.util.stream.Collectors;
  * {@code SELECT A, B, C FROM T} will produce a {@code LogicalOperator} whose name is {@code T} and which has an output
  * of three expressions ({@link Expression}) named {@code A}, {@code B}, and {@code C}. The logical operator will wrap
  * an internal quantifier that is a for-each {@link Quantifier} returning all the rows of the table {@code T}.
- * <p>
- * [1] See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
+ *
+ * <p>[1] See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -311,7 +312,8 @@ public class LogicalOperator {
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final boolean withOrdinality = atAlias.isPresent();
-        final var explode = new ExplodeExpression(expression.getUnderlying(), withOrdinality);
+        // for the case when `withOrdinality` is true, we ask for a RecordConstructor value.
+        final var explode = new ExplodeExpression(expression.getUnderlying(), withOrdinality, withOrdinality);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
         final QuantifiedObjectValue flowedObjectValue = resultingQuantifier.getFlowedObjectValue();
         final Type flowedObjectType = resultingQuantifier.getFlowedObjectType();
@@ -322,8 +324,14 @@ public class LogicalOperator {
             final Type elementType = explode.getElementType();
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
                     FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
-            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(),
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1)));
+            // The explode flows 0-based ordinals. SQL `AT` is 1-based per the standard.
+            // TODO: An `AT` ordinal is never null, but `ArithmeticValue` reports a nullable result type even when both
+            //       of its operands are not nullable, so the column is declared nullable to match the value it flows.
+            //       Once #4622 is fixed, this should go back to `DataType.Primitives.INTEGER`.
+            final Value oneBasedOrdinal = (Value)new ArithmeticValue.AddFn()
+                    .encapsulate(CallSiteArguments.ofPositional(FieldValue.ofOrdinalNumber(flowedObjectValue, 1),
+                            LiteralValue.ofScalar(1)));
+            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.NULLABLE_INTEGER.type(), oneBasedOrdinal));
         } else if (flowedObjectType.isPrimitive()) {
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
                     flowedObjectValue));
@@ -492,8 +500,8 @@ public class LogicalOperator {
      * Determine whether it is possible to skip projection of individual columns of the underlying quantifier. This is
      * to avoid unnecessary "breaking" a record constructor value unnecessarily when the user issues a query as simple
      * as {@code SELECT * FROM T}.
-     * <br/>
-     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
+     *
+     * <p>It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
      * plan canonicalization phase.
      *
      * @param output the {@link LogicalOperator}'s output.

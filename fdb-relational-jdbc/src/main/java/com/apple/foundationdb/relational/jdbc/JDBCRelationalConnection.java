@@ -151,6 +151,7 @@ class JDBCRelationalConnection implements RelationalConnection {
      * To start an InProcessRelationalServer server, InProcessRelationalServer needs to be on the CLASSPATH which may not
      * be the case. If a pure JDBC driver free of fdb-relational-server and fdb-relational-core dependencies (the usual deploy
      * type), it won't be present and the below attempt at loading an inprocess server via reflection will fail.
+     *
      * @return The name of the server we started (SIDE-EFFECT; our server is saved to 'this.closeable' so that on
      * connection close, it gets cleaned up too).
      */
@@ -307,6 +308,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     /**
      * The database we have a connection too.
+     *
      * @return The database we have a connection too (TODO: Can we fix the javadoc rule so I only  have to add the
      * '@return' here and not have to have the line above too?).
      */
@@ -316,6 +318,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     /**
      * Create a {@link RelationalStatement}.
+     *
      * @return A RelationalStatement instead of a plain JDBC Statement (Here we deviate form pure JDBC for the
      * user's convenience; users will be interested in the Relational facility and will be annoyed having to go through
      * extra steps to extract Relational types from base JDBC).
@@ -384,6 +387,8 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     /**
      * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropriate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      *
      * @return always {@link Connection#TRANSACTION_SERIALIZABLE}
      */
@@ -504,6 +509,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     /**
      * Convert runtime errors to SQLException in cases that may apply.
+     *
      * @param statusRuntimeException the caught RPC exception
      * @return SQLException in case the error has a SQLException payload, null otherwise
      */

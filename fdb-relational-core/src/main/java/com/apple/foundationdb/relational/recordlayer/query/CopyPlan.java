@@ -130,7 +130,6 @@ public final class CopyPlan extends QueryPlan {
      * @param path the KeySpace path to export from (e.g., "/FRL/MY_DATABASE")
      * @param queryExecutionContext the query execution context
      * @param incrementIncarnation whether to increment the incarnation in store info during export
-     *
      * @return a CopyPlan for exporting data
      */
     @Nonnull
@@ -144,7 +143,6 @@ public final class CopyPlan extends QueryPlan {
      * Creates a COPY import plan.
      *
      * @param path the KeySpace path to import into (e.g., "/FRL/MY_DATABASE")
-     *
      * @return a CopyPlan for importing data
      */
     @Nonnull
@@ -263,6 +261,7 @@ public final class CopyPlan extends QueryPlan {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.UnnecessaryVarargsArrayCreation") // see the comment on the ArrayRow construction below
     private static ArrayRow convertDataToRow(@Nonnull final ExecutionContext context,
                                              @Nullable final DataInKeySpacePath data,
                                              @Nonnull final KeySpacePathSerializer serializer,
@@ -303,6 +302,9 @@ public final class CopyPlan extends QueryPlan {
                     .addContext("path", data.getPath()));
         }
 
+        // WARNING: keep the explicit Object[]. The row must hold exactly one column, the serialized bytes. Passing the
+        // byte[] straight to the ArrayRow(Object...) varargs constructor happens to wrap it the same way, but that
+        // relies on byte[] not being an Object[]; it would silently change if the argument's type ever became one.
         return new ArrayRow(new Object[] {copyDataBuilder.build().toByteArray()});
     }
 

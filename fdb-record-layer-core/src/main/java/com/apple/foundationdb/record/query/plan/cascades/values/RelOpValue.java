@@ -107,6 +107,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Creates a new instance of {@link RelOpValue}.
+     *
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
@@ -166,9 +167,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             if (absorbedMaybe.isPresent()) {
                 return absorbedMaybe;
             }
-            final var invertedComparison = Comparisons.invertComparisonType(comparisonType);
-            if (invertedComparison != null) {
-                absorbedMaybe = rightChild.transformComparisonMaybe(invertedComparison, leftChild);
+            final var swappedComparison = Comparisons.swapComparisonType(comparisonType);
+            if (swappedComparison != null) {
+                absorbedMaybe = rightChild.transformComparisonMaybe(swappedComparison, leftChild);
                 if (absorbedMaybe.isPresent()) {
                     return absorbedMaybe;
                 }
@@ -230,15 +231,17 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         leftChild = promotedOperands.getLeft();
         rightChild = promotedOperands.getRight();
         final boolean isArrayComparison = leftChild.getResultType().isArray();
+        final boolean isEnumComparison = leftChild.getResultType().isEnum();
+        final boolean rightHasConstantObjectValues = rightChild.hasConstantObjectValues();
 
         // Note: When arrays are compared, we always use `ValueComparison`. `SimpleComparison` cannot be used because
         // it would encounter a serialization failure when calling `LiteralKeyExpression.toProtoValue()` to serialize
-        // its comparand; that serializer currently cannot handle a `List`.
-        if (typeRepository != null && !isArrayComparison) {
+        // its comparand; that serializer currently cannot handle a `List` or `Enum`.
+        if (typeRepository != null && !isArrayComparison && !isEnumComparison && !rightHasConstantObjectValues) {
             final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
-                   ? Optional.of(new ConstantPredicate(false))
-                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                    ? Optional.of(new ConstantPredicate(false))
+                    : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
         } else {
             return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
         }
@@ -246,8 +249,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Attempt to compile-time evaluate {@code this} predicate as a constant {@link QueryPredicate}.
-     * <br/>
-     * <b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
+     *
+     * <p><b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
      * and explicit phase that does compactions, simplifications, and compile-time evaluations as an explicit
      * preprocessing step.
      *
@@ -294,23 +297,11 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     private static Comparisons.Type swapBinaryComparisonOperator(@Nonnull Comparisons.Type type) {
-        switch (type) {
-            case EQUALS:
-            case NOT_EQUALS:
-            case NOT_DISTINCT_FROM:
-            case IS_DISTINCT_FROM:
-                return type;
-            case LESS_THAN:
-                return Comparisons.Type.GREATER_THAN;
-            case LESS_THAN_OR_EQUALS:
-                return Comparisons.Type.GREATER_THAN_OR_EQUALS;
-            case GREATER_THAN:
-                return Comparisons.Type.LESS_THAN;
-            case GREATER_THAN_OR_EQUALS:
-                return Comparisons.Type.LESS_THAN_OR_EQUALS;
-            default:
-                throw new IllegalArgumentException("cannot swap comparison " + type);
+        final Comparisons.Type result = Comparisons.swapComparisonType(type);
+        if (result == null) {
+            throw new IllegalArgumentException("cannot swap comparison " + type);
         }
+        return result;
     }
 
     /**

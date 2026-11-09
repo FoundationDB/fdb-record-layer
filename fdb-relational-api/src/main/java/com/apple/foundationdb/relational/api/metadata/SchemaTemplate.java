@@ -27,7 +27,6 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -37,16 +36,12 @@ import java.util.Set;
 public interface SchemaTemplate extends Metadata {
 
     /**
-     * Returns the version of the schema template.
-     *
-     * @return The version of the schema template.
+     * {@return the version of the schema template}
      */
     int getVersion();
 
     /**
-     * Returns {@code true} if long rows are permitted in tables of this template, else {@code false}.
-     *
-     * @return {@code true} if long rows are permitted in tables of this template, else {@code false}.
+     * {@return {@code true} if long rows are permitted in tables of this template, else {@code false}}
      */
     boolean isEnableLongRows();
 
@@ -59,22 +54,28 @@ public interface SchemaTemplate extends Metadata {
     boolean isStoreRowVersions();
 
     /**
-     * Returns the {@link Table}s inside the schema template.
+     * {@return the {@link Table}s inside the schema template}
      *
-     * @return The {@link Table}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
     @Nonnull
     Set<? extends Table> getTables() throws RelationalException;
 
     /**
-     * Returns the {@link View}s inside the schema template.
+     * {@return the {@link View}s inside the schema template}
      *
-     * @return The {@link View}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
     @Nonnull
     Set<? extends View> getViews() throws RelationalException;
+
+    /**
+     * {@return the {@link SyntheticTable}s inside the schema template}
+     *
+     * @throws RelationalException if it is a NoOpSchemaTemplate
+     */
+    @Nonnull
+    Set<? extends SyntheticTable> getSyntheticTables() throws RelationalException;
 
     /**
      * Retrieves a {@link Table} by looking up its name.
@@ -96,8 +97,8 @@ public interface SchemaTemplate extends Metadata {
 
     /**
      * Returns a {@link BitSet} whose bits are set for each of passed index names.
-     * <br>
-     * <b>Example</b>
+     *
+     * <p><b>Example</b>
      * for a given schema template {@code st} with indexes {@code i1, i2, i3, i4} whose order are as-defined, calling
      * {@code st.getIndexEntriesAsBitset(Optiona.of(Set.of("i2", "i3"))} returns a bitset of {@code 0110}.
      *
@@ -111,9 +112,8 @@ public interface SchemaTemplate extends Metadata {
     BitSet getIndexEntriesAsBitset(@Nonnull Optional<Set<String>> readableIndexNames) throws RelationalException;
 
     /**
-     * Returns all {@link InvokedRoutine}s defined in this schema template.
+     * {@return a set of all {@link InvokedRoutine}s defined in this schema template}
      *
-     * @return A set of all {@link InvokedRoutine}s defined in this schema template.
      * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
      */
     @Nonnull
@@ -134,11 +134,31 @@ public interface SchemaTemplate extends Metadata {
     /**
      * Returns the stored queries defined in this schema template.
      *
-     * @return A map of stored query names to their {@link StoredQuery} struct (SELECT text plus
-     *         the temp-function declarations that must precede it).
+     * @return the {@link StoredQuery}s of this schema template.
+     * @throws RelationalException if the stored queries can not be retrieved.
      */
     @Nonnull
-    Map<String, StoredQuery> getStoredQueries() throws RelationalException;
+    Set<? extends StoredQuery> getStoredQueries() throws RelationalException;
+
+    /**
+     * Looks up a {@link StoredQuery} by name.
+     *
+     * @param storedQueryName the name of the stored query.
+     * @return the {@link StoredQuery} with that name, if there is one.
+     * @throws RelationalException if the lookup fails.
+     */
+    @Nonnull
+    Optional<? extends StoredQuery> findStoredQueryByName(@Nonnull String storedQueryName) throws RelationalException;
+
+    /**
+     * Retrieves a {@link DataType}, which can either be the underlying type of a {@link Table}
+     * or a user-defined struct/enum type, by looking up its name.
+     *
+     * @param typeName The name of the type.
+     * @return An {@link Optional} containing the {@link DataType} if it is found, otherwise {@code Empty}.
+     */
+    @Nonnull
+    Optional<DataType> findTypeByName(@Nonnull String typeName) throws RelationalException;
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;

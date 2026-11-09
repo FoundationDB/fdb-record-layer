@@ -246,7 +246,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
      *
      * <p>This documents that the Lucene-specific {@link PendingWriteQueue} shares the same
      * conflict-free drain behavior as the generalized core queue — it falls out of the shared
-     * versionstamped-key + atomic-counter idioms, not from anything queue-specific.</p>
+     * versionstamped-key + atomic-counter idioms, not from anything queue-specific.
      */
     @Test
     void testDrainScanAndClearDoesNotConflictWithConcurrentEnqueue() {

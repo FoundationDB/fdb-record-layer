@@ -45,7 +45,7 @@ import java.util.function.Supplier;
  * The planner graph class. Objects of this class are produced by {@link PlannerGraphVisitor},
  * i.e., they get computed by walking a {@link RelationalExpression} DAG.
  *
- * Once computed, the property is immutable.
+ * <p>Once computed, the property is immutable.
  *
  * @param <N> node type
  * @param <E> edge type
@@ -73,6 +73,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
     /**
      * Builder class for planner graph. Used during computation of the planner expression property.
      * Note that each AbstractPlannerGraph will have a root which is mandatory.
+     *
      * @param <N> node type
      * @param <E> edge type
      * @param <B> self type for subclass builders
@@ -173,6 +174,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
 
         /**
          * Overloaded constructor.
+         *
          * @param identity object identifying this node. Two nodes in the graph are considered equal if and only if their
          *        identity is equal (using reference equality)
          * @param name name of the object to be used to construct the label that is displayed
@@ -268,6 +270,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
 
     /**
      * Protected constructor. Objects of this class are built by a builder.
+     *
      * @param root root of this graph
      * @param network a network describing the query execution plan rooted at {@code root}
      */

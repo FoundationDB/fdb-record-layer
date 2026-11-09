@@ -81,18 +81,10 @@ public class SortEvents {
         private final String logKey;
         private final boolean isSize;
 
-        Counts(String title, String logKey, boolean isSize) {
-            this.title = title;
-            this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
-            this.isSize = false;
-        }
-
         Counts(String title, boolean isSize) {
-            this(title, null, isSize);
-        }
-
-        Counts(String title) {
-            this(title, null, false);
+            this.title = title;
+            this.logKey = StoreTimer.Count.super.logKey();
+            this.isSize = isSize;
         }
 
         @Override

@@ -60,29 +60,21 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An index maintainer for storing bitmaps of which records meet a specific condition.
  *
- * <p>
- * The index is defined on a position field, grouped by zero or more value conditions.
+ * <p>The index is defined on a position field, grouped by zero or more value conditions.
  * The position should be an integer that is unique and reasonably dense, since compression of the index is traded off in favor of simplicity and concurrent updates.
  * If the position is not set, then the item is not indexed at all.
- * </p>
  *
- * <p>
- * Instead of one key per record, the index stores one bit per record in a fixed-size bitmap aligned on even multiples of the position key.
+ * <p>Instead of one key per record, the index stores one bit per record in a fixed-size bitmap aligned on even multiples of the position key.
  * Empty (that is, all zero) bitmaps are not stored.
- * </p>
  *
- * <p>
- * The position bitmaps behave as aggregate functions, additionally restricted by ranges of the position, as though position (or its modulus)
+ * <p>The position bitmaps behave as aggregate functions, additionally restricted by ranges of the position, as though position (or its modulus)
  * were another grouping column. It is possible to roll-up the stored bitmaps into a single, bigger, bitmap. But because these are rather large,
  * it is generally preferable to scan the index and deal with the bitmaps in order as stored. If the position
  * endpoints are not aligned to the bitmap quantum, the first and last bitmaps will be suitably trimmed.
- * </p>
  *
- * <p>
- * A {@code unique} option means that the index <em>checks</em> uniqueness of the position, with the expense of an additional
+ * <p>A {@code unique} option means that the index <em>checks</em> uniqueness of the position, with the expense of an additional
  * read at update time. Also, when a uniqueness violation does occur, it is not possible to know what other record caused it.
  * A separate unique index on the position field, if it is not the primary key, is therefore generally preferable.
- * </p>
  *
  */
 @API(API.Status.EXPERIMENTAL)

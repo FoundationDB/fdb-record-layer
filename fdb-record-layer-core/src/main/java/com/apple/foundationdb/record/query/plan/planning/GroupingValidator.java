@@ -75,7 +75,7 @@ class GroupingValidator {
         }
         return (groupKey instanceof FieldKeyExpression &&
                 findGroupFieldFilter(filters, (FieldKeyExpression)groupKey, groupFilters, groupComparisons)) ||
-               (groupKey instanceof NestingKeyExpression &&
+                (groupKey instanceof NestingKeyExpression &&
                 findNestingFilter(filters, (NestingKeyExpression)groupKey, groupFilters, groupComparisons));
     }
 

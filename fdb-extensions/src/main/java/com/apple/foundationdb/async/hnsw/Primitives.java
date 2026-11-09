@@ -44,7 +44,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -86,8 +85,8 @@ public class Primitives {
 
     /**
      * Constructs a new HNSW primitives instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     *
+     * <p>This constructor initializes the HNSW graph with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
@@ -114,6 +113,7 @@ public class Primitives {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -122,8 +122,7 @@ public class Primitives {
     }
 
     /**
-     * Get this hnsw's configuration.
-     * @return hnsw configuration
+     * {@return this hnsw's configuration}
      */
     @Nonnull
     private Config getConfig() {
@@ -131,8 +130,7 @@ public class Primitives {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -140,8 +138,7 @@ public class Primitives {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {
@@ -178,8 +175,8 @@ public class Primitives {
 
         final Config config = getConfig();
         return config.useRaBitQ()
-               ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
-               : Quantizer.noOpQuantizer(config.metric());
+                ? new RaBitQuantizer(config.metric(), config.raBitQNumExBits())
+                : Quantizer.noOpQuantizer(config.metric());
     }
 
     /**
@@ -188,7 +185,6 @@ public class Primitives {
      * @param <N> the type of the node reference, which must extend {@link NodeReference}
      * @param primaryKey the {@link Tuple} representing the primary key of the node
      * @param nodeCache the cache to check for the node
-     *
      * @return a {@link CompletableFuture} that will be completed with the cached {@link AbstractNode}
      * @throws IllegalArgumentException if the node is not already present in the cache
      */
@@ -204,13 +200,13 @@ public class Primitives {
 
     /**
      * Asynchronously fetches a node if it is not already present in the cache.
-     * <p>
-     * This method first attempts to retrieve the node from the provided {@code nodeCache} using the
+     *
+     * <p>This method first attempts to retrieve the node from the provided {@code nodeCache} using the
      * primary key of the {@code nodeReference}. If the node is not found in the cache, it is
      * fetched from the underlying storage using the {@code storageAdapter}. Once fetched, the node
      * is added to the {@code nodeCache} before the future is completed.
-     * <p>
-     * This is a convenience method that delegates to {@link #fetchNodeIfNecessaryAndApply}.
+     *
+     * <p>This is a convenience method that delegates to {@link #fetchNodeIfNecessaryAndApply}.
      *
      * @param <N> the type of the node reference, which must extend {@link NodeReference}
      * @param storageAdapter the storage adapter used to fetch the node from persistent storage
@@ -220,7 +216,6 @@ public class Primitives {
      * @param layer the layer index where the node is located
      * @param nodeReference the reference to the node to fetch
      * @param nodeCache the cache to check for the node and to which the node will be added if fetched
-     *
      * @return a {@link CompletableFuture} that will be completed with the fetched or cached {@link AbstractNode}
      */
     @Nonnull
@@ -244,13 +239,13 @@ public class Primitives {
 
     /**
      * Conditionally fetches a node from storage and applies a function to it.
-     * <p>
-     * This method first attempts to generate a result by applying the {@code fetchBypassFunction}.
+     *
+     * <p>This method first attempts to generate a result by applying the {@code fetchBypassFunction}.
      * If this function returns a non-null value, that value is returned immediately in a
      * completed {@link CompletableFuture}, and no storage access occurs. This provides an
      * optimization path, for example, if the required data is already available in a cache.
-     * <p>
-     * If the bypass function returns {@code null}, the method proceeds to asynchronously fetch the
+     *
+     * <p>If the bypass function returns {@code null}, the method proceeds to asynchronously fetch the
      * node from the given {@code StorageAdapter}. Once the node is retrieved, the
      * {@code biMapFunction} is applied to the original {@code nodeReference} and the fetched
      * {@code Node} to produce the final result.
@@ -268,7 +263,6 @@ public class Primitives {
      * non-null value, the node fetch is bypassed.
      * @param biMapFunction A function to be applied after a successful node fetch, combining the
      * original reference and the fetched node to produce the final result.
-     *
      * @return A {@link CompletableFuture} that will complete with the result from either the
      * {@code fetchBypassFunction} or the {@code biMapFunction}.
      */
@@ -295,8 +289,8 @@ public class Primitives {
     /**
      * Asynchronously fetches neighborhood nodes and returns them as {@link NodeReferenceWithVector} instances,
      * which include the node's vector.
-     * <p>
-     * This method efficiently retrieves node data by first checking an in-memory {@code nodeCache}. If a node is not
+     *
+     * <p>This method efficiently retrieves node data by first checking an in-memory {@code nodeCache}. If a node is not
      * in the cache, it is fetched from the {@link StorageAdapter}. Fetched nodes are then added to the cache to
      * optimize subsequent lookups. It also handles cases where the input {@code neighborReferences} may already
      * contain {@link NodeReferenceWithVector} instances, avoiding redundant work.
@@ -310,7 +304,6 @@ public class Primitives {
      * @param neighborReferences an iterable of references to the neighbor nodes to be fetched
      * @param nodeCache a map serving as an in-memory cache for nodes. This map will be populated with any
      * nodes fetched from storage.
-     *
      * @return a {@link CompletableFuture} that, upon completion, will contain a list of
      *         {@link NodeReferenceWithVectorAndAdditionalValues} objects for the specified neighbors
      */
@@ -322,6 +315,42 @@ public class Primitives {
                                         final int layer,
                                         @Nonnull final Iterable<? extends NodeReference> neighborReferences,
                                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+        return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer,
+                neighborReferences, nodeCache, ignored -> {
+                });
+    }
+
+    /**
+     * As {@link #fetchNeighborhoodReferences(StorageAdapter, ReadTransaction, StorageTransform, int, Iterable, Map)},
+     * but reporting the references that turned out to name a node that does not exist.
+     *
+     * <p>A reference is reported only when this method actually read storage for it and found nothing, so the caller may
+     * treat every reported key as proven absent. The converse does not hold: a key that is <em>not</em> reported has
+     * not been shown to exist. In particular an inlining storage adapter answers from the vector inlined into the edge
+     * and never reads the node at all, so it reports nothing whatsoever, and a reference served from {@code nodeCache}
+     * is not re-checked. An empty report therefore means "nothing proven", never "nothing dead".
+     *
+     * @param <N> the type of the {@link NodeReference}
+     * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
+     * @param readTransaction the active {@link ReadTransaction} for database access
+     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     *        storage space that is currently being used
+     * @param layer the graph layer from which to fetch nodes
+     * @param neighborReferences the references to resolve
+     * @param nodeCache a cache mapping primary keys to {@link AbstractNode}s to avoid redundant fetches
+     * @param absentPrimaryKeyConsumer accepts the primary key of every reference this method read storage for and
+     *        found no node under
+     * @return a {@link CompletableFuture} of the references that resolved to a node
+     */
+    @Nonnull
+    <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVectorAndAdditionalValues>>
+            fetchNeighborhoodReferences(@Nonnull final StorageAdapter<N> storageAdapter,
+                                        @Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final StorageTransform storageTransform,
+                                        final int layer,
+                                        @Nonnull final Iterable<? extends NodeReference> neighborReferences,
+                                        @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
+                                        @Nonnull final Consumer<Tuple> absentPrimaryKeyConsumer) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
                     if (storageAdapter.isInliningStorageAdapter() && neighborReference.isNodeReferenceWithVector()) {
@@ -350,6 +379,12 @@ public class Primitives {
                         return new NodeReferenceWithVectorAndAdditionalValues(neighborReference.getPrimaryKey(),
                                 compactNode.getVector(), compactNode.getAdditionalValues());
                     }
+                    //
+                    // Storage was read for this reference and held no node under that key, so the reference names a
+                    // node that has been deleted. That is the only circumstance under which absence is proven; report
+                    // it before dropping the reference from the result.
+                    //
+                    absentPrimaryKeyConsumer.accept(neighborReference.getPrimaryKey());
                     return null;
                 });
     }
@@ -357,8 +392,8 @@ public class Primitives {
     /**
      * Fetches a collection of nodes, attempting to retrieve them from a cache first before
      * accessing the underlying storage.
-     * <p>
-     * This method iterates through the provided {@code nodeReferences}. For each reference, it
+     *
+     * <p>This method iterates through the provided {@code nodeReferences}. For each reference, it
      * first checks the {@code nodeCache}. If the corresponding {@link AbstractNode} is found, it is
      * used directly. If not, the node is fetched from the {@link StorageAdapter}. Any nodes
      * fetched from storage are then added to the {@code nodeCache} to optimize subsequent lookups.
@@ -374,7 +409,6 @@ public class Primitives {
      * be fetched.
      * @param nodeCache A map used as a cache. It is checked for existing nodes and updated with any newly fetched
      * nodes.
-     *
      * @return A {@link CompletableFuture} which will complete with a {@link List} of {@link NodeReferenceAndNode}
      *         objects, pairing each requested reference with its corresponding node.
      */
@@ -405,8 +439,8 @@ public class Primitives {
 
     /**
      * Asynchronously fetches a collection of nodes from storage and applies a function to each.
-     * <p>
-     * For each {@link NodeReference} in the provided iterable, this method concurrently fetches the corresponding
+     *
+     * <p>For each {@link NodeReference} in the provided iterable, this method concurrently fetches the corresponding
      * {@code Node} using the given {@link StorageAdapter}. The logic delegates to
      * {@code fetchNodeIfNecessaryAndApply}, which determines whether a full node fetch is required.
      * If a node is fetched from storage, the {@code biMapFunction} is applied. If the fetch is bypassed
@@ -426,7 +460,6 @@ public class Primitives {
      * mapping the reference directly to a result of type {@code U}.
      * @param biMapFunction The function to apply when a node is successfully fetched, mapping the original
      * reference and the fetched {@link AbstractNode} to a result of type {@code U}.
-     *
      * @return A {@link CompletableFuture} that, upon completion, will hold a {@link List} of non-null results
      * of type {@code U}
      */
@@ -559,7 +592,6 @@ public class Primitives {
      * {@link HNSW#cardinality(ReadTransaction)} for the public entry point and the rationale.
      *
      * @param readTransaction the transaction to use for reading from the database
-     *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
     @Nonnull
@@ -574,17 +606,31 @@ public class Primitives {
         // Reading just two nodes is enough to tell empty / single / multiple apart; passing maxNumRead == 2
         // bounds the underlying range read to (at most) two key/value pairs, so the cost does not grow with the
         // size of the graph. Layer 0 is always backed by a CompactStorageAdapter (inlining is only used for
-        // layers > 0), whose scanLayer returns an AsyncIterable, so we can collect it without blocking.
+        // layers > 0), whose scanLayer returns an AsyncIterable, so we can collect it without blocking. Only the
+        // number of nodes is used, so their vectors are not transformed.
         final AsyncIterable<AbstractNode<N>> layerZeroNodes =
-                (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(readTransaction, 0, null, 2);
+                (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(readTransaction, StorageTransform.identity(),
+                        0, null, 2);
         return AsyncUtil.collect(layerZeroNodes, getExecutor())
                 .thenApply(nodes -> Cardinality.fromCount(nodes.size()));
     }
 
     /**
+     * The maximum number of neighbors a node may keep on the given layer: {@link Config#mMax0()} on layer 0 and
+     * {@link Config#mMax()} on every layer above it. Layer 0 holds every node and is the layer a search ends on, which
+     * is why it has its own, larger limit.
+     *
+     * @param layer the layer
+     * @return the maximum number of neighbors a node may keep on {@code layer}
+     */
+    int getMMaxForLayer(final int layer) {
+        return layer == 0 ? getConfig().mMax0() : getConfig().mMax();
+    }
+
+    /**
      * Prunes the neighborhood of a given node if its number of connections exceeds the maximum allowed ({@code mMax}).
-     * <p>
-     * This is a maintenance operation for the HNSW graph. When new nodes are added, an existing node's neighborhood
+     *
+     * <p>This is a maintenance operation for the HNSW graph. When new nodes are added, an existing node's neighborhood
      * might temporarily grow beyond its limit. This method identifies such cases and trims the neighborhood back down
      * to the {@code mMax} best connections, based on the configured distance metric. If the neighborhood size is
      * already within the limit, this method does nothing.
@@ -601,7 +647,6 @@ public class Primitives {
      * @param neighborChangeSet a set of pending changes to the neighborhood that must be included in the pruning
      *        calculation
      * @param nodeCache a cache of nodes to avoid redundant database fetches
-     *
      * @return a {@link CompletableFuture} which completes with a list of the newly selected neighbors for the pruned node.
      * If no pruning was necessary, it completes with {@code null}.
      */
@@ -616,8 +661,7 @@ public class Primitives {
                                       final int mMax,
                                       @Nonnull final NeighborsChangeSet<N> neighborChangeSet,
                                       @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
-        final int numNeighbors =
-                Iterables.size(neighborChangeSet.merge()); // this is a view over the iterable neighbors in the set
+        final int numNeighbors = neighborChangeSet.size();
         if (numNeighbors < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {
@@ -647,18 +691,18 @@ public class Primitives {
 
     /**
      * Selects the {@code m} best neighbors for a new node from a set of candidates using the HNSW selection heuristic.
-     * <p>
-     * This method implements the core logic for neighbor selection within a layer of the HNSW graph. It starts with an
+     *
+     * <p>This method implements the core logic for neighbor selection within a layer of the HNSW graph. It starts with an
      * initial set of candidates ({@code nearestNeighbors}), which can be optionally extended by fetching their own
      * neighbors.
      * It then iteratively refines this set using a greedy best-first search.
-     * <p>
-     * The selection heuristic ensures diversity among neighbors. A candidate is added to the result set only if it is
+     *
+     * <p>The selection heuristic ensures diversity among neighbors. A candidate is added to the result set only if it is
      * closer to the query {@code vector} than to any node already in the result set. This prevents selecting neighbors
      * that are clustered together. If the {@code keepPrunedConnections} configuration is enabled, candidates that are
      * pruned by this heuristic are kept and may be added at the end if the result set is not yet full.
-     * <p>
-     * The process is asynchronous and returns a {@link CompletableFuture} that will eventually contain the list of
+     *
+     * <p>The process is asynchronous and returns a {@link CompletableFuture} that will eventually contain the list of
      * selected neighbors with their full node data.
      *
      * @param <N> the type of the node reference, extending {@link NodeReference}
@@ -672,7 +716,6 @@ public class Primitives {
      * @param m the maximum number of neighbors to select
      * neighbors of the {@code nearestNeighbors}
      * @param nodeCache a cache of nodes to avoid redundant storage lookups
-     *
      * @return a {@link CompletableFuture} which will complete with a list of the selected neighbors,
      * each represented as a {@link NodeReferenceAndNode}
      */
@@ -738,13 +781,13 @@ public class Primitives {
 
     /**
      * Conditionally extends a set of candidate nodes by fetching and evaluating their neighbors.
-     * <p>
-     * If {@code isExtendCandidates} is {@code true}, this method gathers the neighbors of the provided
+     *
+     * <p>If {@code isExtendCandidates} is {@code true}, this method gathers the neighbors of the provided
      * {@code candidates}, fetches their full node data, and calculates their distance to the given
      * {@code vector}. The resulting list will contain both the original candidates and their newly
      * evaluated neighbors.
-     * <p>
-     * If {@code isExtendCandidates} is {@code false}, the method simply returns a list containing
+     *
+     * <p>If {@code isExtendCandidates} is {@code false}, the method simply returns a list containing
      * only the original candidates. This operation is asynchronous and returns a {@link CompletableFuture}.
      *
      * @param <N> the type of the {@link NodeReference}
@@ -758,7 +801,6 @@ public class Primitives {
      * @param isExtendCandidates a boolean flag; if {@code true}, the candidate set is extended with neighbors
      * @param nodeCache a cache mapping primary keys to {@link AbstractNode} objects to avoid redundant fetches
      * @param vector the query vector used to calculate distances for any new neighbor nodes
-     *
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithDistance},
      * containing the original candidates and potentially their neighbors
      */
@@ -776,7 +818,8 @@ public class Primitives {
 
         if (isExtendCandidates) {
             return neighborReferences(storageAdapter, readTransaction, storageTransform, null, candidates,
-                    CandidatePredicate.tautology(), layer, nodeCache)
+                    CandidatePredicate.tautology(), layer, nodeCache, ignored -> {
+                    })
                     .thenApply(neighborsOfCandidates -> {
                         for (final NodeReferenceWithVector nodeReferenceWithVector : neighborsOfCandidates) {
                             final double distance = distanceEstimator.distance(nodeReferenceWithVector.getVector(), vector);
@@ -802,17 +845,20 @@ public class Primitives {
      * of initial nodes that is passed in. Note that the neighbor of an initial node might be another initial node.
      * If that is the case the node is returned.
      *
+     * @param <T> the type of the initial node references
      * @param <N> the type of the {@link NodeReference}
      * @param storageAdapter the {@link StorageAdapter} used to access node data from storage
      * @param readTransaction the active {@link ReadTransaction} for database access
      * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
      *        storage space that is currently being used
-     * @param random the random to be used for sampling
-     * @param initialNodeReferenceAndNodes an {@link Iterable} of initial candidate nodes, which have already been evaluated
+     * @param random a {@link SplittableRandom} to be used for sampling
+     * @param initialNodeReferenceAndNodes the nodes whose neighbors are computed
+     * @param samplingPredicate a predicate that restricts the number of neighbors to be fetched
      * @param layer the graph layer from which to fetch nodes
-     * @param nodeCache a cache mapping primary keys to {@link AbstractNode} objects to avoid redundant fetches
-     *
-     * @return a {@link CompletableFuture} which will complete with a list of fetched nodes
+     * @param nodeCache a cache mapping primary keys to {@link AbstractNode}s to avoid redundant fetches
+     * @param absentPrimaryKeyConsumer accepts the primary key of every reference storage was read for and found no
+     *        node under
+     * @return a {@link CompletableFuture} of the neighbors that exist
      */
     <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
             neighbors(@Nonnull final StorageAdapter<N> storageAdapter,
@@ -822,9 +868,10 @@ public class Primitives {
                       @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                       @Nonnull final CandidatePredicate samplingPredicate,
                       final int layer,
-                      @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                      @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
+                      @Nonnull final Consumer<Tuple> absentPrimaryKeyConsumer) {
         return neighborReferences(storageAdapter, readTransaction, storageTransform, random,
-                initialNodeReferenceAndNodes, samplingPredicate, layer, nodeCache)
+                initialNodeReferenceAndNodes, samplingPredicate, layer, nodeCache, absentPrimaryKeyConsumer)
                 .thenCompose(neighbors ->
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
                                 neighbors, nodeCache))
@@ -848,7 +895,6 @@ public class Primitives {
      * @param samplingPredicate a predicate that restricts the number of neighbors to be fetched
      * @param layer the graph layer from which to fetch nodes
      * @param nodeCache a cache mapping primary keys to {@link AbstractNode} objects to avoid redundant fetches
-     *
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithVector}
      */
     private <T extends NodeReference, N extends NodeReference> CompletableFuture<? extends List<? extends NodeReferenceWithVector>>
@@ -859,11 +905,12 @@ public class Primitives {
                                @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                @Nonnull final CandidatePredicate samplingPredicate,
                                final int layer,
-                               @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                               @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
+                               @Nonnull final Consumer<Tuple> absentPrimaryKeyConsumer) {
         final Iterable<NodeReference> toBeFetched =
                 findNeighborReferences(initialNodeReferenceAndNodes, random, samplingPredicate);
         return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer, toBeFetched,
-                nodeCache);
+                nodeCache, absentPrimaryKeyConsumer);
     }
 
     /**
@@ -871,7 +918,6 @@ public class Primitives {
      *
      * @param <N> the type of the {@link NodeReference} storage space that is currently being used
      * @param initialNodeReferenceAndNodes an {@link Iterable} of initial candidate nodes
-     *
      * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReference}s
      */
     private <T extends NodeReference, N extends NodeReference> Set<NodeReference>
@@ -926,8 +972,8 @@ public class Primitives {
 
     /**
      * Writes lonely nodes for a given key across a specified range of layers.
-     * <p>
-     * A "lonely node" is a node in the layered structure that does not have a
+     *
+     * <p>A "lonely node" is a node in the layered structure that does not have a
      * sibling. This method iterates downwards from the {@code highestLayerInclusive}
      * to the {@code lowestLayerExclusive}. For each layer in this range, it
      * retrieves the appropriate {@link StorageAdapter} and calls
@@ -956,8 +1002,8 @@ public class Primitives {
 
     /**
      * Writes a new, isolated ('lonely') node to a specified layer within the graph.
-     * <p>
-     * This method uses the provided {@link StorageAdapter} to create a new node with the
+     *
+     * <p>This method uses the provided {@link StorageAdapter} to create a new node with the
      * given primary key and vector but with an empty set of neighbors. The write
      * operation is performed as part of the given {@link Transaction}. This is typically
      * used to insert the very first node into an empty graph layer.
@@ -993,10 +1039,11 @@ public class Primitives {
      * Compile a list of node references that definitely exist. The neighbor list of a node may contain node
      * references to neighbors that don't exist anymore (stale reference). The (non-existing) nodes that these node
      * references might refer to must not be repaired as that may resurrect a node.
-     * <p>
-     * We know that the candidate change set map only contains keys for nodes that exist AND that the candidate change
+     *
+     * <p>We know that the candidate change set map only contains keys for nodes that exist AND that the candidate change
      * set map contains all primary neighbors (if they exist). Therefore, we filter the neighbors list from the node by
      * cross-referencing the change set map.
+     *
      * @param <N> type parameter extending {@link NodeReference}
      * @param toBeDeletedNode the node that is being deleted.
      * @param candidateChangeSetMap the initialized candidate change set map.
@@ -1022,8 +1069,8 @@ public class Primitives {
     /**
      * Calculates the delta between a current set of neighbors and a new set, producing a
      * {@link NeighborsChangeSet} that represents the required insertions and deletions.
-     * <p>
-     * This method compares the neighbors present in the initial {@code beforeChangeSet} with
+     *
+     * <p>This method compares the neighbors present in the initial {@code beforeChangeSet} with
      * the provided {@code afterNeighbors}. It identifies which neighbors from the "before" state
      * are missing in the "after" state (to be deleted) and which new neighbors are present in the
      * "after" state but not in the "before" state (to be inserted). It then constructs a new
@@ -1035,7 +1082,6 @@ public class Primitives {
      * This is used as the base for calculating changes. Must not be null.
      * @param afterNeighbors an iterable collection of the desired neighbors after the update.
      * Must not be null.
-     *
      * @return a new {@code NeighborsChangeSet} that includes the necessary deletion and insertion
      * operations to transform the neighbors from the "before" state to the "after" state.
      */
@@ -1084,8 +1130,8 @@ public class Primitives {
 
     /**
      * Gets the appropriate storage adapter for a given layer.
-     * <p>
-     * This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
+     *
+     * <p>This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
      * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
      * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
      *
@@ -1099,11 +1145,12 @@ public class Primitives {
 
     /**
      * Calculates a layer for a new element to be inserted or for an element to be deleted from.
-     * <p>
-     * The layer is selected according to a logarithmic distribution, which ensures that the probability of choosing
+     *
+     * <p>The layer is selected according to a logarithmic distribution, which ensures that the probability of choosing
      * a higher layer decreases exponentially. This is achieved by applying the inverse transform sampling method.
      * The specific formula is {@code floor(-ln(u) * lambda)}, where {@code u} is a uniform random number and
      * {@code lambda} is a normalization factor derived from a system configuration parameter {@code M}.
+     *
      * @param primaryKey the primary key of the record to be inserted/updated/deleted
      * @return a non-negative integer representing the randomly selected layer
      */
@@ -1141,7 +1188,7 @@ public class Primitives {
                         config.metric() == Metric.COSINE_METRIC,
                         config.numDimensions());
 
-        scanLayerInternal(config, subspace, db, layer, batchSize,
+        scanLayerInternal(config, subspace, db, layer, batchSize, storageTransform,
                 node ->
                         nodeConsumer.accept(new ResultEntry(node.getPrimaryKey(),
                                 node.isCompactNode() ? storageTransform.untransform(node.asCompactNode().getVector()) : null,
@@ -1151,14 +1198,16 @@ public class Primitives {
 
     /**
      * Scans all nodes within a given layer of the database.
-     * <p>
-     * The scan is performed transactionally in batches to avoid loading the entire layer into memory at once. Each
+     *
+     * <p>The scan is performed transactionally in batches to avoid loading the entire layer into memory at once. Each
      * discovered node is passed to the provided {@link Consumer} for processing. The operation continues fetching
      * batches until all nodes in the specified layer have been processed.
      *
      * @param db the non-null {@link Database} instance to run the scan against.
      * @param layer the specific layer index to scan.
      * @param batchSize the number of nodes to retrieve and process in each batch.
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param nodeConsumer the non-null {@link Consumer} that will accept each {@link AbstractNode}
      * found in the layer.
      */
@@ -1168,6 +1217,7 @@ public class Primitives {
                                   @Nonnull final Database db,
                                   final int layer,
                                   final int batchSize,
+                                  @Nonnull final StorageTransform storageTransform,
                                   @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         final StorageAdapter<? extends NodeReference> storageAdapter =
                 storageAdapterForLayer(config, subspace, OnWriteListener.NOOP, OnReadListener.NOOP, layer);
@@ -1177,7 +1227,7 @@ public class Primitives {
             final Tuple lastPrimaryKey = lastPrimaryKeyAtomic.get();
             lastPrimaryKeyAtomic.set(null);
             newPrimaryKey = db.run(tr -> {
-                Streams.stream(storageAdapter.scanLayer(tr, layer, lastPrimaryKey, batchSize))
+                Streams.stream(storageAdapter.scanLayer(tr, storageTransform, layer, lastPrimaryKey, batchSize))
                         .forEach(node -> {
                             nodeConsumer.accept(Objects.requireNonNull(node));
                             lastPrimaryKeyAtomic.set(node.getPrimaryKey());
@@ -1189,8 +1239,8 @@ public class Primitives {
 
     /**
      * Gets the appropriate storage adapter for a given layer.
-     * <p>
-     * This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
+     *
+     * <p>This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
      * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
      * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
      *
@@ -1210,8 +1260,8 @@ public class Primitives {
                                    @Nonnull final OnReadListener onReadListener,
                                    final int layer) {
         return config.useInlining() && layer > 0
-               ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
-               : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
+                ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
+                : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
     }
 
     @Nonnull

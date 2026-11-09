@@ -26,9 +26,9 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
@@ -68,8 +68,8 @@ import java.util.stream.IntStream;
  *     <li>tests: the set of queries along with the configurations of how and against what they are tested. Each
  *     test translates to a {@link QueryCommand} with one or more {@link QueryConfig}.</li>
  * </ul>
- * <p>
- * There a couple of {@link TestBlock} options that controls how the tests in the block is executed. This in turn
+ *
+ * <p>There a couple of {@link TestBlock} options that controls how the tests in the block is executed. This in turn
  * determines what is tested in each test and how rigorously. These options are:
  * <ul>
  *     <li>{@code mode}: By far the most important option, mode can be either {@code ordered} or {@code randomized}
@@ -182,7 +182,7 @@ public final class TestBlock extends ConnectedBlock {
      *     {@link ConnectionLifecycle}.</li>
      * </ul>
      *
-     * The {@link TestBlockOptions} can be set in three ways:
+     * <p>The {@link TestBlockOptions} can be set in three ways:
      * <ul>
      *     <li>Using a preset config. See {@link TestBlockOptions#setWithPreset}</li>
      *     <li>Using an Options map. See {@link TestBlockOptions#setWithOptionsMap}</li>
@@ -492,6 +492,7 @@ public final class TestBlock extends ConnectedBlock {
      * @throws InterruptedException thrown if the execution does not finish within a time-bound.
      * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
      */
+    @SuppressWarnings("PMD.CloseResource") // ExecutorService is only AutoCloseable starting in Java 19, while we target compatibility with Java 17
     private void executeInParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
         final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());

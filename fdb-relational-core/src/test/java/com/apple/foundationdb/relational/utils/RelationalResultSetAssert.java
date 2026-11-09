@@ -96,12 +96,27 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
     }
 
     public RelationalResultSetAssert hasNextRow() {
-        extracting(this::advance, Assertions::assertThat).isTrue();
+        extracting(RelationalResultSetAssert::advance, Assertions::assertThat).isTrue();
         return this;
     }
 
     public RelationalResultSetAssert hasNoNextRow() {
-        extracting(this::advance, Assertions::assertThat).isFalse();
+        extracting(RelationalResultSetAssert::advance, Assertions::assertThat).isFalse();
+        return this;
+    }
+
+    /**
+     * Drains the result set, counting the rows, and asserts the total equals {@code expected}. This both
+     * consumes the result set and verifies its size, which is convenient for tests that need the scan to
+     * fully execute, but care less about the contents, while also checking how many rows were returned.
+     */
+    public RelationalResultSetAssert hasRowCount(int expected) {
+        isNotNull();
+        int count = 0;
+        while (advance(actual)) {
+            count++;
+        }
+        Assertions.assertThat(count).as("row count").isEqualTo(expected);
         return this;
     }
 
@@ -162,7 +177,7 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         }
     }
 
-    private boolean advance(RelationalResultSet rrs) {
+    private static boolean advance(RelationalResultSet rrs) {
         //A simple wrapper function to throw the SQLException as a RuntimeException so that we can have cleaner asserts
         try {
             return rrs.next();

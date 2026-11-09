@@ -54,12 +54,12 @@ public class Utf8Chars {
     /**
      * Get tokens that we expect Lucene's analyzers to be able to tokenize(and therefore, for us to be able to search
      * on).
-     * <p>
-     * In general, Lucene's stock analyzers will ignore terms that it deems to be "punctuation" or "special"
+     *
+     * <p>In general, Lucene's stock analyzers will ignore terms that it deems to be "punctuation" or "special"
      * in some other way. Specifically, it follows the
      * <a href="http://unicode.org/reports/tr29/">Unicode Standard Annex #29</a> in terms of character recognition.
-     * <p>
-     * This method returns a subset of UTF-8 code points which we determine _should_ be tokenized (although
+     *
+     * <p>This method returns a subset of UTF-8 code points which we determine _should_ be tokenized (although
      * not necessarily exhaustively).
      *
      * @return a subset of UTF-8 code points which we manually determine _should_ be tokenized and searchable.
@@ -69,9 +69,7 @@ public class Utf8Chars {
     }
 
     /**
-     * Get tokenizable Greek and Coptic UTF-8 characters.
-     *
-     * @return Greek and Coptic UTF-8 characters that we expect to be tokenizable.
+     * {@return Greek and Coptic UTF-8 characters that we expect to be tokenizable}
      */
     public static Stream<String> getGreekChars() {
         return Stream.iterate(0x0370, cp -> cp < 0x03FF, cp -> cp + 1)
@@ -83,9 +81,7 @@ public class Utf8Chars {
     }
 
     /**
-     * Get tokenizable Cyrillic UTF-8 characters.
-     *
-     * @return Cyrillic UTF-8 characters that we expect to be tokenizable.
+     * {@return Cyrillic UTF-8 characters that we expect to be tokenizable}
      */
     public static Stream<String> getCyrillicChars() {
         return Stream.iterate(0x0400, cp -> cp < 0x04FF, cp -> cp + 1)

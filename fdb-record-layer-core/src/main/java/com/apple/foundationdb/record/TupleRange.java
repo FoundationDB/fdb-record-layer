@@ -234,6 +234,7 @@ public class TupleRange {
 
     /**
      * Method to compute if an inclusive/inclusive range given by two {@link Tuple}s overlap with this tuple range.
+     *
      * @param lowTuple low tuple
      * @param highTuple high tuple
      * @return {@code true} if and only if the range {@code [lowTuple, highTuple]} overlaps this tuple range
@@ -287,6 +288,7 @@ public class TupleRange {
 
     /**
      * Method to compute if a given {@link Tuple} is contained within this tuple range.
+     *
      * @param tuple tuple
      * @return {@code true} if and only if {@code tuple} is contained within this tuple range
      */
@@ -344,6 +346,7 @@ public class TupleRange {
      * {@code ('abc'))} of endpoint type {@link EndpointType#RANGE_INCLUSIVE}. A tuple {@code ('abc', 5)} should be
      * within the bounds of that high but the high sorts lower. We need to cut of the second element {@code 5} of the
      * tuple prior of doing any comparisons.
+     *
      * @param tuple {@link Tuple} to trim
      * @return the trimmed {@link Tuple} if necessary or the original {@link Tuple} if no adjustments were necessary.
      */
@@ -378,6 +381,7 @@ public class TupleRange {
 
     /**
      * Create a <code>TupleRange</code> over all keys between the given {@link Tuple}s.
+     *
      * @param low the inclusive start of the range
      * @param high the exclusive end of the range
      * @return a <code>TupleRange</code> between <code>start</code> and <code>end</code>
@@ -390,6 +394,7 @@ public class TupleRange {
 
     /**
      * Create a <code>TupleRange</code> over all keys between the given {@link Tuple}s, including both endpoints.
+     *
      * @param low the inclusive start of the range
      * @param high the inclusive end of the range
      * @return a <code>TupleRange</code> between <code>start</code> and <code>end</code>, inclusive

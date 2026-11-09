@@ -49,6 +49,7 @@ public class ByteScanLimiterFactory
 
     /**
      * Creates a limiter that tracks the number of bytes that has been scanned, but does not impose a limit.
+     *
      * @return a tracking limiter
      */
     public static ByteScanLimiter tracking() {

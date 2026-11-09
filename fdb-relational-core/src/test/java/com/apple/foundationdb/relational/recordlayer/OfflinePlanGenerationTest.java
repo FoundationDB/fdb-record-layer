@@ -26,16 +26,22 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.util.Supplier;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -101,9 +108,11 @@ class OfflinePlanGenerationTest {
         final var plan = PlanGenerator.create(
                 Optional.empty(),
                 schemaTemplate,
+                schemaTemplate.toRecordMetadata(),
                 storeState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
@@ -118,9 +127,11 @@ class OfflinePlanGenerationTest {
         final var plan = PlanGenerator.create(
                 Optional.empty(),
                 schemaTemplate,
+                schemaTemplate.toRecordMetadata(),
                 storeState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
@@ -139,9 +150,11 @@ class OfflinePlanGenerationTest {
         final var plan = PlanGenerator.create(
                 Optional.empty(),
                 schemaTemplate,
+                schemaTemplate.toRecordMetadata(),
                 disabledStoreState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
@@ -155,9 +168,9 @@ class OfflinePlanGenerationTest {
         final var options = connection.getOptions();
 
         // Plan offline first — uses only template + state, no transaction.
-        final var offlinePlan = (QueryPlan.PhysicalQueryPlan) PlanGenerator
-                .create(Optional.empty(), schemaTemplate, storeState,
-                        NoOpMetricCollector.INSTANCE, options)
+        final var offlinePlan = (QueryPlan.PhysicalQueryPlan) PlanGenerator.create(Optional.empty(), schemaTemplate,
+                        schemaTemplate.toRecordMetadata(), storeState, NoOpMetricCollector.INSTANCE, options,
+                        PreparedParams.empty())
                 .getPlan(query);
 
         // Then open a transaction and plan against the real store via the standard workflow.
@@ -193,8 +206,8 @@ class OfflinePlanGenerationTest {
         final var cache = RelationalPlanCache.buildWithDefaults();
 
         // Plan offline first using the shared cache — writes the plan to it.
-        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState,
-                        NoOpMetricCollector.INSTANCE, options)
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        NoOpMetricCollector.INSTANCE, options, PreparedParams.empty())
                 .getPlan(query);
 
         // Open a transaction and plan via the standard workflow with the SAME cache instance.
@@ -224,25 +237,102 @@ class OfflinePlanGenerationTest {
         assertThat(cache.getStats().numEntriesSlow()).isEqualTo(1L);
     }
 
+    /**
+     * With {@link Options.Name#PLAN_CACHE_WRITE_ONLY} the plan is generated and stored, and no lookup happens at all.
+     * Storing twice must leave one entry, not two — the tertiary key is built from the plan's constraint, and equal
+     * constraints make equal keys.
+     */
+    @Test
+    void writeOnlyStoresWithoutReadingAndStoringTwiceKeepsOneEntry() throws Exception {
+        final var query = "select * from restaurant where rest_no > 10";
+        final var writeOnlyOptions = connection.getOptions().withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, true);
+        final var cache = RelationalPlanCache.buildWithDefaults();
+        final var metricCollector = new CountingMetricCollector();
+
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        metricCollector, writeOnlyOptions, PreparedParams.empty())
+                .getPlan(query);
+
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE)).isEqualTo(1);
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isZero();
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS)).isZero();
+        assertThat(tertiaryEntries(cache)).isEqualTo(1L);
+
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        metricCollector, writeOnlyOptions, PreparedParams.empty())
+                .getPlan(query);
+
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE)).isEqualTo(2);
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isZero();
+        assertThat(tertiaryEntries(cache)).isEqualTo(1L);
+
+        // A plain query, without the option, finds the stored entry.
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        metricCollector, connection.getOptions(), PreparedParams.empty())
+                .getPlan(query);
+
+        assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isEqualTo(1);
+        assertThat(tertiaryEntries(cache)).isEqualTo(1L);
+    }
+
+    private static long tertiaryEntries(@Nonnull final RelationalPlanCache cache) {
+        long total = 0;
+        for (final var key : cache.getStats().getAllKeys()) {
+            for (final var secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
+                total += cache.getStats().getAllTertiaryMappings(key, secondaryKey).size();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Counts the plan-cache events, so a test can tell "stored without looking up" from "looked up and missed".
+     */
+    private static final class CountingMetricCollector implements MetricCollector {
+        private final Map<RelationalMetric.RelationalCount, Integer> counts =
+                new EnumMap<>(RelationalMetric.RelationalCount.class);
+
+        @Override
+        public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int amount) {
+            counts.merge(count, amount, Integer::sum);
+        }
+
+        @Override
+        public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event,
+                           @Nonnull final Supplier<T> supplier) throws RelationalException {
+            return supplier.get();
+        }
+
+        int countOf(@Nonnull final RelationalMetric.RelationalCount count) {
+            return counts.getOrDefault(count, 0);
+        }
+    }
+
     @Test
     void offlinePlanSchemaVersions() throws Exception {
         final var query = "select * from BOOKS where YEAR > 1980";
         final var emptyState = new RecordStoreState(null, Map.of());
 
+        final var templateV1 = booksTemplate(false, 1);
         final var planV1 = (QueryPlan.PhysicalQueryPlan) PlanGenerator.create(
                 Optional.empty(),
-                booksTemplate(false, 1),
+                templateV1,
+                templateV1.toRecordMetadata(),
                 emptyState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
+        final var templateV2 = booksTemplate(true, 2);
         final var planV2 = (QueryPlan.PhysicalQueryPlan) PlanGenerator.create(
                 Optional.empty(),
-                booksTemplate(true, 2),
+                templateV2,
+                templateV2.toRecordMetadata(),
                 emptyState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(planV2.getRecordQueryPlan().toString()).startsWith("ISCAN(YEAR_IDX");

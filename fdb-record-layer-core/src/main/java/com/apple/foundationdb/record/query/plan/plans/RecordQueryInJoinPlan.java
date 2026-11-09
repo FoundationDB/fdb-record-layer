@@ -68,8 +68,8 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
      * If created by the heuristic recursive descent planner (the old planner), it is expected that the binding it
      * creates for the evaluation of the inner is participating in the plan hash. Unfortunately, this cannot be
      * done when using the Cascades planner as the planner uses identifiers that are not stable across plannings.
-     * <br>
-     * The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
+     *
+     * <p>The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
      * planner of to {@link Bindings.Internal#CORRELATION} if the object is created by the new planner.
      */
     @Nonnull
@@ -166,9 +166,9 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
+    protected Set<Type> computeDynamicTypes() {
         return ImmutableSet.<Type>builder()
-                .addAll(RecordQueryPlanWithChild.super.getDynamicTypes())
+                .addAll(super.computeDynamicTypes())
                 .addAll(inSource.getDynamicTypes())
                 .build();
     }
@@ -237,6 +237,7 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
      * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashMode)} so
      * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
+     *
      * @param mode the plan hash mode to use
      * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)
@@ -248,9 +249,9 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
                     return getInnerPlan().planHash(mode) +
-                           inSource.getBindingName().hashCode() +
-                           (inSource.isSorted() ? 1 : 0) +
-                           (inSource.isReverse() ? 1 : 0);
+                            inSource.getBindingName().hashCode() +
+                            (inSource.isSorted() ? 1 : 0) +
+                            (inSource.isReverse() ? 1 : 0);
                 }
                 // fall through
             case FOR_CONTINUATION:

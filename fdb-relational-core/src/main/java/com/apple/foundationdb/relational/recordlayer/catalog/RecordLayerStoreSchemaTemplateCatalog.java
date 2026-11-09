@@ -148,6 +148,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     /**
      * Primary key for looking up {@link SchemaTemplate}s.
+     *
      * @param schemaTemplateName Name of the schema template.
      * @param version Version as int.
      * @return Tuple to use as primary key on the
@@ -162,6 +163,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     /**
      * Primary key for looking up {@link SchemaTemplate}s.
+     *
      * @param schemaTemplateName Name of the schema template.
      * @return Tuple to use as primary key on the
      *  {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaTemplateSystemTable}

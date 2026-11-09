@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -46,6 +47,7 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -83,6 +85,7 @@ class FDBDirectoryLockTest {
             lock1.ensureValid();
             LockObtainFailedException e = assertThrows(LockObtainFailedException.class, () -> directory.obtainLock(lockName));
             assertTrue(e.getMessage().contains(alreadyLockedMessage));
+            assertLeaseRemaining(e);
             lock1.ensureValid();
             lock1.close();
 
@@ -94,6 +97,15 @@ class FDBDirectoryLockTest {
             lock2.ensureValid();
             lock2.close();
         }
+    }
+
+    private static void assertLeaseRemaining(@Nonnull LockObtainFailedException e) {
+        // The lock was just taken, hence its lease has (at most) the whole time window left
+        final FDBDirectoryLockFactory.FDBDirectoryLockException lockException =
+                assertInstanceOf(FDBDirectoryLockFactory.FDBDirectoryLockException.class, e.getCause());
+        final long timeWindowMillis = LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS.getDefaultValue();
+        assertTrue(lockException.getLeaseRemainingMillis() > 0);
+        assertTrue(lockException.getLeaseRemainingMillis() <= timeWindowMillis);
     }
 
     @Test

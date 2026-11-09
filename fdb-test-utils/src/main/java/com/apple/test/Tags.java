@@ -35,12 +35,10 @@ public final class Tags {
     public static final String Performance = "Performance";
     /**
      * Tests that take longer than 2 seconds for an individual test case.
-     * <p>
-     *     Note: the time here may be decreased in the future as more tests are added.
-     * </p>
-     * <p>
-     *     Note: This tag does not actually enforce a timeout on the test (see issue #2454).
-     * </p>
+     *
+     * <p>Note: the time here may be decreased in the future as more tests are added.
+     *
+     * <p>Note: This tag does not actually enforce a timeout on the test (see issue #2454).
      */
     public static final String Slow = "Slow";
     /**

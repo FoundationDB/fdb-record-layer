@@ -69,6 +69,7 @@ public class PlanSerialization {
      * should be able to deal with all kinds of objects that can appear in these cases. Note that enums do not
      * round-trip as the instance of the actual enum is not deserializable as such. Instead, we resort to deserializing
      * an enum as a {@link com.apple.foundationdb.record.util.ProtoUtils.DynamicEnum}.
+     *
      * @param object object that also happens to be a plan fragment
      * @return a {@link PComparableObject} that can be serialized.
      */
@@ -114,6 +115,7 @@ public class PlanSerialization {
      * should be able to deal with all kinds of objects that can appear in these cases. Note that enums do not
      * round-trip as the instance of the actual enum is not deserializable as such. Instead, we resort to deserializing
      * an enum as a {@link com.apple.foundationdb.record.util.ProtoUtils.DynamicEnum}.
+     *
      * @param proto a {@link PComparableObject} that can be deserialized
      * @return a value object
      */
@@ -149,6 +151,7 @@ public class PlanSerialization {
 
     /**
      * Method that packs a {@link Message} passed in into an {@link Any} using the correct type url prefix.
+     *
      * @param serializationContext serialization context in use
      * @param proto a message
      * @return a new {@link Any} that holds {@code proto}
@@ -162,6 +165,7 @@ public class PlanSerialization {
      * Method that, given a protobuf container message (a P-message that contains a {@code oneof} of specific messages),
      * extracts the specific message, and dispatches to the {@link PlanDeserializer} that can deserialize the particular
      * specific message.
+     *
      * @param serializationContext serialization context
      * @param message the message to deserialize
      * @return a new object that is the plan fragment corresponding to the message passed in
@@ -204,6 +208,7 @@ public class PlanSerialization {
      * not exist.
      * Note that this method is mostly equivalent to {@code Objects.requireNonNull(message.getSomeField())} if
      * {@code someField} does not use a default value, but also works for primitive values.
+     *
      * @param message protobuf message
      * @param fieldSetPredicate predicate to check if a field is set
      * @param fieldExtractor extractor extracting the field's value
@@ -226,6 +231,7 @@ public class PlanSerialization {
      * then extracts and returns the field's value. The method returns {@code null} if the field does not exist.
      * Note that this method is mostly equivalent to {@code message.getSomeField()} if
      * {@code someField} does not use a default value, but also works for primitive values.
+     *
      * @param message protobuf message
      * @param fieldSetPredicate predicate to check if a field is set
      * @param fieldExtractor extractor extracting the field's value
@@ -247,6 +253,7 @@ public class PlanSerialization {
      * {@link BiMap} to cache enum relationships. This helper has been added to avoid using huge switch
      * statements that relate domain enums and proto enums.
      * Note that both enum classes must use the same enum value names and ordinals.
+     *
      * @param domainEnumClass domain enum
      * @param protoEnumClass proto enum
      * @param <E1> domain enum type parameter

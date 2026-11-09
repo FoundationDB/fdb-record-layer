@@ -34,8 +34,8 @@ import javax.annotation.Nonnull;
  * already signal). The maintainer constructs it (it holds the store and index), so the vector engine that fires the
  * callback stays decoupled from the record store. Executing a queued task pays down merge work rather than creating it,
  * so {@link #onTaskExecuted} is a no-op.
- * <p>
- * It is also worth noting that this register is only used for insert/delete operations as while we are maintaining
+ *
+ * <p>It is also worth noting that this register is only used for insert/delete operations as while we are maintaining
  * the index already that signal is not useful.
  */
 final class MaintenanceControlRegister implements TaskEventRegister {
@@ -71,6 +71,7 @@ final class MaintenanceControlRegister implements TaskEventRegister {
      * maintainer uses this to decide whether a follow-up check is needed: an insert/delete that enqueued nothing has
      * not raised the flag here, so the maintainer falls back to reading the outstanding-work count to keep the signal
      * self-healing.
+     *
      * @return {@code true} once {@link #onTaskEnqueued} has flagged the index during this write
      */
     boolean wasSignaled() {

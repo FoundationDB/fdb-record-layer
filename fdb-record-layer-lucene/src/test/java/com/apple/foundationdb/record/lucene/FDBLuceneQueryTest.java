@@ -486,10 +486,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Test that lucene doesn't break whene there's unicode in the text.
-     * <p>
-     *     This test is not intending to test the behavior of querying with unicode, just that having it doesn't break
+     *
+     * <p>This test is not intending to test the behavior of querying with unicode, just that having it doesn't break
      *     other queries.
-     * </p>
      */
     @Test
     void testQueryWithUnicode() {

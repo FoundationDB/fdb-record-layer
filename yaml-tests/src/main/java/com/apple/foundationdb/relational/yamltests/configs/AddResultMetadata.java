@@ -27,15 +27,13 @@ import javax.annotation.Nonnull;
 /**
  * A configuration that runs an underlying configuration and adds {@code resultMetadata} blocks to all
  * queries in YAMSQL files that do not already have one.
- * <p>
- *     For each query without a {@code resultMetadata:} block, the actual column names and SQL type names
+ *
+ * <p>For each query without a {@code resultMetadata:} block, the actual column names and SQL type names
  *     reported by the driver are written into the YAMSQL source file immediately after the {@code query:} line.
  *     This is a one-shot bootstrap tool: run it once to populate metadata, then switch to
  *     {@link CorrectResultMetadata} (or plain execution) to keep it up to date.
- * </p>
- * <p>
- *     See {@link YamlExecutionContext#OPTION_ADD_RESULT_METADATA}.
- * </p>
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_ADD_RESULT_METADATA}.
  */
 public class AddResultMetadata extends ConfigWithOptions {
     public AddResultMetadata(@Nonnull final YamlTestConfig underlying) {

@@ -71,7 +71,7 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
+    protected Set<Type> computeDynamicTypes() {
         return value.getDynamicTypes();
     }
 

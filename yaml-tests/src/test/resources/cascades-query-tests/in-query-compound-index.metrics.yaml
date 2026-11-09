@@ -1,0 +1,48 @@
+in-query-compound-index:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
+        4, 2) order by str_value_indexed
+    ref: in-query-compound-index.yamsql:59
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS
+        q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED:
+        KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED)
+        | FETCH'
+    task_count: 667
+    task_total_time_ms: 21
+    transform_count: 201
+    transform_time_ms: 11
+    transform_yield_count: 73
+    insert_time_ms: 1
+    insert_new_count: 72
+    insert_reused_count: 3
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
+        4, 2) and str_value_indexed > 'bar' and str_value_indexed < 'foo' order by
+        str_value_indexed
+    ref: in-query-compound-index.yamsql:127
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS
+        q0, [GREATER_THAN promote(@c17 AS STRING) && LESS_THAN promote(@c21 AS STRING)]]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]])
+        } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 938
+    task_total_time_ms: 25
+    transform_count: 258
+    transform_time_ms: 13
+    transform_yield_count: 95
+    insert_time_ms: 1
+    insert_new_count: 107
+    insert_reused_count: 3
+in-query-compound-index-prepared:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in ? and
+        str_value_indexed > 'bar' and str_value_indexed < 'foo' order by str_value_indexed
+    ref: in-query-compound-index.yamsql:172
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS
+        q0, [GREATER_THAN promote(@c11 AS STRING) && LESS_THAN promote(@c15 AS STRING)]]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]])
+        } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH'
+    task_count: 938
+    task_total_time_ms: 25
+    transform_count: 258
+    transform_time_ms: 12
+    transform_yield_count: 95
+    insert_time_ms: 1
+    insert_new_count: 107
+    insert_reused_count: 3

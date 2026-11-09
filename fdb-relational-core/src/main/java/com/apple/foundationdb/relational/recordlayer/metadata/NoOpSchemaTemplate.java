@@ -24,10 +24,12 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.StoredQuery;
+import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.apple.foundationdb.relational.api.metadata.Table;
 
 import com.apple.foundationdb.relational.api.metadata.View;
@@ -36,7 +38,6 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -95,6 +96,12 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
+    public Set<? extends SyntheticTable> getSyntheticTables() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have synthetic tables!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
     public Optional<Table> findTableByName(@Nonnull final String tableName) throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have tables!", ErrorCode.INVALID_PARAMETER);
     }
@@ -143,8 +150,20 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Map<String, StoredQuery> getStoredQueries() throws RelationalException {
+    public Set<? extends StoredQuery> getStoredQueries() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have stored queries!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<? extends StoredQuery> findStoredQueryByName(@Nonnull final String storedQueryName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have stored queries!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<DataType> findTypeByName(@Nonnull final String typeName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have types!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

@@ -60,6 +60,7 @@ public class RecordRepairValidateRunner extends RecordRepair {
 
     /**
      * Run the validation operation.
+     *
      * @return a future that completes once the iteration completes.
      */
     public CompletableFuture<RepairValidationResults> run() {

@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Maintain a B-tree index of primary key to segment and doc id.
@@ -47,16 +48,24 @@ public interface LucenePrimaryKeySegmentIndex {
      *
      * @param directoryReader a NRT reader
      * @param primaryKey the document's record's primary key
-     *
      * @return an entry with the leaf reader and document id in that segment or {@code null} if not found
-     *
      * @see IndexWriter#tryDeleteDocument
      */
     @Nullable
     DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException;
 
     /**
+     * Check whether the index has an entry for the given primary key.
+     *
+     * @param primaryKey the document's record's primary key
+     * @return a future that completes with {@code true} if an entry was found for the primary key
+     */
+    @Nonnull
+    CompletableFuture<Boolean> hasPrimaryKeyAsync(@Nonnull Tuple primaryKey);
+
+    /**
      * Add or delete the primary key/segment/docId from the index.
+     *
      * @param primaryKey the primary ey of the record
      * @param segmentId the id of the segment (see {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory#primaryKeySegmentId})
      * @param docId the document id within the segment
@@ -67,6 +76,7 @@ public interface LucenePrimaryKeySegmentIndex {
 
     /**
      * Clears all the primary key entries for a given segment name.
+     *
      * @param segmentName the name of the segment to clear out
      * @throws IOException if the primary keys cannot be parsed from stored fields
      */

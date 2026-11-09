@@ -38,4 +38,20 @@ class ImportSchemaTemplateTests {
     void withIncludedDependencies(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("import-schema-template/with-included-dependencies.yamsql");
     }
+
+    /**
+     * Test that meta-data loaded from JSON keeps the proto2 extensions the JSON spells out, which the proto3 JSON
+     * mapping has no notion of. The one exercised here carries the precision and dimensions of a vector column, so
+     * losing it would turn that column into plain bytes.
+     * Unlike the meta-data of the test above, {@code vector_metadata.json} is written by hand rather than exported by
+     * {@code MetaDataExportUtilityTests}: an exported file names an extension by its declared name, which is ambiguous
+     * between the extensions of one message, so it does not round-trip its extensions.
+     *
+     * @param runner YAML runner
+     * @throws Exception from the test execution
+     */
+    @TestTemplate
+    void vectorMetaData(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("import-schema-template/vector-metadata.yamsql");
+    }
 }

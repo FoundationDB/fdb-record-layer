@@ -81,8 +81,13 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
             // Try to add a document - this would fail as the lock is taken by a different directory
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
+            final FDBExceptions.FDBStoreLockTakenException ex = Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     recordStore.saveRecord(createDocument(partitioned, 1623L, ENGINEER_JOKE, 2)));
+            // The time left for the external lock's lease is passed on
+            final Long leaseRemainingMillis = ex.getLeaseRemainingMillis();
+            Assertions.assertNotNull(leaseRemainingMillis);
+            Assertions.assertTrue(leaseRemainingMillis > 0);
+            Assertions.assertTrue(leaseRemainingMillis <= LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS.getDefaultValue());
         }
     }
 

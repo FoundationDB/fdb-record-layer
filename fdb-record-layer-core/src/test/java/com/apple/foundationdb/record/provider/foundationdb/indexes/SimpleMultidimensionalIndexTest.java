@@ -188,6 +188,13 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
+    void basicReadWithOverwritesTest(@Nonnull final String storage, final boolean storeHilbertValues,
+                                     final boolean useNodeSlotIndex) throws Exception {
+        super.basicReadWithOverwritesTest(false, storage, storeHilbertValues, useNodeSlotIndex);
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForBasicReads")
     void deleteWhereTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex)
             throws Exception {
         super.deleteWhereTest(false, storage, storeHilbertValues, useNodeSlotIndex);
@@ -212,6 +219,13 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     void indexReadWithNullsTest(final long seed, final int numRecords, @Nonnull final String storage,
                                 final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithNullsTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForIndexReads")
+    void indexReadWithOverwritesTest(final long seed, final int numRecords, @Nonnull final String storage,
+                                     final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+        super.indexReadWithOverwritesTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest

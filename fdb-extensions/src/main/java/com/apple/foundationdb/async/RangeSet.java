@@ -44,11 +44,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * RangeSet supports efficient adding of ranges of keys into the database to support marking
  * work done elsewhere as completed as well as checking if specific keys are already completed.
  *
- * <p>
- * This is useful if one is going to be doing work that will carve out pieces from another
+ * <p>This is useful if one is going to be doing work that will carve out pieces from another
  * subspace and work on those separately. The methods in here will allow for a (more-or-less)
  * append only set that can be used to keep track of the progress that that job is making.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class RangeSet {
@@ -69,6 +67,7 @@ public class RangeSet {
      * Creates a new RangeSet that will write its data to the given subspace provided.
      * The contents of this subspace should either be empty or contain the data
      * used by another RangeSet object.
+     *
      * @param subspace the subspace in which to write data
      */
     public RangeSet(@Nonnull Subspace subspace) {
@@ -116,23 +115,28 @@ public class RangeSet {
 
     /**
      * Determines if a single key is contained within the range set. If it is, this will return
-     * <code>true</code>, and if it is not, it will return <code>false</code>. In terms of isolation, this adds a read-
-     * conflict to the key corresponding to the key being checked but to nothing else even
+     * <code>true</code>, and if it is not, it will return <code>false</code>. In terms of isolation, this adds a
+     * read conflict to the key corresponding to the key being checked but to nothing else even
      * though it has to do a range read that might be larger. This means that updates to keys
      * before this won't conflict unless they actually change whether this key is contained within
      * the range set.
-     * @param tc transaction or database in which to run operation
+     *
+     * <p>If the provided {@link ReadTransactionContext} is a {@linkplain Transaction#snapshot() snapshot transaction},
+     * then the read conflict is omitted entirely. The read conflict can be applied later by
+     * calling {@link #addReadConflictKey(Transaction, byte[])}.
+     *
+     * @param rtc transaction or database in which to run operation
      * @param key the key to check presence in set
      * @return a future that contains whether some range in the set contains the key
      */
     @Nonnull
-    public CompletableFuture<Boolean> contains(@Nonnull TransactionContext tc, @Nonnull byte[] key) {
+    public CompletableFuture<Boolean> contains(@Nonnull ReadTransactionContext rtc, @Nonnull byte[] key) {
         checkKey(key);
-        return tc.runAsync(tr -> {
+        return rtc.readAsync(tr -> {
+            byte[] frobnicated = subspace.pack(key);
             // Add a read conflict to only the key being checked so that if this gets
             // overwritten somewhere else, this causes a conflict.
-            byte[] frobnicated = subspace.pack(key);
-            tr.addReadConflictKey(frobnicated);
+            tr.addReadConflictKeyIfNotSnapshot(frobnicated);
             AsyncIterator<KeyValue> iterator = tr.snapshot().getRange(subspace.range().begin, keyAfter(frobnicated), 1, true).iterator();
             return iterator.onHasNext().thenApply(hasNext -> {
                 if (!hasNext) {
@@ -143,6 +147,19 @@ public class RangeSet {
                 }
             });
         });
+    }
+
+    /**
+     * Add the read conflict that {@link #contains(ReadTransactionContext, byte[])} adds for the given key. That is, after
+     * checking the key with a snapshot transaction, the transaction will conflict with changes to whether this key is
+     * contained within the range set as if it had checked it with a serializable one.
+     *
+     * @param tr transaction to add the read conflict to
+     * @param key the key whose presence in the set was checked
+     */
+    public void addReadConflictKey(@Nonnull Transaction tr, @Nonnull byte[] key) {
+        checkKey(key);
+        tr.addReadConflictKey(subspace.pack(key));
     }
 
     /**
@@ -205,8 +222,7 @@ public class RangeSet {
      * (corresponding to adding an empty range). If <code>null</code> is set for either endpoint, this will insert
      * a range all the way to the end of the total range.
      *
-     * <p>
-     * In terms of isolation, this method will add both read- and write-conflict ranges. It adds a read-conflict range
+     * <p>In terms of isolation, this method will add both read- and write-conflict ranges. It adds a read-conflict range
      * corresponding to the range being added, i.e., for the keys within the range from <code>begin</code> to <code>end</code>.
      * This is so that if this range is modified concurrently by another writer, this transaction will fail (as the exact
      * writes done depend on these keys not being modified.) It will also a write-conflict ranges corresponding
@@ -216,7 +232,6 @@ public class RangeSet {
      * and finds that it is not, this write will then cause that transaction to fail if it is committed after this
      * one. If the range is not empty initially, write conflict ranges are added for all of the "gaps" that have
      * to be added. (So, if the range is already full, then no write conflict ranges are added at all.)
-     * </p>
      *
      * @param tc the transaction or database in which to operate
      * @param begin the (inclusive) beginning of the range to add
@@ -614,6 +629,7 @@ public class RangeSet {
 
     /**
      * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
+     *
      * @param tr transaction with which to run the operation
      */
     public void clear(@Nonnull Transaction tr) {
@@ -622,6 +638,7 @@ public class RangeSet {
 
     /**
      * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
+     *
      * @param tc transaction or database in which to run operation
      * @return a future that is completed when the range has been cleared
      */

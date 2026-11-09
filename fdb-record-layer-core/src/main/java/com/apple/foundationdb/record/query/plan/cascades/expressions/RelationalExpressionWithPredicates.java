@@ -46,13 +46,18 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
     @Nonnull
     List<? extends QueryPredicate> getPredicates();
 
+    /**
+     * Return all the dynamic types contained within the {@link QueryPredicate}s of this expression.
+     *
+     * @return A {@link Set} of dynamic {@link Type}s.
+     */
     @Nonnull
-    @Override
-    default Set<Type> getDynamicTypes() {
+    default Set<Type> dynamicTypesFromPredicates() {
+        if (getPredicates().isEmpty()) {
+            return ImmutableSet.of();
+        }
+
         final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
-
-        resultBuilder.addAll(RelationalExpression.super.getDynamicTypes());
-
         for (final QueryPredicate predicate : getPredicates()) {
             final Set<Type> typesForPredicate =
                     predicate.fold(p -> {
@@ -91,6 +96,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
 
     /**
      * Return all {@link FieldValue}s contained in the predicates handed in.
+     *
      * @param predicates a collection of predicates
      * @return a set of {@link FieldValue}s
      */
@@ -101,6 +107,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
 
     /**
      * Return all {@link FieldValue}s contained in the predicates handed in.
+     *
      * @param predicates a collection of predicates
      * @param filteringPredicate an actual predicate performing additional filtering for the kinds of
      *        {@link PredicateWithValue}s the caller is interested in

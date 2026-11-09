@@ -28,21 +28,22 @@ import javax.annotation.Nonnull;
 
 /**
  * Interface for configuring how to run a {@code .yamsql} file.
- * <p>
- *     Primarily this is concerned with global configuration that allows us to run <em>all</em> tests with a different
+ *
+ * <p>Primarily this is concerned with global configuration that allows us to run <em>all</em> tests with a different
  *     configuration, such as a different server, or mixed-mode.
- * </p>
  */
 public interface YamlTestConfig {
 
     /**
      * Creates the connection to the database.
+     *
      * @return a new connection factory
      */
     YamlConnectionFactory createConnectionFactory();
 
     /**
      * A list of options to be provided to {@link YamlRunner}.
+     *
      * @return the options for this config
      */
     @Nonnull

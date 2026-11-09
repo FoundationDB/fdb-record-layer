@@ -46,8 +46,9 @@ Parameters
     Place NULL values at the end of the result set
 
 By default, NULL values sort as follows:
-- With ``ASC``: NULLs come last (equivalent to ``ASC NULLS LAST``)
-- With ``DESC``: NULLs come first (equivalent to ``DESC NULLS FIRST``)
+
+- With ``ASC``: NULLs come first (equivalent to ``ASC NULLS FIRST``)
+- With ``DESC``: NULLs come last (equivalent to ``DESC NULLS LAST``)
 
 Returns
 =======
@@ -256,24 +257,24 @@ NULL Handling
 
 By default, NULL values have specific sort positions:
 
-- With ``ASC``: NULL values appear **last**
-- With ``DESC``: NULL values appear **first**
+- With ``ASC``: NULL values appear **first**
+- With ``DESC``: NULL values appear **last**
 
 You can override this behavior with ``NULLS FIRST`` or ``NULLS LAST``:
 
 .. code-block:: sql
 
-    -- NULLs at the beginning (overriding ASC default)
-    SELECT name, rating
+    -- NULLs at the end (overriding the ASC default)
+    SELECT name, price
     FROM products
-    ORDER BY rating ASC NULLS FIRST
+    ORDER BY price ASC NULLS LAST
 
-    -- NULLs at the end (overriding DESC default)
-    SELECT name, rating
+    -- NULLs at the beginning (overriding the DESC default)
+    SELECT name, price
     FROM products
-    ORDER BY rating DESC NULLS LAST
+    ORDER BY price DESC NULLS FIRST
 
-**Note**: Using ``NULLS FIRST`` or ``NULLS LAST`` requires an index with matching NULL ordering, similar to the constraint for mixed ASC/DESC ordering.
+**Note**: Overriding the default NULL placement requires an index with matching NULL ordering, similar to the constraint for mixed ASC/DESC ordering.
 
 Important Notes
 ===============
@@ -289,7 +290,7 @@ Example index for ``ORDER BY price``:
 
     CREATE INDEX price_idx AS SELECT price FROM products ORDER BY price
 
-Without a suitable index, the query will fail with an "unable to plan" error (0AF00).
+Without a suitable index, the query will fail with an "unable to plan" error (0AF02).
 
 See :ref:`Indexes <index_definition>` for details on creating indexes that support ORDER BY operations.
 
@@ -303,7 +304,7 @@ Mixed ordering (e.g., ``ORDER BY a ASC, b DESC``) is only supported if a matchin
     -- This requires an index: ORDER BY category ASC, price DESC
     SELECT * FROM products ORDER BY category ASC, price DESC
 
-Without a matching index, mixed ordering queries will fail with error 0AF00.
+Without a matching index, mixed ordering queries will fail with error 0AF02.
 
 To create a matching index:
 
@@ -350,9 +351,10 @@ Execution Model
 FRL does not perform in-memory sorting. All ORDER BY operations must be backed by an index with compatible ordering. This is a fundamental architectural constraint that ensures queries can execute efficiently over large datasets.
 
 The query planner will:
+
 1. Look for an index with matching sort order
 2. Use that index to scan results in the correct order
-3. Fail with error 0AF00 if no suitable index exists
+3. Fail with error 0AF02 if no suitable index exists
 
 See Also
 ========

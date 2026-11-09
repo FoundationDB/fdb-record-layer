@@ -64,8 +64,8 @@ public final class Options {
         /**
          * When set, only tables which were created at or before the specified version can be opened.
          * If this is set to -1, then it only requires that a version number exists.
-         * <p>
-         * This is something of a weird carryover from development work which happened before Relational existed,
+         *
+         * <p>This is something of a weird carryover from development work which happened before Relational existed,
          * and should only be used sparingly except in those specific use-cases.
          * Scope: Direct Access API
          */
@@ -119,6 +119,13 @@ public final class Options {
         PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS,
 
         /**
+         * Whether to store a generated plan in the plan cache without ever looking one up there. The plan is always
+         * generated fresh, and a plan already held under an equal constraint is replaced.
+         * Scope: Connection, Query
+         */
+        PLAN_CACHE_WRITE_ONLY,
+
+        /**
          * An indicator for the index fetch method to use for a query or an index scan.
          * Possible values are:
          * <UL>
@@ -137,10 +144,10 @@ public final class Options {
          * By default, no rules are disabled, and the user should be able to leave this
          * unset. This is intended as an escape hatch in case the introduction of a new
          * planner rule causes trouble for an existing query.
-         * <p>
-         * This option is experimental, and is meant to be used for debugging purposes only.
-         * </p>
-         * Scope: Connection, Query
+         *
+         * <p>This option is experimental, and is meant to be used for debugging purposes only.
+         *
+         * <p>Scope: Connection, Query
          */
         DISABLED_PLANNER_RULES,
 
@@ -151,10 +158,10 @@ public final class Options {
          * the planning phase may now need to match a more complicated query, but it can
          * be used as a way to disable the rewrite phase if certain queries either
          * encounter an error or take too much time exploring different rewrites.
-         * <p>
-         * This option is experimental, and is meant to be used for debugging purposes only.
-         * </p>
-         * Scope: Connection, Query
+         *
+         * <p>This option is experimental, and is meant to be used for debugging purposes only.
+         *
+         * <p>Scope: Connection, Query
          */
         DISABLE_PLANNER_REWRITING,
 
@@ -222,6 +229,16 @@ public final class Options {
         PLAN_RIGHT_DEEP,
 
         /**
+         * A boolean indicating that a {@code SELECT} query should be executed using FDB's snapshot isolation,
+         * so that its reads do not add conflict ranges to the enclosing transaction.
+         * This only affects the scans of the query it is set on; other reads and writes in the same transaction
+         * continue to use their configured (typically serializable) isolation. Only supported on read-only
+         * ({@code SELECT}) queries.
+         * Scope: Connection, Query
+         */
+        ISOLATION_LEVEL_SNAPSHOT,
+
+        /**
          * Treat identifiers as-is in terms of case without upper-casing non-quoted ones.
          * Scope: Connection
          */
@@ -274,6 +291,12 @@ public final class Options {
          * A boolean indicating whether to (attempt to) compress records when saving.
          */
         COMPRESS_WHEN_SERIALIZING,
+
+        /**
+         * A fixed Unix epoch timestamp in milliseconds to use in current datetime value functions.
+         */
+        FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS
+
     }
 
     public enum IndexFetchMethod {
@@ -316,6 +339,7 @@ public final class Options {
         builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 30_000L);
         builder.put(Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 8);
         builder.put(Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 30_000L);
+        builder.put(Name.PLAN_CACHE_WRITE_ONLY, false);
         builder.put(Name.REPLACE_ON_DUPLICATE_PK, false);
         builder.put(Name.LOG_QUERY, false);
         builder.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 2_000_000L);
@@ -324,6 +348,7 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.PLAN_RIGHT_DEEP, false);
+        builder.put(Name.ISOLATION_LEVEL_SNAPSHOT, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
@@ -570,6 +595,7 @@ public final class Options {
         data.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
         data.put(Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(1, Integer.MAX_VALUE)));
         data.put(Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
+        data.put(Name.PLAN_CACHE_WRITE_ONLY, List.of(TypeContract.booleanType()));
         data.put(Name.REPLACE_ON_DUPLICATE_PK, List.of(TypeContract.booleanType()));
         data.put(Name.REQUIRED_METADATA_TABLE_VERSION, List.of(TypeContract.intType(), RangeContract.of(-1, Integer.MAX_VALUE)));
         data.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));
@@ -580,6 +606,7 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
         data.put(Name.PLAN_RIGHT_DEEP, List.of(TypeContract.booleanType()));
+        data.put(Name.ISOLATION_LEVEL_SNAPSHOT, List.of(TypeContract.booleanType()));
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
@@ -590,6 +617,7 @@ public final class Options {
         data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new OrderedCollectionContract<>(TypeContract.stringType())));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
         data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
+        data.put(Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
 
         return Collections.unmodifiableMap(data);
     }

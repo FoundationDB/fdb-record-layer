@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
@@ -52,9 +53,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -64,28 +66,24 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
  * the impact that these operations have with other operations, this attempts to minimize the
  * priorities of its transactions. Additionally, it attempts to limit the amount of work it will
- * done in a fashion that will decrease as the number of failures for a given build attempt increases.
+ * do in a fashion that will decrease as the number of failures for a given build attempt increases.
  *
- * <p>
- * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
+ * <p>As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
  * associated with the index being built. This {@link RangeSet} is used to (a) coordinate work between
  * different builders that might be running on different machines to ensure that the same work isn't
  * duplicated and to (b) make sure that non-idempotent indexes (like <code>COUNT</code> or <code>SUM_LONG</code>)
  * don't update themselves (or fail to update themselves) incorrectly.
- * </p>
  *
- * <p>
- * Unlike many other features in the Record Layer core, this has a retry loop.
- * </p>
+ * <p>Unlike many other features in the Record Layer core, this has a retry loop.
  *
- * <p>Build an index immediately in the current transaction:</p>
+ * <p>Build an index immediately in the current transaction:
  * <pre><code>
  * try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
  *     indexBuilder.rebuildIndex(recordStore);
  * }
  * </code></pre>
  *
- * <p>Build an index synchronously in the multiple transactions:</p>
+ * <p>Build an index synchronously in the multiple transactions:
  * <pre><code>
  * try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
  *     indexBuilder.buildIndex();
@@ -108,8 +106,8 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index; // First target index is used for locks
-    @Nonnull private IndexingPolicy indexingPolicy;
-    private boolean fallbackToRecordsScan = false;
+    @Nonnull private final IndexingPolicy callerIndexingPolicy; // the policy as requested by the caller, never adjusted
+    private int lastAttemptCount = 0;
 
     @SuppressWarnings("squid:S00107")
     OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
@@ -122,41 +120,79 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nonnull IndexingPolicy indexingPolicy) {
         this.runner = runner;
         this.index = targetIndexes.get(0);
-        this.indexingPolicy = indexingPolicy;
+        this.callerIndexingPolicy = indexingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 targetIndexes, recordTypes, configLoader, config,
                 trackProgress);
     }
 
-    @Nonnull
-    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc) {
-        return indexingLauncher(indexingFunc, 0);
+    /**
+     * The state of a single indexing operation, shared by its attempts.
+     */
+    private static final class IndexingOperationState {
+        @Nonnull private IndexingPolicy policy; // the policy of the current attempt, possibly adjusted
+        private final boolean markReadable; // the caller's request to mark the indexes readable once built
+        private boolean fallbackToRecordsScan = false;
+        private boolean sourceIndexAdjusted = false;
+        @Nullable private IndexingBase.PartlyBuiltException firstPartlyBuiltException = null;
+
+        private IndexingOperationState(@Nonnull IndexingPolicy policy, boolean markReadable) {
+            this.policy = policy;
+            this.markReadable = markReadable;
+        }
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount) {
-        return indexingLauncher(indexingFunc, attemptCount, null);
+    private CompletableFuture<Void> indexingLauncher(Function<IndexingBase, CompletableFuture<Void>> indexingFunc) {
+        return indexingLauncher(indexingFunc, true);
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
+    private CompletableFuture<Void> indexingLauncher(Function<IndexingBase, CompletableFuture<Void>> indexingFunc, boolean markReadable) {
+        // A new operation - starts with the requested policy and no adjustments.
+        return indexingLauncher(indexingFunc, new IndexingOperationState(callerIndexingPolicy, markReadable), 0);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingLauncher(Function<IndexingBase, CompletableFuture<Void>> indexingFunc,
+                                                     @Nonnull IndexingOperationState state, int attemptCount) {
         // The launcher calls the indexing function, letting the results to be handled by the catcher.
         // The catcher may, on some cases, call the launcher in its retry path. The attemptCount limits the recursion level as a safety net.
-        return AsyncUtil.composeHandle( indexingFunc.get(),
-                (ignore, ex) -> indexingCatcher(ex, indexingFunc, attemptCount + 1, requestedPolicy));
+        // Every attempt gets a new indexer, built according to the attempt's policy.
+        indexer = newIndexer(state.policy);
+        if (state.fallbackToRecordsScan) {
+            indexer.enforceStampOverwrite();
+        }
+        return AsyncUtil.composeHandle( indexingFunc.apply(indexer),
+                (ignore, ex) -> indexingCatcher(ex, indexingFunc, state, attemptCount + 1));
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexingCatcher(Throwable ex, Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
+    private CompletableFuture<Void> indexingLauncherFallbackToRecordsScan(Function<IndexingBase, CompletableFuture<Void>> indexingFunc,
+                                                                          @Nonnull IndexingOperationState state, int attemptCount) {
+        state.fallbackToRecordsScan = true;
+        state.policy = state.policy.toBuilder()
+                .setSourceIndex(null)
+                .setSourceIndexSubspaceKey(null)
+                .setMutualIndexing(false)
+                .setMutualIndexingBoundaries(null)
+                .build();
+        return indexingLauncher(indexingFunc, state, attemptCount);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingCatcher(Throwable ex, Function<IndexingBase, CompletableFuture<Void>> indexingFunc,
+                                                    @Nonnull IndexingOperationState state, int attemptCount) {
         // (skeleton function, a little long but broken to distinct cases)
+        lastAttemptCount = attemptCount;
         if (ex == null) {
             // A happy index it is
             return AsyncUtil.DONE;
         }
 
         if (attemptCount > INDEXING_ATTEMPTS_RECURSION_LIMIT) {
-            // Safety net, this should never happen
+            // Safety net - limit the attempts
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.error(KeyValueLogMessage.build("Too many indexing attempts",
                         LogMessageKeys.CURR_ATTEMPT, attemptCount)
@@ -166,15 +202,11 @@ public class OnlineIndexer implements AutoCloseable {
             throw FDBExceptions.wrapException(ex);
         }
 
-        // clear the indexer, forcing indexingLauncher - if called again - to build a new indexer according to
-        // the modified parameters.
-        indexer = null;
-
         final IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuiltExceptionIfApplicable(ex);
         if (partlyBuiltException != null) {
             // An ongoing indexing process with a different method type was found. Some precondition cases should be handled.
             IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.getSavedStamp();
-            IndexingPolicy.DesiredAction desiredAction = indexingPolicy.getIfMismatchPrevious();
+            IndexingPolicy.DesiredAction desiredAction = state.policy.getIfMismatchPrevious();
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
                                 LogMessageKeys.CURR_ATTEMPT, attemptCount,
@@ -187,63 +219,69 @@ public class OnlineIndexer implements AutoCloseable {
 
             if (desiredAction == IndexingPolicy.DesiredAction.CONTINUE) {
                 // Make an effort to finish indexing. Attempt continuation of the previous method
-                // Here: match the policy to the previous run
+                // Here: match the policy to the previous run. Every adjustment is attempted once
+                final boolean isFirstMismatch = state.firstPartlyBuiltException == null;
+                if (isFirstMismatch) {
+                    state.firstPartlyBuiltException = partlyBuiltException;
+                }
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
-                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS && !common.isMultiTarget()) {
-                    // Partly built by records. The fallback indicator should handle the policy
-                    fallbackToRecordsScan = true;
-                    return indexingLauncher(indexingFunc, attemptCount);
+                if (!common.isMultiTarget() && !state.fallbackToRecordsScan) {
+                    if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS ||
+                            method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS ||
+                            method == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
+                        return indexingLauncherFallbackToRecordsScan(indexingFunc, state, attemptCount);
+                    }
+                    if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
+                            !state.policy.isMutual() && // mutual indexing by a source index is not supported
+                            !isPolicySourceIndexOf(state.policy, partlyBuiltException)) {
+                        // Here: Partly built by index. Retry by the previous run's source index.
+                        Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
+                        state.sourceIndexAdjusted = true;
+                        state.policy = state.policy.toBuilder()
+                                .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
+                                .build();
+                        return indexingLauncher(indexingFunc, state, attemptCount);
+                    }
                 }
-                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS && !common.isMultiTarget()) {
-                    // Partly built by records, in multi target mode. We only allow a fallback from multi target
-                    // to a single target, but not to a subset.
-                    fallbackToRecordsScan = true;
-                    return indexingLauncher(indexingFunc, attemptCount);
+                // Here: no adjustment is left to try.
+                if (!isFirstMismatch) {
+                    state.firstPartlyBuiltException.addSuppressed(partlyBuiltException);
                 }
-                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX && !common.isMultiTarget()) {
-                    // Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
-                    Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
-                    IndexingPolicy origPolicy = indexingPolicy;
-                    indexingPolicy = origPolicy.toBuilder()
-                            .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
-                            .build();
-                    return indexingLauncher(indexingFunc, attemptCount, origPolicy);
-                }
-                // No other methods (yet). This line should never be reached.
-                throw partlyBuiltException;
+                throw state.firstPartlyBuiltException;
             }
 
             if (desiredAction == IndexingPolicy.DesiredAction.REBUILD) {
                 // Here: Just rebuild
-                indexingPolicy = indexingPolicy.toBuilder()
+                state.policy = state.policy.toBuilder()
                         .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
                         .build();
-                return indexingLauncher(indexingFunc, attemptCount);
+                return indexingLauncher(indexingFunc, state, attemptCount);
             }
 
             // Error it is
             throw partlyBuiltException;
         }
 
-        if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
-            // Validation failed - the source index cannot be used for records scanning
-            if (requestedPolicy != null) {
-                // We tried to continue a previous indexing session, but failed. The best recovery, as it seems,
-                // is to rebuild with requested policy.
+        if (state.policy.isByIndex() && IndexingBase.isUnusableSourceIndexException(ex)) {
+            // Here: the source index cannot be used for records scanning
+            if (state.sourceIndexAdjusted) {
+                // Here: we tried to continue a previous indexing session by its source index, but that index isn't
+                // usable. The only recovery, as it seems, is to rebuild by the originally requested policy.
                 if (LOGGER.isWarnEnabled()) {
                     LOGGER.warn(KeyValueLogMessage.build("The previous method's source index isn't usable. Rebuild by the requested policy",
-                            LogMessageKeys.CURR_ATTEMPT, attemptCount)
+                                    LogMessageKeys.CURR_ATTEMPT, attemptCount)
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .toString());
                 }
                 // rebuild by the requested policy
-                indexingPolicy = requestedPolicy.toBuilder()
+                state.sourceIndexAdjusted = false; // the adjustment is undone, do not attempt this recovery again
+                state.policy = callerIndexingPolicy.toBuilder()
                         .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
                         .build();
-                return indexingLauncher(indexingFunc, attemptCount);
+                return indexingLauncher(indexingFunc, state, attemptCount);
             }
 
-            if (! indexingPolicy.isForbidRecordScan() && ! fallbackToRecordsScan) {
+            if (! state.policy.isForbidRecordScan() && ! state.fallbackToRecordsScan) {
                 // requested by-index failed, and record scan is allowed. Build by records.
                 if (LOGGER.isWarnEnabled()) {
                     LOGGER.warn(KeyValueLogMessage.build("Fallback to a by-record scan",
@@ -252,71 +290,109 @@ public class OnlineIndexer implements AutoCloseable {
                             .toString());
                 }
                 // build by records
-                fallbackToRecordsScan = true;
-                return indexingLauncher(indexingFunc, attemptCount);
+                return indexingLauncherFallbackToRecordsScan(indexingFunc, state, attemptCount);
             }
         }
 
-        if (indexingPolicy.isMutual()) {
+        if (callerIndexingPolicy.isMutual()) {
+            // Note: check the requested policy - a fallback to a by-records scan clears the mutual indexing flag, yet
+            // the other mutual indexers keep running and may complete the target indexes at any moment.
             IndexingBase.UnexpectedReadableException unexpectedReadableException = IndexingBase.getUnexpectedReadableIfApplicable(ex);
             if (unexpectedReadableException != null) {
                 if (unexpectedReadableException.allReadable) {
                     // All are readable
                     return AsyncUtil.DONE;
                 }
-                // Some are readable, probably by another process. Call regular indexing to check/mark readable
-                fallbackToRecordsScan = true;
-                return indexingLauncher(indexingFunc, attemptCount);
+                // Here: some targets are readable. A peer process is probably in the middle of marking them readable, or had
+                // failed to (possibly due to a uniqueness violation). Attempt marking them readable too, if requested.
+                return newIndexer(state.policy).markIndexReadable(state.markReadable).thenApply(ignore -> null);
             }
+        }
+
+        final IndexingBase.EnqueueFromIndexerException enqueueException = IndexingBase.getEnqueueFromIndexerExceptionIfApplicable(ex);
+        if (enqueueException != null) {
+            // The indexer must not push items to the pending write queue. Merge (and drains the queue), then retry.
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Indexer attempted to enqueue, merging before retry",
+                                LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                                LogMessageKeys.INDEX_NAME, enqueueException.getIndex().getName())
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            return AsyncUtil.composeHandle(mergeIndexAsync(), (ignore, mergeEx) -> {
+                if (mergeEx == null) {
+                    return AsyncUtil.DONE; // Successful drain/merge
+                }
+                final FDBExceptions.FDBStoreLockTakenException lockTakenException =
+                        IndexingBase.findException(mergeEx, FDBExceptions.FDBStoreLockTakenException.class);
+                if (lockTakenException == null) {
+                    throw FDBExceptions.wrapException(mergeEx);
+                }
+                // Another process holds a valid lock. If it is active, it will eventually drain the queue and release the
+                // lock. Maybe this indexer will exhaust all its retries by then.
+                // Just in case the other process is not activated anymore, this indexer will wait to the end of the lock's
+                // lease.
+                // This wait will also serve a throttling mechanism to prevent immediate retries.
+                final Long leaseRemainingMillis = lockTakenException.getLeaseRemainingMillis();
+                final long delayMillis = (leaseRemainingMillis != null ? leaseRemainingMillis : TimeUnit.SECONDS.toMillis(1));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.build("Merge lock is held by another process, delaying before retry",
+                                    LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                                    LogMessageKeys.INDEX_NAME, enqueueException.getIndex().getName(),
+                                    LogMessageKeys.DELAY, delayMillis)
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                return MoreAsyncUtil.delayedFuture(delayMillis, TimeUnit.MILLISECONDS,
+                        common.getRunner().getScheduledExecutor());
+            }).thenCompose(ignore ->
+                    indexingLauncher(indexingFunc, state, attemptCount)
+            );
         }
 
         // No handling, throw the error.
         throw FDBExceptions.wrapException(ex);
     }
 
-    @Nonnull
-    private IndexingByIndex getIndexerByIndex() {
-        if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
-            indexer = new IndexingByIndex(common, indexingPolicy);
+    private static boolean isPolicySourceIndexOf(@Nonnull IndexingPolicy policy, @Nonnull IndexingBase.PartlyBuiltException partlyBuiltException) {
+        // true if the last attempt already pointed at the conflicting stamp's source index, hence retrying by this
+        // source index would fail in the very same way
+        final IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.getSavedStamp();
+        final IndexBuildProto.IndexBuildIndexingStamp expectedIndexingTypeStamp = partlyBuiltException.getExpectedStamp();
+        if (expectedIndexingTypeStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
+                expectedIndexingTypeStamp.getSourceIndexSubspaceKey().equals(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey())) {
+            // Here: the requested stamp refers to this very source index (the mismatch is in another stamp attribute).
+            // Note that this covers the common case of a source index that was requested by name.
+            return true;
         }
-        return (IndexingByIndex)indexer;
+        final Object policySourceIndexSubspaceKey = policy.getSourceIndexSubspaceKey();
+        return policySourceIndexSubspaceKey != null &&
+               policySourceIndexSubspaceKey.equals(decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey()));
     }
 
     @Nonnull
-    private IndexingMultiTargetByRecords getIndexerMultiTargetByRecords() {
-        if (! (indexer instanceof IndexingMultiTargetByRecords)) {
-            indexer = new IndexingMultiTargetByRecords(common, indexingPolicy);
+    private IndexingBase newIndexer(@Nonnull IndexingPolicy policy) {
+        if (policy.isMutual()) {
+            return new IndexingMutuallyByRecords(common, policy, policy.mutualIndexingBoundaries);
         }
-        return (IndexingMultiTargetByRecords)indexer;
-    }
-
-    @Nonnull
-    private IndexingMutuallyByRecords getMutualIndexerByRecords() {
-        if (! (indexer instanceof IndexingMutuallyByRecords)) {
-            indexer = new IndexingMutuallyByRecords(common, indexingPolicy, indexingPolicy.mutualIndexingBoundaries);
+        if (policy.isByIndex() && !common.isMultiTarget()) {
+            return new IndexingByIndex(common, policy);
         }
-        return (IndexingMutuallyByRecords)indexer;
+        // default
+        return new IndexingMultiTargetByRecords(common, policy);
     }
 
     @Nonnull
     private IndexingBase getIndexer() {
-        if (indexingPolicy.isMutual() && !fallbackToRecordsScan) {
-            return getMutualIndexerByRecords();
+        // The last indexing operation's indexer, else a new one according to the requested policy
+        if (indexer == null) {
+            indexer = newIndexer(callerIndexingPolicy);
         }
-        if (indexingPolicy.isByIndex() && !common.isMultiTarget() && !fallbackToRecordsScan) {
-            return getIndexerByIndex();
-        }
-        // default
-        IndexingBase indexingBase = getIndexerMultiTargetByRecords();
-        if (fallbackToRecordsScan) {
-            indexingBase.enforceStampOverwrite();
-        }
-        return indexingBase;
+        return indexer;
     }
 
     /**
-     * Get the current config parameters of the online indexer.
-     * @return the config parameters of the online indexer
+     * {@return the current config parameters of the online indexer}
      */
     @Nonnull
     @VisibleForTesting
@@ -326,6 +402,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the number of times the configuration was loaded.
+     *
      * @return the number of times the {@code configLoader} was invoked
      */
     @VisibleForTesting
@@ -334,8 +411,19 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * Get the number of indexing attempts that were made during the last indexing operation.
+     *
+     * @return the number of indexing attempts
+     */
+    @VisibleForTesting
+    int getLastAttemptCount() {
+        return lastAttemptCount;
+    }
+
+    /**
      * Get the current number of records to process in one transaction.
      * This may go up or down during committing failures or successes.
+     *
      * @return the current number of records to process in one transaction
      */
     public int getLimit() {
@@ -378,7 +466,7 @@ public class OnlineIndexer implements AutoCloseable {
      * do this within a single transaction, and it may fail if there are too many records, so this
      * is only safe to do for small record stores.
      *
-     * Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
+     * <p>Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
      * changing an index to write-only mode while the index is being rebuilt.
      *
      * @param store the record store in which to rebuild the index
@@ -386,7 +474,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
-        return indexingLauncher(() -> getIndexer().rebuildIndexAsync(store));
+        return indexingLauncher(attemptIndexer -> attemptIndexer.rebuildIndexAsync(store));
     }
 
     /**
@@ -403,11 +491,12 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * If applicable, merge the target indexes as a background maintenance. This experimental feature completes
      * {@link FDBRecordStore#getIndexDeferredMaintenanceControl()} and {@link IndexDeferredMaintenanceControl}.
+     *
      * @return a future with the merge index operation
      */
     @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<Void> mergeIndexAsync() {
-        return indexingLauncher(() -> getIndexer().mergeIndexes());
+        return indexingLauncher(IndexingBase::mergeIndexes);
     }
 
     /**
@@ -421,6 +510,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
+     *
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public boolean checkAnyOngoingOnlineIndexBuilds() {
@@ -429,6 +519,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     *
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
@@ -440,6 +531,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
      * Where "active session" is determined by an indexing heartbeat that is less than {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS} old.
+     *
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
@@ -450,6 +542,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     *
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @param leasingMilliseconds max heartbeat age to be considered an "active session"
@@ -465,14 +558,14 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Builds an index across multiple transactions.
-     * <p>
-     * If the indexing session is not mutual, it will stop with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
+     *
+     * <p>If the indexing session is not mutual, it will stop with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
      * if there is another active indexing session on the same index. It first checks and updates index states and
      * clear index data respecting the {@link IndexStatePrecondition} being set. It then builds the index across
      * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
      * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
      * store.
-     * </p>
+     *
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
@@ -485,12 +578,13 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable));
+        return indexingLauncher(attemptIndexer -> attemptIndexer.buildIndexAsync(markReadable), markReadable);
     }
 
     /**
      * Builds an index across multiple transactions.
      * Synchronous version of {@link #buildIndexAsync}.
+     *
      * @param markReadable whether to mark the index as readable after building the index
      */
     public void buildIndex(boolean markReadable) {
@@ -507,6 +601,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Mark the index as readable if it is built.
+     *
      * @return a future that will complete to <code>true</code> if all the target indexes are readable or marked readable
      * and <code>false</code> otherwise
      */
@@ -518,6 +613,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Mark the index as readable.
+     *
      * @return a future that will either complete exceptionally if any of the target indexes can not
      * be made readable or will contain <code>true</code> if the store was modified and <code>false</code>
      * otherwise
@@ -532,6 +628,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Query the current indexing session.
      * Note that this query cannot tell if another process is actively indexing now, but whether or not an index is in
      * the process of being built (and how).
+     *
      * @return a map of target indexes and their "indexing stamps".
      */
     @API(API.Status.EXPERIMENTAL)
@@ -543,6 +640,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Block partly built indexes, preventing continuation.
      * Active indexing sessions will check for this block during every iterating transaction, which still requires the caller to
      * wait a few seconds before assuming that all indexing had stopped.
+     *
      * @param id if non-null, will be added to the "indexing stamp" as an id/hint for the blocking reason.
      * @param ttlSeconds if non-null, the block will automatically expire after this value (in seconds).
      * @return a map of target indexes and their "indexing stamps" after the change.
@@ -554,6 +652,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Unblock partly built indexes, allowing continuation.
+     *
      * @param id if non-null nor empty, unblock the indexes only if this matches the id in the "indexing stamp", as was
      * set by {@link #blockIndexBuilds(String, Long)}.
      * @return  a map of target indexes and their "indexing stamps" after the change.
@@ -578,6 +677,7 @@ public class OnlineIndexer implements AutoCloseable {
      * When an index becomes readable any existing heartbeat will be deleted.
      * Note that heartbeats that cannot be decrypted will show in the returned map as having creation time of 0 and its info will
      * be set to {@link IndexingHeartbeat#INVALID_HEARTBEAT_INFO}.
+     *
      * @param maxCount safety valve to limit number items to read. Typically set to zero to keep unlimited.
      * @return map of session ids to {@link IndexBuildProto.IndexBuildHeartbeat}
      */
@@ -591,6 +691,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Clear old indexing heartbeats for a given index (single target or primary index).
      * Typically, heartbeats are deleted either at the end of an indexing sessions or when the index becomes readable. This
      * cleanup function can be used if, for any reason, the heartbeats could not be deleted from the database at the end of a session.
+     *
      * @param minAgeMilliseconds minimum heartbeat age (time elapsed since the last heartbeat, in milliseconds) to clear.
      * @param maxIteration safety valve to limit number of items to check. Typically set to zero to keep unlimited
      * @return number of cleared heartbeats
@@ -660,6 +761,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the index to be built.
+         *
          * @param index the index to be built
          * @return this builder
          *
@@ -677,6 +779,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the index to be built.
+         *
          * @param indexName the index to be built
          * @return this builder
          *
@@ -691,6 +794,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Replace any previous target indexes list with this new one.
+         *
          * @param indexes list of target indexes
          * @return this builder
          */
@@ -701,6 +805,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Replace any previous target indexes list with this new one.
+         *
          * @param indexes list of target index names
          * @return this builder
          */
@@ -713,6 +818,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add one target index to the target indexes list. The online indexer will attempt building
          * all the target indexes within a single records scan. Hence, at least one target index should
          * be defined.
+         *
          * @param index an index to add
          * @return this builder
          */
@@ -725,6 +831,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add one target index to the target indexes list. The online indexer will attempt building
          * all the target indexes within a single records scan. Hence, at least one target index should
          * be defined.
+         *
          * @param indexName an index's name to add
          * @return this builder
          */
@@ -736,7 +843,8 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Get the explicit set of record types to be indexed.
          *
-         * Normally, all record types associated with the chosen index will be indexed.
+         * <p>Normally, all record types associated with the chosen index will be indexed.
+         *
          * @return the record types to be indexed
          */
         @Nullable
@@ -747,8 +855,9 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the explicit set of record types to be indexed.
          *
-         * Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
+         * <p>Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
          * explicitly is not allowed with multi targets indexing.
+         *
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
@@ -762,19 +871,19 @@ public class OnlineIndexer implements AutoCloseable {
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
+         *
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
          * @return this builder
-         *
          * @deprecated use {@link IndexingPolicy.Builder} instead. Example:
-         * <p>
-         *   setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+         *
+         * <p>setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
          *                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
          *                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
-         * </p>
-         * For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
+         *
+         * <p>For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
          * methods: setIfDisabled, setIfWriteOnly, setIfMismatchPrevious, setIfReadable
          */
         @Deprecated
@@ -787,6 +896,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
+         *
          * @param indexingPolicy see {@link IndexingPolicy}
          * @return this Builder
          */
@@ -804,6 +914,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add an {@link IndexingPolicy.Builder}. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
+         *
          * @param builder an IndexingPolicy builder.
          * @return this Builder
          */
@@ -815,6 +926,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Build an {@link OnlineIndexer}.
+         *
          * @return a new online indexer
          */
         public OnlineIndexer build() {
@@ -920,6 +1032,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final boolean reverseScanOrder;
         private final Set<Index> pendingWriteQueueIndexes;
         private final long pendingWriteQueueIndexesMaxDrainAttempts;
+        private final Set<Index> writeOnlyWithTrackingIndexes;
 
         /**
          * Possible actions when an index is already partially built.
@@ -952,6 +1065,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create a policy for the indexing session.
+         *
          * @param sourceIndex Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index
          * @param sourceIndexSubspaceKey if non-null, overrides the sourceIndex param
          * @param forbidRecordScan forbid fallback to a by-records scan
@@ -969,6 +1083,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param reverseScanOrder if true, scan records in reverse order
          * @param pendingWriteQueueIndexes the subset of target indexes that should be built with a pending write queue
          * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of times to re-drain the pending write queue while attempting to mark a queued index readable
+         * @param writeOnlyWithTrackingIndexes the subset of target indexes that should be built in the write-only-with-tracking state
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -979,7 +1094,10 @@ public class OnlineIndexer implements AutoCloseable {
                                long initialMergesCountLimit,
                                boolean reverseScanOrder,
                                Set<Index> pendingWriteQueueIndexes,
-                               long pendingWriteQueueIndexesMaxDrainAttempts) {
+                               long pendingWriteQueueIndexesMaxDrainAttempts,
+                               Set<Index> writeOnlyWithTrackingIndexes) {
+            // Could have been nicer to have a single set of special write_only modes (queue/tracking), but that would have
+            // been a breaking change. Better left for later.
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -997,10 +1115,12 @@ public class OnlineIndexer implements AutoCloseable {
             this.reverseScanOrder = reverseScanOrder;
             this.pendingWriteQueueIndexes = pendingWriteQueueIndexes;
             this.pendingWriteQueueIndexesMaxDrainAttempts = pendingWriteQueueIndexesMaxDrainAttempts;
+            this.writeOnlyWithTrackingIndexes = writeOnlyWithTrackingIndexes;
         }
 
         /**
          * Check if active.
+         *
          * @return True if active
          */
         public boolean isByIndex() {
@@ -1009,6 +1129,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If active, get the source index.
+         *
          * @return source index name
          */
         @Nullable
@@ -1023,6 +1144,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If another indexing method is not possible, indicate if a fallback to records scan is forbidden.
+         *
          * @return  {@code true} if a record scan is forbidden
          */
         public boolean isForbidRecordScan() {
@@ -1031,6 +1153,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * In this mode, assume concurrently indexing with other entities.
+         *
          * @return true if mutual
          */
         public boolean isMutual() {
@@ -1039,6 +1162,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create an indexing policy builder.
+         *
          * @return a new {@link IndexingPolicy} builder
          */
         @Nonnull
@@ -1048,6 +1172,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create an indexing policy builder from existing object.
+         *
          * @return an {@link IndexingPolicy} builder, defaulted to the existing object's values.
          */
         @Nonnull
@@ -1069,11 +1194,13 @@ public class OnlineIndexer implements AutoCloseable {
                     .setReverseScanOrder(reverseScanOrder)
                     .setUsePendingWriteQueue(pendingWriteQueueIndexes.stream().toList())
                     .setPendingWriteQueueIndexesMaxDrainAttempts(pendingWriteQueueIndexesMaxDrainAttempts)
+                    .setUseWriteOnlyWithTracking(writeOnlyWithTrackingIndexes.stream().toList())
                     ;
         }
 
         /**
          * The desired action if the index is disabled.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfDisabled() {
@@ -1082,6 +1209,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in write only mode.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfWriteOnly() {
@@ -1090,6 +1218,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in partly built, but the requested policy mismatches the previous one.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfMismatchPrevious() {
@@ -1098,6 +1227,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in readable mode (i.e. already built).
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfReadable() {
@@ -1106,13 +1236,14 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the appropriate desired action for a given index state.
+         *
          * @param state A given index state
          * @return The appropriate {@link DesiredAction}
          */
         public DesiredAction getStateDesiredAction(IndexState state) {
             switch (state) {
                 case DISABLED:      return getIfDisabled();
-                case WRITE_ONLY, WRITE_ONLY_WITH_QUEUE:    return getIfWriteOnly();
+                case WRITE_ONLY, WRITE_ONLY_WITH_QUEUE, WRITE_ONLY_WITH_TRACKING:    return getIfWriteOnly();
                 case READABLE:      return getIfReadable();
                 case READABLE_UNIQUE_PENDING: return DesiredAction.MARK_READABLE;
                 default: throw new RecordCoreException("bad index state: " + state);
@@ -1121,6 +1252,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, mark readable (after indexing) should allow the {@link IndexState#READABLE_UNIQUE_PENDING} index state.
+         *
          * @param store the relevant store - used to check if matching format-version.
          * @return true if allowed
          */
@@ -1132,6 +1264,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * If true, allow - in some specific cases - to continue building an index that was partly built by a different indexing method.
          * (See {@link Builder#allowTakeoverContinue(Collection)} and {@link Builder#allowTakeoverContinue(boolean)}).
+         *
          * @param newStamp the new (attempting to continue) indexing type stamp
          * @param oldStamp the old (previously used) indexing type stamp
          * @return true if allowed
@@ -1179,17 +1312,19 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, allow indexing continuation of a blocked partly built index.
+         *
          * @param stampBlockId if non-null and non-empty, allow unblock only if matches the existing stamp's block id
          * @return true if unblock is allowed
          */
         public boolean shouldAllowUnblock(String stampBlockId) {
             return allowUnblock &&
-                   (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
+                    (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
         }
 
         /**
          * Get the initial merges count limit for {@link #mergeIndex()} and the indexing process.
          * The default is 0 - which means unlimited.
+         *
          * @return the initial merges count limit.
          */
         @API(API.Status.EXPERIMENTAL)
@@ -1199,6 +1334,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get caller's request to scan records in reverse order while indexing.
+         *
          * @return true if reverse scan order was requested
          */
         public boolean isReverseScanOrder() {
@@ -1209,6 +1345,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Whether the given target index should be built with a pending write queue. While such an index is being
          * built, user updates are accumulated in a pending write queue (to be drained by the indexer) instead of being
          * written to the index directly.
+         *
          * @param index the target index to check
          * @return true if the given index should be built with a pending write queue
          */
@@ -1218,10 +1355,24 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Whether the given target index should be built in the write-only-with-tracking state. While such a (non-idempotent)
+         * index is being built, user inserts are always indexed and tracked in a dedicated table, which the indexer
+         * consults to avoid indexing them again; the indexer itself needs no range conflicts, just like the indexer of an idempotent index.
+         *
+         * @param index the target index to check
+         * @return true if the given index should be built in the write-only-with-tracking state
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public boolean shouldUseWriteOnlyWithTracking(@Nonnull Index index) {
+            return writeOnlyWithTrackingIndexes.contains(index);
+        }
+
+        /**
          * Get the maximum number of times to re-drain the pending write queue while attempting to mark a write-only-with-queue index
          * as readable. Because the queue is drained and the index is marked readable in separate transactions while
          * concurrent writers may still be enqueuing, the queue can be observed non-empty at mark-readable time; each
          * attempt re-drains before re-checking. The default is 100.
+         *
          * @return the maximum number of drain-and-mark-readable attempts
          */
         @API(API.Status.EXPERIMENTAL)
@@ -1236,7 +1387,7 @@ public class OnlineIndexer implements AutoCloseable {
          * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").build()
          * </code></pre>
          *
-         * Forbid fallback:
+         * <p>Forbid fallback:
          * <pre><code>
          * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").forbidRecordScan().build()
          * </code></pre>
@@ -1261,6 +1412,7 @@ public class OnlineIndexer implements AutoCloseable {
             private boolean reverseScanOrder = false;
             private Set<Index> pendingWriteQueueIndexes = new HashSet<>();
             private long pendingWriteQueueIndexesMaxDrainAttempts = 100;
+            private Set<Index> writeOnlyWithTrackingIndexes = new HashSet<>();
 
             protected Builder() {
             }
@@ -1277,10 +1429,10 @@ public class OnlineIndexer implements AutoCloseable {
              * exception and the build may fall back to building the index by a records scan depending
              * on the value given to {@link #setForbidRecordScan(boolean)}.
              *
-             * @param sourceIndex an existing, readable, index.
+             * @param sourceIndex an existing, readable, index. If null, do not use a source index.
              * @return this builder
              */
-            public Builder setSourceIndex(@Nonnull final String sourceIndex) {
+            public Builder setSourceIndex(@Nullable final String sourceIndex) {
                 this.sourceIndex = sourceIndex;
                 return this;
             }
@@ -1312,6 +1464,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Same as calling {@link #setForbidRecordScan(boolean)} with the value {@code true}.
+             *
              * @return this builder
              */
             public Builder forbidRecordScan() {
@@ -1322,6 +1475,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is disabled.
+             *
              * @param ifDisabled CONTINUE: build the index (effectively, it's the same as rebuild)
              *                   REBUILD: rebuild the index.
              *                   ERROR: reject (with exception).
@@ -1334,6 +1488,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is in a write-only mode (i.e. partly built).
+             *
              * @param ifWriteOnly CONTINUE: (default) attempt to continue the previous indexing process
              *                    REBUILD: clear the existing data and rebuild
              *                    ERROR: reject (with exception).
@@ -1346,6 +1501,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is in a write-only mode but the previous indexing method mismatches the requested one.
+             *
              * @param ifMismatchPrevious CONTINUE: (default) attempt to continue the previous indexing process, using the previous policy
              *                       REBUILD: clear the existing data and rebuild, using the new policy
              *                       ERROR: reject (with exception).
@@ -1358,6 +1514,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is readable.
+             *
              * @param ifReadable CONTINUE: (default) do nothing.
              *                   REBUILD: clear the existing data and rebuild.
              *                   ERROR: reject (with exception)
@@ -1370,6 +1527,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #allowUniquePendingState(boolean)} with default true.
+             *
              * @return this builder
              */
             public Builder allowUniquePendingState() {
@@ -1384,6 +1542,7 @@ public class OnlineIndexer implements AutoCloseable {
              *                have duplications, the exception will only refer to an arbitrary one. Other target indexes (if
              *                indexed successfully) will be marked as readable.
              *    This state might not be compatible with older code. Please verify that all instances are up-to-date before allowing it.
+             *
              * @param allow allow a {@link IndexState#READABLE_UNIQUE_PENDING} index states.
              * @return this builder
              */
@@ -1394,6 +1553,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #allowTakeoverContinue(boolean)} with default true.
+             *
              * @return this builder
              */
             public Builder allowTakeoverContinue() {
@@ -1411,6 +1571,7 @@ public class OnlineIndexer implements AutoCloseable {
              *  </ul>
              *  This function will allow/disallow all possible conversion types. {@link #allowTakeoverContinue(Collection)} supports allowing a subset of these conversions.
              *  Note - if {@link #allowTakeoverContinue(Collection)} is called with a non-null argument, it will override this function's argument.
+             *
              * @param allow if true, allow takeover.
              * @return this builder
              */
@@ -1437,6 +1598,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #setMutualIndexing(boolean)} with default true.
+             *
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
@@ -1473,6 +1635,7 @@ public class OnlineIndexer implements AutoCloseable {
              * Same as {@link #setMutualIndexing()}, but will use a pre-defined set of keys to split
              * the records space to fragments. {@code null} can be used to clear this value.
              * To ensure defining the full records range, the boundaries list can begin and end with a `null`.
+             *
              * @param primaryKeysBoundaries set of primary keys that will be used to split the records space to fragments.
              * @return this builder
              */
@@ -1488,6 +1651,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * If the index is partly built and blocked, allowed (or disallow) unblocking before indexing.
+             *
              * @param allowUnblock if true, unblock (if blocked) and continue.
              * @param allowUnblockId if non-null and non-empty, unblock only if the indexing stamp's id matches it. Will not continue if not blocked.
              * @return this builder
@@ -1501,6 +1665,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #setAllowUnblock(boolean, String)} without block-id.
+             *
              * @param allowUnblock if true, allow unblock and continue
              * @return this builder
              */
@@ -1513,6 +1678,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Set the initial merges count limit for {@link #mergeIndex()} and the indexing process.
              * The default is 0 - which means unlimited.
+             *
              * @param initialMergesCountLimit the initial merges count limit
              * @return this builder
              */
@@ -1525,6 +1691,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Set a reverse records scan order for indexing. Calling it will make sense only if the scan order matters.
              * Note that reverse scan order is supported only for ByIndex and MultiTarget index builds (but not rebuild).
+             *
              * @param reverseScanOrder if true, scan records in reverse order
              * @return this builder
              */
@@ -1540,6 +1707,7 @@ public class OnlineIndexer implements AutoCloseable {
              * This state is intended to reduce conflicts between user transactions and indexer transactions, which might
              * help in cases of index types that with indexing bottlenecks. Not all index maintainers can support this
              * state. Since the index update operation is deferred, this state may break versioned indexes.
+             *
              * @param indexes the target indexes that should be built with a pending write queue
              * @return this builder
              */
@@ -1554,12 +1722,28 @@ public class OnlineIndexer implements AutoCloseable {
              * index as readable. The queue is drained and the index is marked readable in separate transactions, so while
              * concurrent writers keep enqueuing, the queue can be observed non-empty at mark-readable time; each attempt
              * re-drains before re-checking. Must be positive. The default is 100.
+             *
              * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of drain-and-mark-readable attempts
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
             public Builder setPendingWriteQueueIndexesMaxDrainAttempts(final long pendingWriteQueueIndexesMaxDrainAttempts) {
                 this.pendingWriteQueueIndexesMaxDrainAttempts = pendingWriteQueueIndexesMaxDrainAttempts;
+                return this;
+            }
+
+            /**
+             * Set the subset of target indexes that should be built in the write-only-with-tracking state. In this state the indexing
+             * process of non-idempotent indexes can run without range conflicts (just like the indexing of idempotent indexes).
+             * This may be useful for non-idempotent indexes of a record store that is rapidly changing in a way that causes
+             * many conflicts with the indexer. Idempotent indexes will be ignored.
+             *
+             * @param indexes the target indexes that should be built in the write-only-with-tracking state
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setUseWriteOnlyWithTracking(@Nonnull final List<Index> indexes) {
+                this.writeOnlyWithTrackingIndexes = new HashSet<>(indexes);
                 return this;
             }
 
@@ -1572,13 +1756,15 @@ public class OnlineIndexer implements AutoCloseable {
                         doAllowUniquePendingState, allowedTakeoverSet,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
                         initialMergesCountLimit, reverseScanOrder,
-                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts);
+                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts,
+                        writeOnlyWithTrackingIndexes);
             }
         }
     }
 
     /**
      * Create an online indexer builder.
+     *
      * @return a new online indexer builder
      */
     @Nonnull
@@ -1588,6 +1774,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Create an online indexer for the given record store and index.
+     *
      * @param recordStore record store in which to index
      * @param index name of index to build
      * @return a new online indexer
@@ -1604,10 +1791,9 @@ public class OnlineIndexer implements AutoCloseable {
      * and {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED}
      * are sorted in a way so that each option will build the index in more situations than the
      * ones before it.
-     * <p>
-     * Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
+     *
+     * <p>Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
      * current index data is corrupted.
-     * </p>
      */
     public enum IndexStatePrecondition {
         /**
@@ -1626,9 +1812,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Alternatives for this continuation are provided by the options {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED}
          * and {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED}
          *
-         * <p>
-         * Recommended. This should be sufficient if current index data is not corrupted.
-         * </p>
+         * <p>Recommended. This should be sufficient if current index data is not corrupted.
          */
         BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY(IndexingPolicy.DesiredAction.REBUILD, IndexingPolicy.DesiredAction.CONTINUE, IndexingPolicy.DesiredAction.CONTINUE, IndexingPolicy.DesiredAction.CONTINUE),
         /**

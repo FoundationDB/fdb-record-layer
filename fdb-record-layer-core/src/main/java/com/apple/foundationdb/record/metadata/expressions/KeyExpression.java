@@ -54,8 +54,9 @@ public interface KeyExpression extends PlanHashable {
      * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
      * fields within the record according to the rules of each implementing class.
      *
-     * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
+     * <p>Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     *
      * @param <M> the type of record
      * @param record the record
      * @return the list of evaluated keys for the given record
@@ -69,6 +70,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Evaluate this expression with the expectation of getting exactly one result.
+     *
      * @param <M> the type of record
      * @param record the record
      * @return the evaluated keys for the given record
@@ -86,8 +88,9 @@ public interface KeyExpression extends PlanHashable {
      * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
      * fields within the record according to the rules of each implementing class.
      *
-     * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
+     * <p>Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     *
      * @param <M> the type of record
      * @param record the record
      * @param message the Protobuf message to evaluate against
@@ -107,14 +110,15 @@ public interface KeyExpression extends PlanHashable {
     /**
      * Evaluate this expression against a record or a Protobuf message.
      *
-     * The message might be the Protobuf form of a record or a piece of that record.
+     * <p>The message might be the Protobuf form of a record or a piece of that record.
      * If the key expression is meaningful against a subrecord, it should evaluate against the message.
      * Otherwise, it should evaluate against the record and ignore what part of that record is being considered.
      *
-     * There should not be any reason to call this method outside of the implementation of another {@code evaluateMessage}.
+     * <p>There should not be any reason to call this method outside of the implementation of another {@code evaluateMessage}.
      * Under ordinary circumstances, if {@code record} is {@code null}, then {@code message} will be {@code null}.
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
+     *
      * @see #evaluate
      * @param <M> the type of record
      * @param record the record
@@ -137,6 +141,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Validate this expression against a given record type descriptor.
+     *
      * @param descriptor the descriptor for the record type or submessage
      * @return a list of fields that this key applies to
      * @throws InvalidExpressionException
@@ -209,6 +214,7 @@ public interface KeyExpression extends PlanHashable {
      * Get key in normalized form for comparing field-by-field.
      * Does not take account of fan-type, so only valid
      * when this has already been taken care of, such as individual index entries.
+     *
      * @return a list of key expressions in order
      */
     @Nonnull
@@ -234,6 +240,7 @@ public interface KeyExpression extends PlanHashable {
      * it is not part of the base record, or by extension the message contained therein.
      * This information is needed to allow key expressions to partake in covering index scans that are not
      * provided by the underlying index entries, but can easily be computed on-the-fly.
+     *
      * @return {@code true} if the key expression needs to be copied from index entry to partial record.
      */
     @API(API.Status.INTERNAL)
@@ -248,12 +255,10 @@ public interface KeyExpression extends PlanHashable {
      * methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      *
-     * <p>
-     * This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
+     * <p>This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
      * original purpose was to allow for expansions of key expression into a data flow graphs. The returned graph
      * would then represent an adequate representation of the key expression as composition of relational expressions and operators
      * ({@link RelationalExpression}s). See {@link ExpansionVisitor} for more details.
-     * </p>
      *
      * @param <S> a type that represents the state that {@code visitor} uses
      * @param <R> a type that represents the result the {@code visitor} returns
@@ -268,6 +273,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Return the key fields for an expression.
+     *
      * @param rootExpression a key expression
      * @return the parts of the key expression that are in the key
      */
@@ -284,6 +290,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Return the value fields for an expression.
+     *
      * @param rootExpression a key expression
      * @return the parts of the key expression that are in the value
      */
@@ -299,8 +306,7 @@ public interface KeyExpression extends PlanHashable {
     }
 
     /**
-     * Returns the number of version columns produced by this key expression.
-     * @return the number of version columns
+     * {@return the number of version columns produced by this key expression}
      */
     default int versionColumns() {
         return 0;
@@ -308,6 +314,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Check whether a key expression uses record type key in some way.
+     *
      * @return {@code true} if record type key is used
      */
     default boolean hasRecordTypeKey() {
@@ -335,6 +342,7 @@ public interface KeyExpression extends PlanHashable {
 
     /**
      * Check whether a key is a prefix of another key.
+     *
      * @param key the whole key to check
      * @return {@code true} if {@code prefix} is a left subset of {@code key}
      */
@@ -418,11 +426,22 @@ public interface KeyExpression extends PlanHashable {
         if (path.isEmpty()) {
             throw new InvalidExpressionException("attempt to create key expression using empty path");
         }
-        final String fieldName = path.get(path.size() - 1);
-        KeyExpression keyExpression = Key.Expressions.field(fieldName);
-        final List<String> fieldPrefix = path.subList(0, path.size() - 1);
-        for (int i = fieldPrefix.size() - 1; i >= 0; i --) {
-            keyExpression = Key.Expressions.field(fieldPrefix.get(i)).nest(keyExpression);
+        return fromPath(path.subList(0, path.size() - 1), Key.Expressions.field(path.get(path.size() - 1)));
+    }
+
+    /**
+     * Nests an expression under a path of scalar field hops, outermost hop first. An empty path returns the expression
+     * unchanged.
+     *
+     * @param path the fields to navigate before reaching {@code nested}
+     * @param nested the expression to evaluate against the record the path ends at
+     * @return the resulting {@link KeyExpression}
+     */
+    @Nonnull
+    static KeyExpression fromPath(@Nonnull final List<String> path, @Nonnull final KeyExpression nested) {
+        KeyExpression keyExpression = nested;
+        for (int i = path.size() - 1; i >= 0; i--) {
+            keyExpression = Key.Expressions.field(path.get(i)).nest(keyExpression);
         }
         return keyExpression;
     }

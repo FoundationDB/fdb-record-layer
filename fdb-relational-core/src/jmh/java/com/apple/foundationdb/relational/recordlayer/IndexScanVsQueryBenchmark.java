@@ -61,7 +61,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Microbenchmark comparing the Direct Access API ({@code executeGet}, {@code executeScan} with
- * {@code INDEX_HINT}) against equivalent SQL queries for two secondary-index access patterns:
+ * {@code INDEX_HINT}) against equivalent SQL queries. It tests two secondary-index access patterns:
  * <ol>
  *   <li>Single-row equality lookup via a unique secondary index ({@code idx_label})</li>
  *   <li>Prefix range scan via a non-unique secondary index ({@code idx_category})</li>

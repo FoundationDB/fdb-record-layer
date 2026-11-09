@@ -33,10 +33,10 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRe
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.costing.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.util.ProtoUtils;
@@ -56,7 +56,9 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.ThrowingMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer.NormalizationResult.QueryCachingFlags;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
+import com.apple.foundationdb.relational.recordlayer.query.cache.Reducer;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -89,6 +91,34 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedT
 @API(API.Status.EXPERIMENTAL)
 public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
+    @Nonnull
+    private static final StableSelectorCostModel stableSelectorCostModel = new StableSelectorCostModel();
+
+    /**
+     * Picks the cheapest of the cached plans that match the lookup, by {@link StableSelectorCostModel}. It captures
+     * nothing and holds no per-query state, so a single instance serves every {@code PlanGenerator}.
+     */
+    @Nonnull
+    private static final Reducer<PhysicalPlanEquivalence, Plan<?>> CHEAPEST_PLAN_REDUCER =
+            Reducer.of(plans -> plans.reduce(null, (acc, candidate) -> {
+                if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
+                    final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
+                    final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
+                    final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
+                    if (bestQueryPlanSoFar == null ||
+                            // It would be nice to replace this with a call to `stableSelectorCostModel.getBestExpression`
+                            // This currently can't be done without pulling the RecordQueryPlans out of the QueryPlan objects,
+                            // running the cost model, and then re-associate it with the original Plan<?>, which is a bit
+                            // costly. So, for now, just use the cost model as a comparator
+                            stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
+                        return candidate;
+                    } else {
+                        return acc;
+                    }
+                } else {
+                    return candidate;
+                }
+            }));
 
     /**
      * An optional plan cache used to improve performance by storing execution plans.
@@ -163,10 +193,14 @@ public final class PlanGenerator {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final Set<PlanHashable.PlanHashMode> validPlanHashModes = OptionsUtils.getValidPlanHashModes(options);
             final PlanHashable.PlanHashMode currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
-            final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode);
+            final var evaluationConstants = QueryEvaluationConstants.newBuilder()
+                    .setEvaluationTimestamp(OptionsUtils.getEvaluationTimestampForCurrentDatetimeFunctions(options))
+                    .build();
+            final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode, evaluationConstants);
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().hashCode(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());
+            validateIsolationLevelSnapshotOption(astHashResult.getQueryCachingFlags());
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
@@ -182,7 +216,15 @@ public final class PlanGenerator {
             // currently exists in the cache.
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
-            // otherwise, lookup the query in the cache
+            // Look the query up in the cache. Write-only skips the lookup: its reducer never selects, so the stored
+            // keys are never compared and no PhysicalPlanEquivalence comparison takes place. Either way the entry is
+            // stored under a key built straight from the constraint, so an entry already held under an equal
+            // constraint is replaced.
+            final Reducer<PhysicalPlanEquivalence, Plan<?>> reducer =
+                    options.getOption(Options.Name.PLAN_CACHE_WRITE_ONLY)
+                    ? Reducer.writeOnly()
+                    : CHEAPEST_PLAN_REDUCER;
+
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
@@ -200,20 +242,7 @@ public final class PlanGenerator {
                                 return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
-                            plans -> plans.reduce(null, (acc, candidate) -> {
-                                if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
-                                    final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
-                                    final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
-                                    final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
-                                    if (bestQueryPlanSoFar == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
-                                        return candidate;
-                                    } else {
-                                        return acc;
-                                    }
-                                } else {
-                                    return candidate;
-                                }
-                            }),
+                            reducer,
                             planContext.getMetricsCollector()
                     )
             );
@@ -222,9 +251,7 @@ public final class PlanGenerator {
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
-        } catch (VerifyException | SemanticException ve) {
-            throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
-        } catch (SQLException e) {
+        } catch (VerifyException | SemanticException | SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
     }
@@ -233,7 +260,7 @@ public final class PlanGenerator {
     private Plan<?> generatePhysicalPlan(@Nonnull AstNormalizer.NormalizationResult ast,
                                          @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                          @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
-        if (ast.getQueryCachingFlags().contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
+        if (ast.getQueryCachingFlags().contains(QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN, () ->
                     generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode));
         } else {
@@ -254,9 +281,9 @@ public final class PlanGenerator {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
         final var parameterHash = ast.getQueryExecutionContext().getParameterHash();
-
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
+                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash,
+                ast.getQueryExecutionContext().getEvaluationConstants());
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
@@ -291,6 +318,16 @@ public final class PlanGenerator {
             throw new RelationalException("unable to parse continuation",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+        // Snapshot isolation is only supported when continuing a SELECT, whose plan is carried in the
+        // continuation as a compiled statement. A continuation may instead carry a COPY plan, which never builds
+        // ExecuteProperties (it always scans at SERIALIZABLE) and would therefore silently ignore the option, so
+        // reject it here rather than accepting it and doing nothing. This check cannot live in
+        // validateIsolationLevelSnapshotOption because the query caching flags are derived from the SQL text alone
+        // and so cannot distinguish a COPY continuation from a SELECT one.
+        Assert.that(!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)
+                        || continuation.hasCompiledStatement(),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported when continuing a SELECT query");
         if (continuation.hasCompiledStatement()) {
             return generatePhysicalPlanForCompiledStatementContinuation(ast, validPlanHashModes, currentPlanHashMode, continuation, continuationProto);
         } else if (continuation.hasCopyPlan()) {
@@ -309,7 +346,9 @@ public final class PlanGenerator {
         final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
                 currentPlanHashMode,
                 ast.getQuery(),
-                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+                ast.getQueryCacheKey().getCanonicalQueryString(),
+                Objects.requireNonNull(continuation.getBindingHash()),
+                ast.getQueryExecutionContext().getEvaluationConstants());
         final CopyPlan copyPlan = CopyPlan.fromContinuation(continuation.getCopyPlan(), continuation.getExecutionState(),
                 planGenerationContext);
         if (!Objects.requireNonNull(continuation.getPlanHash()).equals(copyPlan.getPlanHash())) {
@@ -375,11 +414,21 @@ public final class PlanGenerator {
         final var preparedStatementParameters =
                 deserializeArgumentsForParameters(compiledStatement, orderedLiterals);
 
+        final var evaluationConstantsBuilder = QueryEvaluationConstants.newBuilder();
+        compiledStatement.getEvaluationConstantsList().stream()
+                .map(typedEvaluationConstant ->
+                        QueryEvaluationConstants.QueryEvaluationConstant.fromProto(serializationContext,
+                                typeRepository, typedEvaluationConstant))
+                .forEach(evaluationConstantsBuilder::addEvaluationConstant);
+
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
                 ast.getQuery(),
-                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+                ast.getQueryCacheKey().getCanonicalQueryString(),
+                Objects.requireNonNull(continuation.getBindingHash()),
+                evaluationConstantsBuilder.build());
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
+
         Arrays.stream(orderedLiterals).forEach(literal -> planGenerationContext.getLiteralsBuilder().addLiteral(literal));
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint =
@@ -461,16 +510,47 @@ public final class PlanGenerator {
      * conditions such as plan-cache-specific session options.
      *
      * @param queryCachingFlags A bitset of query caching flags.
-     *
      * @return {@code true} if the query should interact with the plan cache, otherwise {@code false}.
      */
-    private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags) {
-        return queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT) ||
+    private static boolean shouldNotCache(@Nonnull final Set<QueryCachingFlags> queryCachingFlags) {
+        return queryCachingFlags.contains(QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
+                queryCachingFlags.contains(QueryCachingFlags.IS_DDL_STATEMENT) ||
                 // avoid caching INSERT statements since they could result in extremely large plans leading to potential
                 // OOM when too many of them are stored in the plan cache.
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT);
+                queryCachingFlags.contains(QueryCachingFlags.IS_INSERT_STATEMENT);
 
+    }
+
+    /**
+     * Validates that the {@code OPTIONS (ISOLATION LEVEL SNAPSHOT)} query option, if present, is only used on a
+     * read-only ({@code SELECT}) statement. Applying snapshot isolation to a mutation, DDL, or sub-query is not
+     * currently supported, so those cases are rejected rather than silently ignored. Note that when the option is
+     * attached to a sub-select feeding an {@code INSERT}, the enclosing statement is flagged as an INSERT, so this
+     * check also rejects that case.
+     *
+     * <p>{@code EXECUTE CONTINUATION} is also permitted here. The option is per-execution and is not carried in the
+     * continuation, so it must be repeated on each {@code EXECUTE CONTINUATION} to avoid silently reverting to
+     * serializable. Note that a continuation does not necessarily continue a {@code SELECT}: {@code COPY} for example
+     * also produces (and resumes) continuations. The narrower check that the continuation actually carries a
+     * {@code SELECT} plan lives in {@link #generatePhysicalPlanForExecuteContinuation} once the continuation has
+     * been parsed. Independently, the underlying data-modification plans also double check that we are not
+     * executing insert/update/delete at snapshot isolation.
+     *
+     * @param queryCachingFlags the statement-classification flags produced while normalizing the query.
+     * @throws RelationalException with {@link ErrorCode#UNSUPPORTED_OPERATION} if the option is used on a
+     *         statement that is neither a {@code SELECT} nor an {@code EXECUTE CONTINUATION}.
+     */
+    private void validateIsolationLevelSnapshotOption(@Nonnull final Set<QueryCachingFlags> queryCachingFlags)
+            throws RelationalException {
+        if (!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
+            return;
+        }
+        final var isSelect = queryCachingFlags.contains(QueryCachingFlags.IS_DQL_STATEMENT);
+        final var isExecuteContinuation =
+                queryCachingFlags.contains(QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
+        Assert.that(isSelect || isExecuteContinuation,
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported on SELECT queries");
     }
 
     /**
@@ -518,27 +598,30 @@ public final class PlanGenerator {
      * Create a plan generator for offline DQL planning &mdash; does not require an open record store
      * or a database connection. Suitable for SELECT-only planning where DDL paths are not exercised.
      *
-     * <p>Internally builds a {@link PlanContext} from the schema template and store state, with
+     * <p>Internally builds a {@link PlanContext} from the record metadata and store state, with
      * no-op DDL factories and a placeholder {@code embed:offline} URI.
      * The default {@link IndexMaintainerFactoryRegistryImpl} singleton is used &mdash; the same
-     * registry production paths use.</p>
+     * registry production paths use.
      *
      * @param cache             optional plan cache
-     * @param schemaTemplate    schema template; {@link RecordMetaData} is derived via
-     *                          {@link RecordLayerSchemaTemplate#toRecordMetadata()}
+     * @param schemaTemplate    schema template used to resolve names in the query
+     * @param metaData          record metadata to plan against, as the record store would supply it at runtime
      * @param recordStoreState  record store state (index readability, store header, etc.)
      * @param metricCollector   metric collector &mdash; required at runtime by {@link #getPlan(String)}
      * @param options           planner options
+     * @param preparedParams    prepared parameters; for warm-up, values are absent and each parameter carries a
+     *                          declared type instead
      * @return a new plan generator
      * @throws RelationalException if creation fails
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
                                        @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordMetaData metaData,
                                        @Nonnull final RecordStoreState recordStoreState,
                                        @Nonnull final MetricCollector metricCollector,
-                                       @Nonnull final Options options) throws RelationalException {
-        final var metaData = schemaTemplate.toRecordMetadata();
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
                 .withSchemaTemplate(schemaTemplate)
@@ -546,6 +629,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withPreparedParameters(preparedParams)
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
@@ -557,18 +641,23 @@ public final class PlanGenerator {
      * the result of the query to the new {@link RecordLayerSchemaTemplate}.
      *
      * @param schemaTemplate            schema template used to resolve names in the function body
+     * @param metaData                  record metadata to plan against, as the record store would supply it at
+     *                                  runtime
      * @param metadataOperationsFactory caller-provided factory for DDL
      * @param metricCollector           metric collector
      * @param options                   planner options
+     * @param preparedParams            prepared parameters; for warm-up, values are absent and each parameter carries
+     *                                  a declared type instead
      * @return a new plan generator
      * @throws RelationalException if creation fails
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordMetaData metaData,
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                        @Nonnull final MetricCollector metricCollector,
-                                       @Nonnull final Options options) throws RelationalException {
-        final var metaData = schemaTemplate.toRecordMetadata();
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var recordStoreState = new RecordStoreState(null, null);
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
@@ -577,6 +666,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(metadataOperationsFactory)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withPreparedParameters(preparedParams)
                 .build();
         return create(Optional.empty(), planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);

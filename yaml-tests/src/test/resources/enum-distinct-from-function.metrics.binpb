@@ -1,0 +1,127 @@
+Ö
+F
+!enum-distinct-from-function-tests!EXPLAIN SELECT * FROM NOT_HAPPY()∫
+œûî∫R ‘ßÓ(0ó˙Ä8'@éCOVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCHädigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q42.M IS_DISTINCT_FROM promote(&#39;HAPPY&#39; AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˚
+B
+!enum-distinct-from-function-testsEXPLAIN SELECT * FROM HAPPY()¥
+Ã–êÔP πÏù( 0⁄âb8#@XISCAN(T_M_IDX [NOT_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])ºdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [NOT_DISTINCT_FROM promote(&#39;HAPPY&#39; AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˘
+F
+!enum-distinct-from-function-tests!EXPLAIN SELECT * FROM NEQ_HAPPY()Æ
+œÿ§£PR Êó£8(0ß´8'@àCOVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M NOT_EQUALS promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCHÑdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q42.M NOT_EQUALS promote(&#39;HAPPY&#39; AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}È
+E
+!enum-distinct-from-function-tests EXPLAIN SELECT * FROM EQ_HAPPY()ü
+Ã’ÜíPP ¬ØÖ9( 0˘›ì8#@MISCAN(T_M_IDX [EQUALS promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])±digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(&#39;HAPPY&#39; AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ª
+P
+!enum-distinct-from-function-tests+EXPLAIN SELECT * FROM NOT_HAPPY_OR_LOW_ID()Ê
+∂«Òç:‰ „≈¢(I0˜Èü8ç@¢COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.ID LESS_THAN 2 OR _.M IS_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH†digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q42.ID LESS_THAN 2 OR q42.M IS_DISTINCT_FROM promote(&#39;HAPPY&#39; AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˚
+L
+!enum-distinct-from-function-tests'EXPLAIN SELECT * FROM NOT_MOOD('HAPPY')™
+ææ˝ÎOk …Ÿÿ1(*0©¨ 8@@äCOVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote(@c5 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH˛digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q64.M IS_DISTINCT_FROM promote(@c5 AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ label=<&nbsp;q64> label="q64" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˘
+J
+!enum-distinct-from-function-tests%EXPLAIN SELECT * FROM NOT_MOOD('SAD')™
+ææ˝ÎOk …Ÿÿ1(*0©¨ 8@@äCOVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote(@c5 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH˛digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q64.M IS_DISTINCT_FROM promote(@c5 AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ label=<&nbsp;q64> label="q64" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}„
+S
+!enum-distinct-from-function-tests.EXPLAIN SELECT * FROM NOT_HAPPY() WHERE ID > 2ã
+„ºïÉU ñâﬂ(!0ÑÍÉ8)@ÖSCAN([IS T, [GREATER_THAN promote(@c9 AS LONG)]]) | FILTER _.M IS_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)‰digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.M IS_DISTINCT_FROM promote(&#39;HAPPY&#39; AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T, [GREATER_THAN promote(@c9 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ã
+]
+!enum-distinct-from-function-tests8EXPLAIN SELECT * FROM T WHERE M IS DISTINCT FROM 'HAPPY'©
+∏‰∆ÀM Ö√µ(0‘ìi8#@äCOVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH˛digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q37.M IS_DISTINCT_FROM promote(@c9 AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}å	
+a
+!enum-distinct-from-function-tests<EXPLAIN SELECT * FROM T WHERE M IS NOT DISTINCT FROM 'HAPPY'¶
+µ¥±ûK •Ó•(0ë…G8@UISCAN(T_M_IDX [NOT_DISTINCT_FROM promote(@c10 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])±digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [NOT_DISTINCT_FROM promote(@c10 AS ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt;)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_M_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ENUM&lt;JOYFUL(0), HAPPY(1), SAD(2)&gt; AS M)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

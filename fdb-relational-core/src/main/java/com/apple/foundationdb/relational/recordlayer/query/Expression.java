@@ -214,10 +214,6 @@ public class Expression {
         return createNew(Optional.of(newName), getDataType(), getUnderlying(), getVisibility());
     }
 
-    public boolean isAggregate() {
-        return underlying instanceof AggregateValue && !(underlying instanceof RecordConstructorValue);
-    }
-
     @Nonnull
     public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
         return new NamedArgumentExpression(Optional.of(name), dataType, getUnderlying(), getVisibility());
@@ -312,16 +308,22 @@ public class Expression {
      * Replaces all the {@link ConstantObjectValue} objects with corresponding {@link LiteralValue}s.
      *
      * @param literals The array of literals.
-     *
      * @return a new {@link Expressions} list where each {@link Expression} internal {@link Value} with {@link LiteralValue}s
      * instead of any {@link ConstantObjectValue}s.
      */
     @Nonnull
     public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
-            if (value instanceof ConstantObjectValue) {
-                final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
-                return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
+            if (value instanceof final ConstantObjectValue constantObjectValue) {
+                final var literal = literals.literalOf(constantObjectValue.getConstantId());
+                if (literal.map(OrderedLiteral::isValueFree).orElse(false)) {
+                    // A value-free constant has no value to substitute. Folding it would yield a NULL literal, making
+                    // two distinct value-free parameters indistinguishable from each other here.
+                    return value;
+                }
+                // A constant id with no literal registered folds to NULL, as it did before value-free literals existed.
+                return new LiteralValue<>(constantObjectValue.getResultType(),
+                        literal.map(OrderedLiteral::getLiteralObject).orElse(null));
             }
             return value;
         }))));

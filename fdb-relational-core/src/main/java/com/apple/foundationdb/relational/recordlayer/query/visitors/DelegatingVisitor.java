@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTy
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
@@ -37,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -320,6 +320,36 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Object visitStoredQueryParameterList(final RelationalParser.StoredQueryParameterListContext ctx) {
+        return getDelegate().visitStoredQueryParameterList(ctx);
+    }
+
+    @Override
+    public Object visitStoredQueryParameter(final RelationalParser.StoredQueryParameterContext ctx) {
+        return getDelegate().visitStoredQueryParameter(ctx);
+    }
+
+    @Override
+    public Object visitStoredQueryParameterType(final RelationalParser.StoredQueryParameterTypeContext ctx) {
+        return getDelegate().visitStoredQueryParameterType(ctx);
+    }
+
+    @Override
+    public Object visitStoredQueryPreparedCases(final RelationalParser.StoredQueryPreparedCasesContext ctx) {
+        return getDelegate().visitStoredQueryPreparedCases(ctx);
+    }
+
+    @Override
+    public Object visitStoredQueryPreparedCase(final RelationalParser.StoredQueryPreparedCaseContext ctx) {
+        return getDelegate().visitStoredQueryPreparedCase(ctx);
+    }
+
+    @Override
+    public Object visitStoredQueryParameterState(final RelationalParser.StoredQueryParameterStateContext ctx) {
+        return getDelegate().visitStoredQueryParameterState(ctx);
+    }
+
+    @Override
     public Object visitDeclareBlock(final RelationalParser.DeclareBlockContext ctx) {
         return getDelegate().visitDeclareBlock(ctx);
     }
@@ -577,19 +607,19 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
         return getDelegate().visitIndexAsSelectDefinition(ctx);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
         return getDelegate().visitIndexOnSourceDefinition(ctx);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
+    public IndexGenerationResult visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
         return getDelegate().visitVectorIndexDefinition(ctx);
     }
 
@@ -669,6 +699,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         return getDelegate().visitInnerJoin(ctx);
+    }
+
+    @Nullable
+    @Override
+    public Object visitCrossJoin(@Nonnull RelationalParser.CrossJoinContext ctx) {
+        return getDelegate().visitCrossJoin(ctx);
     }
 
     @Nonnull
@@ -1285,12 +1321,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx) {
-        return getDelegate().visitCurrentTimestamp(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Object visitExpressionOrDefault(@Nonnull RelationalParser.ExpressionOrDefaultContext ctx) {
         return getDelegate().visitExpressionOrDefault(ctx);
     }
@@ -1345,14 +1375,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
-        return getDelegate().visitScalarFunctionCall(ctx);
+    public Object visitDatetimeValueFunctionCall(final RelationalParser.DatetimeValueFunctionCallContext ctx) {
+        return getDelegate().visitDatetimeValueFunctionCall(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx) {
-        return getDelegate().visitSimpleFunctionCall(ctx);
+    public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
+        return getDelegate().visitScalarFunctionCall(ctx);
     }
 
     @Nonnull
@@ -1419,6 +1449,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitGetFormatFunctionCall(@Nonnull RelationalParser.GetFormatFunctionCallContext ctx) {
         return getDelegate().visitGetFormatFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimeValueFunction(final RelationalParser.DatetimeValueFunctionContext ctx) {
+        return getDelegate().visitDatetimeValueFunction(ctx);
     }
 
     @Nonnull
@@ -1589,6 +1625,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitDatetimeIntervalArithmeticExpression(final RelationalParser.DatetimeIntervalArithmeticExpressionContext ctx) {
+        return getDelegate().visitDatetimeIntervalArithmeticExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx) {
         return getDelegate().visitPreparedStatementParameterAtom(ctx);
     }
@@ -1609,6 +1651,36 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
         return getDelegate().visitMathExpressionAtom(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimePlusMinusIntervalExpression(final RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+        return getDelegate().visitDatetimePlusMinusIntervalExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalPlusDatetimeExpression(final RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+        return getDelegate().visitIntervalPlusDatetimeExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        return getDelegate().visitIntervalLiteral(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitDayTimeIntervalQualifier(final RelationalParser.DayTimeIntervalQualifierContext ctx) {
+        return getDelegate().visitDayTimeIntervalQualifier(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitDayTimeIntervalField(final RelationalParser.DayTimeIntervalFieldContext ctx) {
+        return getDelegate().visitDayTimeIntervalField(ctx);
     }
 
     @Nonnull

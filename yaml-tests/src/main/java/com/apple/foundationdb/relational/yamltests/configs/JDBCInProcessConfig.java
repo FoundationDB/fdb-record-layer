@@ -32,8 +32,8 @@ import java.util.List;
 
 /**
  * Run against an embedded JDBC server.
- * <p>
- * Starts one in-process server per cluster file so that multi-cluster tests
+ *
+ * <p>Starts one in-process server per cluster file so that multi-cluster tests
  * (using {@code connect: { cluster: N }}) can route to the correct cluster.
  */
 public class JDBCInProcessConfig implements YamlTestConfig {

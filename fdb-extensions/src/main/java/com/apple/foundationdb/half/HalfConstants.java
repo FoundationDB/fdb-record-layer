@@ -21,8 +21,8 @@ package com.apple.foundationdb.half;
 
 /**
  * This class contains additional constants documenting limits of {@code Half}.
- * <p>
- * {@code HalfConstants} is implemented to provide, as much as possible, the same interface as
+ *
+ * <p>{@code HalfConstants} is implemented to provide, as much as possible, the same interface as
  * {@code jdk.internal.math.FloatConsts}.
  *
  * @author Christian Heina (developer@christianheina.com)

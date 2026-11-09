@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -51,26 +53,20 @@ import java.util.stream.Collectors;
 /**
  * Models the concept of quantification.
  * 
- * <p>
- * A quantifier describes the data flow between the output of one {@link RelationalExpression} {@code R} and the
+ * <p>A quantifier describes the data flow between the output of one {@link RelationalExpression} {@code R} and the
  * consumption of that data by another {@code RelationalExpression} {@code S}. {@code S} is said to own the quantifier,
  * while the quantifier is said to range over {@code R}. Quantifiers come in very few but very distinct flavors.
  * All flavors are implemented by static inner final classes in order to emulate a sealed trait.
- * </p>
  *
- * <p>
- * Quantifiers separate what it means to be producing versus consuming items. The expression a quantifier ranges over
+ * <p>Quantifiers separate what it means to be producing versus consuming items. The expression a quantifier ranges over
  * produces records, the quantifier flows information (in a manner determined by the flavor) that is consumed by the expression
  * containing or owning the quantifier. That expression can consume the data in a way independent of how the data was
  * produced in the first place.
- * </p>
  *
- * <p>
- * A quantifier works closely with the expression that owns it. Depending on the semantics of the owning expression
+ * <p>A quantifier works closely with the expression that owns it. Depending on the semantics of the owning expression
  * it becomes possible to model correlations. For example, in a logical join expression the quantifier can provide a binding
  * of the item being currently consumed by the join's outer to other (inner) parts of the data flow that are also rooted
  * at the owning (join) expression.
- * </p>
  */
 @SuppressWarnings("unused")
 @API(API.Status.EXPERIMENTAL)
@@ -117,6 +113,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Builder class for quantifiers.
+     *
      * @param <Q> quantifier type
      * @param <B> builder type
      */
@@ -143,6 +140,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * A quantifier that conceptually flows one item at a time from the expression it ranges over to
      * the owning expression.
+     *
+     * <p>A for-each quantifier can carry additional semantics that the owning expression, or the plan implementing it,
+     * must honor. Currently, the only such flavor is <em>null-on-empty</em> (see {@link #isNullOnEmpty()}). A for-each
+     * quantifier without any such flavor is called <em>plain</em> (see {@link #isPlain()}).
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class ForEach extends Quantifier {
@@ -190,6 +191,18 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return rangesOver;
         }
 
+        /**
+         * Returns whether this quantifier is plain. A plain for-each quantifier simply flows each item produced by the
+         * expression it ranges over.
+         */
+        public boolean isPlain() {
+            return !isNullOnEmpty;
+        }
+
+        /**
+         * Returns whether this quantifier has null-on-empty semantics. If the expression it ranges over produces an
+         * empty result, the quantifier flows a single {@code NULL} item instead.
+         */
         public boolean isNullOnEmpty() {
             return isNullOnEmpty;
         }
@@ -201,6 +214,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             // the nullability of our returned type to reflect that
             Type baseType = super.getFlowedObjectType();
             return baseType.overrideIfNullable(isNullOnEmpty);
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+            return isNullOnEmpty
+                    ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, referenceSupplier.get()))
+                    : Optional.empty();
         }
 
         @Override
@@ -276,6 +297,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Create a builder for a for-each quantifier containing relational expressions.
+     *
      * @return a for-each quantifier builder
      */
     @Nonnull
@@ -285,6 +307,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create a for-each quantifier ranging over a reference.
+     *
      * @param reference the reference
      * @return a new for-each quantifier ranging over {@code reference}
      */
@@ -296,6 +319,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create a for-each quantifier ranging over a reference using a given alias.
+     *
      * @param reference the reference
      * @param alias the alias to be used
      * @return a new for-each quantifier ranging over {@code reference}
@@ -311,6 +335,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Shorthand to create a for-each quantifier ranging over a reference using a given alias. It returns {@code null}
      * if the underlying {@code Reference} returns nothing.
+     *
      * @param reference the reference
      * @return a new for-each quantifier ranging over {@code reference}
      */
@@ -324,6 +349,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Shorthand to create a for-each quantifier ranging over a reference using a given alias.  It returns {@code null}
      * if the underlying {@code Reference} returns nothing.
+     *
      * @param reference the reference
      * @param alias the alias to be used
      * @return a new for-each quantifier ranging over {@code reference}
@@ -338,6 +364,47 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     /**
+     * A quantifier that conceptually collapses many items into one. It flows exactly one item from the sub-graph it
+     * ranges over to the owning expression, or {@code NULL} if the result is empty. Accordingly, the flowed type is the
+     * nullable variant of the inner type.
+     */
+    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
+    public abstract static sealed class AtMostOne extends Quantifier permits Existential {
+        @Nonnull
+        private final Reference rangesOver;
+
+        protected AtMostOne(@Nonnull final CorrelationIdentifier alias, @Nonnull final Reference rangesOver) {
+            super(alias);
+            this.rangesOver = rangesOver;
+        }
+
+        @Override
+        @Nonnull
+        public Reference getRangesOver() {
+            return rangesOver;
+        }
+
+        @Nonnull
+        @Override
+        public Type getFlowedObjectType() {
+            return super.getFlowedObjectType().nullable();
+        }
+
+        @Nonnull
+        @Override
+        public List<Column<? extends FieldValue>> computeFlowedColumns() {
+            throw new IllegalStateException("should not be called");
+        }
+
+        @Nonnull
+        @Override
+        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
+                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
+            return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
+        }
+    }
+
+    /**
      * A quantifier that conceptually flows exactly one item containing a boolean to the owning
      * expression indicating whether the sub-graph that the quantifier ranges over, produced a non-empty or an empty
      * result. When the semantics of these quantifiers are realized in an execution strategy that strategy should
@@ -345,10 +412,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * the first item.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
-    public static final class Existential extends Quantifier {
-        @Nonnull
-        private final Reference rangesOver;
-
+    public static final class Existential extends AtMostOne {
         /**
          * Builder subclass for existential quantifiers.
          */
@@ -363,14 +427,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         private Existential(@Nonnull final CorrelationIdentifier alias,
                             @Nonnull final Reference rangesOver) {
-            super(alias);
-            this.rangesOver = rangesOver;
-        }
-
-        @Override
-        @Nonnull
-        public Reference getRangesOver() {
-            return rangesOver;
+            super(alias, rangesOver);
         }
 
         @Override
@@ -404,27 +461,15 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Type getFlowedObjectType() {
-            return super.getFlowedObjectType().nullable();
-        }
-
-        @Nonnull
-        @Override
-        public List<Column<? extends FieldValue>> computeFlowedColumns() {
-            throw new IllegalStateException("should not be called");
-        }
-
-        @Nonnull
-        @Override
-        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
-                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
-            return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+            return Optional.of(RecordQueryFirstOrDefaultPlan.forExistential(this, referenceSupplier.get()));
         }
     }
 
     /**
      * Create a builder for an existential quantifier containing relational
      * expressions.
+     *
      * @return an existential quantifier builder
      */
     @Nonnull
@@ -434,6 +479,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create an existential quantifier ranging over a reference.
+     *
      * @param reference the reference
      * @return a new existential quantifier ranging over {@code reference}
      */
@@ -445,6 +491,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Shorthand to create an existential quantifier ranging over a reference using a given alias.
+     *
      * @param reference the reference
      * @param alias the alias to be used
      * @return a new existential quantifier ranging over {@code reference}
@@ -480,6 +527,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
              * Build a new physical quantifier from a for-each quantifier with the same alias.
              * Often times a for-each quantifier needs to "turn" into a physical quantifier e.g. when a logical
              * operator is implemented by a physical one.
+             *
              * @param quantifier for each quantifier to morph from
              * @return the new physical quantifier
              */
@@ -602,6 +650,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Create a builder for a physical quantifier containing record query plans.
+     *
      * @return a physical quantifier builder
      */
     public static Physical.PhysicalBuilder physicalBuilder() {
@@ -636,8 +685,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public abstract Quantifier.Builder<? extends Quantifier, ? extends Quantifier.Builder<?, ?>> toBuilder();
 
     /**
-     * Return the reference that the quantifier ranges over.
-     * @return {@link Reference} this quantifier ranges over
+     * {@return {@link Reference} this quantifier ranges over}
      */
     @Nonnull
     public abstract Reference getRangesOver();
@@ -645,6 +693,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Return a shorthand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
      * not distract from expressions. For example, when a data flow is visualized the returned string should be <em>short</em>.
+     *
      * @return a short string representing the quantifier.
      */
     @Nonnull
@@ -652,6 +701,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
+     *
      * @param visitor the visitor that is being accepted
      * @param <U> the type the visitor computes
      * @return the property
@@ -702,8 +752,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     public String toString() {
         return getShorthand() + "(" + getAlias() + ") -> {" +
-               getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
-               "}";
+                getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
+                "}";
     }
 
     @Nonnull
@@ -715,6 +765,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * Helper to determine if anything that this quantifier ranges over is correlated to something that needs to be
      * rebased.
+     *
      * @param translationMap a map that expresses translations from correlations identifiers to correlation identifiers.
      * @return {@code true} if the graph this quantifier ranges over needs to be rebased given the translation map
      *         passed in, {@code false} otherwise
@@ -807,6 +858,52 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         final var resolvedTypeAcrossReference = getRangesOver().getResultType();
         Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
         return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
+    }
+
+    /**
+     * Applies the “glue” that implements any semantics this quantifier carries beyond simply flowing the records of
+     * its inner. An existential quantifier wraps {@code reference} in a {@link RecordQueryFirstOrDefaultPlan}, and a
+     * for-each quantifier with null-on-empty semantics wraps it in a {@link RecordQueryDefaultOnEmptyPlan}. Any other
+     * quantifier needs no glue, in which case {@code reference} is returned unchanged. (This quantifier is assumed to
+     * range over the logical counterpart to {@code reference}, and provides the alias and the flowed object type.)
+     *
+     * <p>An implementation rule that matches a quantifier which may need glue must apply it to the plans it yields; see
+     * {@link com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers QuantifierMatchers}.
+     * The rule does not need to apply the glue directly over the plans implementing the inner of the quantifier,
+     * though. It may also apply it over plans that it adds on top of those, provided that these added plans produce an
+     * empty result exactly if their input is empty. The glue then triggers in the same cases. Some plans even require
+     * this; a primary-key distinct plan, for instance, cannot operate on the {@code NULL} record that an
+     * {@code ON EMPTY NULL} flows. Moreover, the glue either flows the records of its input unchanged or flows a single
+     * record, so it preserves any distinctness and ordering that its input guarantees.
+     *
+     * @param memoizer the memoizer to memoize the wrapper plan into
+     * @param reference the reference to wrap
+     * @return either {@code reference} itself, or a reference for the wrapper, as described
+     */
+    @Nonnull
+    public final Reference applyGlue(@Nonnull final FinalMemoizer memoizer, @Nonnull final Reference reference) {
+        return createGluePlan(() -> reference).map(memoizer::memoizePlan).orElse(reference);
+    }
+
+    /**
+     * Variant of {@link #applyGlue(FinalMemoizer, Reference)} that takes a {@link Memoizer.ReferenceOfPlansBuilder}
+     * instead of a {@link Reference}.
+     */
+    @Nonnull
+    public final Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
+                                                            @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
+        // Only obtain the reference if glue is needed, as doing so memoizes the plans of the builder.
+        return createGluePlan(builder::reference).map(memoizer::memoizePlanBuilder).orElse(builder);
+    }
+
+    /**
+     * Creates the glue plan for {@link #applyGlue(FinalMemoizer, Reference)} over the reference that
+     * {@code referenceSupplier} provides, or returns {@code Optional.empty()} if this quantifier needs no glue, which
+     * is the default. Implementations must not call {@code referenceSupplier} unless glue is needed.
+     */
+    @Nonnull
+    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+        return Optional.empty();
     }
 
     /**

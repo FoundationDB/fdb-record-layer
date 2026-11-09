@@ -42,7 +42,7 @@ import java.util.function.Function;
 /**
  * A supplier of unique integers that tries to balance size of the integer and conflicts on the assignment.
  *
- * Values are chosen randomly from a window that moves forward as the available lower-numbered space fills up.
+ * <p>Values are chosen randomly from a window that moves forward as the available lower-numbered space fills up.
  */
 @API(API.Status.INTERNAL)
 public class HighContentionAllocator {

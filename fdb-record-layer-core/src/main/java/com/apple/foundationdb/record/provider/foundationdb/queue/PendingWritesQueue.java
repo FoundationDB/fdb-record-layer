@@ -62,9 +62,9 @@ import java.util.concurrent.CompletableFuture;
  * conflict-free; the worker drains the queue and applies each entry.
  * The shape of the payload is determined by the caller — the queue is type-agnostic at the
  * proto layer but each {@code PendingWritesQueue} instance is homogeneous (bound to a single
- * {@code T extends Message} at construction).</p>
+ * {@code T extends Message} at construction).
  *
- * <p>Design highlights:</p>
+ * <p>Design highlights:
  * <ul>
  *   <li><b>Typed, extensible payload.</b> Each entry's on-disk payload is wrapped in a
  *       {@link com.google.protobuf.Any}. On read, the queue
@@ -99,12 +99,12 @@ import java.util.concurrent.CompletableFuture;
  *       migrations to evolve the payload safely.</li>
  * </ul>
  *
- * Note: The queue does <i>NOT</i> guarantee that an enqueue will fail with a conflict when a previously committed
+ * <p>Note: The queue does <i>NOT</i> guarantee that an enqueue will fail with a conflict when a previously committed
  * transaction called {@link #isQueueEmpty(FDBRecordContext)}. The caller should ensure that happens via an external flag.
  *
  * <p>Callers supply two ready-made subspaces: one for the queue entries and one for the size
  * counter. The expected nesting is up to the caller (e.g. an indexer would typically place
- * both under its index-build subspace).</p>
+ * both under its index-build subspace).
  *
  * @param <T> the Protobuf message type of every entry's payload; bound at construction
  */
@@ -156,14 +156,12 @@ public class PendingWritesQueue<T extends Message> {
      * across transactions get distinct keys without taking any read conflict. Incarnation is
      * meant to keep the order across FDB clusters, where the {@code versionStamp} ordering is
      * not sufficient. The capacity check is performed via a snapshot read on the size counter
-     * — so it does not introduce a conflict either.</p>
+     * — so it does not introduce a conflict either.
      *
      * @param context the active record context
      * @param payload the typed payload to enqueue
      * @param incarnation incarnation prefix
-     *
      * @return a future that completes once the operation is complete
-     *
      * @throws PendingWritesQueueTooLargeException via the returned future if the queue is at
      * or beyond {@code maxQueueSize}
      */
@@ -182,13 +180,12 @@ public class PendingWritesQueue<T extends Message> {
      * passes in {@code scanProperties}. This is intentional: it lets a drain transaction
      * iterate the queue and clear entries without installing a read-conflict range that would
      * conflict with concurrent enqueues. Callers that want to fail-on-late-enqueue should
-     * combine the drain with {@link #isQueueEmpty}.</p>
+     * combine the drain with {@link #isQueueEmpty}.
      *
      * @param context the record context to scan within
      * @param scanProperties scan properties; the isolation level is always forced to {@link IsolationLevel#SNAPSHOT}
      * @param continuation continuation from a previous cursor invocation, or {@code null} to
      * start from the beginning
-     *
      * @return a cursor over {@link PendingWritesQueueEntry} values
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -226,11 +223,12 @@ public class PendingWritesQueue<T extends Message> {
      *
      * <p>The entry's key tuple must already have been resolved to a complete versionstamp,
      * which is the case for any entry returned by {@link #getQueueCursor} (since the read sees
-     * only committed entries).</p>
+     * only committed entries).
+     *
      * <p>The {@link #clearEntry(FDBRecordContext, PendingWritesQueueEntry)} method installs a read conflict on the
      * range of keys that will be cleared. This is done to prevent cases of concurrent clearing of the same queue
      * elements that would then cause the queue size counter to drift. All but one of the concurrent clearing of the
-     * same item would conflict.</p>
+     * same item would conflict.
      *
      * @param context the record context
      * @param entry the entry to clear
@@ -259,10 +257,9 @@ public class PendingWritesQueue<T extends Message> {
      * <p>This uses a regular (non-snapshot) range read, which means FDB will install a
      * read-conflict range over the queue. As a result, a transaction that calls
      * {@code isQueueEmpty} while another transaction enqueues into the queue during the commit window will get a
-     * conflict exception.</p>
+     * conflict exception.
      *
      * @param context the record context
-     *
      * @return a future resolving to {@code true} when the queue range is empty
      */
     @Nonnull
@@ -277,10 +274,9 @@ public class PendingWritesQueue<T extends Message> {
      * Read the current value of the queue size counter via a snapshot read.
      *
      * <p>Returns {@code null} if the counter key has never been written (i.e. the queue has
-     * never had an entry enqueued). The counter is maintained via atomic mutations.</p>
+     * never had an entry enqueued). The counter is maintained via atomic mutations.
      *
      * @param context the record context
-     *
      * @return a future resolving to the counter value, or {@code null} if uninitialized
      */
     @Nonnull

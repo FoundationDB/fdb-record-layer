@@ -63,28 +63,28 @@ import java.util.stream.Collectors;
 /**
  * An implementation of an R-tree. See <a href="https://en.wikipedia.org/wiki/R-tree">this</a>} link for a general
  * introduction to R-trees.
- * <br>
- * The main use-case for R-trees, while they are normally used for spatial querying of actual objects in N-dimensional
+ *
+ * <p>The main use-case for R-trees, while they are normally used for spatial querying of actual objects in N-dimensional
  * space, is to function as a natural extension of regular B+-tree-based indexes in FDB, but spanning into multiple
  * dimensions. That allows to answer queries using multiple inequalities which is not possible with 1-D indexes.
- * <br>
- * Here is a short introduction copied from the explanation at the linked wikipedia page. The key idea of the data
+ *
+ * <p>Here is a short introduction copied from the explanation at the linked wikipedia page. The key idea of the data
  * structure is to group nearby objects and represent them with their minimum bounding rectangle in the next higher
  * level of the tree; the "R" in R-tree is for rectangle. Since all objects lie within this bounding rectangle, a query
  * that does not intersect the bounding rectangle also cannot intersect any of the contained objects. At the leaf level,
  * each rectangle describes a single object; at higher levels the aggregation includes an increasing number of objects.
  * This can also be seen as an increasingly coarse approximation of the data set.
- * <br>
- * Similar to the B-tree, the R-tree is also a balanced search tree (so all leaf nodes are at the same depth),
+ *
+ * <p>Similar to the B-tree, the R-tree is also a balanced search tree (so all leaf nodes are at the same depth),
  * organizes the data in pages/nodes, and is designed for storage on disk. Each node can contain a maximum number of
  * entries, often denoted as {@code M}. It also guarantees a minimum fill (except for the root node).
- * <br>
- * One of the key properties of an R-tree is that the minimum bounding rectangles (MBR) of the children of a node in the
+ *
+ * <p>One of the key properties of an R-tree is that the minimum bounding rectangles (MBR) of the children of a node in the
  * tree may overlap which may cause multiple children to intersect with a query even if that query's mbr is just a
  * single point. An object is only stored in exactly one leaf node of the tree, however, during a search of the
  * tree multiple paths may have to exhaustively followed in order go find all matching objects of that query.
- * <br>
- * The search performance of the tree is strongly linked to the size of the area being covered by a child (as indicated
+ *
+ * <p>The search performance of the tree is strongly linked to the size of the area being covered by a child (as indicated
  * by a child's mbr) as well as the overlap among children's mbrs at each level of the tree. The key difficulty in
  * constructing a search-efficient tree is to minimize both covered area and the overlap while keeping the tree balanced.
  * Variants of the R-tree such as R+-trees and R*-trees employ different techniques to improve on the basic R-tree ideas
@@ -96,14 +96,14 @@ import java.util.stream.Collectors;
  * <a href="http://www.cs.cmu.edu/~christos/PUBLICATIONS.OLDER/vldb87.pdf">R+-tree</a>,
  * for more information about R*-trees see
  * <a href="https://infolab.usc.edu/csci599/Fall2001/paper/rstar-tree.pdf">R*-tree</a>.
- * <br>
- * All variants of R-tree mentioned so far have a fatal flaw when considered in context with FDB and specifically the
+ *
+ * <p>All variants of R-tree mentioned so far have a fatal flaw when considered in context with FDB and specifically the
  * record layer. None of the R-tree variants can return their elements in a stable order that is not sensitive to
  * the physical layout of the tree at query time. That proves to be problematic for queries that are continued at a
  * later time as the physical structure of the tree may have changed due to re-balancing. Thus, it would become necessary
  * to encode all already returned items into the continuation which is simply not feasible.
- * <br>
- * Another variant (the one we implement here) is a Hilbert R-tree. See
+ *
+ * <p>Another variant (the one we implement here) is a Hilbert R-tree. See
  * <a href="https://www.vldb.org/conf/1994/P500.PDF">Hilbert R-tree</a> for details. In short, the Hilbert R-tree,
  * in addition to being a regular R-tree, also utilizes the Hilbert value
  * (see {@link RTreeHilbertCurveHelpers}) of the center of an mbr of an object (or the point itself if the object is a
@@ -116,8 +116,8 @@ import java.util.stream.Collectors;
  * order between siblings. A node can <em>transfer</em> empty slots from their siblings (for insertions) or children
  * (for deletions). In this way the tree is packed more tightly and costly re-balancing can be avoided while we still
  * do not have to resort to re-insertions of overflowing children.
- * <br>
- * Clustering based on the Hilbert value has been proven to be superior compared to R-trees, R+-trees, and R*-trees.
+ *
+ * <p>Clustering based on the Hilbert value has been proven to be superior compared to R-trees, R+-trees, and R*-trees.
  * A disadvantage of a Hilbert R-tree is the definition of the canvas the Hilbert curve is defined over. While there
  * are ways to define a Hilbert curve for floating point coordinates, we cannot support variable length dimensions such
  * as strings. In fact, we only support INT32 and INT64 dimensions.
@@ -315,8 +315,8 @@ public class RTree {
         @Override
         public String toString() {
             return storage + ", M=" + minM + "-" + maxM + ", S=" + splitS +
-                   (useNodeSlotIndex ? ", slotIndex" : "") +
-                   (storeHilbertValues ? ", storeHV" : "");
+                    (useNodeSlotIndex ? ", slotIndex" : "") +
+                    (storeHilbertValues ? ", storeHV" : "");
         }
     }
 
@@ -410,6 +410,7 @@ public class RTree {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link RTree}
      * @see ConfigBuilder#build
      */
@@ -419,6 +420,7 @@ public class RTree {
 
     /**
      * Initialize a new R-tree with the default configuration.
+     *
      * @param subspace the subspace where the r-tree is stored
      * @param secondarySubspace the subspace where the node index (if used is stored)
      * @param executor an executor to use when running asynchronous tasks
@@ -432,6 +434,7 @@ public class RTree {
 
     /**
      * Initialize a new R-tree.
+     *
      * @param subspace the subspace where the r-tree is stored
      * @param nodeSlotIndexSubspace the subspace where the node index (if used is stored)
      * @param executor an executor to use when running asynchronous tasks
@@ -460,6 +463,7 @@ public class RTree {
 
     /**
      * Get the {@link StorageAdapter} used to manage this r-tree.
+     *
      * @return r-tree subspace
      */
     @Nonnull
@@ -469,6 +473,7 @@ public class RTree {
 
     /**
      * Get the executer used by this r-tree.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -477,8 +482,7 @@ public class RTree {
     }
 
     /**
-     * Get this r-tree's configuration.
-     * @return r-tree configuration
+     * {@return this r-tree's configuration}
      */
     @Nonnull
     public Config getConfig() {
@@ -486,8 +490,7 @@ public class RTree {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -495,8 +498,7 @@ public class RTree {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -511,13 +513,14 @@ public class RTree {
      * Perform a scan over the tree within the transaction passed in using a predicate that is also passed in to
      * eliminate subtrees from the scan. This predicate may be stateful which allows for dynamic adjustments of the
      * queried area while the scan is active.
-     * <br>
-     * A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
+     *
+     * <p>A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
      * {@link AsyncIterator}. The predicate that is passed in is applied to intermediate nodes as well as leaf nodes,
      * but not to elements contained by a leaf node. The caller should filter out items in a downstream operation.
      * A scan of the tree will not prefetch the next node before the items of the current node have been consumed. This
      * guarantees that the semantics of the mbr predicate can be adapted in response to the items being consumed.
      * (this allows for efficient scans for {@code ORDER BY x, y LIMIT n} queries).
+     *
      * @param readTransaction the transaction to use
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}
      * @param suffixKeyPredicate a predicate on the suffix key
@@ -534,13 +537,14 @@ public class RTree {
      * Perform a scan over the tree within the transaction passed in using a predicate that is also passed in to
      * eliminate subtrees from the scan. This predicate may be stateful which allows for dynamic adjustments of the
      * queried area while the scan is active.
-     * <br>
-     * A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
+     *
+     * <p>A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
      * {@link AsyncIterator}. The predicate that is passed in is applied to intermediate nodes as well as leaf nodes,
      * but not to elements contained in a leaf node. The caller should filter out items in a downstream operation.
      * A scan of the tree will not prefetch the next node before the items of the current node have been consumed. This
      * guarantees that the semantics of the mbr predicate can be adapted in response to the items being consumed.
      * (this allows for efficient scans for {@code ORDER BY x, y LIMIT n} queries).
+     *
      * @param readTransaction the transaction to use
      * @param lastHilbertValue the last Hilbert value that was returned by a previous call to this method
      * @param lastKey the last key that was returned by a previous call to this method
@@ -565,6 +569,7 @@ public class RTree {
      * Returns the left-most path from a given node id to a leaf node containing items as a {@link TraversalState}.
      * The term <em>left-most</em> used here is defined by comparing {@code (largestHilbertValue, largestKey)} when
      * comparing nodes (the left one being the smaller, the right one being the greater).
+     *
      * @param readTransaction the transaction to use 
      * @param nodeId node id to start from. This may be the actual root of the tree or some other node within the tree.
      * @param lastHilbertValue hilbert value serving as a watermark to return only items that are larger than the
@@ -655,6 +660,7 @@ public class RTree {
      * a {@link TraversalState}. The term <em>left-most</em> used here is defined by comparing
      * {@code (largestHilbertValue, largestKey)} when comparing nodes (the left one being the smaller, the right one
      * being the greater).
+     *
      * @param readTransaction the transaction to use
      * @param traversalState traversal state to start from. The initial traversal state is always obtained by initially
      *        calling {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate, BiPredicate)}.
@@ -702,6 +708,7 @@ public class RTree {
     /**
      * Return the next {@link ChildSlot} that needs to be processed given a list of deques that need to be processed
      * as part of the current scan.
+     *
      * @param toBeProcessed list of deques
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}
      * @param suffixPredicate a predicate that is tested if applicable on the key suffix
@@ -749,6 +756,7 @@ public class RTree {
      * value which allows us to recompute point from Hilbert value as well as Hilbert value from point. We currently
      * treat point and Hilbert value independent, however, they are redundant and not independent at all. The implication
      * is that we do not have to store both point and Hilbert value (but we currently do).
+     *
      * @param tc transaction context
      * @param point the point to be used in space
      * @param keySuffix the additional key to be stored with the item
@@ -779,6 +787,7 @@ public class RTree {
     /**
      * Inserts a new slot into the {@link LeafNode} passed in or updates an existing slot of the {@link LeafNode} passed
      * in.
+     *
      * @param transaction transaction
      * @param targetNode leaf node that is the target of this insert or update
      * @param point the point to be used in space
@@ -853,6 +862,7 @@ public class RTree {
 
     /**
      * Insert a new slot into the target node passed in.
+     *
      * @param transaction transaction
      * @param level the current level of target node, {@code 0} indicating the leaf level
      * @param hilbertValue the Hilbert Value of the record that is being inserted
@@ -1051,6 +1061,7 @@ public class RTree {
      * whose ID is always a string of {@code 0x00}, contains some number {@code n} of slots. {@code n / 2} slots of those
      * {@code n} slots are moved to {@code left}, the rest to {@code right}. The root node is then updated to have two
      * children: {@code left} and {@code right}. All three nodes are then updated in the database.
+     *
      * @param transaction transaction to use
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param oldRootNode the old root node
@@ -1092,6 +1103,7 @@ public class RTree {
     /**
      * Method to delete from the R-tree. The item is treated unique per its point in space as well as its
      * additional key that is passed in.
+     *
      * @param tc transaction context
      * @param point the point
      * @param keySuffix the additional key to be stored with the item
@@ -1120,6 +1132,7 @@ public class RTree {
     /**
      * Deletes a slot from the {@link LeafNode} passed or exits if the slot could not be found in the target node.
      * in.
+     *
      * @param transaction transaction
      * @param targetNode leaf node that is the target of this delete operation
      * @param hilbertValue the hilbert value of the point
@@ -1192,6 +1205,7 @@ public class RTree {
 
     /**
      * Delete and existing slot from the target node passed in.
+     *
      * @param transaction transaction
      * @param level the current level of target node, {@code 0} indicating the leaf level
      * @param hilbertValue the Hilbert Value of the record that is being deleted
@@ -1379,6 +1393,7 @@ public class RTree {
      * Promote the given node to become the new root node. The node that is passed only changes its node id but retains
      * all of it slots. This operation is the opposite of {@link #splitRootNode(Transaction, int, Node)} which can be
      * invoked by the insert code path.
+     *
      * @param transaction transaction
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param oldRootNode the old root node
@@ -1405,6 +1420,7 @@ public class RTree {
     /**
      * Updates (persists) the slots for a target node and then computes the necessary adjustments in its parent
      * node (without persisting those).
+     *
      * @param transaction the transaction to use
      * @param level the current level of target node, {@code 0} indicating the leaf level
      * @param targetNode the target node
@@ -1433,6 +1449,7 @@ public class RTree {
 
     /**
      * Updates the target node's mbr, largest Hilbert value as well its largest key in the target node's parent slot.
+     *
      * @param targetNode target node
      * @return {@code true} if any attributes of the target slot were modified, {@code false} otherwise. This will
      *         inform the caller if modifications need to be persisted and/or if the parent node itseld=f needs to be
@@ -1539,6 +1556,7 @@ public class RTree {
      * invoked for insert, updates, as well as delete operations. If it is used for insert and the item is not yet
      * part of the leaf node, the leaf node that is returned can be understood as the correct place to insert the item
      * in question.
+     *
      * @param transaction the transaction to use
      * @param hilbertValue the Hilbert value to look for
      * @param key the key to look for
@@ -1602,6 +1620,7 @@ public class RTree {
      * Method to fetch the siblings of a given node. The node passed in must not be the root node and must be linked up
      * to its parent. The parent already has information obout the children ids. This method (through the slot
      * information of the node passed in) can then determine adjacent nodes.
+     *
      * @param transaction the transaction to use
      * @param node the node to fetch siblings for
      * @return a completable future containing a list of {@link Node}s that contain the {@link Config#getSplitS()}
@@ -1680,6 +1699,7 @@ public class RTree {
 
     /**
      * Method to compute the depth of this R-tree.
+     *
      * @param transactionContext transaction context to be used
      * @return the depth of the R-tree
      */
@@ -1706,6 +1726,7 @@ public class RTree {
 
     /**
      * Method to validate the Hilbert R-tree.
+     *
      * @param db the database to use
      */
     public void validate(@Nonnull final Database db) {
@@ -1714,6 +1735,7 @@ public class RTree {
 
     /**
      * Method to validate the Hilbert R-tree.
+     *
      * @param db the database to use
      * @param maxNumNodesToBeValidated a maximum number of nodes this call should attempt to validate
      */
@@ -1730,6 +1752,7 @@ public class RTree {
 
     /**
      * Method to validate the Hilbert R-tree.
+     *
      * @param transaction the transaction to use
      * @param maxNumNodesToBeValidated a maximum number of nodes this call should attempt to validate
      * @param toBeProcessed a deque with node information that still needs to be processed
@@ -1844,6 +1867,7 @@ public class RTree {
      * to find the proper slot indexes for the insert/update path and for the delete path. Note that if
      * {@code (largestHilbertValue, largestKey)} of the last child is less than {@code (hilbertValue, key)}, we insert
      * through the last child as we treat the (non-existing) next item as {@code (infinity, infinity)}.
+     *
      * @param intermediateNode the intermediate node to search
      * @param hilbertValue hilbert value
      * @param key key
@@ -1895,6 +1919,7 @@ public class RTree {
 
     /**
      * Method to find the appropriate child slot index for a given child it.
+     *
      * @param parentNode the intermediate node to search
      * @param childId the child id to search for
      * @return if found the 0-based slot index that corresponds to slot using holding the given {@code childId};
@@ -1914,6 +1939,7 @@ public class RTree {
     /**
      * Method to find the appropriate item slot index for a given Hilbert value and key. This method is used
      * to find the proper item slot index for the insert/update path.
+     *
      * @param leafNode the leaf node to search
      * @param hilbertValue hilbert value
      * @param key key
@@ -1943,6 +1969,7 @@ public class RTree {
     /**
      * Method to find the appropriate item slot index for a given Hilbert value and key. This method is used
      * to find the proper item slot index for the delete path.
+     *
      * @param leafNode the leaf node to search
      * @param hilbertValue hilbert value
      * @param key key

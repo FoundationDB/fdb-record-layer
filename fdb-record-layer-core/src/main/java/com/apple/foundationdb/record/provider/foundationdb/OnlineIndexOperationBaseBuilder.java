@@ -69,6 +69,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the runner that will be used to call into the database.
+     *
      * @return the runner that connects to the target database
      */
     @Nullable
@@ -79,7 +80,8 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the runner that will be used to call into the database.
      *
-     * Normally the runner is gotten from {@link #setDatabase} or {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally the runner is gotten from {@link #setDatabase} or {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     *
      * @param runner the runner that connects to the target database
      * @return this builder
      */
@@ -95,7 +97,8 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the database in which to run the indexing.
      *
-     * Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     *
      * @param database the target database
      * @return this builder
      */
@@ -107,6 +110,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the record store builder that will be used to open record store instances for indexing.
+     *
      * @return the record store builder
      */
     @Nullable
@@ -117,6 +121,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the record store builder that will be used to open record store instances for indexing.
+     *
      * @param recordStoreBuilder the record store builder
      * @return this builder
      * @see #setRecordStore
@@ -132,6 +137,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the record store that will be used as a template to open record store instances for indexing.
+     *
      * @param recordStore the target record store
      * @return this builder
      */
@@ -146,6 +152,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the function used by the online indexer to load the config parameters on fly.
+     *
      * @return the function
      */
     @Nullable
@@ -156,10 +163,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the function used by the online indexer to load the mutable configuration parameters on fly.
      *
-     * <p>
-     * The loader is given the current configuration as input at the beginning of each transaction and
+     * <p>The loader is given the current configuration as input at the beginning of each transaction and
      * should produce the configuration to use in the next transaction.
-     * </p>
+     *
      * @param configLoader the function
      * @return this builder
      */
@@ -170,8 +176,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Get the maximum number of records to process in one transaction.
-     * @return the maximum number of records to process in one transaction
+     * {@return the maximum number of records to process in one transaction}
      */
     public int getLimit() {
         return configBuilder.getMaxLimit();
@@ -180,9 +185,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the maximum number of records to process in one transaction.
      *
-     * The default limit is {@link OnlineIndexOperationConfig#DEFAULT_LIMIT} = {@value OnlineIndexOperationConfig#DEFAULT_LIMIT}.
+     * <p>The default limit is {@link OnlineIndexOperationConfig#DEFAULT_LIMIT} = {@value OnlineIndexOperationConfig#DEFAULT_LIMIT}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
+     *
      * @param limit the maximum number of records to process in one transaction
      * @return this builder
      */
@@ -196,6 +202,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set the initial number of records to process in one transaction. This can be useful to avoid
      * starting the indexing with the max limit (set by {@link #setLimit(int)}), which may cause timeouts.
      * a non-positive value (default) or a value that is bigger than the max limit will initial the limit at the max limit.
+     *
      * @param limit the initial number of records to process in one transaction
      * @return this builder
      */
@@ -209,6 +216,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Get the approximate maximum transaction write size. Note that the actual write size might be up to one
      * record bigger than this value - transactions started as part of the index build will be committed after
      * they exceed this size, and a new transaction will be started.
+     *
      * @return the max write size
      */
     public int getMaxWriteLimitBytes() {
@@ -220,6 +228,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * bigger than this value - transactions started as part of the index build will be committed after
      * they exceed this size, and a new transaction will be started. A non-positive value implies unlimited.
      * the default limit is {@link OnlineIndexOperationConfig#DEFAULT_WRITE_LIMIT_BYTES} = {@value OnlineIndexOperationConfig#DEFAULT_WRITE_LIMIT_BYTES}.
+     *
      * @param max the desired max write size
      * @return this builder
      */
@@ -233,6 +242,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Get the maximum number of times to retry a single range rebuild.
      * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and it will also retry for other error
      * codes, such as {@code transaction_too_large}.
+     *
      * @return the maximum number of times to retry a single range rebuild
      */
     public int getMaxRetries() {
@@ -244,9 +254,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
      * codes, such as {@code transaction_too_large}.
      *
-     * The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES} = {@value OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES}.
+     * <p>The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES} = {@value OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
+     *
      * @param maxRetries the maximum number of times to retry a single range rebuild
      * @return this builder
      */
@@ -257,8 +268,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Get the maximum number of records to process in a single second.
-     * @return the maximum number of records to process in a single second
+     * {@return the maximum number of records to process in a single second}
      */
     public int getRecordsPerSecond() {
         return configBuilder.getRecordsPerSecond();
@@ -267,9 +277,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the maximum number of records to process in a single second.
      *
-     * The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND}.
+     * <p>The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
+     *
      * @param recordsPerSecond the maximum number of records to process in a single second.
      * @return this builder
      */
@@ -284,6 +295,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * indexer waits for this many milliseconds between transactions, bypassing the records-per-second based
      * throttling.
      * The default value is {@link OnlineIndexOperationConfig#DEFAULT_ENFORCED_POST_TRANSACTION_DELAY} = {@value OnlineIndexOperationConfig#DEFAULT_ENFORCED_POST_TRANSACTION_DELAY}.
+     *
      * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
      * @return this builder
      */
@@ -295,6 +307,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the timer used during the online index operation.
+     *
      * @return the timer or <code>null</code> if none is set
      */
     @Nullable
@@ -307,6 +320,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the timer used during the online index operation.
+     *
      * @param timer timer to use
      * @return this builder
      */
@@ -321,6 +335,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the logging context used during the online index operation.
+     *
      * @return the logging context of <code>null</code> if none is set
      */
     @Nullable
@@ -333,6 +348,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the logging context used during the online index operation.
+     *
      * @param mdcContext the logging context to set while running
      * @return this builder
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
@@ -350,6 +366,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Get the acceptable staleness bounds for transactions used by this build. By default, this
      * is set to {@code null}, which indicates that the transaction should not used any cached version
      * at all.
+     *
      * @return the acceptable staleness bounds for transactions used by this build
      * @see FDBRecordContext#getWeakReadSemantics()
      */
@@ -387,6 +404,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Get the priority of transactions used for this index build. By default, this will be
      * {@link FDBTransactionPriority#BATCH}.
+     *
      * @return the priority of transactions used for this index build
      * @see FDBRecordContext#getPriority()
      */
@@ -424,6 +442,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Get the maximum number of transaction retry attempts.
      * This is the number of times that it will retry a given transaction that throws
      * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
+     *
      * @return the maximum number of attempts
      * @see FDBDatabaseRunner#getMaxAttempts
      */
@@ -438,6 +457,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set the maximum number of transaction retry attempts.
      * This is the number of times that it will retry a given transaction that throws
      * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
+     *
      * @param maxAttempts the maximum number of attempts
      * @return this builder
      * @see FDBDatabaseRunner#setMaxAttempts
@@ -454,10 +474,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set the number of successful range builds before re-increasing the number of records to process in a single
      * transaction. The number of records to process in a single transaction will never go above {@link #getLimit()}.
      * By default, this is {@link OnlineIndexOperationConfig#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-     * <p>
-     * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
+     *
+     * <p>Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
-     * </p>
+     *
      * @param increaseLimitAfter the number of successful range builds before increasing the number of records
      * processed in a single transaction
      * @return this builder
@@ -471,6 +491,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Get the number of successful range builds before re-increasing the number of records to process in a single
      * transaction.
      * By default this is {@link OnlineIndexOperationConfig#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+     *
      * @return the number of successful range builds before increasing the number of records processed in a single
      * transaction
      * @see #getLimit()
@@ -481,6 +502,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the maximum delay between transaction retry attempts.
+     *
      * @return the maximum delay
      * @see FDBDatabaseRunner#getMaxDelayMillis
      */
@@ -493,6 +515,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the maximum delay between transaction retry attempts.
+     *
      * @param maxDelayMillis the maximum delay
      * @return this builder
      * @see FDBDatabaseRunner#setMaxDelayMillis
@@ -507,6 +530,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Get the initial delay between transaction retry attempts.
+     *
      * @return the initial delay
      * @see FDBDatabaseRunner#getInitialDelayMillis
      */
@@ -519,6 +543,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the initial delay between transaction retry attempts.
+     *
      * @param initialDelayMillis the initial delay
      * @return this builder
      * @see FDBDatabaseRunner#setInitialDelayMillis
@@ -534,6 +559,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Get the minimum time between successful progress logs when building across transactions.
      * Negative will not log at all, 0 will log after every commit.
+     *
      * @return the minimum time between successful progress logs in milliseconds
      * @see #setProgressLogIntervalMillis(long) for more information on the format of the log
      */
@@ -559,13 +585,11 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      *         succeeded. In contrast, the timer count:
      *         {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, includes all records scanned,
      *         regardless of whether the associated transaction was successful or not.
-     *     </p></li>
+     *     </li>
      * </ul>
      *
-     * <p>
-     * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
+     * <p>Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
-     * </p>
      *
      * @param millis the number of milliseconds to wait between successful logs
      * @return this builder
@@ -583,9 +607,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set whether or not to track the index build progress by updating the number of records successfully scanned
      * and processed. The progress is persisted in {@link IndexingSubspaces#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
      * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
-     * <p>
-     * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
-     * </p>
+     *
+     * <p>This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
+     *
      * @param trackProgress track progress if true, otherwise false
      * @return this builder
      */
@@ -597,7 +621,8 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the {@link IndexMaintenanceFilter} to use while building the index.
      *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     *
      * @param indexMaintenanceFilter the index filter to use
      * @return this builder
      */
@@ -612,7 +637,8 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the {@link RecordSerializer} to use while building the index.
      *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * <p>Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     *
      * @param serializer the serializer to use
      * @return this builder
      */
@@ -626,6 +652,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the store format version to use while building the index.
+     *
      * @param formatVersion the format version to use
      * @return this builder
      * @deprecated Instead, provide a {@link FDBRecordStore} or {@link FDBRecordStore.Builder} with an appropriate format
@@ -655,6 +682,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the meta-data to use when indexing.
+     *
      * @param metaDataProvider meta-data to use
      * @return this builder
      */
@@ -668,6 +696,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the subspace of the record store in which to build the index.
+     *
      * @param subspaceProvider subspace to use
      * @return this builder
      */
@@ -681,6 +710,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the subspace of the record store in which to build the index.
+     *
      * @param subspace subspace to use
      * @return this builder
      */
@@ -695,6 +725,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a non-final
      * transaction.
+     *
      * @param timeLimitMilliseconds the time limit in milliseconds
      * @return this builder
      */
@@ -712,6 +743,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Note that this limit, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
      * a good idea.
      * The default value is 4,000 (4 seconds), matches fdb's default 5 seconds transaction limit.
+     *
      * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
      * @return this builder
      */
@@ -733,7 +765,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * b) The indexing sessions will conflict each other until one of the indexers will give up. While this is
      * not optimal, the generated index will be valid.
      *
-     * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
+     * <p>Set the use of a synchronized session during the index operation. Synchronized sessions help performing
      * the multiple transactions operations in a resource efficient way.
      * Normally this should be {@code true}.
      *
@@ -747,6 +779,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the max age of an indexing heartbeat to define an "active" indexing session.
+     *
      * @param leaseLengthMillis max heartbeat age to be considered "active". In milliseconds
      * @return this builder
      */

@@ -70,16 +70,14 @@ import java.util.concurrent.Executor;
  * nearer cluster (marking it under-replicated so a later reassign repairs it in turn). Third, it will rereplicate
  * underreplicated vectors.
  *
- * <p>
- * The task targets a single cluster ({@link #getTargetClusterId()}) and carries its {@link #getCentroid() centroid},
+ * <p>The task targets a single cluster ({@link #getTargetClusterId()}) and carries its {@link #getCentroid() centroid},
  * the optional {@link #getCauseClusterIds() causeClusterIds}, and a precomputed list of {@link ClusterReference}
  * nearest clusters (or, when that list is empty, re-enqueues itself once they have been fetched). During execution
  * it recomputes, for each of the target's primaries, its nearest clusters over the target plus its
  * {@link Config#reassignNumNeighboringClusters()} neighbors, then rewrites the primary and replicated copies
  * accordingly.
  *
- * <p>
- * <b>Example.</b> Suppose a split turns an over-full cluster into two new clusters {@code C1} and {@code C2}.
+ * <p><b>Example.</b> Suppose a split turns an over-full cluster into two new clusters {@code C1} and {@code C2}.
  * The split has already written every vector's primary copy into {@code C1} or {@code C2} — those postings are done —
  * but {@code C1}/{@code C2} hold no replicas yet, and their neighbors still hold replica references from before the
  * split. To repair this a {@code REASSIGN} is enqueued for an affected cluster, say {@code T}, with
@@ -104,8 +102,8 @@ import java.util.concurrent.Executor;
  * single collapsed-area reference), {@code T}'s stored references are updated by delta, the new replicas are written
  * into their neighbor clusters, and — on the production path — follow-up split/reassign tasks are enqueued for any
  * neighbor that grew past its bounds.
- * <p>
- * Note that if {@link #getCauseClusterIds()} is empty, reassign will indiscriminately push primary vectors to all
+ *
+ * <p>Note that if {@link #getCauseClusterIds()} is empty, reassign will indiscriminately push primary vectors to all
  * neighboring clusters (not just the ones in the cause cluster id set).
  *
  */
@@ -225,7 +223,6 @@ class ReassignTask extends AbstractDeferredTask {
      * @param targetClusterMetadata the metadata of the cluster being reassigned
      * @param targetClusterCentroid the cluster's centroid in client (untransformed) space
      * @param enqueueFollowUpTasks whether to enqueue follow-up deferred tasks (always {@code true} in production)
-     *
      * @return a future that completes when the reassignment has been persisted
      */
     @Nonnull
@@ -284,11 +281,11 @@ class ReassignTask extends AbstractDeferredTask {
                                         final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
                                         return foldCollapsedReplicas(transaction, partialReassignment,
                                                         targetClusterMetadata.id(), config.replicatedClusterTarget())
-                                                .thenAccept(reassignment -> {
+                                                .thenCompose(reassignment -> {
                                                     final TargetClusterDelta delta =
                                                             computeTargetClusterDelta(targetCluster, reassignment,
                                                                     targetClusterMetadata.id());
-                                                    persistReassignment(transaction, random, targetClusterMetadata,
+                                                    return persistReassignment(transaction, random, targetClusterMetadata,
                                                             reassignment, delta, quantizer, enqueueFollowUpTasks);
                                                 });
                                     }));
@@ -616,17 +613,17 @@ class ReassignTask extends AbstractDeferredTask {
         return AbstractDeferredTask.computeTargetClusterDelta(targetCluster, targetClusterAssignedVectors);
     }
 
-    private void persistReassignment(@Nonnull final Transaction transaction,
-                                     @Nonnull final SplittableRandom random,
-                                     @Nonnull final ClusterMetadata targetClusterMetadata,
-                                     @Nonnull final Reassignment reassignment,
-                                     @Nonnull final TargetClusterDelta delta,
-                                     @Nonnull final Quantizer quantizer,
-                                     final boolean enqueueFollowUpTasks) {
+    private CompletableFuture<Void> persistReassignment(@Nonnull final Transaction transaction,
+                                                        @Nonnull final SplittableRandom random,
+                                                        @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                        @Nonnull final Reassignment reassignment,
+                                                        @Nonnull final TargetClusterDelta delta,
+                                                        @Nonnull final Quantizer quantizer,
+                                                        final boolean enqueueFollowUpTasks) {
         final WriteCounters counters = countAssignments(targetClusterMetadata, reassignment);
         writeOuterClusterVectors(transaction, quantizer, targetClusterMetadata, reassignment);
         persistTargetClusterDelta(transaction, quantizer, targetClusterMetadata.id(), delta);
-        writeClusterMetadata(transaction, random, targetClusterMetadata, reassignment, counters, delta,
+        return writeClusterMetadata(transaction, random, targetClusterMetadata, reassignment, counters, delta,
                 enqueueFollowUpTasks);
     }
 
@@ -702,13 +699,13 @@ class ReassignTask extends AbstractDeferredTask {
         }
     }
 
-    private void writeClusterMetadata(@Nonnull final Transaction transaction,
-                                      @Nonnull final SplittableRandom random,
-                                      @Nonnull final ClusterMetadata targetClusterMetadata,
-                                      @Nonnull final Reassignment reassignment,
-                                      @Nonnull final WriteCounters counters,
-                                      @Nonnull final TargetClusterDelta delta,
-                                      final boolean enqueueFollowUpTasks) {
+    private CompletableFuture<Void> writeClusterMetadata(@Nonnull final Transaction transaction,
+                                                         @Nonnull final SplittableRandom random,
+                                                         @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                         @Nonnull final Reassignment reassignment,
+                                                         @Nonnull final WriteCounters counters,
+                                                         @Nonnull final TargetClusterDelta delta,
+                                                         final boolean enqueueFollowUpTasks) {
         final Primitives primitives = getLocator().primitives();
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 reassignment.clusterIdMetadataMap();
@@ -766,11 +763,19 @@ class ReassignTask extends AbstractDeferredTask {
                     newTargetClusterMetadata.numReplicatedVectors(), delta.toDelete().size(), delta.toWrite().size(),
                     counters.numPrimaryPushedOut(), counters.numReplicatedPushedOut());
         }
+
+        // Production reassign path only: if the reassigned target has shrunk below its (max-ever relative) merge
+        // threshold, enqueue a merge. The direct-drive test path (enqueueFollowUpTasks=false) enqueues nothing.
+        if (enqueueFollowUpTasks && newTargetClusterMetadata != null) {
+            return primitives.enqueueMergeTaskAfterReassignIfUndersized(transaction, random, newTargetClusterMetadata,
+                    getCentroid(), getAccessInfo());
+        }
+        return AsyncUtil.DONE;
     }
 
     @Nonnull
     private ReassignTask withHighPriorityAndNearestClusters(@Nonnull final SplittableRandom random,
-                                                         @Nonnull final List<ClusterReference> nearestClusters) {
+                                                            @Nonnull final List<ClusterReference> nearestClusters) {
         return ReassignTask.of(getLocator(), getAccessInfo(),
                 randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), getCauseClusterIds(), nearestClusters);

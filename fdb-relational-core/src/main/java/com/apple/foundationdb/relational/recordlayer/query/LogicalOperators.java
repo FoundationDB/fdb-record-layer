@@ -65,6 +65,17 @@ public class LogicalOperators implements Iterable<LogicalOperator> {
         return underlying;
     }
 
+    /**
+     * Returns the operators from the given index on.
+     *
+     * @param fromIndex the index of the first operator to return
+     * @return the operators from {@code fromIndex} on
+     */
+    @Nonnull
+    public LogicalOperators subList(final int fromIndex) {
+        return new LogicalOperators(underlying.subList(fromIndex, underlying.size()));
+    }
+
     @Nonnull
     public LogicalOperator first() {
         Assert.thatUnchecked(!underlying.isEmpty());

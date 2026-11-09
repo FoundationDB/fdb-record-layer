@@ -27,8 +27,8 @@ import org.apache.lucene.search.uhighlight.PassageFormatter;
 /**
  * A {@link PassageFormatter} which creates Highlighted terms that contain the
  * whole context of the field as the summarized text (i.e. no summarization or shortening occurs).
- * <p>
- * If you want to summarize the content, use {@link SnippetFormatter} instead.
+ *
+ * <p>If you want to summarize the content, use {@link SnippetFormatter} instead.
  */
 @API(API.Status.INTERNAL)
 public class WholeTextFormatter extends PassageFormatter {

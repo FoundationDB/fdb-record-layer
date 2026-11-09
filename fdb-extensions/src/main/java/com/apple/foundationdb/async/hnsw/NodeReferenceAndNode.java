@@ -28,10 +28,11 @@ import java.util.List;
 
 /**
  * A container class that pairs a {@link NodeReference} with its corresponding {@link AbstractNode} object.
- * <p>
- * This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
+ *
+ * <p>This is often used during graph traversal or searching, where a reference to a node (along with its distance from a
  * query point) is first identified, and then the complete node data is fetched. This class holds these two related
  * pieces of information together.
+ *
  * @param <T> the type of {@link NodeReference} referencing the node
  * @param <N> the type of {@link NodeReference} used within the {@link AbstractNode}, i.e. the type of the neighbor
  *        references
@@ -45,6 +46,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
     /**
      * Constructs a new instance that pairs a node reference (with distance) with its
      * corresponding {@link AbstractNode} object.
+     *
      * @param nodeReference the reference to a node, which also includes distance information. Must not be
      *        {@code null}.
      * @param node the actual {@link AbstractNode} object that the reference points to. Must not be {@code null}.
@@ -57,6 +59,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     /**
      * Gets the node reference and its associated distance.
+     *
      * @return the non-null {@link NodeReferenceWithDistance} object.
      */
     @Nonnull
@@ -66,6 +69,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     /**
      * Gets the underlying node represented by this object.
+     *
      * @return the associated {@link Node} instance, never {@code null}.
      */
     @Nonnull
@@ -80,6 +84,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     /**
      * Helper to extract the references from a given collection of objects of this container class.
+     *
      * @param referencesAndNodes an iterable of {@link NodeReferenceAndNode} objects from which to extract the
      *        references.
      * @return a {@link List} of {@link NodeReferenceAndNode}s
@@ -95,6 +100,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
 
     /**
      * Helper to extract the references from a given collection of objects of this container class.
+     *
      * @param referencesAndNodes an iterable of {@link NodeReferenceAndNode} objects from which to extract the
      *        primary keys.
      * @return a {@link List} of {@link Tuple}s
