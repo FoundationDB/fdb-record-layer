@@ -121,7 +121,7 @@ public class MetaDataPlanContext implements PlanContext {
         try {
             if (queriedRecordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
-                queriedRecordTypes = metaData.getRecordTypes().values();
+                queriedRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().values());
             } else {
                 queriedRecordTypes = queriedRecordTypeNamesOptional.get().stream().map(metaData::getRecordType).collect(ImmutableSet.toImmutableSet());
                 if (queriedRecordTypes.size() == 1) {

@@ -274,7 +274,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
         final List<SyntheticRecordType<?>> result = new ArrayList<>();
         for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
             final Set<RecordType> storedRecordTypes = syntheticRecordType.getStoredRecordTypes();
-            if (!storedRecordTypes.isEmpty() && recordTypes.containsAll(storedRecordTypes)) {
+            Verify.verify(!storedRecordTypes.isEmpty());
+            if (recordTypes.containsAll(storedRecordTypes)) {
                 result.add(syntheticRecordType);
             }
         }
