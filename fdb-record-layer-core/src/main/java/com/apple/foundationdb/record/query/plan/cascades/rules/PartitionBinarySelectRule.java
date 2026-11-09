@@ -274,6 +274,9 @@ public class PartitionBinarySelectRule extends AbstractCascadesRule<SelectExpres
     @Nonnull
     private static ValuePredicate swap(@Nonnull final ValuePredicate predicate,
                                        @Nonnull final CorrelationIdentifier alias) {
+        if (predicate.getClass() != ValuePredicate.class) {
+            return predicate;
+        }
         final Value value = predicate.getValue();
         if (value.isCorrelatedTo(alias)) {
             // The predicate is already oriented towards `alias`.

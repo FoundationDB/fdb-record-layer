@@ -237,7 +237,7 @@ class PartitionBinarySelectRuleTest {
         final SelectExpression join = join(t, tau)
                 .addResultColumn(projectColumn(t, "a"))
                 .addResultColumn(projectColumn(tau, "alpha"))
-                .addPredicate(reversedPredicate(constant, fieldValue(t, "b")))
+                .addPredicate(equalsRangePredicate(constant, fieldValue(t, "b")))
                 .build().buildSelect();
 
         final Quantifier newT = forEach(selectWithPredicates(t,
@@ -251,7 +251,7 @@ class PartitionBinarySelectRuleTest {
     }
 
     @Nonnull
-    private static QueryPredicate reversedPredicate(@Nonnull final Value value, @Nonnull final Value comparand) {
+    private static QueryPredicate equalsRangePredicate(@Nonnull final Value value, @Nonnull final Value comparand) {
         final RangeConstraints range = RangeConstraints.ofComparisonMaybe(
                 new Comparisons.ValueComparison(Comparisons.Type.EQUALS, comparand)).orElseThrow();
         return PredicateWithValueAndRanges.sargable(value, range);
@@ -390,6 +390,31 @@ class PartitionBinarySelectRuleTest {
                 .build().buildSelect();
 
         testHelper.assertYields(join, newJoin);
+    }
+
+    /**
+     * Tests that an {@link ExistentialValuePredic™ate} with a value comparison is pushed unchanged (as reorienting it
+     * would turn it into a plain {@link ValuePredicate}).
+     */
+    @Test
+    void pushExistentialPredicateNotReoriented1() {
+        final Quantifier t = baseT();
+        final Quantifier lowerTau = baseTau();
+        final Quantifier tau = exists(selectWithPredicates(lowerTau, fieldPredicate(lowerTau, "beta", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+        final QueryPredicate existential = new ExistentialValuePredicate(QuantifiedObjectValue.of(tau),
+                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t, "b")));
+
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addPredicate(existential)
+                .build().buildSelect();
+
+        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(tau), ImmutableList.of(existential)));
+        final SelectExpression newJoinOnTau = join(t, newTau)
+                .addResultColumn(projectColumn(t, "a"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoinOnTau);
     }
 
     //

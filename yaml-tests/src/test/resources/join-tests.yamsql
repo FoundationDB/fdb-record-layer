@@ -109,7 +109,6 @@ test_block:
       # must join against the `dept` primary key as a point lookup on the inner side, rather than scanning `deptName`
       # with a residual FILTER.
       - query: select fname, lname, name from emp, dept where emp.dept_id = dept.id;
-      - supported_version: !current_version
       - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }"
       - unorderedResult: [
                 {'Jack', 'Williams', 'Engineering'},
@@ -124,7 +123,6 @@ test_block:
     -
       # Same query as above, but with the join predicate flipped.
       - query: select fname, lname, name from emp, dept where dept.id = emp.dept_id;
-      - supported_version: !current_version
       - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }"
       - unorderedResult: [
                 {'Jack', 'Williams', 'Engineering'},
@@ -709,4 +707,42 @@ test_block:
       - query: select * from ja join jb using(c1) join jd
       - supported_version: 4.17.1.0
       - error: SYNTAX_ERROR
+# Note: These range join tests need to use their own schema template, as adding tables to the template above would
+# affect the planning of some unrelated queries. (This is because the names of all tables in the schema feed into the
+# semantic hash of a `FullUnorderedScanExpression` and from there into tie-breaks between otherwise equal rewritings.)
+---
+schema_template:
+    CREATE TABLE T1 (id BIGINT, x BIGINT, PRIMARY KEY (id))
+    CREATE TABLE T2 (id BIGINT, lo BIGINT, hi BIGINT, PRIMARY KEY (id))
+    CREATE INDEX T2_LO AS SELECT lo FROM T2
+---
+setup:
+  connect: 2
+  steps:
+    - query: INSERT INTO T1 VALUES (1, 5), (2, 15), (3, 25)
+    - query: INSERT INTO T2 VALUES (1, 0, 10), (2, 10, 20), (3, 20, 30)
+---
+test_block:
+  name: join-range-tests
+  connect: 2
+  tests:
+    -
+      # Tests a range join using BETWEEN. The BETWEEN predicate is lowered to separate comparisons that are each
+      # oriented towards T2, so the `T1.x >= T2.lo` part becomes `T2.lo <= T1.x` and can be used as a seek on the T2_LO
+      # index, leaving the upper bound as a residual filter.
+      - query: SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x BETWEEN T2.lo AND T2.hi
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]]) | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID AS T2_ID) }"
+      - unorderedResult: [{ID: 1, T2_ID: 1}, {ID: 2, T2_ID: 2}, {ID: 3, T2_ID: 3}]
+    -
+      # Tests the same join with the bounds written with T2 on the left-hand side. This is planned identically.
+      - query: SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T2.lo <= T1.x AND T2.hi >= T1.x
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]]) | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID AS T2_ID) }"
+      - unorderedResult: [{ID: 1, T2_ID: 1}, {ID: 2, T2_ID: 2}, {ID: 3, T2_ID: 3}]
+    -
+      # Known limitation: The same range expressed as two comparisons on the same left-hand side gets translated into a
+      # single range `T1.x [>= T2.lo AND <= T2.hi]`, which `PartitionBinarySelectRule` cannot currently reorient
+      # towards `T2`. The plan therefore cannot seek on T2_LO and scans all of T2 as the outer side instead.
+      - query: SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x >= T2.lo AND T1.x <= T2.hi
+      - explain: "ISCAN(T2_LO <,>) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.X GREATER_THAN_OR_EQUALS q0.LO AND _.X LESS_THAN_OR_EQUALS q0.HI AS q1 RETURN (q1.ID AS ID, q0.ID AS T2_ID) }"
+      - unorderedResult: [{ID: 1, T2_ID: 1}, {ID: 2, T2_ID: 2}, {ID: 3, T2_ID: 3}]
 ...

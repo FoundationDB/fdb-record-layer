@@ -261,8 +261,10 @@ test_block:
       # (TODO Issue #4170 - fix plan and result)
       - query: SELECT e1.fname, e2.fname FROM emp e1 CROSS JOIN emp e2 WHERE e1.dept_id = e2.dept_id AND e1.id < e2.id
       # Older versions return the correct result here, as they do not plan the join key as an index lookup
-      - supported_version: !current_version
       - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { COVERING(EMPDEPT [EQUALS q0.DEPT_ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER _.ID GREATER_THAN q0.ID | FETCH AS q1 RETURN (q0.FNAME AS _0, q1.FNAME AS _1) }"
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [{ 'Jack', 'Thomas' }, { 'Chloe', 'Charlotte' }]
+      - initialVersionAtLeast: !current_version
       - unorderedResult: [{ 'Jack', 'Thomas' }, { 'Chloe', 'Charlotte' }, { 'Daniel', 'Harry' }]
     -
       # CROSS JOIN between a table and a derived table

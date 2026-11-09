@@ -620,3 +620,46 @@ three-way-joins-right-deep-planner:
     insert_time_ms: 4
     insert_new_count: 150
     insert_reused_count: 9
+join-range-tests:
+-   query: EXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x BETWEEN T2.lo
+        AND T2.hi
+    ref: join-tests.yamsql:733
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]])
+        | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID
+        AS T2_ID) }
+    task_count: 629
+    task_total_time_ms: 52
+    transform_count: 180
+    transform_time_ms: 19
+    transform_yield_count: 51
+    insert_time_ms: 1
+    insert_new_count: 76
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T2.lo <= T1.x AND
+        T2.hi >= T1.x
+    ref: join-tests.yamsql:738
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]])
+        | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID
+        AS T2_ID) }
+    task_count: 629
+    task_total_time_ms: 53
+    transform_count: 180
+    transform_time_ms: 21
+    transform_yield_count: 51
+    insert_time_ms: 1
+    insert_new_count: 76
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x >= T2.lo AND
+        T1.x <= T2.hi
+    ref: join-tests.yamsql:745
+    explain: ISCAN(T2_LO <,>) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.X GREATER_THAN_OR_EQUALS
+        q0.LO AND _.X LESS_THAN_OR_EQUALS q0.HI AS q1 RETURN (q1.ID AS ID, q0.ID AS
+        T2_ID) }
+    task_count: 527
+    task_total_time_ms: 49
+    transform_count: 166
+    transform_time_ms: 19
+    transform_yield_count: 47
+    insert_time_ms: 0
+    insert_new_count: 64
+    insert_reused_count: 5
