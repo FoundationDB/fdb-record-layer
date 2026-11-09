@@ -44,8 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The store and index operations a {@link IndexScenario} is built from, for one {@link IndexDefinition}
  * in one configuration, chosen by the factory that creates it: {@link #ungrouped}, {@link #grouped},
  * or {@link #synthetic} (over a joined or unnested record type).
- * <p>
- * The model builds the metadata for its configuration, generates matching records, and runs each
+ *
+ * <p>The model builds the metadata for its configuration, generates matching records, and runs each
  * operation in its own transaction. It applies the definition's hooks so that scenarios do not have
  * to: {@link IndexDefinition#setupIndex} is run when the model is created, and
  * {@link IndexDefinition#configureStore} on every store it opens. Scan results should be compared

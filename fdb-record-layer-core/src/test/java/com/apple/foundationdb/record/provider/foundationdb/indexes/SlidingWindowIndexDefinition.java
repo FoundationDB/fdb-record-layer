@@ -49,14 +49,14 @@ import java.util.List;
 
 /**
  * A sliding-window index over the scenario schema.
- * <p>
- * A sliding window is not its own index type: the maintainer registry wraps an index in the
+ *
+ * <p>A sliding window is not its own index type: the maintainer registry wraps an index in the
  * sliding-window maintainer when it is a {@link IndexTypes#VECTOR} index that carries an
  * {@link IndexPredicate.RowNumberWindowPredicate}. The window size, the ordering key and the
  * partitioning all come from that predicate, and the delegate has to be a vector index, so the
  * records carry a real vector as well as the ordering key.
- * <p>
- * The window keeps the best {@code windowSize} records per partition by the ordering key; the rest
+ *
+ * <p>The window keeps the best {@code windowSize} records per partition by the ordering key; the rest
  * are held in an overflow tail that is invisible to a scan. So a scan returns
  * {@code min(windowSize, recordsInPartition)} entries.
  */

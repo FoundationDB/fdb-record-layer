@@ -94,8 +94,8 @@ public final class ScenarioRecords {
      * field, whose distance from the origin is determined solely by {@code distinctness}. Giving each
      * record a distinct value keeps distance-sorted vector scans deterministic and free of
      * tie-breaking ambiguity.
-     * <p>
-     * This only works well for Euclidean distance. The vectors all point in the same direction, so
+     *
+     * <p>This only works well for Euclidean distance. The vectors all point in the same direction, so
      * they are all the same cosine distance from any query (and are identical once normalized), and
      * a scan using cosine distance would have no deterministic order. To test other metrics, this
      * should be revisited to vary each vector's direction, not just its length.

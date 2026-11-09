@@ -47,8 +47,8 @@ import java.util.stream.IntStream;
 
 /**
  * A Lucene index over the scenario schema's text field.
- * <p>
- * Lucene has no bespoke key-expression classes: it annotates ordinary key expressions with function
+ *
+ * <p>Lucene has no bespoke key-expression classes: it annotates ordinary key expressions with function
  * key expressions (here {@link LuceneFunctionNames#LUCENE_TEXT}), so the generic
  * {@link IndexTarget} rooting works unchanged.
  */

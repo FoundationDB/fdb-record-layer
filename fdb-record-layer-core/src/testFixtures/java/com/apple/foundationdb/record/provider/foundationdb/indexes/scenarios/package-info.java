@@ -21,8 +21,8 @@
 /**
  * A framework for testing {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer}s
  * against a shared set of scenarios.
- * <p>
- * Maintainer behaviour is easy to get subtly wrong and hard to cover uniformly. So rather than each
+ *
+ * <p>Maintainer behaviour is easy to get subtly wrong and hard to cover uniformly. So rather than each
  * index type having its own tests for rebuilding, write-only maintenance, group deletion, synthetic
  * record types and so on, each index type is described once by an {@link
  * com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition}, each scenario
@@ -50,8 +50,8 @@
  * The scenario is given a way to open a transaction and a store builder, rather than creating its own,
  * so that it fits into existing test classes, which differ in how they do both. The store builder must
  * not set the metadata.
- * <p>
- * {@code @IndexScenarios} also tags the test with {@link com.apple.test.Tags#IndexScenarios}, so that
+ *
+ * <p>{@code @IndexScenarios} also tags the test with {@link com.apple.test.Tags#IndexScenarios}, so that
  * the whole set can be run on its own; in the Record Layer build, the {@code indexScenarioTest} Gradle
  * task does this. A test that builds its own parameters instead, for example a cartesian product of
  * scenarios (from {@link
