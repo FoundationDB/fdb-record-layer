@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.InExplodeSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
@@ -250,17 +249,6 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryInParameterJoinPlan.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getExternalBinding()), name -> "externalBinding(" + name + ")"),
                 downstream);
-    }
-
-    /**
-     * Matches an IN-join over an {@link InExplodeSource}.
-     *
-     * @param downstream the matcher for the inner plan
-     * @return a matcher for IN-joins over explodes
-     */
-    @Nonnull
-    public static BindingMatcher<RecordQueryInComparandJoinPlan> inExplodeJoinPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
-        return childrenPlans(RecordQueryInComparandJoinPlan.class, all(downstream));
     }
 
     @Nonnull
