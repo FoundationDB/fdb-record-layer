@@ -67,6 +67,7 @@ public class StructDataMetadataTest {
             CREATE TYPE AS STRUCT m(x n1, y n2)
             CREATE TABLE t3(id bigint, m m, PRIMARY KEY(id))
             CREATE TABLE t4(id bigint, n1 n1, n2 n2, PRIMARY KEY(id))
+            CREATE FUNCTION f1() AS SELECT (*) FROM t
             """;
 
     /*
@@ -328,7 +329,7 @@ public class StructDataMetadataTest {
      * Tests that the elements of {@code ARRAY_AGG((T.*))} carry the name of the table’s record type.
      */
     @Test
-    void testArrayAggWholeRow1() throws Throwable {
+    void canReadProjectedArrayAggParenthesizedStarKeepsRecordTypeName() throws Throwable {
         canReadStructTypeName("SELECT ARRAY_AGG((T.*)) FROM T", resultSet -> {
             Assertions.assertEquals("T", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
         }, 2, 0);
@@ -338,7 +339,7 @@ public class StructDataMetadataTest {
      * Tests that the elements of {@code ARRAY_AGG((X.*))} carry the name of the record type rather than the alias.
      */
     @Test
-    void testArrayAggWholeRow2() throws Throwable {
+    void canReadProjectedArrayAggParenthesizedStarOverAliasKeepsRecordTypeName() throws Throwable {
         canReadStructTypeName("SELECT ARRAY_AGG((X.*)) FROM T X", resultSet -> {
             Assertions.assertEquals("T", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
         }, 2, 0);
@@ -348,7 +349,7 @@ public class StructDataMetadataTest {
      * Tests that the elements of {@code ARRAY_AGG(T)} carry the name of the table’s record type.
      */
     @Test
-    void testArrayAggWholeRow3() throws Throwable {
+    void canReadProjectedArrayAggTableReferenceKeepsRecordTypeName() throws Throwable {
         canReadStructTypeName("SELECT ARRAY_AGG(T) FROM T", resultSet -> {
             Assertions.assertEquals("T", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
         }, 2, 0);
@@ -358,7 +359,7 @@ public class StructDataMetadataTest {
      * Tests that the elements of a correlated {@code ARRAY_AGG((C.*))} carry the name of the table’s record type.
      */
     @Test
-    void testArrayAggWholeRow4() throws Throwable {
+    void canReadProjectedArrayAggParenthesizedStarInCorrelatedSubqueryKeepsRecordTypeName() throws Throwable {
         canReadStructTypeName("SELECT P.NAME, SQ.C FROM T P, (SELECT ARRAY_AGG((C.*)) AS C FROM T C WHERE C.NAME = P.NAME) SQ", resultSet -> {
             Assertions.assertEquals("T", resultSet.getArray(2).getMetaData().getElementStructMetaData().getTypeName());
         }, 2, 0);
@@ -368,7 +369,7 @@ public class StructDataMetadataTest {
      * Tests that the elements of {@code ARRAY_AGG} over an explicit record constructor remain anonymous.
      */
     @Test
-    void testArrayAggWholeRow5() throws Throwable {
+    void canReadProjectedArrayAggRecordConstructorHasGeneratedTypeName() throws Throwable {
         canReadStructTypeName("SELECT ARRAY_AGG((T.NAME, T.ST1)) FROM T", resultSet -> {
             Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
                     resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
@@ -380,7 +381,7 @@ public class StructDataMetadataTest {
      * the current behavior: a nullable row cannot stand in for the non-nullable record constructor over its fields.
      */
     @Test
-    void testArrayAggWholeRow6() throws Throwable {
+    void canReadProjectedArrayAggOverNullableJoinSideHasGeneratedTypeName() throws Throwable {
         canReadStructTypeName("SELECT ARRAY_AGG((N.*)) FROM T LEFT JOIN NT N ON T.NAME = N.T_NAME", resultSet -> {
             Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
                     resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
@@ -392,8 +393,30 @@ public class StructDataMetadataTest {
      * stored record type.
      */
     @Test
-    void testArrayAggWholeRow7() throws Throwable {
+    void canReadProjectedArrayAggOverDerivedTableHasGeneratedTypeName() throws Throwable {
         canReadStructTypeName("SELECT ARRAY_AGG((S.*)) FROM (SELECT NAME FROM T) S", resultSet -> {
+            Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
+                    resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
+        }, 2, 0);
+    }
+
+    /**
+     * Tests that the elements of {@code ARRAY_AGG} over an explicitly named record constructor carry that name.
+     */
+    @Test
+    void canReadProjectedArrayAggNamedRecordConstructorKeepsCustomTypeName() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG(STRUCT CUSTOM (T.NAME, T.ST1)) FROM T", resultSet -> {
+            Assertions.assertEquals("CUSTOM", resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName());
+        }, 2, 0);
+    }
+
+    /**
+     * Pins the current behavior that the elements of {@code ARRAY_AGG} over the result of a SQL function remain
+     * anonymous. The function result has no stored record type. (The same holds for a plain {@code (F1.*)}.)
+     */
+    @Test
+    void canReadProjectedArrayAggOverFunctionResultHasGeneratedTypeName() throws Throwable {
+        canReadStructTypeName("SELECT ARRAY_AGG((F1.*)) FROM F1()", resultSet -> {
             Assertions.assertTrue(ProtoUtils.isUniqueTypeName(
                     resultSet.getArray(1).getMetaData().getElementStructMetaData().getTypeName()));
         }, 2, 0);
