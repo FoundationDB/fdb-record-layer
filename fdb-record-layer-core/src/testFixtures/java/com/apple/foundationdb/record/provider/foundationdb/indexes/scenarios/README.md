@@ -31,7 +31,7 @@ in its definition:
 void indexScenariosTest(IndexScenario scenario) throws Exception {
     scenario.runTest(
             // the index type under test
-            new XxxIndexDefinition(),
+            new MyIndexDefinition(),
             // how to open a transaction
             () -> database.openContext(config),
             // an appropriate store builder, notably does not set the metadata
