@@ -42,7 +42,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The store and index operations a {@link IndexScenario} is built from, for one {@link IndexDefinition}
- * in one configuration (ungrouped, grouped, or over a synthetic record type).
+ * in one configuration, chosen by the factory that creates it: {@link #ungrouped}, {@link #grouped},
+ * or {@link #synthetic} (over a joined or unnested record type).
  * <p>
  * The model builds the metadata for its configuration, generates matching records, and runs each
  * operation in its own transaction. It applies the definition's hooks so that scenarios do not have
@@ -77,9 +78,11 @@ public final class IndexScenarioModel {
     }
 
     /** Ungrouped normal scenario (the default). */
-    public IndexScenarioModel(final IndexDefinition definition, final Supplier<FDBRecordContext> openContext,
-                              final FDBRecordStore.Builder storeBuilder) {
-        this(definition, IndexScenarioMetaData.forScenario(definition, GroupingMode.UNGROUPED),
+    public static IndexScenarioModel ungrouped(final IndexDefinition definition,
+                                               final Supplier<FDBRecordContext> openContext,
+                                               final FDBRecordStore.Builder storeBuilder) {
+        return new IndexScenarioModel(definition,
+                IndexScenarioMetaData.forScenario(definition, GroupingMode.UNGROUPED),
                 RecordSource.SCENARIO, openContext, storeBuilder);
     }
 

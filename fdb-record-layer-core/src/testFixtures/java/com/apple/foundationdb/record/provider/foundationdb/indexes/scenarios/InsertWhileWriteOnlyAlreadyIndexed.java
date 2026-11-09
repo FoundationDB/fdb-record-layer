@@ -40,7 +40,7 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
     public void runTest(final IndexDefinition definition,
                         final Supplier<FDBRecordContext> openContext,
                         final FDBRecordStore.Builder storeBuilder) {
-        final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
+        final IndexScenarioModel model = IndexScenarioModel.ungrouped(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
         model.saveRecords(records);

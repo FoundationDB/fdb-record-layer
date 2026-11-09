@@ -219,7 +219,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      */
     @Test
     void scenarioDefinitionWindowSizeOneKeepsOneEntry() {
-        final IndexScenarioModel model = new IndexScenarioModel(new SlidingWindowIndexDefinition(1),
+        final IndexScenarioModel model = IndexScenarioModel.ungrouped(new SlidingWindowIndexDefinition(1),
                 this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
         model.saveRecords(model.generateRecords(10));
         assertEquals(1, model.scanIndex().size(), "window of one should keep exactly the best record");
@@ -247,7 +247,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      */
     @Test
     void scenarioDefinitionLargeWindowKeepsEveryEntry() {
-        final IndexScenarioModel model = new IndexScenarioModel(new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
+        final IndexScenarioModel model = IndexScenarioModel.ungrouped(
+                new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
                 this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
         model.saveRecords(model.generateRecords(10));
         assertEquals(10, model.scanIndex().size(), "a window larger than the data should evict nothing");
