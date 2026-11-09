@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 
 class VersionIndexDefinition implements IndexDefinition {
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         // The version index is over the record version, not any indexed field.
         return TestRecordsIndexScenariosProto.IndexedMessage.getDefaultInstance();
     }

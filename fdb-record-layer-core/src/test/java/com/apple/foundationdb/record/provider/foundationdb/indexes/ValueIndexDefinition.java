@@ -36,9 +36,9 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 
 class ValueIndexDefinition implements IndexDefinition {
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setIntValue(3 * index + 1)
+                .setIntValue(3 * ordinal + 1)
                 .build();
     }
 

@@ -40,15 +40,17 @@ import java.util.List;
  */
 public interface IndexDefinition {
     /**
-     * Produce the indexable content for record {@code index}. The definition fills in only the
+     * Produce the indexable content for one generated message. The definition fills in only the
      * field(s) of the generic {@code IndexedMessage} that it indexes, with deterministic,
      * semantically relevant values (distinct/monotonic where the index requires it). The framework
      * wraps this into a {@code ScenarioRecord} with the primary key and grouping field.
      *
-     * @param index the record index (0-based)
-     * @return the indexable content for that record
+     * @param ordinal the 0-based position of the message among those generated for a scenario. It is
+     * distinct for every message, but is not necessarily the record's primary key (records of an
+     * unnested type carry several messages each).
+     * @return the indexable content for that message
      */
-    TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(int index);
+    TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(int ordinal);
 
     /**
      * Build the index under test. The {@link IndexTarget} roots the definition's value expression

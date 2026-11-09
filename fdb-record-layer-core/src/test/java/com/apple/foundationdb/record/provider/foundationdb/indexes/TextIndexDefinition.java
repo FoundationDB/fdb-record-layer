@@ -39,9 +39,9 @@ import static com.apple.foundationdb.record.IndexScanType.BY_TEXT_TOKEN;
 
 class TextIndexDefinition implements IndexDefinition {
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setStringValue("term" + index)
+                .setStringValue("term" + ordinal)
                 .build();
     }
 

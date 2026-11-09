@@ -70,13 +70,13 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 // The vector the delegate index is built over; distinct distance per record.
-                .setBytesValue(ScenarioRecords.vectorBytes(index + 1))
+                .setBytesValue(ScenarioRecords.vectorBytes(ordinal + 1))
                 // The window's ordering key. Strictly monotonic and distinct, so eviction order is
                 // fully determined and the window never has to break a tie.
-                .setLongValue(index)
+                .setLongValue(ordinal)
                 .build();
     }
 

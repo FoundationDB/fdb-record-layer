@@ -57,10 +57,10 @@ class VectorIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         // Distinct distance-to-origin per record, so distance-sorted vector scans are deterministic.
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setBytesValue(ScenarioRecords.vectorBytes(index + 1))
+                .setBytesValue(ScenarioRecords.vectorBytes(ordinal + 1))
                 .build();
     }
 

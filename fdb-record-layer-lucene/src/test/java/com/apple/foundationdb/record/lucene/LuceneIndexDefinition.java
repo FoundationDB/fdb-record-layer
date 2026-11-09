@@ -54,12 +54,12 @@ import java.util.stream.IntStream;
  */
 class LuceneIndexDefinition implements IndexDefinition {
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 // The tokenized text that the index is built over.
-                .setStringValue("term" + index)
+                .setStringValue("term" + ordinal)
                 // Not indexed here, but a partitioned variant would partition on this.
-                .setLongValue(index)
+                .setLongValue(ordinal)
                 .build();
     }
 

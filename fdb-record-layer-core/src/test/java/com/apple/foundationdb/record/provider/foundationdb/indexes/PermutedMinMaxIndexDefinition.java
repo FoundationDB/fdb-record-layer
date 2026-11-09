@@ -47,11 +47,11 @@ class PermutedMinMaxIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 .setStringValue("group")
-                .setIntValue(index)
-                .setLongValue(3L * index + 1)
+                .setIntValue(ordinal)
+                .setLongValue(3L * ordinal + 1)
                 .build();
     }
 

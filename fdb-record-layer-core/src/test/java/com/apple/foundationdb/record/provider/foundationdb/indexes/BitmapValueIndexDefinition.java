@@ -36,10 +36,10 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 
 class BitmapValueIndexDefinition implements IndexDefinition {
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         // The bit position must be a small non-negative integer.
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setIntValue(index)
+                .setIntValue(ordinal)
                 .build();
     }
 

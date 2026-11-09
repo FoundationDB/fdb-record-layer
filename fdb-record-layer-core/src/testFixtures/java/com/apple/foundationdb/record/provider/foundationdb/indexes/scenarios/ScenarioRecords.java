@@ -168,7 +168,7 @@ public final class ScenarioRecords {
 
     /**
      * Generate parent records for an unnested synthetic type: each {@code ScenarioRecord} carries two
-     * {@code IndexedMessage}s (from the definition, with distinct indices), so unnesting yields two
+     * {@code IndexedMessage}s (from the definition, with distinct ordinals), so unnesting yields two
      * synthetic records per parent, each indexed the same way as a normal record.
      *
      * @param count the number of parent records

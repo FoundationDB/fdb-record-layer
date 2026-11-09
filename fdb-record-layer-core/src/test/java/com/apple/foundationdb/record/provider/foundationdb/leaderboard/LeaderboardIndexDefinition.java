@@ -56,12 +56,12 @@ class LeaderboardIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 .addEntries(TestRecordsIndexScenariosProto.ScoreEntry.newBuilder()
-                        .setScore(100L + index)
-                        .setTimestamp(1000L + index)
-                        .setContext(index))
+                        .setScore(100L + ordinal)
+                        .setTimestamp(1000L + ordinal)
+                        .setContext(ordinal))
                 .build();
     }
 

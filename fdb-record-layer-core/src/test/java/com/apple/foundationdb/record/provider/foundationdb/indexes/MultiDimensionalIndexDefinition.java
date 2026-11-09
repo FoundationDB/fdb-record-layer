@@ -43,11 +43,11 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
 class MultiDimensionalIndexDefinition implements IndexDefinition {
     @Override
-    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
+    public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 .setStringValue("group")
-                .setLongValue(100L * index)
-                .setLongValue2(100L * index + 50L)
+                .setLongValue(100L * ordinal)
+                .setLongValue2(100L * ordinal + 50L)
                 .build();
     }
 
