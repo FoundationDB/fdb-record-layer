@@ -58,7 +58,7 @@ public final class ScenarioRecords {
     public static final String LONG_VALUE = "long_value";
     public static final String LONG_VALUE_2 = "long_value_2";
     public static final String STRING_VALUE = "string_value";
-    public static final String BYTES_VALUE = "bytes_value";
+    public static final String VECTOR = "vector";
     public static final String ENTRIES = "entries";
 
     // Field names on ScoreEntry.
@@ -75,7 +75,10 @@ public final class ScenarioRecords {
 
     /** The number of distinct groups records are spread across in grouped scenarios. */
     public static final int NUM_GROUPS = 3;
-    /** The vector dimensionality used for the VECTOR index. */
+    /**
+     * The dimensionality of the {@link #VECTOR} field. This must match the {@code dimensions} in that
+     * field's {@code vectorOptions} in the scenario proto.
+     */
     public static final int VECTOR_DIMENSIONS = 128;
 
     private ScenarioRecords() {
@@ -87,9 +90,10 @@ public final class ScenarioRecords {
     }
 
     /**
-     * Build a {@link #VECTOR_DIMENSIONS}-dimensional half-precision vector whose distance from the
-     * origin is determined solely by {@code distinctness}. Giving each record a distinct value keeps
-     * distance-sorted vector scans deterministic and free of tie-breaking ambiguity.
+     * Build a {@link #VECTOR_DIMENSIONS}-dimensional half-precision vector, for the {@link #VECTOR}
+     * field, whose distance from the origin is determined solely by {@code distinctness}. Giving each
+     * record a distinct value keeps distance-sorted vector scans deterministic and free of
+     * tie-breaking ambiguity.
      * <p>
      * This only works well for Euclidean distance. The vectors all point in the same direction, so
      * they are all the same cosine distance from any query (and are identical once normalized), and

@@ -45,7 +45,8 @@ message IndexedMessage {
   optional int64 long_value = 2;     // MULTIDIMENSIONAL dimension 1 / PERMUTED permuted column
   optional int64 long_value_2 = 3;   // MULTIDIMENSIONAL dimension 2
   optional string string_value = 4;  // TEXT / PERMUTED grouping column
-  optional bytes bytes_value = 5;    // VECTOR (raw half-float bytes)
+  // VECTOR (half-precision; dimensions must match ScenarioRecords.VECTOR_DIMENSIONS)
+  optional bytes vector = 5 [(field).vectorOptions = { precision: 16, dimensions: 128 }];
   repeated ScoreEntry entries = 6;   // LEADERBOARD source
 }
 

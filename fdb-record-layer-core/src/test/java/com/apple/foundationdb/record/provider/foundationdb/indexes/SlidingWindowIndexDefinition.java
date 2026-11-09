@@ -73,7 +73,7 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 // The vector the delegate index is built over; distinct distance per record.
-                .setBytesValue(ScenarioRecords.vectorBytes(ordinal + 1))
+                .setVector(ScenarioRecords.vectorBytes(ordinal + 1))
                 // The window's ordering key. Strictly monotonic and distinct, so eviction order is
                 // fully determined and the window never has to break a tie.
                 .setLongValue(ordinal)
@@ -84,7 +84,7 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
     public Index buildIndex(final IndexTarget target) {
         final int prefixSize = target.groupingPrefix().getColumnSize();
         final KeyExpression root = new KeyWithValueExpression(
-                target.prefixed(target.indexedField(ScenarioRecords.BYTES_VALUE)), prefixSize);
+                target.prefixed(target.indexedField(ScenarioRecords.VECTOR)), prefixSize);
         // The predicate's partition paths have to mirror the key-with-value prefix.
         final List<List<String>> partitionPaths = prefixSize > 0
                 ? ImmutableList.of(ImmutableList.of(ScenarioRecords.GROUP))

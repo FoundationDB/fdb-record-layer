@@ -60,14 +60,14 @@ class VectorIndexDefinition implements IndexDefinition {
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         // Distinct distance-to-origin per record, so distance-sorted vector scans are deterministic.
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setBytesValue(ScenarioRecords.vectorBytes(ordinal + 1))
+                .setVector(ScenarioRecords.vectorBytes(ordinal + 1))
                 .build();
     }
 
     @Override
     public Index buildIndex(final IndexTarget target) {
         final KeyExpression root = new KeyWithValueExpression(
-                target.prefixed(target.indexedField(ScenarioRecords.BYTES_VALUE)),
+                target.prefixed(target.indexedField(ScenarioRecords.VECTOR)),
                 target.groupingPrefix().getColumnSize());
         return new Index(ScenarioRecords.INDEX_NAME, root, IndexTypes.VECTOR, indexOptions);
     }
