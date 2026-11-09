@@ -34,6 +34,14 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+/**
+ * Supplies every {@link IndexScenario} registered with {@link java.util.ServiceLoader} as the argument
+ * to a {@link org.junit.jupiter.params.ParameterizedTest}, named by the scenario's simple class name.
+ * Tests normally use it through the
+ * {@link com.apple.foundationdb.record.provider.foundationdb.indexes.IndexScenarios} annotation.
+ * A test that builds its own parameters, such as a cartesian product of scenarios and index
+ * configurations, can use {@link #getScenarios()} directly.
+ */
 public class IndexScenariosArgumentsProvider implements ArgumentsProvider {
     private static final Supplier<List<IndexScenario>> scenarios = Suppliers.memoize(() -> {
         final List<IndexScenario> builder = new ArrayList<>();

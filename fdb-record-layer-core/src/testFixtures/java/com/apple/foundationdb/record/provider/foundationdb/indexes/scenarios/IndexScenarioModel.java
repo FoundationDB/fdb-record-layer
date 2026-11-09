@@ -40,6 +40,17 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * The store and index operations a {@link IndexScenario} is built from, for one {@link IndexDefinition}
+ * in one configuration (ungrouped, grouped, or over a synthetic record type).
+ * <p>
+ * The model builds the metadata for its configuration, generates matching records, and runs each
+ * operation in its own transaction. It applies the definition's hooks so that scenarios do not have
+ * to: {@link IndexDefinition#setupIndex} is run when the model is created, and
+ * {@link IndexDefinition#configureStore} on every store it opens. Scan results should be compared
+ * with {@link #assertScanResultsEqual} and {@link #assertScanResultsNotEqual}, so that index types
+ * that cannot use exact list equality can relax the comparison.
+ */
 public final class IndexScenarioModel {
     private enum RecordSource {
         SCENARIO, JOINED_CONSTITUENTS, UNNESTED_PARENTS
