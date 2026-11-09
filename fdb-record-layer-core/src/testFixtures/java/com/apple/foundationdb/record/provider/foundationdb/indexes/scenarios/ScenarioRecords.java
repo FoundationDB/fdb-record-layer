@@ -129,8 +129,8 @@ public final class ScenarioRecords {
 
     /**
      * Generate records that produce no entry in any index under test: they are of a different record
-     * type ({@code OtherScenarioRecord}), so writing them touches no index under test. Used to give a
-     * transaction writes without touching the index (see {@code SnapshotScan}).
+     * type ({@code OtherScenarioRecord}), so writing them touches no index under test. Useful for
+     * giving a transaction writes that do not touch the index.
      *
      * @param count the number of records
      * @return the generated records
