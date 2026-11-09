@@ -26,8 +26,8 @@ option java_outer_classname = "TestRecordsIndexScenariosProto";
 
 import "record_metadata_options.proto";
 
-// A repeated, nested message. Used both as the source for unnested synthetic record types and to
-// carry per-entry (score, timestamp) data for time-window leaderboard indexes.
+// A repeated, nested message carrying per-entry (score, timestamp) data for time-window leaderboard
+// indexes.
 message ScoreEntry {
   option (com.apple.foundationdb.record.record).usage = NESTED;
   optional int64 score = 1;
@@ -46,7 +46,7 @@ message IndexedMessage {
   optional int64 long_value_2 = 3;   // MULTIDIMENSIONAL dimension 2
   optional string string_value = 4;  // TEXT / PERMUTED grouping column
   optional bytes bytes_value = 5;    // VECTOR (raw half-float bytes)
-  repeated ScoreEntry entries = 6;   // LEADERBOARD source + unnested synthetic constituent
+  repeated ScoreEntry entries = 6;   // LEADERBOARD source
 }
 
 // The key indexable record used by the scenario framework. The framework owns rec_no (primary key)
