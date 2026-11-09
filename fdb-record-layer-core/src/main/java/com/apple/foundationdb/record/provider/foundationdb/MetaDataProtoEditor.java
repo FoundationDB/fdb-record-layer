@@ -669,7 +669,8 @@ public class MetaDataProtoEditor {
      *     record type, or, if the type has {@code RECORD} usage, by any other record type. The latter includes a record
      *     type imported from a dependency file and a record type that is backed by a message type nested within another
      *     message type.
-     * <li>A type other than the union would be renamed to the default union name, or is itself named that way.
+     * <li>The type is not the union, and either its current name or {@code newRecordTypeName} is the default union
+     *     name. (The union itself can be renamed freely, including to or from the default name.)
      * <li>The union already has a field under the new canonical union field name {@code _newRecordTypeName}.
      * <li>The records descriptor has no union message type, or the union message type declares nested types.
      * <li>A non-parent unnested record type constituent uses the type or one of its nested types, or names a type
