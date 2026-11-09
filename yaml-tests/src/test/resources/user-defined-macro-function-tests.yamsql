@@ -323,12 +323,12 @@ test_block:
       - unorderedResult: [{ {y: !l 1, z: !l 2} }]
     -
       - query: select temp_z(r) from nested
-      - supported_version: !current_version
+      - supported_version: 4.18.4.0
       - setup: create temporary function temp_z(IN r TYPE st3) returns bigint on commit drop function return r.v.z
       - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
     -
       - query: select temp_constructor(r.u.w) from nested where id = 1
-      - supported_version: !current_version
+      - supported_version: 4.18.4.0
       - setup: create temporary function temp_constructor(IN x bigint) returns st1 on commit drop function return (x, 5L)
       - unorderedResult: [{ {y: !l 5, z: !l 5} }]
     -
@@ -377,12 +377,12 @@ test_block:
       - error: UNDEFINED_COLUMN
     -
       - query: select st4_a((1l, 2l)) from range(1, 2)
-      - supported_version: !current_version
+      - supported_version: 4.18.4.0
       - setup: create temporary function st4_a(IN x TYPE st4) returns bigint on commit drop function return x.a
       - result: [ { !l 1 } ]
     -
       - query: select red_color() from range(1, 2)
-      - supported_version: !current_version
+      - supported_version: 4.18.4.0
       - setup: create temporary function red_color() returns color on commit drop function return 'red'
       - explain: "TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('red' AS ENUM<red(0), green(1), blue(2)>) AS _0)"
       - resultMetadata: [{_0: OTHER}]
@@ -392,13 +392,13 @@ test_block:
       - unorderedResult: [ { !l 100 } ]
     -
       - query: select temp_z(((5l, 11l), (10l, 100l))) as temp_z, temp_z_2(((5l, 11l), (10l, 100l))) as temp_z_2 from range(1, 2)
-      - supported_version: !current_version
+      - supported_version: 4.18.4.0
       - setup: create temporary function temp_z(IN r TYPE st3) returns bigint on commit drop function return r.v.z
       - setup: create temporary function temp_z_2(IN r TYPE st3) returns bigint on commit drop function return r.v.z
       - unorderedResult: [ { temp_z: !l 100, temp_z_2: !l 100 } ]
     -
       - query: select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))
-      - supported_version: !current_version
+      - supported_version: 4.18.4.0
       - explain: "SCAN([IS NESTED]) | FILTER _.R.V.Z EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z | MAP (_.ID AS ID)"
       - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}]
     -
