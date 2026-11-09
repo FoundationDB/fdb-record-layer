@@ -33,6 +33,7 @@ import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -88,6 +89,12 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     public List<C> getConstituents() {
         return constituents;
     }
+
+    /**
+     * {@return the stored record types of the constituents of this type}
+     */
+    @Nonnull
+    public abstract Set<RecordType> getStoredRecordTypes();
 
     @Override
     public boolean isSynthetic() {

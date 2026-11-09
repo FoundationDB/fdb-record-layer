@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsImportWithTupleFieldsProto;
 import com.apple.foundationdb.record.TestRecordsMarkedUnmarkedProto;
+import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TestRecordsNoPrimaryKeyProto;
 import com.apple.foundationdb.record.TestRecordsUnionMissingRecordProto;
 import com.apple.foundationdb.record.TestRecordsUnionWithImportedNestedProto;
@@ -66,9 +67,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -808,6 +811,57 @@ public class RecordMetaDataBuilderTest {
                         .setSubspaceKeyCounter(5)
                         .build()));
         assertEquals("Error converting from protobuf", e.getMessage());
+    }
+
+    @Test
+    void storedRecordTypesOfSyntheticRecordTypes() {
+        final RecordMetaData metaData = syntheticRecordTypesMetaData();
+
+        final RecordType outer = metaData.getRecordType("OuterRecord");
+        final RecordType other = metaData.getRecordType("OtherRecord");
+        assertEquals(Set.of(outer, other), metaData.getSyntheticRecordType("OuterOtherJoined").getStoredRecordTypes());
+        // A type joined to itself is a single stored type.
+        assertEquals(Set.of(outer), metaData.getSyntheticRecordType("SelfJoined").getStoredRecordTypes());
+        // The nested constituent is a message within the parent, not a stored type.
+        assertEquals(Set.of(outer), metaData.getSyntheticRecordType("UnnestedMap").getStoredRecordTypes());
+    }
+
+    @Test
+    void syntheticRecordTypesFromStoredRecordTypes() {
+        final RecordMetaData metaData = syntheticRecordTypesMetaData();
+
+        final RecordType outer = metaData.getRecordType("OuterRecord");
+        final RecordType other = metaData.getRecordType("OtherRecord");
+        assertEquals(Set.of("OuterOtherJoined", "SelfJoined", "UnnestedMap"),
+                syntheticRecordTypeNames(metaData.getSyntheticRecordTypesFromRecordTypes(Set.of(outer, other))));
+        assertEquals(Set.of("SelfJoined", "UnnestedMap"),
+                syntheticRecordTypeNames(metaData.getSyntheticRecordTypesFromRecordTypes(Set.of(outer))));
+        assertEquals(Set.of(),
+                syntheticRecordTypeNames(metaData.getSyntheticRecordTypesFromRecordTypes(Set.of(other))));
+    }
+
+    @Nonnull
+    private static RecordMetaData syntheticRecordTypesMetaData() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsNestedMapProto.getDescriptor());
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("OuterOtherJoined");
+        joined.addConstituent("outer", "OuterRecord");
+        joined.addConstituent("other", "OtherRecord");
+        joined.addJoin("outer", field("other_id"), "other", field("other_id"));
+        final JoinedRecordTypeBuilder selfJoined = metaDataBuilder.addJoinedRecordType("SelfJoined");
+        selfJoined.addConstituent("first", "OuterRecord");
+        selfJoined.addConstituent("second", "OuterRecord");
+        selfJoined.addJoin("first", field("other_id"), "second", field("rec_id"));
+        final UnnestedRecordTypeBuilder unnested = metaDataBuilder.addUnnestedRecordType("UnnestedMap");
+        unnested.addParentConstituent("parent", metaDataBuilder.getRecordType("OuterRecord"));
+        unnested.addNestedConstituent("entry", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
+                "parent", field("map").nest(field("entry", KeyExpression.FanType.FanOut)));
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private static Set<String> syntheticRecordTypeNames(@Nonnull final Collection<SyntheticRecordType<?>> syntheticRecordTypes) {
+        return syntheticRecordTypes.stream().map(RecordType::getName).collect(Collectors.toSet());
     }
 
     @Test

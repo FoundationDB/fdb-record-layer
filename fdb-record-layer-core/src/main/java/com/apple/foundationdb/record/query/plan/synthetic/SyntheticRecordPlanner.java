@@ -164,8 +164,7 @@ public class SyntheticRecordPlanner {
         if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
-        UnnestedRecordType.NestedConstituent parentConstituent = unnestedRecordType.getParentConstituent();
-        return new UnnestStoredRecordPlan(unnestedRecordType, parentConstituent.getRecordType());
+        return new UnnestStoredRecordPlan(unnestedRecordType);
     }
 
     /**
