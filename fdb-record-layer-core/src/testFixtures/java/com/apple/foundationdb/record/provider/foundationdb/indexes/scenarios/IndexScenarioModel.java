@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The store and index operations a {@link IndexScenario} is built from, for one {@link IndexDefinition}
+ * The store and index operations an {@link IndexScenario} is built from, for one {@link IndexDefinition}
  * in one configuration, chosen by the factory that creates it: {@link #ungrouped}, {@link #grouped},
  * or {@link #synthetic} (over a joined or unnested record type).
  *
