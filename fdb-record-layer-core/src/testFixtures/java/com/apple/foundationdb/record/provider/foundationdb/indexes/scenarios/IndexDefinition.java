@@ -100,14 +100,15 @@ public interface IndexDefinition {
     }
 
     /**
-     * Whether the {@code SnapshotScan} scenario applies to this index. That scenario materializes a
-     * snapshot-isolation scan, then commits index-changing records from another transaction while the
-     * scanning transaction writes (non-indexed) records of its own, and asserts the snapshot scan was
-     * unaffected. It relies on the scan honouring the requested isolation level, so that it adds no
-     * read-conflict ranges and the scanning transaction can still commit. Return {@code false}, with
-     * the reason documented, for index types whose scan always reads at serializable isolation.
+     * Whether the index maintainer's scans honour a requested
+     * {@link com.apple.foundationdb.record.IsolationLevel#SNAPSHOT} isolation level. Such a scan
+     * performs only snapshot reads, and so adds no read-conflict ranges: another transaction can commit
+     * changes to the index while the scan is in progress without causing the scanning transaction to
+     * fail to commit. Return {@code false}, with the reason documented, for index types whose scans
+     * always read at serializable isolation. For example, a Lucene scan reads the index's directory
+     * metadata through ordinary (non-snapshot) reads whatever isolation level is requested.
      *
-     * @return {@code true} if the {@code SnapshotScan} scenario applies to this index
+     * @return {@code true} if a snapshot-isolation scan of this index takes no read conflicts
      */
     default boolean supportsSnapshotIsolation() {
         return true;
