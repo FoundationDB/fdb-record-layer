@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -364,6 +365,21 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Override
     public QueryPlanConstraint getConstraint() {
         return constraint;
+    }
+
+    @Nonnull
+    @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        return indexPlan.getComparisons();
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(indexPlan.getDynamicTypes())
+                .build();
     }
 
     @Nonnull

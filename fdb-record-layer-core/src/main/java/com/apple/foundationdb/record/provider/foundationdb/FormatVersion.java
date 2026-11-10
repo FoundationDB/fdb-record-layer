@@ -195,9 +195,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     }
 
     /**
-     * The minimum {@code FormatVersion}.
-     *
-     * @return the minimum {@code FormatVersion}
+     * {@return the minimum {@code FormatVersion}}
      */
     static FormatVersion getMinimumVersion() {
         return INFO_ADDED;

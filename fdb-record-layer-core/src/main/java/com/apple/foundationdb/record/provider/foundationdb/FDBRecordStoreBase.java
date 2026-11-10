@@ -146,9 +146,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
-     * Get the record context (transaction) to use for the record store.
-     *
-     * @return context the record context / transaction to use
+     * {@return the record context (transaction) to use for the record store}
      */
     @Nonnull
     FDBRecordContext getContext();
@@ -2347,9 +2345,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         BaseBuilder<M, R> setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore);
 
         /**
-         * Get the record context (transaction) to use for the record store.
-         *
-         * @return context the record context / transaction to use
+         * {@return the record context (transaction) to use for the record store}
          */
         @Nullable
         FDBRecordContext getContext();

@@ -95,9 +95,7 @@ public abstract class DataType {
     }
 
     /**
-     * Returns the {@link Code} of the type.
-     *
-     * @return The {@link Code} of the type.
+     * {@return the {@link Code} of the type}
      */
     @Nonnull
     public Code getCode() {
@@ -139,10 +137,9 @@ public abstract class DataType {
     public abstract boolean isResolved();
 
     /**
-     * Returns a new instance of {@code this} type with {@code nullable} field set accordingly.
+     * {@return a new instance of {@code this} type with {@code nullable} field set accordingly}
      *
      * @param isNullable the nullable flag of the newly created {@link DataType} instance.
-     * @return a new instance of {@code this} type with {@code nullable} field set accordingly.
      */
     @Nonnull
     public abstract DataType withNullable(boolean isNullable);

@@ -115,9 +115,7 @@ public class Insert {
     }
 
     /**
-     * Get the configuration of this hnsw.
-     *
-     * @return hnsw configuration
+     * {@return the configuration of this hnsw}
      */
     @Nonnull
     public Config getConfig() {

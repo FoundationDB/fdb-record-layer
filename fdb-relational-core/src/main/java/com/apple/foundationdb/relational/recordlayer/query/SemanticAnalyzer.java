@@ -66,8 +66,6 @@ import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGen
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -87,9 +85,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -383,7 +382,7 @@ public class SemanticAnalyzer {
         final var duplicates = StreamSupport.stream(orderBys.spliterator(), false)
                 .map(OrderByExpression::getExpression)
                 .flatMap(expr -> expr.getName().stream())
-                .collect(Collectors.groupingBy(Functions.identity(), Collectors.counting()))
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
                 .entrySet()
                 .stream()
                 .filter(p -> p.getValue() > 1)
@@ -1208,7 +1207,8 @@ public class SemanticAnalyzer {
         if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
             return;
         }
-        // combine the expanded function's literals (if any) with the currently built list of query literals.
+        // combine the expanded function's literals (if any) with the currently built list of query literals. Value-free
+        // literals ride in the same table, so a typed parameter planned with no value is carried across too.
         mutablePlanGenerationContext.importAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
                 WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
     }

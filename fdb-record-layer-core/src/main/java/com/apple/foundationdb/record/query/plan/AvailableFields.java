@@ -115,11 +115,11 @@ public class AvailableFields {
         return builder;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     /**
      * Get the fields that are available from just the index scan part of an index plan.
      */
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
     public static AvailableFields fromIndex(@Nonnull final RecordType recordType,
                                             @Nonnull final Index index,
                                             @Nonnull final PlannableIndexTypes indexTypes,

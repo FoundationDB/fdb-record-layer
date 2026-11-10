@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialV
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -136,6 +137,15 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RelationalExpressionWithPredicates.super.dynamicTypesFromPredicates())
+                .build();
     }
 
     public boolean hasPredicates() {

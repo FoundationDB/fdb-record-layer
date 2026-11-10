@@ -71,7 +71,8 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         super(r, executor);
     }
 
-    /** Lower-level search API.
+    /**
+     * Lower-level search API.
      *
      * <p>{@link LeafCollector#collect(int)} is called for every matching document.
      *

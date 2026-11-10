@@ -250,7 +250,36 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid storedQueryParameterList? storedQueryPreparedCases? declareBlock? AS storedQuery=query
+    ;
+
+storedQueryParameterList
+    : '(' (storedQueryParameter (',' storedQueryParameter)*)? ')'
+    ;
+
+storedQueryParameter
+    : parameterName=uid storedQueryParameterType
+    ;
+
+// A declared parameter's type, as written after the parameter name. Its own rule so that the persisted form of a type
+// is parsed by the very rule that accepted it, rather than by a second copy of the same syntax that could drift.
+// Parsed on its own when a declared type has to be resolved from metadata rather than from a statement being planned;
+// QueryParser checks there that nothing follows it.
+storedQueryParameterType
+    : parameterType=functionColumnType nullNotnull?
+    ;
+
+storedQueryPreparedCases
+    : PREPARE FOR storedQueryPreparedCase (',' storedQueryPreparedCase)*
+    ;
+
+storedQueryPreparedCase
+    : '(' storedQueryParameterState (',' storedQueryParameterState)* ')'
+    ;
+
+storedQueryParameterState
+    : parameterName=uid IS nullNotnull
+    | parameterName=uid EQUAL_SYMBOL booleanLiteral
     ;
 
 declareBlock

@@ -28,9 +28,7 @@ import javax.annotation.Nonnull;
 public interface Column extends Metadata {
 
     /**
-     * Returns the {@link DataType} of the column.
-     *
-     * @return The {@link DataType} of the column.
+     * {@return the {@link DataType} of the column}
      */
     DataType getDataType();
 

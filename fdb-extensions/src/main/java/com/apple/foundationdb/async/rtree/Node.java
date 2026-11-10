@@ -55,9 +55,7 @@ public interface Node {
     byte[] getId();
 
     /**
-     * Return the number of used slots of this node.
-     *
-     * @return the number of used slots
+     * {@return the number of used slots of this node}
      */
     int size();
 

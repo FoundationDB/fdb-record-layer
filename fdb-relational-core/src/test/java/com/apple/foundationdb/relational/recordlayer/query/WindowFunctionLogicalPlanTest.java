@@ -139,7 +139,7 @@ class WindowFunctionLogicalPlanTest {
     @Nonnull
     private static List<String> columnsOf(@Nonnull final List<? extends Value> values) {
         return values.stream()
-                .map(value -> Iterables.getLast(((FieldValue)value).getFieldPathNames()))
+                .map(value -> Iterables.getLast(((FieldValue)value).getFieldPathStorageNames()))
                 .collect(ImmutableList.toImmutableList());
     }
 

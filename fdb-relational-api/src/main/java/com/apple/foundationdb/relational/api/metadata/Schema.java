@@ -41,17 +41,14 @@ public interface Schema extends Metadata {
     SchemaTemplate getSchemaTemplate();
 
     /**
-     * Returns the ID of the database which {@code this} {@link Schema} belong to.
-     *
-     * @return The ID of the database which {@code this} {@link Schema} belong to.
+     * {@return the ID of the database which {@code this} {@link Schema} belong to}
      */
     @Nonnull
     String getDatabaseName();
 
     /**
-     * Returns the tables inside the {@code Schema}.
+     * {@return the tables inside the {@code Schema}}
      *
-     * @return The tables inside the {@code Schema}.
      * @throws RelationalException if the schema template is NoOpSchemaTemplate
      */
     @Nonnull
@@ -60,9 +57,8 @@ public interface Schema extends Metadata {
     }
 
     /**
-     * Returns the views inside the {@code Schema}.
+     * {@return the views inside the {@code Schema}}
      *
-     * @return The views inside the {@code Schema}.
      * @throws RelationalException if the schema template is NoOpSchemaTemplate
      */
     @Nonnull
@@ -82,9 +78,8 @@ public interface Schema extends Metadata {
     }
 
     /**
-     * Returns all {@link InvokedRoutine}s defined in this schema.
+     * {@return a set of all {@link InvokedRoutine}s defined in this schema}
      *
-     * @return A set of all {@link InvokedRoutine}s defined in this schema.
      * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
      */
     @Nonnull

@@ -219,9 +219,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Get tags used for throttling.
-     *
-     * @return throttling tags
+     * {@return the tags used for throttling}
      */
     @Nonnull
     public Set<String> getTags() {
@@ -345,9 +343,8 @@ public class FDBRecordContextConfig {
         }
 
         /**
-         * Get the MDC context.
+         * {@return the MDC context}
          *
-         * @return the MDC context
          * @see FDBRecordContextConfig#getMdcContext()
          */
         @Nullable
@@ -459,9 +456,8 @@ public class FDBRecordContextConfig {
         }
 
         /**
-         * Get the ID to use for the transaction within FDB logs.
+         * {@return the ID to use for the transaction within FDB logs}
          *
-         * @return the ID to use for the transaction within FDB logs
          * @see FDBRecordContextConfig#getTransactionId()
          */
         @Nullable
@@ -654,9 +650,7 @@ public class FDBRecordContextConfig {
         }
 
         /**
-         * Get tags used for throttling.
-         *
-         * @return throttling tags
+         * {@return throttling tags}
          */
         @Nonnull
         public Set<String> getTags() {

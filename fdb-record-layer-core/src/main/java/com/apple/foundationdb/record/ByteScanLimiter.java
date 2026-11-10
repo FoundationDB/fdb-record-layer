@@ -70,9 +70,7 @@ public interface ByteScanLimiter {
     long getLimit();
 
     /**
-     * Returns the number of bytes that have been scanned thus far.
-     *
-     * @return the number of bytes that have been scanned
+     * {@return the number of bytes that have been scanned thus far}
      */
     long getBytesScanned();
 }

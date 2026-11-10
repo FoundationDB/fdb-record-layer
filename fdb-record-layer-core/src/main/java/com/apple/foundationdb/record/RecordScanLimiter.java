@@ -62,9 +62,7 @@ public interface RecordScanLimiter {
     int getLimit();
 
     /**
-     * Returns the number of records that have been scanned thus far.
-     *
-     * @return the number of records that have been scanned
+     * {@return the number of records that have been scanned thus far}
      */
     int getRecordsScanned();
 }

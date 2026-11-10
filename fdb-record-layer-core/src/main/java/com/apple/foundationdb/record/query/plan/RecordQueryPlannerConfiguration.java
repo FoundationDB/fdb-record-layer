@@ -302,9 +302,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
-     * Returns the set of disabled transformation rules.
-     *
-     * @return set of disabled transformation rules.
+     * {@return the set of disabled transformation rules}
      */
     @Nonnull
     public Set<String> getDisabledTransformationRules() {

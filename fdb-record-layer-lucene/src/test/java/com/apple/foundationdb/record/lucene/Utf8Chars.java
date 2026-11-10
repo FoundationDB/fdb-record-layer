@@ -69,9 +69,7 @@ public class Utf8Chars {
     }
 
     /**
-     * Get tokenizable Greek and Coptic UTF-8 characters.
-     *
-     * @return Greek and Coptic UTF-8 characters that we expect to be tokenizable.
+     * {@return Greek and Coptic UTF-8 characters that we expect to be tokenizable}
      */
     public static Stream<String> getGreekChars() {
         return Stream.iterate(0x0370, cp -> cp < 0x03FF, cp -> cp + 1)
@@ -83,9 +81,7 @@ public class Utf8Chars {
     }
 
     /**
-     * Get tokenizable Cyrillic UTF-8 characters.
-     *
-     * @return Cyrillic UTF-8 characters that we expect to be tokenizable.
+     * {@return Cyrillic UTF-8 characters that we expect to be tokenizable}
      */
     public static Stream<String> getCyrillicChars() {
         return Stream.iterate(0x0400, cp -> cp < 0x04FF, cp -> cp + 1)

@@ -86,7 +86,8 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
         STOP
     }
 
-    /** The result of {@link #load}.
+    /**
+     * The result of {@link #load}.
      *
      * @param <K> the type of key
      */

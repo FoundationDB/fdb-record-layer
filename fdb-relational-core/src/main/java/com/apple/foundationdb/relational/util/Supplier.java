@@ -27,9 +27,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 public interface Supplier<T> {
 
     /**
-     * Gets a result.
+     * {@return a result}
      *
-     * @return a result
      * @throws RelationalException if something goes wrong
      */
     T get() throws RelationalException;

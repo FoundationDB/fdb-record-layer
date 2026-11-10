@@ -83,9 +83,7 @@ public class QueryPlanInfo {
     }
 
     /**
-     * Return TRUE if the info set is empty.
-     *
-     * @return TRUE if the info set is empty
+     * {@return {@code true} if the info set is empty}
      */
     public boolean isEmpty() {
         return info.isEmpty();

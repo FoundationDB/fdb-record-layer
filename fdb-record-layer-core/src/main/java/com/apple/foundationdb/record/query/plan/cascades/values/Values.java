@@ -142,10 +142,6 @@ public class Values {
      * <li>The result type must match the underlying record's type</li>
      * </ul>
      *
-     * <p>Note that this method will still return the underlying record value even if it contains more fields than the
-     * record. This is considered to be fine as it does not influence the semantics of any {@code Value} operating on
-     * top of the record, because any invisible fields to an upper {@code Value} remain invisible.
-     *
      * @param recordConstructorValue the record constructor to potentially collapse
      * @return an {@link Optional} containing the underlying record value if collapse is possible,
      *         or {@link Optional#empty()} if the record constructor cannot be simplified

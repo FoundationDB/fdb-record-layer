@@ -64,6 +64,12 @@ public class ColumnarValue implements Value {
 
     @Nonnull
     @Override
+    public Set<Type> getDynamicTypes() {
+        return inner.getDynamicTypes();
+    }
+
+    @Nonnull
+    @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return inner.explain(explainSuppliers);
     }

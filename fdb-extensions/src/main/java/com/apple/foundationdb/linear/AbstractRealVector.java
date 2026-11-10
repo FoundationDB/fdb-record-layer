@@ -75,9 +75,7 @@ public abstract class AbstractRealVector implements RealVector {
     }
 
     /**
-     * Returns the number of elements in the vector.
-     *
-     * @return the number of elements
+     * {@return the number of elements in the vector}
      */
     @Override
     public int getNumDimensions() {

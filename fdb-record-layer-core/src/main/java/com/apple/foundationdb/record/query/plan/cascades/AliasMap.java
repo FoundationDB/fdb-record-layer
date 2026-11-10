@@ -280,9 +280,7 @@ public class AliasMap {
     }
 
     /**
-     * Returns the set of entries in this map.
-     *
-     * @return the set of entries
+     * {@return the set of entries in this map}
      */
     @Nonnull
     public Set<Map.Entry<CorrelationIdentifier, CorrelationIdentifier>> entrySet() {
@@ -302,9 +300,7 @@ public class AliasMap {
     }
 
     /**
-     * Returns the inverse of this {@link AliasMap}.
-     *
-     * @return The inverse of this {@link AliasMap}.
+     * {@return the inverse of this {@link AliasMap}}
      */
     @Nonnull
     public AliasMap inverse() {

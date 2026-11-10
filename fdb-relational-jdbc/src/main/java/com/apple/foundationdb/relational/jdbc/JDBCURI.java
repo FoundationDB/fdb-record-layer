@@ -58,11 +58,10 @@ public final class JDBCURI {
     }
 
     /**
-     * Return first value in the values list.
+     * {@return the first value in the values list or null if no values found}
      *
      * @param key Key to use looking up values list.
      * @param map Map to search.
-     * @return First value in values list or null if no values found.
      */
     public static String getFirstValue(String key, Map<String, List<String>> map) {
         List<String> values = map.get(key);

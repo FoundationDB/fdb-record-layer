@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
@@ -98,6 +99,15 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RelationalExpressionWithPredicates.super.dynamicTypesFromPredicates())
+                .build();
     }
 
     @Nonnull

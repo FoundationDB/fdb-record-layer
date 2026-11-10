@@ -172,10 +172,10 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
-        final var dynamicTypesBuilder = ImmutableSet.<Type>builder();
-
-        dynamicTypesBuilder.addAll(computationValue.getDynamicTypes());
+    protected Set<Type> computeDynamicTypes() {
+        final var dynamicTypesBuilder = ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(computationValue.getDynamicTypes());
 
         if (transformationsTrie != null) {
             transformationsTrie.values()

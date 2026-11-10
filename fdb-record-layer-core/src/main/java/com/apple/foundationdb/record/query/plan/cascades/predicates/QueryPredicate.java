@@ -193,10 +193,9 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     /**
-     * Return a {@link PredicateCompensation} that reapplies this predicate.
+     * {@return a new {@link PredicateCompensation} that reapplies this predicate}
      *
      * @param originalQueryPredicate the original query predicate that was used to create this predicate
-     * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
     @Nonnull
     default PredicateCompensation getDefaultPredicateCompensation(@Nonnull final QueryPredicate originalQueryPredicate) {

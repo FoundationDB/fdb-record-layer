@@ -245,10 +245,9 @@ public class FloatRealVector extends AbstractRealVector {
     }
 
     /**
-     * Returns a vector whose components are all zero.
+     * {@return a vector whose components are all zero}
      *
      * @param numDimensions number of dimensions
-     * @return a vector whose components are all zero
      */
     @Nonnull
     public static FloatRealVector zeroVector(final int numDimensions) {

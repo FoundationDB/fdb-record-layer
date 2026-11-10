@@ -59,9 +59,7 @@ interface NodeFactory<N extends NodeReference> {
                            @Nullable Tuple additionalValues, @Nonnull List<? extends NodeReference> neighbors);
 
     /**
-     * Gets the kind of this node.
-     *
-     * @return the kind of this node, never {@code null}.
+     * {@return the kind of this node}
      */
     @Nonnull
     NodeKind getNodeKind();

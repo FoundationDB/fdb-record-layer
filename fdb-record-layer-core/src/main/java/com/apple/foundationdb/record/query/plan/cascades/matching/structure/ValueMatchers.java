@@ -142,7 +142,7 @@ public class ValueMatchers {
                         downstreamValue);
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
                 typedWithDownstream(FieldValue.class,
-                        Extractor.of(FieldValue::getFieldPathNames, name -> "fieldPathNames(" + name + ")"),
+                        Extractor.of(FieldValue::getFieldPathStorageNames, name -> "fieldPathNames(" + name + ")"),
                         downstreamFieldPath);
 
         return typedWithDownstream(FieldValue.class,
@@ -160,7 +160,7 @@ public class ValueMatchers {
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
                 typedWithDownstream(FieldValue.class,
                         Extractor.of(fieldValue -> {
-                            final var fieldPathNames = fieldValue.getFieldPathNames();
+                            final var fieldPathNames = fieldValue.getFieldPathStorageNames();
                             return fieldPathNames.get(fieldPathNames.size() - 1);
                         }, name -> "fieldPathNames(" + name + ")"),
                         downstreamFieldNameMatcher);

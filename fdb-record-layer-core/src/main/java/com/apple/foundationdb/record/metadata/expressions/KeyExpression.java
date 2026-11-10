@@ -306,9 +306,7 @@ public interface KeyExpression extends PlanHashable {
     }
 
     /**
-     * Returns the number of version columns produced by this key expression.
-     *
-     * @return the number of version columns
+     * {@return the number of version columns produced by this key expression}
      */
     default int versionColumns() {
         return 0;

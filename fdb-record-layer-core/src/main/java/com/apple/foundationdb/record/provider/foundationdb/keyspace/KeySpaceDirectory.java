@@ -435,10 +435,9 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Retrieves a subdirectory.
+     * {@return the subdirectory with the specified <code>name</code>}
      *
      * @param name the name of the subdirectory to return
-     * @return the subdirectory with the specified <code>name</code>
      * @throws NoSuchDirectoryException if the directory does not exist
      */
     @Nonnull
@@ -717,9 +716,7 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Returns this directory's parent.
-     *
-     * @return this directory's parent, or {@code null} if there is no parent
+     * {@return this directory's parent, or {@code null} if there is no parent}
      */
     @Nullable
     public KeySpaceDirectory getParent() {

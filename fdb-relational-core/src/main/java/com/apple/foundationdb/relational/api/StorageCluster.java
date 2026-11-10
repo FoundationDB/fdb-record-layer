@@ -53,9 +53,7 @@ public interface StorageCluster {
                                   @Nonnull Options connOptions) throws RelationalException;
 
     /**
-     * Get the transaction manager for this cluster.
-     *
-     * @return the transaction manager for this cluster;
+     * {@return the transaction manager for this cluster}
      */
     TransactionManager getTransactionManager();
 }

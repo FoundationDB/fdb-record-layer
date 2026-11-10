@@ -121,9 +121,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
     }
 
     /**
-     * Get the version of the server.
-     *
-     * @return the version of the server being run.
+     * {@return the version of the server being run}
      */
     public SemanticVersion getVersion() {
         return version;

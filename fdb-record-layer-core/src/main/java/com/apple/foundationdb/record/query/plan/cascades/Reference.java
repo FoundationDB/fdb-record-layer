@@ -230,9 +230,8 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * Return the {@link RecordQueryPlan} contained in this reference.
+     * {@return the {@link RecordQueryPlan} contained in this reference}
      *
-     * @return the {@link RecordQueryPlan} contained in this reference
      * @throws UngettableReferenceException if the reference does not support retrieving its expression
      * @throws ClassCastException if the only member of this reference is not a {@link RecordQueryPlan}
      */

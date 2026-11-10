@@ -99,9 +99,7 @@ public final class Locator {
     }
 
     /**
-     * Get this hnsw's configuration.
-     *
-     * @return hnsw configuration
+     * {@return this hnsw's configuration}
      */
     @Nonnull
     public Config getConfig() {

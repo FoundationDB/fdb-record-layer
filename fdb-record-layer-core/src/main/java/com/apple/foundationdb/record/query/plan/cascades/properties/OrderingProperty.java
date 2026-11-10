@@ -181,7 +181,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                                 }
 
                                 final var fieldValue = (FieldValue)valuePredicate.getValue();
-                                if (fieldValue.getFieldPathNamesMaybe()
+                                if (fieldValue.getFieldPathStorageNamesMaybe()
                                         .stream()
                                         .anyMatch(Optional::isEmpty)) {
                                     return Stream.empty();

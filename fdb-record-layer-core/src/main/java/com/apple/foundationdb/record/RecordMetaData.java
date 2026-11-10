@@ -36,8 +36,14 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -49,8 +55,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -83,6 +91,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
+    private final Supplier<Set<Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsSupplier;
+    @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, View> viewMap;
@@ -104,7 +114,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesLocalRecordsDescriptor;
     private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
-    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = {
+    static final Descriptors.FileDescriptor[] defaultExcludedProtoDependencies = {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
     };
 
@@ -159,6 +169,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
+        this.nonRecordTypeDescriptorsSupplier = Suppliers.memoize(() -> computeNonRecordTypeDescriptorsMap(unionDescriptor, unionFields));
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -170,6 +181,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.recordCountKey = recordCountKey;
         this.usesLocalRecordsDescriptor = usesLocalRecordsDescriptor;
         this.recordTypesForIndex = new ConcurrentHashMap<>();
+    }
+
+    @Nonnull
+    private static Set<Descriptors.GenericDescriptor> computeNonRecordTypeDescriptorsMap(
+            @Nonnull Descriptors.Descriptor unionDescriptor,
+            @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields) {
+        return ProtoUtils.getTypeDescriptorsInFile(
+                unionDescriptor.getFile(),
+                ImmutableSet.copyOf(defaultExcludedProtoDependencies),
+                Sets.union(ImmutableSet.of(unionDescriptor), unionFields.keySet()));
     }
 
     /**
@@ -258,6 +279,27 @@ public class RecordMetaData implements RecordMetaDataProvider {
             throw new MetaDataException("Unknown synthetic record type " + name);
         }
         return recordType;
+    }
+
+    /**
+     * Get the synthetic record types whose records are all generated from records of the given stored record types.
+     * That is the case if every stored constituent of the synthetic record type is of one of the given types.
+     *
+     * @param recordTypes the stored record types records are read from
+     * @return the synthetic record types whose records are all generated from records of {@code recordTypes}
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public List<SyntheticRecordType<?>> getSyntheticRecordTypesFromRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        final List<SyntheticRecordType<?>> result = new ArrayList<>();
+        for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
+            final Set<RecordType> storedRecordTypes = syntheticRecordType.getStoredRecordTypes();
+            Verify.verify(!storedRecordTypes.isEmpty());
+            if (recordTypes.containsAll(storedRecordTypes)) {
+                result.add(syntheticRecordType);
+            }
+        }
+        return result;
     }
 
     @Nonnull
@@ -627,7 +669,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
-        return toProto(defaultExcludedDependencies);
+        return toProto(defaultExcludedProtoDependencies);
     }
 
     /**
@@ -724,6 +766,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
             if (!storedQuery.getTempFunctions().isEmpty()) {
                 storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
+            for (final Map.Entry<String, String> parameter : storedQuery.getParameters().entrySet()) {
+                storedQueryBuilder.addParameters(RecordMetaDataProto.PStoredQuery.PStoredQueryParameter.newBuilder()
+                        .setName(parameter.getKey())
+                        .setDeclaredType(parameter.getValue()));
+            }
+            for (final Map<String, String> preparedCase : storedQuery.getPreparedCases()) {
+                final RecordMetaDataProto.PStoredQuery.PPreparedCase.Builder caseBuilder =
+                        RecordMetaDataProto.PStoredQuery.PPreparedCase.newBuilder();
+                for (final Map.Entry<String, String> parameterState : preparedCase.entrySet()) {
+                    caseBuilder.addParameterStates(
+                            RecordMetaDataProto.PStoredQuery.PPreparedCase.PParameterState.newBuilder()
+                                    .setName(parameterState.getKey())
+                                    .setState(parameterState.getValue()));
+                }
+                storedQueryBuilder.addPreparedCases(caseBuilder);
+            }
             builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
@@ -756,6 +814,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
+     * Returns the descriptors of all non-record types in this RecordMetaData instance keyed by their Protobuf full name.
+     *
+     * <p>All non-record message and enum types included within the descriptor returned by {@link #getRecordsDescriptor()}
+     * and its dependencies are included, except the special {@code RecordUnionType} descriptor. The returned set
+     * contains the non-record types in the {@link #getRecordsDescriptor()} descriptor, followed by the types from each
+     * dependency in the declaration order.
+     *
+     * @return An immutable set of all the non-record type descriptors in the records file descriptor and its
+     *         dependencies.
+     */
+    @Nonnull
+    public Set<Descriptors.GenericDescriptor> getNonRecordTypeDescriptors() {
+        return nonRecordTypeDescriptorsSupplier.get();
+    }
+
+    /**
      * A stored query is a SQL SELECT statement persisted in the metadata, optionally accompanied by an
      * list of DDL {@code CREATE [OR REPLACE]? TEMPORARY FUNCTION ...} that must be
      * registered before the SELECT is planned.
@@ -765,10 +839,24 @@ public class RecordMetaData implements RecordMetaDataProvider {
         private final String query;
         @Nonnull
         private final List<String> tempFunctions;
+        @Nonnull
+        private final Map<String, String> parameters;
+        @Nonnull
+        private final List<Map<String, String>> preparedCases;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+            this(storedQuery, tempFunctions, ImmutableMap.of(), ImmutableList.of());
+        }
+
+        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                           @Nonnull final Map<String, String> parameters,
+                           @Nonnull final List<Map<String, String>> preparedCases) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
+            this.parameters = ImmutableMap.copyOf(parameters);
+            this.preparedCases = preparedCases.stream()
+                    .map(ImmutableMap::copyOf)
+                    .collect(ImmutableList.toImmutableList());
         }
 
         @Nonnull
@@ -779,6 +867,29 @@ public class RecordMetaData implements RecordMetaDataProvider {
         @Nonnull
         public List<String> getTempFunctions() {
             return tempFunctions;
+        }
+
+        /**
+         * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
+         * optionally followed by a nullability clause, exactly as written. Empty if the query declares no parameters.
+         *
+         * @return the declared parameters, keyed by name.
+         */
+        @Nonnull
+        public Map<String, String> getParameters() {
+            return parameters;
+        }
+
+        /**
+         * The combinations this query is warmed for, one plan each, as a list of maps from parameter name to the
+         * canonical token naming its state. The record layer stores these and returns them without interpreting them.
+         * Empty if the query declares no parameters.
+         *
+         * @return one map per case, keyed by parameter name.
+         */
+        @Nonnull
+        public List<Map<String, String>> getPreparedCases() {
+            return preparedCases;
         }
     }
 

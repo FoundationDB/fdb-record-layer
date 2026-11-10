@@ -103,10 +103,9 @@ public class Guardiann {
     }
 
     /**
-     * Returns a default {@link Config}.
+     * {@return a new default {@code Config}}
      *
      * @param numDimensions number of dimensions
-     * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
      */
     @Nonnull

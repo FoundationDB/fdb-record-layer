@@ -15,13 +15,13 @@ Pygments==2.21.0
 railroad-diagrams==3.0.1
 requests==2.34.2
 snowballstemmer==3.1.1
-soupsieve==3.0.3
-sphinx==9.1.0
+soupsieve==3.0.4
+sphinx==9.2.0
 sphinx-basic-ng==1.0.0b2
 sphinx-design==0.7.0
 sphinxcontrib-devhelp==2.0.0
 sphinxcontrib-htmlhelp==2.1.0
-sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-jsmath==2.0.0
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
 tomli==2.5.0

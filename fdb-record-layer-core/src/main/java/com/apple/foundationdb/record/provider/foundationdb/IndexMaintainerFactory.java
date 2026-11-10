@@ -48,9 +48,7 @@ public interface IndexMaintainerFactory {
     IndexGeneralAttributes DEFAULT_GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     /**
-     * Get the index types supported by this factory.
-     *
-     * @return a collection of strings of index types supported by this factory
+     * {@return a collection of strings of index types supported by this factory}
      */
     @Nonnull
     Iterable<String> getIndexTypes();

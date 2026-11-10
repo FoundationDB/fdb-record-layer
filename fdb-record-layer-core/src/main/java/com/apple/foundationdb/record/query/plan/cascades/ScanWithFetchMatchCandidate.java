@@ -108,7 +108,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         final var parentBuilderForField = parentBuilderForFieldOptional.get();
 
         // TODO not sure what to do with the null standing requirement
-        final var maybeFieldName = fieldValue.getLastFieldName();
+        final var maybeFieldName = fieldValue.getFieldPath().getLastFieldStorageName();
         if (maybeFieldName.isEmpty()) {
             return false;
         }
@@ -123,7 +123,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
     private static Optional<IndexKeyValueToPartialRecord.Builder> getParentBuilderForFieldMaybe(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                                                                                 @Nonnull final FieldValue fieldValue) {
         // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
-        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
+        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldStorageNames()) {
             if (maybeFieldName.isEmpty()) {
                 return Optional.empty();
             }
@@ -204,7 +204,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         for (final var prefixFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
             node = node.withChild(prefixFieldName.orElseThrow());
         }
-        node.withChild(fieldValue.getLastFieldName().orElseThrow()).cover(extraction.getValue());
+        node.withChild(fieldValue.getFieldPath().getLastFieldName().orElseThrow()).cover(extraction.getValue());
     }
 
     /**

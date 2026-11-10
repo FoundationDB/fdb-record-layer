@@ -90,17 +90,13 @@ public interface KeySpacePath {
     KeySpacePath getParent();
 
     /**
-     * Returns the directory name for this path element.
-     *
-     * @return the directory name
+     * {@return the directory name for this path element}
      */
     @Nonnull
     String getDirectoryName();
 
     /**
-     * Returns the directory that corresponds to this path entry.
-     *
-     * @return returns the directory that corresponds to this path entry
+     * {@return the directory that corresponds to this path entry}
      */
     @Nonnull
     KeySpaceDirectory getDirectory();

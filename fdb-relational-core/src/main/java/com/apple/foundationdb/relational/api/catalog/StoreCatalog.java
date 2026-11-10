@@ -36,9 +36,7 @@ import java.net.URI;
  */
 public interface StoreCatalog {
     /**
-     * Returns the underlying schema template catalog.
-     *
-     * @return the schema template catalog
+     * {@return the underlying schema template catalog}
      */
     SchemaTemplateCatalog getSchemaTemplateCatalog();
 

@@ -80,9 +80,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the parent path element.
-     *
-     * @return the parent path element or <code>null</code> if this is the root of the path
+     * {@return the parent path element or <code>null</code> if this is the root of the path}
      */
     @Nullable
     public ResolvedKeySpacePath getParent() {
@@ -90,9 +88,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the directory name for this path element.
-     *
-     * @return the directory name
+     * {@return the directory name for this path element}
      */
     @Nonnull
     public String getDirectoryName() {
@@ -100,9 +96,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the directory that corresponds to this path entry.
-     *
-     * @return returns the directory that corresponds to this path entry
+     * {@return the directory that corresponds to this path entry}
      */
     @Nonnull
     public KeySpaceDirectory getDirectory() {
@@ -110,9 +104,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the logical value (prior to resolving) for this path element.
-     *
-     * @return the logical value for this path element
+     * {@return the logical value (prior to resolving) for this path element}
      */
     @Nullable
     public Object getLogicalValue() {

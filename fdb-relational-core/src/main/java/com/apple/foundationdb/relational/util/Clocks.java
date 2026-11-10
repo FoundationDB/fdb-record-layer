@@ -37,9 +37,7 @@ public final class Clocks {
     }
 
     /**
-     * Get a clock which reads nano time from the System clock.
-     *
-     * @return a clock which reads from the system clock.
+     * {@return a clock which reads nano time from the system clock}
      */
     public static Clock systemClock() {
         return SYSTEM_CLOCK;

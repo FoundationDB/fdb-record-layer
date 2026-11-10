@@ -174,7 +174,7 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
             return Optional.empty();
         }
         // two columns reading the same field name by different paths would make the record type ambiguous
-        return ((FieldValue)value).getLastFieldName().filter(takenNames::add);
+        return ((FieldValue)value).getFieldPath().getLastFieldName().filter(takenNames::add);
     }
 
     @Nonnull

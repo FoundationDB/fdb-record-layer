@@ -181,7 +181,7 @@ class ExpansionVisitorTest {
                 .flatMap(Value::preOrderStream)
                 .filter(FieldValue.class::isInstance)
                 .map(FieldValue.class::cast)
-                .anyMatch(fieldValue -> fieldValue.getFieldPathNames().contains(fieldName));
+                .anyMatch(fieldValue -> fieldValue.getFieldPathStorageNames().contains(fieldName));
     }
 
     @Nonnull

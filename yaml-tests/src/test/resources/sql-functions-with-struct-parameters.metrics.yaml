@@ -1,0 +1,66 @@
+sql-functions-with-struct-parameters:
+-   query: EXPLAIN select * from f1((10, '100'));
+    ref: sql-functions-with-struct-parameters.yamsql:53
+    explain: SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS
+        _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8
+        AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)
+    task_count: 338
+    task_total_time_ms: 121
+    transform_count: 89
+    transform_time_ms: 80
+    transform_yield_count: 28
+    insert_time_ms: 3
+    insert_new_count: 47
+    insert_reused_count: 2
+-   query: EXPLAIN select * from temp_f1((10, '100'));
+    setup:
+    - create temporary function temp_f1 ( in a type st1 ) on commit drop function
+        as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z
+    ref: sql-functions-with-struct-parameters.yamsql:58
+    explain: SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS
+        _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8
+        AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)
+    task_count: 338
+    task_total_time_ms: 49
+    transform_count: 89
+    transform_time_ms: 17
+    transform_yield_count: 28
+    insert_time_ms: 2
+    insert_new_count: 47
+    insert_reused_count: 2
+-   query: EXPLAIN select * from f2('red')
+    ref: sql-functions-with-struct-parameters.yamsql:62
+    explain: TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c5 AS ENUM<red(0),
+        green(1), blue(2)>) AS A)
+    task_count: 265
+    task_total_time_ms: 66
+    transform_count: 62
+    transform_time_ms: 19
+    transform_yield_count: 22
+    insert_time_ms: 7
+    insert_new_count: 44
+    insert_reused_count: 3
+-   query: EXPLAIN select * from f3('green');
+    ref: sql-functions-with-struct-parameters.yamsql:70
+    explain: SCAN([IS COLORFUL]) | FILTER _.X EQUALS promote(@c5 AS ENUM<red(0), green(1),
+        blue(2)>)
+    task_count: 295
+    task_total_time_ms: 37
+    transform_count: 76
+    transform_time_ms: 11
+    transform_yield_count: 27
+    insert_time_ms: 2
+    insert_new_count: 43
+    insert_reused_count: 2
+-   query: EXPLAIN select y from non_green;
+    ref: sql-functions-with-struct-parameters.yamsql:74
+    explain: SCAN([IS COLORFUL]) | FILTER _.X IS_DISTINCT_FROM promote('green' AS
+        ENUM<red(0), green(1), blue(2)>) | MAP (_.Y AS Y)
+    task_count: 251
+    task_total_time_ms: 114
+    transform_count: 67
+    transform_time_ms: 91
+    transform_yield_count: 18
+    insert_time_ms: 2
+    insert_new_count: 21
+    insert_reused_count: 2

@@ -273,7 +273,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * This includes records, indexes, and other meta-data.
          *
          * @param store the store from which to collect statistics on key and value sizes
-         * @return a statistics collector of that store
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull FDBRecordStore store) {
@@ -286,7 +285,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param store a store with the given index
          * @param indexName the name of the index to collect statistics on key and value sizes
-         * @return a statistics collector of the given index
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull FDBRecordStore store, @Nonnull String indexName) {
@@ -299,7 +297,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @param store a store with the given index
          * @param index the index to collect statistics on key and value sizes
-         * @return a statistics collector of the given index
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull FDBRecordStore store, @Nonnull Index index) {
@@ -310,7 +307,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * Create a statistics collector of all keys used by index within a given {@link Subspace}.
          *
          * @param subspace the subspace to collect statistics on key and value sizes
-         * @return a statistics collector of the given subspace
          */
         @Nonnull
         private SizeStatisticsCollector(@Nonnull Subspace subspace) {
@@ -400,54 +396,42 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
         }
 
         /**
-         * Get the total size (in bytes) of all keys and values in the requested key range.
-         *
-         * @return the size (in bytes) of the requested keys and values
+         * {@return the total size (in bytes) of all keys and values in the requested key range}
          */
         private long getTotalSize() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getTotalSize()).orElse(0L);
         }
 
         /**
-         * Get the size (in bytes) of the largest key in the requested key range.
-         *
-         * @return the size (in bytes) of the largest key
+         * {@return the size (in bytes) of the largest key in the requested key range}
          */
         private long getMaxKeySize() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getMaxKeySize()).orElse(0L);
         }
 
         /**
-         * Get the size (in bytes) of the largest value in the requested key range.
-         *
-         * @return the size (in bytes) of the largest value
+         * {@return the size (in bytes) of the largest value in the requested key range}
          */
         private long getMaxValueSize() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getMaxValueSize()).orElse(0L);
         }
 
         /**
-         * Get the mean size (in bytes) of keys in the requested key range.
-         *
-         * @return the mean size (in bytes) of all keys
+         * {@return the mean size (in bytes) of all keys in the requested key range}
          */
         private double getAverageKeySize() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getAverageKeySize()).orElse((double)NaN);
         }
 
         /**
-         * Get the mean size (in bytes) of values in the requested key range.
-         *
-         * @return the mean size (in bytes) of all values
+         * {@return the mean size (in bytes) of all values in the requested key range}
          */
         private double getAverageValueSize() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getAverageValueSize()).orElse((double)NaN);
         }
 
         /**
-         * Get the mean size (in bytes) of combined key-value pairs in the requested key range.
-         *
-         * @return the mean size (in bytes) of all key-value pairs
+         * {@return the mean size (in bytes) of all key-value pairs in the requested key range}
          */
         private double getAverage() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getAverage()).orElse((double)NaN);

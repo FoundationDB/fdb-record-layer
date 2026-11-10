@@ -60,9 +60,8 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
     }
 
     /**
-     * Get the object returned by the {@code opener}.
+     * {@return the object returned by the {@code opener}}
      *
-     * @return the object returned by the {@code opener}
      * @throws IOException if calling {@link LazyOpener.Opener#open()} threw an {@link IOException}
      */
     public T get() throws IOException {

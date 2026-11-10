@@ -296,9 +296,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         RecordCursor<T> getActiveStateCursor();
 
         /**
-         * Retrieve the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
-         *
-         * @return The {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
+         * {@return the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}}
          */
         @Nonnull
         TempTable getRecursiveUnionTempTable();

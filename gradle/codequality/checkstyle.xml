@@ -173,8 +173,17 @@
             <property name="tagOrder" value="@param, @return, @throws, @deprecated"/>
             <property name="target" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF, VARIABLE_DEF"/>
         </module>
+        <module name="InvalidJavadocPosition"/>
         <module name="JavadocBlockTagLocation"/>
+        <module name="JavadocContentLocation"/>
         <module name="JavadocLeadingAsteriskAlign"/>
+        <module name="JavadocMethod">
+            <property name="accessModifiers" value="public, protected, package, private"/>
+            <property name="allowInlineReturn" value="true"/>
+            <property name="allowMissingParamTags" value="true"/>
+            <property name="allowMissingReturnTag" value="true"/>
+            <property name="validateThrows" value="false"/>
+        </module>
         <module name="JavadocMissingLeadingAsterisk"/>
         <module name="JavadocMissingWhitespaceAfterAsterisk"/>
         <module name="JavadocParagraph">

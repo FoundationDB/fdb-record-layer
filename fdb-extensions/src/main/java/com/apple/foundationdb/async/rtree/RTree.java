@@ -482,9 +482,7 @@ public class RTree {
     }
 
     /**
-     * Get this r-tree's configuration.
-     *
-     * @return r-tree configuration
+     * {@return this r-tree's configuration}
      */
     @Nonnull
     public Config getConfig() {
