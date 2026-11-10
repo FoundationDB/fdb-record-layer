@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -27,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
@@ -34,6 +37,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests of {@link UserDefinedMacroFunction}.
@@ -299,5 +305,47 @@ public class UserDefinedMacroFunctionTest {
         Assertions.assertEquals(
                 SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
                 actualException.getErrorCode());
+    }
+
+    /**
+     * Tests that a {@link UserDefinedMacroFunction} survives a round trip through its proto representation when a
+     * default value defines a record type that a later parameter refers to.
+     */
+    @Test
+    void testSerializationRoundTripWithRecordTypeSharedBetweenDefaultValueAndLaterParameter() {
+        final QuantifiedObjectValue first = QuantifiedObjectValue.of(CorrelationIdentifier.of("first"), Type.primitiveType(Type.TypeCode.LONG));
+        final QuantifiedObjectValue second = QuantifiedObjectValue.of(CorrelationIdentifier.of("second"), ValueTestHelpers.namedRecordType());
+        final UserDefinedMacroFunction function = new UserDefinedMacroFunction("f",
+                List.of(first, second),
+                List.of("first", "second"),
+                List.of(Optional.of(QuantifiedObjectValue.of(CorrelationIdentifier.of("d"), ValueTestHelpers.namedRecordType())), Optional.empty()),
+                first);
+
+        final var proto = function.toProto();
+        final var deserialized = UserDefinedMacroFunction.fromProto(proto.getUserDefinedMacroFunction());
+
+        assertThat(deserialized.toProto()).isEqualTo(proto);
+    }
+
+    /**
+     * Tests that deserializing a {@link UserDefinedMacroFunction} with fewer default values than parameters fails with
+     * a descriptive exception.
+     */
+    @Test
+    void testDeserializationWithFewerDefaultValuesThanParameters() {
+        final QuantifiedObjectValue first = QuantifiedObjectValue.of(CorrelationIdentifier.of("first"), Type.primitiveType(Type.TypeCode.LONG));
+        final QuantifiedObjectValue second = QuantifiedObjectValue.of(CorrelationIdentifier.of("second"), Type.primitiveType(Type.TypeCode.LONG));
+        final UserDefinedMacroFunction function = new UserDefinedMacroFunction("f",
+                List.of(first, second),
+                List.of("first", "second"),
+                List.of(Optional.empty(), Optional.empty()),
+                first);
+        final PUserDefinedMacroFunction truncated = function.toProto().getUserDefinedMacroFunction().toBuilder()
+                .removeDefaultArgumentValues(1)
+                .build();
+
+        assertThatThrownBy(() -> UserDefinedMacroFunction.fromProto(truncated))
+                .isInstanceOf(RecordCoreException.class)
+                .hasMessage("user-defined macro function has inconsistent parameter lists");
     }
 }
