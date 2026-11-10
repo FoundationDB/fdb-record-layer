@@ -504,6 +504,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void unnestedRecordTypeIndexesMultiple(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("unnested-record-type-indexes-multiple.yamsql");
+    }
+
+    @TestTemplate
     public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("update-delete-returning.yamsql");
     }
