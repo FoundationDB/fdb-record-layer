@@ -174,7 +174,7 @@ public abstract class IndexPredicate {
             return null;
         }
         final var fieldValue = (FieldValue)argumentValues.get(0);
-        final var fieldNames = fieldValue.getFieldPathNames();
+        final var fieldNames = fieldValue.getFieldPathStorageNames();
         if (fieldNames.isEmpty()) {
             return null;
         }
@@ -195,7 +195,7 @@ public abstract class IndexPredicate {
             if (!(pv instanceof FieldValue)) {
                 return null;
             }
-            final var partFieldNames = ((FieldValue)pv).getFieldPathNames();
+            final var partFieldNames = ((FieldValue)pv).getFieldPathStorageNames();
             if (partFieldNames.isEmpty()) {
                 return null;
             }
@@ -228,7 +228,7 @@ public abstract class IndexPredicate {
             }
             return IndexComparison.isSupported(valuePredicate.getComparison()) &&
                    valuePredicate.getValue() instanceof FieldValue &&
-                   ((FieldValue)valuePredicate.getValue()).getFieldPathNamesMaybe().stream().allMatch(Optional::isPresent);
+                   ((FieldValue)valuePredicate.getValue()).getFieldPathStorageNamesMaybe().stream().allMatch(Optional::isPresent);
         } else {
             return false;
         }
@@ -564,7 +564,7 @@ public abstract class IndexPredicate {
         @SuppressWarnings("java:S5803")
         ValuePredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate predicate) {
             Verify.verify(predicate.getValue() instanceof FieldValue);
-            this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathNames());
+            this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathStorageNames());
             this.comparison = IndexComparison.fromComparison(predicate.getComparison());
         }
 
