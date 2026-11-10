@@ -631,14 +631,14 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                 openSimpleRecordStore(context, allIndexesHook);
 
                 // Create a bunch of stores and disable the new index in all of them
-                forEachStore(multiStoreRoot, storeCount, (index, subStore) -> {
+                forEachStore(multiStoreRoot, storeCount, (storeId, subStore) -> {
                     assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_DROP_INDEX, subStore.markIndexDisabled(newIndex)));
 
                     subStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                             .setRecNo(1066L)
                             .addRepeater(42)
                             .addRepeater(800)
-                            .setStrValueIndexed("String " + index)
+                            .setStrValueIndexed("String " + storeId)
                             .build());
 
                 });
@@ -650,7 +650,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, withReplacementHook);
 
-                forEachStore(multiStoreRoot, storeCount, (index, subStore) -> {
+                forEachStore(multiStoreRoot, storeCount, (storeId, subStore) -> {
                     final List<FDBIndexedRecord<Message>> records = context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList());
                     assertThat(records, hasSize(2));
                     records.stream()
@@ -660,9 +660,9 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                                 assertThat(fieldValue, instanceOf(String.class));
                                 return (String)fieldValue;
                             })
-                            .forEach(strValue -> assertEquals("String " + index, strValue));
+                            .forEach(strValue -> assertEquals("String " + storeId, strValue));
 
-                    if (storesToBuild.contains(index)) {
+                    if (storesToBuild.contains(storeId)) {
                         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX,
                                 subStore.rebuildIndex(subStore.getRecordMetaData().getIndex(newIndex.getName())));
                     }
@@ -674,11 +674,11 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             // Validate that only stores where the replacement was built have had the original index removed
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, withReplacementHook);
-                forEachStore(multiStoreRoot, storeCount, (index, subStore) -> {
-                    if (storesToBuild.contains(index)) {
-                        assertTrue(subStore.getIndexState(origIndex.getName()).isDisabled(), "store " + index + ": original should be dropped once its replacement is built");
+                forEachStore(multiStoreRoot, storeCount, (storeId, subStore) -> {
+                    if (storesToBuild.contains(storeId)) {
+                        assertTrue(subStore.getIndexState(origIndex.getName()).isDisabled(), "store " + storeId + ": original should be dropped once its replacement is built");
                     } else {
-                        assertTrue(subStore.getIndexState(origIndex.getName()).isReadable(), "store " + index + ": original should still be readable where the replacement was not built");
+                        assertTrue(subStore.getIndexState(origIndex.getName()).isReadable(), "store " + storeId + ": original should still be readable where the replacement was not built");
                         assertThat(context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()), hasSize(2));
                     }
                 });
@@ -688,8 +688,8 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             // Validate the built stores had the old index data cleaned out, and the others still hold their data
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, composeHooks(allIndexesHook, bumpMetaDataVersionHook(), bumpMetaDataVersionHook()));
-                forEachStore(multiStoreRoot, storeCount, (index, subStore) -> {
-                    if (storesToBuild.contains(index)) {
+                forEachStore(multiStoreRoot, storeCount, (storeId, subStore) -> {
+                    if (storesToBuild.contains(storeId)) {
                         assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, subStore.uncheckedMarkIndexReadable(origIndex.getName())));
                         assertEquals(Collections.emptyList(), context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()));
                     } else {
