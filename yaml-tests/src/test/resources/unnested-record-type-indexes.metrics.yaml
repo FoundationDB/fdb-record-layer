@@ -892,85 +892,107 @@ same-array-unnested-twice:
     insert_reused_count: 0
 nested-unnestings:
 -   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
-        "store"."aisles" AS A, A."shelves" AS S
-    ref: unnested-record-type-indexes.yamsql:874
-    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
-        -> { TF explode(q1._0.shelves) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN
-        (q3._1._0.code AS code, q0.city AS city, q3._0._0.label AS label, q3._1._0.qty
-        AS qty) }
-    task_count: 322
-    task_total_time_ms: 24
-    transform_count: 121
-    transform_time_ms: 8
-    transform_yield_count: 24
+        "store"."aisles" AS A, A."shelves" AS S ORDER BY S."code", "store"."city",
+        A."label", S."qty"
+    ref: unnested-record-type-indexes.yamsql:867
+    explain: 'COVERING(store_code_city_label_qty <,> -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], store_no: KEY:[5,
+        1]], unnesting_0: [label: KEY:[2]], unnesting_1: [code: KEY:[0], qty: KEY:[3]]])
+        | MAP (_.unnesting_1.code AS code, _.parent.city AS city, _.unnesting_0.label
+        AS label, _.unnesting_1.qty AS qty)'
+    task_count: 385
+    task_total_time_ms: 46
+    transform_count: 151
+    transform_time_ms: 23
+    transform_yield_count: 30
     insert_time_ms: 0
-    insert_new_count: 31
+    insert_new_count: 30
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
+        "store"."aisles" AS A, A."shelves" AS S
+    ref: unnested-record-type-indexes.yamsql:877
+    explain: 'COVERING(store_code_city_label_qty <,> -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], store_no: KEY:[5,
+        1]], unnesting_0: [label: KEY:[2]], unnesting_1: [code: KEY:[0], qty: KEY:[3]]])
+        | MAP (_.unnesting_1.code AS code, _.parent.city AS city, _.unnesting_0.label
+        AS label, _.unnesting_1.qty AS qty)'
+    task_count: 427
+    task_total_time_ms: 41
+    transform_count: 158
+    transform_time_ms: 15
+    transform_yield_count: 35
+    insert_time_ms: 0
+    insert_new_count: 42
     insert_reused_count: 0
 -   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
         (SELECT * FROM "store"."aisles") AS A, (SELECT * FROM A."shelves") AS S
-    ref: unnested-record-type-indexes.yamsql:884
-    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
-        -> { TF explode(q1._0.shelves) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN
-        (q3._1._0.code AS code, q0.city AS city, q3._0._0.label AS label, q3._1._0.qty
-        AS qty) }
-    task_count: 364
-    task_total_time_ms: 24
-    transform_count: 130
-    transform_time_ms: 8
-    transform_yield_count: 27
+    ref: unnested-record-type-indexes.yamsql:887
+    explain: 'COVERING(store_code_city_label_qty <,> -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], store_no: KEY:[5,
+        1]], unnesting_0: [label: KEY:[2]], unnesting_1: [code: KEY:[0], qty: KEY:[3]]])
+        | MAP (_.unnesting_1.code AS code, _.parent.city AS city, _.unnesting_0.label
+        AS label, _.unnesting_1.qty AS qty)'
+    task_count: 469
+    task_total_time_ms: 46
+    transform_count: 167
+    transform_time_ms: 13
+    transform_yield_count: 38
     insert_time_ms: 0
-    insert_new_count: 39
+    insert_new_count: 50
     insert_reused_count: 0
 -   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
         "store"."aisles" AS A, A."shelves" AS S WHERE S."code" = 'x'
-    ref: unnested-record-type-indexes.yamsql:895
-    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
-        -> { TF explode(q1._0.shelves) | FILTER _._0.code EQUALS promote(@c35 AS STRING)
-        AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.code AS code, q0.city
-        AS city, q3._1._0.label AS label, q3._0._0.qty AS qty) }
-    task_count: 651
-    task_total_time_ms: 37
-    transform_count: 267
-    transform_time_ms: 12
-    transform_yield_count: 38
-    insert_time_ms: 1
-    insert_new_count: 69
+    ref: unnested-record-type-indexes.yamsql:898
+    explain: 'COVERING(store_code_city_label_qty [EQUALS promote(@c35 AS STRING)]
+        -> [__positions: [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent:
+        [city: KEY:[1], store_no: KEY:[5, 1]], unnesting_0: [label: KEY:[2]], unnesting_1:
+        [code: KEY:[0], qty: KEY:[3]]]) | MAP (_.unnesting_1.code AS code, _.parent.city
+        AS city, _.unnesting_0.label AS label, _.unnesting_1.qty AS qty)'
+    task_count: 762
+    task_total_time_ms: 57
+    transform_count: 312
+    transform_time_ms: 21
+    transform_yield_count: 52
+    insert_time_ms: 2
+    insert_new_count: 81
     insert_reused_count: 3
 -   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
         "store"."aisles" AS A, A."shelves" AS S WHERE S."code" = 'x' AND "store"."city"
         = 'SF' AND A."label" = 'a2'
-    ref: unnested-record-type-indexes.yamsql:904
-    explain: SCAN([IS store]) | FILTER _.city EQUALS promote(@c41 AS STRING) | FLATMAP
-        q0 -> { TF explode(q0.aisles) | FLATMAP q1 -> { TF explode(q1._0.shelves)
-        | FILTER _._0.code EQUALS promote(@c35 AS STRING) AND q1._0.label EQUALS promote(@c47
-        AS STRING) | MAP (q1 AS _0, _ AS _1) AS q2 RETURN q2 } AS q3 RETURN (q3._1._0.code
-        AS code, q0.city AS city, q3._0._0.label AS label, q3._1._0.qty AS qty) }
-    task_count: 1128
-    task_total_time_ms: 104
-    transform_count: 504
-    transform_time_ms: 34
-    transform_yield_count: 59
-    insert_time_ms: 7
-    insert_new_count: 113
+    ref: unnested-record-type-indexes.yamsql:907
+    explain: 'COVERING(store_code_city_label_qty [EQUALS promote(@c35 AS STRING),
+        EQUALS promote(@c41 AS STRING), EQUALS promote(@c47 AS STRING)] -> [__positions:
+        [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1],
+        store_no: KEY:[5, 1]], unnesting_0: [label: KEY:[2]], unnesting_1: [code:
+        KEY:[0], qty: KEY:[3]]]) | MAP (_.unnesting_1.code AS code, _.parent.city
+        AS city, _.unnesting_0.label AS label, _.unnesting_1.qty AS qty)'
+    task_count: 1247
+    task_total_time_ms: 71
+    transform_count: 555
+    transform_time_ms: 35
+    transform_yield_count: 77
+    insert_time_ms: 4
+    insert_new_count: 127
     insert_reused_count: 37
 -   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
         "store"."aisles" AS A, A."shelves" AS S WHERE S."code" > 'x'
-    ref: unnested-record-type-indexes.yamsql:912
-    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
-        -> { TF explode(q1._0.shelves) | FILTER _._0.code GREATER_THAN promote(@c35
-        AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.code
-        AS code, q0.city AS city, q3._1._0.label AS label, q3._0._0.qty AS qty) }
-    task_count: 651
-    task_total_time_ms: 50
-    transform_count: 267
-    transform_time_ms: 14
-    transform_yield_count: 38
-    insert_time_ms: 1
-    insert_new_count: 69
+    ref: unnested-record-type-indexes.yamsql:915
+    explain: 'COVERING(store_code_city_label_qty [[GREATER_THAN promote(@c35 AS STRING)]]
+        -> [__positions: [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent:
+        [city: KEY:[1], store_no: KEY:[5, 1]], unnesting_0: [label: KEY:[2]], unnesting_1:
+        [code: KEY:[0], qty: KEY:[3]]]) | MAP (_.unnesting_1.code AS code, _.parent.city
+        AS city, _.unnesting_0.label AS label, _.unnesting_1.qty AS qty)'
+    task_count: 762
+    task_total_time_ms: 76
+    transform_count: 312
+    transform_time_ms: 26
+    transform_yield_count: 52
+    insert_time_ms: 2
+    insert_new_count: 81
     insert_reused_count: 3
 -   query: EXPLAIN SELECT A."label", "store"."city" FROM "store", "store"."aisles"
         AS A
-    ref: unnested-record-type-indexes.yamsql:921
+    ref: unnested-record-type-indexes.yamsql:924
     explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) AS q1 RETURN
         (q1._0.label AS label, q0.city AS city) }
     task_count: 166
@@ -984,7 +1006,7 @@ nested-unnestings:
 index-over-view:
 -   query: EXPLAIN SELECT P."pname", "crate"."dock", P."weight" FROM "crate", "crate"."parts"
         AS P ORDER BY P."pname", "crate"."dock", P."weight"
-    ref: unnested-record-type-indexes.yamsql:936
+    ref: unnested-record-type-indexes.yamsql:939
     explain: 'COVERING(crate_view_idx <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [crate_no: KEY:[4, 1], dock: KEY:[1]], unnesting_0: [pname: KEY:[0],
         weight: KEY:[2]]]) | MAP (_.unnesting_0.pname AS pname, _.parent.dock AS dock,
@@ -999,7 +1021,7 @@ index-over-view:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "pname", "dock", "weight" FROM "crate_view" ORDER BY "pname",
         "dock", "weight"
-    ref: unnested-record-type-indexes.yamsql:944
+    ref: unnested-record-type-indexes.yamsql:947
     explain: 'COVERING(crate_view_idx <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [crate_no: KEY:[4, 1], dock: KEY:[1]], unnesting_0: [pname: KEY:[0],
         weight: KEY:[2]]]) | MAP (_.unnesting_0.pname AS pname, _.parent.dock AS dock,
@@ -1015,7 +1037,7 @@ index-over-view:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT P."pname", "crate"."dock", P."weight" FROM "crate", "crate"."parts"
         AS P WHERE P."pname" = 'bolt'
-    ref: unnested-record-type-indexes.yamsql:953
+    ref: unnested-record-type-indexes.yamsql:956
     explain: 'COVERING(crate_view_idx [EQUALS promote(@c25 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [crate_no: KEY:[4, 1], dock: KEY:[1]],
         unnesting_0: [pname: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.pname
@@ -1032,7 +1054,7 @@ ordering-directions:
 -   query: EXPLAIN SELECT N."topic", "board"."zone", N."rank" FROM "board", (SELECT
         "topic", "rank" FROM "board"."notes") AS N ORDER BY N."topic" DESC, "board"."zone",
         N."rank" NULLS LAST
-    ref: unnested-record-type-indexes.yamsql:966
+    ref: unnested-record-type-indexes.yamsql:969
     explain: 'COVERING(board_topic_desc <,> -> [__positions: [unnesting_0: KEY:[5,
         0]], parent: [board_no: KEY:[4, 1], zone: KEY:[1]], unnesting_0: [rank: from_ordered_bytes(KEY:[2],
         ASC_NULLS_LAST), topic: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]]) |
@@ -1049,7 +1071,7 @@ ordering-directions:
 -   query: EXPLAIN SELECT N."topic", "board"."zone", N."rank" FROM "board", (SELECT
         "topic", "rank" FROM "board"."notes") AS N ORDER BY N."topic" ASC NULLS FIRST,
         "board"."zone" DESC NULLS LAST, N."rank" DESC NULLS FIRST
-    ref: unnested-record-type-indexes.yamsql:976
+    ref: unnested-record-type-indexes.yamsql:979
     explain: 'COVERING(board_topic_desc <,> REVERSE -> [__positions: [unnesting_0:
         KEY:[5, 0]], parent: [board_no: KEY:[4, 1], zone: KEY:[1]], unnesting_0: [rank:
         from_ordered_bytes(KEY:[2], ASC_NULLS_LAST), topic: from_ordered_bytes(KEY:[0],
@@ -1065,7 +1087,7 @@ ordering-directions:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT N."topic", "board"."zone", N."rank" FROM "board", (SELECT
         "topic", "rank" FROM "board"."notes") AS N WHERE N."topic" = 'red'
-    ref: unnested-record-type-indexes.yamsql:985
+    ref: unnested-record-type-indexes.yamsql:988
     explain: 'COVERING(board_topic_desc [EQUALS to_ordered_bytes(promote(@c32 AS STRING),
         DESC_NULLS_LAST)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [board_no:
         KEY:[4, 1], zone: KEY:[1]], unnesting_0: [rank: from_ordered_bytes(KEY:[2],
@@ -1084,7 +1106,7 @@ key-with-value:
 -   query: EXPLAIN SELECT E."ekey", "ledger"."acct", E."eval", E."extra" FROM "ledger",
         (SELECT "ekey", "eval", "extra" FROM "ledger"."entries") AS E ORDER BY E."ekey",
         "ledger"."acct", E."eval"
-    ref: unnested-record-type-indexes.yamsql:999
+    ref: unnested-record-type-indexes.yamsql:1002
     explain: 'COVERING(ledger_kv <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [acct: KEY:[1], ledger_no: KEY:[4, 1]], unnesting_0: [ekey: KEY:[0], eval:
         KEY:[2], extra: VALUE:[0]]]) | MAP (_.unnesting_0.ekey AS ekey, _.parent.acct
@@ -1100,7 +1122,7 @@ key-with-value:
 -   query: EXPLAIN SELECT E."ekey", "ledger"."acct", E."eval", E."extra" FROM "ledger",
         (SELECT "ekey", "eval", "extra" FROM "ledger"."entries") AS E WHERE E."ekey"
         = 'a' AND "ledger"."acct" = 20
-    ref: unnested-record-type-indexes.yamsql:1008
+    ref: unnested-record-type-indexes.yamsql:1011
     explain: 'COVERING(ledger_kv [EQUALS promote(@c38 AS STRING), EQUALS promote(@c44
         AS LONG)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [acct: KEY:[1],
         ledger_no: KEY:[4, 1]], unnesting_0: [ekey: KEY:[0], eval: KEY:[2], extra:
@@ -1117,35 +1139,35 @@ key-with-value:
 struct-and-scalar-unnestings:
 -   query: EXPLAIN SELECT G."gname", "lbl", G."price" FROM "kit" AS K, K."gadgets"
         AS G, K."labels" AS "lbl"
-    ref: unnested-record-type-indexes.yamsql:1028
+    ref: unnested-record-type-indexes.yamsql:1031
     explain: SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) | FLATMAP q1
         -> { TF explode(q0.labels) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN
         (q3._0._0.gname AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }
-    task_count: 259
-    task_total_time_ms: 18
-    transform_count: 93
-    transform_time_ms: 6
-    transform_yield_count: 22
+    task_count: 265
+    task_total_time_ms: 22
+    transform_count: 100
+    transform_time_ms: 10
+    transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 0
 -   query: EXPLAIN SELECT G."gname", "lbl", G."price" FROM "kit" AS K, K."gadgets"
         AS G, K."labels" AS "lbl" WHERE G."gname" = 'drill' AND "lbl" = 'old'
-    ref: unnested-record-type-indexes.yamsql:1039
+    ref: unnested-record-type-indexes.yamsql:1042
     explain: SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.labels) | FILTER _._0
         EQUALS @c35 | FLATMAP q1 -> { TF explode(q0.gadgets) | FILTER _._0.gname EQUALS
         promote(@c31 AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.gname
         AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }
-    task_count: 949
-    task_total_time_ms: 49
-    transform_count: 372
-    transform_time_ms: 18
-    transform_yield_count: 48
+    task_count: 963
+    task_total_time_ms: 82
+    transform_count: 397
+    transform_time_ms: 32
+    transform_yield_count: 55
     insert_time_ms: 3
     insert_new_count: 108
     insert_reused_count: 22
 -   query: EXPLAIN SELECT G."gname", G."price" FROM "kit" AS K, K."gadgets" AS G
-    ref: unnested-record-type-indexes.yamsql:1046
+    ref: unnested-record-type-indexes.yamsql:1049
     explain: SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) AS q1 RETURN
         (q1._0.gname AS gname, q1._0.price AS price) }
     task_count: 166
@@ -1156,11 +1178,48 @@ struct-and-scalar-unnestings:
     insert_time_ms: 0
     insert_new_count: 15
     insert_reused_count: 0
+-   query: EXPLAIN SELECT G."gname", G."price" FROM "kit" AS K, K."gadgets" AS G,
+        K."labels" AS "lbl" ORDER BY G."gname"
+    ref: unnested-record-type-indexes.yamsql:1059
+    explain: ISCAN(kit_mixed <,>) | MAP _.unnesting_0
+    task_count: 346
+    task_total_time_ms: 25
+    transform_count: 147
+    transform_time_ms: 10
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 29
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT G."gname", G."price" FROM "kit" AS K, K."gadgets" AS G,
+        K."labels" AS "lbl" WHERE G."gname" = 'drill' AND "lbl" = 'old' ORDER BY G."price"
+    ref: unnested-record-type-indexes.yamsql:1066
+    explain: ISCAN(kit_mixed [EQUALS promote(@c29 AS STRING), EQUALS @c33]) | MAP
+        _.unnesting_0
+    task_count: 1039
+    task_total_time_ms: 89
+    transform_count: 522
+    transform_time_ms: 35
+    transform_yield_count: 59
+    insert_time_ms: 4
+    insert_new_count: 75
+    insert_reused_count: 23
+-   query: EXPLAIN SELECT G."gname", G."price" FROM "kit" AS K, K."gadgets" AS G,
+        K."labels" AS "lbl" WHERE G."gname" = 'drill'
+    ref: unnested-record-type-indexes.yamsql:1079
+    explain: ISCAN(kit_mixed [EQUALS promote(@c29 AS STRING)]) | MAP _.unnesting_0
+    task_count: 579
+    task_total_time_ms: 48
+    transform_count: 234
+    transform_time_ms: 17
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 66
+    insert_reused_count: 11
 three-sibling-unnestings:
 -   query: EXPLAIN SELECT M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2" FROM
         "tri" AS T, T."alist" AS M, T."blist" AS N, T."clist" AS O ORDER BY M."x",
         N."y", O."z", T."p", M."x2", N."y2", O."z2"
-    ref: unnested-record-type-indexes.yamsql:1059
+    ref: unnested-record-type-indexes.yamsql:1088
     explain: 'COVERING(tri_three <,> -> [__positions: [unnesting_0: KEY:[9, 0], unnesting_1:
         KEY:[10, 0], unnesting_2: KEY:[11, 0]], parent: [p: KEY:[3]], unnesting_0:
         [x: KEY:[0], x2: KEY:[4]], unnesting_1: [y: KEY:[1], y2: KEY:[5]], unnesting_2:
@@ -1178,7 +1237,7 @@ three-sibling-unnestings:
 -   query: EXPLAIN SELECT M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2" FROM
         "tri" AS T, T."alist" AS M, T."blist" AS N, T."clist" AS O WHERE M."x" = 1
         AND N."y" = 5 AND O."z" = 8
-    ref: unnested-record-type-indexes.yamsql:1071
+    ref: unnested-record-type-indexes.yamsql:1100
     explain: 'COVERING(tri_three [EQUALS promote(@c55 AS LONG), EQUALS promote(@c61
         AS LONG), EQUALS promote(@c67 AS LONG)] -> [__positions: [unnesting_0: KEY:[9,
         0], unnesting_1: KEY:[10, 0], unnesting_2: KEY:[11, 0]], parent: [p: KEY:[3]],
@@ -1197,20 +1256,21 @@ three-sibling-unnestings:
 chained-unnesting-shapes:
 -   query: EXPLAIN SELECT B."x", A."k", B."x2" FROM "chain" AS A, A."p" AS B, B."q"
         AS C
-    ref: unnested-record-type-indexes.yamsql:1084
-    explain: SCAN([IS chain]) | FLATMAP q0 -> { TF explode(q0.p) | FLATMAP q1 -> {
-        TF explode(q1._0.q) AS q2 RETURN q1 } AS q1 RETURN (q1._0.x AS x, q0.k AS
-        k, q1._0.x2 AS x2) }
-    task_count: 330
-    task_total_time_ms: 18
-    transform_count: 125
-    transform_time_ms: 7
-    transform_yield_count: 28
+    ref: unnested-record-type-indexes.yamsql:1112
+    explain: 'COVERING(chain_outer_split <,> -> [__positions: [unnesting_0: KEY:[5,
+        0], unnesting_1: KEY:[6, 0]], parent: [k: KEY:[1]], unnesting_0: [x: KEY:[0],
+        x2: KEY:[2]]]) | MAP (_.unnesting_0.x AS x, _.parent.k AS k, _.unnesting_0.x2
+        AS x2)'
+    task_count: 441
+    task_total_time_ms: 31
+    transform_count: 165
+    transform_time_ms: 12
+    transform_yield_count: 42
     insert_time_ms: 0
-    insert_new_count: 31
+    insert_new_count: 42
     insert_reused_count: 0
 -   query: EXPLAIN SELECT B."x", A."k", B."x2" FROM "chain" AS A, A."p" AS B
-    ref: unnested-record-type-indexes.yamsql:1093
+    ref: unnested-record-type-indexes.yamsql:1121
     explain: SCAN([IS chain]) | FLATMAP q0 -> { TF explode(q0.p) AS q1 RETURN (q1._0.x
         AS x, q0.k AS k, q1._0.x2 AS x2) }
     task_count: 174
@@ -1223,16 +1283,17 @@ chained-unnesting-shapes:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT B."x", A."k", C."y", D."z" FROM "chain" AS A, A."p" AS B,
         B."q" AS C, A."r" AS D
-    ref: unnested-record-type-indexes.yamsql:1102
-    explain: SCAN([IS chain]) | FLATMAP q0 -> { TF explode(q0.r) | FLATMAP q1 -> {
-        TF explode(q0.p) | FLATMAP q2 -> { TF explode(q2._0.q) AS q3 RETURN (q2 AS
-        _0, q3 AS _1) } AS q4 RETURN (q4 AS _0, q1 AS _1) } AS q5 RETURN (q5._0._0._0.x
-        AS x, q0.k AS k, q5._0._1._0.y AS y, q5._1._0.z AS z) }
-    task_count: 1124
-    task_total_time_ms: 19
-    transform_count: 486
-    transform_time_ms: 8
-    transform_yield_count: 65
-    insert_time_ms: 0
-    insert_new_count: 127
+    ref: unnested-record-type-indexes.yamsql:1130
+    explain: 'COVERING(chain_branching <,> -> [__positions: [unnesting_0: KEY:[6,
+        0], unnesting_1: KEY:[7, 0], unnesting_2: KEY:[8, 0]], parent: [k: KEY:[1]],
+        unnesting_0: [x: KEY:[0]], unnesting_1: [y: KEY:[2]], unnesting_2: [z: KEY:[3]]])
+        | MAP (_.unnesting_0.x AS x, _.parent.k AS k, _.unnesting_1.y AS y, _.unnesting_2.z
+        AS z)'
+    task_count: 1239
+    task_total_time_ms: 53
+    transform_count: 530
+    transform_time_ms: 23
+    transform_yield_count: 81
+    insert_time_ms: 1
+    insert_new_count: 138
     insert_reused_count: 1
