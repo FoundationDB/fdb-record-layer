@@ -80,6 +80,15 @@ class ExpandWindowExpressionsRuleTest {
         return FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(quantifier), ordinalNumber);
     }
 
+    /**
+     * A field of the record the lower select flows. The lower select flows each quantifier as it stands, so a column of
+     * the base record is reached through the column holding that quantifier rather than directly.
+     */
+    @Nonnull
+    private static Value passedThrough(@Nonnull final Quantifier quantifier, @Nonnull final String fieldName) {
+        return FieldValue.ofFieldNameAndFuseIfPossible(column(quantifier, 0), fieldName);
+    }
+
     @Nonnull
     private static CompileTimeWindowValue rankOverPartitionByB(@Nonnull final Quantifier quantifier) {
         return new CompileTimeWindowValue(WindowFunction.RANK,
@@ -181,9 +190,10 @@ class ExpandWindowExpressionsRuleTest {
         assertThat(windowExpression.getWindowValue()).isInstanceOf(RankWindowValue.class);
         assertThat(windowExpression.getWindowValue().getArgumentValues()).hasSize(1);
         assertThat(windowExpression.getPartitioningValues()).hasSize(1);
-        // the query selects "b", which is also the PARTITION BY column. The expression flows its partitioning columns
-        // itself, so there is nothing left to list as an additional result
-        assertThat(windowExpression.getAdditionalResultValues()).isEmpty();
+        // the query selects "b", which is also the PARTITION BY column. Partitioning does not flow it, so it is
+        // passed through like any other selected column -- once, not once per role
+        assertThat(windowExpression.getPassThroughValues())
+                .containsExactly(passedThrough(windowExpression.getInnerQuantifier(), "b"));
         // the window needs its input grouped by the partitioning column; this window has no ORDER BY of its own
         assertThat(windowExpression.getRequestedOrdering().getOrderingValues()).hasSize(1);
     }
@@ -209,10 +219,11 @@ class ExpandWindowExpressionsRuleTest {
         final var yielded = yieldedSelect(original);
 
         assertThat(allValues(yielded)).noneMatch(CompileTimeWindowValue.class::isInstance);
-        // the one wrapping the window value is not flowed; the plain column here is the partitioning column, which the
-        // expression flows itself rather than as an additional result
+        // the one wrapping the window value is not flowed; the plain column next to it is, even though it is also the
+        // partitioning column
         final var windowExpression = windowExpressionUnder(yielded);
-        assertThat(windowExpression.getAdditionalResultValues()).isEmpty();
+        assertThat(windowExpression.getPassThroughValues())
+                .containsExactly(passedThrough(windowExpression.getInnerQuantifier(), "b"));
     }
 
     @Test
@@ -224,32 +235,30 @@ class ExpandWindowExpressionsRuleTest {
 
         final var windowExpression = windowExpressionUnder(yieldedSelect(original));
 
-        // the window expression reads the lower select's columns positionally: column 0 is the partitioning column "b"
-        // and column 1 is "a", flowed once even though the query selects it twice
-        assertThat(windowExpression.getAdditionalResultValues())
-                .containsExactly(column(windowExpression.getInnerQuantifier(), 1));
+        // "a" is passed through once even though the query selects it twice
+        assertThat(windowExpression.getPassThroughValues())
+                .containsExactly(passedThrough(windowExpression.getInnerQuantifier(), "a"));
     }
 
     @Test
-    void partitioningColumnIsFlowedEvenWhenTheQueryDoesNotSelectIt() {
+    void partitioningColumnIsNotFlowedWhenTheQueryDoesNotSelectIt() {
         final var base = RuleTestHelper.baseT();
-        // "b" is partitioned by but not selected; the expression flows it anyway, and the select on top ignores it
+        // "b" is partitioned by but not selected, so nothing above the window expression can reach it
         final var original = select(base, ImmutableList.of(rankOverPartitionByB(base), field(base, "d")));
 
         final var windowExpression = windowExpressionUnder(yieldedSelect(original));
         final var lowerSelect = lowerSelectUnder(windowExpression);
-        final var lowerQuantifier = Iterables.getOnlyElement(lowerSelect.getQuantifiers());
+        final var innerQuantifier = windowExpression.getInnerQuantifier();
 
-        // the lower select still has to flow it -- PARTITION BY reads it from there
-        assertThat(flowedColumnsOf(lowerSelect)).containsExactly(field(lowerQuantifier, "b"),
-                field(lowerQuantifier, "a"), field(lowerQuantifier, "d"));
+        // the lower select flows the quantifier it ranges over, so PARTITION BY still reads "b" from there
+        assertThat(flowedColumnsOf(lowerSelect))
+                .containsExactly(Iterables.getOnlyElement(lowerSelect.getQuantifiers()).getFlowedObjectValue());
         assertThat(windowExpression.getPartitioningValues())
-                .containsExactly(column(windowExpression.getInnerQuantifier(), 0));
-        // "d" is the only additional result, but the expression flows the partitioning column before it and the window
-        // value after it
-        assertThat(windowExpression.getAdditionalResultValues())
-                .containsExactly(column(windowExpression.getInnerQuantifier(), 2));
-        assertThat(Values.deconstructRecord(windowExpression.getResultValue())).hasSize(3);
+                .containsExactly(passedThrough(innerQuantifier, "b"));
+        // "d" is the only column passed through, and the window value follows it
+        assertThat(windowExpression.getPassThroughValues())
+                .containsExactly(passedThrough(innerQuantifier, "d"));
+        assertThat(Values.deconstructRecord(windowExpression.getResultValue())).hasSize(2);
     }
 
     @Test
@@ -327,8 +336,10 @@ class ExpandWindowExpressionsRuleTest {
 
         final var lowerSelect = lowerSelectUnder(windowExpression);
         assertThat(flowedColumnsOf(lowerSelect))
-                .containsExactly(field(Iterables.getOnlyElement(lowerSelect.getQuantifiers()), "a"));
-        assertThat(windowExpression.getAdditionalResultValues()).isEmpty();
+                .containsExactly(Iterables.getOnlyElement(lowerSelect.getQuantifiers()).getFlowedObjectValue());
+        // the query selects nothing but the rank, so nothing is passed through -- not the argument, not the
+        // partitioning column, both of which the window expression reads from its input
+        assertThat(windowExpression.getPassThroughValues()).isEmpty();
     }
 
     @Test
@@ -352,11 +363,11 @@ class ExpandWindowExpressionsRuleTest {
         // "at most one correlated alias" check outright. A requested ordering states its values over the current alias.
         final var overCurrent = AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current());
         assertThat(windowExpression.getRequestedOrdering().getOrderingValues())
-                .containsExactly(column(innerQuantifier, 0).rebase(overCurrent),
-                        column(innerQuantifier, 2).rebase(overCurrent));
-        // an ordering column the query does not select still has to be flowed, or the window could not be sorted by it
-        assertThat(flowedColumnsOf(lowerSelect)).containsExactly(field(lowerQuantifier, "b"),
-                field(lowerQuantifier, "a"), field(lowerQuantifier, "c"));
+                .containsExactly(passedThrough(innerQuantifier, "b").rebase(overCurrent),
+                        passedThrough(innerQuantifier, "c").rebase(overCurrent));
+        // an ordering column the query does not select is still reachable: the lower select flows the quantifier it
+        // ranges over, so every column of it is there to be read
+        assertThat(flowedColumnsOf(lowerSelect)).containsExactly(lowerQuantifier.getFlowedObjectValue());
     }
 
     /**
@@ -375,10 +386,10 @@ class ExpandWindowExpressionsRuleTest {
         // lower select's own quantifier rather than over the one this test built
         final var lowerQuantifier = Iterables.getOnlyElement(lowerSelect.getQuantifiers());
 
-        // the partitioning column comes first, which lines the ordinals up with the way the match candidate expands a
-        // windowed index key, then what the window function reads
-        assertThat(flowedColumnsOf(lowerSelect))
-                .containsExactly(field(lowerQuantifier, "b"), field(lowerQuantifier, "a"));
+        // the lower select flows each quantifier as it stands and nothing derived from it: a derived column next to the
+        // quantifier it reads would give every value inside that quantifier two ways up, and pulling one up would then
+        // be ambiguous
+        assertThat(flowedColumnsOf(lowerSelect)).containsExactly(lowerQuantifier.getFlowedObjectValue());
         // the lower select is interposed directly over what the original select ranged over
         assertThat(lowerQuantifier.getRangesOver().getAllMemberExpressions())
                 .allMatch(LogicalTypeFilterExpression.class::isInstance);

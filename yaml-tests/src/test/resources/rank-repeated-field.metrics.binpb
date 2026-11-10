@@ -1,7 +1,7 @@
-í
+ì
 G
-rank-ungrouped5EXPLAIN select rank() over (order by id) as r from t1¡
-š¼áö6w ¶™Ê&(&0Í¦º8*@1ISCAN(I_BY_ID <,>+rank BY_RANK) | MAP (_._1 AS R)Ï
+rank-ungrouped5EXPLAIN select rank() over (order by id) as r from t1 
+ˆªù±t ğæ(%0·‘58(@1ISCAN(I_BY_ID <,>+rank BY_RANK) | MAP (_._1 AS R)Ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,10 +11,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I_BY_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS _1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}ê
 q
-rank-ungrouped_EXPLAIN select id, rank() over (order by id) as r from t1 qualify rank() over (order by id) = 2õ
-¥¿†Åz  Ì(&0Õµ±8+@XISCAN(I_BY_ID [EQUALS promote(@c27 AS LONG)]+rank BY_RANK) | MAP (_.ID AS ID, _._1 AS R)ü
+rank-ungrouped_EXPLAIN select id, rank() over (order by id) as r from t1 qualify rank() over (order by id) = 2ô
+æğÙÎj ¯¯ˆ($0Û«28%@XISCAN(I_BY_ID [EQUALS promote(@c27 AS LONG)]+rank BY_RANK) | MAP (_.ID AS ID, _._1 AS R)ü
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -24,10 +24,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I_BY_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS _1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ã
+}Â
 O
-rank-ungrouped=EXPLAIN select id, rank() over (order by bucket) as r from t2ï
-ƒÛšu Ú´ù	(%0Ø»€8'@AISCAN(I_BY_BUCKET <,>+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)digraph G {
+rank-ungrouped=EXPLAIN select id, rank() over (order by bucket) as r from t2î
+ı£È“r  „Ó($0ßÂ.8%@AISCAN(I_BY_BUCKET <,>+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -39,8 +39,7 @@ O
 }¿
 z
 rank-ungroupedhEXPLAIN select id, rank() over (order by bucket) as r from t2 qualify rank() over (order by bucket) >= 2À
-š€âw èÿ›
-(%0ğq8(@nISCAN(I_BY_BUCKET [[GREATER_THAN_OR_EQUALS promote(@c28 AS LONG)]]+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)²digraph G {
+ˆÍçt Ã³˜($0–ü18&@nISCAN(I_BY_BUCKET [[GREATER_THAN_OR_EQUALS promote(@c28 AS LONG)]]+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)²digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

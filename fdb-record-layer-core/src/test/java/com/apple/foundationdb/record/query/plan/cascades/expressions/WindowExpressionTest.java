@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -148,23 +149,41 @@ class WindowExpressionTest {
     }
 
     @Test
-    void thePartitioningColumnsAreFlowedThenTheAdditionalResultsThenTheWindowValue() {
+    void thePassThroughValuesAreFlowedThenTheWindowValue() {
         final var inner = baseQuantifier();
         final var partitioning = field(inner, "b");
-        final var additionalResult = field(inner, "a");
+        final var passThrough = field(inner, "a");
         final var windowValue = rankOver(field(inner, "a"));
         final var expression = new WindowExpression(windowValue, ImmutableList.of(partitioning),
-                ImmutableList.of(additionalResult), ImmutableList.of(), inner);
+                ImmutableList.of(passThrough), ImmutableList.of(), inner);
 
         final var flowed = Values.deconstructRecord(expression.getResultValue());
 
-        // the expression flows its own partitioning columns rather than leaving the caller to repeat them among the
-        // additional results: a column a window partitions by is almost always wanted above it, and listing it twice
-        // made the same column appear twice in the inputs
-        assertThat(flowed).hasSize(3);
-        assertThat(flowed.get(0)).isEqualTo(partitioning);
-        assertThat(flowed.get(1)).isEqualTo(additionalResult);
-        assertThat(flowed.get(2)).isEqualTo(windowValue);
+        // partitioning by a column does not flow it: the expression reads it from its input to know where to restart
+        // the function. One that is wanted above has to be passed through like any other column, and flowing it here
+        // as well would make the same column reachable twice.
+        assertThat(flowed).hasSize(2);
+        assertThat(flowed.get(0)).isEqualTo(passThrough);
+        assertThat(flowed.get(1)).isEqualTo(windowValue);
+        assertThat(flowed).doesNotContain(partitioning);
+    }
+
+    @Test
+    void twoExpressionsThatDifferOnlyInPartitioningAreNotTheSameExpression() {
+        final var inner = baseQuantifier();
+        final var windowValue = rankOver(field(inner, "a"));
+        final var partitionedByA = new WindowExpression(windowValue, ImmutableList.of(field(inner, "a")),
+                ImmutableList.of(field(inner, "a")), ImmutableList.of(), inner);
+        final var partitionedByB = new WindowExpression(windowValue, ImmutableList.of(field(inner, "b")),
+                ImmutableList.of(field(inner, "a")), ImmutableList.of(), inner);
+
+        // the partitioning columns are no longer part of the result value, so identity has to account for them
+        // explicitly: these two flow the same columns and order them the same way, but restart the function at
+        // different boundaries and therefore compute different ranks
+        assertThat(partitionedByA.equalsWithoutChildren(partitionedByB,
+                AliasMap.identitiesFor(ImmutableSet.of(inner.getAlias())))).isFalse();
+        assertThat(partitionedByA.computeHashCodeWithoutChildren())
+                .isNotEqualTo(partitionedByB.computeHashCodeWithoutChildren());
     }
 
     @Test
@@ -236,7 +255,7 @@ class WindowExpressionTest {
 
         assertThat(translated.getRequestedOrdering()).isEqualTo(expression.getRequestedOrdering());
         assertThat(translated.getPartitioningValues()).hasSize(1);
-        assertThat(translated.getAdditionalResultValues()).hasSize(1);
+        assertThat(translated.getPassThroughValues()).hasSize(1);
         assertThat(translated.getWindowValue()).isInstanceOf(RankWindowValue.class);
         assertThat(translated.getCorrelatedToWithoutChildren()).containsExactly(otherInner.getAlias());
     }

@@ -305,11 +305,13 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
         final WindowValue windowValue = constructWindowValue(callsiteArguments);
         final List<Value> allValues = Values.primitiveAccessorsForType(((Type.Relation)preWindowSelectQun.getRangesOver().getResultType()).getInnerType(),
                 () -> QuantifiedObjectValue.of(preWindowSelectQun));
-        final List<Value> additionalResultValues =
-                inEntryKeyOrder(nonPartitioningColumns(allValues, pulledUpPartitioningColumns),
-                        indexKeyValues);
+        // Every column the pre-window select flows is passed through, the partitioning ones included: partitioning by a
+        // column does not flow it, and the candidate's partitioning columns are sargable and so have to be reachable
+        // above the window expression. In entry key order, which puts them first on their own -- the columns a window
+        // index partitions by are the leading columns of its entry key.
+        final List<Value> passThroughValues = inEntryKeyOrder(allValues, indexKeyValues);
 
-        return new WindowExpression(windowValue, pulledUpPartitioningColumns, additionalResultValues, orderingParts,
+        return new WindowExpression(windowValue, pulledUpPartitioningColumns, passThroughValues, orderingParts,
                 preWindowSelectQun);
     }
 
@@ -389,19 +391,6 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 }), columns);
     }
 
-    @Nonnull
-    private static List<Value> nonPartitioningColumns(@Nonnull final List<? extends Value> columns,
-                                                      @Nonnull final List<? extends Value> partitioningColumns) {
-        final var additionalResultValuesBuilder = ImmutableList.<Value>builder();
-        for (final var column : columns) {
-            if (partitioningColumns.stream()
-                    .noneMatch(partitioningColumn -> partitioningColumn.semanticEquals(column,
-                            AliasMap.emptyMap()))) {
-                additionalResultValuesBuilder.add(column);
-            }
-        }
-        return additionalResultValuesBuilder.build();
-    }
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")

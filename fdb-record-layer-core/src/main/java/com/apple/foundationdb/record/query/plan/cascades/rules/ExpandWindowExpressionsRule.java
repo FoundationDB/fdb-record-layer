@@ -115,16 +115,14 @@ public class ExpandWindowExpressionsRule extends AbstractCascadesRule<SelectExpr
 
         //
         // Everything the select still flows that is not the window function itself has to be flowed by the window
-        // expression too, or the upper select could not reference it any more -- except the partitioning columns, which
-        // the window expression flows on its own. Listing one here as well would flow the same column twice.
+        // expression too, or the upper select could not reference it any more. A partitioning column is no exception:
+        // partitioning by a column does not flow it, so one the query selects is passed through like any other column,
+        // and one it does not select is not flowed at all.
         //
-        final var additionalResultValues = distinctValues(
+        final var passThroughValues = distinctValues(
                 select.getResultValues()
                         .stream()
                         .filter(resultValue -> !containsCompileTimeWindowValue(resultValue))
-                        .filter(resultValue -> partitioningValues.stream()
-                                .noneMatch(partitioningValue ->
-                                        partitioningValue.semanticEquals(resultValue, AliasMap.emptyMap())))
                         .collect(ImmutableList.toImmutableList()));
 
         //
@@ -183,7 +181,7 @@ public class ExpandWindowExpressionsRule extends AbstractCascadesRule<SelectExpr
                         constantAliases));
         final var windowExpression = new WindowExpression(windowValue,
                 pullUpAll(partitioningValues, lowerResultValue, lowerQuantifier, constantAliases),
-                pullUpAll(additionalResultValues, lowerResultValue, lowerQuantifier, constantAliases),
+                pullUpAll(passThroughValues, lowerResultValue, lowerQuantifier, constantAliases),
                 pullUpOrderingParts(compileTimeWindowValue.getOrderingParts(), lowerResultValue,
                         lowerQuantifier, constantAliases),
                 lowerQuantifier);

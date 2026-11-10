@@ -247,7 +247,7 @@ class ExpansionVisitorTest {
         // rank() takes no argument, so the value references nothing of its own
         assertThat(windowExpression.getWindowValue().getCorrelatedTo()).isEmpty();
         assertThat(correlationsOf(windowExpression.getPartitioningValues())).containsExactly(innerAlias);
-        assertThat(correlationsOf(windowExpression.getAdditionalResultValues())).containsExactly(innerAlias);
+        assertThat(correlationsOf(windowExpression.getPassThroughValues())).containsExactly(innerAlias);
         // nothing the expression carries may point outside of it
         assertThat(windowExpression.getCorrelatedToWithoutChildren()).containsExactly(innerAlias);
     }
@@ -387,7 +387,7 @@ class ExpansionVisitorTest {
         final var windowExpression = windowExpressionOf(matchCandidate);
 
         assertNoDuplicates(bottomSelectOf(windowExpression).getResultValues(), "bottom select");
-        assertNoDuplicates(windowExpression.getAdditionalResultValues(), "window expression");
+        assertNoDuplicates(windowExpression.getPassThroughValues(), "window expression");
         assertNoDuplicates(topSelectOf(matchCandidate, windowExpression).getResultValues(), "top select");
     }
 

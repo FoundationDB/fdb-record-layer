@@ -94,7 +94,7 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
     private final List<Value> partitioningValues;
 
     @Nonnull
-    private final List<Value> additionalResultValues;
+    private final List<Value> passThroughValues;
 
     @Nonnull
     private final List<WindowOrderingPart> windowOrderingParts;
@@ -110,12 +110,12 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
 
     public WindowExpression(@Nonnull final WindowValue windowValue,
                             @Nonnull final List<Value> partitioningValues,
-                            @Nonnull final List<Value> additionalResultValues,
+                            @Nonnull final List<Value> passThroughValues,
                             @Nonnull final List<WindowOrderingPart> windowOrderingParts,
                             @Nonnull final Quantifier innerQuantifier) {
         this.windowValue = windowValue;
         this.partitioningValues = ImmutableList.copyOf(partitioningValues);
-        this.additionalResultValues = ImmutableList.copyOf(additionalResultValues);
+        this.passThroughValues = ImmutableList.copyOf(passThroughValues);
         this.windowOrderingParts = ImmutableList.copyOf(windowOrderingParts);
         this.requestedOrderingSupplier = this::computeRequestedOrderingParts;
         this.innerQuantifier = innerQuantifier;
@@ -142,8 +142,8 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         for (final var partitioningValue : partitioningValues) {
             builder.addAll(partitioningValue.getCorrelatedTo());
         }
-        for (final var additionalResultValue : additionalResultValues) {
-            builder.addAll(additionalResultValue.getCorrelatedTo());
+        for (final var passThroughValue : passThroughValues) {
+            builder.addAll(passThroughValue.getCorrelatedTo());
         }
         return builder.build();
     }
@@ -158,11 +158,8 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
     private Value computeResultValue() {
         final var columns = ImmutableList.<Column<? extends Value>>builder();
         final var takenNames = Sets.<String>newHashSet();
-        for (final var partitioningValue : partitioningValues) {
-            columns.add(Column.of(columnName(partitioningValue, takenNames), partitioningValue));
-        }
-        for (final var additionalResultValue : additionalResultValues) {
-            columns.add(Column.of(columnName(additionalResultValue, takenNames), additionalResultValue));
+        for (final var passThroughValue : passThroughValues) {
+            columns.add(Column.of(columnName(passThroughValue, takenNames), passThroughValue));
         }
         columns.add(Column.unnamedOf(windowValue));
         return RecordConstructorValue.ofColumns(columns.build());
@@ -199,8 +196,8 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
     }
 
     @Nonnull
-    public List<Value> getAdditionalResultValues() {
-        return additionalResultValues;
+    public List<Value> getPassThroughValues() {
+        return passThroughValues;
     }
 
     @Nonnull
@@ -263,6 +260,21 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
             return false;
         }
 
+        //
+        // The partitioning columns are not part of the result value, so they have to be compared here: two expressions
+        // that flow the same columns and order them the same way still compute different things when they restart the
+        // window function at different boundaries.
+        //
+        if (partitioningValues.size() != otherWindowExpr.partitioningValues.size()) {
+            return false;
+        }
+
+        if (!Streams.zip(partitioningValues.stream(), otherWindowExpr.partitioningValues.stream(),
+                (thisPartitioningValue, thatPartitioningValue) ->
+                        thisPartitioningValue.semanticEquals(thatPartitioningValue, equivalences)).allMatch(b -> b)) {
+            return false;
+        }
+
         if (getWindowOrderingParts().size() != otherWindowExpr.getWindowOrderingParts().size()) {
             return false;
         }
@@ -274,7 +286,7 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(getResultValue(), getWindowOrderingParts());
+        return Objects.hash(getResultValue(), partitioningValues, getWindowOrderingParts());
     }
 
     @Override
@@ -472,7 +484,7 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         final var translatedPartitioningValues = partitioningValues.stream()
                 .map(value -> value.translateCorrelations(translationMap, shouldSimplifyValues))
                 .collect(ImmutableList.toImmutableList());
-        final var translatedPassThroughValues = additionalResultValues.stream()
+        final var translatedPassThroughValues = passThroughValues.stream()
                 .map(value -> value.translateCorrelations(translationMap, shouldSimplifyValues))
                 .collect(ImmutableList.toImmutableList());
         final var translatedWindowOrderingParts = getWindowOrderingParts().stream()

@@ -1,7 +1,7 @@
 ù
 }
 rank-index-resultsgEXPLAIN select rank() over (partition by team order by score) as rank from player where team = 'greeks'õ
-∞»‚éKû é…´2(-0éﬁÀ8>@MISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3 AS RANK)¨digraph G {
+â á±Iô ˇ≤ó/(+0â€€8:@MISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3 AS RANK)¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -13,7 +13,7 @@
 }”
 É
 rank-index-resultsmEXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' 
-∞˘¸˘û ∏áé(-0õØÉ8>@\ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ãdigraph G {
+â»˝Üô Çõâ(+0ÏÓ…8:@\ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -25,7 +25,8 @@
 }á
 r
 rank-index-results\EXPLAIN select name, team, rank() over (partition by team order by score) as rnk from playerê
-è¥…˙u €˙∑(%0Û±Ö8'@GISCAN(MV1 <,>+rank) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)®digraph G {
+˝Ù°ªr ⁄ﬁå
+($0ïÜÇ8%@GISCAN(MV1 <,>+rank) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -37,7 +38,7 @@ r
 }∆
 è
 rank-index-resultsyEXPLAIN select name, team, score, rank() over (partition by team order by score) as rnk from player where team = 'greeks'±
-∞¸–˛û ﬁ—Ó(-0≥Îﬂ8>@~ISCAN(MV1 [EQUALS promote(@c26 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)ëdigraph G {
+â–ﬂ≤ô ∂‹ı(+0◊Ó’8:@~ISCAN(MV1 [EQUALS promote(@c26 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -49,7 +50,7 @@ r
 }¨
 Ä
 rank-index-resultsjEXPLAIN select rank() over (partition by team order by score) + 1 as rnk from player where team = 'greeks'¶
-∞Ü´áû ‹£á(-0‡Î¶8>@SISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_._3 + @c14 AS RNK)±digraph G {
+â“‚√ô »€Ö(+0ç‰≠8:@SISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_._3 + @c14 AS RNK)±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -61,7 +62,7 @@ r
 }å
 ®
 rank-index-resultsëEXPLAIN select rnk from (select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks') as t where rnk < 2ﬁ
-’©€™® „≠Ë(/0‹©¥8C@oISCAN(MV1 [EQUALS promote(@c26 AS STRING), [LESS_THAN promote(@c33 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)Õdigraph G {
+ÆÛ°‰£ è˜Ù	(-0Îæî8?@oISCAN(MV1 [EQUALS promote(@c26 AS STRING), [LESS_THAN promote(@c33 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -73,7 +74,8 @@ r
 }—
 ◊
 rank-index-qualify¿EXPLAIN select name, team, score, rank() over (partition by team order by score) as rnk from player where team = 'greeks' qualify rank() over (partition by team order by score) between 1 and 2Ù
-ªË÷ïü œãı(-0–Çä8?@€ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c41 AS LONG) && LESS_THAN_OR_EQUALS promote(@c43 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)ˆdigraph G {
+î§»¬ö ∑ÒÄ
+(+0˛ÂÄ8;@€ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c41 AS LONG) && LESS_THAN_OR_EQUALS promote(@c43 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)ˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -85,8 +87,7 @@ r
 }ú
 ∏
 rank-index-qualify°EXPLAIN select rank() over (partition by team order by score) as rnk from player where team = 'greeks' qualify rank() over (partition by team order by score) < 2ﬁ
-ª«πâü ë˝∆
-(-0ˇ˙ê8?@oISCAN(MV1 [EQUALS promote(@c20 AS STRING), [LESS_THAN promote(@c35 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)Õdigraph G {
+î‹È„ö ’∂ﬁ	(+0öèá8;@oISCAN(MV1 [EQUALS promote(@c20 AS STRING), [LESS_THAN promote(@c35 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -95,10 +96,10 @@ r
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEAM, LONG AS SCORE, STRING AS NAME, LONG AS _3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-} 
+}…
 æ
-rank-index-qualifyßEXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks' qualify rank() over (partition by team order by score) = 2Ü
-ªı◊í† Êãµ(-0òßÄ8?@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
+rank-index-qualifyßEXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks' qualify rank() over (partition by team order by score) = 2Ö
+îüŸ“õ ÄÎ›(+0Ω∑{8;@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -110,8 +111,7 @@ r
 }
 ø
 rank-index-qualify®EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks' qualify rank() over (partition by team order by score) >= 1´
-ªœ Úü ≤ëœ
-(-0Óéà8?@åISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)¸digraph G {
+îì˘øö à˜Œ(+0ıºÅ8;@åISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -123,7 +123,7 @@ r
 }—
 Ò
 rank-index-qualify⁄EXPLAIN select rank() over (partition by team order by score) as rnk from player where team = 'greeks' qualify rank() over (partition by team order by score) >= 1 and rank() over (partition by team order by score) <= 2⁄
-ª“ƒÆü ®·È(-0¥«i8?@©ISCAN(MV1 [EQUALS promote(@c20 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c36 AS LONG) && LESS_THAN_OR_EQUALS promote(@c52 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)èdigraph G {
+î¨ˇçö ≥ò¿(+0¸ˆ{8;@©ISCAN(MV1 [EQUALS promote(@c20 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c36 AS LONG) && LESS_THAN_OR_EQUALS promote(@c52 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -135,7 +135,7 @@ r
 }Å
 Æ
 rank-index-qualifyóEXPLAIN select name, team, rank() over (partition by team order by score) as rnk from player qualify rank() over (partition by team order by score) = 1Õ
-ÆÄ“˙{ ˇ¯Ä(&0¬èq8+@rISCAN(MV1 <,>+rank) | FILTER _._3 EQUALS promote(@c35 AS LONG) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)ªdigraph G {
+úøÏåx ªÁá(%0≤‚\8)@rISCAN(MV1 <,>+rank) | FILTER _._3 EQUALS promote(@c35 AS LONG) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -149,8 +149,7 @@ r
 }Ó
 Ω
 rank-index-ties©EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' qualify rank() over (partition by team order by score) >= 2´
-ªå¥»ü àˇù
-(-0π…É8?@åISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)¸digraph G {
+îì˘øö à˜Œ(+0ıºÅ8;@åISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -162,7 +161,7 @@ r
 }«
 º
 rank-index-ties®EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' qualify rank() over (partition by team order by score) = 2Ö
-ªøú˜† ¢≈ﬂ	(-0†„t8?@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
+îüŸ“õ ÄÎ›(+0Ω∑{8;@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -174,7 +173,7 @@ r
 }«
 º
 rank-index-ties®EXPLAIN select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans' qualify rank() over (partition by team order by score) = 1Ö
-ªøú˜† ¢≈ﬂ	(-0†„t8?@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
+îüŸ“õ ÄÎ›(+0Ω∑{8;@zISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -186,7 +185,7 @@ r
 }≥
 â
 rank-of-child-among-siblingsiEXPLAIN select rank() over (partition by parent_id order by id) as position from node where parent_id = 1§
-ÖÜ˛Øë √ñó	(*0¶Óy82@OISCAN(MV2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._3 AS POSITION)¥digraph G {
+ﬁâ°›å úÓä((0ë¢=8.@OISCAN(MV2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._3 AS POSITION)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -195,10 +194,10 @@ r
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PARENT_ID, LONG AS ID, STRING AS LABEL, LONG AS _3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ˆ
+}ı
 k
-rank-index-primary-keyQEXPLAIN select rank() over (partition by b order by c) as r from t2 where b = 100Ü
-Ö⁄üØë ’Ö≠	(*0ÃàÖ82@GISCAN(I2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._4 AS R)ùdigraph G {
+rank-index-primary-keyQEXPLAIN select rank() over (partition by b order by c) as r from t2 where b = 100Ö
+ﬁ—Û≠	å ö‹∂((0ÉåA8.@GISCAN(I2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._4 AS R)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -210,7 +209,7 @@ k
 }Ω
 q
 rank-index-primary-keyWEXPLAIN select a, c, rank() over (partition by b order by c) as r from t2 where b = 100«
-ÖÊÂ˛ë ≈≤ú	(*0‘±l82@[ISCAN(I2 [EQUALS promote(@c24 AS LONG)]+rank BY_RANK) | MAP (_.A AS A, _.C AS C, _._4 AS R)Àdigraph G {
+ﬁÏ‰Ù	å ˝Í((0‰ñJ8.@[ISCAN(I2 [EQUALS promote(@c24 AS LONG)]+rank BY_RANK) | MAP (_.A AS A, _.C AS C, _._4 AS R)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -234,7 +233,7 @@ n
 }ô
 n
 rank-index-primary-keyTEXPLAIN select b, rank() over (partition by b order by c) as r from t2 where b = 200¶
-Ö¬ƒ™ë Àπ¨(*0„¢T82@QISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.B AS B, _._4 AS R)¥digraph G {
+ﬁÅêëå à‹÷((0ª∫58.@QISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.B AS B, _._4 AS R)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -246,7 +245,7 @@ n
 }é
 q
 rank-index-primary-keyWEXPLAIN select b, c, rank() over (partition by b order by c) as r from t2 where b < 200ò
-ÖÉµÙë å‹ë(*0êß`82@XISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)üdigraph G {
+ﬁ˙ü“å äëä((0»∂L8.@XISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -258,7 +257,7 @@ q
 }é
 q
 rank-index-primary-keyWEXPLAIN select b, c, rank() over (partition by b order by c) as r from t2 where b < 300ò
-ÖÉµÙë å‹ë(*0êß`82@XISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)üdigraph G {
+ﬁ˙ü“å äëä((0»∂L8.@XISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -270,8 +269,8 @@ q
 } 
 ç
 rank-index-partitioningrEXPLAIN select z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b = 100 and c = 1000∑
-ÖÁë¨ë û¢ê
-(*0ß‚}82@çISCAN(I3 [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG), EQUALS promote(@c34 AS LONG)]+rank BY_RANK) | MAP (_.Z AS Z, _._5 AS R)àdigraph G {
+ﬁëÊ£
+å éÒÉ((0±É?8.@çISCAN(I3 [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG), EQUALS promote(@c34 AS LONG)]+rank BY_RANK) | MAP (_.Z AS Z, _._5 AS R)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -283,7 +282,7 @@ q
 }ı
 É
 rank-index-partitioninghEXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 200Ï
-ÖÜ¥Ïë ‡ˇÜ(*0⁄‰R82@vISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)’digraph G {
+ﬁõ∂≠	å £ä∆((0¡´>8.@vISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -295,7 +294,7 @@ q
 }ı
 É
 rank-index-partitioninghEXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 300Ï
-ÖÜ¥Ïë ‡ˇÜ(*0⁄‰R82@vISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)’digraph G {
+ﬁõ∂≠	å £ä∆((0¡´>8.@vISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -307,7 +306,7 @@ q
 }¢
 w
 rank-index-partitioning\EXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10¶
-Öùπ√ë ¡äÏ(*0û«F82@SISCAN(I3 [EQUALS promote(@c28 AS LONG)]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)≤digraph G {
+ﬁ∫ë¨	å ˜›œ((0üÑA8.@SISCAN(I3 [EQUALS promote(@c28 AS LONG)]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -319,8 +318,7 @@ w
 }ä
 m
 rank-index-partitioningREXPLAIN select a, b, z, rank() over (partition by a, b, c order by z) as r from t3ò
-èö®‡
-u ‡Éú(%0ê˙@8'@BISCAN(I3 <,>+rank) | MAP (_.A AS A, _.B AS B, _.Z AS Z, _._5 AS R)∂digraph G {
+˝æí»r ´ø‡($0†=8%@BISCAN(I3 <,>+rank) | MAP (_.A AS A, _.B AS B, _.Z AS Z, _._5 AS R)∂digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
