@@ -552,32 +552,34 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Find the maximum type of two types. The maximum type is the type that can describe all values adhering to both
      * sides passed in. Some combinations are not defined.
-     * Primitive types are treated using the SQL-like promotion rules to form a promotion ladder meaning that
-     * <pre>
-     * {@code
-     * INT --> LONG --> FLOAT --> DOUBLE
-     * }
-     * </pre>
-     * can be promoted up (the values can be substituted without loss).
-     * <pre>
-     * Examples
-     * {@code
-     * int, int --> int
-     * int, float --> float
-     * int, string --> undefined
-     * record(int as a, int as b), record(int as a, int as b) --> record(int as a, int as b)
-     * record(int as a, int as b), record(int as c, int as d) --> record(int, int) (unnamed)
-     * record(int, int), record(float, float) --> record(float, float)
-     * record(int, float), record(float, int) --> record(float, float)
-     * record(int, array(float)), record(int, array(double)) --> record(int, array(double))
-     * record(int, string), record(float, int) --> undefined
-     * record(int), record(int, int) --> undefined
-     * }
-     * </pre>
      *
-     * @param t1 one type
-     * @param t2 another type
-     * @return the maximum type of {@code t1} and type {@code t2} or {@code null} if the maximum type is not defined
+     * <p>Primitive types are treated using the SQL-like promotion rules to form a promotion ladder meaning that
+     * <pre>{@code
+     * INT ⟶ LONG ⟶ FLOAT ⟶ DOUBLE
+     * }</pre>
+     * can be promoted up (the values can be substituted without loss).
+     *
+     * <p>Record types are merged field by field. The maximum type keeps the type name if both types have the same name
+     * and the merged fields equal those of one of them. It keeps the name and the number of a field if both fields
+     * agree on it.
+     *
+     * <p>Examples:
+     * <pre>{@code
+     * INT,                        INT                        ⟶ INT
+     * INT,                        FLOAT                      ⟶ FLOAT
+     * INT,                        STRING                     ⟶ undefined
+     * RECORD(INT AS a, INT AS b), RECORD(INT AS a, INT AS b) ⟶ RECORD(INT AS a, INT AS b)
+     * RECORD(INT AS a, INT AS b), RECORD(INT AS c, INT AS d) ⟶ RECORD(INT, INT) (unnamed)
+     * RECORD(INT, INT),           RECORD(FLOAT, FLOAT)       ⟶ RECORD(FLOAT, FLOAT)
+     * RECORD(INT, FLOAT),         RECORD(FLOAT, INT)         ⟶ RECORD(FLOAT, FLOAT)
+     * RECORD(INT, ARRAY(FLOAT)),  RECORD(INT, ARRAY(DOUBLE)) ⟶ RECORD(INT, ARRAY(DOUBLE))
+     * RECORD(INT, STRING),        RECORD(FLOAT, INT)         ⟶ undefined
+     * RECORD(INT),                RECORD(INT, INT)           ⟶ undefined
+     * }</pre>
+     *
+     * @param t1 the first type
+     * @param t2 the second type
+     * @return the maximum type of {@code t1} and type {@code t2}, or {@code null} if the maximum type is not defined
      */
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -637,33 +639,68 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         switch (t1.getTypeCode()) {
             case RECORD:
-                final var t1Fields = ((Type.Record)t1).getFields();
-                final var t2Fields = ((Type.Record)t2).getFields();
-
-                if (t1Fields.size() != t2Fields.size()) {
+                final var t1Record = (Type.Record)t1;
+                final var t2Record = (Type.Record)t2;
+                Verify.verify(!t1Record.isErased());
+                Verify.verify(!t2Record.isErased());
+                final List<Record.Field> t1Fields = t1Record.getFields();
+                final List<Record.Field> t2Fields = t2Record.getFields();
+                final int nFields = t1Fields.size();
+                if (nFields != t2Fields.size()) {
                     return null;
                 }
 
+                // If the record types are equal (including names, field names and field numbers, but ignoring the
+                // nullability of the record types themselves), keep the type as is, so that the maximum type retains
+                // the name and field numbers.
+                final String t1Name = t1Record.getName();
+                final String t2Name = t2Record.getName();
+                if (Objects.equals(t1Name, t2Name) && t1Fields.equals(t2Fields)) {
+                    return t1Record.withNullability(isResultNullable);
+                }
+
+                // Otherwise, build a fresh record type by merging the fields pairwise. Each merged field has the
+                // maximum of the two field types and keeps the field name if the two fields have matching names.
+                // It keeps the field number only if both fields agree on it.
                 final var resultFieldsBuilder = ImmutableList.<Type.Record.Field>builder();
-                for (int i = 0; i < t1Fields.size(); i++) {
-                    final var t1Field = t1Fields.get(i);
-                    final var t2Field = t2Fields.get(i);
+                for (int i = 0; i < nFields; i++) {
+                    final Record.Field f1 = t1Fields.get(i);
+                    final Record.Field f2 = t2Fields.get(i);
                     
-                    final var resultFieldType = maximumType(t1Field.getFieldType(), t2Field.getFieldType());
+                    final Type resultFieldType = maximumType(f1.getFieldType(), f2.getFieldType());
                     if (resultFieldType == null) {
                         return null;
                     }
 
-                    Optional<String> resultFieldNameOptional = Optional.empty();
-                    if (t1Field.getFieldNameOptional().isEmpty()) {
-                        resultFieldNameOptional = t2Field.getFieldNameOptional();
-                    } else if (t2Field.getFieldNameOptional().isEmpty() || (t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional()))) {
-                        resultFieldNameOptional = t1Field.getFieldNameOptional();
+                    final Optional<String> f1Name = f1.getFieldNameOptional();
+                    final Optional<String> f2Name = f2.getFieldNameOptional();
+                    Optional<String> resultFieldName = Optional.empty();
+                    if (f1Name.isEmpty()) {
+                        resultFieldName = f2Name;
+                    } else if (f2Name.isEmpty() || f1Name.equals(f2Name)) {
+                        resultFieldName = f1Name;
                     }
 
-                    resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldNameOptional));
+                    // Keep the field number only if both fields agree, so that the merged type stays compatible.
+                    final Optional<Integer> f1Index = f1.getFieldIndexOptional();
+                    final Optional<Integer> f2Index = f2.getFieldIndexOptional();
+                    final Optional<Integer> resultFieldIndex = f1Index.equals(f2Index) ? f1Index : Optional.empty();
+                    resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldName, resultFieldIndex));
                 }
-                return Type.Record.fromFields(isResultNullable, resultFieldsBuilder.build());
+                final List<Record.Field> resultFields = resultFieldsBuilder.build();
+
+                // If both record types have the same name and the merged fields equal the fields of one of them, keep
+                // that record type, so that it retains its name. A merged record type that differs from both inputs
+                // must not reuse their name, since it would clash with them in a type repository.
+                if (Objects.equals(t1Name, t2Name)) {
+                    if (resultFields.equals(t1Fields)) {
+                        return t1Record.withNullability(isResultNullable);
+                    }
+                    if (resultFields.equals(t2Fields)) {
+                        return t2Record.withNullability(isResultNullable);
+                    }
+                }
+                return Type.Record.fromFields(isResultNullable, resultFields);
 
             case ARRAY:
                 final var t1ElementType = Verify.verifyNotNull(((Type.Array)t1).getElementType());
