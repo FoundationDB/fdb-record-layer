@@ -101,7 +101,7 @@ public class Values {
     public static List<Value> primitiveAccessorsForType(@Nonnull final Type type,
                                                         @Nonnull final Supplier<Value> baseValueSupplier) {
         if (type.getTypeCode() != Type.TypeCode.RECORD) {
-            SemanticException.check(type.isPrimitive() || type.isEnum(),
+            SemanticException.check(type.isPrimitive() || type.isEnum() || type.isArray(),
                     SemanticException.ErrorCode.ORDERING_IS_OF_INCOMPATIBLE_TYPE);
             return ImmutableList.of(baseValueSupplier.get());
         }

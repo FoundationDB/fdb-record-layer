@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -134,12 +135,21 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
         expandRemainingPrimaryKeyColumns(primaryKey, keysAndValues, fuseQuantifier);
 
         // 2. expand pre-window select
-        final GraphExpansion preWindowSelectExpansion = expandPreWindowSelectExpression(fuseQuantifier, indexKeyExpansion);
+        final GraphExpansion allKeysExpansion = expandAllIndexKeys(fuseQuantifier);
+        final GraphExpansion preWindowSelectExpansion =
+                expandPreWindowSelectExpression(fuseQuantifier, indexKeyExpansion, allKeysExpansion);
         final List<Placeholder> partitioningPlaceholders = preWindowSelectExpansion.getPlaceholders();
+        final Quantifier.ForEach preWindowSelectQun =
+                Quantifier.forEach(Reference.initialOf(preWindowSelectExpansion.buildSelect()));
+
+        // The entry key is expanded over the base quantifier and, where the key unnests, over quantifiers of its own.
+        // Everything downstream reasons in terms of what the pre-window select flows, so the key columns are put in
+        // that frame once, here, rather than each consumer pulling them up in its own.
+        final List<Value> indexKeyValues = pullUpIfPossible(keysAndValues.keys(), preWindowSelectQun);
 
         // 3. expand window
-        final WindowExpression windowExpression = expandWindowExpression(preWindowSelectExpansion,
-                expandAllIndexKeys(fuseQuantifier), keysAndValues);
+        final WindowExpression windowExpression =
+                expandWindowExpression(preWindowSelectQun, allKeysExpansion, indexKeyValues);
 
         // 4. expand post-window select
         final GraphExpansion postWindowSelectExpansion = expandPostWindowExpression(windowExpression, partitioningPlaceholders);
@@ -166,7 +176,7 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 fuseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")),
                 fuseQunAlias,
                 placeHolderAliases,
-                keysAndValues.keys,
+                indexKeyValues,
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey),
                 primaryKey,
                 postWindowSelectRef.get().getResultValue(),
@@ -177,10 +187,22 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
 
     @Nonnull
     private GraphExpansion expandPreWindowSelectExpression(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                                           @Nonnull final GraphExpansion keyExpansion) {
+                                                           @Nonnull final GraphExpansion keyExpansion,
+                                                           @Nonnull final GraphExpansion allKeysExpansion) {
         final var selectExpansionVisitor = ImmutableList.<GraphExpansion>builder();
         selectExpansionVisitor.add(GraphExpansion.ofResultValue(baseQuantifier.getFlowedObjectValue()))
                 .add(GraphExpansion.ofQuantifier(baseQuantifier));
+
+        // An unnesting key expression brings quantifiers of its own. The columns it defines over them are what the
+        // window partitions and orders by, so they are flowed next to the base record -- nothing above could reach
+        // them through the base record's own object value. Both come from the whole-key expansion, which is also what
+        // the window expression's values are built from, so the two agree on which quantifier a column refers to.
+        final var unnestedAliases = Quantifiers.aliases(allKeysExpansion.getQuantifiers());
+        for (final var column : allKeysExpansion.getResultColumns()) {
+            if (!Sets.intersection(column.getValue().getCorrelatedTo(), unnestedAliases).isEmpty()) {
+                selectExpansionVisitor.add(GraphExpansion.ofResultColumn(column));
+            }
+        }
 
         // a copy, because folding an index predicate's ranges in below replaces placeholders in place
         final var partitioningPlaceholders = Lists.newArrayList(keyExpansion.getPlaceholders());
@@ -213,7 +235,8 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
 
         final GraphExpansion.Builder builder = GraphExpansion.ofOthers(selectExpansionVisitor.build()).toBuilder()
                 .addAllPlaceholders(partitioningPlaceholders)
-                .addAllPredicates(keyExpansion.getPredicates());
+                .addAllPredicates(keyExpansion.getPredicates())
+                .addAllQuantifiers(allKeysExpansion.getQuantifiers());
 
         return builder.build();
     }
@@ -232,10 +255,9 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     }
 
     @Nonnull
-    private WindowExpression expandWindowExpression(@Nonnull final GraphExpansion preWindowSelectExpansion,
+    private WindowExpression expandWindowExpression(@Nonnull final Quantifier.ForEach preWindowSelectQun,
                                                     @Nonnull final GraphExpansion allKeysExpansion,
-                                                    @Nonnull final IndexKeysAndValues keysAndValues) {
-        final Quantifier.ForEach preWindowSelectQun = Quantifier.forEach(Reference.initialOf(preWindowSelectExpansion.buildSelect()));
+                                                    @Nonnull final List<Value> indexKeyValues) {
         // The index key defines one split point: the leading columns are what the window is partitioned by, the
         // trailing ones are what the window function is computed over. Partitioning is not grouping -- a partition does
         // not collapse its rows, it only bounds where the function restarts -- so both sides keep flowing every row.
@@ -273,7 +295,7 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 () -> QuantifiedObjectValue.of(preWindowSelectQun));
         final List<Value> additionalResultValues =
                 inEntryKeyOrder(nonPartitioningColumns(allValues, pulledUpPartitioningColumns),
-                        keysAndValues.keys(), preWindowSelectQun, aliasMap);
+                        indexKeyValues);
 
         return new WindowExpression(windowValue, pulledUpPartitioningColumns, additionalResultValues, orderingParts,
                 preWindowSelectQun);
@@ -288,6 +310,24 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
      *
      * @return the pulled-up values, in the order they were given
      */
+    /**
+     * Expresses the given values over the pre-window select's quantifier, dropping any that cannot be reached from
+     * what it flows. A record type key has no counterpart there, and neither has a column of a quantifier the select
+     * does not range over.
+     */
+    @Nonnull
+    private static List<Value> pullUpIfPossible(@Nonnull final List<Value> values,
+                                                @Nonnull final Quantifier preWindowSelectQun) {
+        final var pulledUpMap = preWindowSelectQun.getRangesOver().get().getResultValue()
+                .pullUp(values, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
+                        preWindowSelectQun.getAlias());
+        return values.stream()
+                .map(pulledUpMap::get)
+                .filter(pulledUp -> !pulledUp.isEmpty())
+                .map(pulledUp -> pulledUp.iterator().next())
+                .collect(ImmutableList.toImmutableList());
+    }
+
     @Nonnull
     private List<Value> pullUp(@Nonnull final List<Value> values,
                                @Nonnull final Quantifier preWindowSelectQun,
@@ -319,25 +359,13 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
      * key with holes punched in it -- it is these columns, ordered.
      *
      * @param columns the columns to order, over {@code preWindowSelectQun}
-     * @param indexKeyValues the entry key's columns in key order, over the base quantifier
-     * @param preWindowSelectQun the quantifier the columns are expressed over
-     * @param aliasMap the aliases the entry key columns may legitimately stay correlated to
+     * @param entryKeyOrder the entry key's columns in key order, in the same frame as {@code columns}
      *
      * @return the same columns, in entry key order, the ones the entry does not carry last
      */
     @Nonnull
     private static List<Value> inEntryKeyOrder(@Nonnull final List<Value> columns,
-                                               @Nonnull final List<Value> indexKeyValues,
-                                               @Nonnull final Quantifier preWindowSelectQun,
-                                               @Nonnull final AliasMap aliasMap) {
-        final var pulledUpMap = preWindowSelectQun.getRangesOver().get().getResultValue()
-                .pullUp(indexKeyValues, EvaluationContext.empty(), aliasMap, ImmutableSet.of(),
-                        preWindowSelectQun.getAlias());
-        final var entryKeyOrder = indexKeyValues.stream()
-                .map(pulledUpMap::get)
-                .filter(pulledUp -> !pulledUp.isEmpty())
-                .map(pulledUp -> pulledUp.iterator().next())
-                .collect(ImmutableList.toImmutableList());
+                                               @Nonnull final List<Value> entryKeyOrder) {
         return ImmutableList.sortedCopyOf(
                 Comparator.comparingInt((Value column) -> {
                     for (int ordinal = 0; ordinal < entryKeyOrder.size(); ordinal++) {
@@ -456,6 +484,8 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     private static List<Value> columnValues(@Nonnull final List<Column<? extends Value>> columns) {
         return columns.stream().map(Column::getValue).collect(ImmutableList.toImmutableList());
     }
+
+    // Rank(
 
     @Nonnull
     private IndexKeysAndValues computeIndexKeysAndValues(@Nonnull final Quantifier.ForEach baseQuantifier) {

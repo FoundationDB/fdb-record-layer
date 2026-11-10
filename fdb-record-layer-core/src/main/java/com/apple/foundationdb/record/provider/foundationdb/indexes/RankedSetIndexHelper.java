@@ -203,8 +203,8 @@ public class RankedSetIndexHelper {
      * greater than that position, so including the whole block only admits rows whose rank is already in range.
      *
      * <p>The low bound is the one that can be wrong. If the position it names falls inside a tie block rather than at
-     * its start -- that is, if the rank of the score found there is below the bound -- then every row of that block
-     * ranks below the range and the block must be dropped whole. Making the score bound exclusive does exactly that,
+     * its start (in other words, if the rank of the score found there is below the bound) then every row of that block
+     * ranks below the range and the block must be dropped, making the score bound exclusive does exactly that,
      * and lands on the next distinct score without a further lookup.
      *
      * @param state the index maintainer state

@@ -128,19 +128,6 @@ public class ExpandWindowExpressionsRule extends AbstractCascadesRule<SelectExpr
                         .collect(ImmutableList.toImmutableList()));
 
         //
-        // The lower select flows the partitioning columns first, which lines their ordinals up with the way the match
-        // candidate expands a windowed index key, then what the window function itself reads, then what the query still
-        // selects. Each column flows exactly once: pulling a value up looks it up among the flowed columns, and two
-        // semantically equal columns make that lookup ambiguous. A column can be duplicated both because it is
-        // partitioned by and selected ("rank(a) OVER (PARTITION BY b), b") and because the query selects it twice.
-        //
-        final var lowerValues = distinctValues(
-                Iterables.concat(partitioningValues,
-                        compileTimeWindowValue.getArgumentValues(),
-                        orderingValues(compileTimeWindowValue),
-                        additionalResultValues));
-
-        //
         // A predicate that does not mention the window function filters rows before the function is computed, so it
         // belongs underneath the window expression. PredicatePushDownRule already pushes a predicate over a single
         // quantifier further down than this, but it cannot move one that spans several, so a join predicate reaches its
@@ -170,6 +157,15 @@ public class ExpandWindowExpressionsRule extends AbstractCascadesRule<SelectExpr
                             call.memoizeFinalExpressionsFromOther(childReference,
                                     childReference.getFinalExpressions()));
                 })
+                .collect(ImmutableList.toImmutableList());
+
+        //
+        // The lower select flows each quantifier as it stands and nothing derived from it. Flowing a derived column
+        // next to the quantifier it reads would give every value inside that quantifier two ways up -- through the
+        // column and through the quantifier -- and pulling one up would then be ambiguous.
+        //
+        final var lowerValues = lowerQuantifiers.stream()
+                .map(Quantifier::getFlowedObjectValue)
                 .collect(ImmutableList.toImmutableList());
 
         final var lowerSelect = new SelectExpression(RecordConstructorValue.ofUnnamed(lowerValues),

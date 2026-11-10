@@ -369,6 +369,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void rankRepeatedField(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("rank-repeated-field.yamsql");
+    }
+
+    @TestTemplate
     public void rankIndex(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("rank-index.yamsql");
     }
