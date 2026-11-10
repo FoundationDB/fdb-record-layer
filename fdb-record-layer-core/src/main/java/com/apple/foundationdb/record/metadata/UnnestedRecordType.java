@@ -414,9 +414,17 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Nonnull
     private static Quantifier.ForEach constituentQuantifier(@Nonnull final Value ownerElementValue,
                                                             @Nonnull final KeyExpression nestingExpression) {
+        //
+        // The owner of a constituent nested in another constituent is a field of that constituent's struct. Fuse the
+        // path to the array into that field rather than accessing it on top of it, so that the collection is the same
+        // value a query navigating the same unnestings explodes, and the two explodes can be matched.
+        //
+        Value collectionValue = ownerElementValue;
+        for (final String fieldName : arrayFieldPath(nestingExpression)) {
+            collectionValue = FieldValue.ofFieldNameAndFuseIfPossible(collectionValue, fieldName);
+        }
         final Quantifier.ForEach explodeQuantifier =
-                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(
-                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true))));
+                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(collectionValue, true))));
         return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
                 .seal()
                 .buildSimpleSelectOverQuantifier(explodeQuantifier)));
