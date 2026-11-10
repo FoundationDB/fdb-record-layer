@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.codecs.CodecUtil;
@@ -43,6 +44,8 @@ import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -232,14 +235,18 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_RENAME_FILE, 1);
     }
 
-    @Test
-    public void testReadByteFailureDoesNotAdvancePosition() throws Exception {
+    @ParameterizedTest
+    @BooleanSource("multipleBytes")
+    public void testReadByteFailureDoesNotAdvancePosition(boolean multipleBytes) throws Exception {
         writeFile("testReadByte", CodecUtil.footerLength() + 1);
         addFailure(LUCENE_READ_BLOCK,
                 new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")), 0);
 
         try (FDBIndexInput input = new FDBIndexInput("testReadByte", directory)) {
-            final IOException ex = assertThrows(IOException.class, input::readByte);
+            final Executable readBytes = multipleBytes ?
+                                         () -> input.readBytes(new byte[1], 0, 1) :
+                                         input::readByte;
+            final IOException ex = assertThrows(IOException.class, readBytes);
             assertTrue(ex.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
             // A byte that failed to read must not be counted as read
             assertEquals(0, input.getFilePointer());
