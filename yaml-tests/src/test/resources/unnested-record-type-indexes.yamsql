@@ -21,35 +21,21 @@
 options:
   supported_version: !current_version
 ---
-# Indexes on unnested record types, with one unnesting and with several.
+# Indexes on unnested record types. An index needs a synthetic record type when the columns of one unnesting are not
+# adjacent in its key, as in `mv_split`, where `region` of the parent row sits between `reviewer` and `rating` of a
+# review. The type has one constituent per unnested struct array; a scalar array stays a fan-out of the key. There is
+# an entry per combination of unnested elements, so a row with an empty array has none, and a query that unnests fewer
+# arrays than the index must not be answered by it.
 #
-# `mv_split` requires a synthetic record type: `reviewer` and `rating` both come from one review, but `region` (a
-# column of the parent row) sits between them.
-#
-# The other three tables repeat that shape over an unnesting that is harder to reach:
-#   `resta.urant$t` has non-protobuf compliant names
-#   `item`          holds its array under a chain of non-repeated structs
-#   `book`          holds structs inside the elements of its array
-#   `venue`         names its own primary key in the index key
-#
-# `kiosk`, `shop`, `stall` and `booth` hold the same rows under different combinations of an index on the stored table
-# and an index on the synthetic type, to test which of the two the planner picks.
-#
-# The last three tables have an index with more than one unnesting, so their synthetic types have one nested
-# constituent per unnesting:
-#   `trip`  unnests two sibling arrays, `stops` and `riders`
-#   `team`  unnests the same array, `members`, twice, so it indexes every pair of members of a team
-#   `store` unnests `shelves`, an array inside the elements of `aisles`, so one unnesting is nested in the other
-# An index entry exists for every combination of the unnested elements, so a row with an empty array has no entries,
-# and a query that unnests fewer arrays than the index produces different rows and must not be answered by it.
-#
-# The remaining tables cover other ways to define such an index:
-#   `crate`  defines it on a view, with CREATE INDEX ... ON
-#   `board`  orders its key with DESC and NULLS LAST
-#   `ledger` projects a column it does not order by, has a composite primary key and an ARRAY NOT NULL column
-#   `kit`    unnests a struct array and a scalar array, which stays a fan-out
-#   `tri`    unnests three sibling arrays
-#   `chain`  has two indexes over chained unnestings: one that reads only the outer unnesting, and one that branches
+#   one unnesting        `restaurant` (`mv_split`), `resta.urant$t` (non-protobuf compliant names), `item` (array under
+#                        non-repeated structs), `book` (structs inside the elements), `venue` (primary key in the key)
+#   index choice         `kiosk`, `shop`, `stall`, `booth`: the same rows under an index on the stored table, on the
+#                        synthetic type, or both
+#   several unnestings   `trip`, `tri` (two and three sibling arrays), `team` (one array twice: pairs of members),
+#                        `store`, `chain` (an array inside another's elements), `kit` (a struct and a scalar array)
+#   other definitions    `crate` (on a view, CREATE INDEX ... ON), `board` (DESC, NULLS LAST), `ledger` (a value
+#                        column, a composite primary key, ARRAY NOT NULL)
+#   rejected             `unsupported-index-definitions`
 schema_template:
   CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
 
@@ -1147,6 +1133,64 @@ test_block:
           {x: 1, k: 1, y: 6, z: 7},
           {x: 3, k: 2, y: 5, z: 8},
           {x: 3, k: 2, y: 5, z: 9}]
+---
+# Indexes with several unnestings, queried for a column that only the synthetic record holds, so the index entries are
+# fetched rather than covering the query.
+test_block:
+  name: index-scan-with-fetch-several-unnestings
+  tests:
+    -
+      # `age` of the second unnesting is not in the key.
+      - query: SELECT S."place", R."rider_name", R."age"
+                 FROM "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S,
+                      (SELECT "rider_name", "age" FROM "trip"."riders") AS R
+                WHERE S."place" = 'park'
+      - explain: "ISCAN(trip_place_city_rider_mins [EQUALS promote(@c45 AS STRING)]) | MAP (_.unnesting_0.place AS place, _.unnesting_1.rider_name AS rider_name, _.unnesting_1.age AS age)"
+      - unorderedResult: [
+          {place: 'park', rider_name: 'ann', age: 30},
+          {place: 'park', rider_name: 'bob', age: 40},
+          {place: 'park', rider_name: 'cat', age: 25}]
+    -
+      # The same column, in the order of a key prefix that spans the first unnesting and the parent row.
+      - query: SELECT S."place", "trip"."city", R."age"
+                 FROM "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S,
+                      (SELECT "rider_name", "age" FROM "trip"."riders") AS R
+                ORDER BY S."place", "trip"."city"
+      - explain: "ISCAN(trip_place_city_rider_mins <,>) | MAP (_.unnesting_0.place AS place, _.parent.city AS city, _.unnesting_1.age AS age)"
+      - result: [
+          {place: 'park', city: 'LA', age: 25},
+          {place: 'park', city: 'SF', age: 30},
+          {place: 'park', city: 'SF', age: 40},
+          {place: 'pier', city: 'SF', age: 30},
+          {place: 'pier', city: 'SF', age: 40}]
+    -
+      # The second unnesting of the same array is keyed by `role` only; the name of the partner is fetched.
+      - query: SELECT X."member_name", Y."member_name" AS "partner", Y."role"
+                 FROM "team", (SELECT "member_name", "score" FROM "team"."members") AS X,
+                      (SELECT "member_name", "role" FROM "team"."members") AS Y
+                WHERE X."member_name" = 'ann'
+      - explain: "ISCAN(team_pairs [EQUALS promote(@c47 AS STRING)]) | MAP (_.unnesting_0.member_name AS member_name, _.unnesting_1.member_name AS partner, _.unnesting_1.role AS role)"
+      - unorderedResult: [
+          {member_name: 'ann', partner: 'ann', role: 'lead'},
+          {member_name: 'ann', partner: 'bob', role: 'pawn'}]
+    -
+      # `chain_outer_split` keys only the outer unnesting; the elements of the inner one are fetched.
+      - query: SELECT B."x", C."y", C."y2"
+                 FROM "chain" AS A, A."p" AS B, B."q" AS C
+                WHERE B."x" = 1
+      - explain: "ISCAN(chain_outer_split [EQUALS promote(@c33 AS LONG)]) | MAP (_.unnesting_0.x AS x, _.unnesting_1.y AS y, _.unnesting_1.y2 AS y2)"
+      - unorderedResult: [
+          {x: 1, y: 5, y2: 50},
+          {x: 1, y: 6, y2: 60}]
+    -
+      # `chain_branching` keys `z` of the branch off the parent, but not `z2`.
+      - query: SELECT B."x", C."y", D."z", D."z2"
+                 FROM "chain" AS A, A."p" AS B, B."q" AS C, A."r" AS D
+                WHERE B."x" = 1
+      - explain: "ISCAN(chain_branching [EQUALS promote(@c43 AS LONG)]) | MAP (_.unnesting_0.x AS x, _.unnesting_1.y AS y, _.unnesting_2.z AS z, _.unnesting_2.z2 AS z2)"
+      - unorderedResult: [
+          {x: 1, y: 5, z: 7, z2: 70},
+          {x: 1, y: 6, z: 7, z2: 70}]
 ---
 setup:
   connect: 0
