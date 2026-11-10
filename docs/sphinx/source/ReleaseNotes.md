@@ -8,6 +8,30 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.18
 
+{#release-4-18-5-0}
+
+### 4.18.5.0
+
+<h4> New Features </h4>
+
+* Add factory `StoreTimerMetricCollector.fromStoreTimer` - [PR #4872](https://github.com/FoundationDB/fdb-record-layer/pull/4872)
+<h4> Bug Fixes </h4>
+
+* Preserve the record type name of whole-row `ARRAY_AGG()` elements - [PR #4800](https://github.com/FoundationDB/fdb-record-layer/pull/4800)
+
+
+**[Full Changelog (4.18.4.0...4.18.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.4.0...4.18.5.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`, ✅`4.18.3.0`, ✅`4.18.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/42871580967)
+
+
+
 {#release-4-18-4-0}
 
 ### 4.18.4.0
