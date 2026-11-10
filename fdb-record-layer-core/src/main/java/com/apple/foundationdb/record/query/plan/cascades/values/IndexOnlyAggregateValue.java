@@ -111,6 +111,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     /**
      * Creates a new instance of {@link IndexOnlyAggregateValue}.
+     *
      * @param operator the aggregation function.
      * @param child the child {@link Value}.
      */
@@ -177,7 +178,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> operator.equals(((IndexOnlyAggregateValue)other).operator));
+                .filter(ignored -> operator == ((IndexOnlyAggregateValue)other).operator);
     }
 
     @Nonnull

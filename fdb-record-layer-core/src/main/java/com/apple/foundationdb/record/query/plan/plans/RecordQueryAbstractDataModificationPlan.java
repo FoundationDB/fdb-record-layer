@@ -70,8 +70,8 @@ import java.util.function.Supplier;
  * type coercions are applied in one pass to each record. The resulting record is of the target type and is encoded
  * using the target protobuf {@link com.google.protobuf.Descriptors.Descriptor}. That record is then handed to an
  * abstract method that can implement a mutation to the store.
- * <br>
- * Example
+ *
+ * <p>Example
  * <pre>
  * recordType:
  * {@code Restaurant(STRING as name, FLOAT as avg_review)}, descriptor from precompiled {@code RestaurantRecord}
@@ -172,10 +172,10 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
-        final var dynamicTypesBuilder = ImmutableSet.<Type>builder();
-
-        dynamicTypesBuilder.addAll(computationValue.getDynamicTypes());
+    protected Set<Type> computeDynamicTypes() {
+        final var dynamicTypesBuilder = ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(computationValue.getDynamicTypes());
 
         if (transformationsTrie != null) {
             transformationsTrie.values()

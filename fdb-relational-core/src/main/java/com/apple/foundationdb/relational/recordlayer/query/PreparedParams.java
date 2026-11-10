@@ -23,13 +23,16 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Warn: this class is stateful.
@@ -47,20 +50,28 @@ public final class PreparedParams {
     @Nonnull
     private final Map<String, Object> namedParams;
 
+    /**
+     * Declared types for named parameters that carry no value. A parameter with an entry here and none in
+     * {@link #namedParams} is planned value-free. Empty for ordinary execution.
+     */
+    @Nonnull
+    private final Map<String, String> declaredTypeParams;
+
     private int nextParam = 1;
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters) {
-        this.unnamedParams = unnamedParams;
-        this.namedParams = namedParameters;
+        this(unnamedParams, namedParameters, 1, Map.of());
     }
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters,
-                           int nextParam) {
+                           int nextParam,
+                           @Nonnull Map<String, String> declaredTypeParams) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
         this.nextParam = nextParam;
+        this.declaredTypeParams = declaredTypeParams;
     }
 
     public int currentUnnamedParamIndex() {
@@ -81,6 +92,27 @@ public final class PreparedParams {
                 ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + name
         );
         return namedParams.get(name);
+    }
+
+    /**
+     * The SQL text of a named parameter's declared type, or empty when the parameter has a value or declares no type.
+     * A declared type is only ever used for a parameter left without a value, so a declared type may be supplied for
+     * every parameter the query declares and the bound ones simply never read it.
+     */
+    @Nonnull
+    public Optional<String> unboundDeclaredTypeMaybe(@Nonnull String name) {
+        if (namedParams.containsKey(name)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(declaredTypeParams.get(name));
+    }
+
+    /**
+     * Returns a copy of these parameters with declared types attached. Existing value maps are preserved.
+     */
+    @Nonnull
+    public PreparedParams withDeclaredTypeParams(@Nonnull Map<String, String> declaredTypeParams) {
+        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declaredTypeParams));
     }
 
     public boolean isEmpty() {
@@ -108,6 +140,44 @@ public final class PreparedParams {
         return new PreparedParams(ImmutableMap.of(), parameters);
     }
 
+    /**
+     * Builds the parameters to plan one prepared case of a stored query with. {@code IS_NULL}, {@code IS_TRUE} and
+     * {@code IS_FALSE} bind a value; {@code IS_NOT_NULL} leaves the parameter value-free.
+     *
+     * @param declaredTypeParams the parameter list, from parameter name to the SQL text of its declared type
+     * @param preparedCase the case, from parameter name to the state it is pinned to
+     * @return the parameters to plan this case with
+     */
+    @Nonnull
+    static PreparedParams ofPreparedCase(@Nonnull final Map<String, String> declaredTypeParams,
+                                         @Nonnull final Map<String, StoredQuery.ParameterState> preparedCase) {
+        // A HashMap, since IS_NULL binds a real null and neither Map.of nor ImmutableMap accepts one.
+        final var values = new HashMap<String, Object>();
+        for (final var entry : preparedCase.entrySet()) {
+            final var parameterName = entry.getKey();
+            switch (entry.getValue()) {
+                case IS_NULL:
+                    values.put(parameterName, null);
+                    break;
+                case IS_TRUE:
+                    values.put(parameterName, Boolean.TRUE);
+                    break;
+                case IS_FALSE:
+                    values.put(parameterName, Boolean.FALSE);
+                    break;
+                case IS_NOT_NULL:
+                    // Without a declaration this would fail later as a missing value, which hides the real cause.
+                    Assert.thatUnchecked(declaredTypeParams.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
+                            () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
+                    break;
+                default:
+                    throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR,
+                            "unhandled prepared case state " + entry.getValue());
+            }
+        }
+        return ofNamed(values).withDeclaredTypeParams(declaredTypeParams);
+    }
+
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other) {
         return copyOf(other, false);
@@ -116,9 +186,9 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
         if (withCurrentUnnamedParamIndex) {
-            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
+            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declaredTypeParams);
         } else {
-            return new PreparedParams(other.unnamedParams, other.namedParams);
+            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declaredTypeParams);
         }
     }
 }

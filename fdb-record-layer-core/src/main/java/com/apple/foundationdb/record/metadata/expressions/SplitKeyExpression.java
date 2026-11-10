@@ -156,6 +156,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     /**
      * Get this entire split as a group without any grouping keys.
+     *
      * @return this split without any grouping keys
      */
     @Nonnull

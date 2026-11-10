@@ -40,6 +40,7 @@ import java.util.function.Function;
 
 /**
  * A cursor that returns the elements of one cursor followed by the elements of another cursor if the first was empty.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

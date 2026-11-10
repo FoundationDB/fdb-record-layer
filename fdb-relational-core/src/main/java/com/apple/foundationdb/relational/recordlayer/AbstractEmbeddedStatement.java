@@ -108,6 +108,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         });
     }
 
+    @SuppressWarnings("PMD.UnusedAssignment") // false positive: resultSetRetrieved is read by other methods, and the value stays live on the non-update path
     private boolean clockAndExecuteQueryPlan(@Nonnull final QueryPlan plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_QUERY_PLAN, () -> {

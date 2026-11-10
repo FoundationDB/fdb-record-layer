@@ -43,7 +43,6 @@ public class CallbackUtils {
      * exception (null if none).
      *
      * @param callbacks the given callbacks to invoke
-     *
      * @return an {@link InvokeResults} with a list of results returned from successful invocations and a {@link CallbackException}
      * that holds the exceptions thrown during unsuccessful invocations
      */
@@ -72,7 +71,6 @@ public class CallbackUtils {
      * regardless of whether they succeed or fail.
      *
      * @param callbacks the given sequence of callbacks
-     *
      * @return a future that completes when all the produced futures complete. The returned future's result is
      * <code>CompletedSuccessfully</code> if all futures were created and completed successfully, or an exception that
      * holds all the exceptions that were thrown during the process

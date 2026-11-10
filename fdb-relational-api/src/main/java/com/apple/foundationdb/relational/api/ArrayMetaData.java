@@ -43,7 +43,7 @@ public interface ArrayMetaData extends Wrapper {
     /**
      * Get the Metadata for a nested struct type.
      *
-     * If the column is not a struct type, this will throw an error.
+     * <p>If the column is not a struct type, this will throw an error.
      *
      * @return the metadata for the struct at column {@code oneBasedColumn}
      * @throws SQLException if the type of the column is not a struct, or if something else goes wrong.
@@ -55,7 +55,7 @@ public interface ArrayMetaData extends Wrapper {
     /**
      * Get the Metadata for an array type.
      *
-     * If the column is not an array type, this will throw an error.
+     * <p>If the column is not an array type, this will throw an error.
      *
      * @return the metadata for the array at column {@code oneBasedColumn}
      * @throws SQLException if the type of the column is not an array, or if something else goes wrong.

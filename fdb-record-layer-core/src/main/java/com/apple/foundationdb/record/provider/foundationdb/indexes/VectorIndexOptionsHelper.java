@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -109,6 +110,14 @@ final class VectorIndexOptionsHelper {
         }
     }
 
+    static void applyDoubleList(@Nonnull final VectorOptionKey<List<Double>> key, @Nonnull final Index index,
+                                @Nonnull final Consumer<List<Double>> setter) {
+        final List<Double> value = key.read(index);
+        if (value != null) {
+            setter.accept(value);
+        }
+    }
+
     static void applyBoolean(@Nonnull final VectorOptionKey<Boolean> key, @Nonnull final Index index,
                              @Nonnull final Consumer<Boolean> setter) {
         final Boolean value = key.read(index);
@@ -122,8 +131,8 @@ final class VectorIndexOptionsHelper {
      * defaulted) value between the old and new index. If the values differ a {@link MetaDataException} is thrown;
      * if they are equal, the name is removed from {@code changedOptions} so the caller knows it has been handled.
      * Names absent from {@code changedOptions} are ignored.
-     * <p>
-     * The comparison uses effective values, not raw option strings: setting an option to a value that equals the
+     *
+     * <p>The comparison uses effective values, not raw option strings: setting an option to a value that equals the
      * built-in default counts as no change even when the other index omits the option entirely. Callers therefore pass
      * the values extracted from the parsed engine config, not the raw option strings.
      *

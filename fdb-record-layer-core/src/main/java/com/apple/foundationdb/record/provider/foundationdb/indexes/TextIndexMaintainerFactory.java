@@ -118,7 +118,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
                     throw new KeyExpression.InvalidExpressionException("text index does not have text field after grouped fields");
                 } else {
                     Descriptors.FieldDescriptor textFieldDescriptor = fields.get(textFieldPosition);
-                    if (!textFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.STRING)) {
+                    if (textFieldDescriptor.getType() != Descriptors.FieldDescriptor.Type.STRING) {
                         throw new KeyExpression.InvalidExpressionException("text index has non-string type as text field")
                                 .addLogInfo(LogMessageKeys.EXPECTED_TYPE, Descriptors.FieldDescriptor.Type.STRING)
                                 .addLogInfo(LogMessageKeys.ACTUAL_TYPE, textFieldDescriptor.getLiteJavaType());
@@ -141,10 +141,8 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
              *          in index entries</li>
              * </ul>
              *
-             * <p>
-             * Note that the {@link IndexOptions#TEXT_TOKENIZER_NAME_OPTION} is <em>not</em> allowed to change
+             * <p>Note that the {@link IndexOptions#TEXT_TOKENIZER_NAME_OPTION} is <em>not</em> allowed to change
              * (without rebuilding the index).
-             * </p>
              *
              * @param oldIndex an older version of this index
              * @param changedOptions the set of changed options

@@ -64,20 +64,21 @@ import java.util.zip.InflaterInputStream;
 /**
  * Write sorted keyed values into {@link File}s.
  *
- * Subsets of the input data are sorted in memory using a {@link MemorySorter}.
+ * <p>Subsets of the input data are sorted in memory using a {@link MemorySorter}.
  * Then these are saved to files.
  * The files are then merged and values returned in order from there.
  * In addition to a final merge at the end, files can be merged when there are too many pending files.
  *
- * The files are divided into <em>sections</em> with headers that allow skipping ahead sequentially
+ * <p>The files are divided into <em>sections</em> with headers that allow skipping ahead sequentially
  * somewhat faster than would be possible if every record had to be read,
  * but without as much overhead as fully indexing record positions into file positions.
  *
- * Files can be optionally compressed and encrypted. This applies at the section level: the section
+ * <p>Files can be optionally compressed and encrypted. This applies at the section level: the section
  * headers are cleartext and the keys and records are not individually compressed / encrypted.
  *
- * If the input set is small enough, it can remain in memory in the tree map
+ * <p>If the input set is small enough, it can remain in memory in the tree map
  * and can be returned directly from there.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */

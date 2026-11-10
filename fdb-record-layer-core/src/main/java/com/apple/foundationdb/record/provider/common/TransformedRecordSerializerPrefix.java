@@ -30,18 +30,15 @@ import javax.annotation.Nonnull;
 /**
  * Helper class for {@link TransformedRecordSerializer} giving the low-level bit encoding.
  *
- * <p>
- * The format is required to be compatible with various points in the history, which means it
+ * <p>The format is required to be compatible with various points in the history, which means it
  * must read old data compatibly. Specifically,
  * <ul>
  * <li>use of just {@link DynamicMessageRecordSerializer}, so that Protobuf begins immediately,
  * with no prefix</li>
  * <li>single byte prefix with no support for key identification and rolling</li>
  * </ul>
- * </p>
  *
- * <p>
- * The encoded form begins with a Protobuf <a href="https://protobuf.dev/programming-guides/encoding/#varints">varint</a>.
+ * <p>The encoded form begins with a Protobuf <a href="https://protobuf.dev/programming-guides/encoding/#varints">varint</a>.
  * The low three bits of this prefix specify how it was encoded and the remaining bits are the encryption key number.
  * <ul>
  * <li><code>1</code> encrypted</li>
@@ -56,12 +53,9 @@ import javax.annotation.Nonnull;
  * is <code>EGROUP</code>, and <code>5</code> is <code>I32</code>. None of these are possible for the <em>start</em> of a
  * serialized message. Finally, a key number of zero becomes a single byte prefix of <code>1</code>, <code>2</code>,
  * <code>4</code> or <code>5</code>, formerly representing an encrypted and compressed bitmask.
- * </p>
  *
- * <p>
- * The encrypted form currently begins with a random IV, although this might change for other algorithms.
+ * <p>The encrypted form currently begins with a random IV, although this might change for other algorithms.
  * The compressed form begins with a compression level, which again might someday be extended.
- * </p>
  */
 @API(API.Status.INTERNAL)
 class TransformedRecordSerializerPrefix {

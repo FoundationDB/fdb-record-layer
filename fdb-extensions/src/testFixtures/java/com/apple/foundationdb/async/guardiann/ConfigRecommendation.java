@@ -27,13 +27,13 @@ import javax.annotation.Nonnull;
 /**
  * Derives a whole Guardiann {@link Config} from the two decisions a caller actually has to make: the distance
  * {@link Metric} and how large a cluster may grow before it splits.
- * <p>
- * Most of {@link Config}'s knobs are not independent — they only behave sensibly in certain ratios to
+ *
+ * <p>Most of {@link Config}'s knobs are not independent — they only behave sensibly in certain ratios to
  * {@code primaryClusterMax}, and getting one of those ratios wrong is not obvious from reading the value. This class
  * states each ratio once, with the reason, so a caller changing the cluster size gets a coherent set rather than a
  * mix of scaled and unscaled numbers. {@code ConfigRecommendationTest} pins the relationships that must hold.
- * <p>
- * Returns a builder rather than a {@code Config} for two reasons: the number of dimensions is a property of the data
+ *
+ * <p>Returns a builder rather than a {@code Config} for two reasons: the number of dimensions is a property of the data
  * rather than of the tuning, and a caller with dataset-specific knowledge (SIFT's density, say, which wants far more
  * replication than the generic ratio gives) should be able to override individual knobs on top.
  *
@@ -60,7 +60,7 @@ import javax.annotation.Nonnull;
  * left at their defaults. Quantization ({@code useRaBitQ}, {@code raBitQNumExBits}) is an encoding decision driven by
  * dimensionality and recall target rather than by cluster size, so it is left to the caller too.
  */
-final class ConfigRecommendation {
+public final class ConfigRecommendation {
     /** Cluster sizes below this leave no room for the ratios below to be meaningful. */
     private static final int MIN_SUPPORTED_CLUSTER_MAX = 50;
 
@@ -76,7 +76,7 @@ final class ConfigRecommendation {
      *         dataset-specific overrides the caller wants to layer on
      */
     @Nonnull
-    static Config.ConfigBuilder forClusterMax(@Nonnull final Metric metric, final int primaryClusterMax) {
+    public static Config.ConfigBuilder forClusterMax(@Nonnull final Metric metric, final int primaryClusterMax) {
         return forClusterBounds(metric, primaryClusterMax, primaryClusterMax / 10);
     }
 
@@ -94,8 +94,8 @@ final class ConfigRecommendation {
      *         dataset-specific overrides the caller wants to layer on
      */
     @Nonnull
-    static Config.ConfigBuilder forClusterBounds(@Nonnull final Metric metric, final int primaryClusterMax,
-                                                 final int primaryClusterMin) {
+    public static Config.ConfigBuilder forClusterBounds(@Nonnull final Metric metric, final int primaryClusterMax,
+                                                        final int primaryClusterMin) {
         if (primaryClusterMax < MIN_SUPPORTED_CLUSTER_MAX) {
             throw new IllegalArgumentException("primaryClusterMax must be at least " + MIN_SUPPORTED_CLUSTER_MAX
                     + " for the recommended ratios to be meaningful; got " + primaryClusterMax);

@@ -34,12 +34,10 @@ import javax.annotation.Nonnull;
  * A custom YAML tag for {@code float} values. Without this tag, YAML parses decimal numbers
  * as {@link Double}, which causes comparison failures against {@code float} column values
  * (since {@code Float.equals(Double)} is always {@code false}).
- * <p>
- *     Usage in parameter injection: {@code !! !f 1.5 !!}
- * </p>
- * <p>
- *     Usage in result matching: {@code result: [{!f 1.5}]}
- * </p>
+ *
+ * <p>Usage in parameter injection: {@code !! !f 1.5 !!}
+ *
+ * <p>Usage in result matching: {@code result: [{!f 1.5}]}
  */
 @AutoService(CustomTag.class)
 public class FloatTag implements CustomTag {

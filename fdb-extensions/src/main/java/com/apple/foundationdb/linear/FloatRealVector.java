@@ -245,9 +245,9 @@ public class FloatRealVector extends AbstractRealVector {
     }
 
     /**
-     * Returns a vector whose components are all zero.
+     * {@return a vector whose components are all zero}
+     *
      * @param numDimensions number of dimensions
-     * @return a vector whose components are all zero
      */
     @Nonnull
     public static FloatRealVector zeroVector(final int numDimensions) {
@@ -309,10 +309,11 @@ public class FloatRealVector extends AbstractRealVector {
 
     /**
      * Creates a {@link FloatRealVector} from a byte array produced by {@link #getRawData()}.
-     * <p>
-     * The input is interpreted as a leading type byte (which must match
+     *
+     * <p>The input is interpreted as a leading type byte (which must match
      * {@link VectorType#SINGLE}) followed by a sequence of big-endian 32-bit IEEE-754 floats,
      * one per component.
+     *
      * @param vectorBytes the non-null byte array to convert
      * @return a new {@link FloatRealVector} instance created from the byte array
      */

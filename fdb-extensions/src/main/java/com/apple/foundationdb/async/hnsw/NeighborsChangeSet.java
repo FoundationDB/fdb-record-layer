@@ -30,8 +30,8 @@ import java.util.function.Predicate;
 
 /**
  * Represents a set of changes to the neighbors of a node within an HNSW graph.
- * <p>
- * Implementations of this interface manage modifications, such as additions or removals of neighbors. often in a
+ *
+ * <p>Implementations of this interface manage modifications, such as additions or removals of neighbors. often in a
  * layered fashion. This allows for composing changes before they are committed to storage. The {@link #getParent()}
  * method returns the next element in this layered structure while {@link #merge()} consolidates changes into
  * a final neighbor list.
@@ -41,8 +41,8 @@ import java.util.function.Predicate;
 interface NeighborsChangeSet<N extends NodeReference> {
     /**
      * Gets the parent change set from which this change set was derived.
-     * <p>
-     * Change sets can be layered, forming a chain of modifications.
+     *
+     * <p>Change sets can be layered, forming a chain of modifications.
      * This method allows for traversing up this tree to the preceding set of changes.
      *
      * @return the parent {@code NeighborsChangeSet}, or {@code null} if this change set
@@ -53,14 +53,15 @@ interface NeighborsChangeSet<N extends NodeReference> {
 
     /**
      * Method to indicate iff changes have been made that need to be persisted.
+     *
      * @return {@code true} iff changes have been made in this or parent change sets.
      */
     boolean hasChanges();
 
     /**
      * Merges multiple internal sequences into a single, consolidated iterable sequence.
-     * <p>
-     * This method combines distinct internal changesets into one continuous stream of neighbors. The specific order
+     *
+     * <p>This method combines distinct internal changesets into one continuous stream of neighbors. The specific order
      * of the merged elements depends on the implementation.
      *
      * @return a non-null {@code Iterable} containing the merged sequence of elements.
@@ -70,8 +71,8 @@ interface NeighborsChangeSet<N extends NodeReference> {
 
     /**
      * The number of neighbors {@link #merge()} would yield.
-     * <p>
-     * {@link #merge()} composes a lazy view over the parent change set, so counting its elements costs a pass over
+     *
+     * <p>{@link #merge()} composes a lazy view over the parent change set, so counting its elements costs a pass over
      * the entire chain of change sets, with one lookup per element per layer. Implementations must therefore
      * establish this count when they are constructed, which each of them can do from the size of its parent and its
      * own delta alone, and answer in constant time here. No implementation may perform I/O.
@@ -82,8 +83,8 @@ interface NeighborsChangeSet<N extends NodeReference> {
 
     /**
      * Whether {@link #merge()} would yield a neighbor with the given primary key.
-     * <p>
-     * Answered from the deltas of this change set and its parents, in time proportional to the number of layers.
+     *
+     * <p>Answered from the deltas of this change set and its parents, in time proportional to the number of layers.
      * No implementation may perform I/O. Note that this reports whether a <em>reference</em> is present, not whether
      * the node it names still exists.
      *
@@ -94,8 +95,8 @@ interface NeighborsChangeSet<N extends NodeReference> {
 
     /**
      * Writes the neighbor delta for a given {@link AbstractNode} to the specified storage layer.
-     * <p>
-     * This method processes the provided {@code node} and writes only the records that match the given
+     *
+     * <p>This method processes the provided {@code node} and writes only the records that match the given
      * {@code primaryKeyPredicate} to the storage system via the {@link InliningStorageAdapter}. The entire operation
      * is performed within the context of the supplied {@link Transaction}.
      *

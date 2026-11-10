@@ -173,8 +173,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     /**
-     * Get this nesting as a group without any grouping keys.
-     * @return this nesting without any grouping keys
+     * {@return this nesting as a group without any grouping keys}
      */
     @Nonnull
     public GroupingKeyExpression ungrouped() {

@@ -47,6 +47,7 @@ public class CorrelationIdentifier {
     /**
      * Create a new correlation identifier using the given string. It is the callers responsibility to only use
      * unique string values in order to avoid clashes.
+     *
      * @param id the identifier string
      * @return a new {@link CorrelationIdentifier}
      */
@@ -58,6 +59,7 @@ public class CorrelationIdentifier {
     /**
      * Create a new correlation identifier. The returned correlation identifier can be assumed
      * to be unique.
+     *
      * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull
@@ -68,6 +70,7 @@ public class CorrelationIdentifier {
     /**
      * Create a new correlation identifier. The returned correlation identifier can be assumed
      * to be unique.
+     *
      * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @return a new unique {@link CorrelationIdentifier}
@@ -80,6 +83,7 @@ public class CorrelationIdentifier {
     /**
      * Create a new correlation identifier. The returned correlation identifier can be assumed
      * to be unique for the given class.
+     *
      * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @param prefix a prefix for the returned identifier
@@ -99,6 +103,7 @@ public class CorrelationIdentifier {
      * Create a new correlation identifier. The returned correlation identifier can be assumed to be unique and stable
      * for subsequent calls. The advantage of using this approach for singletons is that this method returns rather
      * readable identifier names when a debugger is installed.
+     *
      * @param singleton to specify the singleton this identifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @param prefix a prefix for the returned identifier
@@ -139,6 +144,7 @@ public class CorrelationIdentifier {
 
     /**
      * Returns the backing string id.
+     *
      * @return the string backing this {@link CorrelationIdentifier}
      */
     @Override
@@ -148,11 +154,12 @@ public class CorrelationIdentifier {
 
     /**
      * Return a mapping between {@code a -> a} for all a in the given set as a view on the original set.
+     *
      * @param aliases set to compute the identity mappings for
      * @return a view on the set that maps each element in {@code aliases} to itself.
      */
     public static Map<CorrelationIdentifier, CorrelationIdentifier> identityMappingMap(@Nonnull final Set<CorrelationIdentifier> aliases) {
-        return new Map<CorrelationIdentifier, CorrelationIdentifier>() {
+        return new Map<>() {
             @Override
             public int size() {
                 return aliases.size();

@@ -34,8 +34,7 @@ public class HalfMath {
      * positive distance between this floating-point value and the {@code half} value next larger in magnitude.<br>
      * Note that for non-NaN <i>x</i>, <code>ulp(-<i>x</i>) == ulp(<i>x</i>)</code>.
      *
-     * <p>
-     * Special Cases:
+     * <p>Special Cases:
      * <ul>
      * <li>If the argument is NaN, then the result is NaN.
      * <li>If the argument is positive or negative infinity, then the result is positive infinity.
@@ -45,7 +44,6 @@ public class HalfMath {
      *
      * @param half
      *            the floating-point value whose ulp is to be returned
-     *
      * @return the size of an ulp of the argument
      */
     public static Half ulp(Half half) {
@@ -72,8 +70,7 @@ public class HalfMath {
     /**
      * Returns the unbiased exponent used in the representation of a {@code half}.
      *
-     * <p>
-     * Special cases:
+     * <p>Special cases:
      *
      * <ul>
      * <li>If the argument is NaN or infinite, then the result is {@link Half#MAX_EXPONENT} + 1.
@@ -82,7 +79,6 @@ public class HalfMath {
      *
      * @param half
      *            a {@code half} value
-     *
      * @return the unbiased exponent of the argument
      */
     public static int getExponent(Half half) {
@@ -93,8 +89,7 @@ public class HalfMath {
     /**
      * Returns the absolute {@link Half} object of a {@code half} instance.
      *
-     * <p>
-     * Special cases:
+     * <p>Special cases:
      * <ul>
      * <li>If the argument is positive zero or negative zero, the result is positive zero.
      * <li>If the argument is infinite, the result is positive infinity.
@@ -103,7 +98,6 @@ public class HalfMath {
      *
      * @param half
      *            the argument whose absolute value is to be determined
-     *
      * @return the absolute value of the argument.
      */
     public static Half abs(Half half) {

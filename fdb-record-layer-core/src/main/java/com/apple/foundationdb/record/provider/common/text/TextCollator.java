@@ -29,7 +29,7 @@ import java.util.Comparator;
 /**
  * An interface for locale-sensitive text comparison and sorting.
  *
- * A text collator is specified with a locale name and a strength.
+ * <p>A text collator is specified with a locale name and a strength.
  *
  * @see TextCollatorRegistry
  */
@@ -38,7 +38,7 @@ public interface TextCollator extends Comparator<String> {
     /**
      * Standard strength values.
      *
-     * These match values in {@code java.text.Collator} and other APIs.
+     * <p>These match values in {@code java.text.Collator} and other APIs.
      */
     final class Strength {
         /**
@@ -74,7 +74,8 @@ public interface TextCollator extends Comparator<String> {
     /**
      * Get a representation of a string suitable for storing in an index for this collation.
      *
-     * The unsigned byte comparison of the result byte array will match this collator's ordering.
+     * <p>The unsigned byte comparison of the result byte array will match this collator's ordering.
+     *
      * @param str the string to index
      * @return a byte string for storing in an index
      */

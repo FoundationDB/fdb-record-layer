@@ -27,6 +27,7 @@ import java.util.function.UnaryOperator;
 
 /**
  * Interface for the unapply function using in a variety of matchers.
+ *
  * @param <T> the type that is extracted from
  * @param <U> the type that is extracted into
  */

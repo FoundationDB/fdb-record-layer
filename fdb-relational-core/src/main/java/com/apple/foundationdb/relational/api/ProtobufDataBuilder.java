@@ -70,7 +70,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         if (field == null) {
             throw new RelationalException(String.format(Locale.ROOT, "Field with number <%d> does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER).toSqlException();
         }
-        return !field.isRepeated() && !field.getJavaType().equals(Descriptors.FieldDescriptor.JavaType.MESSAGE); // enum?
+        return !field.isRepeated() && field.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE; // enum?
     }
 
     @Override

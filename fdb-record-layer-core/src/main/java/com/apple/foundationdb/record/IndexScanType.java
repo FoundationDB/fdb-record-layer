@@ -28,8 +28,8 @@ import java.util.Objects;
 
 /**
  * The way in which an index should be scanned.
- * <br>
- * The set of allowed scan types varies by the type of the index.
+ *
+ * <p>The set of allowed scan types varies by the type of the index.
  * This isn't an enum so clients can define more of them for their own index maintainers.
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#scan

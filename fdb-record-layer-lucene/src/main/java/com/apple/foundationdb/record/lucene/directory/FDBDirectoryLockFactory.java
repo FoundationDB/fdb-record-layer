@@ -211,6 +211,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
+        @SuppressWarnings("PMD.UnusedAssignment") // false positive: closed is a field read during flush() before the final assignment
         private void fileLockClearFlushAndClose(boolean isRecovery) {
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
@@ -304,6 +305,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         /**
          * Get the time that was left until the existing lock's lease expires. Note that the lock holder may renew the
          * lease before it expires.
+         *
          * @return the time left in milliseconds
          */
         public long getLeaseRemainingMillis() {

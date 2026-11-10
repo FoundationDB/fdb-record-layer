@@ -46,12 +46,11 @@ import java.util.Map;
 /**
  * QueryConfig associated with {@link QueryConfig#QUERY_CONFIG_RESULT_METADATA} that validates the column
  * metadata (column names and SQL type names) of a query's result set.
- * <p>
- *     The expected metadata is specified in the YAMSQL file as a list of column descriptors in
+ *
+ * <p>The expected metadata is specified in the YAMSQL file as a list of column descriptors in
  *     {@code {name: type}} format. Column names are compared case-insensitively.
- * </p>
- * <p>
- *     Example YAMSQL usage:
+ *
+ * <p>Example YAMSQL usage:
  *     <pre>
  *     - query: SELECT id, col1 FROM t1
  *       resultMetadata:
@@ -59,12 +58,10 @@ import java.util.Map;
  *         - {COL1: BIGINT}
  *       result: [{!l 10, !l 20}]
  *     </pre>
- * </p>
- * <p>
- *     When {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA} is set (i.e., running under
+ *
+ * <p>When {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA} is set (i.e., running under
  *     {@link com.apple.foundationdb.relational.yamltests.configs.CorrectResultMetadata}), mismatches cause the
  *     YAMSQL source file to be updated with the actual column metadata rather than failing the test.
- * </p>
  */
 @SuppressWarnings({"PMD.AvoidCatchingThrowable", "PMD.GuardLogStatement"})
 public class CheckResultMetadataConfig extends QueryConfig {
@@ -187,7 +184,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"})
+    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyControlStatement"})
     protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
                                        @Nonnull final String queryDescription,
                                        @Nonnull final List<String> setups) throws SQLException {
@@ -301,13 +298,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
 
     /**
      * Checks the optional struct type name prefix in a field list.
-     * <p>
-     * If the first element of {@code valueList} is a {@link String}, it is treated as the expected struct type name
+     *
+     * <p>If the first element of {@code valueList} is a {@link String}, it is treated as the expected struct type name
      * and compared case-insensitively against {@code actualCol.structTypeName}.
      * Returns the tail of the list (field descriptors only) on a match, or {@code null} on a mismatch.
      * If the first element is not a {@link String} (i.e., no type name was specified), returns {@code valueList}
      * unchanged — the type name is not checked.
-     * </p>
      */
     @Nullable
     private static List<?> checkStructTypeName(@Nonnull final List<?> valueList,

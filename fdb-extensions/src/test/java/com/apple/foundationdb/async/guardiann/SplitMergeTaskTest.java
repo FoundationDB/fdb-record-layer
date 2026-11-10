@@ -29,8 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for how {@link SplitMergeTask} ranks repartitioning candidates against each other.
- * <p>
- * This is what gives the evaluator's soft gates — the balance ceiling, separation, low-margin rate and the score
+ *
+ * <p>This is what gives the evaluator's soft gates — the balance ceiling, separation, low-margin rate and the score
  * floors — any effect at all. Each of them reports {@link PartitionEvaluator.Decision#KEEP_CURRENT}, which leaves a
  * candidate usable but not preferred, and none of them touches {@code scoreGain}, which is computed before any gate
  * runs. So a candidate that trips a soft gate is distinguishable from one that clears them all only by its

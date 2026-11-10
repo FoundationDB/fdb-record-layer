@@ -70,16 +70,14 @@ import java.util.concurrent.Executor;
  * nearer cluster (marking it under-replicated so a later reassign repairs it in turn). Third, it will rereplicate
  * underreplicated vectors.
  *
- * <p>
- * The task targets a single cluster ({@link #getTargetClusterId()}) and carries its {@link #getCentroid() centroid},
+ * <p>The task targets a single cluster ({@link #getTargetClusterId()}) and carries its {@link #getCentroid() centroid},
  * the optional {@link #getCauseClusterIds() causeClusterIds}, and a precomputed list of {@link ClusterReference}
  * nearest clusters (or, when that list is empty, re-enqueues itself once they have been fetched). During execution
  * it recomputes, for each of the target's primaries, its nearest clusters over the target plus its
  * {@link Config#reassignNumNeighboringClusters()} neighbors, then rewrites the primary and replicated copies
  * accordingly.
  *
- * <p>
- * <b>Example.</b> Suppose a split turns an over-full cluster into two new clusters {@code C1} and {@code C2}.
+ * <p><b>Example.</b> Suppose a split turns an over-full cluster into two new clusters {@code C1} and {@code C2}.
  * The split has already written every vector's primary copy into {@code C1} or {@code C2} — those postings are done —
  * but {@code C1}/{@code C2} hold no replicas yet, and their neighbors still hold replica references from before the
  * split. To repair this a {@code REASSIGN} is enqueued for an affected cluster, say {@code T}, with
@@ -104,8 +102,8 @@ import java.util.concurrent.Executor;
  * single collapsed-area reference), {@code T}'s stored references are updated by delta, the new replicas are written
  * into their neighbor clusters, and — on the production path — follow-up split/reassign tasks are enqueued for any
  * neighbor that grew past its bounds.
- * <p>
- * Note that if {@link #getCauseClusterIds()} is empty, reassign will indiscriminately push primary vectors to all
+ *
+ * <p>Note that if {@link #getCauseClusterIds()} is empty, reassign will indiscriminately push primary vectors to all
  * neighboring clusters (not just the ones in the cause cluster id set).
  *
  */
@@ -225,7 +223,6 @@ class ReassignTask extends AbstractDeferredTask {
      * @param targetClusterMetadata the metadata of the cluster being reassigned
      * @param targetClusterCentroid the cluster's centroid in client (untransformed) space
      * @param enqueueFollowUpTasks whether to enqueue follow-up deferred tasks (always {@code true} in production)
-     *
      * @return a future that completes when the reassignment has been persisted
      */
     @Nonnull

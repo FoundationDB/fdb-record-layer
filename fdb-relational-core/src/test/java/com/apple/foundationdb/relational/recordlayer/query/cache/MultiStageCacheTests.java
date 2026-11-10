@@ -47,9 +47,9 @@ import java.util.stream.Stream;
  * </ul>
  * To make easier to reason about time-based expiration strategy of the cache, a logical clock is used
  * whose ticks can be advanced programmatically, see {@link FakeTicker}.
- * <br>
- * The test harness assumes a test cache with the following layout:
- * <br>
+ *
+ * <p>The test harness assumes a test cache with the following layout:
+ *
  * <pre>
  * {@code
  *  +---------+----------------------+

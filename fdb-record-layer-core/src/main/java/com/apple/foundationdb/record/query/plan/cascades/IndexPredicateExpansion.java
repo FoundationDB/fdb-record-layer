@@ -41,8 +41,8 @@ public class IndexPredicateExpansion {
     /**
      * Verifies that a given predicate is in a disjunctive normal form (DNF) and groups it into a mapping from a {@link Value}
      * and list of corresponding {@link RangeConstraints}.
-     * <br>
-     * For example: {@code OR(AND(v1, <3), AND(v2 >4), AND(v1<4))} will be transformed to the following:
+     *
+     * <p>For example: {@code OR(AND(v1, <3), AND(v2 >4), AND(v1<4))} will be transformed to the following:
      * {@code v1 -> [(-∞,3), (-∞, 4)], v2 -> [(4, +∞)]}.
      *
      * @param predicate The predicate to transform.

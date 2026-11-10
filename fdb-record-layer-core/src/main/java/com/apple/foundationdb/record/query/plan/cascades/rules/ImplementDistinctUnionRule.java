@@ -62,8 +62,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
@@ -93,7 +93,7 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
             logicalUnionExpression(allForEachQuantifiersMatcher);
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = forEachQuantifier(unionExpressionMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = plainForEachQuantifier(unionExpressionMatcher);
     @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
             logicalDistinctExpression(exactly(unionForEachQuantifierMatcher));
@@ -206,7 +206,11 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> {
+                                                final Reference legReference =
+                                                        call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans());
+                                                return quantifier.applyGlue(call, legReference);
+                                            })
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
@@ -238,8 +242,8 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
      * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}) across <em>all</em> provided
      * orderings. Such parts carry no distinguishing information between the union legs and are therefore not useful
      * when pushing interesting orders down to individual legs.
-     * <p>
-     * For example, given two orderings where both bind {@code a = 5} as a fixed part, that entry is removed from
+     *
+     * <p>For example, given two orderings where both bind {@code a = 5} as a fixed part, that entry is removed from
      * both orderings. If one ordering binds {@code a = 5} and the other binds {@code a = 6}, the entry is
      * <em>not</em> common and is retained in both.
      *

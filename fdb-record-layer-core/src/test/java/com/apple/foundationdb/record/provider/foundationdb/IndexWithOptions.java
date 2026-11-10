@@ -33,6 +33,7 @@ class IndexWithOptions extends Index {
     /**
      * Create a new Index from teh given original and the given options.
      * The new options will be either merged into, or replace, the original index' options.
+     *
      * @param orig teh original index to clone
      * @param newOptions the set of new options to use
      * @param merge whether to merge (true) or replace (false) the original options
@@ -51,6 +52,7 @@ class IndexWithOptions extends Index {
 
     /**
      * Create a new index and add an option to the list of options.
+     *
      * @param orig teh original index to clone
      * @param optionName the name of the option to add
      * @param optionValue the value of the option to add

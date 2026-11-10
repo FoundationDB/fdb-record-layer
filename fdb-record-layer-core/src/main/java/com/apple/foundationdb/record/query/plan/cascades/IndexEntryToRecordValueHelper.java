@@ -71,7 +71,6 @@ public final class IndexEntryToRecordValueHelper
      * The node for {@code fieldName} beneath this one, created if absent.
      *
      * @param fieldName the field's name
-     *
      * @return that node
      */
     @Nonnull
@@ -84,7 +83,6 @@ public final class IndexEntryToRecordValueHelper
      * value per message level as {@code MessageCopier} is one converter per level.
      *
      * @param targetType the record an entry is read into, which this node stands for
-     *
      * @return the value computing that record from an entry
      */
     @Nonnull
@@ -128,7 +126,6 @@ public final class IndexEntryToRecordValueHelper
      * @param fieldName the field the position feeds
      * @param source whether the position is in the entry's key or its value
      * @param ordinal the position
-     *
      * @return the value reading it
      */
     @Nonnull

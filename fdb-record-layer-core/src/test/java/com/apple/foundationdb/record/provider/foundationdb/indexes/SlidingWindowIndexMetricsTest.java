@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ({@code EVICTED_RECORD_MISSING}, {@code PROMOTED_RECORD_MISSING}) and
  * {@code DELETE_UNTRACKED} (which requires window-key divergence between an indexed
  * entry and its later delete) are not exercised here because they are not reachable
- * via the public API without manual subspace manipulation.</p>
+ * via the public API without manual subspace manipulation.
  */
 @Tag(Tags.RequiresFDB)
 class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {

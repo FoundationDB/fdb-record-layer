@@ -33,6 +33,7 @@ public interface TextCollatorRegistry {
     /**
      * Get the name of this collator registry.
      * Used for serialization and debugging.
+     *
      * @return the name of this collator registry
      */
     @Nonnull
@@ -41,7 +42,8 @@ public interface TextCollatorRegistry {
     /**
      * Get a weak text collator for the default locale.
      *
-     * In general, this means one that is case- and accent-insensitive.
+     * <p>In general, this means one that is case- and accent-insensitive.
+     *
      * @return a weak text collator for the default locale
      */
     @Nonnull
@@ -61,7 +63,8 @@ public interface TextCollatorRegistry {
     /**
      * Get a weak text collator for the given locale.
      *
-     * In general, this means one that is case- and accent-insensitive.
+     * <p>In general, this means one that is case- and accent-insensitive.
+     *
      * @param locale the name of the target locale
      * @return a weak text collator for the given locale
      */

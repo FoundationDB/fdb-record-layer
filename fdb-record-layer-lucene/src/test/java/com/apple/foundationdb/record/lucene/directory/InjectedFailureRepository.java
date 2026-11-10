@@ -163,7 +163,8 @@ public class InjectedFailureRepository {
         private final long maxFailures;
 
         /**
-         * Create a failure description.
+         * Create a failure  desciption.
+         *
          * @param method the method that will fail: {@link Methods} should contain the entire list
          * @param exception the exception to throw
          * @param count the number of "clean" executions to allow before starting to throw the exception

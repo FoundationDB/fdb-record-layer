@@ -40,6 +40,7 @@ public interface EnumerationFunction<R> {
      * Called directly or indirectly by matching logic in {@link BaseMatcher#match} using an {@link EnumeratingIterator}
      * for ordered aliases on this side and <em>one</em> stable non-violating ordering o the other side. The result of this
      * method is an {@link Iterable} of the result type {@code R}.
+     *
      * @param iterator {@link EnumeratingIterator} over all possible non-violating possible orderings of aliases on
      *        this side
      * @param otherOrdered one possible non-violating ordering of aliases on the other side

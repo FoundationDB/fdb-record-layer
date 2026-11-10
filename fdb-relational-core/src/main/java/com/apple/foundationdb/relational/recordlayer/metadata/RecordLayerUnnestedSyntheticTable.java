@@ -190,7 +190,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
          *
          * @param alias the constituent's alias, for the rejection message
          * @param nestingExpression the expression navigating to the constituent's elements
-         *
          * @return the field names the expression walks, outermost first
          */
         @Nonnull
@@ -210,14 +209,14 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     }
 
     @Nonnull
-    public static Builder newBuilder(Type.Record type) {
-        return new Builder().setType(type);
+    public static Builder newBuilder(@Nonnull final Type.Record type) {
+        return new Builder(type);
     }
 
     /**
      * Builder for {@link RecordLayerUnnestedSyntheticTable}.
-     * <p>
-     * {@link #build()} checks the constituents to form a tree rooted at the stored record. It rejects a
+     *
+     * <p>{@link #build()} checks the constituents to form a tree rooted at the stored record. It rejects a
      * table with no nested constituent, a duplicate alias, and a constituent whose parent alias is not the parent
      * constituent's or an earlier constituent's.
      */
@@ -233,13 +232,11 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         private final List<NestedConstituent> constituents = new ArrayList<>();
         @Nonnull
         private final ImmutableSet.Builder<RecordLayerIndex> indexes = ImmutableSet.builder();
-        @Nullable
-        private Type.Record type;
-
         @Nonnull
-        public Builder setType(@Nonnull final Type.Record type) {
+        private final Type.Record type;
+
+        private Builder(@Nonnull final Type.Record type) {
             this.type = type;
-            return this;
         }
 
         @Nonnull
@@ -263,6 +260,12 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
         @Nonnull
         @Override
+        public Type.Record getType() {
+            return type;
+        }
+
+        @Nonnull
+        @Override
         public Builder addIndex(@Nonnull final RecordLayerIndex index) {
             indexes.add(index);
             return this;
@@ -273,7 +276,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         public RecordLayerUnnestedSyntheticTable build() {
             Assert.notNullUnchecked(alias, "parent constituent alias is not set");
             Assert.notNullUnchecked(parentTableName, "parent table type is not set");
-            Assert.notNullUnchecked(type, "type is not set");
             Assert.thatUnchecked(!constituents.isEmpty(), "unnested type has no nested constituents");
             final Set<String> aliases = new LinkedHashSet<>();
             aliases.add(alias);

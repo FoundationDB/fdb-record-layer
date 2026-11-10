@@ -21,13 +21,11 @@
 /**
  * A sorted durable associative array with pluggable serialization.
  *
- * <p>
- * The main class in this package is the {@link com.apple.foundationdb.map.BunchedMap} class. This
+ * <p>The main class in this package is the {@link com.apple.foundationdb.map.BunchedMap} class. This
  * presents an API that is similar to a standard sorted associated array or map. It differs
  * from other such implementations in that it attempts to consolidate multiple entries in
  * the final map into each FoundationDB key-value pair. This allows the data structure to reduce its
  * total footprint by spreading its data across fewer keys than a na&iuml;ve implementation might.
  * The other classes are used to support the {@code BunchedMap} class in various ways.
- * </p>
  */
 package com.apple.foundationdb.map;

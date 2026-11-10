@@ -137,6 +137,7 @@ public class DeleteExpression extends AbstractRelationalExpressionWithChildren i
 
     /**
      * Create a planner graph for better visualization.
+     *
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
      *         delete expression node.
      */

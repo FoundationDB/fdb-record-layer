@@ -21,18 +21,14 @@
 /**
  * Utility functions for use within an asynchronous environment.
  *
- * <p>
- * The data structures are designed to be compatible for use within a asynchronous environment
+ * <p>The data structures are designed to be compatible for use within a asynchronous environment
  * in that they are all intended to be non-blocking. They are used within the
  * <a href="https://foundationdb.github.io/fdb-record-layer/">Record Layer</a> core library
  * to implement some of the more advanced secondary index types.
- * </p>
  *
- * <p>
- * The utility functions within the {@link com.apple.foundationdb.async.MoreAsyncUtil} class are
+ * <p>The utility functions within the {@link com.apple.foundationdb.async.MoreAsyncUtil} class are
  * of a kind with the functions in the {@link com.apple.foundationdb.async.AsyncUtil} class within the
  * FoundationDB Java bindings. They encapsulate a few common uses of the
  * {@link java.util.concurrent.CompletableFuture} class.
- * </p>
  */
 package com.apple.foundationdb.async;

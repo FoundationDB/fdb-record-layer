@@ -30,15 +30,12 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * <p>
  * This class is used to store and manage instances of {@link PlannerEventListeners.EventListener}
  * which are stored in thread-local storage, which receive {@link PlannerEvent} emitted by the
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} and perform actions.
- * </p>
- * <p>
- * Only a single instance of a class that extends the interface {@link PlannerEventListeners.EventListener}
+ *
+ * <p>Only a single instance of a class that extends the interface {@link PlannerEventListeners.EventListener}
  * can be set as the active listener for that class at any given time.
- * </p>
  *
  */
 public final class PlannerEventListeners {
@@ -48,6 +45,7 @@ public final class PlannerEventListeners {
     /**
      * Set the active thread-local instance for the provided listener class to the provided instance.
      * This will override any currently set instances for the same {@link Class}.
+     *
      * @param listenerClass the class that the provided listener is an instance of.
      * @param listener the new listener instance to use
      */
@@ -58,6 +56,7 @@ public final class PlannerEventListeners {
 
     /**
      * Remove the {@link EventListener} instance associated with the provided {@code listenerClass}, if it is set.
+     *
      * @param listenerClass the listener class to remove the listener instance of.
      */
     public static void removeListener(@Nonnull final Class<? extends EventListener> listenerClass) {
@@ -73,6 +72,7 @@ public final class PlannerEventListeners {
 
     /**
      * Get the current active {@link EventListener} instance for the provided {@link Class}.
+     *
      * @param listenerClass a class that implements the {@link EventListener} interface.
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
      */
@@ -83,6 +83,7 @@ public final class PlannerEventListeners {
 
     /**
      * Runs the {@link Runnable} in case any {@link EventListener}s exist.
+     *
      * @param runnable the {@link Runnable} to run.
      */
     public static void withListeners(@Nonnull final Runnable runnable) {
@@ -93,6 +94,7 @@ public final class PlannerEventListeners {
 
     /**
      * Dispatch a {@link PlannerEvent} produced by eventSupplier to all {@link EventListener} instances in thread-local storage.
+     *
      * @param eventSupplier supplies a {@link PlannerEvent} event to dispatch to {@link EventListener}s.
      * eventSupplier is called only if any of {@link EventListener} exist.
      */
@@ -105,6 +107,7 @@ public final class PlannerEventListeners {
 
     /**
      * Signal to all {@link EventListener} instances in thread-local storage that the planning of a new query is starting.
+     *
      * @param queryAsString query being planned.
      * @param planContext context object provided to the planner.
      */
@@ -120,17 +123,15 @@ public final class PlannerEventListeners {
     }
 
     /**
-     * <p>
      * Classes implementing this interface listen to {@link PlannerEvent}s emitted by
      * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} and do some action on them.
-     * </p>
-     * <p>
-     * See {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} and {@link PlannerEventStatsCollector}.
-     * </p>
+     *
+     * <p>See {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} and {@link PlannerEventStatsCollector}.
      */
     public interface EventListener {
         /**
          * Callback to execute when a new query starts being planned.
+         *
          * @param queryAsString query being planned.
          * @param planContext context object provided to the planner.
          */
@@ -138,6 +139,7 @@ public final class PlannerEventListeners {
 
         /**
          * Callback to execute when a new {@link PlannerEvent} is emitted.
+         *
          * @param event the event that was emitted by the
          *        {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
          */

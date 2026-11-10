@@ -39,6 +39,7 @@ public interface StreamingValue extends Value {
 
     /**
      * Returns a {@link RecordCursor} over the result stream returned upon evaluation.
+     *
      * @param store The record store used to fetch and evaluate the results.
      * @param context The evaluation context, containing a set of contextual parameters for evaluating the results.
      * @param continuation The continuation bytes used to resume the evaluation of the result stream.

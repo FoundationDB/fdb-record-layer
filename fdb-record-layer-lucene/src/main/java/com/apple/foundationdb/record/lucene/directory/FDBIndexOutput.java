@@ -39,7 +39,6 @@ import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
 /**
- *
  * Implementation of IndexOutput representing the writing of data
  * in Lucene to a file.
  *
@@ -173,7 +172,6 @@ public final class FDBIndexOutput extends IndexOutput {
     }
 
     /**
-     *
      * This method will be called many times.
      *
      * @param bytes bytes to write

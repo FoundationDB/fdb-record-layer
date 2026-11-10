@@ -38,6 +38,7 @@ public class MultiDimensionalIndexHelper {
 
     /**
      * Parse standard options into {@link RTree.Config}.
+     *
      * @param index the index definition to get options from
      * @return parsed config options
      */

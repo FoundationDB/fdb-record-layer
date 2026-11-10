@@ -51,6 +51,7 @@ import java.util.function.Supplier;
 
 /**
  * A {@link MemorySortAdapter} / {@link FileSortAdapter} for use with {@link RecordQuerySortPlan}.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.EXPERIMENTAL)

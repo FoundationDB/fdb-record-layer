@@ -53,12 +53,12 @@ import java.util.stream.Collectors;
 /**
  * The keys that order the results from a plan.
  *
- * Given a record type with primary key <code>k1, k2</code> and an index on <code>k1, v1, v2</code>,
+ * <p>Given a record type with primary key <code>k1, k2</code> and an index on <code>k1, v1, v2</code>,
  * the index entries are <code>k1, v1, v2, k2</code>.
  *
- * Given a scan on this index for <code>k1 = ? AND v1 = ?</code>, the results are dictionary ordered by <code>v2, k2</code>.
+ * <p>Given a scan on this index for <code>k1 = ? AND v1 = ?</code>, the results are dictionary ordered by <code>v2, k2</code>.
  *
- * Up to <code>prefixSize</code>, <code>2</code> in this case, the ordering is trivial: all records have the same value.
+ * <p>Up to <code>prefixSize</code>, <code>2</code> in this case, the ordering is trivial: all records have the same value.
  * <code>primaryKeyStart</code> is the earlier position for part of the primary key; in this case, <code>0</code>.
  * <code>primaryKeyTail</code> is the position after which only primary key fields appear; in this case, <code>3</code>.
  */
@@ -123,6 +123,7 @@ public class PlanOrderingKey {
     /**
      * Return <code>true</code> if only primary key fields follow the prefix.
      * If so, all the (non-trivial) ordering of results is by primary key.
+     *
      * @return <code>true</code> if this ordering key is ordered by primary key
      */
     public boolean isPrimaryKeyOrdered() {
@@ -240,6 +241,7 @@ public class PlanOrderingKey {
      * Get a key to be evaluated on record results to drive a merge. This key must respect the underlying ordering
      * so that only a single record needs to be buffered from each cursor. And it must uniquely identify duplicates
      * by including the primary key.
+     *
      * @param plans the plans for which to find a compatible ordering, all of which must have ordering keys
      * @param candidateKey a suggested key to use
      * @param candidateOnly only accept the given candidate

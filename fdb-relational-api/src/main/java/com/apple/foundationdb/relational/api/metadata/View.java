@@ -24,12 +24,12 @@ import javax.annotation.Nonnull;
 
 /**
  * Metadata for a non-materialized view, which represents a virtual table defined by a SQL query.
- * <p>
- * The view definition is persisted to disk as a plain SQL string. At runtime, implementations
+ *
+ * <p>The view definition is persisted to disk as a plain SQL string. At runtime, implementations
  * of this interface may cache the compiled logical plan to avoid recompiling the view definition
  * on every access.
- * <p>
- * Views can be either permanent (schema-bound) or temporary (transaction-bound). While the interface
+ *
+ * <p>Views can be either permanent (schema-bound) or temporary (transaction-bound). While the interface
  * supports temporary views, this functionality is not currently implemented.
  */
 public interface View extends Metadata {
@@ -44,8 +44,8 @@ public interface View extends Metadata {
 
     /**
      * Returns whether this view is temporary (transaction-bound).
-     * <p>
-     * Note: Temporary views are not currently supported and this method will return {@code false}.
+     *
+     * <p>Note: Temporary views are not currently supported and this method will return {@code false}.
      *
      * @return {@code true} if the view is temporary, {@code false} otherwise.
      */

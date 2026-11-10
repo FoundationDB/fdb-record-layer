@@ -426,11 +426,16 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
+    // SQL Port status: (#4843) ported, plan generated
+    // SQL Port: cascades-query-tests/permuted-min-max.yamsql
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest
     @MethodSource
     void selectMaxWithInOrderByMax(InComparisonCase inComparisonCase) throws Exception {
         Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(inComparisonCase.getComparison() instanceof Comparisons.ListComparison ||
+                inComparisonCase.getComparison() instanceof Comparisons.ParameterComparison);
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
         complexQuerySetup(hook);
         try (FDBRecordContext context = openContext()) {
@@ -508,11 +513,15 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest
     @MethodSource
     void testMaxWithInAndDupes(InComparisonCase inComparisonCase) throws Exception {
         Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(inComparisonCase.getComparison() instanceof Comparisons.ListComparison ||
+                inComparisonCase.getComparison() instanceof Comparisons.ParameterComparison);
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), max2ByStrValueAnd3());
         complexQuerySetup(hook);
 
@@ -650,11 +659,15 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest
     @MethodSource
     void testSortedMaxWithInOnRepeater(InComparisonCase inComparisonCase) {
         Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(inComparisonCase.getComparison() instanceof Comparisons.ListComparison ||
+                inComparisonCase.getComparison() instanceof Comparisons.ParameterComparison);
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), max3ByStrValueRepeaterAnd2());
         setUpWithRepeaters(hook);
 
@@ -760,11 +773,15 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest(name = "testMaxUniqueByStr2And3WithDifferentOrderingKeys[inComparisonCase={0}]")
     @MethodSource
     void testMaxUniqueByStr2And3WithDifferentOrderingKeys(InComparisonCase inComparisonCase) throws Exception {
         Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(inComparisonCase.getComparison() instanceof Comparisons.ListComparison ||
+                inComparisonCase.getComparison() instanceof Comparisons.ParameterComparison);
         final RecordMetaDataHook hook = metaData -> {
             metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueByStrValueOrderBy2And3());
             metaData.removeIndex("MySimpleRecord$num_value_unique"); // get rid of unique index as we don't want uniqueness constraint

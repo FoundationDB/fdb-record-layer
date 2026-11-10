@@ -23,9 +23,11 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.async.common.VectorEncodingConfig;
 import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Configuration for the Guardiann vector structure.
@@ -63,8 +65,12 @@ import javax.annotation.Nonnull;
  * @param deleteConcurrency concurrency for parallel operations during delete
  * @param splitNumNearestClusters number of nearest clusters fetched from HNSW for split candidate evaluation
  * @param mergeNumNearestClusters number of nearest clusters fetched from HNSW for merge candidate evaluation
- * @param kMeansMaxIterations maximum Lloyd's iterations per k-means restart
- * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
+ * @param kMeansMaxIterations maximum Lloyd's iterations per k-means run
+ * @param kMeansNumRuns number of runs per k-means fit of a split or merge (see
+ *        {@link com.apple.foundationdb.kmeans.KMeans#fit}); at least 1
+ * @param kMeansBalancingLadder relative size-balancing strengths a split tries in order, moving on to the next one
+ *        only when no candidate clears {@link #minChildFraction()} (see
+ *        {@link com.apple.foundationdb.kmeans.KMeans#fit}); non-empty, finite, non-negative and strictly increasing
  * @param reassignNumNeighboringClusters outer clusters considered as replication/migration targets during reassign
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
@@ -122,7 +128,8 @@ public record Config(@Nonnull Metric metric,
                      int splitNumNearestClusters,
                      int mergeNumNearestClusters,
                      int kMeansMaxIterations,
-                     int kMeansMaxRestarts,
+                     int kMeansNumRuns,
+                     @Nonnull List<Double> kMeansBalancingLadder,
                      // reassign
                      int reassignNumNeighboringClusters,
                      // collapse
@@ -180,7 +187,9 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS = 32;
     public static final int DEFAULT_MERGE_NUM_NEAREST_CLUSTERS = 11;
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
-    public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
+    public static final int DEFAULT_KMEANS_NUM_RUNS = 4;
+    @Nonnull
+    public static final List<Double> DEFAULT_KMEANS_BALANCING_LADDER = ImmutableList.of(0.0d, 0.016d, 0.16d);
     // reassign
     public static final int DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS = 31;
     // collapse
@@ -210,6 +219,17 @@ public record Config(@Nonnull Metric metric,
                 "maxRelativeImbalance must be in [0, 1]");
         Preconditions.checkArgument(splitImbalancePenalty >= 0.0d,
                 "splitImbalancePenalty must be >= 0");
+        Preconditions.checkArgument(kMeansNumRuns >= 1, "kMeansNumRuns must be >= 1");
+        Preconditions.checkArgument(!kMeansBalancingLadder.isEmpty(), "kMeansBalancingLadder must not be empty");
+        double previousStrength = -1.0d;
+        for (final double strength : kMeansBalancingLadder) {
+            Preconditions.checkArgument(strength >= 0.0d && Double.isFinite(strength),
+                    "kMeansBalancingLadder values must be finite and >= 0");
+            Preconditions.checkArgument(strength > previousStrength,
+                    "kMeansBalancingLadder must be strictly increasing");
+            previousStrength = strength;
+        }
+        kMeansBalancingLadder = ImmutableList.copyOf(kMeansBalancingLadder);
     }
 
     @Nonnull
@@ -222,7 +242,7 @@ public record Config(@Nonnull Metric metric,
                 sampleBatchSize(), insertMaxCandidateClusters(),
                 deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNumNearestClusters(), mergeNumNearestClusters(),
-                kMeansMaxIterations(), kMeansMaxRestarts(),
+                kMeansMaxIterations(), kMeansNumRuns(), kMeansBalancingLadder(),
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
@@ -254,7 +274,8 @@ public record Config(@Nonnull Metric metric,
                 ", splitNumNearestClusters=" + splitNumNearestClusters() +
                 ", mergeNumNearestClusters=" + mergeNumNearestClusters() +
                 ", kMeansMaxIterations=" + kMeansMaxIterations() +
-                ", kMeansMaxRestarts=" + kMeansMaxRestarts() +
+                ", kMeansNumRuns=" + kMeansNumRuns() +
+                ", kMeansBalancingLadder=" + kMeansBalancingLadder() +
                 ", reassignNumNeighboringClusters=" + reassignNumNeighboringClusters() +
                 ", collapseMinDuplicates=" + collapseMinDuplicates() +
                 ", splitMergeConcurrency=" + splitMergeConcurrency() +
@@ -309,7 +330,9 @@ public record Config(@Nonnull Metric metric,
         private int splitNumNearestClusters = DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS;
         private int mergeNumNearestClusters = DEFAULT_MERGE_NUM_NEAREST_CLUSTERS;
         private int kMeansMaxIterations = DEFAULT_KMEANS_MAX_ITERATIONS;
-        private int kMeansMaxRestarts = DEFAULT_KMEANS_MAX_RESTARTS;
+        private int kMeansNumRuns = DEFAULT_KMEANS_NUM_RUNS;
+        @Nonnull
+        private List<Double> kMeansBalancingLadder = DEFAULT_KMEANS_BALANCING_LADDER;
         // reassign
         private int reassignNumNeighboringClusters = DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS;
         // collapse
@@ -346,7 +369,8 @@ public record Config(@Nonnull Metric metric,
                              final int deleteMaxCandidateClusters, final int deleteConcurrency,
                              final int splitNumNearestClusters, final int mergeNumNearestClusters,
                              final int kMeansMaxIterations,
-                             final int kMeansMaxRestarts,
+                             final int kMeansNumRuns,
+                             @Nonnull final List<Double> kMeansBalancingLadder,
                              final int reassignNumNeighboringClusters,
                              final int collapseMinDuplicates,
                              final int splitMergeConcurrency, final int reassignConcurrency,
@@ -381,7 +405,8 @@ public record Config(@Nonnull Metric metric,
             this.splitNumNearestClusters = splitNumNearestClusters;
             this.mergeNumNearestClusters = mergeNumNearestClusters;
             this.kMeansMaxIterations = kMeansMaxIterations;
-            this.kMeansMaxRestarts = kMeansMaxRestarts;
+            this.kMeansNumRuns = kMeansNumRuns;
+            this.kMeansBalancingLadder = kMeansBalancingLadder;
             this.reassignNumNeighboringClusters = reassignNumNeighboringClusters;
             this.collapseMinDuplicates = collapseMinDuplicates;
             this.splitMergeConcurrency = splitMergeConcurrency;
@@ -704,14 +729,26 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
-        public int getKMeansMaxRestarts() {
-            return kMeansMaxRestarts;
+        public int getKMeansNumRuns() {
+            return kMeansNumRuns;
         }
 
         @CanIgnoreReturnValue
         @Nonnull
-        public ConfigBuilder setKMeansMaxRestarts(final int kMeansMaxRestarts) {
-            this.kMeansMaxRestarts = kMeansMaxRestarts;
+        public ConfigBuilder setKMeansNumRuns(final int kMeansNumRuns) {
+            this.kMeansNumRuns = kMeansNumRuns;
+            return this;
+        }
+
+        @Nonnull
+        public List<Double> getKMeansBalancingLadder() {
+            return kMeansBalancingLadder;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setKMeansBalancingLadder(@Nonnull final List<Double> kMeansBalancingLadder) {
+            this.kMeansBalancingLadder = kMeansBalancingLadder;
             return this;
         }
 
@@ -805,7 +842,7 @@ public record Config(@Nonnull Metric metric,
                     getSampleBatchSize(), getInsertMaxCandidateClusters(),
                     getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNumNearestClusters(), getMergeNumNearestClusters(),
-                    getKMeansMaxIterations(), getKMeansMaxRestarts(),
+                    getKMeansMaxIterations(), getKMeansNumRuns(), getKMeansBalancingLadder(),
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),

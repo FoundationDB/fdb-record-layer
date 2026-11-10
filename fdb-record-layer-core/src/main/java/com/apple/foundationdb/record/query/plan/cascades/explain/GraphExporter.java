@@ -56,6 +56,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Shorthand-type for the extended functional interface.
+     *
      * @param <T> any type
      */
     public interface ComponentIdProvider<T> extends Function<T, String> {
@@ -63,6 +64,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Shorthand-type for the extended functional interface.
+     *
      * @param <T> any type
      */
     public interface ComponentAttributeProvider<T> extends Function<T, Map<String, Attribute>> {
@@ -70,6 +72,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * This class represents a cluster with the additional ability to further subdivide the cluster into sub-clusters.
+     *
      * @param <N> node class
      * @param <E> edge class
      */
@@ -104,6 +107,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Shorthand-type for the extended functional interface.
+     *
      * @param <N> node type of network
      * @param <E> edge type of network
      */
@@ -230,6 +234,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Get a unique string for a node which adheres to the current language.
+     *
      * @param node a node
      * @return a unique identifier
      */
@@ -250,6 +255,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Get a unique string for a edge which adheres to the current language.
+     *
      * @param edge a edge
      * @return a unique identifier
      */
@@ -315,6 +321,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Render all edges in a given network.
+     *
      * @param context the context to use
      */
     protected void renderEdges(@Nonnull final ExporterContext context) {
@@ -350,6 +357,7 @@ public abstract class GraphExporter<N, E> {
 
     /**
      * Render all sub clusters in a given network.
+     *
      * @param context the context to use
      * @param clusters the clusters on this level
      */

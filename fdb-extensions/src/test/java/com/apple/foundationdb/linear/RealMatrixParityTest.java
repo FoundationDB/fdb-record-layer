@@ -38,8 +38,8 @@ import static org.assertj.core.api.Assertions.within;
  * results as a reference computed with a fresh {@link ScalarBackend}, within an O(N·ε) tolerance.
  * Mirrors the parity pattern in {@link RealVectorPrimitivesParityTest}, but lifted to the
  * matrix-multiply fast path and the four {@code apply}/{@code transposedApply} overrides.
- * <p>
- * Under the default {@code test} task this verifies SIMD-vs-scalar parity; under
+ *
+ * <p>Under the default {@code test} task this verifies SIMD-vs-scalar parity; under
  * {@code scalarFallbackTest} (where {@link RealVectorPrimitives} resolves to scalar) it
  * degenerates into scalar-vs-scalar — still useful as a smoke check that the matrix paths
  * produce identical results to the lower-level primitive reference.

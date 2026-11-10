@@ -73,6 +73,7 @@ import java.util.stream.Collectors;
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
  * relational planner expression.
+ *
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)

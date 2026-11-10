@@ -38,23 +38,22 @@ import java.util.List;
 import java.util.Set;
 
 /**
- *
  * This visitor pulls index fetches after the intersection if possible.
  *
- *                                  Starting Plan
+ * <p>Starting Plan
  *
- *                                  IntersectionPlan
+ * <p>IntersectionPlan
  *                                  /              \
  *                                 /                \
  *                 RecordQueryPlan (IndexFetch) RecordQueryPlan (IndexFetch)
  *
- *                                          |
+ * <p>|
  *                                          |
  *                                          V
  *
- *                                  Transformed Plan
+ * <p>Transformed Plan
  *
- *                                FetchFromPartialRecordPlan
+ * <p>FetchFromPartialRecordPlan
  *                                          |
  *                                          |
  *                                  IntersectionPlan (IndexFetch)

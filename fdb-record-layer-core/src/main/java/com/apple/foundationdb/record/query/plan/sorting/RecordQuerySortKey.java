@@ -66,6 +66,7 @@ public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
      * The adapter will have a unique encryption key.
      * The limit on the number of records returned limits the size of the sort buffer that needs to be kept,
      * and so may allow it to be in-memory only.
+     *
      * @param <M> type used to represent stored records
      * @param recordStore the record store against which the plan is running
      * @param maxRecordsToRead the maximum number of records to read
@@ -81,6 +82,7 @@ public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
 
     /**
      * Get an adapter used for a single invocation of a plan using this key.
+     *
      * @param <M> type used to represent stored records
      * @param recordStore the record store against which the plan is running
      * @return a new sort adapter specifically made for a damming operation ({@link RecordQueryDamPlan})

@@ -47,11 +47,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests of the methods on an {@link FDBRecordStore} around estimating the size of a store.
  *
- * <p>
- * Note that as the guarantees of the "estimate size" APIs are relatively weak, these tests mostly assert that the
+ * <p>Note that as the guarantees of the "estimate size" APIs are relatively weak, these tests mostly assert that the
  * estimate happened without error, though they can occasionally make more sophisticated assertions like "this estimate
  * should be less than this other estimate".
- * </p>
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreEstimateSizeTest extends FDBRecordStoreTestBase {

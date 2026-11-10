@@ -21,11 +21,9 @@
 /**
  * Classes for running blocks of asynchronous code with-or-without retries.
  *
- * <p>
- *     Note: for historical/backwards compatibility reasons
+ * <p>Note: for historical/backwards compatibility reasons
  *     {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner}
  *     and {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerImpl}
  *     are not included in this package.
- * </p>
  */
 package com.apple.foundationdb.record.provider.foundationdb.runners;

@@ -35,8 +35,8 @@ public interface Transaction extends AutoCloseable {
 
     /**
      * Retrieves an `Optional` containing the bound schema template, if one exists.
-     * <br>
-     * This method allows access to the schema template that has been bound to this {@link Transaction}.
+     *
+     * <p>This method allows access to the schema template that has been bound to this {@link Transaction}.
      * If no schema template is currently bound, an empty {@code Optional} is returned.
      *
      * @return An {@code Optional} containing the bound {@link SchemaTemplate}, or an empty {@link Optional} if no
@@ -47,13 +47,14 @@ public interface Transaction extends AutoCloseable {
 
     /**
      * Sets, or replaces the bound schema template.
-     * <br>
-     * This method binds the provided {@link SchemaTemplate} to this {@link Transaction}, any subsequent operation
+     *
+     * <p>This method binds the provided {@link SchemaTemplate} to this {@link Transaction}, any subsequent operation
      * that requires interaction with the metadata, within the scope of this {@link Transaction} will use the bound
      * {@link SchemaTemplate} from now on.
-     * <br>
-     * if there is already a {@link SchemaTemplate} bound to this transaction, it will be replaced by the provided
+     *
+     * <p>if there is already a {@link SchemaTemplate} bound to this transaction, it will be replaced by the provided
      * {@link SchemaTemplate} argument.
+     *
      * @param schemaTemplate The {@link SchemaTemplate} to bind.  Must not be null.
      */
     void setBoundSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate);

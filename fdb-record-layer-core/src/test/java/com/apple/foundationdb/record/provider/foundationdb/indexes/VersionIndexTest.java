@@ -2171,7 +2171,7 @@ public class VersionIndexTest {
             metaDataBuilder.removeIndex("globalVersion");
             metaDataBuilder.setStoreRecordVersions(false);
         };
-        RecordMetaDataHook thirdHook = metaDataBuilder -> {
+        final RecordMetaDataHook thirdHook = metaDataBuilder -> {
             secondHook.apply(metaDataBuilder);
             metaDataBuilder.setStoreRecordVersions(true);
             metaDataBuilder.addUniversalIndex(new Index("globalVersion2", VersionKeyExpression.VERSION, IndexTypes.VERSION));
@@ -2180,8 +2180,8 @@ public class VersionIndexTest {
         MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).build();
         FDBRecordVersion version1;
         MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1776L).build();
-        MySimpleRecord record3 = MySimpleRecord.newBuilder().setRecNo(1955L).build();
-        FDBRecordVersion version3;
+        final MySimpleRecord record3 = MySimpleRecord.newBuilder().setRecNo(1955L).build();
+        final FDBRecordVersion version3;
 
         RecordQuery query = RecordQuery.newBuilder().setSort(VersionKeyExpression.VERSION).build();
 

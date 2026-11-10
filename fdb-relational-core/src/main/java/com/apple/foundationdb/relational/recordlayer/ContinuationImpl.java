@@ -109,6 +109,7 @@ public final class ContinuationImpl implements Continuation {
      * implicit - added by the system) is stored in the continuation. Once another query request is attempted with the
      * continuation, the binding hash can be compared to verify that the query matches the continuation. The request will
      * be rejected if the hashes do not match.
+     *
      * @return a stable hash for the parameter bindings for the continuation
      */
     @Nullable
@@ -125,6 +126,7 @@ public final class ContinuationImpl implements Continuation {
      * The plan hash represents the plan that was used to execute the query. This would detect changes to the plan (either
      * because the query changed or because the environment changed). Once a query is attempted with a continuation where
      * the plan hash does not match that of the continuation, the query gets rejected.
+     *
      * @return the hash of the plan
      */
     @Nullable
@@ -138,8 +140,7 @@ public final class ContinuationImpl implements Continuation {
 
     /**
      * Return the compiled statement proto if a package is contained inside the continuation.
-
-import com.apple.foundationdb.annotation.API;
+     *
      * @return the {@link CompiledStatement}.
      */
     @Nullable
@@ -155,6 +156,7 @@ import com.apple.foundationdb.annotation.API;
 
     /**
      * Create a new continuation from a given (inner) continuation bytes.
+     *
      * @param bytes the inner (cursor continuation) to be placed inside the newly created continuation
      * @return a continuation that holds the given cursor continuation
      */
@@ -169,6 +171,7 @@ import com.apple.foundationdb.annotation.API;
 
     /**
      * Create a new continuation from a given (inner) continuation Integer offset.
+     *
      * @param offset the offset to be placed inside the newly created continuation
      * @return a continuation that holds the given offset
      */
@@ -179,6 +182,7 @@ import com.apple.foundationdb.annotation.API;
 
     /**
      * Create a new continuation from a given cursor continuation.
+     *
      * @param cursorContinuation the inner cursor continuation to be placed inside the newly created continuation
      * @return a continuation that holds the given cursor continuation
      */
@@ -188,6 +192,7 @@ import com.apple.foundationdb.annotation.API;
 
     /**
      * Deserialize and parse a continuation. This would create a continuation from a previously serialized byte array.
+     *
      * @param bytes the serialized continuation
      * @return the deserialized continuation
      * @throws InvalidProtocolBufferException in case the continuation cannot be deserialized
@@ -217,6 +222,7 @@ import com.apple.foundationdb.annotation.API;
 
     /**
      * Factory method to create a new {@link ContinuationBuilder}.
+     *
      * @return a newly created continuation builder
      */
     public static ContinuationBuilder newBuilder() {
@@ -226,6 +232,7 @@ import com.apple.foundationdb.annotation.API;
     /**
      * Create a {@link ContinuationBuilder} initialized to the state of this continuation. This can be used as a mutation
      * method to modify an existing continuation.
+     *
      * @return a builder initialized to the state of this continuation
      */
     public ContinuationBuilder asBuilder() {

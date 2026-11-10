@@ -562,7 +562,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     store.markIndexWriteOnly(index).join();
                     break;
                 case WRITE_ONLY_WITH_QUEUE:
-                    store.markIndexWriteOnlyWithQueue(index).join();
+                    store.markIndexWriteOnly(index, IndexState.WRITE_ONLY_WITH_QUEUE).join();
                     break;
                 case READABLE_UNIQUE_PENDING:
                     // The test maintainer reports a uniqueness violation for a unique index

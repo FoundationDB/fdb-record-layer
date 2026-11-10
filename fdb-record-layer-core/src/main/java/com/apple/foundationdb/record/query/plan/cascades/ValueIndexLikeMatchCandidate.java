@@ -45,13 +45,14 @@ import java.util.Objects;
  */
 public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
-     This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
+     * This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
      * passed in. Using a list of parameter ids, each {@link MatchedOrderingPart} links together the
      * (1) normalized key expression that originally produced the key (from index, or common primary key)
      * (2) a comparison range for this parameter which is contained in the already existent partial match
      * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
      *     synthesize the comparison range in (2)
      * (4) the candidate predicate on the candidate side that is the placeholder predicate for the parameter
+     *
      * @param matchInfo a pre-existing match info structure
      * @param sortParameterIds the query should be ordered by
      * @param isReverse reversed-ness of the order

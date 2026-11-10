@@ -31,6 +31,7 @@ import java.util.Set;
 
 /**
  * Basic cost model interface to be provided by each {@link PlannerPhase}.
+ *
  * @param <T> type parameter this cost model is implemented over. Must be an implementor of
  *        {@link RelationalExpression}.
  */

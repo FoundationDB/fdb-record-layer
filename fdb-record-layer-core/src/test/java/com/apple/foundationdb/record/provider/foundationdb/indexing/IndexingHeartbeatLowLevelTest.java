@@ -387,7 +387,7 @@ class IndexingHeartbeatLowLevelTest {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
         IndexingHeartbeat heartbeat1 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
         IndexingHeartbeat heartbeat2 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
-        IndexingHeartbeat heartbeat3 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
+        final IndexingHeartbeat heartbeat3 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
 
         // Successfully create heartbeat1
         openSimpleMetaData(hook);

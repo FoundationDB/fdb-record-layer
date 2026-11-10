@@ -125,14 +125,13 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * Test if the ID candidate is a valid ID.
      *
      * @param idCandidate the ID candidate.
-     *
      * @return <code>true</code> if it is valid; <code>false</code> otherwise.
      */
     @Override
     protected boolean isValidId(@Nonnull final String idCandidate) {
         return ALPHA_DIG.matcher(idCandidate).matches()
-               || DOUBLE_QUOTE.matcher(idCandidate).matches()
-               || DOT_NUMBER.matcher(idCandidate).matches() || HTML.matcher(idCandidate).matches();
+                || DOUBLE_QUOTE.matcher(idCandidate).matches()
+                || DOT_NUMBER.matcher(idCandidate).matches() || HTML.matcher(idCandidate).matches();
     }
 
     @Override
@@ -505,6 +504,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a map of String -> Object as attributes of a vertex or edge.
+     *
      * @param context context
      * @param attributes attributes
      */
@@ -525,8 +525,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                                @Nonnull final Map<String, Attribute> nodeAttributes) {
         if (details == null || ((List<?>)details.getReference()).isEmpty()) {
             return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\">" +
-                   htmlFromMultiline(escaper.escape(name.getReference().toString())) +
-                   "</table>>";
+                    htmlFromMultiline(escaper.escape(name.getReference().toString())) +
+                    "</table>>";
         }
 
         final String detailsString =
@@ -546,8 +546,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                         .collect(Collectors.joining());
 
         return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\">" +
-               htmlFromMultiline(escaper.escape(name.getReference().toString())) +
-               detailsString + "</table>>";
+                htmlFromMultiline(escaper.escape(name.getReference().toString())) +
+                detailsString + "</table>>";
     }
 
     @Nonnull
@@ -601,6 +601,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a map of String -> Object as attributes of a cluster.
+     *
      * @param context context
      * @param attributes attributes
      */
@@ -616,6 +617,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a key value pair for an attribute.
+     *
      * @param context context
      * @param attrName name
      * @param attribute attribute value

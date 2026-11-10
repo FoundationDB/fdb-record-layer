@@ -42,14 +42,13 @@ public final class RandomizedTestUtils {
 
     /**
      * Return a stream of randomly generated arguments based on the gradle properties.
-     * <p>
-     *     If {@code -Ptests.includeRandom} is specified, this will return {@code -Ptests.iterations} randomly generated
+     *
+     * <p>If {@code -Ptests.includeRandom} is specified, this will return {@code -Ptests.iterations} randomly generated
      *     arguments. Otherwise this will return an empty stream.
-     * </p>
-     * <p>
-     *     Tip: Use {@code Stream.concat(streamOfFixedArguments, RandomizedTestUtils.randomArguments(random -> { ... }}
+     *
+     * <p>Tip: Use {@code Stream.concat(streamOfFixedArguments, RandomizedTestUtils.randomArguments(random -> { ... }}
      *     to have some fixed arguments, and also add randomized arguments when including random tests.
-     * </p>
+     *
      * @param randomArguments A mapper from a {@link Random} to the arguments to be provided to
      * @return a stream of {@link Arguments} for a {@link org.junit.jupiter.params.ParameterizedTest}
      */
@@ -65,23 +64,19 @@ public final class RandomizedTestUtils {
 
     /**
      * Return a stream of random {@code long}s to be used to seed random number generators.
-     * <p>
-     *     During PRB, and standard runs this will return just the set of fixed seeds, but if the tests are run
+     *
+     * <p>During PRB, and standard runs this will return just the set of fixed seeds, but if the tests are run
      *     with {@code -P tests.includeRandom=true} and {@code -P tests.iteration=2} (as we do in our nightly builds),
      *     this will return 2 additional random seeds. However, if no fixed seeds are provided, this will
      *     still always include at least one fixed seed, {@value FIXED_SEED}.
-     * </p>
-     * <p>
-     *     This can be supplied to a {@link org.junit.jupiter.params.ParameterizedTest} to run a test
+     *
+     * <p>This can be supplied to a {@link org.junit.jupiter.params.ParameterizedTest} to run a test
      *     under different scenarios. This is preferred over, say, a {@code Stream<Random>} because
      *     the seed can be included in the test display name, which means that a failing seed can be
      *     recorded and the test re-run with that seed.
-     * </p>
      *
-     * <p>
-     *     If you only have one usage for the seeds, see also {@link RandomSeedSource}, which can be used without
+     * <p>If you only have one usage for the seeds, see also {@link RandomSeedSource}, which can be used without
      *     defining an additional method.
-     * </p>
      *
      * @param staticSeeds a set of seeds to always include in the returned random seeds
      * @return a stream of random {@code long}s to initialize {@link Random}s
@@ -107,10 +102,10 @@ public final class RandomizedTestUtils {
 
     /**
      * Generate a random value that is not in the given collection.
-     * <p>
-     *     This can be most useful if you are trying to generate unique values, but with some randomness, and are storing
+     *
+     * <p>This can be most useful if you are trying to generate unique values, but with some randomness, and are storing
      *     each one you generate in some other object
-     * </p>
+     *
      * @param values a set of values that won't be returned.
      * @param randomValueGenerator a supplier of random values
      * @param <T> the type of value to generate

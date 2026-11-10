@@ -38,28 +38,28 @@ import java.util.function.Supplier;
  * Class to hold information about a list of tokens. Tokens are created during the explain walk and rendered afterward.
  * Tokens can be simple, or they can be nested (via {@link NestedToken}). If a token is nested it contains an instance
  * of this class making this general structure more of a tree than a list.
- * <br>
- * Most tokens render into some {@link CharSequence} using an {@link ExplainFormatter}. Some tokens also interact with
+ *
+ * <p>Most tokens render into some {@link CharSequence} using an {@link ExplainFormatter}. Some tokens also interact with
  * the formatter in way that changes the internal state of the formatter. Those tokens when rendered exert a side effect
  * on the formatter (e.g. declaring an alias, etc.)
- * <br>
- * Tokens may render differently for different {@link ExplainLevel}s. For instance, a token that renders some
+ *
+ * <p>Tokens may render differently for different {@link ExplainLevel}s. For instance, a token that renders some
  * information in {@link ExplainLevel#ALL_DETAILS} may only render the string {@code ...} in
  * {@link ExplainLevel#STRUCTURE}.
- * <br>
- * It is important to keep track of the number of characters the renderer would produce if rendered for each individual
+ *
+ * <p>It is important to keep track of the number of characters the renderer would produce if rendered for each individual
  * explain level. Unfortunately, this is not an exact science! While most tokens render to exactly the same character
  * sequence on each explain level (for e.g. a keyword), for some tokens (e.g. aliases) we just do not know what they
  * will render into as not all information is available when the token is created during the explain phase. Staying
  * with the example, we do not know the length of an alias rendering until we know the symbol table to resolve the
  * alias.
- * <br>
- * While we do not know the exact number of characters a token will render into <i>a priori</i>, we can estimate the
+ *
+ * <p>While we do not know the exact number of characters a token will render into <i>a priori</i>, we can estimate the
  * bounds pretty well (even without knowing all the information to render the token yet (e.g. the symbol table)). To
  * that end, rather than keeping just a length, we keep a {@code minLength} and a {@code maxLength} (both inclusive) for
  * each explain level.
- * <br>
- * This class is mutable and not thread-safe.
+ *
+ * <p>This class is mutable and not thread-safe.
  */
 public class ExplainTokens {
     @Nonnull
@@ -121,6 +121,7 @@ public class ExplainTokens {
      * characters. If the budget is limited (if {@code remainingCharacterBudget < Integer.MAX_VALUE}), this method will
      * at worst render into a string of that budget (plus three characters {@code ...} if the rendered char sequence has
      * to be cut off).
+     *
      * @param renderingExplainLevel the desired {@link ExplainLevel}
      * @param formatter the formatter
      * @param remainingCharacterBudget the budget of the number of remaining characters

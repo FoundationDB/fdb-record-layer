@@ -62,8 +62,8 @@ import java.util.stream.Stream;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
- * <br>
- * For tri-valued logic:
+ *
+ * <p>For tri-valued logic:
  * <ul>
  * <li>If any child is {@code true}, then {@code true}.</li>
  * <li>If all children are {@code false}, then {@code false}.</li>
@@ -175,30 +175,30 @@ public final class OrPredicate extends AndOrPredicate {
      * Checks for implication with a match candidate predicate by constructing a disjunction set of compile-time
      * ranges of the {@code this} and the candidate predicate and, if the construction is possible, matches them.
      * Matching the disjunction sets works as the following:
-     * <br>
-     * given an LHS that is: range(x1,x2) ∪ range(x3, x4) ∪ range(x5, x6) and RHS that is range(y1, y2) ∪ range (y3,
+     *
+     * <p>given an LHS that is: range(x1,x2) ∪ range(x3, x4) ∪ range(x5, x6) and RHS that is range(y1, y2) ∪ range (y3,
      * y4):
      * - each range in the LHS must find a companion range in RHS that implies it, if not, we reject the candidate
      * predicate.
-     * <br>
-     * - if each companion range is _also_ implied by the LHS range, we have a match that does not require any
+     *
+     * <p>- if each companion range is _also_ implied by the LHS range, we have a match that does not require any
      * compensation.
-     * <br>
-     * - otherwise, we match with a compensation that is effectively the reapplication of the entire LHS on top.
-     * <br>
-     * <b>example 1:</b>
+     *
+     * <p>- otherwise, we match with a compensation that is effectively the reapplication of the entire LHS on top.
+     *
+     * <p><b>example 1:</b>
      * - LHS: range(3, 10) ∪ range(15, 20), range (50, 60)
      * - RHS: range(0, 50) ∪ range (51,200)
      * result:
      * - match with {@code this} applied as a residual.
-     * <br>
-     * <b>example 2:</b>
+     *
+     * <p><b>example 2:</b>
      * - LHS: range(3,10) ∪ range(15,20)
      * - RHS: range(15,20) ∪ range(3,10)
      * result:
      * - exact match (no compensation required)
-     * <br>
-     * <b>example 3:</b>
+     *
+     * <p><b>example 3:</b>
      * - LHS: range(3,10) ∪ range(15,20)
      * - RHS: range(3,17)
      * result:
@@ -208,7 +208,6 @@ public final class OrPredicate extends AndOrPredicate {
      * @param candidatePredicate another predicate to match.
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
-     *
      * @return optional match mapping.
      */
     @Nonnull

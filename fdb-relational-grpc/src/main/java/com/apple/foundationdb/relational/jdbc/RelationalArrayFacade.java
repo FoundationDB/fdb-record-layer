@@ -83,6 +83,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     /**
      * Package-private so protobuf is available to serializer (in same package).
+     *
      * @return The backing protobuf used to keep Array data.
      */
     Array getDelegate() {
@@ -91,6 +92,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     /**
      * Package-private so protobuf is available to serializer (in same package).
+     *
      * @return The backing protobuf used to keep Array metadata.
      */
     ColumnMetadata getDelegateMetadata() {
@@ -132,10 +134,11 @@ class RelationalArrayFacade implements RelationalArray {
      * specified <code>index</code> and containing up to <code>count</code>
      * successive elements of the SQL array.  This method uses the type map
      * associated with the connection for customizations of the type mappings.
-     * <p>
-     * Note: In Relational, this method will always return an array of Struct types. This is
+     *
+     * <p>Note: In Relational, this method will always return an array of Struct types. This is
      * _technically_ in violation of the SQL spec, but it allows for a user experience which
      * is more consistent w.r.t how metadata is available and handled.
+     *
      * @param oneBasedIndex index the array index of the first element to retrieve;
      *              the first element is at index 1
      * @param askedForCount the number of successive SQL array elements to retrieve
@@ -163,6 +166,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     /**
      * Actionable record count.
+     *
      * @param askedForCount Could be reasonable or it could be MAX_INT.
      * @param elementCount How many actual elements in backing array.
      * @param zeroBasedOffset Where to start counting from.

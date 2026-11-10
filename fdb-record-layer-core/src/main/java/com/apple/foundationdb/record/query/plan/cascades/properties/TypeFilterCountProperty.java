@@ -37,10 +37,8 @@ import java.util.Objects;
  * of types {@code Type1} or {@code Type2} and one that filters for records of type {@code Type1}, then this property
  * would evaluate to 3.
  *
- * <p>
- * This property provides some heuristic sense of how much work is being done by type filters, since unnecessary ones
+ * <p>This property provides some heuristic sense of how much work is being done by type filters, since unnecessary ones
  * are aggressively pruned by the planner.
- * </p>
  */
 public class TypeFilterCountProperty implements ExpressionProperty<Integer> {
     private static final TypeFilterCountProperty TYPE_FILTER_COUNT = new TypeFilterCountProperty();

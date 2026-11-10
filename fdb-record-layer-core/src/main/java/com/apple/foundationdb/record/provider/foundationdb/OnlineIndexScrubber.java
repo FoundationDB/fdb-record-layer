@@ -87,6 +87,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
     /**
      * Scrub the index, find and repair dangling entries.
      * Synchronous version of {@link #scrubIndexAsync}.
+     *
      * @return found dangling index entries count.
      */
     public long scrubDanglingIndexEntries() {
@@ -98,6 +99,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
     /**
      * Scrub the index, find and repair missing entries.
      * Synchronous version of {@link #scrubIndexAsync}.
+     *
      * @return found missing index entries count.
      */
     public long scrubMissingIndexEntries() {
@@ -164,6 +166,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         /**
          * Create an scrubbing policy builder.
+         *
          * @return a new {@link ScrubbingPolicy} builder
          */
         @Nonnull
@@ -193,6 +196,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             /**
              * Set a rigid limit on the max number of warnings to log..
              * If never called, the default is allowing (up to) 1000 warnings.
+             *
              * @param logWarningsLimit the max number of warnings to log.
              * @return this builder.
              */
@@ -204,6 +208,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
             /**
              * Set whether the scrubber, if it finds an error, will repair it.
+             *
              * @param val - if false, always report errors but do not repair.
              *            - if true (default), report errors up to requested limits, but always repair.
              * @return this builder.
@@ -221,6 +226,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
              * If stopped by limit, the next call will skip the ranges that already been checked (whether new entries were
              * written in these ranges or not). If the previous scrubber call had finished covering the whole range, the current
              * call will start a fresh scan.
+             *
              * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanned records count exceeds this limit.
              * @return this builder.
              */
@@ -234,6 +240,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
              * by constructing the same builder.
              * Work done with other ids will not affect work done with this id.
              * 0 is the backward compatible default, which means no prefix.
+             *
              * @param rangeId an id for isolating this scrubbing work
              * @return this builder
              */
@@ -245,6 +252,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             /**
              * Start the scrubbing from scratch, regardless of any progress already made for this scrubber range id
              * (see {@link #setScrubbingRangeId(int)}).
+             *
              * @param rangeReset reset if true
              * @return this builder
              */
@@ -293,6 +301,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         /**
          * Set the index to be scrubbed.
+         *
          * @param index the index to be scrubbed
          * @return this builder
          */
@@ -304,6 +313,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         /**
          * Set the index to be scrubbed.
+         *
          * @param indexName the index to be scrubbed
          * @return this builder
          */
@@ -316,7 +326,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
         /**
          * Set the explicit set of record types to be scrubbed.
          *
-         * Normally, record types are inferred from {@link #setIndex}.
+         * <p>Normally, record types are inferred from {@link #setIndex}.
+         *
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
@@ -330,6 +341,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * Add a {@link ScrubbingPolicy} policy.
          * A scrubbing job will validate (and fix, if applicable) index entries of readable indexes. It is designed to support an ongoing
          * index consistency verification.
+         *
          * @param scrubbingPolicy see {@link ScrubbingPolicy}
          * @return this Builder
          */
@@ -343,6 +355,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * Add a {@link ScrubbingPolicy.Builder} policy builder.
          * A scrubbing job will validate (and fix, if applicable) index entries of readable indexes. It is designed to support an ongoing
          * index consistency verification.
+         *
          * @param scrubbingPolicyBuilder see {@link ScrubbingPolicy.Builder}
          * @return this Builder
          */
@@ -354,6 +367,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         /**
          * Build an {@link OnlineIndexScrubber}.
+         *
          * @return a new online indexer
          */
         public OnlineIndexScrubber build() {

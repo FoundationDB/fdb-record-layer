@@ -105,7 +105,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
  * Directory implementation backed by FDB which attempts to
  * model a file system on top of FoundationDB.
  *
- * A few interesting details:
+ * <p>A few interesting details:
  *
  * <ul>
  *     <li>Each segment written in Lucene once flushed is <b>immutable</b>.</li>
@@ -168,6 +168,7 @@ public class FDBDirectory extends Directory {
      * The file reference cache should be loaded by {@link #getFileReferenceCache()} or {@link #getFileReferenceCacheAsync()}.
      * Note that this is a skip-list map instead of a hash map because key iteration order is important:
      * the {@link #listAll()} method requires that file names be returned in sorted order.
+     *
      * @see FDBLuceneFileReference
      */
     private final AtomicReference<ConcurrentSkipListMap<String, FDBLuceneFileReference>> fileReferenceCache;
@@ -289,6 +290,7 @@ public class FDBDirectory extends Directory {
     /**
      * Sets increment if not set yet and waits till completed to return
      * Returns and increments the increment if its already set.
+     *
      * @return current increment value
      */
     public long getIncrement() throws IOException {
@@ -390,36 +392,37 @@ public class FDBDirectory extends Directory {
 
     public static boolean isSegmentInfo(String name) {
         return name.endsWith(SI_EXTENSION)
-               && !name.startsWith(IndexFileNames.SEGMENTS)
-               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+                && !name.startsWith(IndexFileNames.SEGMENTS)
+                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static boolean isCompoundFile(String name) {
         return name.endsWith(DATA_EXTENSION)
-               && !name.startsWith(IndexFileNames.SEGMENTS)
-               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+                && !name.startsWith(IndexFileNames.SEGMENTS)
+                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static boolean isEntriesFile(String name) {
         return name.endsWith(ENTRIES_EXTENSION)
-               && !name.startsWith(IndexFileNames.SEGMENTS)
-               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+                && !name.startsWith(IndexFileNames.SEGMENTS)
+                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static boolean isFieldInfoFile(String name) {
         return name.endsWith(LuceneOptimizedFieldInfosFormat.EXTENSION)
-               && !name.startsWith(IndexFileNames.SEGMENTS)
-               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+                && !name.startsWith(IndexFileNames.SEGMENTS)
+                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static boolean isStoredFieldsFile(String name) {
         return name.endsWith(LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)
-               && !name.startsWith(IndexFileNames.SEGMENTS)
-               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+                && !name.startsWith(IndexFileNames.SEGMENTS)
+                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     /**
      * Puts a file reference in the meta subspace and in the cache under the given name.
+     *
      * @param name name for the file reference
      * @param reference the file reference being inserted
      */
@@ -441,6 +444,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Writes data to the given block under the given id.
+     *
      * @param id id for the data
      * @param block block for the data to be stored in
      * @param value the data to be stored
@@ -465,6 +469,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Write stored fields document to the DB.
+     *
      * @param segmentName the segment name writing to
      * @param docID the document ID to write
      * @param rawBytes the bytes value of the stored fields
@@ -483,6 +488,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Delete stored fields data from the DB.
+     *
      * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
      * @throws IOException if there is an issue reading metadata to do the delete
      */
@@ -502,6 +508,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Reads known data from the directory.
+     *
      * @param requestingInput the {@link FDBIndexInput} requesting the block; used for logging
      * @param fileName Description should be non-null, opaque string describing this resource; used for logging
      * @param referenceFuture the reference where the data supposedly lives
@@ -733,6 +740,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * deletes the file reference under the provided name.
+     *
      * @param name the name for the file reference
      */
     @Override
@@ -810,6 +818,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Returns the size of the given file under the given name.
+     *
      * @param name the name of the file reference
      * @return long value of the size of the file
      * @throws NoSuchFileException if the file reference doesn't exist.
@@ -836,6 +845,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Create new output for a file.
+     *
      * @param name the filename to create
      * @param ioContext the IOContext from Lucene
      * @return IndexOutput FDB Backed Index Output FDBIndexOutput
@@ -1006,6 +1016,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Checks if the pending write queue should be used.
+     *
      * @return true if queue should be used
      */
     public boolean shouldUseQueue() {
@@ -1015,6 +1026,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Checks if the pending write queue should be used.
+     *
      * @return future true if queue should be used
      */
     public CompletableFuture<Boolean> shouldUseQueueAsync() {
@@ -1161,6 +1173,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Get a primary key segment index if enabled.
+     *
      * @return index or {@code null} if not enabled
      */
     @Nullable
@@ -1227,6 +1240,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Convenience methods to get index options from the directory's index.
+     *
      * @param key the option key
      * @param defaultValue the value to use when the option is not set
      * @return the index option value, or the default value if not found
@@ -1242,6 +1256,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Convenience methods to get index options from the directory's index.
+     *
      * @param key the option key
      * @return the index option value, null if not found
      */
@@ -1252,6 +1267,7 @@ public class FDBDirectory extends Directory {
 
     /**
      * Utility to create the default LockFactory when null is given to the constructor.
+     *
      * @param agilityContext the agility context to use for the factory
      * @return the created lock factory
      */

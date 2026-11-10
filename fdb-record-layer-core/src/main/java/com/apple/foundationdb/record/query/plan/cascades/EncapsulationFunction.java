@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A functional interface that provides an encapsulation of a runtime computation against a set of arguments.
+ *
  * @param <T> The resulting type which carries the operation at runtime.
  */
 public interface EncapsulationFunction<T extends Typed> {

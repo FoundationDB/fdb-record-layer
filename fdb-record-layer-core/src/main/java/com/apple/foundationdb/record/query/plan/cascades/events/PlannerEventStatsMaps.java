@@ -71,6 +71,7 @@ public class PlannerEventStatsMaps {
 
     /**
      * Retrieves statistics about {@link PlannerEvent}s of different types.
+     *
      * @return a {@link Map} of classes implementing the {@link PlannerEvent} interface to {@link PlannerEventStats}
      *         instances.
      */
@@ -81,6 +82,7 @@ public class PlannerEventStatsMaps {
 
     /**
      * Retrieves statistics about all {@link PlannerEvent}s associated with a certain planner {@link CascadesRule}.
+     *
      * @return a {@link Map} of {@link CascadesRule} classes to {@link PlannerEventStats} instances.
      */
     @Nonnull
@@ -91,6 +93,7 @@ public class PlannerEventStatsMaps {
     /**
      * Retrieves statistics about all instances of {@link PlannerEvent}s that are not associated with a specific
      * {@link PlannerPhase}.
+     *
      * @return a {@link Map} from classes implementing the {@link PlannerEvent} interface to
      *         {@link PlannerEventStats} instances.
      */
@@ -102,6 +105,7 @@ public class PlannerEventStatsMaps {
     /**
      * Retrieves statistics about all instances of {@link PlannerEvent}s that were emitted during the provided
      * {@link PlannerPhase}.
+     *
      * @param plannerPhase the planner phase the events were emitted in.
      * @return a {@link Map} of classes extending the interface {@link PlannerEventWithState} to
      *         {@link PlannerEventStats} instances.

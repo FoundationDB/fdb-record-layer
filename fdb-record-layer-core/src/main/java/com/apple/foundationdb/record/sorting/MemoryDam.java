@@ -37,6 +37,7 @@ import java.util.function.Supplier;
 
 /**
  * Collect keyed values into a {@link LinkedHashMap} so that they end up sorted in insertion order.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */

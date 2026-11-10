@@ -134,6 +134,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
 
     /**
      * Add a new constituent by name.
+     *
      * @param name the correlation name for the new constituent
      * @param recordType the record type for the new constituent
      * @param isOuterJoined whether constituent is outer-joined in joins in which it participates
@@ -146,6 +147,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
 
     /**
      * Get the list of joins for this joined record type.
+     *
      * @return the list of joins
      */
     @Nonnull
@@ -155,6 +157,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
 
     /**
      * Add a new join.
+     *
      * @param left the correlation name of the left constituent
      * @param leftExpression an expression to evaluate against the left constituent
      * @param right the correlation name of the right constituent
@@ -174,6 +177,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
 
     /**
      * Add a new join.
+     *
      * @param left the correlation name of the left constituent
      * @param leftField a field to evaluate in the left constituent
      * @param right the correlation name of the right constituent

@@ -64,18 +64,14 @@ import java.util.Objects;
  * Tests what happens to an in-flight SQL query when the index it was planned against is
  * {@linkplain IndexOptions#REPLACED_BY_OPTION_PREFIX replaced}.
  *
- * <p>
- * The scenario: a query is hinted onto value index {@code X}, interrupted part way through so that a continuation is
+ * <p>The scenario: a query is hinted onto value index {@code X}, interrupted part way through so that a continuation is
  * handed back, and then the meta-data is evolved to say {@code X} is {@code replacedBy} {@code Y}. Because {@code Y}
  * is already readable, opening the store disables {@code X} and deletes its data, so the continuation now refers to a
  * scan of an index that no longer holds anything. Resuming it should be rejected.
- * </p>
  *
- * <p>
- * Note that {@code replacedBy} cannot be expressed in the relational DDL — it is a Record Layer index option only — so
+ * <p>Note that {@code replacedBy} cannot be expressed in the relational DDL — it is a Record Layer index option only — so
  * the second half of the test drives a transaction-bound connection over hand-built meta-data, in the style of
  * {@link TransactionBoundQueryTest}.
- * </p>
  */
 public class ReplacedIndexContinuationTest {
     @Nonnull

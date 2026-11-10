@@ -179,11 +179,12 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
-        return ImmutableSet.copyOf(Iterables.concat(
-                RecordQueryPlanWithChild.super.getDynamicTypes(),
-                groupingKeyValue == null ? ImmutableSet.of() : groupingKeyValue.getDynamicTypes(),
-                aggregateValue.getDynamicTypes()));
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(groupingKeyValue == null ? ImmutableSet.of() : groupingKeyValue.getDynamicTypes())
+                .addAll(aggregateValue.getDynamicTypes())
+                .build();
     }
 
     @Nonnull
@@ -326,7 +327,6 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
      * Rewrite the planner graph for better visualization of a query index plan.
      *
      * @param childGraphs planner graphs of children expression that already have been computed
-     *
      * @return the rewritten planner graph that models the plan as a node that uses the expression attribute
      * to depict the record types this operator filters.
      */

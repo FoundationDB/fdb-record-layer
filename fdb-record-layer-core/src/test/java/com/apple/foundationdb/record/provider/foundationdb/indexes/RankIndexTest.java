@@ -351,11 +351,9 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
      * mutations. At some point, we should push the concurrency control into the index maintainer, and
      * then this test can assert on more.
      *
-     * <p>
-     * This is mainly intended at present as a smoke test to trip if someone modifies the store's concurrency
+     * <p>This is mainly intended at present as a smoke test to trip if someone modifies the store's concurrency
      * management to admit concurrent record updates before the rank index is updated. When we make the rank
      * index more robust, we should also consider improving the test coverage to include concurrently:
-     * </p>
      *
      * <ul>
      *     <li>Deleting items from the index</li>

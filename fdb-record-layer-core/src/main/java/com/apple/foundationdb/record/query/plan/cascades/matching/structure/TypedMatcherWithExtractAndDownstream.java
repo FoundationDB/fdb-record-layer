@@ -31,6 +31,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A {@link TypedMatcher} that also extracts an object from the current object and attempts to match that object with
  * a {@code downstream} matcher.
+ *
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
@@ -80,9 +81,9 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
                 : " if " + boundId + " instanceOf[" + getRootClass().getSimpleName() + "]";
 
         return boundId + " match { " + newLine(nestedIndentation) +
-               "case " + extractor.explainExtraction(nestedId) + typeConstraint + " => " + newLine(doubleNestedIndentation) +
-               downstream.explainMatcher(downstream.unboundRootClass(), nestedId, doubleNestedIndentation) + newLine(indentation) +
-               "}";
+                "case " + extractor.explainExtraction(nestedId) + typeConstraint + " => " + newLine(doubleNestedIndentation) +
+                downstream.explainMatcher(downstream.unboundRootClass(), nestedId, doubleNestedIndentation) + newLine(indentation) +
+                "}";
     }
 
     @Nonnull

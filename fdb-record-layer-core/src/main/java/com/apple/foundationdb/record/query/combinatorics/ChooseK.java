@@ -49,6 +49,7 @@ public class ChooseK {
     /**
      * A complex iterable implementing {@link EnumeratingIterable} that is used for sets of cardinality greater
      * than 1 (i.e., the regular case).
+     *
      * @param <T> type
      */
     private static class ComplexIterable<T> implements EnumeratingIterable<T> {
@@ -204,6 +205,7 @@ public class ChooseK {
 
             /**
              * Method that skips advances to the next element on the given zero-indexed level.
+             *
              * @param level level to advance
              */
             @Override
@@ -291,6 +293,7 @@ public class ChooseK {
     /**
      * Create an {@link EnumeratingIterable} of the choose-K sets for a given number of elements based on a set and
      * a function describing the depends-on relationships between items in the given set.
+     *
      * @param elements the list of collections to create the iterable over
      * @param numberOfElementsToChoose number {@code k} of elements to choose
      * @param <T> type
@@ -313,6 +316,7 @@ public class ChooseK {
     /**
      * Create an {@link Iterable} of the choose-K sets for a given number range of elements based on a set and
      * a function describing the depends-on relationships between items in the given set.
+     *
      * @param elements the list of collections to create the iterable over
      * @param startInclusive starting number of elements to choose (inclusive)
      * @param endExclusive ending number of elements to choose (exclusive)
