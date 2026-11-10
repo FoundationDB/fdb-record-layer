@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
@@ -162,18 +163,25 @@ public final class IndexEntryToRecordValueHelper
      * The named field of {@code defaultRecord}. A default record is the target's own shape, so every field is there to
      * be found and a miss is a caller's bug, not a column that legitimately has no source.
      *
-     * <p>Fused, so that the projection collapses into whatever the default record reads for the field -- the base record's
-     * column, usually -- leaving no trace of the default record in the value.
+     * <p>Deconstructed rather than selected, so that the projection is whatever the default record reads for the field --
+     * the base record's column, usually -- and the columns it reads for the other fields leave no trace. Those may be
+     * unreachable here: a record constructed over an exploded quantifier reads one of its columns from that quantifier,
+     * which nothing binds when an entry is decoded, and evaluating a record constructor evaluates every column of it.
      */
     @Nonnull
     private static Value defaultRecordField(@Nonnull final Value defaultRecord, @Nonnull final String fieldName) {
         final var defaultType = defaultRecord.getResultType();
-        if (!(defaultType instanceof Type.Record)
-                || !((Type.Record)defaultType).getFieldNameFieldMap().containsKey(fieldName)) {
-            throw new RecordCoreException("default record does not have the field an entry leaves uncovered")
-                    .addLogInfo(LogMessageKeys.FIELD_NAME, fieldName);
+        if (defaultType instanceof Type.Record) {
+            final var fields = ((Type.Record)defaultType).getFields();
+            final var columns = Values.deconstructRecord(defaultRecord);
+            for (int ordinal = 0; ordinal < fields.size(); ordinal++) {
+                if (fields.get(ordinal).getFieldNameOptional().filter(fieldName::equals).isPresent()) {
+                    return columns.get(ordinal);
+                }
+            }
         }
-        return FieldValue.ofFieldNameAndFuseIfPossible(defaultRecord, fieldName);
+        throw new RecordCoreException("default record does not have the field an entry leaves uncovered")
+                .addLogInfo(LogMessageKeys.FIELD_NAME, fieldName);
     }
 
     /**

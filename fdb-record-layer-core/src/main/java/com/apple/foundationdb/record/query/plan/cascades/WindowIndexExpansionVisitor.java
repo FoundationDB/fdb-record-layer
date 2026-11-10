@@ -132,7 +132,10 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 queriedRecordTypeNames, baseType, null, accessHint)); // todo consider setting the record type key alias if possible.
         final IndexKeysAndValues keysAndValues = computeIndexKeysAndValues(fuseQuantifier);
         final GraphExpansion indexKeyExpansion = expandIndexKey(fuseQuantifier);
+        final int indexKeyColumnCount = keysAndValues.keys().size();
         expandRemainingPrimaryKeyColumns(primaryKey, keysAndValues, fuseQuantifier);
+        final List<Value> primaryKeyColumns =
+                ImmutableList.copyOf(keysAndValues.keys().subList(indexKeyColumnCount, keysAndValues.keys().size()));
 
         // 2. expand pre-window select
         final GraphExpansion allKeysExpansion = expandAllIndexKeys(fuseQuantifier);
@@ -143,13 +146,22 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 Quantifier.forEach(Reference.initialOf(preWindowSelectExpansion.buildSelect()));
 
         // The entry key is expanded over the base quantifier and, where the key unnests, over quantifiers of its own.
-        // Everything downstream reasons in terms of what the pre-window select flows, so the key columns are put in
-        // that frame once, here, rather than each consumer pulling them up in its own.
-        final List<Value> indexKeyValues = pullUpIfPossible(keysAndValues.keys(), preWindowSelectQun);
+        // Its columns are taken from the whole-key expansion rather than from the key values that expansion registers:
+        // an unnesting key registers a value written over the exploded quantifier it hides inside a select of its own,
+        // which nothing above can reach, whereas the column it yields is the one the pre-window select flows. The
+        // primary key columns it appends are plain base record columns and are taken as they are.
+        final List<Value> indexKeyValues = ImmutableList.<Value>builder()
+                .addAll(columnValues(allKeysExpansion.getResultColumns()))
+                .addAll(primaryKeyColumns)
+                .build();
+
+        // Everything downstream of the pre-window select reasons in terms of what it flows, so the key columns are put
+        // in that frame once, here, rather than each consumer pulling them up in its own.
+        final List<Value> pulledUpIndexKeyValues = pullUpIfPossible(indexKeyValues, preWindowSelectQun);
 
         // 3. expand window
         final WindowExpression windowExpression =
-                expandWindowExpression(preWindowSelectQun, allKeysExpansion, indexKeyValues);
+                expandWindowExpression(preWindowSelectQun, allKeysExpansion, pulledUpIndexKeyValues);
 
         // 4. expand post-window select
         final GraphExpansion postWindowSelectExpansion = expandPostWindowExpression(windowExpression, partitioningPlaceholders);
