@@ -1378,4 +1378,128 @@ class TypeTest {
                 .isNotSameAs(enumType)
                 .satisfies(t -> assertThat(t.getName()).isEqualTo("DifferentName"));
     }
+
+    /**
+     * Creates the record type {@code Ref} with the fields {@code a} and {@code b}, whose field numbers 2 and 5 have
+     * gaps.
+     */
+    @Nonnull
+    private static Type.Record gappedRecord(final boolean isNullable) {
+        return Type.Record.fromFieldsWithName("Ref", isNullable, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(5))));
+    }
+
+    /**
+     * Tests that merging two record types that are equal apart from nullability keeps the name and the field numbers.
+     */
+    @Test
+    void testMaximumTypeOfEqualRecords1() {
+        final Type merged = Type.maximumType(gappedRecord(false), gappedRecord(true));
+        assertThat(merged).isEqualTo(gappedRecord(true));
+        assertThat(merged.isNullable()).isTrue();
+        final Type.Record mergedRecord = (Type.Record)merged;
+        assertThat(mergedRecord.getName()).isEqualTo("Ref");
+        assertThat(mergedRecord.getFields()).extracting(Type.Record.Field::getFieldIndex).containsExactly(2, 5);
+    }
+
+    /**
+     * Tests that merging two record types that differ in the nullability of a field keeps the name and the field
+     * numbers.
+     */
+    @Test
+    void testMaximumTypeOfRecordsWithDifferentFieldNullability1() {
+        final Type.Record other = Type.Record.fromFieldsWithName("Ref", false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("a"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(5))));
+        final Type merged = Type.maximumType(gappedRecord(false), other);
+        assertThat(merged).isInstanceOf(Type.Record.class);
+        final Type.Record mergedRecord = (Type.Record)merged;
+        assertThat(mergedRecord.getName()).isEqualTo("Ref");
+        assertThat(mergedRecord.getFields()).extracting(Type.Record.Field::getFieldIndex).containsExactly(2, 5);
+        assertThat(mergedRecord.getFields().get(0).getFieldType().isNullable()).isTrue();
+    }
+
+    /**
+     * Tests that merging two nested record types keeps the name and the field numbers of the nested type.
+     */
+    @Test
+    void testMaximumTypeOfNestedEqualRecords1() {
+        final Type.Record outer1 = Type.Record.fromFields(false, List.of(
+                Type.Record.Field.of(gappedRecord(false), Optional.of("r"), Optional.of(3))));
+        final Type.Record outer2 = Type.Record.fromFields(true, List.of(
+                Type.Record.Field.of(gappedRecord(false), Optional.of("r"), Optional.of(3))));
+        final Type.Record merged = (Type.Record)Type.maximumType(outer1, outer2);
+        assertThat(merged.getFields().get(0).getFieldIndex()).isEqualTo(3);
+        final Type.Record nested = (Type.Record)merged.getFields().get(0).getFieldType();
+        assertThat(nested.getName()).isEqualTo("Ref");
+        assertThat(nested.getFields()).extracting(Type.Record.Field::getFieldIndex).containsExactly(2, 5);
+    }
+
+    /**
+     * Tests that merging two record types whose corresponding fields carry different field numbers does not keep either
+     * of the numbers.
+     */
+    @Test
+    void testMaximumTypeOfRecordsWithDifferentFieldNumbers1() {
+        final Type.Record other = Type.Record.fromFieldsWithName("Ref", false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(5))));
+        final Type.Record merged = (Type.Record)Type.maximumType(gappedRecord(false), other);
+        assertThat(merged.getName()).isEqualTo("Ref");
+        assertThat(merged.getFields()).extracting(Type.Record.Field::getFieldName).containsExactly("a", "b");
+        assertThat(merged.getFields().get(1).getFieldIndex()).isEqualTo(5);
+        assertThat(merged.getFields()).extracting(Type.Record.Field::getFieldIndex).doesNotHaveDuplicates();
+    }
+
+    /**
+     * Tests that merging two record types with different names does not give the result either name.
+     */
+    @Test
+    void testMaximumTypeOfRecordsWithDifferentNames1() {
+        final Type.Record other = Type.Record.fromFieldsWithName("Other", false, gappedRecord(false).getFields());
+        final Type.Record merged = (Type.Record)Type.maximumType(gappedRecord(false), other);
+        assertThat(merged.getName()).isNotIn("Ref", "Other");
+        assertThat(merged.getFields()).extracting(Type.Record.Field::getFieldIndex).containsExactly(2, 5);
+    }
+
+    /**
+     * Tests that merging records with a different number of fields or with incompatible field types is not possible.
+     */
+    @Test
+    void testMaximumTypeOfIncompatibleRecords1() {
+        final Type.Record shorter = Type.Record.fromFieldsWithName("Ref", false, List.of(gappedRecord(false).getFields().get(0)));
+        assertThat(Type.maximumType(gappedRecord(false), shorter)).isNull();
+
+        final Type.Record incompatible = Type.Record.fromFieldsWithName("Ref", false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(5))));
+        assertThat(Type.maximumType(gappedRecord(false), incompatible)).isNull();
+    }
+
+    /**
+     * Tests that merging array types of equal record element types keeps the name and the field numbers of the
+     * element type.
+     */
+    @Test
+    void testMaximumTypeOfArraysOfRecords1() {
+        final Type merged = Type.maximumType(new Type.Array(false, gappedRecord(false)), new Type.Array(true, gappedRecord(false)));
+        assertThat(merged).isInstanceOf(Type.Array.class);
+        assertThat(merged.isNullable()).isTrue();
+        final Type.Record element = (Type.Record)((Type.Array)merged).getElementType();
+        assertThat(element.getName()).isEqualTo("Ref");
+        assertThat(element.getFields()).extracting(Type.Record.Field::getFieldIndex).containsExactly(2, 5);
+    }
+
+    /**
+     * Tests that merging a record type with a null type yields the record type, made nullable, with name and field
+     * numbers intact.
+     */
+    @Test
+    void testMaximumTypeOfRecordAndNull1() {
+        final Type.Record merged = (Type.Record)Type.maximumType(gappedRecord(false), Type.nullType());
+        assertThat(merged.isNullable()).isTrue();
+        assertThat(merged.getName()).isEqualTo("Ref");
+        assertThat(merged.getFields()).extracting(Type.Record.Field::getFieldIndex).containsExactly(2, 5);
+    }
 }
