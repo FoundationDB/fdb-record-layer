@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -121,6 +122,20 @@ class OfflineStoredQueriesProcessorTest {
         assertThat(registry.counter(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED.title()).getCount()).isEqualTo(1);
         assertThat(registry.counter(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED.title()).getCount()).isEqualTo(1);
         assertThat(registry.timer(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP.title()).getCount()).isEqualTo(1);
+    }
+
+    @Test
+    void planStoredQueriesCountsOnTheStoreTimer() throws Exception {
+        final var template = booksTemplate(false, VERSION, QUERY, List.of());
+        final var timer = new FDBStoreTimer();
+
+        OfflineStoredQueriesProcessor.planStoredQueries(RelationalPlanCache.buildWithDefaults(), template,
+                booksMetaDataWithYearIndex(), StoreTimerMetricCollector.fromStoreTimer(timer), Options.NONE);
+
+        assertThat(timer.getCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED)).isEqualTo(1);
+        assertThat(timer.getCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED)).isEqualTo(1);
+        assertThat(timer.getCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED)).isEqualTo(1);
+        assertThat(timer.getCount(RelationalMetric.RelationalEvent.OFFLINE_STORED_QUERIES_WARM_UP)).isEqualTo(1);
     }
 
     private static void planWithCache(@Nonnull final RelationalPlanCache cache,
