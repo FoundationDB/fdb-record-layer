@@ -441,7 +441,6 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         final var indexPlan = RecordQueryIndexPlan.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexPlan()));
         final var recordTypeName = Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName());
         final var indexKeyValueToPartialRecord = IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord()));
-        final var planConstraint = QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint()));
         Value resultValue;
         Value groupByResultValue;
         Type resultType;
@@ -449,6 +448,11 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
             case VL0:
             case VC0: {
                 resultValue = Value.fromValueProto(serializationContext, recordQueryAggregateIndexPlanProto.getResultValue());
+                if (recordQueryAggregateIndexPlanProto.hasResultType()) {
+                    // Note: This field is not used, but gets written by `toProto()`, so it has to be read here to keep
+                    // the record types in step.
+                    Type.fromTypeProto(serializationContext, recordQueryAggregateIndexPlanProto.getResultType());
+                }
                 groupByResultValue = recordQueryAggregateIndexPlanProto.hasGroupByResultValue()
                                      ? Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getGroupByResultValue()))
                                      : Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue()));
@@ -463,6 +467,7 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
             default:
                 throw new RecordCoreException("unsupported plan hash mode");
         }
+        final var planConstraint = QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint()));
         // Read last, matching the order toProto writes it in, so that the record type it shares has already been seen.
         final var indexEntryToRecordValue = recordQueryAggregateIndexPlanProto.hasIndexEntryToRecordValue()
                                             ? Value.fromValueProto(serializationContext,

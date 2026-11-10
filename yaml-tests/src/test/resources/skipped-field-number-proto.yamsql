@@ -71,6 +71,18 @@ test_block:
     -
       - query: select "address"."street", "address"."city" from Person where "id" = 2
       - result: [{STREET: '456 Oak Ave', CITY: 'Shelbyville'}]
+    -
+      - query: select case when p."id" = 1 then p."address" else q."address" end as a from Person p, Person q where p."id" = 1 and q."id" = 2
+      - supported_version: !current_version
+      - result: [{A: {STREET: '123 Main St', CITY: 'Springfield'}}]
+    -
+      - query: select case when p."id" = 1 then p."address" else q."address" end as a from Person p, Person q where p."id" = 5 and q."id" = 2
+      - supported_version: !current_version
+      - result: [{A: {STREET: '456 Oak Ave', CITY: 'Shelbyville'}}]
+    -
+      - query: select case when p."id" = 3 then p."address" else q."address" end as a from Person p, Person q where p."id" = 3 and q."id" = 2
+      - supported_version: !current_version
+      - result: [{A: !null _}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
