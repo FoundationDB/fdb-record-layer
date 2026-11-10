@@ -2,7 +2,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ ORDER BY SQ."reviewer",
         "restaurant"."region", SQ."rating"
-    ref: unnested-record-type-indexes.yamsql:146
+    ref: unnested-record-type-indexes.yamsql:193
     explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer:
         KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region,
@@ -17,7 +17,7 @@ unnamed-3:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
-    ref: unnested-record-type-indexes.yamsql:157
+    ref: unnested-record-type-indexes.yamsql:204
     explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer:
         KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region,
@@ -32,7 +32,7 @@ unnamed-3:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SQ."reviewer" FROM "restaurant", (SELECT "reviewer", "rating"
         FROM "restaurant"."reviews") AS SQ ORDER BY SQ."reviewer"
-    ref: unnested-record-type-indexes.yamsql:169
+    ref: unnested-record-type-indexes.yamsql:216
     explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer:
         KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer)'
@@ -47,7 +47,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT "r"."reviewer", "restaurant"."region", "r"."rating" FROM
         "restaurant", "restaurant"."reviews" AS "r" ORDER BY "r"."reviewer", "restaurant"."region",
         "r"."rating"
-    ref: unnested-record-type-indexes.yamsql:182
+    ref: unnested-record-type-indexes.yamsql:229
     explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer:
         KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region,
@@ -63,7 +63,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         = 'Alice'
-    ref: unnested-record-type-indexes.yamsql:195
+    ref: unnested-record-type-indexes.yamsql:242
     explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]],
         unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer
@@ -79,7 +79,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         = 'Alice' AND "restaurant"."region" = 'north'
-    ref: unnested-record-type-indexes.yamsql:204
+    ref: unnested-record-type-indexes.yamsql:251
     explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38
         AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1],
         rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]])
@@ -95,7 +95,7 @@ unnamed-3:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "r"."reviewer", "restaurant"."region", "r"."rating" FROM
         "restaurant", "restaurant"."reviews" AS "r" WHERE "r"."reviewer" = 'Alice'
-    ref: unnested-record-type-indexes.yamsql:213
+    ref: unnested-record-type-indexes.yamsql:260
     explain: 'COVERING(mv_split [EQUALS promote(@c25 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]],
         unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer
@@ -111,7 +111,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         > 'Bob'
-    ref: unnested-record-type-indexes.yamsql:223
+    ref: unnested-record-type-indexes.yamsql:270
     explain: 'COVERING(mv_split [[GREATER_THAN promote(@c32 AS STRING)]] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]],
         unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer
@@ -127,7 +127,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         < 'Carol'
-    ref: unnested-record-type-indexes.yamsql:231
+    ref: unnested-record-type-indexes.yamsql:278
     explain: 'COVERING(mv_split [[LESS_THAN promote(@c32 AS STRING)]] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]],
         unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer
@@ -143,7 +143,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         > 'Alice' AND SQ."reviewer" < 'Dave'
-    ref: unnested-record-type-indexes.yamsql:241
+    ref: unnested-record-type-indexes.yamsql:288
     explain: 'COVERING(mv_split [[GREATER_THAN promote(@c32 AS STRING) && LESS_THAN
         promote(@c38 AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer:
@@ -160,7 +160,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         = 'Alice' AND "restaurant"."region" < 'south'
-    ref: unnested-record-type-indexes.yamsql:251
+    ref: unnested-record-type-indexes.yamsql:298
     explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING), [LESS_THAN promote(@c38
         AS STRING)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region:
         KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]])
@@ -177,7 +177,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" > 4
-    ref: unnested-record-type-indexes.yamsql:261
+    ref: unnested-record-type-indexes.yamsql:308
     explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38
         AS STRING), [GREATER_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0:
         KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0:
@@ -194,7 +194,7 @@ unnamed-3:
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
         = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" < 5
-    ref: unnested-record-type-indexes.yamsql:267
+    ref: unnested-record-type-indexes.yamsql:314
     explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38
         AS STRING), [LESS_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0:
         KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0:
@@ -212,7 +212,7 @@ escaped-identifiers:
 -   query: EXPLAIN SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
         FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views")
         AS SQ ORDER BY SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
-    ref: unnested-record-type-indexes.yamsql:280
+    ref: unnested-record-type-indexes.yamsql:327
     explain: 'COVERING(mv.split$esc <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting:
         KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer,
@@ -228,7 +228,7 @@ escaped-identifiers:
 -   query: EXPLAIN SELECT "r"."re.viewer", "resta.urant$t"."re.gion", "r"."ra$ting"
         FROM "resta.urant$t", "resta.urant$t"."re.views" AS "r" ORDER BY "r"."re.viewer",
         "resta.urant$t"."re.gion", "r"."ra$ting"
-    ref: unnested-record-type-indexes.yamsql:290
+    ref: unnested-record-type-indexes.yamsql:337
     explain: 'COVERING(mv.split$esc <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [re__2gion: KEY:[1], rest__2no: KEY:[4, 1]], unnesting_0: [ra__1ting:
         KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer AS re.viewer,
@@ -244,7 +244,7 @@ escaped-identifiers:
 -   query: EXPLAIN SELECT SQ."re.viewer", "resta.urant$t"."re.gion", SQ."ra$ting"
         FROM "resta.urant$t", (SELECT "re.viewer", "ra$ting" FROM "resta.urant$t"."re.views")
         AS SQ WHERE SQ."re.viewer" = 'Alice'
-    ref: unnested-record-type-indexes.yamsql:301
+    ref: unnested-record-type-indexes.yamsql:348
     explain: 'COVERING(mv.split$esc [EQUALS promote(@c32 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [re__2gion: KEY:[1], rest__2no: KEY:[4,
         1]], unnesting_0: [ra__1ting: KEY:[2], re__2viewer: KEY:[0]]]) | MAP (_.unnesting_0.re.viewer
@@ -261,7 +261,7 @@ deeply-nested-array:
 -   query: EXPLAIN SELECT SQ."label", "item"."kind", SQ."weight" FROM "item", (SELECT
         "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ ORDER BY SQ."label",
         "item"."kind", SQ."weight"
-    ref: unnested-record-type-indexes.yamsql:313
+    ref: unnested-record-type-indexes.yamsql:360
     explain: 'COVERING(mv_deep_array <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0],
         weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind,
@@ -276,7 +276,7 @@ deeply-nested-array:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "t"."label", "item"."kind", "t"."weight" FROM "item", "item"."meta"."tag_set"."tags"
         AS "t" ORDER BY "t"."label", "item"."kind", "t"."weight"
-    ref: unnested-record-type-indexes.yamsql:322
+    ref: unnested-record-type-indexes.yamsql:369
     explain: 'COVERING(mv_deep_array <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0: [label: KEY:[0],
         weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind AS kind,
@@ -292,7 +292,7 @@ deeply-nested-array:
 -   query: EXPLAIN SELECT SQ."label", "item"."kind", SQ."weight" FROM "item", (SELECT
         "label", "weight" FROM "item"."meta"."tag_set"."tags") AS SQ WHERE SQ."label"
         = 'hammer'
-    ref: unnested-record-type-indexes.yamsql:331
+    ref: unnested-record-type-indexes.yamsql:378
     explain: 'COVERING(mv_deep_array [EQUALS promote(@c36 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [item_no: KEY:[4, 1], kind: KEY:[1]], unnesting_0:
         [label: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.label AS label, _.parent.kind
@@ -309,7 +309,7 @@ deeply-nested-element:
 -   query: EXPLAIN SELECT "a"."name"."last" AS "last", "book"."title", "a"."score"
         FROM "book", "book"."authors" AS "a" ORDER BY "a"."name"."last", "book"."title",
         "a"."score"
-    ref: unnested-record-type-indexes.yamsql:343
+    ref: unnested-record-type-indexes.yamsql:390
     explain: 'COVERING(mv_deep_element <,> -> [__positions: [unnesting_0: KEY:[5,
         0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2],
         name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title
@@ -325,7 +325,7 @@ deeply-nested-element:
 -   query: EXPLAIN SELECT SQ."name"."last" AS "last", "book"."title", SQ."score" FROM
         "book", (SELECT "name", "score" FROM "book"."authors") AS SQ ORDER BY SQ."name"."last",
         "book"."title", SQ."score"
-    ref: unnested-record-type-indexes.yamsql:353
+    ref: unnested-record-type-indexes.yamsql:400
     explain: 'COVERING(mv_deep_element <,> -> [__positions: [unnesting_0: KEY:[5,
         0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]], unnesting_0: [score: KEY:[2],
         name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last AS last, _.parent.title
@@ -341,7 +341,7 @@ deeply-nested-element:
 -   query: EXPLAIN SELECT "a"."name"."last" AS "last", "book"."title", "a"."score"
         FROM "book", "book"."authors" AS "a" WHERE "a"."name"."last" = 'Herbert' ORDER
         BY "a"."name"."last", "book"."title", "a"."score"
-    ref: unnested-record-type-indexes.yamsql:363
+    ref: unnested-record-type-indexes.yamsql:410
     explain: 'COVERING(mv_deep_element [EQUALS promote(@c31 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [book_no: KEY:[4, 1], title: KEY:[1]],
         unnesting_0: [score: KEY:[2], name: [last: KEY:[0]]]]) | MAP (_.unnesting_0.name.last
@@ -358,7 +358,7 @@ primary-key-in-index-key:
 -   query: EXPLAIN SELECT SQ."day", "venue"."venue_no", SQ."seats" FROM "venue", (SELECT
         "day", "seats" FROM "venue"."slots") AS SQ ORDER BY SQ."day", "venue"."venue_no",
         SQ."seats"
-    ref: unnested-record-type-indexes.yamsql:380
+    ref: unnested-record-type-indexes.yamsql:427
     explain: 'COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]])
         | MAP (_.unnesting_0.day AS day, _.parent.venue_no AS venue_no, _.unnesting_0.seats
@@ -374,7 +374,7 @@ primary-key-in-index-key:
 -   query: EXPLAIN SELECT SQ."day", "venue"."venue_no", SQ."seats" FROM "venue", (SELECT
         "day", "seats" FROM "venue"."slots") AS SQ WHERE SQ."day" = 'mon' AND "venue"."venue_no"
         = 1
-    ref: unnested-record-type-indexes.yamsql:391
+    ref: unnested-record-type-indexes.yamsql:438
     explain: 'COVERING(mv_pk_in_key [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38
         AS LONG)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [venue_no: KEY:[1]],
         unnesting_0: [day: KEY:[0], seats: KEY:[2]]]) | MAP (_.unnesting_0.day AS
@@ -389,7 +389,7 @@ primary-key-in-index-key:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT SQ."seats" FROM "venue", (SELECT "day", "seats" FROM "venue"."slots")
         AS SQ ORDER BY SQ."day", "venue"."venue_no", SQ."seats"
-    ref: unnested-record-type-indexes.yamsql:399
+    ref: unnested-record-type-indexes.yamsql:446
     explain: 'COVERING(mv_pk_in_key <,> -> [__positions: [unnesting_0: KEY:[5, 0]],
         parent: [venue_no: KEY:[1]], unnesting_0: [day: KEY:[0], seats: KEY:[2]]])
         | MAP (_.unnesting_0.seats AS seats, _.unnesting_0.day AS day, _.parent.venue_no
@@ -405,7 +405,7 @@ primary-key-in-index-key:
 index-scan-with-fetch:
 -   query: EXPLAIN SELECT "venue"."city", SQ."day", SQ."seats" FROM "venue", (SELECT
         "day", "seats" FROM "venue"."slots") AS SQ WHERE SQ."day" = 'mon'
-    ref: unnested-record-type-indexes.yamsql:410
+    ref: unnested-record-type-indexes.yamsql:457
     explain: ISCAN(mv_pk_in_key [EQUALS promote(@c32 AS STRING)]) | MAP (_.parent.city
         AS city, _.unnesting_0.day AS day, _.unnesting_0.seats AS seats)
     task_count: 369
@@ -418,7 +418,7 @@ index-scan-with-fetch:
     insert_reused_count: 1
 -   query: EXPLAIN SELECT "venue"."city", SQ."day" FROM "venue", (SELECT "day", "seats"
         FROM "venue"."slots") AS SQ ORDER BY SQ."day"
-    ref: unnested-record-type-indexes.yamsql:416
+    ref: unnested-record-type-indexes.yamsql:463
     explain: ISCAN(mv_pk_in_key <,>) | MAP (_.parent.city AS city, _.unnesting_0.day
         AS day)
     task_count: 240
@@ -432,7 +432,7 @@ index-scan-with-fetch:
 -   query: EXPLAIN SELECT "a"."name"."first" AS "first", "a"."name"."last" AS "last",
         "book"."title" FROM "book", "book"."authors" AS "a" WHERE "a"."name"."last"
         = 'Herbert' ORDER BY "a"."name"."last", "book"."title", "a"."score"
-    ref: unnested-record-type-indexes.yamsql:423
+    ref: unnested-record-type-indexes.yamsql:470
     explain: ISCAN(mv_deep_element [EQUALS promote(@c35 AS STRING)]) | MAP (_.unnesting_0.name.first
         AS first, _.unnesting_0.name.last AS last, _.parent.title AS title, _.unnesting_0.score
         AS score) | MAP (_.first AS first, _.last AS last, _.title AS title)
@@ -447,7 +447,7 @@ index-scan-with-fetch:
 -   query: EXPLAIN SELECT "item"."meta"."owner" AS "owner", SQ."label", SQ."weight"
         FROM "item", (SELECT "label", "weight" FROM "item"."meta"."tag_set"."tags")
         AS SQ WHERE SQ."label" = 'hammer'
-    ref: unnested-record-type-indexes.yamsql:431
+    ref: unnested-record-type-indexes.yamsql:478
     explain: ISCAN(mv_deep_array [EQUALS promote(@c40 AS STRING)]) | MAP (_.parent.meta.owner
         AS owner, _.unnesting_0.label AS label, _.unnesting_0.weight AS weight)
     task_count: 369
@@ -461,7 +461,7 @@ index-scan-with-fetch:
 aggregations:
 -   query: EXPLAIN SELECT COUNT(*) AS "n" FROM "restaurant", (SELECT "reviewer", "rating"
         FROM "restaurant"."reviews") AS SQ
-    ref: unnested-record-type-indexes.yamsql:443
+    ref: unnested-record-type-indexes.yamsql:490
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS n)
@@ -475,7 +475,7 @@ aggregations:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SUM(SQ."rating") AS "total" FROM "restaurant", (SELECT "reviewer",
         "rating" FROM "restaurant"."reviews") AS SQ
-    ref: unnested-record-type-indexes.yamsql:450
+    ref: unnested-record-type-indexes.yamsql:497
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)
     task_count: 365
@@ -488,7 +488,7 @@ aggregations:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SQ."reviewer" AS "reviewer", COUNT(*) AS "n" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ GROUP BY SQ."reviewer"
-    ref: unnested-record-type-indexes.yamsql:458
+    ref: unnested-record-type-indexes.yamsql:505
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (count_star(*) AS _0) GROUP BY (_._1.reviewer AS _0) | MAP (_._0._0 AS reviewer,
         _._1._0 AS n)
@@ -503,7 +503,7 @@ aggregations:
 -   query: EXPLAIN SELECT SQ."reviewer" AS "reviewer", SUM(SQ."rating") AS "total",
         MAX(SQ."rating") AS "best" FROM "restaurant", (SELECT "reviewer", "rating"
         FROM "restaurant"."reviews") AS SQ GROUP BY SQ."reviewer"
-    ref: unnested-record-type-indexes.yamsql:469
+    ref: unnested-record-type-indexes.yamsql:516
     explain: ISCAN(mv_split <,>) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG
         (sum_l(_._1.rating) AS _0, max_l(_._1.rating) AS _1) GROUP BY (_._1.reviewer
         AS _0) | MAP (_._0._0 AS reviewer, _._1._0 AS total, _._1._1 AS best)
@@ -517,7 +517,7 @@ aggregations:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SUM(SQ."rating") AS "total" FROM "restaurant", (SELECT "reviewer",
         "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer" = 'Alice'
-    ref: unnested-record-type-indexes.yamsql:485
+    ref: unnested-record-type-indexes.yamsql:532
     explain: ISCAN(mv_split [EQUALS promote(@c29 AS STRING)]) | MAP (_.parent AS _0,
         _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY
         NULL | MAP (_._0._0 AS total)
@@ -529,24 +529,10 @@ aggregations:
     insert_time_ms: 2
     insert_new_count: 55
     insert_reused_count: 1
--   query: EXPLAIN SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
-        FROM "book", "book"."authors" AS "a" GROUP BY "a"."name"."last"
-    ref: unnested-record-type-indexes.yamsql:492
-    explain: ISCAN(mv_deep_element <,>) | MAP (_.parent AS _0, (_.unnesting_0 AS _0)
-        AS _1) | AGG (max_l(_._1._0.score) AS _0) GROUP BY (_._1._0.name.last AS _0)
-        | MAP (_._0._0 AS last, _._1._0 AS best)
-    task_count: 304
-    task_total_time_ms: 36
-    transform_count: 94
-    transform_time_ms: 13
-    transform_yield_count: 25
-    insert_time_ms: 0
-    insert_new_count: 27
-    insert_reused_count: 0
 -   query: EXPLAIN SELECT "venue"."venue_no" AS "venue_no", SUM(SQ."seats") AS "total"
         FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ GROUP BY
         "venue"."venue_no"
-    ref: unnested-record-type-indexes.yamsql:498
+    ref: unnested-record-type-indexes.yamsql:545
     explain: SCAN([IS venue]) | FLATMAP q0 -> { TF explode(q0.slots) AS q1 RETURN
         (q0 AS _0, q1._0 AS _1) } | AGG (sum_l(_._1.seats) AS _0) GROUP BY (_._0.venue_no
         AS _0) | MAP (_._0._0 AS venue_no, _._1._0 AS total)
@@ -561,7 +547,7 @@ aggregations:
 stored-table-index-vs-synthetic-type-index:
 -   query: EXPLAIN SELECT "kiosk"."kiosk_no", SQ."sku", SQ."qty" FROM "kiosk", (SELECT
         "sku", "qty" FROM "kiosk"."lines") AS SQ WHERE "kiosk"."city" = 'SF'
-    ref: unnested-record-type-indexes.yamsql:519
+    ref: unnested-record-type-indexes.yamsql:566
     explain: ISCAN(kiosk_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> {
         TF explode(q0.lines) AS q1 RETURN (q0.kiosk_no AS kiosk_no, q1._0.sku AS sku,
         q1._0.qty AS qty) }
@@ -576,7 +562,7 @@ stored-table-index-vs-synthetic-type-index:
 -   query: EXPLAIN SELECT "kiosk"."kiosk_no", SQ."qty" FROM "kiosk", (SELECT "sku",
         "qty" FROM "kiosk"."lines") AS SQ WHERE "kiosk"."city" = 'SF' AND SQ."sku"
         = 'apple'
-    ref: unnested-record-type-indexes.yamsql:531
+    ref: unnested-record-type-indexes.yamsql:578
     explain: ISCAN(kiosk_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> {
         TF explode(q0.lines) | FILTER _._0.sku EQUALS promote(@c34 AS STRING) AS q1
         RETURN (q0.kiosk_no AS kiosk_no, q1._0.qty AS qty) }
@@ -590,7 +576,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "shop"."shop_no", SQ."sku", SQ."qty" FROM "shop", (SELECT
         "sku", "qty" FROM "shop"."lines") AS SQ WHERE "shop"."city" = 'SF'
-    ref: unnested-record-type-indexes.yamsql:539
+    ref: unnested-record-type-indexes.yamsql:586
     explain: ISCAN(shop_city [EQUALS promote(@c32 AS STRING)]) | FLATMAP q0 -> { TF
         explode(q0.lines) AS q1 RETURN (q0.shop_no AS shop_no, q1._0.sku AS sku, q1._0.qty
         AS qty) }
@@ -604,7 +590,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "shop"."city", SQ."qty" FROM "shop", (SELECT "sku", "qty"
         FROM "shop"."lines") AS SQ WHERE SQ."sku" = 'apple'
-    ref: unnested-record-type-indexes.yamsql:550
+    ref: unnested-record-type-indexes.yamsql:597
     explain: 'COVERING(shop_sku_city_qty [EQUALS promote(@c28 AS STRING)] -> [__positions:
         [unnesting_0: KEY:[5, 0]], parent: [city: KEY:[1], shop_no: KEY:[4, 1]], unnesting_0:
         [qty: KEY:[2], sku: KEY:[0]]]) | MAP (_.parent.city AS city, _.unnesting_0.qty
@@ -619,7 +605,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SQ."qty" FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines")
         AS SQ WHERE SQ."sku" = 'apple' AND "shop"."city" = 'SF'
-    ref: unnested-record-type-indexes.yamsql:557
+    ref: unnested-record-type-indexes.yamsql:604
     explain: 'COVERING(shop_sku_city_qty [EQUALS promote(@c24 AS STRING), EQUALS promote(@c30
         AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [city: KEY:[1],
         shop_no: KEY:[4, 1]], unnesting_0: [qty: KEY:[2], sku: KEY:[0]]]) | MAP (_.unnesting_0.qty
@@ -634,7 +620,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "shop"."owner", SQ."sku" FROM "shop", (SELECT "sku", "qty"
         FROM "shop"."lines") AS SQ WHERE "shop"."city" = 'SF'
-    ref: unnested-record-type-indexes.yamsql:564
+    ref: unnested-record-type-indexes.yamsql:611
     explain: ISCAN(shop_city [EQUALS promote(@c28 AS STRING)]) | FLATMAP q0 -> { TF
         explode(q0.lines) AS q1 RETURN (q0.owner AS owner, q1._0.sku AS sku) }
     task_count: 480
@@ -647,7 +633,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "shop"."owner", SQ."qty" FROM "shop", (SELECT "sku", "qty"
         FROM "shop"."lines") AS SQ WHERE SQ."sku" = 'apple'
-    ref: unnested-record-type-indexes.yamsql:574
+    ref: unnested-record-type-indexes.yamsql:621
     explain: ISCAN(shop_sku_city_qty [EQUALS promote(@c28 AS STRING)]) | MAP (_.parent.owner
         AS owner, _.unnesting_0.qty AS qty)
     task_count: 413
@@ -660,7 +646,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "shop"."owner", SQ."qty" FROM "shop", (SELECT "sku", "qty"
         FROM "shop"."lines") AS SQ WHERE "shop"."city" = 'SF' AND SQ."sku" = 'apple'
-    ref: unnested-record-type-indexes.yamsql:580
+    ref: unnested-record-type-indexes.yamsql:627
     explain: ISCAN(shop_sku_city_qty [EQUALS promote(@c34 AS STRING), EQUALS promote(@c28
         AS STRING)]) | MAP (_.parent.owner AS owner, _.unnesting_0.qty AS qty)
     task_count: 601
@@ -674,7 +660,7 @@ stored-table-index-vs-synthetic-type-index:
 -   query: EXPLAIN SELECT "stall"."stall_no", "stall"."owner", SQ."sku", SQ."qty"
         FROM "stall", (SELECT "sku", "qty" FROM "stall"."lines") AS SQ WHERE "stall"."city"
         = 'SF'
-    ref: unnested-record-type-indexes.yamsql:587
+    ref: unnested-record-type-indexes.yamsql:634
     explain: 'COVERING(stall_city_sku_owner_qty [EQUALS promote(@c36 AS STRING)] ->
         [__positions: [unnesting_0: KEY:[6, 0]], parent: [city: KEY:[0], owner: KEY:[2],
         stall_no: KEY:[5, 1]], unnesting_0: [qty: KEY:[3], sku: KEY:[1]]]) | MAP (_.parent.stall_no
@@ -689,7 +675,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_new_count: 73
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "stall_no", "owner" FROM "stall" WHERE "city" = 'SF'
-    ref: unnested-record-type-indexes.yamsql:596
+    ref: unnested-record-type-indexes.yamsql:643
     explain: ISCAN(stall_city [EQUALS promote(@c9 AS STRING)]) | MAP (_.stall_no AS
         stall_no, _.owner AS owner)
     task_count: 396
@@ -701,7 +687,7 @@ stored-table-index-vs-synthetic-type-index:
     insert_new_count: 42
     insert_reused_count: 3
 -   query: EXPLAIN SELECT "booth_no", "owner" FROM "booth" WHERE "city" = 'SF'
-    ref: unnested-record-type-indexes.yamsql:601
+    ref: unnested-record-type-indexes.yamsql:648
     explain: SCAN([IS booth]) | FILTER _.city EQUALS promote(@c9 AS STRING) | MAP
         (_.booth_no AS booth_no, _.owner AS owner)
     task_count: 222
@@ -712,3 +698,286 @@ stored-table-index-vs-synthetic-type-index:
     insert_time_ms: 2
     insert_new_count: 22
     insert_reused_count: 2
+sibling-unnestings:
+-   query: EXPLAIN SELECT S."place", "trip"."city", R."rider_name", S."mins" FROM
+        "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S, (SELECT "rider_name"
+        FROM "trip"."riders") AS R ORDER BY S."place", "trip"."city", R."rider_name",
+        S."mins"
+    ref: unnested-record-type-indexes.yamsql:661
+    explain: 'COVERING(trip_place_city_rider_mins <,> -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], trip_no: KEY:[5,
+        1]], unnesting_0: [mins: KEY:[3], place: KEY:[0]], unnesting_1: [rider_name:
+        KEY:[2]]]) | MAP (_.unnesting_0.place AS place, _.parent.city AS city, _.unnesting_1.rider_name
+        AS rider_name, _.unnesting_0.mins AS mins)'
+    task_count: 353
+    task_total_time_ms: 44
+    transform_count: 125
+    transform_time_ms: 22
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "s"."place", "trip"."city", "r"."rider_name", "s"."mins"
+        FROM "trip", "trip"."stops" AS "s", "trip"."riders" AS "r" ORDER BY "s"."place",
+        "trip"."city", "r"."rider_name", "s"."mins"
+    ref: unnested-record-type-indexes.yamsql:673
+    explain: 'COVERING(trip_place_city_rider_mins <,> -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], trip_no: KEY:[5,
+        1]], unnesting_0: [mins: KEY:[3], place: KEY:[0]], unnesting_1: [rider_name:
+        KEY:[2]]]) | MAP (_.unnesting_0.place AS place, _.parent.city AS city, _.unnesting_1.rider_name
+        AS rider_name, _.unnesting_0.mins AS mins)'
+    task_count: 311
+    task_total_time_ms: 45
+    transform_count: 116
+    transform_time_ms: 23
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT S."place", "trip"."city", R."rider_name", S."mins" FROM
+        "trip", (SELECT "rider_name" FROM "trip"."riders") AS R, (SELECT "place",
+        "mins" FROM "trip"."stops") AS S ORDER BY S."place", "trip"."city", R."rider_name",
+        S."mins"
+    ref: unnested-record-type-indexes.yamsql:686
+    explain: 'COVERING(trip_place_city_rider_mins <,> -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], trip_no: KEY:[5,
+        1]], unnesting_0: [mins: KEY:[3], place: KEY:[0]], unnesting_1: [rider_name:
+        KEY:[2]]]) | MAP (_.unnesting_0.place AS place, _.parent.city AS city, _.unnesting_1.rider_name
+        AS rider_name, _.unnesting_0.mins AS mins)'
+    task_count: 353
+    task_total_time_ms: 48
+    transform_count: 125
+    transform_time_ms: 25
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT S."place", "trip"."city", R."rider_name", S."mins" FROM
+        "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S, (SELECT "rider_name"
+        FROM "trip"."riders") AS R WHERE S."place" = 'park'
+    ref: unnested-record-type-indexes.yamsql:699
+    explain: 'COVERING(trip_place_city_rider_mins [EQUALS promote(@c47 AS STRING)]
+        -> [__positions: [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent:
+        [city: KEY:[1], trip_no: KEY:[5, 1]], unnesting_0: [mins: KEY:[3], place:
+        KEY:[0]], unnesting_1: [rider_name: KEY:[2]]]) | MAP (_.unnesting_0.place
+        AS place, _.parent.city AS city, _.unnesting_1.rider_name AS rider_name, _.unnesting_0.mins
+        AS mins)'
+    task_count: 628
+    task_total_time_ms: 67
+    transform_count: 228
+    transform_time_ms: 28
+    transform_yield_count: 47
+    insert_time_ms: 3
+    insert_new_count: 74
+    insert_reused_count: 7
+-   query: EXPLAIN SELECT S."place", "trip"."city", R."rider_name", S."mins" FROM
+        "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S, (SELECT "rider_name"
+        FROM "trip"."riders") AS R WHERE S."place" = 'park' AND "trip"."city" = 'SF'
+        AND R."rider_name" = 'bob'
+    ref: unnested-record-type-indexes.yamsql:710
+    explain: 'COVERING(trip_place_city_rider_mins [EQUALS promote(@c47 AS STRING),
+        EQUALS promote(@c53 AS STRING), EQUALS promote(@c59 AS STRING)] -> [__positions:
+        [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1],
+        trip_no: KEY:[5, 1]], unnesting_0: [mins: KEY:[3], place: KEY:[0]], unnesting_1:
+        [rider_name: KEY:[2]]]) | MAP (_.unnesting_0.place AS place, _.parent.city
+        AS city, _.unnesting_1.rider_name AS rider_name, _.unnesting_0.mins AS mins)'
+    task_count: 1389
+    task_total_time_ms: 65
+    transform_count: 572
+    transform_time_ms: 34
+    transform_yield_count: 83
+    insert_time_ms: 5
+    insert_new_count: 162
+    insert_reused_count: 46
+-   query: EXPLAIN SELECT S."place", "trip"."city", R."rider_name", S."mins" FROM
+        "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S, (SELECT "rider_name"
+        FROM "trip"."riders") AS R WHERE S."place" > 'park'
+    ref: unnested-record-type-indexes.yamsql:719
+    explain: 'COVERING(trip_place_city_rider_mins [[GREATER_THAN promote(@c47 AS STRING)]]
+        -> [__positions: [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent:
+        [city: KEY:[1], trip_no: KEY:[5, 1]], unnesting_0: [mins: KEY:[3], place:
+        KEY:[0]], unnesting_1: [rider_name: KEY:[2]]]) | MAP (_.unnesting_0.place
+        AS place, _.parent.city AS city, _.unnesting_1.rider_name AS rider_name, _.unnesting_0.mins
+        AS mins)'
+    task_count: 628
+    task_total_time_ms: 77
+    transform_count: 228
+    transform_time_ms: 34
+    transform_yield_count: 47
+    insert_time_ms: 3
+    insert_new_count: 74
+    insert_reused_count: 7
+-   query: EXPLAIN SELECT S."place", "trip"."city", S."mins" FROM "trip", (SELECT
+        "place", "mins" FROM "trip"."stops") AS S
+    ref: unnested-record-type-indexes.yamsql:728
+    explain: SCAN([IS trip]) | FLATMAP q0 -> { TF explode(q0.stops) AS q1 RETURN (q1._0.place
+        AS place, q0.city AS city, q1._0.mins AS mins) }
+    task_count: 191
+    task_total_time_ms: 15
+    transform_count: 57
+    transform_time_ms: 5
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0
+same-array-unnested-twice:
+-   query: EXPLAIN SELECT X."member_name", "team"."sport", Y."role", X."score" FROM
+        "team", (SELECT "member_name", "score" FROM "team"."members") AS X, (SELECT
+        "role" FROM "team"."members") AS Y ORDER BY X."member_name", "team"."sport",
+        Y."role", X."score"
+    ref: unnested-record-type-indexes.yamsql:745
+    explain: 'COVERING(team_pairs <,> -> [__positions: [unnesting_0: KEY:[6, 0], unnesting_1:
+        KEY:[7, 0]], parent: [sport: KEY:[1], team_no: KEY:[5, 1]], unnesting_0: [member_name:
+        KEY:[0], score: KEY:[3]], unnesting_1: [role: KEY:[2]]]) | MAP (_.unnesting_0.member_name
+        AS member_name, _.parent.sport AS sport, _.unnesting_1.role AS role, _.unnesting_0.score
+        AS score)'
+    task_count: 365
+    task_total_time_ms: 50
+    transform_count: 130
+    transform_time_ms: 28
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT X."member_name", "team"."sport", Y."role", X."score" FROM
+        "team", (SELECT "member_name", "score" FROM "team"."members") AS X, (SELECT
+        "role" FROM "team"."members") AS Y WHERE X."member_name" = 'bob'
+    ref: unnested-record-type-indexes.yamsql:758
+    explain: 'COVERING(team_pairs [EQUALS promote(@c47 AS STRING)] -> [__positions:
+        [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [sport: KEY:[1],
+        team_no: KEY:[5, 1]], unnesting_0: [member_name: KEY:[0], score: KEY:[3]],
+        unnesting_1: [role: KEY:[2]]]) | MAP (_.unnesting_0.member_name AS member_name,
+        _.parent.sport AS sport, _.unnesting_1.role AS role, _.unnesting_0.score AS
+        score)'
+    task_count: 646
+    task_total_time_ms: 86
+    transform_count: 235
+    transform_time_ms: 40
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 7
+-   query: EXPLAIN SELECT X."member_name", "team"."sport", Y."role", X."score" FROM
+        "team", (SELECT "member_name", "score" FROM "team"."members") AS X, (SELECT
+        "role" FROM "team"."members") AS Y WHERE X."member_name" = 'ann' AND "team"."sport"
+        = 'chess' AND Y."role" = 'pawn'
+    ref: unnested-record-type-indexes.yamsql:768
+    explain: 'COVERING(team_pairs [EQUALS promote(@c47 AS STRING), EQUALS promote(@c53
+        AS STRING), EQUALS promote(@c59 AS STRING)] -> [__positions: [unnesting_0:
+        KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [sport: KEY:[1], team_no: KEY:[5,
+        1]], unnesting_0: [member_name: KEY:[0], score: KEY:[3]], unnesting_1: [role:
+        KEY:[2]]]) | MAP (_.unnesting_0.member_name AS member_name, _.parent.sport
+        AS sport, _.unnesting_1.role AS role, _.unnesting_0.score AS score)'
+    task_count: 1435
+    task_total_time_ms: 161
+    transform_count: 586
+    transform_time_ms: 87
+    transform_yield_count: 97
+    insert_time_ms: 8
+    insert_new_count: 164
+    insert_reused_count: 46
+-   query: EXPLAIN SELECT X."member_name", "team"."sport", X."score" FROM "team",
+        (SELECT "member_name", "score" FROM "team"."members") AS X
+    ref: unnested-record-type-indexes.yamsql:776
+    explain: SCAN([IS team]) | FLATMAP q0 -> { TF explode(q0.members) AS q1 RETURN
+        (q1._0.member_name AS member_name, q0.sport AS sport, q1._0.score AS score)
+        }
+    task_count: 195
+    task_total_time_ms: 15
+    transform_count: 59
+    transform_time_ms: 6
+    transform_yield_count: 21
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0
+nested-unnestings:
+-   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
+        "store"."aisles" AS A, A."shelves" AS S
+    ref: unnested-record-type-indexes.yamsql:798
+    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
+        -> { TF explode(q1._0.shelves) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN
+        (q3._1._0.code AS code, q0.city AS city, q3._0._0.label AS label, q3._1._0.qty
+        AS qty) }
+    task_count: 322
+    task_total_time_ms: 24
+    transform_count: 121
+    transform_time_ms: 8
+    transform_yield_count: 24
+    insert_time_ms: 0
+    insert_new_count: 31
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
+        (SELECT * FROM "store"."aisles") AS A, (SELECT * FROM A."shelves") AS S
+    ref: unnested-record-type-indexes.yamsql:808
+    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
+        -> { TF explode(q1._0.shelves) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN
+        (q3._1._0.code AS code, q0.city AS city, q3._0._0.label AS label, q3._1._0.qty
+        AS qty) }
+    task_count: 364
+    task_total_time_ms: 24
+    transform_count: 130
+    transform_time_ms: 8
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 39
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
+        "store"."aisles" AS A, A."shelves" AS S WHERE S."code" = 'x'
+    ref: unnested-record-type-indexes.yamsql:819
+    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
+        -> { TF explode(q1._0.shelves) | FILTER _._0.code EQUALS promote(@c35 AS STRING)
+        AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.code AS code, q0.city
+        AS city, q3._1._0.label AS label, q3._0._0.qty AS qty) }
+    task_count: 651
+    task_total_time_ms: 37
+    transform_count: 267
+    transform_time_ms: 12
+    transform_yield_count: 38
+    insert_time_ms: 1
+    insert_new_count: 69
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
+        "store"."aisles" AS A, A."shelves" AS S WHERE S."code" = 'x' AND "store"."city"
+        = 'SF' AND A."label" = 'a2'
+    ref: unnested-record-type-indexes.yamsql:828
+    explain: SCAN([IS store]) | FILTER _.city EQUALS promote(@c41 AS STRING) | FLATMAP
+        q0 -> { TF explode(q0.aisles) | FILTER _._0.label EQUALS promote(@c47 AS STRING)
+        | FLATMAP q1 -> { TF explode(q1._0.shelves) | FILTER _._0.code EQUALS promote(@c35
+        AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.code
+        AS code, q0.city AS city, q3._1._0.label AS label, q3._0._0.qty AS qty) }
+    task_count: 1128
+    task_total_time_ms: 104
+    transform_count: 504
+    transform_time_ms: 34
+    transform_yield_count: 59
+    insert_time_ms: 7
+    insert_new_count: 113
+    insert_reused_count: 37
+-   query: EXPLAIN SELECT S."code", "store"."city", A."label", S."qty" FROM "store",
+        "store"."aisles" AS A, A."shelves" AS S WHERE S."code" > 'x'
+    ref: unnested-record-type-indexes.yamsql:836
+    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1
+        -> { TF explode(q1._0.shelves) | FILTER _._0.code GREATER_THAN promote(@c35
+        AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.code
+        AS code, q0.city AS city, q3._1._0.label AS label, q3._0._0.qty AS qty) }
+    task_count: 651
+    task_total_time_ms: 50
+    transform_count: 267
+    transform_time_ms: 14
+    transform_yield_count: 38
+    insert_time_ms: 1
+    insert_new_count: 69
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT A."label", "store"."city" FROM "store", "store"."aisles"
+        AS A
+    ref: unnested-record-type-indexes.yamsql:845
+    explain: SCAN([IS store]) | FLATMAP q0 -> { TF explode(q0.aisles) AS q1 RETURN
+        (q1._0.label AS label, q0.city AS city) }
+    task_count: 166
+    task_total_time_ms: 11
+    transform_count: 52
+    transform_time_ms: 4
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
