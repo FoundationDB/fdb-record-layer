@@ -150,17 +150,20 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
 
-            final var extractFromIndexEntryPairOptional =
-                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
-                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-            if (extractFromIndexEntryPairOptional.isPresent()) {
-                final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-                if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
-                        extractFromIndexEntryPair.getValue())) {
-                    return Optional.empty();
+            for (final var datum : entryData(keyValue, ImmutableIntArray.of(i))) {
+                final var extractFromIndexEntryPairOptional =
+                        datum.getLeft().extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(),
+                                AliasMap.emptyMap(), ImmutableSet.of(),
+                                IndexKeyValueToPartialRecord.TupleSource.KEY, datum.getRight());
+                if (extractFromIndexEntryPairOptional.isPresent()) {
+                    final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+                    if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                            extractFromIndexEntryPair.getValue())) {
+                        return Optional.empty();
+                    }
+                    recordCoveredField(covered, extractFromIndexEntryPair);
+                    logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
                 }
-                recordCoveredField(covered, extractFromIndexEntryPair);
-                logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
             }
         }
 
@@ -190,6 +193,27 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                 new ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord(queriedRecordType, builder.build(),
                         logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build(),
                         indexEntryToRecordValue(baseType, covered)));
+    }
+
+    /**
+     * Decomposes one column of the index entry into the data it holds that can be read individually.
+     *
+     * @param value the value registered for the column
+     * @param ordinalPath the path to the column
+     * @return the data that column holds, each datum paired with the path at which it sits in the entry's tuple
+     */
+    @Nonnull
+    private static List<NonnullPair<Value, ImmutableIntArray>> entryData(@Nonnull final Value value,
+                                                                         @Nonnull final ImmutableIntArray ordinalPath) {
+        if (!(value instanceof RecordConstructorValue)) {
+            return ImmutableList.of(NonnullPair.of(value, ordinalPath));
+        }
+        final var columns = ((RecordConstructorValue)value).getColumns();
+        final var dataBuilder = ImmutableList.<NonnullPair<Value, ImmutableIntArray>>builder();
+        for (int i = 0; i < columns.size(); i++) {
+            dataBuilder.addAll(entryData(columns.get(i).getValue(), ImmutableIntArray.builder().addAll(ordinalPath).add(i).build()));
+        }
+        return dataBuilder.build();
     }
 
     /**

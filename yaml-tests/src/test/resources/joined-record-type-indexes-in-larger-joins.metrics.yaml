@@ -1,0 +1,51 @@
+joined-record-type-indexes-in-larger-joins:
+-   query: EXPLAIN SELECT "c"."name", "o"."amount", "l"."qty", "si"."region", "n"."note",
+        "qb"."band" FROM "customer" AS "c", "orders" AS "o", "line_item" AS "l", "city_info"
+        AS "ci", "state_info" AS "si", "order_note" AS "n", "qty_band" AS "qb" WHERE
+        "c"."cust_no" = "o"."cust_no" AND "o"."order_no" = "l"."order_no" AND "c"."city"
+        = "ci"."city" AND "ci"."state" = "si"."state" AND "o"."order_no" = "n"."order_no"
+        AND "l"."qty" = "qb"."qty"
+    ref: joined-record-type-indexes-in-larger-joins.yamsql:91
+    explain: SCAN([IS line_item]) | FLATMAP q0 -> { SCAN([IS state_info]) | FLATMAP
+        q1 -> { SCAN([IS qty_band]) | FILTER q0.qty EQUALS _.qty | FLATMAP q2 -> {
+        SCAN([IS order_note]) | FLATMAP q3 -> { SCAN([IS orders, EQUALS q0.order_no])
+        | FILTER _.order_no EQUALS q3.order_no | FLATMAP q4 -> { SCAN([IS customer,
+        EQUALS q4.cust_no]) | FLATMAP q5 -> { SCAN([IS city_info]) | FILTER q5.city
+        EQUALS _.city AND _.state EQUALS q1.state AS q6 RETURN q5 } AS q5 RETURN (q5
+        AS _0, q4 AS _1) } AS q8 RETURN (q8._0 AS _0, q8._1 AS _1, q3 AS _2) } AS
+        q9 RETURN (q9._0 AS _0, q9._1 AS _1, q9._2 AS _2, q2 AS _3) } AS q10 RETURN
+        (q10._0 AS _0, q10._1 AS _1, q1 AS _2, q10._2 AS _3, q10._3 AS _4) } AS q11
+        RETURN (q11._0.name AS name, q11._1.amount AS amount, q0.qty AS qty, q11._2.region
+        AS region, q11._3.note AS note, q11._4.band AS band) }
+    task_count: 32623
+    task_total_time_ms: 21052
+    transform_count: 15407
+    transform_time_ms: 4053
+    transform_yield_count: 1723
+    insert_time_ms: 3384
+    insert_new_count: 6830
+    insert_reused_count: 808
+-   query: EXPLAIN SELECT "c"."name", "l"."qty", "qb"."band" FROM "qty_band" AS "qb",
+        "order_note" AS "n", "line_item" AS "l", "state_info" AS "si", "orders" AS
+        "o", "city_info" AS "ci", "customer" AS "c" WHERE "qb"."qty" = "l"."qty" AND
+        "si"."state" = "ci"."state" AND "n"."order_no" = "o"."order_no" AND "l"."order_no"
+        = "o"."order_no" AND "ci"."city" = "c"."city" AND "o"."cust_no" = "c"."cust_no"
+        AND "n"."note" = 'gift'
+    ref: joined-record-type-indexes-in-larger-joins.yamsql:105
+    explain: SCAN([IS city_info]) | FLATMAP q0 -> { SCAN([IS state_info, EQUALS q0.state])
+        | FLATMAP q1 -> { SCAN([IS order_note]) | FILTER _.note EQUALS promote(@c93
+        AS STRING) | FLATMAP q2 -> { SCAN([IS qty_band]) | FLATMAP q3 -> { ISCAN(mv_customer_items
+        <,>) | FILTER q3.qty EQUALS _.joined_2.qty AND q2.order_no EQUALS _.joined_1.order_no
+        AND q0.city EQUALS _.joined_0.city | MAP (_.joined_2 AS _0, _.joined_0 AS
+        _1) AS q4 RETURN (q3 AS _0, q4._0 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0
+        AS _0, q5._1 AS _1, q5._2 AS _2) } AS q6 RETURN (q6._0 AS _0, q6._1 AS _1,
+        q6._2 AS _2) } AS q7 RETURN (q7._2.name AS name, q7._1.qty AS qty, q7._0.band
+        AS band) }
+    task_count: 37686
+    task_total_time_ms: 21211
+    transform_count: 16929
+    transform_time_ms: 3451
+    transform_yield_count: 2003
+    insert_time_ms: 3961
+    insert_new_count: 9153
+    insert_reused_count: 921
