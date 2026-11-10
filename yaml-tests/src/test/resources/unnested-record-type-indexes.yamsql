@@ -42,6 +42,14 @@ options:
 #   `store` unnests `shelves`, an array inside the elements of `aisles`, so one unnesting is nested in the other
 # An index entry exists for every combination of the unnested elements, so a row with an empty array has no entries,
 # and a query that unnests fewer arrays than the index produces different rows and must not be answered by it.
+#
+# The remaining tables cover other ways to define such an index:
+#   `crate`  defines it on a view, with CREATE INDEX ... ON
+#   `board`  orders its key with DESC and NULLS LAST
+#   `ledger` projects a column it does not order by, has a composite primary key and an ARRAY NOT NULL column
+#   `kit`    unnests a struct array and a scalar array, which stays a fan-out
+#   `tri`    unnests three sibling arrays
+#   `chain`  has two indexes over chained unnestings: one that reads only the outer unnesting, and one that branches
 schema_template:
   CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
 
@@ -135,6 +143,56 @@ schema_template:
     SELECT S."code", "store"."city", A."label", S."qty"
       FROM "store", "store"."aisles" AS A, A."shelves" AS S
      ORDER BY S."code", "store"."city", A."label", S."qty"
+
+  CREATE TYPE AS STRUCT "part" ("pname" STRING, "weight" BIGINT)
+  CREATE TABLE "crate" ("crate_no" BIGINT, "dock" STRING, "parts" "part" ARRAY, PRIMARY KEY ("crate_no"))
+  CREATE VIEW "crate_view" AS
+    SELECT P."pname", "crate"."dock", P."weight" FROM "crate", "crate"."parts" AS P
+  CREATE INDEX "crate_view_idx" ON "crate_view"("pname", "dock", "weight")
+
+  CREATE TYPE AS STRUCT "note" ("topic" STRING, "rank" BIGINT)
+  CREATE TABLE "board" ("board_no" BIGINT, "zone" STRING, "notes" "note" ARRAY, PRIMARY KEY ("board_no"))
+  CREATE INDEX "board_topic_desc" AS
+    SELECT N."topic", "board"."zone", N."rank"
+      FROM "board", (SELECT "topic", "rank" FROM "board"."notes") AS N
+     ORDER BY N."topic" DESC, "board"."zone", N."rank" NULLS LAST
+
+  CREATE TYPE AS STRUCT "ledger_entry" ("ekey" STRING, "eval" BIGINT, "extra" BIGINT)
+  CREATE TABLE "ledger" ("ledger_no" BIGINT, "acct" BIGINT, "entries" "ledger_entry" ARRAY NOT NULL,
+                         PRIMARY KEY ("ledger_no", "acct"))
+  CREATE INDEX "ledger_kv" AS
+    SELECT E."ekey", "ledger"."acct", E."eval", E."extra"
+      FROM "ledger", (SELECT "ekey", "eval", "extra" FROM "ledger"."entries") AS E
+     ORDER BY E."ekey", "ledger"."acct", E."eval"
+
+  CREATE TYPE AS STRUCT "gadget" ("gname" STRING, "price" BIGINT)
+  CREATE TABLE "kit" ("kit_no" BIGINT, "gadgets" "gadget" ARRAY, "labels" STRING ARRAY, PRIMARY KEY ("kit_no"))
+  CREATE INDEX "kit_mixed" AS
+    SELECT G."gname", "lbl", G."price"
+      FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
+     ORDER BY G."gname", "lbl", G."price"
+
+  CREATE TYPE AS STRUCT "ta" ("x" BIGINT, "x2" BIGINT)
+  CREATE TYPE AS STRUCT "tb" ("y" BIGINT, "y2" BIGINT)
+  CREATE TYPE AS STRUCT "tc" ("z" BIGINT, "z2" BIGINT)
+  CREATE TABLE "tri" ("p" BIGINT, "alist" "ta" ARRAY, "blist" "tb" ARRAY, "clist" "tc" ARRAY, PRIMARY KEY ("p"))
+  CREATE INDEX "tri_three" AS
+    SELECT M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2"
+      FROM "tri" AS T, T."alist" AS M, T."blist" AS N, T."clist" AS O
+     ORDER BY M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2"
+
+  CREATE TYPE AS STRUCT "cq" ("y" BIGINT, "y2" BIGINT)
+  CREATE TYPE AS STRUCT "cp" ("x" BIGINT, "x2" BIGINT, "q" "cq" ARRAY)
+  CREATE TYPE AS STRUCT "cr" ("z" BIGINT, "z2" BIGINT)
+  CREATE TABLE "chain" ("k" BIGINT, "p" "cp" ARRAY, "r" "cr" ARRAY, PRIMARY KEY ("k"))
+  CREATE INDEX "chain_outer_split" AS
+    SELECT B."x", A."k", B."x2"
+      FROM "chain" AS A, A."p" AS B, B."q" AS C
+     ORDER BY B."x", A."k", B."x2"
+  CREATE INDEX "chain_branching" AS
+    SELECT B."x", A."k", C."y", D."z"
+      FROM "chain" AS A, A."p" AS B, B."q" AS C, A."r" AS D
+     ORDER BY B."x", A."k", C."y", D."z"
 ---
 setup:
   steps:
@@ -181,6 +239,24 @@ setup:
              VALUES (1, 'SF', [('a1', [('x', 2), ('y', 4)]), ('a2', [('x', 6)])]),
                     (2, 'LA', [('b1', [('y', 1)])]),
                     (3, 'NY', [('c1', [])])
+    - query: INSERT INTO "crate"
+             VALUES (1, 'east', [('bolt', 2), ('nut', 1)]),
+                    (2, 'west', [('bolt', 3)])
+    - query: INSERT INTO "board"
+             VALUES (1, 'A', [('red', 1), ('blue', null)]),
+                    (2, 'B', [('red', 2)])
+    - query: INSERT INTO "ledger"
+             VALUES (1, 10, [('a', 1, 100), ('b', 2, 200)]),
+                    (2, 20, [('a', 3, 300)])
+    - query: INSERT INTO "kit"
+             VALUES (1, [('drill', 50), ('saw', 30)], ['new', 'sale']),
+                    (2, [('drill', 40)], ['old'])
+    - query: INSERT INTO "tri"
+             VALUES (1, [(1, 10), (2, 20)], [(5, 50)], [(7, 70), (8, 80)]),
+                    (2, [(1, 11)], [(6, 60)], [(7, 71)])
+    - query: INSERT INTO "chain"
+             VALUES (1, [(1, 10, [(5, 50), (6, 60)]), (2, 20, [])], [(7, 70)]),
+                    (2, [(3, 30, [(5, 51)])], [(8, 80), (9, 90)])
 ---
 test_block:
   tests:
@@ -825,7 +901,7 @@ test_block:
       - query: SELECT S."code", "store"."city", A."label", S."qty"
                  FROM "store", "store"."aisles" AS A, A."shelves" AS S
                 WHERE S."code" = 'x' AND "store"."city" = 'SF' AND A."label" = 'a2'
-      - explain: "SCAN([IS store]) | FILTER _.city EQUALS promote(@c41 AS STRING) | FLATMAP q0 -> { TF explode(q0.aisles) | FILTER _._0.label EQUALS promote(@c47 AS STRING) | FLATMAP q1 -> { TF explode(q1._0.shelves) | FILTER _._0.code EQUALS promote(@c35 AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.code AS code, q0.city AS city, q3._1._0.label AS label, q3._0._0.qty AS qty) }"
+      - explain: "SCAN([IS store]) | FILTER _.city EQUALS promote(@c41 AS STRING) | FLATMAP q0 -> { TF explode(q0.aisles) | FLATMAP q1 -> { TF explode(q1._0.shelves) | FILTER _._0.code EQUALS promote(@c35 AS STRING) AND q1._0.label EQUALS promote(@c47 AS STRING) | MAP (q1 AS _0, _ AS _1) AS q2 RETURN q2 } AS q3 RETURN (q3._1._0.code AS code, q0.city AS city, q3._0._0.label AS label, q3._1._0.qty AS qty) }"
       - result: [
           {code: 'x', city: 'SF', label: 'a2', qty: 6}]
     -
@@ -848,4 +924,250 @@ test_block:
           {label: 'a2', city: 'SF'},
           {label: 'b1', city: 'LA'},
           {label: 'c1', city: 'NY'}]
+---
+test_block:
+  name: index-over-view
+  tests:
+    -
+      # The index is defined on a view over the unnesting rather than with CREATE INDEX ... AS SELECT.
+      - query: SELECT P."pname", "crate"."dock", P."weight"
+                 FROM "crate", "crate"."parts" AS P
+                ORDER BY P."pname", "crate"."dock", P."weight"
+      - explain: "COVERING(crate_view_idx <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [crate_no: KEY:[4, 1], dock: KEY:[1]], unnesting_0: [pname: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.pname AS pname, _.parent.dock AS dock, _.unnesting_0.weight AS weight)"
+      - result: [
+          {pname: 'bolt', dock: 'east', weight: 2},
+          {pname: 'bolt', dock: 'west', weight: 3},
+          {pname: 'nut', dock: 'east', weight: 1}]
+    -
+      # Reading the view itself.
+      - query: SELECT "pname", "dock", "weight" FROM "crate_view" ORDER BY "pname", "dock", "weight"
+      - explain: "COVERING(crate_view_idx <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [crate_no: KEY:[4, 1], dock: KEY:[1]], unnesting_0: [pname: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.pname AS pname, _.parent.dock AS dock, _.unnesting_0.weight AS weight) | MAP (_.pname AS pname, _.dock AS dock, _.weight AS weight)"
+      - result: [
+          {pname: 'bolt', dock: 'east', weight: 2},
+          {pname: 'bolt', dock: 'west', weight: 3},
+          {pname: 'nut', dock: 'east', weight: 1}]
+    -
+      - query: SELECT P."pname", "crate"."dock", P."weight"
+                 FROM "crate", "crate"."parts" AS P
+                WHERE P."pname" = 'bolt'
+      - explain: "COVERING(crate_view_idx [EQUALS promote(@c25 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [crate_no: KEY:[4, 1], dock: KEY:[1]], unnesting_0: [pname: KEY:[0], weight: KEY:[2]]]) | MAP (_.unnesting_0.pname AS pname, _.parent.dock AS dock, _.unnesting_0.weight AS weight)"
+      - unorderedResult: [
+          {pname: 'bolt', dock: 'east', weight: 2},
+          {pname: 'bolt', dock: 'west', weight: 3}]
+---
+test_block:
+  name: ordering-directions
+  tests:
+    -
+      # The order of the index: `topic` descending, and a null `rank` last.
+      - query: SELECT N."topic", "board"."zone", N."rank"
+                 FROM "board", (SELECT "topic", "rank" FROM "board"."notes") AS N
+                ORDER BY N."topic" DESC, "board"."zone", N."rank" NULLS LAST
+      - explain: "COVERING(board_topic_desc <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [board_no: KEY:[4, 1], zone: KEY:[1]], unnesting_0: [rank: from_ordered_bytes(KEY:[2], ASC_NULLS_LAST), topic: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]]) | MAP (_.unnesting_0.topic AS topic, _.parent.zone AS zone, _.unnesting_0.rank AS rank)"
+      - result: [
+          {topic: 'red', zone: 'A', rank: 1},
+          {topic: 'red', zone: 'B', rank: 2},
+          {topic: 'blue', zone: 'A', rank: !null _}]
+    -
+      # The reverse of the order of the index.
+      - query: SELECT N."topic", "board"."zone", N."rank"
+                 FROM "board", (SELECT "topic", "rank" FROM "board"."notes") AS N
+                ORDER BY N."topic" ASC NULLS FIRST, "board"."zone" DESC NULLS LAST, N."rank" DESC NULLS FIRST
+      - explain: "COVERING(board_topic_desc <,> REVERSE -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [board_no: KEY:[4, 1], zone: KEY:[1]], unnesting_0: [rank: from_ordered_bytes(KEY:[2], ASC_NULLS_LAST), topic: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]]) | MAP (_.unnesting_0.topic AS topic, _.parent.zone AS zone, _.unnesting_0.rank AS rank)"
+      - result: [
+          {topic: 'blue', zone: 'A', rank: !null _},
+          {topic: 'red', zone: 'B', rank: 2},
+          {topic: 'red', zone: 'A', rank: 1}]
+    -
+      - query: SELECT N."topic", "board"."zone", N."rank"
+                 FROM "board", (SELECT "topic", "rank" FROM "board"."notes") AS N
+                WHERE N."topic" = 'red'
+      - explain: "COVERING(board_topic_desc [EQUALS to_ordered_bytes(promote(@c32 AS STRING), DESC_NULLS_LAST)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [board_no: KEY:[4, 1], zone: KEY:[1]], unnesting_0: [rank: from_ordered_bytes(KEY:[2], ASC_NULLS_LAST), topic: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]]) | MAP (_.unnesting_0.topic AS topic, _.parent.zone AS zone, _.unnesting_0.rank AS rank)"
+      - unorderedResult: [
+          {topic: 'red', zone: 'A', rank: 1},
+          {topic: 'red', zone: 'B', rank: 2}]
+---
+test_block:
+  name: key-with-value
+  tests:
+    -
+      # `extra` is projected by the index but not ordered by, so it is in the value of the index entry rather than in
+      # its key. The table has a composite primary key and an `ARRAY NOT NULL` column.
+      - query: SELECT E."ekey", "ledger"."acct", E."eval", E."extra"
+                 FROM "ledger", (SELECT "ekey", "eval", "extra" FROM "ledger"."entries") AS E
+                ORDER BY E."ekey", "ledger"."acct", E."eval"
+      - explain: "COVERING(ledger_kv <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [acct: KEY:[1], ledger_no: KEY:[4, 1]], unnesting_0: [ekey: KEY:[0], eval: KEY:[2], extra: VALUE:[0]]]) | MAP (_.unnesting_0.ekey AS ekey, _.parent.acct AS acct, _.unnesting_0.eval AS eval, _.unnesting_0.extra AS extra)"
+      - result: [
+          {ekey: 'a', acct: 10, eval: 1, extra: 100},
+          {ekey: 'a', acct: 20, eval: 3, extra: 300},
+          {ekey: 'b', acct: 10, eval: 2, extra: 200}]
+    -
+      - query: SELECT E."ekey", "ledger"."acct", E."eval", E."extra"
+                 FROM "ledger", (SELECT "ekey", "eval", "extra" FROM "ledger"."entries") AS E
+                WHERE E."ekey" = 'a' AND "ledger"."acct" = 20
+      - explain: "COVERING(ledger_kv [EQUALS promote(@c38 AS STRING), EQUALS promote(@c44 AS LONG)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [acct: KEY:[1], ledger_no: KEY:[4, 1]], unnesting_0: [ekey: KEY:[0], eval: KEY:[2], extra: VALUE:[0]]]) | MAP (_.unnesting_0.ekey AS ekey, _.parent.acct AS acct, _.unnesting_0.eval AS eval, _.unnesting_0.extra AS extra)"
+      - result: [
+          {ekey: 'a', acct: 20, eval: 3, extra: 300}]
+---
+test_block:
+  name: struct-and-scalar-unnestings
+  # TODO: the index over a struct array and a scalar array is not matched yet, so these queries scan `kit`, and a query
+  #       that needs the order of the index cannot be planned at all.
+  tests:
+    -
+      # A struct array and a scalar array. Only the struct array becomes a nested constituent; the scalar array is
+      # fanned out under the parent. The query needs the order of the index, which no other plan provides.
+      - query: SELECT G."gname", "lbl", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
+                ORDER BY G."gname", "lbl", G."price"
+      - error: "0AF02"
+    -
+      # The same query without the ORDER BY: one row per gadget and label of a kit.
+      - query: SELECT G."gname", "lbl", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
+      - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) | FLATMAP q1 -> { TF explode(q0.labels) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0._0.gname AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }"
+      - unorderedResult: [
+          {gname: 'drill', lbl: 'new', price: 50},
+          {gname: 'drill', lbl: 'old', price: 40},
+          {gname: 'drill', lbl: 'sale', price: 50},
+          {gname: 'saw', lbl: 'new', price: 30},
+          {gname: 'saw', lbl: 'sale', price: 30}]
+    -
+      - query: SELECT G."gname", "lbl", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
+                WHERE G."gname" = 'drill' AND "lbl" = 'old'
+      - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.labels) | FILTER _._0 EQUALS @c35 | FLATMAP q1 -> { TF explode(q0.gadgets) | FILTER _._0.gname EQUALS promote(@c31 AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.gname AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }"
+      - result: [
+          {gname: 'drill', lbl: 'old', price: 40}]
+    -
+      # Only the struct array. The index has an entry per gadget and label, so it cannot answer this query.
+      - query: SELECT G."gname", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G
+      - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) AS q1 RETURN (q1._0.gname AS gname, q1._0.price AS price) }"
+      - unorderedResult: [
+          {gname: 'drill', price: 50},
+          {gname: 'saw', price: 30},
+          {gname: 'drill', price: 40}]
+---
+test_block:
+  name: three-sibling-unnestings
+  tests:
+    -
+      - query: SELECT M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2"
+                 FROM "tri" AS T, T."alist" AS M, T."blist" AS N, T."clist" AS O
+                ORDER BY M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2"
+      - explain: "COVERING(tri_three <,> -> [__positions: [unnesting_0: KEY:[9, 0], unnesting_1: KEY:[10, 0], unnesting_2: KEY:[11, 0]], parent: [p: KEY:[3]], unnesting_0: [x: KEY:[0], x2: KEY:[4]], unnesting_1: [y: KEY:[1], y2: KEY:[5]], unnesting_2: [z: KEY:[2], z2: KEY:[6]]]) | MAP (_.unnesting_0.x AS x, _.unnesting_1.y AS y, _.unnesting_2.z AS z, _.parent.p AS p, _.unnesting_0.x2 AS x2, _.unnesting_1.y2 AS y2, _.unnesting_2.z2 AS z2)"
+      - result: [
+          {x: 1, y: 5, z: 7, p: 1, x2: 10, y2: 50, z2: 70},
+          {x: 1, y: 5, z: 8, p: 1, x2: 10, y2: 50, z2: 80},
+          {x: 1, y: 6, z: 7, p: 2, x2: 11, y2: 60, z2: 71},
+          {x: 2, y: 5, z: 7, p: 1, x2: 20, y2: 50, z2: 70},
+          {x: 2, y: 5, z: 8, p: 1, x2: 20, y2: 50, z2: 80}]
+    -
+      # Equalities on the leading column of each of the three unnestings.
+      - query: SELECT M."x", N."y", O."z", T."p", M."x2", N."y2", O."z2"
+                 FROM "tri" AS T, T."alist" AS M, T."blist" AS N, T."clist" AS O
+                WHERE M."x" = 1 AND N."y" = 5 AND O."z" = 8
+      - explain: "COVERING(tri_three [EQUALS promote(@c55 AS LONG), EQUALS promote(@c61 AS LONG), EQUALS promote(@c67 AS LONG)] -> [__positions: [unnesting_0: KEY:[9, 0], unnesting_1: KEY:[10, 0], unnesting_2: KEY:[11, 0]], parent: [p: KEY:[3]], unnesting_0: [x: KEY:[0], x2: KEY:[4]], unnesting_1: [y: KEY:[1], y2: KEY:[5]], unnesting_2: [z: KEY:[2], z2: KEY:[6]]]) | MAP (_.unnesting_0.x AS x, _.unnesting_1.y AS y, _.unnesting_2.z AS z, _.parent.p AS p, _.unnesting_0.x2 AS x2, _.unnesting_1.y2 AS y2, _.unnesting_2.z2 AS z2)"
+      - result: [
+          {x: 1, y: 5, z: 8, p: 1, x2: 10, y2: 50, z2: 80}]
+---
+test_block:
+  name: chained-unnesting-shapes
+  # TODO: indexes on nested unnestings are not matched yet (see `nested-unnestings`), so these queries scan `chain`.
+  tests:
+    -
+      # `chain_outer_split` reads only the outer unnesting, but the inner one is part of its definition, so it has an
+      # entry per element of `q`: two for the first element of `p` of row 1, none for its second, whose `q` is empty.
+      - query: SELECT B."x", A."k", B."x2"
+                 FROM "chain" AS A, A."p" AS B, B."q" AS C
+      - explain: "SCAN([IS chain]) | FLATMAP q0 -> { TF explode(q0.p) | FLATMAP q1 -> { TF explode(q1._0.q) AS q2 RETURN q1 } AS q1 RETURN (q1._0.x AS x, q0.k AS k, q1._0.x2 AS x2) }"
+      - unorderedResult: [
+          {x: 1, k: 1, x2: 10},
+          {x: 1, k: 1, x2: 10},
+          {x: 3, k: 2, x2: 30}]
+    -
+      # Without the inner unnesting there is one row per element of `p`, which `chain_outer_split` cannot answer.
+      - query: SELECT B."x", A."k", B."x2"
+                 FROM "chain" AS A, A."p" AS B
+      - explain: "SCAN([IS chain]) | FLATMAP q0 -> { TF explode(q0.p) AS q1 RETURN (q1._0.x AS x, q0.k AS k, q1._0.x2 AS x2) }"
+      - unorderedResult: [
+          {x: 1, k: 1, x2: 10},
+          {x: 2, k: 1, x2: 20},
+          {x: 3, k: 2, x2: 30}]
+    -
+      # `chain_branching` unnests `q` inside `p`, and `r` beside `p`.
+      - query: SELECT B."x", A."k", C."y", D."z"
+                 FROM "chain" AS A, A."p" AS B, B."q" AS C, A."r" AS D
+      - explain: "SCAN([IS chain]) | FLATMAP q0 -> { TF explode(q0.r) | FLATMAP q1 -> { TF explode(q0.p) | FLATMAP q2 -> { TF explode(q2._0.q) AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4 AS _0, q1 AS _1) } AS q5 RETURN (q5._0._0._0.x AS x, q0.k AS k, q5._0._1._0.y AS y, q5._1._0.z AS z) }"
+      - unorderedResult: [
+          {x: 1, k: 1, y: 5, z: 7},
+          {x: 1, k: 1, y: 6, z: 7},
+          {x: 3, k: 2, y: 5, z: 8},
+          {x: 3, k: 2, y: 5, z: 9}]
+---
+setup:
+  connect: 0
+  steps:
+    - query: DROP SCHEMA TEMPLATE IF EXISTS unnested_rejected_aggregate
+    - query: DROP SCHEMA TEMPLATE IF EXISTS unnested_rejected_predicate
+    - query: DROP SCHEMA TEMPLATE IF EXISTS unnested_rejected_version
+    - query: DROP SCHEMA TEMPLATE IF EXISTS unnested_rejected_arithmetic
+    - query: DROP SCHEMA TEMPLATE IF EXISTS unnested_rejected_scalar_twice
+    - query: DROP SCHEMA TEMPLATE IF EXISTS unnested_rejected_join
+---
+# Index definitions that would need an unnested synthetic table, but that it does not support.
+test_block:
+  name: unsupported-index-definitions
+  connect: 0
+  preset: single_repetition_ordered
+  tests:
+    -
+      # An aggregate index.
+      - query: CREATE SCHEMA TEMPLATE unnested_rejected_aggregate
+                 CREATE TYPE AS STRUCT A(x bigint, x2 bigint)
+                 CREATE TABLE T(p bigint, a A array, primary key(p))
+                 CREATE INDEX mv1 AS SELECT M.x, t.p, SUM(M.x2) FROM T AS t, t.a AS M GROUP BY M.x, t.p ORDER BY M.x, t.p
+      - error: UNSUPPORTED_OPERATION
+    -
+      # A predicate in the index definition.
+      - query: CREATE SCHEMA TEMPLATE unnested_rejected_predicate
+                 CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint)
+                 CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1))
+                 CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X
+                   WHERE T1.col5 > 10 ORDER BY X.col2, T1.col5, X.col3
+      - error: UNSUPPORTED_OPERATION
+    -
+      # The row version as an index column.
+      - query: CREATE SCHEMA TEMPLATE unnested_rejected_version
+                 CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint)
+                 CREATE TABLE T1(col1 bigint, a A Array, primary key(col1))
+                 CREATE INDEX mv1 AS SELECT X.col2, T1."__ROW_VERSION", X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X
+                   ORDER BY X.col2, T1."__ROW_VERSION", X.col3
+                 WITH OPTIONS(store_row_versions=true)
+      - error: UNSUPPORTED_OPERATION
+    -
+      # A computed column rather than a plain column reference.
+      - query: CREATE SCHEMA TEMPLATE unnested_rejected_arithmetic
+                 CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint)
+                 CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1))
+                 CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, T1.col5 + 1 AS pp FROM T1, (SELECT col2, col3 FROM T1.A) X
+                   ORDER BY X.col2, T1.col5, X.col3, pp
+      - error: UNSUPPORTED_OPERATION
+    -
+      # One unnesting of a scalar array at two key positions.
+      - query: CREATE SCHEMA TEMPLATE unnested_rejected_scalar_twice
+                 CREATE TYPE AS STRUCT A(col2 string, col3 bigint)
+                 CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1))
+                 CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3, V.s AS v2 FROM T1, (SELECT col2, col3 FROM T1.A) X,
+                   (SELECT s FROM T1.S) V ORDER BY X.col2, v1, X.col3, v2
+      - error: UNSUPPORTED_OPERATION
+    -
+      # An unnesting combined with a join of two tables.
+      - query: CREATE SCHEMA TEMPLATE unnested_rejected_join
+                 CREATE TYPE AS STRUCT A(x bigint, y bigint)
+                 CREATE TABLE T1(id bigint, a A array, primary key(id))
+                 CREATE TABLE T2(id bigint, y bigint, primary key(id))
+                 CREATE INDEX mv1 AS SELECT M.x, b.y, M.y FROM T1 AS a, T2 AS b, a.a AS M ORDER BY M.x, b.y, M.y
+      - error: UNSUPPORTED_OPERATION
 ...
