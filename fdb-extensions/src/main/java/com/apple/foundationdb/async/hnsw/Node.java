@@ -30,19 +30,18 @@ import java.util.List;
 
 /**
  * Represents a node within an HNSW (Hierarchical Navigable Small World) structure.
- * <p>
- * A node corresponds to a data point (vector) in the structure and maintains a list of its neighbors.
+ *
+ * <p>A node corresponds to a data point (vector) in the structure and maintains a list of its neighbors.
  * This interface defines the common contract for different node representations, such as {@link CompactNode}
  * and {@link InliningNode}.
- * </p>
  *
  * @param <N> the type of reference used to point to other nodes, which must extend {@link NodeReference}
  */
 public interface Node<N extends NodeReference> {
     /**
      * Gets the primary key for this object.
-     * <p>
-     * The primary key is represented as a {@link Tuple} and uniquely identifies
+     *
+     * <p>The primary key is represented as a {@link Tuple} and uniquely identifies
      * the object within its storage context. This method is guaranteed to not
      * return a null value.
      *
@@ -54,9 +53,9 @@ public interface Node<N extends NodeReference> {
     /**
      * Returns a self-reference to this object, enabling fluent method chaining. This allows to create node references
      * that contain a vector and are independent of the storage implementation.
+     *
      * @param vector the vector of {@code Half} objects to process. This parameter
      * is optional and can be {@code null}.
-     *
      * @return a non-null reference to this object ({@code this}) for further
      * method calls.
      */
@@ -65,8 +64,8 @@ public interface Node<N extends NodeReference> {
 
     /**
      * Gets the list of neighboring nodes.
-     * <p>
-     * This method is guaranteed to not return {@code null}. If there are no neighbors, an empty list is returned.
+     *
+     * <p>This method is guaranteed to not return {@code null}. If there are no neighbors, an empty list is returned.
      *
      * @return a non-null list of neighboring nodes.
      */
@@ -75,6 +74,7 @@ public interface Node<N extends NodeReference> {
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
+     *
      * @return the kind of this node as a {@link NodeKind}
      */
     @Nonnull

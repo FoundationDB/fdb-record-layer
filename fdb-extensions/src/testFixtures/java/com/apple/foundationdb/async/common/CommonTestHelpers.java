@@ -49,8 +49,8 @@ import java.util.function.ToDoubleBiFunction;
 public final class CommonTestHelpers {
     /**
      * Time budget for a single logical database operation in a test, including any retries.
-     * <p>
-     * A test must never block indefinitely. {@link CompletableFuture#join()} is uninterruptible, so JUnit's
+     *
+     * <p>A test must never block indefinitely. {@link CompletableFuture#join()} is uninterruptible, so JUnit's
      * default per-test timeout ({@code junit.jupiter.execution.timeout.default}, see
      * {@code gradle/testing.gradle}) cannot stop a test that blocks on it: the interrupt JUnit sends is
      * swallowed, and the timeout failure is only reported once the test finishes on its own. Waiting with a
@@ -64,15 +64,13 @@ public final class CommonTestHelpers {
 
     /**
      * Blocks until {@code future} completes, failing after {@link #ASYNC_TO_SYNC_TIMEOUT_MINUTES} minutes.
-     * <p>
-     * This module sits below {@code fdb-record-layer-core}, so the record layer's {@code asyncToSync} is not
+     *
+     * <p>This module sits below {@code fdb-record-layer-core}, so the record layer's {@code asyncToSync} is not
      * reachable from here; this is the stand-in for it.
      *
      * @param future the future to wait for
      * @param <T> the type {@code future} completes with
-     *
      * @return the result of {@code future}
-     *
      * @throws ExecutionException if {@code future} completes exceptionally
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if {@code future} does not complete within the time budget
@@ -85,16 +83,14 @@ public final class CommonTestHelpers {
     /**
      * Runs {@code retryable} in a transaction and blocks for its result, bounding the wait as described in
      * {@link #asyncToSync(CompletableFuture)}.
-     * <p>
-     * Prefer this over {@code db.run(tr -> something(tr).join())}: the time budget covers the entire
+     *
+     * <p>Prefer this over {@code db.run(tr -> something(tr).join())}: the time budget covers the entire
      * {@link Database#runAsync(Function)} retry loop, which is otherwise unbounded.
      *
      * @param db the database to run against
      * @param retryable the transactional operation to run
      * @param <T> the type the operation completes with
-     *
      * @return the result of {@code retryable}
-     *
      * @throws ExecutionException if the operation completes exceptionally
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if the operation does not complete within the time budget
@@ -122,7 +118,6 @@ public final class CommonTestHelpers {
      *
      * @param random the source of the components (one {@code nextFloat()} per component)
      * @param numDimensions the number of dimensions
-     *
      * @return a fresh random vector
      */
     @Nonnull
@@ -140,7 +135,6 @@ public final class CommonTestHelpers {
      * @param random the source of the components (one {@code nextDouble()} and one {@code nextBoolean()} per
      *        component)
      * @param numDimensions the number of dimensions
-     *
      * @return a fresh random vector
      */
     @Nonnull
@@ -157,7 +151,6 @@ public final class CommonTestHelpers {
      *
      * @param value the value of every component
      * @param numDimensions the number of dimensions
-     *
      * @return a fresh constant vector
      */
     @Nonnull
@@ -222,7 +215,6 @@ public final class CommonTestHelpers {
      * @param base the vector to perturb (not mutated)
      * @param sampler the Gaussian source; drives the per-component noise
      * @param sigma the standard deviation of the per-component noise
-     *
      * @return a fresh perturbed vector
      */
     @Nonnull

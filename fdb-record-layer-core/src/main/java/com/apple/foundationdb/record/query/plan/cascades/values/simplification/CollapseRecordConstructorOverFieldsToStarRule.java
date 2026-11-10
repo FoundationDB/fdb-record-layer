@@ -35,11 +35,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that un-expands a star expansion.
- * <br>
- * {@code ((q.a as a, q.b as b)} is transformed to {@code q} if the type of {@code q} is just composed of the fields
+ *
+ * <p>{@code ((q.a as a, q.b as b)} is transformed to {@code q} if the type of {@code q} is just composed of the fields
  * {@code a}, and {@code b}.
- * <br>
- * Note that this rule is the conceptual opposite of {@link ExpandRecordRule}. These rules should not be placed into the
+ *
+ * <p>Note that this rule is the conceptual opposite of {@link ExpandRecordRule}. These rules should not be placed into the
  * same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)

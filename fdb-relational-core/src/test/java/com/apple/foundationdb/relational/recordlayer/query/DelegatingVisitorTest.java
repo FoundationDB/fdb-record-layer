@@ -54,8 +54,8 @@ import java.util.stream.Stream;
 /**
  * This test ensures the `DelegatingVisitor` is invoked for internal SQL clauses that are not
  * top-level usable by end users, to address a test coverage gap identified by TeamScale.
- * <br>
- * The uncovered code stems from the query parsing mechanism: when parsing a non-trivial
+ *
+ * <p>The uncovered code stems from the query parsing mechanism: when parsing a non-trivial
  * SQL statement, the plan generation logic often bypasses the delegating visitor by
  * directly examining the parsing contexts and calling other methods. Consequently, TeamScale
  * flags some implementations in `DelegatingVisitor` as unused. However,
@@ -243,6 +243,96 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     public Object visitStoredQueryDefinition(RelationalParser.StoredQueryDefinitionContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterListTest() {
+        testSimple("(param_a BIGINT, param_b STRING NOT NULL)",
+                RelationalParser::storedQueryParameterList,
+                DelegatingVisitor::visitStoredQueryParameterList,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameterList(RelationalParser.StoredQueryParameterListContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterTest() {
+        testSimple("param_a BIGINT NOT NULL",
+                RelationalParser::storedQueryParameter,
+                DelegatingVisitor::visitStoredQueryParameter,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameter(RelationalParser.StoredQueryParameterContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryPreparedCasesTest() {
+        testSimple("PREPARE FOR (param_a IS NULL), (param_a IS NOT NULL)",
+                RelationalParser::storedQueryPreparedCases,
+                DelegatingVisitor::visitStoredQueryPreparedCases,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryPreparedCases(RelationalParser.StoredQueryPreparedCasesContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryPreparedCaseTest() {
+        testSimple("(param_a IS NOT NULL, param_b = TRUE)",
+                RelationalParser::storedQueryPreparedCase,
+                DelegatingVisitor::visitStoredQueryPreparedCase,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryPreparedCase(RelationalParser.StoredQueryPreparedCaseContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterStateTest() {
+        testSimple("param_a IS NOT NULL",
+                RelationalParser::storedQueryParameterState,
+                DelegatingVisitor::visitStoredQueryParameterState,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameterState(RelationalParser.StoredQueryParameterStateContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterTypeTest() {
+        testSimple("BIGINT NOT NULL",
+                RelationalParser::storedQueryParameterType,
+                DelegatingVisitor::visitStoredQueryParameterType,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42, evaluationConstants),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameterType(RelationalParser.StoredQueryParameterTypeContext ctx) {
                         called.set(true);
                         return null;
                     }

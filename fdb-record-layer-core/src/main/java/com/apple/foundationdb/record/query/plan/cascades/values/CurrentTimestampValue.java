@@ -47,8 +47,8 @@ import java.util.function.Supplier;
 /**
  * A value that evaluates to the evaluation timestamp of the current query, as the number of milliseconds since the
  * Unix epoch.
- * <p>
- * The timestamp is not read from the system clock by this value, instead it is retrieved directly from the child
+ *
+ * <p>The timestamp is not read from the system clock by this value, instead it is retrieved directly from the child
  * value, which is a {@link ConstantObjectValue} bound to a constant in the {@link EvaluationContext},
  * which represents the evaluation timestamp used across the query.
  */

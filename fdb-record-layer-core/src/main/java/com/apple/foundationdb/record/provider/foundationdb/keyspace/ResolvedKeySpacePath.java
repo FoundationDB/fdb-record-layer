@@ -73,16 +73,14 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Get the length of the path.
-     * @return the length of the path
+     * {@return the length of the path}
      */
     public int size() {
         return inner.size();
     }
 
     /**
-     * Returns the parent path element.
-     * @return the parent path element or <code>null</code> if this is the root of the path
+     * {@return the parent path element or <code>null</code> if this is the root of the path}
      */
     @Nullable
     public ResolvedKeySpacePath getParent() {
@@ -90,8 +88,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the directory name for this path element.
-     * @return the directory name
+     * {@return the directory name for this path element}
      */
     @Nonnull
     public String getDirectoryName() {
@@ -99,8 +96,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the directory that corresponds to this path entry.
-     * @return returns the directory that corresponds to this path entry
+     * {@return the directory that corresponds to this path entry}
      */
     @Nonnull
     public KeySpaceDirectory getDirectory() {
@@ -108,9 +104,7 @@ public class ResolvedKeySpacePath {
     }
 
     /**
-     * Returns the logical value (prior to resolving) for this path element.
-     *
-     * @return the logical value for this path element
+     * {@return the logical value (prior to resolving) for this path element}
      */
     @Nullable
     public Object getLogicalValue() {
@@ -194,6 +188,7 @@ public class ResolvedKeySpacePath {
     /**
      * If this path was created via {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)}, this returns
      * any remaining portion of the input tuple that was not used to construct the path.
+     *
      * @return the remaining portion of the original input tuple or <code>null</code>
      */
     @Nullable
@@ -275,6 +270,7 @@ public class ResolvedKeySpacePath {
 
     /**
      * Returns a new {@code ResolvedKeySpacePath} that is the same, except with the provided {@link #getRemainder()}.
+     *
      * @param newRemainder a new remainder. This can be {@code null} to remove the remainder entirely.
      * @return a new {@code ResolvedKeySpacePath} that is the same as this, except with a different {@link #getRemainder()}.
      */

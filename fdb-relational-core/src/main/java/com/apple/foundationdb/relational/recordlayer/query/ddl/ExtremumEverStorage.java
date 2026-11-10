@@ -68,7 +68,6 @@ public enum ExtremumEverStorage {
      * The storage form the {@code LEGACY_EXTREMUM_EVER} index attribute asks for.
      *
      * @param useLegacyExtremumEver whether the definition carried the attribute
-     *
      * @return the storage form to use
      */
     @Nonnull

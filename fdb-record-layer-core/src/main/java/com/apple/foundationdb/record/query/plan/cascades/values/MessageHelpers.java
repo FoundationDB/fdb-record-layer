@@ -110,6 +110,7 @@ public class MessageHelpers {
      * Get the value of the field with the given field name on the given message.
      * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
      * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
+     *
      * @param message a message or builder to extract the field from
      * @param fieldName the field to extract
      * @return the value of the field as described above
@@ -232,13 +233,12 @@ public class MessageHelpers {
     /**
      * This method provides a structural deep copy of the {@link Message} passed in. This method was heavily inspired
      * by {@link Message.Builder#mergeFrom(Message)}, however, this method allow to also pass in a descriptor of describing
-     * a compatible/equal message structure. In general, this method should always work (and work better), when
-     * {@code DynamicMessage.parseFrom(targetDescriptor, other.toByteArray()} is well-defined.
+     * a compatible/equal message structure. Fields are matched by position, not by field number, and the target
+     * descriptor may have additional trailing fields.
      * Note that if {@code message.getDescriptorForType()} and {@code targetDescriptor} are incompatible in any way,
      * the behaviour/result of this method is undefined.
      *
-     * @param targetDescriptor a descriptor that describes a structure that is wire-compatible with the {@code message}
-     *        passed in
+     * @param targetDescriptor a descriptor that describes the same structure as the {@code message} passed in
      * @param message a message
      * @return a new message of {@code targetDescriptor} which is a copy of the message passed in
      */
@@ -256,11 +256,16 @@ public class MessageHelpers {
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static void deepCopyMessage(@Nonnull final Message.Builder builder, @Nonnull final Message message) {
+        final var targetDescriptor = builder.getDescriptorForType();
+        final var targetFields = targetDescriptor.getFields();
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
-            // find the field on the target side
-            final var targetField = builder.getDescriptorForType().findFieldByNumber(field.getNumber());
+            // find the field on the target side, by position
+            Verify.verify(!field.isExtension() && field.getIndex() < targetFields.size(),
+                    "message %s does not fit descriptor %s", message.getDescriptorForType().getFullName(),
+                    targetDescriptor.getFullName());
+            final var targetField = targetFields.get(field.getIndex());
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
@@ -384,6 +389,7 @@ public class MessageHelpers {
 
     /**
      * Coerce an object to become an object of a different type.
+     *
      * @param coercionsTrie a trie describing actual primitive promotions/casts that need to be carried out
      * @param targetType the target type this method coerces the object into
      * @param targetDescriptor the protobuf descriptor to be used to create the result message if {@code current} is a

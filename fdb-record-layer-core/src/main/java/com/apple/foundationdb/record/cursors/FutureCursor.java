@@ -34,6 +34,7 @@ import java.util.concurrent.Executor;
 
 /**
  * A cursor that returns a single element when a future completes.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

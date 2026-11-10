@@ -41,6 +41,7 @@ import java.util.List;
 public interface YamlConnection extends AutoCloseable {
     /**
      * Close this connection.
+     *
      * @throws SQLException if there was an issue closing the underlying connection(s).
      */
     @Override
@@ -50,6 +51,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Creates a statement (see {@link RelationalConnection#createStatement()}).
+     *
      * @return a new statement
      * @throws SQLException if something goes wrong
      */
@@ -57,6 +59,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Creates a prepared statement (see {@link RelationalConnection#prepareStatement(String)}).
+     *
      * @param sql the query
      * @return a new prepared statement
      * @throws SQLException if something goes wrong
@@ -65,6 +68,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Returns true if this connection supports getting the metrics collector.
+     *
      * @return true if it is possible to get the metrics collector
      */
     boolean supportsMetricCollector();
@@ -79,6 +83,7 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Try to get the underlying embedded relational connection in support of a few specific setup methods.
+     *
      * @return the underlying embedded connection, or {@code null} if one is not (easily) available.
      */
     @Nullable
@@ -86,9 +91,9 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Return the ordered list of versions that this will test against.
-     * <p>
-     *     This does not reset as {@link #createStatement}/{@link #prepareStatement}, etc. are called.
-     * </p>
+     *
+     * <p>This does not reset as {@link #createStatement}/{@link #prepareStatement}, etc. are called.
+     *
      * @return the ordered list of versions
      */
     @Nonnull
@@ -112,6 +117,7 @@ public interface YamlConnection extends AutoCloseable {
     /**
      * The Cluster File that this connection is connected to, so that other connections can point to the same
      * FDB instance.
+     *
      * @return the cluster file for the underlying FDB cluster
      */
     String getClusterFile();

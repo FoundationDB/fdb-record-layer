@@ -69,7 +69,6 @@ class SpatialRestrictions {
      * {@code (minimumRadius, minimumPrimaryKey)} that was used to initialize the iterator.
      *
      * @param nodeReferenceWithDistance the {@link NodeReferenceWithDistance} against which to compare
-     *
      * @return a negative integer, zero, or a positive integer when {@code lastEmitted} is
      * less than, equal, or greater than the parameter {@code t}.
      */

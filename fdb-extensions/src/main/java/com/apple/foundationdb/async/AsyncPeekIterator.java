@@ -35,9 +35,7 @@ import java.util.NoSuchElementException;
  * or {@link #peek() peek()}. If one calls {@link AsyncIterator#next()} immediately
  * after a {@link #peek()}, both calls should return the same value.
  *
- * <p>
- * Conforming implementations do not necessarily need to be thread-safe.
- * </p>
+ * <p>Conforming implementations do not necessarily need to be thread-safe.
  *
  * @param <T> type of elements returned by the scan
  */

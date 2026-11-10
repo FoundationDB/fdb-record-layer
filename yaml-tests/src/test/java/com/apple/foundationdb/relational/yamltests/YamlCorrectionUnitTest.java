@@ -36,11 +36,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Pure-Java unit tests for YAMSQL file-correction logic. No FDB or database connection required.
- * <p>
- *     Covers {@link YamlFilesMaintainer.AddExplainCorrection} (file-editing) and the null-value
+ *
+ * <p>Covers {@link YamlFilesMaintainer.AddExplainCorrection} (file-editing) and the null-value
  *     (synthetic) path in {@link CheckExplainConfig} that is triggered when
  *     {@code OPTION_ADD_EXPLAIN} is active and a query has no {@code explain:} block yet.
- * </p>
  */
 class YamlCorrectionUnitTest {
 

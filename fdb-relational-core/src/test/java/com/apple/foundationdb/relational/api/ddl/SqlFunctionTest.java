@@ -338,4 +338,16 @@ public class SqlFunctionTest {
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
                 .containsInMessage("table with name 'U' already exists");
     }
+
+    @Test
+    void functionWithStructArgumentsWork() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TYPE AS STRUCT ST1(a string, b string) " +
+                        "CREATE TABLE T(a BIGINT, b ST1, primary key(a)) " +
+                        "CREATE FUNCTION SQ1(IN Q TYPE ST1) AS SELECT * FROM T WHERE b.a = Q.a " +
+                        "CREATE FUNCTION SQ2(IN Q TYPE ST1) AS Q.a"),
+                containsRoutinesInAnyOrder(
+                        routine("SQ1", "CREATE FUNCTION SQ1(IN Q TYPE ST1) AS SELECT * FROM T WHERE b.a = Q.a"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN Q TYPE ST1) AS Q.a")));
+    }
 }

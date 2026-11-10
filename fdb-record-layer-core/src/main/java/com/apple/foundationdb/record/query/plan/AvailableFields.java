@@ -65,7 +65,7 @@ import java.util.function.Predicate;
 /**
  * Represents a subset of the fields available in a stream of records, including partial records.
  *
- * If a stream includes full records, all fields are available; they are not represented individually.
+ * <p>If a stream includes full records, all fields are available; they are not represented individually.
  * For partial records, this class tracks a (non-strict) subset of the fields that are actually available.
  * For example, all repeated fields are currently dropped. It is extremely important that no field ever be included
  * when it is not actually available on a partial record.
@@ -115,11 +115,11 @@ public class AvailableFields {
         return builder;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     /**
      * Get the fields that are available from just the index scan part of an index plan.
      */
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
     public static AvailableFields fromIndex(@Nonnull final RecordType recordType,
                                             @Nonnull final Index index,
                                             @Nonnull final PlannableIndexTypes indexTypes,

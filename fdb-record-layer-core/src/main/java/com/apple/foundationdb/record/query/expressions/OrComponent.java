@@ -35,8 +35,8 @@ import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that is satisfied when any of its child components is satisfied.
- * <br>
- * For tri-valued logic:
+ *
+ * <p>For tri-valued logic:
  * <ul>
  * <li>If any child is {@code true}, then {@code true}.</li>
  * <li>If all children are {@code false}, then {@code false}.</li>

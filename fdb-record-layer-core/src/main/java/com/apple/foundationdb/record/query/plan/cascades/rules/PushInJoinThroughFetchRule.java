@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
@@ -46,8 +47,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that pushes a {@link RecordQueryInJoinPlan} through a {@link RecordQueryFetchFromPartialRecordPlan}.
- * <br>
- * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
+ *
+ * <p>This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for
  * details.
  * <pre>
@@ -77,8 +78,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *              +-------------+
  * }
  * </pre>
- * @param <P> the type parameter of the actual in-join plan to match. Currently, this rule is used for both
- *        {@link RecordQueryInValuesJoinPlan} and {@link RecordQueryInParameterJoinPlan}.
+ *
+ * @param <P> the type parameter of the actual in-join plan to match. Currently, this rule is used for
+ *        {@link RecordQueryInValuesJoinPlan}, {@link RecordQueryInParameterJoinPlan} and
+ *        {@link RecordQueryInComparandJoinPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends AbstractCascadesRule<P> implements ImplementationCascadesRule<P> {

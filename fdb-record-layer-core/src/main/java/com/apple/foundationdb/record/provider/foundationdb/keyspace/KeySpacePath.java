@@ -45,8 +45,7 @@ import java.util.concurrent.CompletableFuture;
 public interface KeySpacePath {
 
     /**
-     * Get the length of the path.
-     * @return the length of the path
+     * {@return the length of the path}
      */
     default int size() {
         KeySpacePath root = this;
@@ -60,6 +59,7 @@ public interface KeySpacePath {
 
     /**
      * Adds the constant value for subdirectory <code>dirName</code> to the directory path.
+     *
      * @param dirName the name of the subdirectory to add to the path
      * @return this path
      * @throws NoSuchDirectoryException if the specified subdirectory does not exist
@@ -70,6 +70,7 @@ public interface KeySpacePath {
 
     /**
      * Adds a <code>value</code> for a specific subdirectory <code>dirName</code> to the directory path.
+     *
      * @param dirName the name of the subdirectory to add to the path
      * @param value the value to use for the subdirectory
      * @return this path
@@ -82,21 +83,20 @@ public interface KeySpacePath {
 
     /**
      * Returns the parent of this entry or null if this is the root of the path.
+     *
      * @return the parent keyspace path
      */
     @Nullable
     KeySpacePath getParent();
 
     /**
-     * Returns the directory name for this path element.
-     * @return the directory name
+     * {@return the directory name for this path element}
      */
     @Nonnull
     String getDirectoryName();
 
     /**
-     * Returns the directory that corresponds to this path entry.
-     * @return returns the directory that corresponds to this path entry
+     * {@return the directory that corresponds to this path entry}
      */
     @Nonnull
     KeySpaceDirectory getDirectory();
@@ -105,6 +105,7 @@ public interface KeySpacePath {
      * Returns the value that was provided when to {@link #add(String, Object)} when this path was constructed.
      * Note that for some directory types, such as {@link DirectoryLayerDirectory}, this may not be the value
      * that is actually stored at this path element. For that, use {@link #resolveAsync(FDBRecordContext)}.
+     *
      * @return the path value
      */
     @Nullable
@@ -193,6 +194,7 @@ public interface KeySpacePath {
     /**
      * Flattens the path into a list of <code>KeySpacePath</code> entries, with the root of the path
      * located at position 0.
+     *
      * @return this path as a list
      */
     @Nonnull
@@ -220,12 +222,10 @@ public interface KeySpacePath {
     /**
      * Delete all data from this path. Use with care.
      *
-     * <p>
-     * Note that as it is possible that one or more record stores saved underneath this path
+     * <p>Note that as it is possible that one or more record stores saved underneath this path
      * might have cacheable meta-data, this method will reset the database's
      * {@linkplain FDBRecordContext#getMetaDataVersionStampAsync(com.apple.foundationdb.record.IsolationLevel)}  meta-data version-stamp}.
      * This can result in clients which are caching store state having to invalidate their caches.
-     * </p>
      *
      * @param context the context in which the path is resolved and the delete operation takes place
      * @return a future that will delete all data underneath of this path
@@ -387,7 +387,6 @@ public interface KeySpacePath {
      * directory values in accordance with the input {@link Tuple}.
      *
      * @param tuple representing the directory values of this path in resolved form
-     *
      * @return a string representation of the path that shows both original and resolved directory values
      */
     @API(API.Status.UNSTABLE)
@@ -413,8 +412,8 @@ public interface KeySpacePath {
 
     /**
      * Imports the provided data exported via {@link #exportAllData} into this {@code KeySpacePath}.
-     * <p>
-     * This will validate that any data provided in {@code dataToImport} has a path that should be in this path
+     *
+     * <p>This will validate that any data provided in {@code dataToImport} has a path that should be in this path
      * or one of the sub-directories. If not, the future will complete exceptionally with a
      * {@link RecordCoreIllegalImportDataException}.
      * If there is any data already existing under this path, the new data will overwrite if the keys are the same.
@@ -423,7 +422,7 @@ public interface KeySpacePath {
      * than the raw key, meaning that this will work even if the data was exported from a different cluster.
      * Note, this will not correct for any cluster-specific data, other than {@link DirectoryLayerDirectory} data;
      * for example, if you have versionstamps, that data will not align on the destination.
-     * </p>
+     *
      * @param context the transaction context in which to save the data
      * @param dataToImport the data to be saved to the database
      * @return a future to be completed once all data has been important.
@@ -436,6 +435,7 @@ public interface KeySpacePath {
     /**
      * Two {@link KeySpacePath}s are equal if they have equal values, the same directory (reference equality) and their
      * parents are the same.
+     *
      * @param obj another {@link KeySpacePath}
      * @return {@code true} if this path equals {@code obj}
      */

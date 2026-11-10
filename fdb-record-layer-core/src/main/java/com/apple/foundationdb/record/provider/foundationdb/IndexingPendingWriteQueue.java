@@ -165,6 +165,7 @@ public final class IndexingPendingWriteQueue {
     /**
      * Return true if the pending writes queue for the given index currently holds at least one entry. The size counter
      * is read via a snapshot (conflict-free) read.
+     *
      * @param store the record store whose queue is inspected
      * @param index the index whose queue is inspected
      * @param context the context used for the conflict-free read
@@ -178,6 +179,7 @@ public final class IndexingPendingWriteQueue {
 
     /**
      * Called by the index maintainer to enqueue data for a deferred index update.
+     *
      * @param store the record store whose incarnation and context are used
      * @param index the index whose queue the entry is appended to
      * @param entry the entry to enqueue

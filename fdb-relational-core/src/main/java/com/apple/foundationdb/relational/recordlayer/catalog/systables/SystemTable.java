@@ -46,8 +46,7 @@ public interface SystemTable {
     String TEMPLATE_VERSION = "TEMPLATE_VERSION";
 
     /**
-     * Returns the name of the system table.
-     * @return The name of the system table.
+     * {@return the name of the system table}
      */
     @Nonnull
     String getName();
@@ -55,7 +54,7 @@ public interface SystemTable {
     /**
      * Adds the definition of the system table to the <i>stateful</i> {@link RecordLayerSchemaTemplate.Builder}.
      *
-     * During bootstrapping, Relational will populate the {@code __SYS/catalog} with information
+     * <p>During bootstrapping, Relational will populate the {@code __SYS/catalog} with information
      * about system tables such as {@link SchemaSystemTable}, during this process a single {@link RecordLayerSchemaTemplate.Builder}
      * instance is used to gather the structure of each of these tables by calling this method and asking each
      * system table to contribute its definition to the typing context. In other words, it resembles a visitor.
@@ -69,6 +68,7 @@ public interface SystemTable {
 
     /**
      * Returns the primary key definition of the system table. Each system table must have a primary key.
+     *
      * @return The primary key.
      */
     @Nonnull

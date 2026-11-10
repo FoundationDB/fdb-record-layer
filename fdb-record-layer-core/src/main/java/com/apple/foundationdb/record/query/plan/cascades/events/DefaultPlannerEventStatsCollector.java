@@ -29,15 +29,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * <p>
  * A default implementation of {@link PlannerEventStatsCollector} which can be used to listen to {@link PlannerEvent}
  * emitted by the {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}
  * throughout the planning of a single query, and collects statistics about these emitted events.
- * </p>
- * <p>
- * An instance of this class can be set as the {@link PlannerEventStatsCollector} for the current thread using the
+ *
+ * <p>An instance of this class can be set as the {@link PlannerEventStatsCollector} for the current thread using the
  * method {@link PlannerEventStatsCollector#enableDefaultStatsCollector()}.
- * </p>
  */
 public class DefaultPlannerEventStatsCollector implements PlannerEventStatsCollector {
     @Nullable private PlannerEventStatsCollectorState currentPlannerEventStatsCollectorState;
@@ -71,6 +68,7 @@ public class DefaultPlannerEventStatsCollector implements PlannerEventStatsColle
 
     /**
      * Get the current state of this collector.
+     *
      * @return an instance of {@link PlannerEventStatsCollectorState}
      */
     @Nonnull

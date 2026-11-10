@@ -40,8 +40,8 @@ import java.util.stream.Stream;
 /**
  * This represents a user-defined field, this allows the user to explicitly set the field
  * name and type without resorting to any form of metadata resolution.
- * <br>
- * This could be useful for testing, and referring to qualified fields with subquery aliases for example.
+ *
+ * <p>This could be useful for testing, and referring to qualified fields with subquery aliases for example.
  *
  * @param <T> the type of the field.
  */

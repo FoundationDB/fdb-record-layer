@@ -101,7 +101,8 @@ public class TupleKeyCountTree {
     /**
      * Add the given tuple to the tree.
      *
-     * Each element is added to the next deeper level in the tree, incrementing the count as it goes.
+     * <p>Each element is added to the next deeper level in the tree, incrementing the count as it goes.
+     *
      * @param tuple the tuple to add
      */
     public void add(@Nonnull Tuple tuple) {
@@ -147,6 +148,7 @@ public class TupleKeyCountTree {
 
     /**
      * Add a non-tuple object to the root of the tree.
+     *
      * @param prefix an object for the top level child of the tree
      * @return a subtree for the given object
      */
@@ -191,6 +193,7 @@ public class TupleKeyCountTree {
 
     /**
      * Hide tree nodes that do not have counts at least as great as the given fraction of their parent node.
+     *
      * @param fraction the threshold count fraction
      */
     public void hideLessThanFraction(double fraction) {
@@ -211,6 +214,7 @@ public class TupleKeyCountTree {
 
     /**
      * Print this tree to the given printer.
+     *
      * @param printer the printer to be called for each visible level of the tree
      * @param collapseSeparator a string to be used to separate the printed forms of levels with only a single child
      */

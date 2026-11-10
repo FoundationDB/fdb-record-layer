@@ -65,6 +65,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
 
     /**
      * Creates a builder for a macro function.
+     *
      * @param name the function name.
      * @param bodyValue the scalar body of the function, correlated to {@code parametersQuantifier}.
      * @param parameters the function parameters, providing their names and types.
@@ -90,6 +91,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
 
     /**
      * Always throws: macro functions do not support processed literals.
+     *
      * @param literals ignored.
      * @throws UnsupportedOperationException always.
      */
@@ -100,11 +102,11 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
 
     /**
      * Builds the {@link UserDefinedMacroFunction}.
-     * <p>
-     * Before instantiating the  {@link UserDefinedMacroFunction}, the function's body {@link Value} is rewritten so
+     *
+     * <p>Before instantiating the  {@link UserDefinedMacroFunction}, the function's body {@link Value} is rewritten so
      * it is correlated to a per-parameter {@link QuantifiedObjectValue}, and if an explicit return type was set to the
      * function, a {@link PromoteValue} is injected around the body value.
-     * </p>
+     *
      * @return the constructed macro function.
      */
     @Nonnull
@@ -129,6 +131,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
     /**
      * Creates one {@link QuantifiedObjectValue} with a unique alias per parameter to serve as the function's
      * parameters; the unique aliases makes it possible to bind the parameters independently during encapsulation.
+     *
      * @return a quantified object value for each parameter, in declaration order.
      */
     @Nonnull
@@ -145,11 +148,11 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
     /**
      * Translate the named parameters correlations in the body value to be in terms of the provided
      * quantified object values.
-     * <p>
-     * For example, if the body value is {@code RCV(q0.X, q0.Y)}, and the provided value list is
+     *
+     * <p>For example, if the body value is {@code RCV(q0.X, q0.Y)}, and the provided value list is
      * {@code [QOV(alias1), QOV(alias2)]} it is going to be transformed to be {@code RCV(QOV(alias1), QOV(alias2))}.
      * This is done to simplify encapsulation of user-provided arguments when this macro function is called.
-     * </p>
+     *
      * @return a {@code Value} that is correlated to the provided quantified object values instead of
      *         {@code this.parameterQuantifier}.
      */

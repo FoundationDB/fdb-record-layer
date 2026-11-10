@@ -837,8 +837,8 @@ class OperationsTest implements BaseTest {
      * scans that layer for a node that can and offers it as the new entry node. The access info holds the entry node in
      * the storage space, so the offered vector has to be in the storage space as well, also for a node written before
      * the switch to RaBitQ, which is stored in client coordinates.
-     * <p>
-     * The graph is written directly. On layer 1 the entry node and its partner point only at each other, and a separate
+     *
+     * <p>The graph is written directly. On layer 1 the entry node and its partner point only at each other, and a separate
      * pair of nodes points only at each other. Deleting the entry node leaves its partner, its only candidate, without
      * an outgoing edge, which is what makes the delete scan the layer, where the first node it reads with an outgoing
      * edge is the first node of the separate pair.

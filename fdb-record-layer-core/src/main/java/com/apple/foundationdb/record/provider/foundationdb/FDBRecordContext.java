@@ -86,10 +86,8 @@ import java.util.stream.Collectors;
 /**
  * An open transaction against FDB.
  *
- * <p>
- * All reads and writes to the database are transactional: an open {@code FDBRecordContext} is needed.
+ * <p>All reads and writes to the database are transactional: an open {@code FDBRecordContext} is needed.
  * An {@link FDBDatabase} is needed to open an {@code FDBRecordContext}.
- * </p>
  *
  * <pre><code>
  * final FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
@@ -127,11 +125,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * string to UTF-8 using {@link String#getBytes(Charset)} or check its encoded size using
      * {@link Utf8#encodedLength(CharSequence)} or an equivalent function.
      *
-     * <p>
-     * Note that this limit is inherited by the Record Layer from the FoundationDB client. In particular, the
+     * <p>Note that this limit is inherited by the Record Layer from the FoundationDB client. In particular, the
      * {@link com.apple.foundationdb.TransactionOptions#setDebugTransactionIdentifier(String)} method will
      * not accept IDs longer than 100 bytes in length.
-     * </p>
      *
      * @see #getTransactionId()
      * @see FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics, FDBTransactionPriority, String)
@@ -249,6 +245,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get the {@link FDBRecordContextConfig} used to open this context.
+     *
      * @return the config
      * @see FDBDatabase#openContext(FDBRecordContextConfig)
      */
@@ -303,21 +300,17 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * requests with their transactions. If this returns {@code null}, then no ID has been set. This means that
      * it is unsafe to call {@link #logTransaction()} on this context if this method returns {@code null}.
      *
-     * <p>
-     * This ID is used by FoundationDB internally in a few different places, including the transaction sample, large
+     * <p>This ID is used by FoundationDB internally in a few different places, including the transaction sample, large
      * transaction monitoring, and client trace logs if transaction logging is enabled for that transaction. If the
      * caller already has a notion of "request ID", then one strategy might be to set the transaction's ID to the
      * initiating request's ID so that one can correlate requests and transactions.
      *
-     * <p>
-     * The transaction ID is limited in size to 100 bytes when encoded as UTF-8. In general, most callers should
+     * <p>The transaction ID is limited in size to 100 bytes when encoded as UTF-8. In general, most callers should
      * limit IDs to printable ASCII characters (as those are the only characters that are easily readable in the
      * client trace logs). If the provided ID exceeds 100 bytes, it will be truncated or possibly ignored if
      * truncating the ID cannot be done safely.
-     * </p>
      *
-     * <p>
-     * To set this ID, the user can call either {@link FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics, FDBTransactionPriority, String)}
+     * <p>To set this ID, the user can call either {@link FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics, FDBTransactionPriority, String)}
      * and provided a non-{@code null} transaction ID as a parameter, or the user can call
      * {@link FDBDatabase#openContext(Map, FDBStoreTimer)} or {@link FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics)}
      * and set the "uuid" key to the desired transaction ID in the MDC context. In either case, note that the
@@ -325,7 +318,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * IDs to printable ASCII characters (as those are the only characters that are easily readable in the client trace
      * logs). If the provided ID exceeds 100 bytes, it will be truncated or possibly ignored if truncating the ID
      * cannot be done safely.
-     * </p>
      *
      * @return the ID used by FoundationDB to track this transaction or {@code null} if not set
      * @see #logTransaction()
@@ -361,13 +353,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * purposes, as the messages that are logged here can be rather verbose, and they include all read and written keys
      * and values.
      *
-     * <p>
-     * All of the transaction's entries will be tagged with this transaction's ID. If an ID has not been set, this
+     * <p>All of the transaction's entries will be tagged with this transaction's ID. If an ID has not been set, this
      * method will throw a {@link RecordCoreException}. As a result, the user is encouraged to call
      * {@link #getTransactionId()} before calling this method.
-     * </p>
      *
-     * NOTE: It is generally better to enable logging at open time via the {@link FDBRecordContextConfig}.
+     * <p>NOTE: It is generally better to enable logging at open time via the {@link FDBRecordContextConfig}.
      *
      * @see #getTransactionId()
      * @see FDBDatabaseFactory#setTrace(String, String)
@@ -397,6 +387,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get the nanosecond time at which this context was opened.
+     *
      * @return time opened
      */
     @API(API.Status.INTERNAL)
@@ -407,6 +398,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Set the nanosecond time at which this context was opened.
+     *
      * @param trackOpenTimeNanos  time opened
      */
     void setTrackOpenTimeNanos(final long trackOpenTimeNanos) {
@@ -415,6 +407,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get any stack track generated when this context was opened.
+     *
      * @return stack trace or {@code null}
      */
     @Nullable
@@ -474,6 +467,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Async version of {@link #commit}.
+     *
      * @return a future that is complete when commit is done
      */
     public CompletableFuture<Void> commitAsync() {
@@ -588,12 +582,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * may require talking to the database. If the read version has already been set or gotten, then this will return
      * with an already completed future.
      *
-     * <p>
-     * Note that this method is {@code synchronized}, but only creating the future (<em>not</em> waiting on
+     * <p>Note that this method is {@code synchronized}, but only creating the future (<em>not</em> waiting on
      * the future) will block other threads. Thus, while it is advised that this method only be called once
      * and by only one caller at a time, if it safe to use this method in asynchronous contexts. If this method is
      * called multiple times, then the same future will be returned each time.
-     * </p>
      *
      * @return a future that will contain the read version of this transaction
      * @see Transaction#getReadVersion()
@@ -668,8 +660,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Get the number of milliseconds since context was created.
-     * @return the number of milliseconds since context was created
+     * {@return the number of milliseconds since context was created}
      */
     public long getTransactionAge() {
         return System.currentTimeMillis() - transactionCreateTime;
@@ -691,9 +682,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * and one (but not all of them) updates its state, then the other record stores will also eschew the
      * cache.
      *
-     * <p>
-     * This method is internal to the Record Layer and should not be used by external consumers.
-     * </p>
+     * <p>This method is internal to the Record Layer and should not be used by external consumers.
      *
      * @return whether the record store's state has been modified in the course of this transaction
      */
@@ -704,11 +693,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * A consistency check, such as uniqueness, that can execute asynchronously and is finally checked at or before commit time.
+     *
      * @see #addCommitCheck(CommitCheckAsync)
      */
     public interface CommitCheckAsync {
         /**
          * Get whether the check is ready to be tested.
+         *
          * @return {@code true} if the check is complete
          */
         default boolean isReady() {
@@ -718,8 +709,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         /**
          * Complete the check.
          *
-         * This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
+         * <p>This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
          * it can be called while processing the transaction.
+         *
          * @return a future that will be complete (exceptionally if the check fails) when the check has been performed
          */
         @Nonnull
@@ -753,7 +745,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     /**
      * A synchronous {@link CommitCheckAsync}.
      *
-     * At some point, this class will be deprecated.
+     * <p>At some point, this class will be deprecated.
      * Please implement {@link CommitCheckAsync} directly or call {@link #addCommitCheck(CompletableFuture)} instead.
      */
     public interface CommitCheck extends CommitCheckAsync {
@@ -767,11 +759,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         /**
          * Complete the check.
          *
-         * This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
+         * <p>This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
          * it can be called while processing the transaction.
          *
-         * <p>
-         * This method should not block or {@link #commitAsync} will block. It is therefore much
+         * <p>This method should not block or {@link #commitAsync} will block. It is therefore much
          * better to always implement {@link CommitCheckAsync} or call {@link #addCommitCheck(CompletableFuture)} instead.
          */
         void check();
@@ -793,10 +784,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Remove commit checks based on a predicate, once the commit check completes.
-     * <p>
-     *     This waits until the commit check completes before removing to ensure that, if it is doing something you can
+     *
+     * <p>This waits until the commit check completes before removing to ensure that, if it is doing something you can
      *     ensure that its activity completes before it is removed.
-     * </p>
+     *
      * @param filter if this returns {@code true} the commit check will be removed when it completes
      * (successfully or unsuccessfully)
      * @param shouldSwallow a predicate to swallow exceptions, if desired
@@ -839,7 +830,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     /**
      * Add a {@link CommitCheckAsync} to be performed before {@link #commit} finishes.
      *
-     * This method is suitable for checks that cannot be started until just before commit.
+     * <p>This method is suitable for checks that cannot be started until just before commit.
      * For checks that can be started before {@code addCommitCheck} time, {@link #addCommitCheck(CompletableFuture)}
      * may be more convenient.
      *
@@ -892,6 +883,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Run any {@link CommitCheckAsync}s that are still outstanding.
+     *
      * @return a future that is complete when all checks have been performed
      */
     @Nonnull
@@ -979,12 +971,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Install a named post-close hook. These hooks will get called once the transaction closes.
-     * <p>
-     * Note: These hooks are unrelated to the postCommit hooks. If a hook is registered to a commit
+     *
+     * <p>Note: These hooks are unrelated to the postCommit hooks. If a hook is registered to a commit
      * and one is also registered for a close, and the transaction is committed, both will be called.
      * If the transaction is not committed, only the close hook will be called.
      * A Developer must be prepared for the cases where both commit and close hooks are called.
-     * </p>
+     *
      * @param name the (unique per transaction) name for the hook
      * @param postCloseHook the hook to invoke
      */
@@ -1036,6 +1028,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Remove a previously installed post-commit hook.
+     *
      * @param name the name of the hook to remove
      * @return {@code null} if the hook does not exist, otherwise the handle to the previously installed hook
      */
@@ -1050,6 +1043,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     /**
      * Run all post-commit callbacks.
      * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     *
      * @return a future that completes when all callbacks were invoked and all futures have completed
      */
     @Nonnull
@@ -1062,6 +1056,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     /**
      * Run all post-close callbacks.
      * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     *
      * @return a future that completes when all callbacks were invoked and all futures have completed
      */
     @Nonnull
@@ -1166,11 +1161,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * that calls {@link #setMetaDataVersionStamp()} advances the stamp, and every other client's next read sees the new
      * value at zero storage-server cost.
      *
-     * <p>
-     * This key can only be updated by calling {@link #setMetaDataVersionStamp()}, which will set the key
+     * <p>This key can only be updated by calling {@link #setMetaDataVersionStamp()}, which will set the key
      * to the transaction's {@linkplain #getVersionStamp() version-stamp} when the transaction is committed.
      * If the key is set within the context of this transaction, this method will return {@code null}.
-     * </p>
      *
      * @param isolationLevel the isolation level at which to read the key
      * @return a future that will complete with the current value of the meta-data version stamp or {@code null} if it is
@@ -1276,7 +1269,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param <T> the type of the value produced by the future
      * @return the result value
      * @see FDBDatabase#get(CompletableFuture)
-     *
      * @throws java.util.concurrent.CancellationException if the future was cancelled
      * @throws ExecutionException if the future completed exceptionally
      * @throws InterruptedException if the current thread was interrupted
@@ -1315,6 +1307,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * <li>Same {@linkplain FDBDatabase database}</li>
      * <li>Same {@linkplain FDBRecordContextConfig config}</li>
      * </ul>
+     *
      * @return a new database runner based on this context
      */
     @Nonnull
@@ -1328,6 +1321,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * value. If the ordering of these calls is deterministic, then it
      * is also guaranteed that the earlier calls will receive a smaller
      * version than the newer calls.
+     *
      * @return an integer to version different records added to the database
      */
     public int claimLocalVersion() {
@@ -1418,6 +1412,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * cache already. (For example, one might use entirely <code>0xff</code>
      * bytes for those dummy bytes for all incomplete versions. This is what
      * the {@link FDBRecordVersion} class does.)
+     *
      * @param key key bytes appropriate for mutation to set
      * @return the previous value set for the given key or <code>null</code> if unset
      */
@@ -1645,6 +1640,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get key ranges that encountered conflicts when trying to {@link #commit} failed due to {@code NOT_COMMITTED}.
+     *
      * @return list of conflict ranges
      */
     @Nullable
@@ -1691,6 +1687,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Returns a transaction-bound factory of {@link TempTable}s.
+     *
      * @return a factory of {@link TempTable}s bound to this transactional context.
      */
     @API(API.Status.INTERNAL)

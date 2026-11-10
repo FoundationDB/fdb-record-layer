@@ -27,29 +27,25 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * <p>
  * An interface that represents an object that listens to {@link PlannerEvent} emitted by the Cascades planner
  * throughout the planning of a single query, and collects statistics about these emitted events.
- * </p>
- * <p>
- * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
+ *
+ * <p>As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this interface in the thread-local storage (per-thread singleton), similar to
  * {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger}, via {@link PlannerEventListeners}.
- * </p>
- * <p>
- * Clients using implementors of this interface should never hold on/manage/use an instance of a collector directly.
+ *
+ * <p>Clients using implementors of this interface should never hold on/manage/use an instance of a collector directly.
  * Instead, clients should use {@link #withCollector} and {@link #flatMapCollector} to invoke methods on the currently
  * installed collector. There is a guarantee that {@link #withCollector} and other methods do not invoke any given action
  * if there is no collector currently set for this thread.
- * </p>
- * <p>
- * The statistics can be retrieved as a {@link PlannerEventStatsMaps} object via the method
+ *
+ * <p>The statistics can be retrieved as a {@link PlannerEventStatsMaps} object via the method
  * {@link #getStatsMaps()}.
- * </p>
  */
 public interface PlannerEventStatsCollector extends PlannerEventListeners.EventListener {
     /**
      * Set the thread-local collector instance. Override the currently set collector if necessary.
+     *
      * @param collector the new collector. If {@code collector} is {@code null}, the current stats collector
      *        will be removed.
      */
@@ -63,6 +59,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
 
     /**
      * Get the current thread-local instance of {@link PlannerEventStatsCollector}.
+     *
      * @return the current thread-local instance of {@link PlannerEventStatsCollector}, or
      *         {@code null} if no instance is currently set.
      */
@@ -73,6 +70,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
 
     /**
      * Get an {@link Optional} with the current thread-local instance of {@link PlannerEventStatsCollector}.
+     *
      * @return an {@link Optional} that contains the current thread-local instance of {@link PlannerEventStatsCollector},
      *         or an empty {@link Optional} otherwise.
      */
@@ -84,6 +82,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
     /**
      * Invoke the {@link Consumer} on the current thread-local instance of {@link PlannerEventStatsCollector}.
      * Does not do anything if there is no collector currently set.
+     *
      * @param action consumer to invoke
      */
     static void withCollector(@Nonnull final Consumer<PlannerEventStatsCollector> action) {
@@ -93,6 +92,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
     /**
      * Call the provided {@link Function} on the current thread-local instance of {@link PlannerEventStatsCollector}
      * if it is present, and return an {@link Optional} with the result.
+     *
      * @param function function to call
      * @return an {@link Optional} with the result of the function call if there is a collector instance set,
      *         or an empty {@link Optional} instead.
@@ -115,6 +115,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
     /**
      * Get an instance {@link PlannerEventStatsMaps}, which contains statistics about {@link PlannerEvent}
      * emitted until this point.
+     *
      * @return planner event statistics as a {@link PlannerEventStatsMaps} instance.
      */
     @Nonnull

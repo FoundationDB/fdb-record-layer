@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  * An implementation of a RelationalArray that is materialized, that is, it holds all its elements in a {@link List}. The
  * element can themselves be materialized or not.
  *
- * This class is not thread-safe, and in general should <em>not</em> be used in concurrent environments.
+ * <p>This class is not thread-safe, and in general should <em>not</em> be used in concurrent environments.
  */
 @API(API.Status.EXPERIMENTAL)
 public class RowArray implements RelationalArray, EmbeddedRelationalArray {

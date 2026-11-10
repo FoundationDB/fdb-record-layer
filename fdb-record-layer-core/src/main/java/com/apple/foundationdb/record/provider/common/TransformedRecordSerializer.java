@@ -50,8 +50,7 @@ import java.util.zip.Inflater;
  * are encryption and compression, but other transformations could be
  * added in the future.
  *
- * <p>
- * This serializer will begin each serialized string with a prefix
+ * <p>This serializer will begin each serialized string with a prefix
  * (see {@link TransformedRecordSerializerPrefix} for details)
  * containing information about which transformations were performed. This
  * way, when deserializing, it can detect which transformations were applied
@@ -59,22 +58,17 @@ import java.util.zip.Inflater;
  * This also allows it to do things like decide not to compress records, even
  * if compression is turned on, if the compression algorithm actually produces
  * a byte array that is larger than the raw record, for example.
- * </p>
  *
- * <p>
- * This base class does not itself support encryption: an exception will be thrown
+ * <p>This base class does not itself support encryption: an exception will be thrown
  * when trying to construct a serializer with encryption enabled or when encountering
  * a serialized record that requires decryption. Subclasses, such as {@link TransformedRecordSerializerJCE},
  * implement encryption and have additional state like secret keys.
- * </p>
  *
- * <p>
- * It is designed to be compatible with the {@link DynamicMessageRecordSerializer}
+ * <p>It is designed to be compatible with the {@link DynamicMessageRecordSerializer}
  * insofar as it can deserialize records written by that serializer, though
  * records serialized by this class cannot be read by instances of that class.
  * In the future, we might remove that capability (when all existing data
  * have been migrated to use this class).
- * </p>
  *
  * @param <M> type of {@link Message} that underlying records will use
  */
@@ -452,6 +446,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * will be compressed before they are encrypted. By default,
          * records are not compressed. The compression level
          * can be specified with {@link #setCompressionLevel(int)}.
+         *
          * @param compressWhenSerializing <code>true</code> if records should be compressed and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
@@ -470,6 +465,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * set here is {@value DEFAULT_COMPRESSION_LEVEL}. Setting
          * this does <i>not</i> automatically enable compression when
          * serializing.
+         *
          * @param level the compression level (0-9)
          * @return this <code>Builder</code>
          * @see Deflater
@@ -489,6 +485,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * But subclasses such as {@link TransformedRecordSerializerJCE} do support it.
          * When using those builders and enabling encryption, the user must also call appropriate methods
          * to specify the encryption key.
+         *
          * @param encryptWhenSerializing <code>true</code> if records should be encrypted and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
@@ -548,6 +545,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         /**
          * The number of times to reattempt deserialization when decryption or decompression fails.
          * Defaults to {@code 0} (no retries). Setting this to a positive value enables retries.
+         *
          * @param deserializeReattemptCount the maximum number of retry attempts
          * @return this <code>Builder</code>
          */
@@ -562,6 +560,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
          * with an {@link RecordCoreArgumentException}.
+         *
          * @return a {@link TransformedRecordSerializer} from this <code>Builder</code>
          * @throws RecordCoreArgumentException if encryption is enabled when serializing but no encryption is specified
          */

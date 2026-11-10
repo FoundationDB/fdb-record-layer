@@ -68,7 +68,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Visitor of SQL query abstract syntax tree (AST) that does the following:
+ * Visitor of SQL query abstract syntax tree (AST). It does the following:
  * <ul>
  *     <li>strip literals from the query and put them in a separate ordered list, to be used later during planning and execution</li>
  *     <li>process prepared parameters and replace their values in the literals ordered list</li>
@@ -79,24 +79,21 @@ import java.util.function.Supplier;
  *     <li>process in-predicate and generate array literal of the in-list contains simple constants.</li>
  *     <li>identify query caching flags that might influence its interaction with plan cache (see {@link NormalizationResult.QueryCachingFlags}).</li>
  * </ul>
- * <p>
- * The visitor is designed to be very fast;
+ *
+ * <p>The visitor is designed to be very fast;
  * it leaves semantic analysis to {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}, et al.
  * Its main purpose is to lookup queries in the plan cache, and generate enough context to be able to execute a matching
  * physical plan.
- * <br>
- * It does reject a few things outright, and only where the check has to happen before the plan cache is consulted: an
+ *
+ * <p>It does reject a few things outright, and only where the check has to happen before the plan cache is consulted: an
  * unsupported clause that would never plan anyway ({@code OFFSET}, {@code LIMIT}), and a {@code NULL} written in an
  * {@code IN} list. The latter has to be here rather than with the other semantic checks, because a query that hits the
  * plan cache is never planned, so a check that lives in planning would be skipped for it.
  *
- * <p>
- * Note: this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
+ * <p>Note: this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
  * short-lived CPU-bound closure that visits a query's AST.
- * </p>
- * <p>
- * this does not support array literals yet, we have some ad-hoc support for flat literal arrays for handling in-predicate.
- * </p>
+ *
+ * <p>This does not support array literals yet, we have some ad-hoc support for flat literal arrays for handling in-predicate.
  */
 @SuppressWarnings({"UnstableApiUsage", "PMD.AvoidStringBufferField"})
 // AstHasher is short-lived, therefore, using StringBuilder is ok.
@@ -427,23 +424,36 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             //      select * from t1 where col1 = ?P2 and col2 = ?P1
             final var namedParameterContext = ctx.NAMED_PARAMETER();
             final var parameterName = namedParameterContext.getText().substring(1);
-            param = preparedStatementParameters.namedParamValue(parameterName);
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = false;
-            }
-            processNamedParameter(param, parameterName, namedParameterContext.getSymbol().getTokenIndex());
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = true;
-            }
+            if (preparedStatementParameters.unboundDeclaredTypeMaybe(parameterName).isPresent()) {
+                // Declared but unbound. Canonicalized to ?name so the cache key matches what a runtime client sends;
+                // nothing is added to the literal table, since planning registers a value-free literal instead. The
+                // parameter hash omits the absent value, which is safe because it feeds continuation validation rather
+                // than the cache key.
+                if (allowTokenAddition) {
+                    final var canonicalName = "?" + parameterName;
+                    sqlCanonicalizer.append(canonicalName).append(" ");
+                    parameterHash.putInt(Objects.hash(canonicalName));
+                }
+                param = null;
+            } else {
+                param = preparedStatementParameters.namedParamValue(parameterName);
+                if (param instanceof Array || param instanceof Struct) {
+                    allowLiteralAddition = false;
+                }
+                processNamedParameter(param, parameterName, namedParameterContext.getSymbol().getTokenIndex());
+                if (param instanceof Array || param instanceof Struct) {
+                    allowLiteralAddition = true;
+                }
 
-            if (param instanceof Array) {
-                allowTokenAddition = false;
-                processArrayParameter((Array) param, null, parameterName, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            } else if (param instanceof Struct) {
-                allowTokenAddition = false;
-                processStructParameter((Struct) param, null, parameterName, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
+                if (param instanceof Array) {
+                    allowTokenAddition = false;
+                    processArrayParameter((Array) param, null, parameterName, ctx.getStart().getTokenIndex());
+                    allowTokenAddition = true;
+                } else if (param instanceof Struct) {
+                    allowTokenAddition = false;
+                    processStructParameter((Struct) param, null, parameterName, ctx.getStart().getTokenIndex());
+                    allowTokenAddition = true;
+                }
             }
         }
 
@@ -652,6 +662,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     /**
      * Normalizes the SQL query using a given planning context.
+     *
      * @param context The planning context, captures all the state required to plan and execution query such as prepared parameter values.
      * @param query The query string.
      * @param isCaseSensitive If {@code true}, the query is case-sensitive, otherwise {@code false}.
@@ -753,8 +764,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
         /**
          * A set of flags that determine how the query should interact with the plan cache.
-         * <br>
-         * Note: this is not designed to work with SQL Scripts or stored procedures
+         *
+         * <p>Note: This is not designed to work with SQL Scripts or stored procedures.
          */
         public enum QueryCachingFlags {
             IS_DDL_STATEMENT,

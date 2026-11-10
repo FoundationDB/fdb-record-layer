@@ -97,6 +97,7 @@ public class SplitHelper {
 
     /**
      * Save serialized representation using multiple keys if necessary.
+     *
      * @param context write transaction
      * @param subspace subspace to save in
      * @param key key within subspace
@@ -110,6 +111,7 @@ public class SplitHelper {
 
     /**
      * Save serialized representation using multiple keys if necessary, clearing only as much as needed.
+     *
      * @param context write transaction
      * @param subspace subspace to save in
      * @param key key within subspace
@@ -380,6 +382,7 @@ public class SplitHelper {
 
     /**
      * Load serialized byte array that may be split among several keys.
+     *
      * @param tr read transaction
      * @param context transaction context
      * @param subspace subspace containing serialized value
@@ -524,6 +527,7 @@ public class SplitHelper {
 
     /**
      * Checks to see if a given key exists.
+     *
      * @param tr read transaction
      * @param context transaction context
      * @param subspace subspace containing serialized value
@@ -553,6 +557,7 @@ public class SplitHelper {
     /**
      * Delete the serialized representation of a record. This possibly requires deleting multiple keys, but this method makes
      * an effort to clear only as much as needed.
+     *
      * @param context write transaction
      * @param subspace subspace to delete from
      * @param key primary key of the record to delete within <code>subspace</code>
@@ -584,6 +589,7 @@ public class SplitHelper {
     /**
      * A utility to ensure the given key has a valid suffix.
      * Suffix has to be a Long, and within the range of supported suffixes.
+     *
      * @param keyTuple the key tuple to validate
      */
     public static void validatePrimaryKeySuffixNumber(final Tuple keyTuple) {
@@ -750,6 +756,7 @@ public class SplitHelper {
 
         /**
          * Unsplit a record in the database.
+         *
          * @param executor the executor to use for running asynchronous code
          * @return a future with the raw bytes of the values concatenated back together
          * or {@code null} if the underlying iterator has no items or if the {@code KeyValue} is not split

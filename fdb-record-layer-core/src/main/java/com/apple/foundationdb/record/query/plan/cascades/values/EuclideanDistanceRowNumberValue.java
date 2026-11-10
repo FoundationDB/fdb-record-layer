@@ -34,26 +34,22 @@ import java.util.Objects;
 
 /**
  * A windowed value that assigns unique, sequential row numbers to rows ordered by their Euclidean distance from a reference point.
- * <p>
- * This class implements a window function similar to SQL's {@code ROW_NUMBER()} but specifically for Euclidean distance
+ *
+ * <p>This class implements a window function similar to SQL's {@code ROW_NUMBER()} but specifically for Euclidean distance
  * calculations. It assigns unique sequential numbers (starting from 1) to rows based on how far they are from a reference
  * vector, with closer vectors receiving lower numbers. Unlike {@code RANK()}, each row receives a unique number even if
  * multiple rows have equal distances.
- * </p>
- * <p>
- * The numbering can optionally be partitioned by one or more expressions, similar to the {@code PARTITION BY} clause
+ *
+ * <p>The numbering can optionally be partitioned by one or more expressions, similar to the {@code PARTITION BY} clause
  * in SQL window functions. Within each partition, row numbers are computed independently starting from 1.
- * </p>
- * <p>
- * This value is an {@link Value.IndexOnlyValue}, meaning it can only be computed from pre-calculated values stored
+ *
+ * <p>This value is an {@link Value.IndexOnlyValue}, meaning it can only be computed from pre-calculated values stored
  * in an index and cannot be evaluated from base records or computed on-the-fly.
- * </p>
- * <p>
- * <strong>Example:</strong> For vectors [(1,0), (2,0), (2,0), (5,0)] measured from origin (0,0),
+ *
+ * <p><strong>Example:</strong> For vectors [(1,0), (2,0), (2,0), (5,0)] measured from origin (0,0),
  * the row numbers would be [1, 2, 3, 4] as each row gets a unique sequential number. The first vector is
  * closest (row number 1), the next two have equal distance but receive consecutive numbers (2 and 3), and
  * the last is furthest (row number 4). Note that rows 2 and 3 have the same distance but different row numbers.
- * </p>
  *
  * @see WindowedValue
  * @see Value.IndexOnlyValue

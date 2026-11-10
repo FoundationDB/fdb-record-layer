@@ -84,6 +84,7 @@ public final class QueryEvaluationConstants {
     /**
      * Retrieve a map with the values of the constants contained in this instance, keyed by the unique
      * constant ID string.
+     *
      * @return a map from the unique evaluation constant ID string to the value of this constant.
      */
     @Nonnull
@@ -106,8 +107,8 @@ public final class QueryEvaluationConstants {
 
         /**
          * Set the value for the {@link QueryEvaluationConstant.ConstantKind#EVALUATION_TIMESTAMP} constant.
-         * <p>
-         * If the evaluation timestamp was previously set, this would overwrite the previous value.
+         *
+         * <p>If the evaluation timestamp was previously set, this would overwrite the previous value.
          *
          * @param evaluationTimestamp an instant representing the evaluation timestamp.
          * @return this builder.
@@ -121,8 +122,8 @@ public final class QueryEvaluationConstants {
 
         /**
          * Add a {@link QueryEvaluationConstant} to this builder.
-         * <p>
-         * If another {@link QueryEvaluationConstant} of the same {@link QueryEvaluationConstant.ConstantKind}
+         *
+         * <p>If another {@link QueryEvaluationConstant} of the same {@link QueryEvaluationConstant.ConstantKind}
          * was previously added, this would overwrite the previous value.
          *
          * @param toAdd the constant to add.
@@ -144,11 +145,11 @@ public final class QueryEvaluationConstants {
      * {@link com.apple.foundationdb.relational.recordlayer.query.Plan.ExecutionContext} and depended on by different
      * {@link com.apple.foundationdb.record.query.plan.cascades.values.Value} in a physical plan to ensure they
      * all evaluate to the same constant value.
-     * <p>
-     * An example usage of this is the current timestamp returned by the {@code CURRENT_TIMESTAMP} SQL function,
+     *
+     * <p>An example usage of this is the current timestamp returned by the {@code CURRENT_TIMESTAMP} SQL function,
      * which should be the same across all invocations of the function in the same query.
-     * <p>
-     * Instances of this class can only be created by the different methods of {@link QueryEvaluationConstants.Builder}
+     *
+     * <p>Instances of this class can only be created by the different methods of {@link QueryEvaluationConstants.Builder}
      * or via {@link QueryEvaluationConstant#fromProto}.
      */
     public static final class QueryEvaluationConstant {
@@ -205,9 +206,7 @@ public final class QueryEvaluationConstants {
         }
 
         /**
-         * Get the {@link ConstantKind} of this constant instance.
-         *
-         * @return the {@link ConstantKind} of this constant instance.
+         * {@return the {@link ConstantKind} of this constant instance}
          */
         @Nonnull
         public ConstantKind getKind() {

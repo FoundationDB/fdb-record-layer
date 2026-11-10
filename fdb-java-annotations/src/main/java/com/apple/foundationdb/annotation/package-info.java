@@ -29,8 +29,6 @@
  *         interfaces of class hierarchies</li>
  * </ul>
  *
- * <p>
- * None of the annotations have dependencies on
- * </p>
+ * <p>None of the annotations have dependencies on
  */
 package com.apple.foundationdb.annotation;

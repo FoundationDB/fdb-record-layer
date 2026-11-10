@@ -242,8 +242,8 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
      * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}) across <em>all</em> provided
      * orderings. Such parts carry no distinguishing information between the union legs and are therefore not useful
      * when pushing interesting orders down to individual legs.
-     * <p>
-     * For example, given two orderings where both bind {@code a = 5} as a fixed part, that entry is removed from
+     *
+     * <p>For example, given two orderings where both bind {@code a = 5} as a fixed part, that entry is removed from
      * both orderings. If one ordering binds {@code a = 5} and the other binds {@code a = 6}, the entry is
      * <em>not</em> common and is retained in both.
      *

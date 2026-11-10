@@ -117,8 +117,13 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
-        return getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(getComparisonKeyValues().stream()
+                        .flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream())
+                        .collect(ImmutableSet.toImmutableSet()))
+                .build();
     }
 
     @Nonnull

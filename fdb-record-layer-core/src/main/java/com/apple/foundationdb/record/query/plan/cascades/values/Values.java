@@ -46,6 +46,7 @@ import java.util.stream.StreamSupport;
 public class Values {
     /**
      * Expand a record value into its field values.
+     *
      * @param recordValue the record value
      * @return a list of field values
      */
@@ -85,12 +86,13 @@ public class Values {
     /**
      * Method to construct a set of {@link Value} that can be used to express orderings based on the type of a flowed
      * object.
-     * <br>
-     * For instance, a {@link QuantifiedObjectValue} of some alias flows records of the shape
+     *
+     * <p>For instance, a {@link QuantifiedObjectValue} of some alias flows records of the shape
      * {@code ((a as a, b as b) as x, c as y)} where {@code a}, {@code b}, and {@code c} are of primitive types. This
      * method uses this type information to construct a list of accessors that retrieve the primitive data elements of
      * that flowed record, i.e, this method would return {@code {_.x.a, _.x,b, _.y}}.
      * <br>
+     *
      * @param type the type used to construct accessors for
      * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
      * @return a list of {@link Value}s consisting of the accessors to primitive elements of the given type.
@@ -123,26 +125,22 @@ public class Values {
     /**
      * Attempts to collapse a {@link RecordConstructorValue} that represents a simple field selection back to its
      * underlying record value.
-     * <br>
-     * This method checks if a record constructor simply reconstructs all fields of a record in their original order
+     *
+     * <p>This method checks if a record constructor simply reconstructs all fields of a record in their original order
      * without any transformations. If so, it returns the original underlying record value instead of the redundant
      * record constructor.
-     * <br>
-     * For example, if we have a record constructor that takes a record {@code r} and creates
+     *
+     * <p>For example, if we have a record constructor that takes a record {@code r} and creates
      * {@code (r.field0, r.field1, r.field2)} where the fields are accessed in order (0, 1, 2), this method
      * would return {@code r} directly instead of the constructor.
-     * <br>
-     * The method performs several validation checks:
+     *
+     * <p>The method performs several validation checks:
      * <ul>
      * <li>All children must be {@link FieldValue} instances</li>
      * <li>Field access must be in sequential order (0, 1, 2, ...)</li>
      * <li>All field values must reference the same underlying record</li>
      * <li>The result type must match the underlying record's type</li>
      * </ul>
-     * <br>
-     * Note that this method will still return the underlying record value even if it contains more fields than the
-     * record. This is considered to be fine as it does not influence the semantics of any {@code Value} operating on
-     * top of the record, because any invisible fields to an upper {@code Value} remain invisible.
      *
      * @param recordConstructorValue the record constructor to potentially collapse
      * @return an {@link Optional} containing the underlying record value if collapse is possible,

@@ -264,7 +264,6 @@ public abstract class FDBDatabaseFactory {
      * attempts that an operation is retried. The default value is 10.
      *
      * @param maxAttempts the maximum number of times to run a transactional database operation
-     *
      * @throws IllegalArgumentException if a non-positive number is given
      */
     public void setMaxAttempts(int maxAttempts) {
@@ -297,7 +296,6 @@ public abstract class FDBDatabaseFactory {
      * there will not be more than 1 second between attempts.
      *
      * @param maxDelayMillis the maximum delay between attempts when retrying operations
-     *
      * @throws IllegalArgumentException if the value is negative or less than the minimum delay
      */
     public void setMaxDelayMillis(long maxDelayMillis) {
@@ -336,7 +334,6 @@ public abstract class FDBDatabaseFactory {
      * how long that wait should be. The default value is 10 milliseconds.
      *
      * @param initialDelayMillis the delay ceiling between the first and second attempts at running a database operation
-     *
      * @throws IllegalArgumentException if the value is negative or greater than the maximum delay
      */
     public void setInitialDelayMillis(long initialDelayMillis) {
@@ -446,9 +443,7 @@ public abstract class FDBDatabaseFactory {
     }
 
     /**
-     * Returns the current latency injector.
-     *
-     * @return the current latency injector
+     * {@return the current latency injector}
      */
     @Nonnull
     public Function<FDBLatencySource, Long> getLatencyInjector() {
@@ -483,17 +478,13 @@ public abstract class FDBDatabaseFactory {
      * and will not be retried. Any outstanding work from the transaction will be cancelled, though the
      * user should still close the {@link FDBRecordContext} to free any native memory used by the transaction.
      *
-     * <p>
-     * If set to {@link #DEFAULT_TR_TIMEOUT_MILLIS}, then the transaction's timeout will default to the system default,
+     * <p>If set to {@link #DEFAULT_TR_TIMEOUT_MILLIS}, then the transaction's timeout will default to the system default,
      * which is the value set by {@link com.apple.foundationdb.DatabaseOptions#setTransactionTimeout(long)}. If that
      * option is not set, then no timeout will be imposed on the transaction. Note also that this is the
      * default value
-     * </p>
      *
-     * <p>
-     * If set to {@link #UNLIMITED_TR_TIMEOUT_MILLIS}, then the no timeout will be imposed on the transaction. This
+     * <p>If set to {@link #UNLIMITED_TR_TIMEOUT_MILLIS}, then the no timeout will be imposed on the transaction. This
      * will override the system default if one is set.
-     * </p>
      *
      * @param transactionTimeoutMillis the amount of time in milliseconds before a transaction should timeout
      */
@@ -510,7 +501,6 @@ public abstract class FDBDatabaseFactory {
      * {@link #UNLIMITED_TR_TIMEOUT_MILLIS}.
      *
      * @return the transaction timeout time in milliseconds
-     *
      * @see #setTransactionTimeoutMillis(long)
      */
     public long getTransactionTimeoutMillis() {
@@ -546,7 +536,6 @@ public abstract class FDBDatabaseFactory {
      * @param storeStateCacheFactory a factory of {@link com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache
      * FDBRecordStoreStateCache}s
      * to use when initializing {@link FDBDatabase}s
-     *
      * @see com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache
      */
     @API(API.Status.EXPERIMENTAL)
@@ -560,7 +549,6 @@ public abstract class FDBDatabaseFactory {
      * executor thread.
      *
      * @param mdcContext if present, the MDC context to be made available within the executors threads
-     *
      * @return a new executor to be used by a {@code FDBRecordContext}
      */
     @Nonnull
@@ -575,14 +563,13 @@ public abstract class FDBDatabaseFactory {
     /**
      * Set the number of threads per FDB client version. The default value is 1
      * (the multi-threaded client is effectively disabled).
-     * <p>
-     * Setting this above 1 enables FDB's multi-threaded client, which also requires
+     *
+     * <p>Setting this above 1 enables FDB's multi-threaded client, which also requires
      * at least one external client library on the FDB network options, even when the
      * cluster and the local client are on the same version. See
      * {@link FDBDatabaseFactoryImpl#setThreadsPerClientVersion(int)}.
      *
      * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
-     *
      * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This will be removed in a future release.
      */
     @Deprecated
@@ -594,7 +581,6 @@ public abstract class FDBDatabaseFactory {
      * Get the number of threads per FDB client version. The default value is 1.
      *
      * @return the number of threads per client version to use.
-     *
      * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This will be removed in a future release.
      */
     @Deprecated
@@ -613,7 +599,6 @@ public abstract class FDBDatabaseFactory {
      * care to ensure that they are thread safe and efficiently process the provided metrics before returning.
      *
      * @param listener the listener to install
-     *
      * @return this factory
      */
     @Nonnull
@@ -635,18 +620,14 @@ public abstract class FDBDatabaseFactory {
      * FoundationDB client behavior, it is generally recommended that the user set this option in production
      * environments.
      *
-     * <p>
-     * The logs will be placed in the directory on the local filesystem specified by the {@code traceDirectory}
+     * <p>The logs will be placed in the directory on the local filesystem specified by the {@code traceDirectory}
      * parameter. If the {@code traceLogGroup} is set to a non-null value, each log message will have a
      * {@code LogGroup} field associated with it that is set to the parameter's value. This can be used to associate
      * log messages from related processes together.
-     * </p>
      *
-     * <p>
-     * This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
+     * <p>This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
      * The factory will configure the client in a manner consistent with the passed parameters the first
      * time a database is needed, and subsequent calls to this method will have no effect.
-     * </p>
      *
      * @param traceDirectory the directory in which to write trace log files or {@code null} to disable writing logs
      * @param traceLogGroup the value to set the log group field to in each message of {@code null} to set no group
@@ -660,14 +641,11 @@ public abstract class FDBDatabaseFactory {
      * then this will be used to configure what the output format of trace log files should be. See
      * {@link FDBTraceFormat} for more details on what options are available.
      *
-     * <p>
-     * This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
+     * <p>This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
      * The factory will configure the client in a manner consistent with the passed parameters the first
      * time a database is needed, and subsequent calls to this method will have no effect.
-     * </p>
      *
      * @param traceFormat the output format for client trace logs
-     *
      * @see #setTrace(String, String)
      * @see FDBTraceFormat
      */
@@ -680,15 +658,13 @@ public abstract class FDBDatabaseFactory {
      * user wants to have more control, they should consider disabling the shutdown hook via this method, and
      * then invoking {@link #shutdown()} in a hook that they control.
      *
-     * <p>
-     * This method can be called before or after {@link FDB} initialization. If it is called before the
+     * <p>This method can be called before or after {@link FDB} initialization. If it is called before the
      * FDB client is initialized, then the shutdown hook will never be registered. If it is called after
      * the client is initialized, then the previously registered shutdown hook will be removed. That does
      * mean that if an instance is shut down between FDB client initialization and the invocation of
      * this method, the shutdown hook <em>will</em> run. To avoid that case, it is generally suggested that
      * the user invoke this before client initialization. If this method is invoked multiple times, it has
      * no effect.
-     * </p>
      *
      * @see #shutdown()
      * @see FDB#disableShutdownHook()
@@ -711,19 +687,15 @@ public abstract class FDBDatabaseFactory {
      * parameters. This method should be preferred over {@link #setKnob(String, String)} when the knob being
      * configured has a corresponding {@link FDBClientKnob} constant.
      *
-     * <p>
-     * This method can be called before or after {@link FDB} initialization. If it is called before the client
+     * <p>This method can be called before or after {@link FDB} initialization. If it is called before the client
      * is initialized, the knob will be applied when the client starts. If it is called after the client has
      * already started, the knob will be applied to the running client immediately. <strong>Warning:</strong>
      * not every knob will actually have the desired effect if applied after client start-up. Therefore, though
      * this is allowed by the API, it is generally not advisable.
-     * </p>
      *
      * @param knob the knob to set
      * @param value the value to set the knob to
-     *
      * @throws RecordCoreArgumentException if {@code value} is not of the type that {@code knob} expects
-     *
      * @see #setKnob(String, String)
      * @see FDBClientKnob
      */
@@ -739,18 +711,14 @@ public abstract class FDBDatabaseFactory {
      * is not able to validate that {@code value} is of the correct type; an invalid value will instead be
      * silently ignored by the native client (with a warning written to its trace logs, if enabled).
      *
-     * <p>
-     * This method can be called before or after {@link FDB} initialization. See {@link #setKnob(FDBClientKnob, String)}
+     * <p>This method can be called before or after {@link FDB} initialization. See {@link #setKnob(FDBClientKnob, String)}
      * for details.
-     * </p>
      *
      * @param knobName the (lower-case) name of the knob to set
      * @param value the value to set the knob to
-     *
      * @throws RecordCoreArgumentException if {@code knobName} is blank or contains an {@code =} character, or
      * if {@code knobName} matches a known {@link FDBClientKnob} and {@code value} is not of the type that knob
      * expects
-     *
      * @see #setKnob(FDBClientKnob, String)
      * @see com.apple.foundationdb.NetworkOptions#setKnob(String)
      */
@@ -762,7 +730,6 @@ public abstract class FDBDatabaseFactory {
      * for example, by setting the {@code FDB_NETWORK_OPTION_KNOB} environment variable.
      *
      * @return an unmodifiable view of the client knobs configured on this factory
-     *
      * @see #setKnob(FDBClientKnob, String)
      * @see #setKnob(String, String)
      */
@@ -776,7 +743,6 @@ public abstract class FDBDatabaseFactory {
      * this method may only be called before {@link FDB} initialization.
      *
      * @throws RecordCoreException if the client has already been initialized
-     *
      * @see #setKnob(FDBClientKnob, String)
      * @see #setKnob(String, String)
      */
@@ -791,7 +757,6 @@ public abstract class FDBDatabaseFactory {
      * sense to call this method if one also calls {@link #setTrace(String, String)}.
      *
      * @param runLoopProfilingEnabled whether run-loop profiling should be enabled
-     *
      * @see NetworkOptions#setEnableSlowTaskProfiling()
      */
     public abstract void setRunLoopProfilingEnabled(boolean runLoopProfilingEnabled);
@@ -800,7 +765,6 @@ public abstract class FDBDatabaseFactory {
      * Get whether additional run-loop profiling has been been enabled.
      *
      * @return whether additional run-loop profiling has been enabled
-     *
      * @see #setRunLoopProfilingEnabled(boolean)
      */
     public abstract boolean isRunLoopProfilingEnabled();
@@ -823,20 +787,16 @@ public abstract class FDBDatabaseFactory {
      * Set the API version for this database factory. This value will be used to determine what FDB APIs are
      * available.
      *
-     * <p>
-     * Note that once an API version has been set, the client will not be able to talk to any FDB cluster
+     * <p>Note that once an API version has been set, the client will not be able to talk to any FDB cluster
      * that is running an older associated server version. It is therefore important that the adopter sets
      * this value so that it does not exceed the smallest FDB server version that this client will be
      * expected to connect to. However, if there are features that are only available on a subset of
      * supported FDB API versions, the Record Layer will attempt to guard those features so that they are
      * only used if the configured API version supports it.
-     * </p>
      *
-     * <p>
-     * By default, this will be set to {@link APIVersion#getDefault()}. Note that setting the API version
+     * <p>By default, this will be set to {@link APIVersion#getDefault()}. Note that setting the API version
      * to a non-default value is currently experimental as additional testing and validation of various
      * API versions is developed.
-     * </p>
      *
      * @param apiVersion the API version to use when initializing the FDB client
      * @see APIVersion
@@ -875,7 +835,6 @@ public abstract class FDBDatabaseFactory {
      * Set the locality provider that is used to discover the server location of the keys.
      *
      * @param localityProvider the locality provider
-     *
      * @see FDBLocalityUtil
      */
     public abstract void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider);
@@ -884,7 +843,6 @@ public abstract class FDBDatabaseFactory {
      * Return a {@link Database} object from the factory.
      *
      * @param clusterFile Cluster file.
-     *
      * @return FDB Database object.
      */
     @Nonnull

@@ -38,8 +38,8 @@ import java.util.Map;
 /**
  * Optimized {@link MultiFieldQueryParser} that adds the slop for {@link SpanNearQuery} as well.
  * So the proximity search based on {@link SpanNearQuery} can also work.
- * <p>
- * Additionally, this parser will do type-specific query construction for numeric query types,
+ *
+ * <p>Additionally, this parser will do type-specific query construction for numeric query types,
  * when the appropriate {@link PointsConfig} elements are set.
  */
 public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser implements ConfigAwareQueryParser {

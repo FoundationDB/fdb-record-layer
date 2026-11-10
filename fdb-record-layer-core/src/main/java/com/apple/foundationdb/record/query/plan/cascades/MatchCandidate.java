@@ -56,7 +56,7 @@ import java.util.Set;
  * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link Traversal} to allow for navigation of references within the candidate.
  *
- * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
+ * <p>Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
  * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
  */
@@ -75,6 +75,7 @@ public interface MatchCandidate {
      * the candidate is created or lazily when this method is invoked. It is, however, necessary that the traversal
      * once computed is stable, meaning the object returned by implementors of this method must always return the
      * same object.
+     *
      * @return the traversal associated for this match candidate
      */
     @Nonnull
@@ -82,6 +83,7 @@ public interface MatchCandidate {
 
     /**
      * Returns a list of parameter names for sargable parameters that can to be bound during matching.
+     *
      * @return a list of {@link CorrelationIdentifier}s for all sargable parameters in this match candidate
      */
     @Nonnull
@@ -90,6 +92,7 @@ public interface MatchCandidate {
     /**
      * Returns the parameter names for the resulting order for parameters that can be bound during matching
      * (sargable and residual).
+     *
      * @return a list of {@link CorrelationIdentifier}s describing the ordering of the result set of this match candidate
      */
     @Nonnull
@@ -98,16 +101,14 @@ public interface MatchCandidate {
     /**
      * Returns the set of sargable (Search ARGument ABLE) parameter aliases that must be bound with concrete values
      * for this match candidate to be considered valid during query planning.
-     * <p>
-     * This method specifies binding requirements that act as prerequisites for using this match candidate in a query
+     *
+     * <p>This method specifies binding requirements that act as prerequisites for using this match candidate in a query
      * plan. During the matching phase, the query planner attempts to bind parameters through predicates and
      * placeholders. For a match candidate to be selected, all aliases returned by this method must have been
      * successfully bound to values.
-     * </p>
-     * <p>
-     * The default implementation returns an empty set, indicating that no specific parameter bindings are required.
+     *
+     * <p>The default implementation returns an empty set, indicating that no specific parameter bindings are required.
      * Match candidates that have binding requirements should override this method to specify their constraints.
-     * </p>
      *
      * @return a set of {@link CorrelationIdentifier}s representing parameter aliases that must be bound;
      *         returns an empty set if no bindings are required
@@ -124,6 +125,7 @@ public interface MatchCandidate {
      * given record.
      * The current expression hierarchy cannot be evaluated at runtime (in general). This key expression helps
      * represent compensation or part of compensation if needed.
+     *
      * @return a key expression that can be evaluated based on a base record
      */
     @Nonnull
@@ -140,6 +142,7 @@ public interface MatchCandidate {
      * future record layer with improved physical operators this method should be revised to account for those improvements.
      * For now, we only consider a prefix of said mappings that consist of n equality-bound mappings and stops either
      * at an inequality bound parameter or before a unbound parameter.
+     *
      * @param matchInfo match info
      * @return a map containing parameter to comparison range mappings for a prefix of parameters that is compatible
      *         with a physical scan over the materialized view (of the candidate)
@@ -180,6 +183,7 @@ public interface MatchCandidate {
     /**
      * Compute a list of {@link MatchedOrderingPart}s which forms a bridge to relate {@link KeyExpression}s and
      * {@link QueryPredicate}s.
+     *
      * @param matchInfo a pre-existing match info structure
      * @param sortParameterIds the parameter IDs which the query should be ordered by
      * @param isReverse reversed-ness of the order
@@ -195,11 +199,11 @@ public interface MatchCandidate {
      * Computes a set of {@link MatchedOrderingPart}s representing ordering keys that are implicitly equality-bound
      * by the candidate itself, rather than by explicit predicates in the query. These parts are prepended to the
      * matched ordering and take priority over regular matched ordering parts.
-     * <p>
-     * For example, a {@link PrimaryScanMatchCandidate} scoped to a single record type returns an equality-bound
+     *
+     * <p>For example, a {@link PrimaryScanMatchCandidate} scoped to a single record type returns an equality-bound
      * ordering part for the record type key, since the scan is inherently constrained to that type.
-     * <p>
-     * The default implementation returns an empty set, meaning no implicit equality-bound ordering parts exist.
+     *
+     * <p>The default implementation returns an empty set, meaning no implicit equality-bound ordering parts exist.
      *
      * @return a set of ordering parts that are implicitly equality-bound by this candidate
      */
@@ -212,11 +216,11 @@ public interface MatchCandidate {
      * Returns whether this match candidate is inherently constrained to a single record type. This is true when
      * the candidate queries exactly one record type, or when the record type key is part of the index definition
      * and effectively partitions the index by type.
-     * <p>
-     * This is used by {@link #computeEqualityBoundImplicitOrderingParts()} to determine whether a record type key
+     *
+     * <p>This is used by {@link #computeEqualityBoundImplicitOrderingParts()} to determine whether a record type key
      * equality-bound ordering part should be implicitly added.
-     * <p>
-     * The default implementation returns {@code false}. Subclasses that support record-type-scoped scans
+     *
+     * <p>The default implementation returns {@code false}. Subclasses that support record-type-scoped scans
      * (e.g., {@link ValueIndexScanMatchCandidate}, {@link WindowedIndexScanMatchCandidate}) override this.
      *
      * @return {@code true} if this candidate is scoped to a single record type, {@code false} otherwise
@@ -239,6 +243,7 @@ public interface MatchCandidate {
 
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data.
+     *
      * @param partialMatch the match to be used
      * @param planContext the plan context
      * @param memoizer the memoizer
@@ -273,6 +278,7 @@ public interface MatchCandidate {
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data. This method is
      * expected to be implemented by specific implementations of {@link MatchCandidate}.
+     *
      * @param partialMatch the {@link PartialMatch} that matched the query and the candidate
      * @param planContext the plan context
      * @param memoizer the memoizer

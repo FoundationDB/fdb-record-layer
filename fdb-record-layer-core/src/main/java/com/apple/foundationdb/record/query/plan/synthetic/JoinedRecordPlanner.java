@@ -48,14 +48,10 @@ import java.util.stream.Collectors;
 /**
  * A planner for {@link JoinedRecordPlan}.
  *
- * <p>
- * Anticipates, in a very rough way, some of the things that join plan generation will do in the regular {@link RecordQueryPlanner}.
- * </p>
+ * <p>Anticipates, in a very rough way, some of the things that join plan generation will do in the regular {@link RecordQueryPlanner}.
  *
- * <p>
- * Since joined record types are synthesized from both sides of the join, depending on what record has been modified,
+ * <p>Since joined record types are synthesized from both sides of the join, depending on what record has been modified,
  * there really need to be indexes in both directions, which means that join ordering isn't as much of an issue.
- * </p>
  *
  */
 class JoinedRecordPlanner {

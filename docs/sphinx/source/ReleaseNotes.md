@@ -4,6 +4,160 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-18}
+
+## 4.18
+
+{#release-4-18-4-0}
+
+### 4.18.4.0
+
+<h4> Breaking Changes </h4>
+
+* Refactor `MetaDataProtoEditor.renameRecordType()` - [PR #4537](https://github.com/FoundationDB/fdb-record-layer/pull/4537)
+<h4> New Features </h4>
+
+* Support serializing and executing explodes as table functions over an ExplodeValue - [PR #4819](https://github.com/FoundationDB/fdb-record-layer/pull/4819)
+* Offer indexes on synthetic record types to the planner when a query reads all their stored constituents - [PR #4840](https://github.com/FoundationDB/fdb-record-layer/pull/4840)
+* Support renaming record types used by non-parent unnested constituents in `MetaDataProtoEditor` - [PR #4708](https://github.com/FoundationDB/fdb-record-layer/pull/4708)
+<h4> Bug Fixes </h4>
+
+* Make sure SQL user-defined types are preserved in RecordMetadata - [PR #4490](https://github.com/FoundationDB/fdb-record-layer/pull/4490)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Display the next version at the start of the release in the action summary - [PR #4864](https://github.com/FoundationDB/fdb-record-layer/pull/4864)
+
+</details>
+
+
+**[Full Changelog (4.18.3.0...4.18.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.3.0...4.18.4.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`, ✅`4.18.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/42685226991)
+
+
+
+{#release-4-18-3-0}
+
+### 4.18.3.0
+
+<h4> New Features </h4>
+
+* Plan stored queries through EmbeddedRelationalDriver - [PR #4735](https://github.com/FoundationDB/fdb-record-layer/pull/4735)
+* Stored query warm-up plans against the caller's record metadata and planner options - [PR #4728](https://github.com/FoundationDB/fdb-record-layer/pull/4728)
+* Warm one plan per prepared case - [PR #4572](https://github.com/FoundationDB/fdb-record-layer/pull/4572)
+* Plan a named parameter from its declared type without a value - [PR #4542](https://github.com/FoundationDB/fdb-record-layer/pull/4542)
+* Add a typed named parameter list and PREPARE FOR to CREATE STORED QUERY - [PR #4528](https://github.com/FoundationDB/fdb-record-layer/pull/4528)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove release notes for unpublished version 4.18.2.0 - [PR #4862](https://github.com/FoundationDB/fdb-record-layer/pull/4862)
+* Bump sphinx from 9.1.0 to 9.2.0 in /docs/sphinx - [PR #4860](https://github.com/FoundationDB/fdb-record-layer/pull/4860)
+* Bump soupsieve from 3.0.3 to 3.0.4 in /docs/sphinx - [PR #4861](https://github.com/FoundationDB/fdb-record-layer/pull/4861)
+* Bump actions/setup-python from 7.0.0 to 7.1.0 in /actions/setup-base-env - [PR #4859](https://github.com/FoundationDB/fdb-record-layer/pull/4859)
+* Bump sphinxcontrib-jsmath from 1.0.1 to 2.0.0 in /docs/sphinx - [PR #4858](https://github.com/FoundationDB/fdb-record-layer/pull/4858)
+* Enable the `InvalidJavadocPosition` Checkstyle check - [PR #4850](https://github.com/FoundationDB/fdb-record-layer/pull/4850)
+* Enable the `JavadocContentLocation` Checkstyle check - [PR #4849](https://github.com/FoundationDB/fdb-record-layer/pull/4849)
+* Enable the `JavadocMethod` Checkstyle check - [PR #4848](https://github.com/FoundationDB/fdb-record-layer/pull/4848)
+* Set supported-version for in-query-or-overlap.yamsql - [PR #4855](https://github.com/FoundationDB/fdb-record-layer/pull/4855)
+* Add an empty line before @return in stored query Javadoc - [PR #4856](https://github.com/FoundationDB/fdb-record-layer/pull/4856)
+* Tidy up Javadoc comments further - [PR #4847](https://github.com/FoundationDB/fdb-record-layer/pull/4847)
+* Leverage inline `{@return}` tags in further Javadoc comments - [PR #4846](https://github.com/FoundationDB/fdb-record-layer/pull/4846)
+* Port the record query tests affected by ExplodeValue to yamsql - [PR #4843](https://github.com/FoundationDB/fdb-record-layer/pull/4843)
+
+</details>
+
+
+**[Full Changelog (4.18.1.0...4.18.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.1.0...4.18.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/42252105270)
+
+
+
+{#release-4-18-1-0}
+
+### 4.18.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update protobuf version 4.35.1 - [PR #4837](https://github.com/FoundationDB/fdb-record-layer/pull/4837)
+<h4> New Features </h4>
+
+* Push in-joins over comparands through fetches - [PR #4830](https://github.com/FoundationDB/fdb-record-layer/pull/4830)
+* Describe the planner type of a `RecordType`, including a synthetic one - [PR #4829](https://github.com/FoundationDB/fdb-record-layer/pull/4829)
+* Expand a joined record type into a Cascades graph - [PR #4741](https://github.com/FoundationDB/fdb-record-layer/pull/4741)
+* Support for Indexes over `joinedRecordType`s in Relational - [PR #4653](https://github.com/FoundationDB/fdb-record-layer/pull/4653)
+<h4> Bug Fixes </h4>
+
+* Match fields by position rather than field number when deep-copying messages - [PR #4631](https://github.com/FoundationDB/fdb-record-layer/pull/4631)
+* Number a joined synthetic table's constituents in the order the definition names its tables - [PR #4818](https://github.com/FoundationDB/fdb-record-layer/pull/4818)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Enable the `RequireEmptyLineBeforeBlockTagGroup` Checkstyle check - [PR #4841](https://github.com/FoundationDB/fdb-record-layer/pull/4841)
+* Add an empty line before block tags in Javadoc comments - [PR #4836](https://github.com/FoundationDB/fdb-record-layer/pull/4836)
+* Remove empty lines between Javadoc block tags - [PR #4839](https://github.com/FoundationDB/fdb-record-layer/pull/4839)
+* Leverage inline `{@return}` tags in Javadoc comments - [PR #4838](https://github.com/FoundationDB/fdb-record-layer/pull/4838)
+* Enable the `JavadocMissingWhitespaceAfterAsterisk` Checkstyle check - [PR #4833](https://github.com/FoundationDB/fdb-record-layer/pull/4833)
+* Enable the `JavadocLeadingAsteriskAlign` Checkstyle check - [PR #4834](https://github.com/FoundationDB/fdb-record-layer/pull/4834)
+* Enable the `JavadocMissingLeadingAsterisk` Checkstyle check - [PR #4835](https://github.com/FoundationDB/fdb-record-layer/pull/4835)
+* Enable the `JavadocBlockTagLocation` Checkstyle check - [PR #4832](https://github.com/FoundationDB/fdb-record-layer/pull/4832)
+* Enable the `JavadocParagraph` Checkstyle check - [PR #4825](https://github.com/FoundationDB/fdb-record-layer/pull/4825)
+* Harmonize remaining Javadoc paragraphs - [PR #4824](https://github.com/FoundationDB/fdb-record-layer/pull/4824)
+* Run all tests if we are unable to determine the precise change set - [PR #4823](https://github.com/FoundationDB/fdb-record-layer/pull/4823)
+* Harmonize paragraphs in Javadoc comments (2/2) - [PR #4822](https://github.com/FoundationDB/fdb-record-layer/pull/4822)
+* Harmonize paragraphs in Javadoc comments (1/2) - [PR #4820](https://github.com/FoundationDB/fdb-record-layer/pull/4820)
+* Improve the `createVersionPropertiesFile` Gradle task - [PR #4811](https://github.com/FoundationDB/fdb-record-layer/pull/4811)
+* Remove external `git-version` plugin - [PR #4808](https://github.com/FoundationDB/fdb-record-layer/pull/4808)
+* Bump pylint from 2.15.7 to 4.0.9 in /scripts - [PR #4806](https://github.com/FoundationDB/fdb-record-layer/pull/4806)
+* Bump cqse/teamscale-upload-action from 2.11.0 to 2.11.1 in /actions/teamscale-upload - [PR #4805](https://github.com/FoundationDB/fdb-record-layer/pull/4805)
+* Bump actions/setup-java from 6.0.1 to 6.1.0 in /actions/setup-base-env - [PR #4804](https://github.com/FoundationDB/fdb-record-layer/pull/4804)
+* Bump actions/setup-java from 6.0.1 to 6.1.0 - [PR #4803](https://github.com/FoundationDB/fdb-record-layer/pull/4803)
+* Bump soupsieve from 2.10 to 3.0.3 in /docs/sphinx - [PR #4802](https://github.com/FoundationDB/fdb-record-layer/pull/4802)
+* Qualify `libs` version catalog lookups with `rootProject` - [PR #4799](https://github.com/FoundationDB/fdb-record-layer/pull/4799)
+
+</details>
+
+
+**[Full Changelog (4.17.2.0...4.18.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.17.2.0...4.18.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.14.1.0`, ❌`4.14.2.0`, ❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/41858404203)
+
+
+
 {#release-4-17}
 
 ## 4.17

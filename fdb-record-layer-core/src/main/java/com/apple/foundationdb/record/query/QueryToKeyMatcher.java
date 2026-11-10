@@ -71,8 +71,7 @@ import java.util.Objects;
  * had an index on <code>concat(x, y)</code>, then scanning over all index entries beginning with
  * <code>(1, 2)</code> would satisfy the query.
  *
- * <p>
- * There are two methods that attempt to match the query to a key expression. The first is the
+ * <p>There are two methods that attempt to match the query to a key expression. The first is the
  * {@link #matchesSatisfyingQuery(KeyExpression, FilterSatisfiedMask) matchesSatisfyingQuery()}
  * method. This should be used if one wants to make sure that one can use the given key expression
  * to retrieve all records that match the given query (i.e., the whether the fields included in the
@@ -81,17 +80,14 @@ import java.util.Objects;
  * The other mode is the {@link #matchesCoveringKey(KeyExpression, FilterSatisfiedMask) matchesCoveringKey()}
  * method. This attempts to find a list of comparisons such that every column of the key expression has been set
  * by some component of the filter. However, there may be components of the filter that are unsatisfied.
- * </p>
  *
- * <p>
- * By way of example, if the filter is <code>WHERE x = 1 AND y = 2</code> and the expression
+ * <p>By way of example, if the filter is <code>WHERE x = 1 AND y = 2</code> and the expression
  * is just on field <code>x</code>, then if one calls the <code>matchesSatisfyingQuery</code> method,
  * the matcher will return <code>NO_MATCH</code>, but it will return <code>[EQUALS 1]</code> if the
  * <code>matchesCoveringKey</code> method is called. By contrast, if the filter is <code>WHERE x = 1 AND y = 2</code>
  * and the expression is <code>concat(x, y, z)</code>, then calling <code>matchesSatisfyingQuery</code>
  * will return <code>[EQUALS 1, EQUALS 2]</code>, but calling <code>matchesCoveringKey</code> will
  * return <code>NO_MATCH</code>.
- * </p>
  */
 @API(API.Status.INTERNAL)
 public class QueryToKeyMatcher {

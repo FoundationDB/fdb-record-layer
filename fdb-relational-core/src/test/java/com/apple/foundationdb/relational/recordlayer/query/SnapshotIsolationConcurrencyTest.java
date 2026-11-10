@@ -52,14 +52,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the option does not add read-conflict ranges to its transaction, so a concurrent write into the
  * range it read does not cause the reading transaction's commit to fail. The control case (the same
  * scenario without the option) demonstrates that a serializable read does conflict.
- * <p>
- * The two transactions are driven sequentially on a single thread: FDB conflict detection is based on
+ *
+ * <p>The two transactions are driven sequentially on a single thread: FDB conflict detection is based on
  * read/commit versions, so interleaving the operations in program order (the query transaction reads,
  * the update transaction writes+commits, the query transaction writes+commits) is sufficient and
  * deterministic. {@link #queryConnection} runs the {@code SELECT} under test; {@link #updateConnection}
  * performs the concurrent write.
- * <p>
- * Records are partitioned by {@code id % 3} so that the concurrent writes are always <em>interleaved
+ *
+ * <p>Records are partitioned by {@code id % 3} so that the concurrent writes are always <em>interleaved
  * between</em> records the query transaction actually reads. This guarantees the conflicting writes fall
  * within the query's read range. Specifically: {@code id % 3 == 0} records are the initial data the
  * query reads, {@code id % 3 == 1} records are written concurrently with the first query, and
@@ -153,8 +153,8 @@ public class SnapshotIsolationConcurrencyTest {
      * {@code EXECUTE CONTINUATION}, the resumed pages run at snapshot isolation only if the option is
      * re-specified on the resume statement. A bare {@code EXECUTE CONTINUATION} silently reverts to the
      * connection default (serializable), which then adds a read-conflict range.
-     * <p>
-     * The concurrent writes use the {@code id % 3} partitioning so that the write made concurrently with
+     *
+     * <p>The concurrent writes use the {@code id % 3} partitioning so that the write made concurrently with
      * the continuation ({@code id % 3 == 2}) is interleaved between records the continuation reads,
      * guaranteeing it overlaps the continuation's read range regardless of exactly where the first page
      * ended.
@@ -329,8 +329,8 @@ public class SnapshotIsolationConcurrencyTest {
     /**
      * Simulates the first documentation example (an approximate row limit protected by a {@code COUNT(*)}
      * index).
-     * <p>
-     * See {@code docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst} and
+     *
+     * <p>See {@code docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst} and
      * {@code yaml-tests/.../isolation-level-snapshot-documentation-queries.yamsql}.
      */
     @ParameterizedTest
@@ -378,8 +378,8 @@ public class SnapshotIsolationConcurrencyTest {
     /**
      * Simulates the second documentation example (sequence-like ids from a {@code MAX_EVER} index and a
      * random offset), except we use fixed offsets to ensure a stable test.
-     * <p>
-     * See {@code docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst} and
+     *
+     * <p>See {@code docs/sphinx/source/reference/statement_options/ISOLATION_LEVEL_SNAPSHOT.rst} and
      * {@code yaml-tests/.../isolation-level-snapshot-documentation-queries.yamsql}.
      */
     @ParameterizedTest

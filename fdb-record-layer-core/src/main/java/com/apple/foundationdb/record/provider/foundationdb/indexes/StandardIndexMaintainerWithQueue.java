@@ -46,7 +46,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>This is an abstract base. The serialization helpers are exposed (package-private, static) so that
  * other queue-capable maintainers that cannot extend this class directly can reuse the
- * exact same wire format.</p>
+ * exact same wire format.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMaintainer {
@@ -82,6 +82,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
 
     /**
      * Serialize an old/new record pair into the {@link Any}-packed payload deferred onto the pending write queue.
+     *
      * @param state the maintainer state whose store serializer is used
      * @param oldRecord the previous stored record, or {@code null} for an insert
      * @param newRecord the new record, or {@code null} for a delete
@@ -104,6 +105,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
 
     /**
      * Unpack the {@link IndexBuildProto.OldAndNewRecords} payload from a queue entry's data.
+     *
      * @param data the {@link Any}-packed payload produced by {@link #serializePendingWrites}
      * @return the unpacked old/new records
      */

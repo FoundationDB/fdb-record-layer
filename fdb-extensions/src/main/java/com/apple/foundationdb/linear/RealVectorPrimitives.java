@@ -32,8 +32,8 @@ import java.util.Locale;
  * Package-private vector primitives that can be shared by all vector implementations (including
  * those not extending from {@link AbstractRealVector}). All methods contained in this class do not
  * assume an immutable or mutable vector they operate on.
- * <p>
- * Loops delegate to a {@link Backend} chosen at static-init time:
+ *
+ * <p>Loops delegate to a {@link Backend} chosen at static-init time:
  * <ul>
  *   <li>Default ({@code auto}): try {@code com.apple.foundationdb.linear.simd.SimdBackend}; fall
  *       back to {@link ScalarBackend} if it can't be loaded (typically because
@@ -55,8 +55,8 @@ public final class RealVectorPrimitives {
      * {@link #backend}, this never resolves to SIMD, so its reductions always use the fixed
      * left-to-right, non-fused accumulation order of {@link ScalarBackend} — the same order
      * {@code -Dfdb.vector.simd=scalar} forces globally, but here scoped to individual calls.
-     * <p>
-     * SIMD reductions sum partial lanes in a different order (and fuse multiply-adds), so their
+     *
+     * <p>SIMD reductions sum partial lanes in a different order (and fuse multiply-adds), so their
      * low-order bits can differ from scalar by a few ULPs and even differ between two SIMD hosts
      * of different vector widths. That is harmless for search-time distance math, but fatal for
      * any value that is persisted and later compared byte-for-byte across machines. The exact

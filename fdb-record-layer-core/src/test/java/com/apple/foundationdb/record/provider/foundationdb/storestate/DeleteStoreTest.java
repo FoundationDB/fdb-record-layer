@@ -356,7 +356,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
      * delete's own commit machinery catches the concurrent modification and forces the
      * deleter to abort.
      *
-     * <p>The key expectatian is that either:</p>
+     * <p>The key expectatian is that either:
      * <ul>
      *   <li>The delete succeeds, and the range is empty, and if the store was <em>ever</em> cacheable, the meta-data
      *   version-stamp was bumped.</li>
@@ -656,6 +656,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
 
         /**
          * Whether this operation writes to the store header.
+         *
          * @return {@code true} iff the operation writes {@code STORE_INFO_KEY} on commit.
          *   The write-set of the concurrent operation is what {@code deleteStoreAsync}'s
          *   header read conflicts with; operations that never touch {@code STORE_INFO_KEY}

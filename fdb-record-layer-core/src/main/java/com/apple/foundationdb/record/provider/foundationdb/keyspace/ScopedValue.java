@@ -27,6 +27,7 @@ import java.util.Objects;
 /**
  * Object to key the forward and reverse directory caches by, two entries should be treated as identical if they
  * attempt to resolve the same string with directory layers that are located at the same path.
+ *
  * @param <T> the type of the scoped value
  */
 @API(API.Status.INTERNAL)

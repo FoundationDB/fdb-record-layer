@@ -72,6 +72,7 @@ public abstract class FDBStoreBase {
 
     /**
      * Get the {@link FDBRecordContext} within which this store operates.
+     *
      * @return the associated context
      */
     @Nonnull

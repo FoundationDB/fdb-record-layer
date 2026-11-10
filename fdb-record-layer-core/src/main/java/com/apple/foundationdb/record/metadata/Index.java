@@ -98,6 +98,7 @@ public class Index {
 
     /**
      * Construct new index meta-data.
+     *
      * @param name the name of the index, which is unique for the whole meta-data
      * @param rootExpression the key expression for the index, such as what field(s) to index
      * @param type the type of index
@@ -113,6 +114,7 @@ public class Index {
 
     /**
      * Construct new index meta-data.
+     *
      * @param name the name of the index, which is unique for the whole meta-data
      * @param rootExpression the key expression for the index, such as what field(s) to index
      * @param type the type of index
@@ -165,6 +167,7 @@ public class Index {
     /**
      * Copy constructor. This will create an index that is identical to the current <code>Index</code>
      * instance.
+     *
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
@@ -174,6 +177,7 @@ public class Index {
     /**
      * Copy constructor. This will create an index that is identical to the current <code>Index</code> with a given
      * <code>IndexPredicate</code>
+     *
      * @param orig original index to copy
      * @param predicate the index predicate
      */
@@ -295,9 +299,8 @@ public class Index {
     }
 
     /**
-     * Returns the type of the index.
+     * {@return the type of the index}
      *
-     * @return the type of the index.
      * @see IndexTypes
      */
     @Nonnull
@@ -334,6 +337,7 @@ public class Index {
      * with different primary keys should have different values for this
      * index. The default value for this is <code>false</code> if the
      * option is not set explicitly.
+     *
      * @return the value of the "unique" option
      */
     public boolean isUnique() {
@@ -399,13 +403,11 @@ public class Index {
      * example, integers are encoded by the {@code Tuple} layer using a variable length
      * encoding scheme that makes them a natural choice for this key.
      *
-     * <p>
-     * It is important that once an index has data that its subspace key not change. If
+     * <p>It is important that once an index has data that its subspace key not change. If
      * one wishes to change the key, the guidance would be to create a new index with the
      * same definition but at the new key. Then that index can be built using the
      * {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer OnlineIndexer}.
      * When that index has been fully built, the original index can be safely dropped.
-     * </p>
      *
      * @param subspaceKey the key used to determine this index's subspace prefix
      * @see #getSubspaceKey()
@@ -417,6 +419,7 @@ public class Index {
 
     /**
      * Checks whether the subspace key was set using {@link #setSubspaceKey(Object)}.
+     *
      * @return {@code true} if the subspace key was set using {@code #setSubspaceKey(Object)}
      */
     public boolean hasExplicitSubspaceKey() {
@@ -435,8 +438,7 @@ public class Index {
      * position or a negative value to indicate that that column is not found in the
      * index key.
      *
-     * <p>
-     * For example, suppose one had an index defined on a record type with a primary
+     * <p>For example, suppose one had an index defined on a record type with a primary
      * key of {@code Key.Expressions.concatenateFields("a", "b")} and suppose the index
      * was defined on {@code Key.Expressions.concatenateFields("a", "c")}. A na&iuml;ve
      * approach might serialize index key tuples of the form {@code (a, c, a, b)}
@@ -447,22 +449,17 @@ public class Index {
      * {@code {0, -1}} to indicate that the first component of the primary key can be
      * found at position 0 in the index entry key but the second component is found after
      * the index key data (which is the default location).
-     * </p>
      *
-     * <p>
-     * This method should generally not be called by users outside of the Record Layer.
+     * <p>This method should generally not be called by users outside of the Record Layer.
      * For the most part, it should be sufficient for index maintainers to call
      * {@link #getEntryPrimaryKey(Tuple)}
      * to determine the primary key of a record from an index entry and
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase#indexEntryKey(Index, Tuple, Tuple) FDBRecordStoreBase.indexEntryKey()}
      * to determine the index entry given a record's primary key.
-     * </p>
      *
-     * <p>
-     * At the moment, this optimization is not used with multi-type or universal indexes.
+     * <p>At the moment, this optimization is not used with multi-type or universal indexes.
      * See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/93">Issue #93</a>
      * for more details.
-     * </p>
      *
      * @return the positions of primary key components within the index key or {@code null}
      */
@@ -527,8 +524,7 @@ public class Index {
     }
 
     /**
-     * Get the number of indexed value columns.
-     * @return the number of columns
+     * {@return the number of indexed value columns}
      */
     public int getColumnSize() {
         return rootExpression.getColumnSize();
@@ -537,6 +533,7 @@ public class Index {
     /**
      * The number of columns stored for an index entry.
      * Does not count primary key columns that are part of the indexed value, which do not need to be duplicated.
+     *
      * @param primaryKey the primary key for eliminating duplicates
      * @return the size of an index entry
      */
@@ -554,6 +551,7 @@ public class Index {
 
     /**
      * Get the primary key portion of an index entry.
+     *
      * @param entry the index entry
      * @return the primary key extracted from the entry
      */
@@ -574,9 +572,9 @@ public class Index {
     }
 
     /**
-     * Get the primary key positions of an index entry.
+     * {@return a list of the primary key positions for an entry of this index}
+     *
      * @param primaryKeyLength the number of elements in the primary key for the record
-     * @return a list of the primary key positions for an entry of this index
      */
     @Nonnull
     public List<Integer> getEntryPrimaryKeyPositions(int primaryKeyLength) {
@@ -597,6 +595,7 @@ public class Index {
 
     /**
      * Get the version at which the index was first added.
+     *
      * @return the added version
      */
     public int getAddedVersion() {
@@ -605,6 +604,7 @@ public class Index {
 
     /**
      * Set the version at which the index was first added.
+     *
      * @param addedVersion the added version
      */
     public void setAddedVersion(int addedVersion) {
@@ -614,7 +614,8 @@ public class Index {
     /**
      * Get the version at which the index was changed.
      *
-     * Any record store older than this will need to have the index rebuilt.
+     * <p>Any record store older than this will need to have the index rebuilt.
+     *
      * @return the last modified version
      */
     public int getLastModifiedVersion() {
@@ -622,9 +623,7 @@ public class Index {
     }
 
     /**
-     * Returns the predicate associated with the index in case of a filtered (sparse) index.
-     *
-     * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
+     * {@return the predicate associated with the index if the index is filtered (sparse), otherwise {@code null}}
      */
     @Nullable
     public IndexPredicate getPredicate() {
@@ -642,6 +641,7 @@ public class Index {
 
     /**
      * Set the version at which the index was changed.
+     *
      * @param lastModifiedVersion the last modified version
      */
     public void setLastModifiedVersion(int lastModifiedVersion) {

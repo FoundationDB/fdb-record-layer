@@ -36,12 +36,13 @@ import java.util.stream.Stream;
  * A binding matcher is an object that can be matched against a complex object tree, while binding certain
  * references in the tree to matcher objects. The bindings can be retrieved from the {@link PlannerBindings} once one
  * or more bindings are established.
- * <br>
- * Extreme care should be taken when implementing binding matchers, since it can be very delicate.
+ *
+ * <p>Extreme care should be taken when implementing binding matchers, since it can be very delicate.
  * In particular, binding matchers may (or may not) be reused between successive rule calls and should be stateless.
  * Additionally, implementors must use the (default) reference equals for any binding matcher as the
  * class {@link PlannerBindings} keeps an association between a matcher and the matched object(s) in a
  * multimap.
+ *
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
@@ -56,6 +57,7 @@ public interface BindingMatcher<T> {
      * A planner will generally use this method to quickly determine a set of rules that could match an expression,
      * without considering each rule and trying to apply it. A good implementation of this method helps the planner
      * match rules efficiently.
+     *
      * @return a class object for a class that is a super class of every planner expression this matcher can match
      */
     @Nonnull
@@ -82,6 +84,7 @@ public interface BindingMatcher<T> {
      * {@code default}s to be {@code final}. The implementation checks the class of the object that is passed in to be
      * at least of the class returned by {@link #getRootClass()} and then calls
      * {@link #bindMatchesSafely(RecordQueryPlannerConfiguration, PlannerBindings, Object)} with a down-casted {@code in} argument (to {@code T)}.
+     *
      * @param plannerConfiguration a planner configuration
      * @param outerBindings the outer bindings passed in from the caller
      * @param in the object to match against
@@ -99,6 +102,7 @@ public interface BindingMatcher<T> {
 
     /**
      * Combinator to constrain the current matcher with the downstream matcher passed in.
+     *
      * @param downstream a matcher that is used to constrain this matcher
      * @return a new binding matcher.
      */
@@ -114,6 +118,7 @@ public interface BindingMatcher<T> {
      * this method we cause an <em>unchecked</em> warning at the call site which may have to be
      * suppressed for each call site separately. As an alternative suggestion, the caller can also string
      * matchers together using {@code m.where(m1).and(m2)} or directly call {@link #where(Collection)} instead.
+     *
      * @param downstreams a vararg of matchers that is used to constrain this matcher
      * @return a new binding matcher.
      */
@@ -124,6 +129,7 @@ public interface BindingMatcher<T> {
 
     /**
      * Combinator to constrain the current matcher with the downstream matchers passed in.
+     *
      * @param downstreams a collection of matchers that is used to constrain this matcher
      * @return a new binding matcher.
      */
@@ -133,6 +139,7 @@ public interface BindingMatcher<T> {
 
     /**
      * Combinator which is just just a rename of {@link #where(BindingMatcher)}.
+     *
      * @param downstream a matcher that is used to constrain this matcher
      * @return a new binding matcher.
      */
@@ -142,6 +149,7 @@ public interface BindingMatcher<T> {
 
     /**
      * Combinator to return a matcher that matches the logical or of this matcher and the matcher passed in.
+     *
      * @param downstream a downstream matcher
      * @return a new binding matcher.
      */
@@ -152,6 +160,7 @@ public interface BindingMatcher<T> {
     /**
      * Method that explain what this matcher does. By convention implementors use a somewhat Scala-esque syntax to
      * provide the explain string.
+     *
      * @param atLeastType the type that we know {@code boundId} is at least of
      * @param boundId an identifier for the object being matched.
      * @param indentation the current indentation as a string of spaces
@@ -163,6 +172,7 @@ public interface BindingMatcher<T> {
      * Method that attempts to match the current binding matcher against the object passed in and just returns whether
      * the matching process produced any matches at all thus forsaking all actual bindings accrued in the matching process.
      * This method is intended to be called e.g. from test code.
+     *
      * @param in an object to match against
      * @return {@code true} if the binding matcher produced any bindings for the object passed in,
      *         {@code false} otherwise
@@ -177,6 +187,7 @@ public interface BindingMatcher<T> {
      * This method is intended to be called e.g. from test code.
      * As a example {@code any(equalsObject(5)).matchesExactly(ImmutableList.of(4, 5, 5))} returns {@code false} while
      * {@code any(equalsObject(5)).matches(ImmutableList.of(4, 5, 5))} returns {@code true}.
+     *
      * @param in an object to match against
      * @return {@code true} if the binding matcher produced any bindings for the object passed in,
      *         {@code false} otherwise
@@ -208,6 +219,7 @@ public interface BindingMatcher<T> {
      * communicate state information to the matching process (via the {@code outerBindings} parameter). Some rules
      * would like to e.g. match an expression if that expression also happens to be the root of the graph, which is
      * not matched but can be preset by the planner for the other matchers to be picked up.
+     *
      * @param <T> type parameter
      * @return a new instance of a matcher that can be used to manually set a binding in a {@link PlannerBindings}
      *         object

@@ -23,9 +23,7 @@ package com.apple.foundationdb.annotation;
 /**
  * Suppress warnings from FindBugs / SpotBugs tools.
  *
- * <p>
- * Avoids introducing another transitive dependency.
- * </p>
+ * <p>Avoids introducing another transitive dependency.
  */
 @API(API.Status.UNSTABLE)
 public @interface SpotBugsSuppressWarnings {

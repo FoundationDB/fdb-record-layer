@@ -86,9 +86,10 @@ import java.util.stream.Collectors;
  * objects should be created through this manager. This allows for cached data (like the block cache or file
  * list cache) for a single directory to persist across different operations (e.g., different queries) conducted
  * in the same transaction.
+ *
  * <p>Note: Since the manager is transaction-scoped, it will be closed once the transaction commits or closes.
  * (See the commit hook created below achieving this).
- * When the manager is closed, it will also close all the directory wrappers it has created.</p>
+ * When the manager is closed, it will also close all the directory wrappers it has created.
  */
 @API(API.Status.INTERNAL)
 public class FDBDirectoryManager implements AutoCloseable {
@@ -129,6 +130,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     /**
      * Close the directoryManager when the transaction wasn't committed.
+     *
      * @throws IOException in case some directories failed to close
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -378,6 +380,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     /**
      * Invalidate directories from the cache if their grouping key begins with a specified prefix.
+     *
      * @param prefix the prefix of grouping keys to remove from the cache
      */
     public void invalidatePrefix(@Nonnull Tuple prefix) {

@@ -38,6 +38,7 @@ public interface RecordTypeOrBuilder {
     /**
      * Get the name of the record type. This is the same as the name of the underlying
      * message type.
+     *
      * @return the message type name
      */
     @Nonnull
@@ -46,6 +47,7 @@ public interface RecordTypeOrBuilder {
     /**
      * Get the descriptor of the underlying message type. This specifies what fields
      * the record will have and what their types should be.
+     *
      * @return the message type descriptor
      */
     @Nonnull
@@ -54,6 +56,7 @@ public interface RecordTypeOrBuilder {
     /**
      * Get the list of indexes that are on this record and only this record. This does not include
      * indexes that are on multiple types even if one of them is on this type.
+     *
      * @return the list of indexes only on this type
      */
     @Nonnull
@@ -63,6 +66,7 @@ public interface RecordTypeOrBuilder {
      * Gets the list of indexes that are on multiple record types one of which is this type. This
      * will not include {@link Index}es that are on all record types (universal indexes) within a given
      * metadata configuration.
+     *
      * @return the list of indexes on multiple types including this type
      */
     @Nonnull
@@ -71,6 +75,7 @@ public interface RecordTypeOrBuilder {
     /**
      * Gets the primary key expression for this record type. Records of this type are inserted based
      * on the value of this key expression when evaluated on the record.
+     *
      * @return the primary key expression for this record type
      */
     @Nullable
@@ -79,6 +84,7 @@ public interface RecordTypeOrBuilder {
     /**
      * Gets a metadata version, which shows when this record type got introduced in the metadata. This information is
      * used to skip index rebuild for indices on new record types.
+     *
      * @return  metadata version when this type is introduced (<code>null</code> if this information is not available)
      */
     @Nullable
@@ -87,6 +93,7 @@ public interface RecordTypeOrBuilder {
     /**
      * Gets the {@link com.apple.foundationdb.tuple.Tuple} element value that will be used by {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression} for this record type.
      * The value should be unique among record types and stable in the face of meta-data changes.
+     *
      * @return stable and unique key for record type
      */
     @Nullable

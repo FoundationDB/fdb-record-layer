@@ -209,7 +209,7 @@ public class LucenePartitioner {
      * is sorted by the partitioning field in ascending order, in which case the
      * oldest partition is returned.
      *
-     * If the query contains a top level partitioning field predicate in conjunction
+     * <p>If the query contains a top level partitioning field predicate in conjunction
      * with the rest of the predicates, and the predicate can be used to determine
      * a specific starting partition, that partition will be computed and returned.
      *
@@ -842,7 +842,7 @@ public class LucenePartitioner {
     /**
      * Re-balance the first partition in a given grouping key by moving documents out of it.
      *
-     * Note that in order to finish the task within the bounds of a single transaction, only the first
+     * <p>Note that in order to finish the task within the bounds of a single transaction, only the first
      * partition needing re-balancing will be processed. If there are other partitions that need re-balancing,
      * they will be processed during subsequent calls.
      *
@@ -1169,6 +1169,7 @@ public class LucenePartitioner {
 
     /**
      * Remove an empty partition from the index.
+     *
      * @param repartitioningContext the context returned from the partitioning planner
      * @return 0 in case no operation was performed, 1 if the operation was successful
      */
@@ -1210,6 +1211,7 @@ public class LucenePartitioner {
 
     /**
      * Return TRUE if the partition is empty (no docs in the actual Lucene index).
+     *
      * @param partitionInfo the partition to check
      * @param groupingKey the grouping key for the index
      * @return TRUE if the index is empty, FALSE otherwise
@@ -1544,10 +1546,9 @@ public class LucenePartitioner {
     /**
      * Timing information for {@link #moveDocsFromPartition(LuceneRepartitionPlanner.RepartitioningContext)}, to get a
      * better idea as to what is taking a long time when repartitioning is failing.
-     * <p>
-     *     This currently has a lot of metrics to be conservative, but once there is a bit more usage, we can probably
+     *
+     * <p>This currently has a lot of metrics to be conservative, but once there is a bit more usage, we can probably
      *     remove some of these and focus on the operations that could reasonably take a while.
-     * </p>
      */
     private static class RepartitionTimings {
         long initializationNanos;

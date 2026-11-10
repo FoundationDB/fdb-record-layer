@@ -50,12 +50,12 @@ import java.util.stream.IntStream;
  * class represents a conglomeration for result values, predicates, quantifiers before those elements are unified and
  * eventually find their home in a {@link SelectExpression}.
  *
- * Another way of thinking about this class is to conceptualize logic implemented here as a pre stage to actually
+ * <p>Another way of thinking about this class is to conceptualize logic implemented here as a pre stage to actually
  * creating expressions, as a builder of a {@link SelectExpression}s of sorts. The fundamental difference between
  * a builder in the regular sense and this class is that it also provides getters to all elements and the ability to
  * merge other {@code GraphExpansion}s in a additive manner.
  *
- * This class also hides some data cleansing process, in particular related to potential duplicity on place holders,
+ * <p>This class also hides some data cleansing process, in particular related to potential duplicity on place holders,
  * which must be corrected (de-duplicated) before the placeholders are used in the predicates of e.g. a match candidate.
  */
 public class GraphExpansion {

@@ -88,8 +88,8 @@ class KMeansTest {
 
     /**
      * Generates two Gaussian blobs in 3D, runs {@code k=2}, and checks the result.
-     * <p>
-     * Specifically:
+     *
+     * <p>Specifically:
      * <ul>
      *   <li>both clusters non-empty;</li>
      *   <li>centroids near the generating means (within a tolerance);</li>
@@ -286,8 +286,8 @@ class KMeansTest {
     /**
      * Exercises {@code k > 2} plus balancing: 3 blobs in 3D, ask for {@code k=3} and enable soft
      * size balancing.
-     * <p>
-     * Checks:
+     *
+     * <p>Checks:
      * <ul>
      *   <li>all clusters non-empty;</li>
      *   <li>cluster sizes not wildly imbalanced.</li>
@@ -565,8 +565,8 @@ class KMeansTest {
      * Property-based: sample {@value #SIFT_SAMPLE_SIZE} vectors from SIFT-small, run {@code fit}
      * across a grid of {@code k} and relative balancing strengths under the Euclidean metric, and
      * verify the structural and algorithmic invariants of every result.
-     * <p>
-     * The non-zero strength is the one of the cosine twin {@link #siftSmallCosineInvariants}, where it
+     *
+     * <p>The non-zero strength is the one of the cosine twin {@link #siftSmallCosineInvariants}, where it
      * amounts to an absolute weight of about 0.08. Being relative, it acts here just as well; the same
      * absolute weight would not: against squared distances of about {@code 1.5e5} per vector it is a
      * relative strength of {@code 5e-7}, which would leave the invariants under balancing untested.
@@ -632,8 +632,8 @@ class KMeansTest {
     /**
      * Two runs with the same seed on the same data and parameters must produce bit-identical
      * results: assignment, centroid coordinates, distances, and overall objective.
-     * <p>
-     * Tagged {@link Tags#RequiresScalar} so it runs only under {@code scalarFallbackTest} (which
+     *
+     * <p>Tagged {@link Tags#RequiresScalar} so it runs only under {@code scalarFallbackTest} (which
      * sets {@code fdb.vector.simd=scalar}). SIMD reductions sum partial lanes in a different order
      * than scalar accumulation, which breaks the bit-exact equality on the distances and objective
      * comparisons below.
@@ -724,18 +724,18 @@ class KMeansTest {
      * Soft size balancing should reduce cluster-size variance: with {@code relativeLambda > 0} and the
      * default overflow penalty, the standard deviation of cluster sizes should — <i>averaged
      * across seeds</i> — be smaller than without balancing.
-     * <p>
-     * The metric is intentionally the standard deviation, not the maximum cluster size. The
+     *
+     * <p>The metric is intentionally the standard deviation, not the maximum cluster size. The
      * overflow-quadratic penalty literally minimizes a sum of squared overflows, so what it
      * actually optimizes is closer to variance than to max — and max alone is a fragile proxy
      * that can go up while variance goes down (the penalty might be redistributing the small
      * clusters more than shaving the largest). Asserting on standard deviation tracks the
      * property the penalty is optimizing.
-     * <p>
-     * Aggregating across 32 inputs derived from the seed smooths out the variance of the local
+     *
+     * <p>Aggregating across 32 inputs derived from the seed smooths out the variance of the local
      * minimum each run converges into.
-     * <p>
-     * The strength is relative to the sample's per-vector single-cluster SSE {@code s}, which is
+     *
+     * <p>The strength is relative to the sample's per-vector single-cluster SSE {@code s}, which is
      * about {@code 1.5e5} for SIFT-small: {@code relativeLambda = 0.007} amounts to an absolute
      * weight of about {@code 1000}. The cluster sizes compared are those of the returned,
      * nearest-centroid partitioning, so the test shows that the penalty moves the centroids.
@@ -827,19 +827,15 @@ class KMeansTest {
      * what makes one {@code relativeLambda} mean the same thing at every scale; an absolute weight
      * would press {@code 1024^2} times less on {@code Y} than on {@code X}.
      *
-     * <p>
-     * The factor is a power of two, so every sum, product and comparison {@code fit} computes on
+     * <p>The factor is a power of two, so every sum, product and comparison {@code fit} computes on
      * {@code Y}, k-means++ sampling included, is exactly {@code 2^10} or {@code 2^20} times its
      * counterpart on {@code X}: the two runs take identical decisions, and their objectives differ by
      * exactly {@code 1024^2} (asserted up to a relative {@code 1e-12} all the same).
-     * </p>
      *
-     * <p>
-     * With {@code k = 10}, the strength {@code 0.16} (the strongest rung of Guardiann's default balancing
+     * <p>With {@code k = 10}, the strength {@code 0.16} (the strongest rung of Guardiann's default balancing
      * ladder) visibly evens out the cluster sizes on most but not all samples. As this is a requirement
      * for the test to meaningfully assert on anything, if the chosen sample does not, then this
      * returns {@code false} and a new sample is re-rolled by the caller.
-     * </p>
      *
      * @return whether balancing evened out the cluster sizes on this sample, so that the invariance
      *         was meaningfully checked
@@ -1264,8 +1260,8 @@ class KMeansTest {
      * (metric-specific) base objective to any centroid is maximal — i.e. the point currently
      * <i>worst</i>-served by the centroid set. The {@code fit} loop calls it to reseed empty or
      * degenerate clusters during the centroid-update step.
-     * <p>
-     * This test pins the contract on a hand-built configuration where the answer is unambiguous:
+     *
+     * <p>This test pins the contract on a hand-built configuration where the answer is unambiguous:
      * with two centroids on the x-axis at {@code ±5}, a point sitting far up the y-axis is
      * roughly equidistant from both centroids and much farther than any nearby x-axis point.
      */
@@ -1332,8 +1328,8 @@ class KMeansTest {
 
     /**
      * Computes a "bad" baseline objective for the squared-L2 case.
-     * <p>
-     * Computes the global mean, then pretends {@code k=2} but both centroids are identical at
+     *
+     * <p>Computes the global mean, then pretends {@code k=2} but both centroids are identical at
      * the global mean. The objective is the sum of squared distances from each point to that
      * mean.
      */
@@ -1358,8 +1354,8 @@ class KMeansTest {
 
     /**
      * Computes a "bad" baseline objective for the cosine / normalized case.
-     * <p>
-     * Computes the global mean, normalizes it to a unit vector, then pretends both centroids are
+     *
+     * <p>Computes the global mean, normalizes it to a unit vector, then pretends both centroids are
      * that same vector. The objective is computed using the provided {@link DistanceEstimator}.
      */
     private static double baselineObjectiveSameCentroidTwiceNormalized(@Nonnull final List<RealVector> pts,

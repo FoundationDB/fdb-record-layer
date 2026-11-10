@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 /**
  * A maintenance operation on a secondary index.
  *
- * For example, an index that adds time-related entries might expire old ones occasionally.
+ * <p>For example, an index that adds time-related entries might expire old ones occasionally.
  */
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")

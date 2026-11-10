@@ -35,8 +35,8 @@ import java.util.Set;
  * logic are already considered optimal with respect to simplification, the rules in this set do not further simplify
  * the value in the basic simplification sense. These rules transform the query side value into a different value, that
  * is not simpler but more <em>matchable</em> to the candidate side.
- * <br>
- * For instance, a query side value of {@code qov(q1)} is per se not matchable to
+ *
+ * <p>For instance, a query side value of {@code qov(q1)} is per se not matchable to
  * {@code rcv(fv(qov(q1), "b"), fv(qov(q1), "a"), fv(qov(q1), "c")}, however, expanding {@code qov(q1)} to
  * {@code rcv(fv(qov(q1), "a"), fv(qov(q1), "b"), fv(qov(q1), "c")} will create matches for
  * {@code rcv(fv(qov(q1), "a")}, {@code fv(qov(q1), "b")}, and {@code fv(qov(q1), "c")} respectively.

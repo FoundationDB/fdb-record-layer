@@ -21,15 +21,15 @@
 /**
  * SIMD-using implementations of vector primitives, depending on the {@code jdk.incubator.vector}
  * incubator module.
- * <p>
- * <b>Isolation invariant</b>: this package is the <em>only</em> place in the codebase that imports
+ *
+ * <p><b>Isolation invariant</b>: this package is the <em>only</em> place in the codebase that imports
  * {@code jdk.incubator.vector.*}. The classes here are loaded reflectively by
  * {@code RealVectorPrimitives.selectBackend()} so the rest of the module can be compiled and run
  * without the incubator module being available on the JVM. If the module is missing at runtime,
  * loading {@code SimdBackend} throws {@code NoClassDefFoundError} and the dispatcher falls back to
  * the scalar implementation in the parent package.
- * <p>
- * Build configuration must pass {@code --add-modules jdk.incubator.vector} to the
+ *
+ * <p>Build configuration must pass {@code --add-modules jdk.incubator.vector} to the
  * {@code compileJava} task that compiles this package. To exercise the SIMD path at runtime, the
  * same flag must be passed to the JVM.
  */

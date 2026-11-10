@@ -33,9 +33,15 @@ jobs:
                 throw new Error("Target must be a patch branch or main, but was: " + context.ref);
             }
           result-encoding: string
-      - name: Print update type
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Summarize release
         shell: bash
-        run: echo "${{steps.update-type.outputs.result}}"
+        run: |
+          python3 build/versionutils.py gradle.properties \
+            --release-summary \
+            -u "${{ steps.update-type.outputs.result }}" \
+            >> "$GITHUB_STEP_SUMMARY"
 
   # 2. In parallel, we run:
   #   a) all static checks

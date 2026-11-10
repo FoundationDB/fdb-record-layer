@@ -71,13 +71,13 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * Scenarios exercising {@link CollapseTask}: a cluster filled with exactly-identical primary vectors (same
  * {@link StorageAdapter#signatureUuid signature}) folds those duplicates into a single stored "collapsed" reference,
  * recording each absorbed id so it stays resolvable at query time.
- * <p>
- * Tests 1–2 drive the natural end-to-end trigger (insert many identical vectors → a SPLIT that can't repartition
+ *
+ * <p>Tests 1–2 drive the natural end-to-end trigger (insert many identical vectors → a SPLIT that can't repartition
  * identical points → {@code AbstractDeferredTask.enqueueCollapseIfNecessary} → COLLAPSE). Tests 3–4 drive a
  * {@link CollapseTask} directly (config with a huge {@code primaryClusterMax} so inserts never auto-collapse), for
  * deterministic control over the no-op guards and the re-collapse aggregation branch.
- * <p>
- * Collapse removes the standalone primary references it folds, so it leaves the (other-cluster) replicas of those
+ *
+ * <p>Collapse removes the standalone primary references it folds, so it leaves the (other-cluster) replicas of those
  * vectors dangling — exactly like a delete. These tests therefore assert structure via
  * {@link GuardiannStructureAsserts#assertGuardiannInvariantsAfterDeletes}, which tolerates dangling replicas.
  */
@@ -257,8 +257,8 @@ public class CollapseScenarioTest implements BaseTest {
      * Drives {@link Search#clusterOverlapDiagnostics}, a recall/probe-count diagnostic with no production callers: for
      * each query vector it counts how many clusters' spheres (radius = the cluster's {@code maxEver} member distance)
      * contain it.
-     * <p>
-     * To exercise <em>genuine</em> overlap (a query inside more than one sphere) rather than the trivial
+     *
+     * <p>To exercise <em>genuine</em> overlap (a query inside more than one sphere) rather than the trivial
      * single-sphere case, this builds a tight cloud of near-duplicates around one base vector with a small
      * {@code primaryClusterMax}, so it splits into several <em>co-located</em> sub-clusters whose spheres necessarily
      * intersect. Querying the cloud centre (and each sub-centroid) then lands inside {@code >= 2} spheres. Also pins
@@ -479,8 +479,8 @@ public class CollapseScenarioTest implements BaseTest {
      * keys. Reassigning that cluster must replace them with a single reference to the collapsed area (keeping the
      * highest replication priority among them), leave the collapsed-id store untouched, and keep every absorbed member
      * queryable.
-     * <p>
-     * The dangling-replica precondition is hand-rolled exactly as a collapse-in-another-cluster would leave it: the
+     *
+     * <p>The dangling-replica precondition is hand-rolled exactly as a collapse-in-another-cluster would leave it: the
      * vector metadata still present (so {@code cleanUpVectorReferences} keeps the replica), an entry in the
      * collapsed-id store, and an orphaned replica reference in this cluster. Reference vectors are stored lossily
      * (RaBitQ encoding), so the signature is derived from the <em>read-back</em> reference — the same form
@@ -588,8 +588,8 @@ public class CollapseScenarioTest implements BaseTest {
      * dropped as a duplicate rather than folded into a second collapsed reference. Both share
      * {@code primaryKey = Tuple.from(signature)}, so absent that dedup they collide when
      * {@link AbstractDeferredTask#computeTargetClusterDelta} builds its {@code ImmutableMap}.
-     * <p>
-     * Verifies reassign completes and the two same-signature references collapse to a single collapsed-area reference
+     *
+     * <p>Verifies reassign completes and the two same-signature references collapse to a single collapsed-area reference
      * keeping the highest replication priority among them (here the already-collapsed replica, given the higher priority
      * so the fold walks it first). Mirrors {@link #reassignFoldsCollapsedReplicasIntoOneReference} for the all-plain case.
      */

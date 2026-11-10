@@ -65,13 +65,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * What deleting nodes does to the graph, under the access pattern guardiann's cluster-centroid HNSW is subjected to: a
  * small graph where a split inserts centroids and a merge deletes one, so the population churns many times over.
- * <p>
- * The delete repair adds only incoming edges, so every node that held a reference to the deleted node ends the delete
+ *
+ * <p>The delete repair adds only incoming edges, so every node that held a reference to the deleted node ends the delete
  * one outgoing edge poorer. The tests here cover what that costs and what the repair does about it: that no node runs
  * out of outgoing edges, that some node can still reach all the others, that a node reached from its own vector is
  * found, and that references naming a node an earlier delete removed are eventually reaped.
- * <p>
- * The graph is deliberately small. It is the regime the centroid graph actually runs in, and it is the one where the
+ *
+ * <p>The graph is deliberately small. It is the regime the centroid graph actually runs in, and it is the one where the
  * degree caps never bind, so nothing is hidden behind {@code mMax} pruning.
  */
 @Tag(Tags.RequiresFDB)
@@ -632,8 +632,8 @@ class ChurnReachabilityTest implements BaseTest {
 
     /**
      * A delete reaps the references of the nodes it visits that name a node an earlier delete removed.
-     * <p>
-     * Such a reference is left behind whenever the node holding it lies outside the repair candidate set of the delete
+     *
+     * <p>Such a reference is left behind whenever the node holding it lies outside the repair candidate set of the delete
      * that removed its target, so this churns until one exists rather than trying to construct that position directly.
      * It then deletes a node that points at the holder, which puts the holder in the first degree of the next delete's
      * candidate set and so has the holder's own neighbors read, which is what proves the reference dead.

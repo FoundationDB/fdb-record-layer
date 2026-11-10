@@ -30,8 +30,8 @@ import java.util.Objects;
 /**
  * This class aims to reduce potential logic problems with respect to coordinate transformations by soliciting help from
  * Java's type system.
- * <p>
- * While implementing complex algorithms that required coordinate transformations, some problems seemed to occur
+ *
+ * <p>While implementing complex algorithms that required coordinate transformations, some problems seemed to occur
  * repeatedly and the following observations were made:
  * <ul>
  *     <li>A few algorithms use an API that passes vectors back and forth in a coordinate system given by the user.
@@ -48,21 +48,21 @@ import java.util.Objects;
  *     transformed a second time.
  *     </li>
  * </ul>
- * <p>
- * The following approach only makes sense for scenarios that deal with exactly two coordinate systems.
- * <p>
- * We would like to express vectors in one system by {@link RealVector} whereas the vectors in the secondary system
+ *
+ * <p>The following approach only makes sense for scenarios that deal with exactly two coordinate systems.
+ *
+ * <p>We would like to express vectors in one system by {@link RealVector} whereas the vectors in the secondary system
  * are expressed using {@link Transformed} of {@link RealVector}. The hope is that Java's compiler can assist in
  * avoiding using the wrong sort of vector in the wrong situation. While it is possible to circumvent these best-effort
  * type system-imposed restrictions, this class is meant to be utilized in a more pragmatic way.
- * <p>
- * Objects of this class wrap some vector of type {@code V} creating a transformed vector. The visibility of
+ *
+ * <p>Objects of this class wrap some vector of type {@code V} creating a transformed vector. The visibility of
  * this class' constructor is package-private by design. Only operators implementing {@link VectorOperator} can
  * transform an instance of type {@code V} extends {@link RealVector} into a {@code Transformed} object. The same is
  * true for inverse transformations: only operators can transform a {@code Transformed} vector back to the original
  * vector.
- * <p>
- * In other places where {@code Transformed}s are created (and destructed) users should be aware of exactly what happens
+ *
+ * <p>In other places where {@code Transformed}s are created (and destructed) users should be aware of exactly what happens
  * and why. We tried to restrict visibilities of constructors and accessors, but due to Java's lack in expressiveness
  * when it comes to type system finesse, this is a best-effort approach. If a {@code Transformed} is
  * <i>deconstructed</i> using {@link #getUnderlyingVector()}, the user should ensure that the resulting vector is not
@@ -71,6 +71,7 @@ import java.util.Objects;
  * {@code someNewOperator.transform(oldTransformed.getUnderlyingVector()} as the result would be a transformed vector
  * that is in fact transformed a second time. Note that this can make sense in some cases, however, in the described
  * use case it mostly does not.
+ *
  * @param <V> the wrapped kind of {@link RealVector}
  */
 public final class Transformed<V extends RealVector> {
@@ -120,6 +121,7 @@ public final class Transformed<V extends RealVector> {
     /**
      * Lens to access the underlying vector of a transformed vector in logic that can be called for containers of
      * both vectors and transformed vectors.
+     *
      * @param <V> type parameter for vector class
      */
     public static class UnderlyingLens<V extends RealVector> implements Lens<Transformed<V>, V> {

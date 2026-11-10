@@ -57,7 +57,6 @@ public class LuceneConcurrency {
      * @param event the timer event to use for recording the waits
      * @param async the future to wait on
      * @param recordContext the context to use for callback, recording the event and getting the timeout
-     *
      * @return the result of the future's operation
      */
     @Nullable

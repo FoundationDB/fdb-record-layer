@@ -39,10 +39,8 @@ import javax.annotation.Nullable;
  *     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
  * }</pre>
  *
- * <p>
- * Tests within the fixture can then allocate paths via the {@code pathManager} extension that will
+ * <p>Tests within the fixture can then allocate paths via the {@code pathManager} extension that will
  * be automatically cleaned up after the test completes.
- * </p>
  *
  * @see TestKeySpacePathManager
  * @see FDBDatabaseExtension

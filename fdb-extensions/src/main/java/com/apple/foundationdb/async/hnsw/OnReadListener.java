@@ -35,9 +35,10 @@ public interface OnReadListener extends OnKeyValueReadListener {
 
     /**
      * Callback invoked when a key-value pair is read from a specific layer.
-     * <p>
-     * This method is typically called during a scan or iteration over data for each key/value pair.
+     *
+     * <p>This method is typically called during a scan or iteration over data for each key/value pair.
      * The default implementation is a no-op and does nothing.
+     *
      * @param layer the layer or depth of the node in the structure, starting from 0.
      * @param key the key that was read, guaranteed to be non-null.
      * @param value the value associated with the key, can be null if the key was not found
@@ -49,11 +50,12 @@ public interface OnReadListener extends OnKeyValueReadListener {
 
     /**
      * A callback method that can be overridden to intercept the result of an asynchronous node read.
-     * <p>
-     * This method provides a hook for subclasses to inspect or modify the {@code CompletableFuture} after an
+     *
+     * <p>This method provides a hook for subclasses to inspect or modify the {@code CompletableFuture} after an
      * asynchronous read operation is initiated. The default implementation is a no-op that simply returns the original
      * future. This method is intended to be used to measure elapsed time between the creation of a
      * {@link CompletableFuture} and its completion.
+     *
      * @param <N> the type of the {@code NodeReference}
      * @param future the {@code CompletableFuture} representing the pending asynchronous read operation.
      * @return a {@code CompletableFuture} that will complete with the read {@code Node}.
@@ -66,9 +68,10 @@ public interface OnReadListener extends OnKeyValueReadListener {
 
     /**
      * Callback method invoked when a node is read during a traversal process.
-     * <p>
-     * This default implementation does nothing. Implementors can override this method to add custom logic that should
+     *
+     * <p>This default implementation does nothing. Implementors can override this method to add custom logic that should
      * be executed for each node encountered. This serves as an optional hook for processing nodes as they are read.
+     *
      * @param layer the layer or depth of the node in the structure, starting from 0.
      * @param node the {@link Node} that was just read (guaranteed to be non-null).
      */

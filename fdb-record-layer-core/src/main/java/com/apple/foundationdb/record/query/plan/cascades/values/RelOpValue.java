@@ -107,6 +107,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Creates a new instance of {@link RelOpValue}.
+     *
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
@@ -248,8 +249,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Attempt to compile-time evaluate {@code this} predicate as a constant {@link QueryPredicate}.
-     * <br/>
-     * <b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
+     *
+     * <p><b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
      * and explicit phase that does compactions, simplifications, and compile-time evaluations as an explicit
      * preprocessing step.
      *

@@ -70,8 +70,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  * a parsed {@link Config} and constructs a fresh {@code Guardiann} bound to the partition subspace for each operation;
  * Guardiann runs its deferred maintenance (split/merge/reassign/collapse) piggy-backed on inserts and deletes, so
  * per-call construction is the intended usage.
- * <p>
- * Two things differ from HNSW. First, a Guardiann {@code delete} needs the vector (not just the primary key) to locate
+ *
+ * <p>Two things differ from HNSW. First, a Guardiann {@code delete} needs the vector (not just the primary key) to locate
  * the vector's cluster references, which is why the {@link VectorIndexEngine} delete contract always carries the vector.
  * Second, a Guardiann search requires a per-query {@link SearchConfig}, which is built from the per-query scan options
  * ({@link VectorIndexScanOptions}'s {@code GUARDIANN_*} knobs), each knob falling back to its {@link SearchConfig}

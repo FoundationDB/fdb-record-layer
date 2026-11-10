@@ -53,21 +53,21 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that pushes a set of predicates that can be evaluated on a partial record of keys and values that were
  * retrieved by an index scan underneath a {@link RecordQueryFetchFromPartialRecordPlan} in order to filter out records
  * not satisfying the pushed predicates prior to a potentially expensive fetch operation.
- * <br>
- * A predicate can be pushed if and only if the predicate's leaves which (in the prior of this rule refer to entities
+ *
+ * <p>A predicate can be pushed if and only if the predicate's leaves which (in the prior of this rule refer to entities
  * in the fetched full record) can be translated to counterparts in the index record. The translation is specific to
  * the kind of index and therefore the kind of {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
- * <br>
- * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
+ *
+ * <p>This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for
  * details.
- * <br>
- * A filter can have a number of predicates which can be separately pushed or not pushed, e.g. if the filter uses
+ *
+ * <p>A filter can have a number of predicates which can be separately pushed or not pushed, e.g. if the filter uses
  * {@code x > 5 AND y < 10} we may be able to push {@code x > 5} since {@code x} is covered by the underlying index, but
  * we cannot push {@code y < 10} since {@code y} is not covered by the index. We therefore partition all conjuncts of
  * the filter and try the maximum set of predicates which can be pushed.
- * <br>
- * Once the classification of predicate conjuncts is done leading to a partitioning of all conjuncts into pushable and
+ *
+ * <p>Once the classification of predicate conjuncts is done leading to a partitioning of all conjuncts into pushable and
  * not pushable (residual), we need to consider three distinct cases:
  * <ol>
  *   <li>pushed predicates list is empty -- don't yield anything and just return</li>

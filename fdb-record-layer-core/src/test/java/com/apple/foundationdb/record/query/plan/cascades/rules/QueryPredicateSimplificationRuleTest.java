@@ -75,8 +75,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.b
  * predicate, constructs randomized AND/OR trees. This allows testing predicate simplification in the context of complex,
  * production-like SQL statements. The generator creates a tree with the specified predicate embedded within it, providing
  * a realistic environment for evaluating simplification logic.
- * <br>
- * For example: Given a predicate {@code P1} that evaluates to {@code FALSE}, the framework puts it in a tree of
+ *
+ * <p>For example: Given a predicate {@code P1} that evaluates to {@code FALSE}, the framework puts it in a tree of
  * {@code AND} predicates and then carries on to make sure that the tree collapses to {@code FALSE}.
  * <pre>{@code
  *        AND

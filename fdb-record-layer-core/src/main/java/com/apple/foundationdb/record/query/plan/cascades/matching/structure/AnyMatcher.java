@@ -34,13 +34,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A binding matcher that is a {@link CollectionMatcher} that binds to individual elements contained in a collection
  * separately.
  *
- * As an example
+ * <p>As an example
  *
  * {@code
  * any(equalsObject(5)).matches(ImmutableList.of(1, 5, 2, 3, 5))
  * }
  *
- * produces a stream of two bindings which both bind to {@code 5} each.
+ * <p>produces a stream of two bindings which both bind to {@code 5} each.
  *
  * @param <T> the type that this matcher binds to
  */

@@ -77,12 +77,12 @@ public class RelationalException extends Exception {
     /**
      * Add additional context to the Exception.
      *
-     * This method is intended to carry "context" for easy logging purposes, it is <em>not</em> a replacement
+     * <p>This method is intended to carry "context" for easy logging purposes, it is <em>not</em> a replacement
      * for proper error codes <em>or</em> for effective error messages. Any information that is held within
      * this context should (within reason) also be contained within either the error message or the ErrorCode
      * fields.
      *
-     * This method exists solely for the purposes of carrying a historical error handling logic forward, and
+     * <p>This method exists solely for the purposes of carrying a historical error handling logic forward, and
      * should not be relied upon for important information.
      *
      * @param ctxName the name of the additional context field.
@@ -101,12 +101,12 @@ public class RelationalException extends Exception {
     /**
      * Add additional context to the Exception.
      *
-     * This method is intended to carry "context" for easy logging purposes, it is <em>not</em> a replacement
+     * <p>This method is intended to carry "context" for easy logging purposes, it is <em>not</em> a replacement
      * for proper error codes <em>or</em> for effective error messages. Any information that is held within
      * this context should (within reason) also be contained within either the error message or the ErrorCode
      * fields.
      *
-     * This method exists solely for the purposes of carrying a historical error handling logic forward, and
+     * <p>This method exists solely for the purposes of carrying a historical error handling logic forward, and
      * should not be relied upon for important information.
      *
      * @param context additional context as a map.

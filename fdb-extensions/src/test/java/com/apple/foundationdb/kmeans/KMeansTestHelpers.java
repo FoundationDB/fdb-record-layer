@@ -152,8 +152,8 @@ final class KMeansTestHelpers {
      * {@code vectorLens} and {@code centroidLens} are
      * {@link com.apple.foundationdb.util.Lens#identity()}, so that centroids are themselves
      * {@link RealVector}s.
-     * <p>
-     * Invariants checked:
+     *
+     * <p>Invariants checked:
      * <ul>
      *   <li>{@code assignment.length == n}; every entry in {@code [0, k)}</li>
      *   <li>{@code centroids.size() == k}, {@code clusterSizes.length == k}</li>

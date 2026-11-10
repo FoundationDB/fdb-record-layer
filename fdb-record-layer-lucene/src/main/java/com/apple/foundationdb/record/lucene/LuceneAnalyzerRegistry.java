@@ -30,11 +30,9 @@ import java.util.Map;
  * their analyzer combination through an index options.
  * The registry will then be queried for the analyzer combination provider.
  *
- * <p>
- * Note that the way of adding elements to the analyzer registry is to use the
+ * <p>Note that the way of adding elements to the analyzer registry is to use the
  * {@link com.google.auto.service.AutoService AutoService} annotation to mark a
  * {@link LuceneAnalyzerFactory} implementation as one that should be loaded into the registry.
- * </p>
  */
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {

@@ -104,6 +104,7 @@ public class VectorIndexTestSupport {
      * Runs one pass of the real record-layer index merger over {@code indexName} via {@link OnlineIndexer#mergeIndex()}
      * — the same entry a background merger uses. The merger sets the merge session id and drives the
      * per-partition claim/drain loop internally, so tests need not hand-roll that bookkeeping.
+     *
      * @param contextOpener opens the context the store for the {@link OnlineIndexer} configuration is opened in
      * @param storeOpener opens the record store holding the index in a given context
      * @param indexName the vector index to merge
@@ -128,6 +129,7 @@ public class VectorIndexTestSupport {
     /**
      * Drives {@link #mergeVectorIndexOnce} until {@code indexName} has no outstanding deferred-maintenance work
      * (executing a task can enqueue follow-ups, so a few passes may be needed), failing if it does not converge.
+     *
      * @param contextOpener opens the context of each transaction
      * @param storeOpener opens the record store holding the index in a given context
      * @param indexName the vector index to drain
@@ -148,6 +150,7 @@ public class VectorIndexTestSupport {
     /**
      * Whether {@code indexName} still has outstanding deferred-maintenance work, read via its
      * {@link VectorIndexMaintainer}.
+     *
      * @param contextOpener opens the context to read in
      * @param storeOpener opens the record store holding the index in a given context
      * @param indexName the vector index to check
@@ -168,6 +171,7 @@ public class VectorIndexTestSupport {
      * Inserts one batch in a single transaction, retrying the whole batch on an FDB conflict (logged) and backing
      * off + retrying on a cluster hard-cap back-pressure (logged). {@code saveBatch} runs again on every attempt, so it
      * must be safe to replay; {@code saveRecord} is idempotent by primary key, so replaying a rolled-back batch is safe.
+     *
      * @param contextOpener opens the context of each attempt
      * @param storeOpener opens the record store holding the index in a given context
      * @param saveBatch saves the batch's records into the given store
@@ -214,6 +218,7 @@ public class VectorIndexTestSupport {
      * A raw {@link Guardiann} over {@code index}'s subspace in {@code store} — the same keys the record-layer engine
      * writes. Reusing {@link GuardiannVectorIndexEngine#parseConfig} guarantees the reconstructed {@link Guardiann} is
      * configured exactly as the engine that wrote the data (dimensions, cluster sizes, replication thresholds).
+     *
      * @param store the record store holding the index
      * @param index the Guardiann vector index
      * @param executor the executor for the {@link Guardiann} to run on
@@ -232,6 +237,7 @@ public class VectorIndexTestSupport {
      * structural-invariant checker. This is the no-delete variant, so it also asserts every replica references a live
      * primary. The checker first drains to quiescence, which is a no-op if {@link #mergeVectorIndexToCompletion}
      * already emptied the backlog.
+     *
      * @param fdb the database the index is in
      * @param contextOpener opens the context the index subspace and config are read in
      * @param storeOpener opens the record store holding the index in a given context
@@ -252,6 +258,7 @@ public class VectorIndexTestSupport {
     /**
      * Mean recall@{@code k} of {@code topK} over every query vs. the provided ground truth. The whole ground-truth set
      * of a query is its recall@k reference set, so each set must carry exactly the {@code k} nearest neighbors.
+     *
      * @param queries the query vectors
      * @param groundTruth the ids of the {@code k} nearest neighbors per query, in query order
      * @param k the number of neighbors to search for
@@ -277,6 +284,7 @@ public class VectorIndexTestSupport {
     /**
      * Executes a vector index kNN plan (e.g. from {@link #createIndexPlan}) to exhaustion and returns the ids of the
      * hits.
+     *
      * @param contextOpener opens the context to query in
      * @param storeOpener opens the record store holding the index in a given context
      * @param plan the plan to execute
@@ -325,6 +333,7 @@ public class VectorIndexTestSupport {
      * An index plan that scans the {@code k} nearest neighbors of {@code queryVector} in {@code indexName} and fetches
      * their records. The plan's common primary key is a fixed placeholder ({@code recNo}) that
      * {@link IndexFetchMethod#SCAN_AND_FETCH} execution ignores.
+     *
      * @param queryVector the query vector
      * @param k the number of neighbors to return
      * @param indexName the vector index to scan
@@ -351,6 +360,7 @@ public class VectorIndexTestSupport {
     /**
      * Scan comparisons for the {@code k} nearest neighbors of {@code queryVector}. The query literal's vector type
      * takes its precision and dimensions from {@code queryVector}.
+     *
      * @param queryVector the query vector
      * @param k the number of neighbors to return
      * @param vectorIndexScanOptions the scan options

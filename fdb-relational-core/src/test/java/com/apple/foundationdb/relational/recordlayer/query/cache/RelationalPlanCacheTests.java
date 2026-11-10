@@ -82,8 +82,8 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  * This contains a set of tests for {@link RelationalPlanCache} and {@link PlanGenerator}. Similar to {@link MultiStageCacheTests},
  * it verifies different aspects of cache behaviour such as primary key and secondary key generation and segregation and
  * different cache eviction policies.
- * <br>
- * However, it runs tests using {@link RelationalPlanCache} specialization, including all SQL processing pipeline components
+ *
+ * <p>However, it runs tests using {@link RelationalPlanCache} specialization, including all SQL processing pipeline components
  * such as SQL normalizer, query hasher, literal extraction, plan generation, plan optimization, plan costing, and cache
  * value reduction operations. The only difference between this test and a production setup is that the cache uses a logical
  * timer and same-thread executor, so we can produce deterministic test results.

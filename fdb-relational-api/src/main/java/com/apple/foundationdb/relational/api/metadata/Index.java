@@ -25,17 +25,13 @@ import javax.annotation.Nonnull;
 /**
  * An {@code Index} metadata that contains information an underlying index data structure of a {@link Table}.
  *
- * <p>
- * This currently targets only table-specific indexes and not universal indexes. However, it can be
+ * <p>This currently targets only table-specific indexes and not universal indexes. However, it can be
  * extended to cover universal indexes if need be.
- * </p>
  */
 public interface Index extends Metadata {
 
     /**
-     * Returns the name of the {@link Table} that owns the {@code index}.
-     *
-     * @return The name of the {@link Table} that owns the {@code index}.
+     * {@return the name of the {@link Table} that owns the {@code index}}
      */
     @Nonnull
     String getTableName();
@@ -45,7 +41,6 @@ public interface Index extends Metadata {
      * {@code com.apple.foundationdb.record.metadata.IndexTypes}.
      *
      * @return the type of the index.
-     *
      * @implNote (yhatem) this currently returns the type as a {@code String} which is error-prune.
      *           instead we should an {@code enum} structure.
      * TODO (yhatem) return {@code enum} instead.

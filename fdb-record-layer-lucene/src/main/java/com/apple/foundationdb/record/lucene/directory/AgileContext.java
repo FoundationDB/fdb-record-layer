@@ -44,7 +44,7 @@ import java.util.function.Function;
 /**
  * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
  *
- * There are two kinds of limits that are accounted for:
+ * <p>There are two kinds of limits that are accounted for:
  * <UL>
  *     <LI>Time Quota: Will commit a transaction after it has existed longer than the given limit</LI>
  *     <LI>Size Quota: will commit a transaction once the number of bytes is at least the given limit</LI>

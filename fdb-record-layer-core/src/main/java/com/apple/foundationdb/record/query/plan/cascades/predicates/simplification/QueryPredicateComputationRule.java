@@ -29,6 +29,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
+ *
  * @param <ARGUMENT> the type of object that functions as the argument to this rule
  * @param <RESULT> the type of object that this rule produces as result
  * @param <TYPE> the type of object that this rule helps simplify

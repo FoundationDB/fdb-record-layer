@@ -48,11 +48,11 @@ import java.util.function.Function;
 /**
  * An {@link FDBDatabaseRunner} implementation that performs all work in the context of a
  * {@link SynchronizedSession}.
- * <p>
- * For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
+ *
+ * <p>For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
  * is wrapped by calls that check locks and update leases to ensure that two synchronized sessions are not
  * concurrently running at the same time.
- * </p>
+ *
  * @see SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
@@ -65,10 +65,10 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     /**
      * Produces a new runner, wrapping a given runner, which performs all work in the context of a new
      * {@link SynchronizedSession}.
-     * <p>
-     * The returned runner will have acquired and started the lease, so care must be taken to ensure that
+     *
+     * <p>The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
-     * </p>
+     *
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
      * @param runner the underlying runner
@@ -89,6 +89,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
 
     /**
      * Synchronous/blocking version of {@link #startSessionAsync(Subspace, long, FDBDatabaseRunnerImpl)}.
+     *
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
      * @param runner the underlying runner
@@ -105,6 +106,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     /**
      * Produces a new runner, wrapping a given runner, which performs all work in the context of an existing
      * {@link SynchronizedSession}.
+     *
      * @param lockSubspace the lock for which the session contends
      * @param sessionId session ID
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
@@ -156,6 +158,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
      * Releases the lock to end the synchronized session. It does nothing if the current session does not hold the lock.
      * This should not necessarily be called when closing the runner because there can be multiple runners for the same
      * session.
+     *
      * @return a future that will return {@code null} when the session is ended
      */
     public CompletableFuture<Void> endSessionAsync() {
@@ -176,6 +179,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     /**
      * Releases the lock to end any synchronized session on the same lock subspace, no matter whether the current
      * session holds the lock or not.
+     *
      * @return a future that will return {@code null} when the session is ended
      * @see SynchronizedSession#endAnySession(Transaction, Subspace)
      */

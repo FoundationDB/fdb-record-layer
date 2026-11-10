@@ -341,6 +341,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     /**
      * Get a {@link DirectoryReader} wrapped around the {@link #getWriter()} to be able to get segments associated with
      * documents. This resource will be closed when {@code this} is closed, and should not be closed by callers
+     *
      * @param refresh if TRUE will try to refresh the reader data from the writer
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -359,6 +360,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     /**
      * Return the {@link PendingWriteQueue} instance to use to read documents queued while the directory was locked.
+     *
      * @return the queue instance
      */
     public PendingWriteQueue getPendingWriteQueue() {

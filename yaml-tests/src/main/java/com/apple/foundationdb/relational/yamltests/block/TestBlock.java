@@ -68,8 +68,8 @@ import java.util.stream.IntStream;
  *     <li>tests: the set of queries along with the configurations of how and against what they are tested. Each
  *     test translates to a {@link QueryCommand} with one or more {@link QueryConfig}.</li>
  * </ul>
- * <p>
- * There a couple of {@link TestBlock} options that controls how the tests in the block is executed. This in turn
+ *
+ * <p>There a couple of {@link TestBlock} options that controls how the tests in the block is executed. This in turn
  * determines what is tested in each test and how rigorously. These options are:
  * <ul>
  *     <li>{@code mode}: By far the most important option, mode can be either {@code ordered} or {@code randomized}
@@ -182,7 +182,7 @@ public final class TestBlock extends ConnectedBlock {
      *     {@link ConnectionLifecycle}.</li>
      * </ul>
      *
-     * The {@link TestBlockOptions} can be set in three ways:
+     * <p>The {@link TestBlockOptions} can be set in three ways:
      * <ul>
      *     <li>Using a preset config. See {@link TestBlockOptions#setWithPreset}</li>
      *     <li>Using an Options map. See {@link TestBlockOptions#setWithOptionsMap}</li>

@@ -93,10 +93,10 @@ public class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAss
     /**
      * Asserts that the specified columns are contained in the result set, in any order.
      *
-     * Note that the returned ResultSet can have <em>more</em> columns than just these. If you want
+     * <p>Note that the returned ResultSet can have <em>more</em> columns than just these. If you want
      * to ensure that <em>exactly</em> these columns are contained use {@link #hasColumnsExactly(String...)}.
      *
-     * Note also that this method doesn't do any protection against asking the same column twice--if the same
+     * <p>Note also that this method doesn't do any protection against asking the same column twice--if the same
      * column is in the expected names list, then it will just the same column name twice.
      *
      * @param columnNames the columnNames to check for.

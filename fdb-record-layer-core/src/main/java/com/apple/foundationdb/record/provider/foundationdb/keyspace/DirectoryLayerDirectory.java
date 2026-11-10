@@ -48,6 +48,7 @@ import java.util.function.Function;
  * application called "library", under which lives data for a set of books in the library stored under the
  * title of the book ("book_title"), again represented as a <code>LONG</code> value by mapping the book title via
  * the FDB directory layer.
+ *
  * <p>When creating a path through a directory layer directory, you may either specify the string name that
  * you wish to place in the directory, like so:
  * <pre>
@@ -69,6 +70,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      */
     public DirectoryLayerDirectory(@Nonnull String name) {
@@ -77,6 +79,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
      */
@@ -86,6 +89,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      */
@@ -96,6 +100,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>. Sets the <code>createHook</code> to
      * {@link ResolverCreateHooks} their default values.
+     *
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
@@ -109,6 +114,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
      * @param scopeGenerator A function which will be called with the context of a {@link KeySpacePath} which contains this
@@ -128,6 +134,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
+     *
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}

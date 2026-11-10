@@ -190,7 +190,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
          *
          * @param alias the constituent's alias, for the rejection message
          * @param nestingExpression the expression navigating to the constituent's elements
-         *
          * @return the field names the expression walks, outermost first
          */
         @Nonnull
@@ -216,8 +215,8 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
     /**
      * Builder for {@link RecordLayerUnnestedSyntheticTable}.
-     * <p>
-     * {@link #build()} checks the constituents to form a tree rooted at the stored record. It rejects a
+     *
+     * <p>{@link #build()} checks the constituents to form a tree rooted at the stored record. It rejects a
      * table with no nested constituent, a duplicate alias, and a constituent whose parent alias is not the parent
      * constituent's or an earlier constituent's.
      */

@@ -31,8 +31,8 @@ import java.util.Objects;
 /**
  * Represents a reference to a node within a hierarchical graph structure that also flows a vector and additional
  * values that are also present in the node.
- * <p>
- * This class extends {@link NodeReferenceWithVector} by adding a {@code additionalValues} attribute.
+ *
+ * <p>This class extends {@link NodeReferenceWithVector} by adding a {@code additionalValues} attribute.
  */
 class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector {
     @Nullable
@@ -53,8 +53,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
     }
 
     /**
-     * Gets the additional values for this object.
-     * @return the additional values
+     * {@return the additional values for this object}
      */
     @Nullable
     public Tuple getAdditionalValues() {
@@ -63,9 +62,10 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
 
     /**
      * Compares this {@code NodeReferenceWithVectorAndAdditionalValues} to the specified object for equality.
-     * <p>
-     * The result is {@code true} if and only if the superclass's {@link #equals(Object)} method returns
+     *
+     * <p>The result is {@code true} if and only if the superclass's {@link #equals(Object)} method returns
      * {@code true} and the {@code additionalValues} of both objects are equal.
+     *
      * @param o the object to compare this reference against.
      * @return {@code true} if the given object is equal to this one; {@code false} otherwise.
      */
@@ -80,10 +80,11 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
 
     /**
      * Generates a hash code for this object.
-     * <p>
-     * The hash code is computed by combining the hash code of the superclass with the hash code of the
+     *
+     * <p>The hash code is computed by combining the hash code of the superclass with the hash code of the
      * {@code additionalValues} field. This implementation is consistent with the contract of
      * {@link Object#hashCode()}.
+     *
      * @return a hash code value for this object.
      */
     @Override

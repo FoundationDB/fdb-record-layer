@@ -174,6 +174,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * Returns whether the set operation is dynamic if it only has exactly one leg, i.e., the leg of the plan can be
      * executed many times side-by-side as if the set operation were created over many legs. This usually only makes
      * sense if the leg is correlated to some outer that feeds a dynamic argument to the inner leg.
+     *
      * @return {@code true} if this set operation is dynamic, {@code false} otherwise
      */
     default boolean isDynamic() {
@@ -246,6 +247,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
 
     /**
      * Helper method to create a new {@link DerivedValue} above all incoming data streams.
+     *
      * @param quantifiers an {@link Iterable} of {@link Quantifier}s.
      * @return a new {@link DerivedValue} across all incoming data streams.
      */

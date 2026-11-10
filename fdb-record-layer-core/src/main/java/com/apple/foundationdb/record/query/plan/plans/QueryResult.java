@@ -90,6 +90,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     *
      * @param <M> Protobuf class for the record message type
      * @return the object narrowed to the requested class
      */
@@ -101,6 +102,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     *
      * @param <M> Protobuf class for the record message type
      * @return an optional that potentially contains the object narrowed to the requested class
      */
@@ -110,8 +112,7 @@ public class QueryResult implements ProtoSerializable {
     }
 
     /**
-     * Retrieve the wrapped result.
-     * @return the wrapped result as an object
+     * {@return the wrapped result as an object}
      */
     @Nullable
     public Object getDatum() {
@@ -120,6 +121,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the given class.
+     *
      * @param <T> target type
      * @param clazz class object for target type
      * @return the object narrowed to the requested class
@@ -131,6 +133,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the given class.
+     *
      * @param <T> target type
      * @param clazz class object for target type
      * @return an optional that potentially contains the object narrowed to the requested class
@@ -221,6 +224,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Create a new result with the given element.
+     *
      * @param computed the given computed result
      * @return the newly created query result
      */
@@ -231,6 +235,7 @@ public class QueryResult implements ProtoSerializable {
 
     /**
      * Create a new result with the given element while inheriting other parts from a caller-provided entities.
+     *
      * @param computed the given computed result
      * @param primaryKey a primary key (if available) or {@code null}
      * @return the newly created query result

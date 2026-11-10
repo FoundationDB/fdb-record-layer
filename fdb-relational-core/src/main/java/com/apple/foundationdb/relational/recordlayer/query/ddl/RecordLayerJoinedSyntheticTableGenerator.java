@@ -131,7 +131,6 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      * @param spec what the index is made of, whose predicate carries the join conditions
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for, and which of them are stored tables
-     *
      * @return a generator for the synthetic table, which every join needs
      */
     @Nonnull
@@ -151,7 +150,6 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      * same for the same DDL, so that it always yields the same metadata.
      *
      * @param constituents the joined tables, by the correlation each is bound to
-     *
      * @return the same tables, each with the alias it is registered under
      */
     @Nonnull
@@ -345,7 +343,6 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      * from the predicate, having been consumed by the synthetic table.
      *
      * @param spec what the index is made of, resolved against the stored records
-     *
      * @return the same index, in the synthetic table's coordinates
      */
     @Nonnull

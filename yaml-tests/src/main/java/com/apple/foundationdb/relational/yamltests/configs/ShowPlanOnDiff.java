@@ -27,9 +27,8 @@ import javax.annotation.Nonnull;
 /**
  * A configuration that runs an underlying configuration, but shows the dots of the expected and the actual plan where
  * expected and actual explains differ.
- * <p>
- *     See {@link YamlExecutionContext#OPTION_SHOW_PLAN_ON_DIFF}.
- * </p>
+ *
+ * <p>See {@link YamlExecutionContext#OPTION_SHOW_PLAN_ON_DIFF}.
  */
 public class ShowPlanOnDiff extends ConfigWithOptions {
     public ShowPlanOnDiff(@Nonnull final YamlTestConfig underlying) {

@@ -50,6 +50,7 @@ public class FDBStoreTimer extends StoreTimer {
          * The amount of time taken to get a read version when explicitly called.
          * This metric is recorded only if the transaction is not conducted at batch priority.
          * This includes any injected latency by the client before issuing the request.
+         *
          * @see #INJECTED_GET_READ_VERSION_LATENCY
          * @see FDBTransactionPriority
          */
@@ -63,10 +64,8 @@ public class FDBStoreTimer extends StoreTimer {
          * FoundationDB cluster can introduce back pressure, and the cluster will favor higher priority
          * transactions over lower priority transactions.
          *
-         * <p>
-         * Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
+         * <p>Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
          * before issuing the request.
-         * </p>
          *
          * @see #GET_READ_VERSION
          * @see #INJECTED_GET_READ_VERSION_LATENCY
@@ -75,17 +74,20 @@ public class FDBStoreTimer extends StoreTimer {
         BATCH_GET_READ_VERSION("batch priority get read version"),
         /**
          * The amount of time injected by the client prior to getting a read version.
+         *
          * @see FDBDatabase#getLatencyToInject(FDBLatencySource)
          */
         INJECTED_GET_READ_VERSION_LATENCY("injected get read version latency"),
         /**
          * The amount of time taken committing transactions successfully.
          * This includes any injected latency added before issuing the request and any time spent performing pre-commit checks.
+         *
          * @see #INJECTED_COMMIT_LATENCY
          */
         COMMIT("commit transaction"),
         /**
          * The amount of time injected into committing transactions.
+         *
          * @see FDBDatabase#getLatencyToInject(FDBLatencySource)
          */
         INJECTED_COMMIT_LATENCY("injected commit latency"),
@@ -346,7 +348,7 @@ public class FDBStoreTimer extends StoreTimer {
     /**
      * Standard {@link Wait} events.
      *
-     * In a number of cases, a {@code WAIT_XXX} {@code Wait} corresponds to an {@code XXX} {@code Event}.
+     * <p>In a number of cases, a {@code WAIT_XXX} {@code Wait} corresponds to an {@code XXX} {@code Event}.
      * The event measures the time of the operation itself, whereas the wait measures only the time actually waiting for it to complete.
      * Note that not all of these are waited for anywhere in the Record Layer codebase. They are included so that users of the library
      * can make use of them in their own monitoring.
@@ -735,7 +737,7 @@ public class FDBStoreTimer extends StoreTimer {
         MUTATIONS("mutations", false, null, true),
         /** JNI Calls.*/
         JNI_CALLS("jni calls", false),
-        /**Bytes read.*/
+        /** Bytes read. */
         BYTES_FETCHED("bytes fetched", false),
         /** Number of network fetches performed.*/
         RANGE_FETCHES("range fetches", false),

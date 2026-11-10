@@ -40,25 +40,19 @@ import java.util.stream.Collectors;
  * API to validate that the supplied value is of the type that the knob actually expects. It will then construct
  * the appropriate argument value and pass it to the underlying {@code NetworkOptions}.
  *
- * <p>
- * Not every knob supported by the native client has a constant here. For knobs that are not (yet) enumerated,
+ * <p>Not every knob supported by the native client has a constant here. For knobs that are not (yet) enumerated,
  * {@link FDBDatabaseFactory#setKnob(String, String)} can be used instead. Note that no validation is performed
  * on the value being set for any knob not in this enumeration. However, the fact that this enumeration is
  * not exhaustive means that the client does not need to wait for us to release a new Record Layer version every
  * time a new client knob is added to FDB. Any knob that is supported by the linked client library can be configured
  * by the library consumer.
- * </p>
  *
- * <p>
- * This class is {@link API.Status#UNSTABLE}. It may add new values at any time in response to new knob values
+ * <p>This class is {@link API.Status#UNSTABLE}. It may add new values at any time in response to new knob values
  * that are determined to be useful to configure. The name of each enum constant is the upper-case
  * version of the associated knob's name. This mapping is relied on to derive the knob name, so this
  * convention must be preserved for any new constants that are added.
- * </p>
  *
- * <p>
- * For the full list of available knobs, consult the FDB source files:
- * </p>
+ * <p>For the full list of available knobs, consult the FDB source files:
  *
  * <ul>
  *     <li><a href="https://github.com/apple/foundationdb/blob/main/flow/include/flow/Knobs.h"><code>flow/Knobs.h</code></a> - Common knobs available in all FDB processes</li>
@@ -67,11 +61,9 @@ import java.util.stream.Collectors;
  *     <li><a href="https://github.com/apple/foundationdb/blob/main/fdbclient/ClientKnobs.cpp"><code>fdbclient/ClientKnobs.cpp</code></a> - For the client knobs' default values</li>
  * </ul>
  *
- * <p>
- * When consulting those files, be sure to validate that the knob is present in the tag corresponding to the
+ * <p>When consulting those files, be sure to validate that the knob is present in the tag corresponding to the
  * FDB client version configured to run with this client. The knobs in this class are annotated with
  * their required FDB client versions. Any knob without an annotation has been around since at least 7.0.0.
- * </p>
  *
  * @see FDBDatabaseFactory#setKnob(FDBClientKnob, String)
  * @see FDBDatabaseFactory#setKnob(String, String)
@@ -226,9 +218,7 @@ public enum FDBClientKnob {
     }
 
     /**
-     * Get the type of value that this knob expects.
-     *
-     * @return the type of value that this knob expects
+     * {@return the type of value that this knob expects}
      */
     @Nonnull
     public KnobValueType getValueType() {

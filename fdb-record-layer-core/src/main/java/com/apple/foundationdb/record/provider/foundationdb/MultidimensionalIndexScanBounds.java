@@ -87,6 +87,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * a best-effort approach as it is permissible to indicate overlap between {@code mbr} and {@code this} when there
      * is in fact no overlap. The rate of false-positives directly influences the search performance in the
      * multidimensional index.
+     *
      * @param mbr the minimum-bounding {@link RTree.Rectangle}
      * @return {@code true} if {@code this} overlaps with {@code mbr}
      */
@@ -96,6 +97,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
 
     /**
      * Method to compute if the point handed in is contained by this scan bounds object.
+     *
      * @param position the {@link RTree.Point}
      * @return {@code true} if {@code position} is contained by {@code this}
      */

@@ -42,7 +42,7 @@ import java.util.function.BiFunction;
 /**
  * A cursor that can iterate over a cursor across transactions.
  *
- * It is provided a generator that produces a cursor (referred to as <i>underlying cursor</i>). The <i>underlying
+ * <p>It is provided a generator that produces a cursor (referred to as <i>underlying cursor</i>). The <i>underlying
  * cursor</i> is iterated over until it is either exhausted or until one of the scan limits is reached:
  * <ul>
  *     <li>
@@ -55,18 +55,14 @@ import java.util.function.BiFunction;
  *     </li>
  * </ul>
  *
- * <p>
- * {@link AutoContinuingCursor} is responsible for all {@link FDBRecordContext} management, so all reads it does are in
+ * <p>{@link AutoContinuingCursor} is responsible for all {@link FDBRecordContext} management, so all reads it does are in
  * the scope of transactions that it controls.
- * </p>
  *
- * <p>
- * The {@link AutoContinuingCursor} has no visibility into the {@link com.apple.foundationdb.record.ScanProperties} of
+ * <p>The {@link AutoContinuingCursor} has no visibility into the {@link com.apple.foundationdb.record.ScanProperties} of
  * the <i>underlying cursor</i> and, therefore, will not be involved in enforcing any limits that may be individually
  * applied to the <i>underlying cursor</i>. For example, if the generator returns an <i>underlying cursor</i> that
  * specified, say, a record scan limit of 10 records, the {@link AutoContinuingCursor} will scan all data until it is
  * exhausted, at most 10 records at a transaction.
- * </p>
  *
  * @param <T> the type of elements returned by this cursor
  */
@@ -91,6 +87,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     /**
      * Creates a new {@link AutoContinuingCursor}.
+     *
      * @param runner the runner from which it can open new contexts
      * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      */
@@ -101,6 +98,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     /**
      * Creates a new {@link AutoContinuingCursor}.
+     *
      * @param runner the runner from which it can open new contexts
      * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      * @param maxRetriesOnRetriableException maximum number of consecutive times retryable exceptions, such as

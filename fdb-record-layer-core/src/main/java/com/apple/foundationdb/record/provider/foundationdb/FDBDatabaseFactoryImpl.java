@@ -58,8 +58,8 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
      * Made volatile because multiple  {@link FDBDatabaseFactory} instances can be created technically, and thus can be
      * racy
      * during init.
-     * <p>
-     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
+     *
+     * <p>This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
      * backwards compatibility, it'll be moved there permanently in the next major release.
      */
     protected static volatile boolean staticOptionsSet = false;
@@ -67,10 +67,10 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     /**
      * Made volatile because multiple {@link FDBDatabaseFactory} instances can be created technically, and thus can be
      * racy during init.
-     * <p>
-     * Default is 1, which is basically disabled.
-     * <p>
-     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
+     *
+     * <p>Default is 1, which is basically disabled.
+     *
+     * <p>This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
      * backwards compatibility, it'll be moved there permanently in the next major release.
      */
     protected static volatile int threadsPerClientVersion = 1;
@@ -416,8 +416,8 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     /**
      * Set the number of threads per FDB client version. The default value is 1
      * (the multi-threaded client is effectively disabled).
-     * <p>
-     * Setting this above 1 enables FDB's multi-threaded client. That feature also
+     *
+     * <p>Setting this above 1 enables FDB's multi-threaded client. That feature also
      * requires at least one external client library to be configured on the FDB
      * network options (for example {@code NetworkOptions.addExternalClientDirectory}
      * or {@code addExternalClientLibrary}), even when the cluster and the local

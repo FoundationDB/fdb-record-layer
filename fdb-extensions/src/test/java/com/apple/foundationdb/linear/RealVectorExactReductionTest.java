@@ -39,8 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Asserts that the {@code …Exact} reduction variants on {@link RealVectorPrimitives} and
  * {@link RealVector} reproduce {@link ScalarBackend} <em>bit-for-bit</em>, independent of the
  * ambient backend.
- * <p>
- * This is deliberately stricter than {@link RealVectorPrimitivesParityTest}, which allows a
+ *
+ * <p>This is deliberately stricter than {@link RealVectorPrimitivesParityTest}, which allows a
  * few-ULP tolerance because SIMD and scalar reductions legitimately disagree in their low bits.
  * The exact variants exist precisely so that a caller who persists a result and later compares it
  * byte-for-byte gets the same value on every host; a tolerance-based assertion would not catch a
