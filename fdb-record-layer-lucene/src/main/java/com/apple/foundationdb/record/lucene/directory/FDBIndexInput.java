@@ -264,9 +264,9 @@ public final class FDBIndexInput extends IndexInput {
         }
         try {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
-            position++;
             byte[] data = getCurrentData();
             verify(data != null, "current Data is null: " + fileName + " " + fileReference.getId());
+            position++;
             return data[probe];
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);

@@ -41,6 +41,7 @@ public class InjectedFailureRepository {
         LUCENE_GET_INCREMENT,
         LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
         LUCENE_READ_BLOCK,
+        LUCENE_WAIT_FOR_DATA_BLOCK, /** A failure in the asyncToSync call for reading a data block (future can continue). */
         LUCENE_LIST_ALL,
         LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC,
         LUCENE_DELETE_FILE_INTERNAL,
@@ -70,6 +71,18 @@ public class InjectedFailureRepository {
 
     public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
         failureDescriptions.put(method, new FailureDescription(method, exception, count));
+    }
+
+    /**
+     * Add a failure that happens a limited number of times.
+     *
+     * @param method the method that will fail once
+     * @param exception the exception to throw
+     * @param count the number of "clean" executions to allow before throwing the exception
+     * @param maxFailures the number of times to fail the call before returning to normal
+     */
+    public void addTransientFailure(@Nonnull Methods method, @Nonnull Exception exception, long count, int maxFailures) {
+        failureDescriptions.put(method, new FailureDescription(method, exception, count, maxFailures));
     }
 
     public void removeFailure(@Nonnull Methods method) {
@@ -131,7 +144,8 @@ public class InjectedFailureRepository {
         if (failureDescription != null) {
             AtomicLong count = invocationCounts.computeIfAbsent(method, m -> new AtomicLong(0));
             long invocations = count.incrementAndGet();
-            if (invocations > failureDescription.getCount()) {
+            if (invocations > failureDescription.getCount()
+                    && invocations - failureDescription.getCount() <= failureDescription.getMaxFailures()) {
                 throw failureDescription.getException();
             }
         }
@@ -146,6 +160,7 @@ public class InjectedFailureRepository {
         @Nonnull
         private final Exception exception;
         private final long count;
+        private final long maxFailures;
 
         /**
          * Create a failure  desciption.
@@ -155,9 +170,26 @@ public class InjectedFailureRepository {
          * @param count the number of "clean" executions to allow before starting to throw the exception
          */
         public FailureDescription(@Nonnull final Methods method, @Nonnull final Exception exception, final long count) {
+            this(method, exception, count, Long.MAX_VALUE);
+        }
+
+        /**
+         * Create a failure description.
+         *
+         * @param method the method that will fail: {@link Methods} should contain the entire list
+         * @param exception the exception to throw
+         * @param count the number of "clean" executions to allow before starting to throw the exception
+         * @param maxFailures the number of executions that throw the exception, before executions are clean again
+         */
+        public FailureDescription(@Nonnull final Methods method, @Nonnull final Exception exception, final long count, final long maxFailures) {
             this.method = method;
             this.exception = exception;
             this.count = count;
+            this.maxFailures = maxFailures;
+        }
+
+        public long getMaxFailures() {
+            return maxFailures;
         }
 
         @Nonnull
