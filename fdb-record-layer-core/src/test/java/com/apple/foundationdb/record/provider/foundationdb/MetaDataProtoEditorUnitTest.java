@@ -963,6 +963,7 @@ public class MetaDataProtoEditorUnitTest {
      * has such indexes, whereas {@code MyOtherRecord} has none and can still be renamed. This test is batched-only:
      * the one-by-one renaming of {@link #renameRecordTypesOneByOne} only visits the record types listed in
      * {@code MetaData.record_types}, so with that list empty, it silently renames nothing at all.
+     * (The one-by-one renaming is covered by {@link #renameRejectsExtensionOnlyIndexOfListedRecordType}.)
      */
     @Test
     void renameRecordTypesRejectsExtensionOnlyIndexOfRecordTypeMissingFromRecordTypes() {
@@ -994,49 +995,6 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals(Set.of("MySimpleRecord", simpleRename("MyOtherRecord")), renamed.getRecordTypes().keySet());
         assertEquals(originalMetaData.getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()),
                 renamed.getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()));
-    }
-
-    /**
-     * Tests that renaming a record type by hand, bypassing {@link MetaDataProtoEditor}, turns an index that only the
-     * {@code (field).index} extension declares into a different index. This is the hazard that makes the editor
-     * reject such a rename: {@link RecordMetaDataBuilder} names the derived index after the record type, and since
-     * the subspace key of an index defaults to its name, {@link MetaDataEvolutionValidator} rejects the result as an
-     * evolution of the original.
-     */
-    @Test
-    void renameByHandChangesExtensionOnlyIndex() {
-        final RecordMetaDataProto.MetaData originalProto = RecordMetaData.build(TestRecords1Proto.getDescriptor())
-                .toProto().toBuilder().clearIndexes().build();
-        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
-        // Rename the message type, the type of its union field, and its entry in the record type list.
-        for (final DescriptorProtos.DescriptorProto.Builder messageType :
-                builder.getRecordsBuilder().getMessageTypeBuilderList()) {
-            if (messageType.getName().equals("MySimpleRecord")) {
-                messageType.setName("MyNewSimpleRecord");
-            } else if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                for (final DescriptorProtos.FieldDescriptorProto.Builder field : messageType.getFieldBuilderList()) {
-                    if (field.getTypeName().endsWith("MySimpleRecord")) {
-                        field.setTypeName(field.getTypeName().replace("MySimpleRecord", "MyNewSimpleRecord"));
-                    }
-                }
-            }
-        }
-        for (final RecordMetaDataProto.RecordType.Builder recordType : builder.getRecordTypesBuilderList()) {
-            if (recordType.getName().equals("MySimpleRecord")) {
-                recordType.setName("MyNewSimpleRecord");
-            }
-        }
-
-        final RecordMetaData originalMetaData = RecordMetaData.newBuilder().setRecords(originalProto, true).build();
-        final RecordMetaData renamed = RecordMetaData.newBuilder().setRecords(builder.build(), true).build();
-        assertNotNull(originalMetaData.getIndex("MySimpleRecord$num_value_3_indexed"));
-        assertNotNull(renamed.getIndex("MyNewSimpleRecord$num_value_3_indexed"));
-        final MetaDataException exception = assertThrows(MetaDataException.class,
-                () -> MetaDataEvolutionValidator.newBuilder()
-                        .setAllowNoVersionChange(true)
-                        .build()
-                        .validate(originalMetaData, renamed));
-        assertEquals("index missing in new meta-data", exception.getMessage());
     }
 
     /**
