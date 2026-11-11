@@ -171,11 +171,13 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                 && candidateTableFunctionExpression.getValue() instanceof ExplodeValue candidateExplodeValue
                 && candidateExplodeValue.preservesOrder()) {
             if (!queryExplodeValue.getCollectionValue()
-                    .semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)) {
+                    .semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)
+                    || !queryExplodeValue.getElementType().equals(candidateExplodeValue.getElementType())) {
                 return ImmutableList.of();
             }
+            // CollectionValue and ElementType match
             final var maxMatchMap =
-                    MaxMatchMap.compute(getResultValue(), candidateExpression.getResultValue(),
+                    MaxMatchMap.identityOf(getResultValue(), candidateExpression.getResultValue(),
                             Quantifiers.aliases(candidateExpression.getQuantifiers()),
                             ValueEquivalence.fromAliasMap(bindingAliasMap));
             return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
