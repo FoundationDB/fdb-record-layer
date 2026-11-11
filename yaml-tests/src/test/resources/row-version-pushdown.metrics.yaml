@@ -1,0 +1,65 @@
+row-version-pushdown:
+-   query: EXPLAIN select "__ROW_VERSION" as version from t1 where col1 = 10 and "__ROW_VERSION"
+        is not null;
+    ref: row-version-pushdown.yamsql:46
+    explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG), [NOT_NULL]])
+        | MAP (_.__ROW_VERSION AS VERSION)
+    task_count: 594
+    task_total_time_ms: 185
+    transform_count: 146
+    transform_time_ms: 126
+    transform_yield_count: 46
+    insert_time_ms: 7
+    insert_new_count: 63
+    insert_reused_count: 4
+-   query: EXPLAIN select "__ROW_VERSION" as version, col2 from t1 where col1 = 10
+        and "__ROW_VERSION" is not null;
+    ref: row-version-pushdown.yamsql:51
+    explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG), [NOT_NULL]])
+        | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)
+    task_count: 594
+    task_total_time_ms: 53
+    transform_count: 146
+    transform_time_ms: 25
+    transform_yield_count: 46
+    insert_time_ms: 3
+    insert_new_count: 63
+    insert_reused_count: 4
+-   query: EXPLAIN select col1 from t1 where col1 = 10 and "__ROW_VERSION" is not
+        null;
+    ref: row-version-pushdown.yamsql:57
+    explain: 'COVERING(GROUPED_VERSION_INDEX [EQUALS promote(@c7 AS LONG), [NOT_NULL]]
+        -> [COL1: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1)'
+    task_count: 622
+    task_total_time_ms: 52
+    transform_count: 149
+    transform_time_ms: 24
+    transform_yield_count: 48
+    insert_time_ms: 3
+    insert_new_count: 66
+    insert_reused_count: 4
+-   query: EXPLAIN select "__ROW_VERSION" as version, col1, id from t1 where col1
+        = 10;
+    ref: row-version-pushdown.yamsql:63
+    explain: ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION,
+        _.COL1 AS COL1, _.ID AS ID)
+    task_count: 552
+    task_total_time_ms: 35
+    transform_count: 142
+    transform_time_ms: 17
+    transform_yield_count: 45
+    insert_time_ms: 1
+    insert_new_count: 58
+    insert_reused_count: 4
+-   query: EXPLAIN select col1, id from t1 where col1 = 10;
+    ref: row-version-pushdown.yamsql:68
+    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
+        | MAP (_.COL1 AS COL1, _.ID AS ID)'
+    task_count: 670
+    task_total_time_ms: 33
+    transform_count: 156
+    transform_time_ms: 14
+    transform_yield_count: 53
+    insert_time_ms: 1
+    insert_new_count: 72
+    insert_reused_count: 6

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
@@ -52,12 +53,14 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparisonOfType;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKeyValues;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
@@ -261,7 +264,9 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             assertTrue(plan instanceof RecordQueryUnionOnKeyExpressionPlan);
         } else {
-            assertTrue(plan instanceof RecordQueryUnionOnValuesPlan);
+            // the union is over covering scans, so the fetch is hoisted above it
+            assertTrue(plan instanceof RecordQueryFetchFromPartialRecordPlan);
+            assertTrue(((RecordQueryFetchFromPartialRecordPlan)plan).getChild() instanceof RecordQueryUnionOnValuesPlan);
         }
     }
 
@@ -282,15 +287,16 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
             assertTrue(plan instanceof RecordQueryUnionOnKeyExpressionPlan);
         } else {
             final var planMatcher =
-                    unionOnValuesPlan(
-                            indexPlan().where(indexName("num_value_2_str_value_num_value_3_indexed")).and(scanComparisons(range("[[100, hello, 2],[100, hello, 2]]"))),
-                            indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(range("[[101],[101]]"))),
-                            indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(range("[[102],[102]]")))
-                    ).where(
-                            comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"),
-                                    toOrderedBytesValue(fieldValueWithFieldNames("str_value_indexed"),
-                                            TupleOrdering.Direction.DESC_NULLS_LAST),
-                                    fieldValueWithFieldNames("rec_no"))));
+                    fetchFromPartialRecordPlan(
+                            unionOnValuesPlan(
+                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("num_value_2_str_value_num_value_3_indexed")).and(scanComparisons(range("[[100, hello, 2],[100, hello, 2]]"))))),
+                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(range("[[101],[101]]"))))),
+                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(range("[[102],[102]]")))))
+                            ).where(
+                                    comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"),
+                                            toOrderedBytesValue(fieldValueWithFieldNames("str_value_indexed"),
+                                                    TupleOrdering.Direction.DESC_NULLS_LAST),
+                                            fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
         }
     }
@@ -315,15 +321,26 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             final var planMatcher =
                     unionOnValuesPlan(
+                            fetchFromPartialRecordPlan(
+                                    unionOnValuesPlan(
+                                            predicatesFilterPlan(
+                                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(unbounded())))))
+                                                    .where(predicates(only(valuePredicate(fieldValueWithFieldNames("num_value_2"),
+                                                            anyComparisonOfType(Comparisons.Type.EQUALS))))),
+                                            predicatesFilterPlan(
+                                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(unbounded())))))
+                                                    .where(predicates(only(valuePredicate(fieldValueWithFieldNames("num_value_2"),
+                                                            anyComparisonOfType(Comparisons.Type.EQUALS)))))
+                                    ).where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"),
+                                    toOrderedBytesValue(fieldValueWithFieldNames("str_value_indexed"),
+                                            TupleOrdering.Direction.DESC_NULLS_LAST),
+                                    fieldValueWithFieldNames("rec_no"))))),
                             predicatesFilterPlan(
                                     indexPlan().where(indexName("ordered_str_value"))
                                             .and(scanComparisons(range("[EQUALS 100, EQUALS to_ordered_bytes('hello', DESC_NULLS_LAST)]"))))
                                     .where(predicates(only(valuePredicate(fieldValueWithFieldNames("num_value_3_indexed"),
-                                            anyComparisonOfType(Comparisons.Type.GREATER_THAN))))),
-                            indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(range("[[101],[101]]"))),
-                            indexPlan().where(indexName("ordered_str_value")).and(scanComparisons(range("[[102],[102]]")))
-                    ).where(
-                            comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"),
+                                            anyComparisonOfType(Comparisons.Type.GREATER_THAN)))))
+                    ).where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"),
                                     toOrderedBytesValue(fieldValueWithFieldNames("str_value_indexed"),
                                             TupleOrdering.Direction.DESC_NULLS_LAST),
                                     fieldValueWithFieldNames("rec_no"))));

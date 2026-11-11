@@ -448,16 +448,19 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                     assertEquals(-1043926565, plan.planHash(PlanHashable.CURRENT_LEGACY));
                     assertEquals(-1859939974, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
                 } else {
-                    // The other mask values do not work, and so they require executing as a scan
+                    // The other mask values do not match the literal in the expected index, but both the predicate
+                    // and the result can be computed from the entries of the index on num_value_unique, so the scan
+                    // over that index stays covering and the mask is applied as a residual predicate.
                     assertMatchesExactly(plan, mapPlan(
                             predicatesFilterPlan(
-                                    typeFilterPlan(
-                                            scanPlan().where(scanComparisons(unbounded())
-                                    )
+                                    coveringIndexPlan().where(indexPlanOf(
+                                            indexPlan().where(indexName("MySimpleRecord$num_value_unique"))
+                                                    .and(scanComparisons(unbounded()))
+                                    ))
                             )
-                    )));
-                    // assertEquals(0, plan.planHash(PlanHashable.CURRENT_LEGACY));
-                    assertEquals(-1713033856, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                    ));
+                    // ConstantObjectValue does not support the legacy plan hash mode
+                    assertEquals(-1086853773, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
                 }
 
                 for (long queryMaskValue : List.of(0L, mask, mask + 1)) {
@@ -512,15 +515,15 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 Quantifier selectQun = Quantifier.forEach(Reference.initialOf(select));
                 return Reference.initialOf(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
             });
-            // This should be planned as a covering index scan of the index because the functions can be calculated from the values
-            // in the index. Until matching improves, we can get by with this plan
+            // This is planned as a covering index scan of the index because the functions can be calculated from the
+            // values in the index.
             assertMatchesExactly(plan, mapPlan(
-                    typeFilterPlan(
-                            scanPlan().where(scanComparisons(unbounded()))
-                    )
+                    coveringIndexPlan().where(indexPlanOf(
+                            indexPlan().where(indexName(index.getName())).and(scanComparisons(unbounded()))
+                    ))
             ));
-            assertEquals(1263343956, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-2029074143, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(1905107315, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(355706836, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             Set<Map<String, Object>> results = new HashSet<>();
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {

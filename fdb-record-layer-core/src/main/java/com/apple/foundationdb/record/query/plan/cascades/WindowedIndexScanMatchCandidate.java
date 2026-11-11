@@ -457,12 +457,16 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                  @Nonnull CorrelationIdentifier targetAlias) {
         final var indexEntryToLogicalRecord =
                 getIndexEntryToLogicalRecordMaybe().orElseThrow(() -> new RecordCoreException("need index entry to logical record"));
+        final var providedRecordValue = indexEntryToLogicalRecord.providedRecordValue();
+        if (providedRecordValue == null) {
+            return Optional.empty();
+        }
 
         return ScanWithFetchMatchCandidate.pushValueThroughFetch(toBePushedValue,
                 baseAlias,
                 sourceAlias,
                 targetAlias,
-                indexEntryToLogicalRecord.logicalKeyValues());
+                providedRecordValue);
     }
 
     @Nonnull

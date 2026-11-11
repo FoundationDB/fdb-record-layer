@@ -1,0 +1,13 @@
+covering-sum-pushdown:
+-   query: EXPLAIN select a + b as s from t;
+    ref: covering-sum-pushdown.yamsql:48
+    explain: 'COVERING(AB <,> -> [A: KEY:[0], B: KEY:[1], PK: KEY:[3]]) | MAP (_.A
+        + _.B AS S)'
+    task_count: 239
+    task_total_time_ms: 110
+    transform_count: 58
+    transform_time_ms: 76
+    transform_yield_count: 25
+    insert_time_ms: 4
+    insert_new_count: 25
+    insert_reused_count: 4
