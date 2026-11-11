@@ -770,6 +770,7 @@ USE_FRM:                             'USE_FRM';
 USER_RESOURCES:                      'USER_RESOURCES';
 VALIDATION:                          'VALIDATION';
 VALUE:                               'VALUE';
+VARIABLE:                            'VARIABLE';
 VARIABLES:                           'VARIABLES';
 VECTOR:                              'VECTOR';
 VIEW:                                'VIEW';
