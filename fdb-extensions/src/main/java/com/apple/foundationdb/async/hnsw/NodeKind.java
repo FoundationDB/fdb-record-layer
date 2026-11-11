@@ -31,15 +31,15 @@ import javax.annotation.Nonnull;
 public enum NodeKind {
     /**
      * Compact node. Serialization and deserialization is implemented in {@link CompactNode}.
-     * <p>
-     * Compact nodes store their own vector and their neighbors-list only contain the primary key for each neighbor.
+     *
+     * <p>Compact nodes store their own vector and their neighbors-list only contain the primary key for each neighbor.
      */
     COMPACT((byte)0x00),
 
     /**
      * Inlining node. Serialization and deserialization is implemented in {@link InliningNode}.
-     * <p>
-     * Inlining nodes do not store their own vector and their neighbors-list contain the both the primary key and the
+     *
+     * <p>Inlining nodes do not store their own vector and their neighbors-list contain the both the primary key and the
      * neighbor vector for each neighbor. Each neighbor is stored in its own key/value pair.
      */
     INLINING((byte)0x01);
@@ -48,6 +48,7 @@ public enum NodeKind {
 
     /**
      * Constructs a new {@code NodeKind} instance with its serialized representation.
+     *
      * @param serialized the byte value used for serialization
      */
     NodeKind(final byte serialized) {
@@ -55,8 +56,7 @@ public enum NodeKind {
     }
 
     /**
-     * Gets the serialized byte value.
-     * @return the serialized byte value
+     * {@return the serialized byte value}
      */
     public byte getSerialized() {
         return serialized;
@@ -64,6 +64,7 @@ public enum NodeKind {
 
     /**
      * Deserializes a byte into the corresponding {@link NodeKind}.
+     *
      * @param serializedNodeKind the byte representation of the node kind.
      * @return the corresponding {@link NodeKind}, never {@code null}.
      * @throws IllegalArgumentException if the {@code serializedNodeKind} does not

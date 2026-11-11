@@ -67,10 +67,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An index that maintains an extremum value in a way that can be enumerated by that value rather than by group.
  *
- * This is done by specifying a number of grouping fields that are <em>permuted</em> to after the value.
+ * <p>This is done by specifying a number of grouping fields that are <em>permuted</em> to after the value.
  * This number is specified by the {@link IndexOptions#PERMUTED_SIZE_OPTION} index option.
  *
- * For example, an {@code PERMUTED_MAX} index on <code>field(val).groupBy(concatenateFields(group, subgroup))</code> with a permuted size of {@code 1} can,
+ * <p>For example, an {@code PERMUTED_MAX} index on <code>field(val).groupBy(concatenateFields(group, subgroup))</code> with a permuted size of {@code 1} can,
  * for an ordered range of {@code group} value(s) (including just a single group), list the maximum {@code value} for each {@code subgroup}, ordered by that maximum.
  */
 @API(API.Status.EXPERIMENTAL)

@@ -45,6 +45,7 @@ import java.util.concurrent.Executor;
  * </pre>
  * Due to the lazy nature of the cursor, it is impermissable to call any synchronous methods that return information
  * about the state of the cursor until <code>onNext()</code> has been called.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)
@@ -64,6 +65,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     /**
      * Creates a new lazy cursor.
+     *
      * @param futureCursor the future that will ultimately supply the actual underlying cursor
      * @param executor if not null, then this executor will be returned from {@link #getExecutor()}, otherwise
      *    <code>getExecutor()</code> will throw an exception if called before the underlying cursor has

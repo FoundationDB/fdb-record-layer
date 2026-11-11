@@ -223,7 +223,7 @@ public final class YamlExecutionContext {
 
     /**
      * Infers the connection target (URI and cluster index) for a block.
-     * <br>
+     *
      * <ul>
      *   <li>no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamlReference.YamlResource}.
      *    If not, try to connect to the only connection across all parent resources.
@@ -244,7 +244,6 @@ public final class YamlExecutionContext {
      *
      * @param connectObject can be {@code null}, an {@link Integer}, a {@link String}, or a {@link Map} with
      *                      optional {@code cluster} and {@code uri} keys.
-     *
      * @return a valid connection target
      */
     public ConnectionTarget inferConnectionTarget(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
@@ -325,12 +324,12 @@ public final class YamlExecutionContext {
      * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
      * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
      * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
-     * <br>
-     * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
+     *
+     * <p>The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
      * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
      * incrementally at appropriate places in code:
-     * <br>
-     * query_config: lineNumber of the expected result
+     *
+     * <p>query_config: lineNumber of the expected result
      * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
      * test_block: lineNumber of test_block, seed used for randomization, execution properties
      *
@@ -338,7 +337,6 @@ public final class YamlExecutionContext {
      * @param msg additional context
      * @param identifier The name of the element type to which the context is associated to.
      * @param reference the {@link YamlReference} of the YAMSQL file to which the context is associated to.
-     *
      * @return wrapped {@link YamlExecutionError}
      */
     @Nonnull
@@ -376,6 +374,7 @@ public final class YamlExecutionContext {
      * Return the value of an additional option, or a default value.
      * Additional options are options set by the test execution environment that can control the test execution, in additional
      * to the "core" set of options defined in this class.
+     *
      * @param option the option to get value for
      * @param defaultValue the default value (if option is undefined)
      * @return the defined value of the option, or the default value, if undefined

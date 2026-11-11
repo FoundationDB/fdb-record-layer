@@ -60,8 +60,8 @@ import java.util.stream.Collectors;
  * version in the
  * transaction history. However, as long as the data set is not too volatile, it should produce an approximate answer
  * for the statistics it yields.
- * <p>
- * Note that the cursor emits only a single cursor result containing a value. That value represents full statistics
+ *
+ * <p>Note that the cursor emits only a single cursor result containing a value. That value represents full statistics
  * for all keys and values in the specified subspace. Any cursor results emitted prior to that are a manifestation of
  * hitting an execution limit while scanning the subspace. These results provide a continuation that can be used
  * to resume aggregating the remaining keys and values of the subspace.
@@ -239,7 +239,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a cursor for collecting statistics of that store
      */
     @Nonnull
@@ -255,7 +254,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the records of that store
      */
     @Nonnull
@@ -273,7 +271,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -292,7 +289,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -308,7 +304,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given subspace
      */
     @Nonnull
@@ -372,9 +367,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Gets protobuf representation of partial stats.
-         *
-         * @return protobuf representation of partial stats.
+         * {@return protobuf representation of partial stats}
          */
         private RecordCursorProto.SizeStatisticsPartialResults toProto() {
             RecordCursorProto.SizeStatisticsPartialResults.Builder pr;
@@ -385,9 +378,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Return a copy of this instance.
-         *
-         * @return a copy of this instance
+         * {@return a copy of this instance}
          */
         private SizeStatisticsResults copy() {
             SizeStatisticsResults target = new SizeStatisticsResults();
@@ -462,81 +453,63 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Get the total number of keys in the requested key range.
-         *
-         * @return keyCount the total number of keys in the requested key range.
+         * {@return the total number of keys in the requested key range}
          */
         public long getKeyCount() {
             return keyCount;
         }
 
         /**
-         * Get the total size (in bytes) of all keys in the requested key range.
-         *
-         * @return the size (in bytes) of the requested keys
+         * {@return the total size (in bytes) of all keys in the requested key range}
          */
         public long getKeySize() {
             return keySize;
         }
 
         /**
-         * Get the size (in bytes) of the largest key in the requested key range.
-         *
-         * @return the size (in bytes) of the largest key
+         * {@return the size (in bytes) of the largest key in the requested key range}
          */
         public long getMaxKeySize() {
             return maxKeySize;
         }
 
         /**
-         * Get the total size (in bytes) of all values in the requested key range.
-         *
-         * @return the size (in bytes) of the requested values
+         * {@return the total size (in bytes) of all values in the requested key range}
          */
         public long getValueSize() {
             return valueSize;
         }
 
         /**
-         * Get the size (in bytes) of the largest value in the requested key range.
-         *
-         * @return the size (in bytes) of the largest value
+         * {@return the size (in bytes) of the largest value in the requested key range}
          */
         public long getMaxValueSize() {
             return maxValueSize;
         }
 
         /**
-         * Get the total size (in bytes) of all keys and values in the requested key range.
-         *
-         * @return the size (in bytes) of the requested keys and values
+         * {@return the total size (in bytes) of all keys and values in the requested key range}
          */
         public long getTotalSize() {
             return keySize + valueSize;
         }
 
         /**
-         * Get the mean size (in bytes) of keys in the requested key range.
-         *
-         * @return the mean size (in bytes) of all keys
+         * {@return the mean size (in bytes) of all keys in the requested key range}
          */
         public double getAverageKeySize() {
             return keySize * 1.0 / keyCount;
         }
 
         /**
-         * Get the mean size (in bytes) of values in the requested key range.
-         *
-         * @return the mean size (in bytes) of all values
+         * {@return the mean size (in bytes) of all values in the requested key range}
          */
         public double getAverageValueSize() {
             return valueSize * 1.0 / keyCount;
         }
 
         /**
-         * Get the mean size (in bytes) of combined key-value pairs in the requested key range.
-         *
-         * @return the mean size (in bytes) of all key-value pairs
+         * {@return the mean size (in bytes) of all key-value pairs in the requested key range}
          */
         public double getAverage() {
             return getTotalSize() * 1.0 / keyCount;
@@ -566,7 +539,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          * interpolated from the recorded size distribution.
          *
          * @param proportion the proportion of key-value pairs that should have a size less than the returned size
-         *
          * @return an estimate for the size that is consistent with the given proportion
          */
         public double getProportion(double proportion) {
@@ -591,27 +563,21 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         /**
-         * Get an estimate for the size of the median key-value pair.
-         *
-         * @return an estimate for the median key-value pair
+         * {@return an estimate for the size of the median key-value pair}
          */
         public double getMedian() {
             return getProportion(0.5);
         }
 
         /**
-         * Get an estimate for the size of the 90th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 90th percentile key-value pair
+         * {@return an estimate for the size of the 90th percentile key-value pair}
          */
         public double getP90() {
             return getProportion(0.90);
         }
 
         /**
-         * Get an estimate for the size of the 95th percentile key-value pair.
-         *
-         * @return an estimate for the size of the 95th percentile key-value pair
+         * {@return an estimate for the size of the 95th percentile key-value pair}
          */
         public double getP95() {
             return getProportion(0.95);

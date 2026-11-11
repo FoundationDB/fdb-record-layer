@@ -111,6 +111,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     /**
      * Creates a new instance of {@link IndexOnlyAggregateValue}.
+     *
      * @param operator the aggregation function.
      * @param child the child {@link Value}.
      */

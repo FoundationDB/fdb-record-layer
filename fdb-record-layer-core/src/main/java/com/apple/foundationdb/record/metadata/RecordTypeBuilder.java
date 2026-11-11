@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * A builder for {@link RecordType}.
  *
- * A record type consists of:
+ * <p>A record type consists of:
  * <ul>
  * <li>name.</li>
  * <li>Protobuf {@link com.google.protobuf.Descriptors.Descriptor}.</li>
@@ -55,6 +55,7 @@ public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements Recor
 
     /**
      * Copy constructor for {@code RecordTypeBuilder} that copies all fields except the descriptor.
+     *
      * @param descriptor the descriptor of the new record type
      * @param other the record type builder to copy from
      */

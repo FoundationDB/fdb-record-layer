@@ -59,7 +59,6 @@ public class TopK<T> {
      * or if it compares strictly greater than the current worst, which it then evicts.
      *
      * @param item the element to offer
-     *
      * @return {@code true} if the element was retained, {@code false} if it was rejected
      */
     public boolean add(@Nonnull T item) {
@@ -123,7 +122,6 @@ public class TopK<T> {
      *
      * @param iterable the elements to offer
      * @param executor the executor to use for asynchronous iteration
-     *
      * @return a future completing with the retained top-K elements, sorted from best to worst
      */
     @Nonnull
@@ -138,7 +136,6 @@ public class TopK<T> {
      *
      * @param iterator the source of data over which to iterate. This function will exhaust the iterator.
      * @param executor the {@link Executor} to use for asynchronous operations
-     *
      * @return a {@code CompletableFuture} completing with the retained top-K elements, sorted
      */
     public CompletableFuture<List<T>> collectRemaining(final AsyncIterator<T> iterator,
@@ -153,7 +150,6 @@ public class TopK<T> {
      * @param comparator the comparator defining element order
      * @param k the maximum number of elements to retain
      * @param <T> the type of element collected
-     *
      * @return a new collector retaining the k smallest elements
      */
     @Nonnull
@@ -168,7 +164,6 @@ public class TopK<T> {
      * @param comparator the comparator defining element order
      * @param k the maximum number of elements to retain
      * @param <T> the type of element collected
-     *
      * @return a new collector retaining the k largest elements
      */
     @Nonnull

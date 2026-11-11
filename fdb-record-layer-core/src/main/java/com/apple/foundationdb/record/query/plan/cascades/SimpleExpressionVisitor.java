@@ -37,20 +37,20 @@ import java.util.Objects;
  * an expression dag. In particular, a {@code SimpleExpressionVisitor} computes a property that depends on (much of) the
  * contents of the subtree rooted at the expression on which it is evaluated, rather than just a finite depth set of
  * paths as a {@link BindingMatcher} would.
- * <br>
- * To avoid littering {@link RelationalExpression} classes with methods for various interesting properties, we instead
+ *
+ * <p>To avoid littering {@link RelationalExpression} classes with methods for various interesting properties, we instead
  * compute those properties using a variant of the hierarchical visitor pattern over a DAG of
  * {@link RelationalExpression}s, {@link Quantifier}s, and {@link Reference}s.
- * <br>
- * A property can be computed against an expression tree by having the visitor traverse a DAG of heterogeneous objects
+ *
+ * <p>A property can be computed against an expression tree by having the visitor traverse a DAG of heterogeneous objects
  * where expressions are said to own quantifiers which range over expression references which then contain expressions
  * again. Shared sub-graphs are visited multiple times. If desired, the caller must ensure that a subgraph is not
  * visited more than once.
- * <br>
- * Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are
+ *
+ * <p>Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are
  * handed the results of the visitor evaluated at their owned quantifiers, references, and members respectively.
- * <br>
- * Note that the default implementations provided in this interface walk the entire DAG, i.e. all {@link #shouldVisit}
+ *
+ * <p>Note that the default implementations provided in this interface walk the entire DAG, i.e. all {@link #shouldVisit}
  * methods return {@code true}. That implies that properties have been computed for sub-structures of the graph when
  * {@code evaluateAtXXX()} is called and therefore are not {@code null}. That means that all such arguments can be
  * assumed to be non-nullable even though parameters are annotated as {@link Nullable}. On the other hand, if the
@@ -67,6 +67,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * That is, as each node is visited for the first time, {@code shouldVisit()} is called on that node.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtExpression(RelationalExpression, List)}
      * will not be called on the given expression.
+     *
      * @param expression the planner expression to visit
      * @return {@code true} if the children of {@code expression} should be visited and {@code false} if they should not
      *         be visited
@@ -82,6 +83,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * That is, as a reference is visited, {@code shouldVisit()} is called on that reference.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtRef(Reference, List)} will
      * not be called on the given reference.
+     *
      * @param ref the expression reference to visit
      * @return {@code true} if the members of {@code ref} should be visited and {@code false} if they should not be
      *         visited
@@ -98,6 +100,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * That is, as a quantifier is visited, {@code shouldVisit()} is called on that quantifier.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtQuantifier(Quantifier, Object)} will
      * not be called on the given quantifier.
+     *
      * @param quantifier the quantifier to visit
      * @return {@code true} if the expression reference {@code quantifier} ranges over should be visited and
      *         {@code false} if it should not be visited
@@ -112,6 +115,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * Called on nodes in the graph in visit post-order of the depth-first traversal of the graph.
      * That is, as each expression is visited (after all of its children have been visited, if applicable),
      * {@code evaluateAtExpression()} is called on that expression.
+     *
      * @param expression the cursor to visit
      * @param childResults the results for the children of {@code expression}
      * @return the evaluated result the given expression
@@ -124,6 +128,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * Called on nodes in the graph in visit post-order of the depth-first traversal of the graph.
      * That is, as each reference is visited (after all of its members have been visited, if applicable),
      * {@code evaluateAtRef()} is called on that reference.
+     *
      * @param ref the expression reference to visit
      * @param memberResults the results of the property evaluated at the members of {@code ref}
      * @return the evaluated result at the given reference
@@ -136,6 +141,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * over. Called on quantifiers in the graph in visit post-order of the depth-first traversal of the graph.
      * That is, as each quantifier is visited (after the expression reference it ranges over has been visited,
      * if applicable), {@code evaluateAtQuantifier()} is called on that quantifier.
+     *
      * @param quantifier the quantifier to visit
      * @param rangesOverResult the result evaluated at the {@link Reference} {@code quantifier}
      *        ranges over

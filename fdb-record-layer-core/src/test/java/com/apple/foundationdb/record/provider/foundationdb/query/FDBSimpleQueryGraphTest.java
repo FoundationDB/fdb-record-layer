@@ -549,7 +549,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *                           └── ƒ ── FullUnorderedScanExpression(RestaurantRecord)
      * }</pre>
      *
-     * Because the outer {@code Select} has a predicate that rejects null, {@code EliminateNullOnEmptyRule} is able
+     * <p>Because the outer {@code Select} has a predicate that rejects null, {@code EliminateNullOnEmptyRule} is able
      * to replace {@code q1} with a normal for-each quantifier.
      *
      * @see #testSubselectHasNullOnEmptyAndIsNullPredicate()
@@ -637,7 +637,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *                     └── …
      * }</pre>
      *
-     * Because the outer predicate accepts the null tuple that the {@code nullOnEmpty} quantifier potentially injects
+     * <p>Because the outer predicate accepts the null tuple that the {@code nullOnEmpty} quantifier potentially injects
      * on an empty inner result, {@code EliminateNullOnEmptyRule} cannot simplify the null-on-empty quantifier here.
      *
      * @see #testSubselectHasNullOnEmpty()
@@ -693,10 +693,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * to construct certain kinds {@link com.apple.foundationdb.record.query.plan.cascades.Compensation}s to make the
      * plan work, then we may lose coverage (absent other changes to our testing strategy).
      *
-     * <p>
-     * There are several elements of this test that are necessary at time of writing to make it hit the code
+     * <p>There are several elements of this test that are necessary at time of writing to make it hit the code
      * path under test:
-     * </p>
      * <ol>
      *     <li>A nested existential query on a single field</li>
      *     <li>The inner query has an IN predicate on that field</li>
@@ -706,11 +704,14 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      *
      * @param inComparison whether the inner existential predicate should be an IN or EQUALS predicate
      */
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest
     @BooleanSource
     void testSimpleExistentialPredicateOnSimpleIndex(boolean inComparison) {
         Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.assumeFalse(inComparison);
         final Index index = new Index("Restaurant$tag.value", Key.Expressions.field("tags").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("value")));
         CascadesPlanner cascadesPlanner = setUpWithNullableArray(metaDataBuilder -> metaDataBuilder.addIndex("RestaurantRecord", index));
         final var tagValueParam = "t";
@@ -764,9 +765,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // SQL Port status: (#4843) ported, plan generated
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testEqualityAndSimpleExistentialPredicate() {
-        Assumptions.assumeTrue(useCascadesPlanner);
+        // LiteralValue/Parameter IN Source is not compatible with Cascades (#4816)
+        Assumptions.abort();
         final Index index = new Index("Restaurant$name-tagValue", Key.Expressions.concat(
                 Key.Expressions.field("name"),
                 Key.Expressions.field("tags").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("value"))

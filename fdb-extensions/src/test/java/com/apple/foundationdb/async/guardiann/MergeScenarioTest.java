@@ -52,8 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Scenario: forces a cluster to drop below {@code primaryClusterMin}, which must trigger a merge.
- * <p>
- * First inserts more near-duplicates than fit in one cluster (as in
+ *
+ * <p>First inserts more near-duplicates than fit in one cluster (as in
  * {@link SplitScenarioTest}) so the structure splits into at least two clusters. Then it
  * deletes most of them, dropping the surviving clusters below {@code primaryClusterMin}; per
  * {@code Primitives}, a delete that takes a cluster under the minimum enqueues a

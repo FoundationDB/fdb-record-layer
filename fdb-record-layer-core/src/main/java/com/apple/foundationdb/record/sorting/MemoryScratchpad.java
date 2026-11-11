@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Collect keyed values into an in-memory data structure.
+ *
  * @param <K> type of key
  * @param <V> type of value
  * @param <M> type of data structure which must at least be a {@link Map}.
@@ -85,7 +86,9 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
         STOP
     }
 
-    /** The result of {@link #load}.
+    /**
+     * The result of {@link #load}.
+     *
      * @param <K> the type of key
      */
     public static class LoadResult<K> {
@@ -126,6 +129,7 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
 
     /**
      * Load and sort records from a cursor.
+     *
      * @param source source cursor
      * @param minimumKey ignore cursor entries that are not greater than this key
      * @return the reason the load stopped

@@ -175,13 +175,11 @@ public class IndexValidator {
      *     <li>Call {@code super.validateChangedOptions(oldIndex, changedOptions} to handle common options.</li>
      * </ol>
      *
-     * <p>
-     * In general, an option should be considered safe to mutate if it does not impact the
+     * <p>In general, an option should be considered safe to mutate if it does not impact the
      * stored data. For example, {@link IndexOptions#ALLOWED_FOR_QUERY_OPTION} only determines
      * whether an index may be selected by the planner, so it safe to mutate at any time. Some
      * options, like {@link IndexOptions#UNIQUE_OPTION}, may be safe to mutate but only in certain
      * ways (e.g., it is safe to <em>remove</em> a uniqueness constraint, but not to add one).
-     * </p>
      *
      * @param oldIndex an older version of this validator's index
      * @param changedOptions the set of changed options to inspect

@@ -40,6 +40,7 @@ import java.util.function.Function;
 
 /**
  * Sort records in memory up to a specified limit, then return them in order.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */

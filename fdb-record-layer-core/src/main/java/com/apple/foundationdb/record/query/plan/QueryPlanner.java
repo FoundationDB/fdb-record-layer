@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 public interface QueryPlanner {
     /**
      * Preference between index scan and record scan.
+     *
      * @see #setIndexScanPreference
      */
     enum IndexScanPreference {
@@ -108,6 +109,7 @@ public interface QueryPlanner {
 
     /**
      * Get the {@link RecordMetaData} for this planner.
+     *
      * @return the meta-data
      */
     @Nonnull
@@ -115,6 +117,7 @@ public interface QueryPlanner {
 
     /**
      * Get the {@link RecordStoreState} for this planner.
+     *
      * @return the record store state
      */
     @Nonnull
@@ -127,6 +130,7 @@ public interface QueryPlanner {
      * Scanning without an index is more efficient, but will have to skip over unrelated record types.
      * For that reason, it is safer to use an index, except when there is only one record type.
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
+     *
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference);
@@ -138,6 +142,7 @@ public interface QueryPlanner {
      * Set the {@link RecordQueryPlannerConfiguration} for this planner.
      * If an {@link com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference} is already set using
      * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
+     *
      * @param configuration a configuration object for this planner
      */
     void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration);

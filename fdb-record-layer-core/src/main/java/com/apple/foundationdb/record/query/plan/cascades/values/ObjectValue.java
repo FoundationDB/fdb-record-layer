@@ -49,8 +49,8 @@ import java.util.function.Supplier;
 
 /**
  * A {@link Value} representing any object.
- * <br>
- * For example, this is used to represent non-quantifiable data (e.g. within an expression).
+ *
+ * <p>For example, this is used to represent non-quantifiable data (e.g. within an expression).
  */
 @API(API.Status.EXPERIMENTAL)
 public class ObjectValue extends AbstractValue implements LeafValue {

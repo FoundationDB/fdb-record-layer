@@ -37,6 +37,7 @@ class SimpleComponentWithChildren {
 
     /**
      * Creates a new component with children, must have at least 2 children. The planner assumes this.
+     *
      * @param children the operands
      */
     protected SimpleComponentWithChildren(@Nonnull List<QueryComponent> children) {
@@ -54,6 +55,7 @@ class SimpleComponentWithChildren {
 
     /**
      * Children for this component, at least 2 of them.
+     *
      * @return the children of this component
      */
     @Nonnull

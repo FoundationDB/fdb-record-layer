@@ -31,7 +31,7 @@ import java.util.function.Function;
 /**
  * A result obtained when a {@link RecordCursor} advances.
  *
- * A {@code RecordCursorResult} represents everything that one can learn each time a {@code RecordCursor} advances.
+ * <p>A {@code RecordCursorResult} represents everything that one can learn each time a {@code RecordCursor} advances.
  * This is precisely one of the following:
  * <ol>
  *     <li>
@@ -52,11 +52,9 @@ import java.util.function.Function;
  *     </li>
  * </ol>
  *
- * <p>
- * The implementation of {@code RecordCursorResult} guarantees the dichotomy described above using an API that encourages
+ * <p>The implementation of {@code RecordCursorResult} guarantees the dichotomy described above using an API that encourages
  * static correctness (for example, the {@link #withNextValue} and {@link #withoutNextValue} builder methods) and a
  * large number of correctness checks that encourage fast failures instead of subtle contract violations.
- * </p>
  *
  * @param <T> the type of result produced when the result includes a value
  */
@@ -91,6 +89,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Return whether or not this result includes a next value.
+     *
      * @return {@code true} if this result includes a next value and {@code false} if it does not
      */
     public boolean hasNext() {
@@ -99,6 +98,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Return the value of this result. If no result is present, throw an exception.
+     *
      * @return the value of this result
      * @throws IllegalResultValueAccessException if this result does not contain a value
      */
@@ -113,6 +113,7 @@ public class RecordCursorResult<T> {
     /**
      * Return the continuation of this result. The continuation will have {@link RecordCursorContinuation#isEnd()}
      * return {@code true} only if this result has a no-next-reason and that reason is {@code SOURCE_EXHAUSTED}.
+     *
      * @return the continuation of this result
      */
     @Nonnull
@@ -122,6 +123,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Return the no-next-reason of this result. If a result is present, throw an exception.
+     *
      * @return the no-next-reason of this result
      * @throws IllegalResultNoNextReasonAccessException if this result contains a value
      */
@@ -166,6 +168,7 @@ public class RecordCursorResult<T> {
      * Apply a function to the value inside this result, like {@link java.util.Optional#map(Function)}.
      * If a value is present, apply the given function to the value and return a new result with that value.
      * If no value is present in this result, simply return a value-less result of the correct type.
+     *
      * @param func the function to apply to the value, if present
      * @param <U> the type of the function's result and the type of value in the returned result
      * @return a new result with a value equal to the value of the function on the current result, if one is present
@@ -186,6 +189,7 @@ public class RecordCursorResult<T> {
      * result wrapping the value of the function's completed future.
      * If no value is present, return a completed future containing a result with this result's continuation and
      * no-next-reason.
+     *
      * @param func a function taking a value of type {@code T} and returning a {@code CompletableFuture<U>}
      * @param <U> the type of the value for the returned result
      * @return a future that, when complete, contains the result of type {@code U}
@@ -203,6 +207,7 @@ public class RecordCursorResult<T> {
     /**
      * Return a new result with the given continuation in place of this result's continuation, but the same value or
      * no-next-reason as this result.
+     *
      * @param newContinuation the new continuation for the result
      * @return a new result with the same value or no-next-reason, but the given continuation
      */
@@ -217,6 +222,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation (i.e., the source is not yet exhausted).
+     *
      * @return {@code true} if the cursor has reached its end but a continuation is not an end continuation and {@code false} otherwise
      */
     public boolean hasStoppedBeforeEnd() {
@@ -225,6 +231,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Create a new {@code RecordCursorResult} that has a value, using the given value and continuation.
+     *
      * @param nextValue the value of the result
      * @param continuation the continuation of the result
      * @param <T> the type of the value
@@ -242,6 +249,7 @@ public class RecordCursorResult<T> {
     /**
      * Create a new {@code RecordCursorResult} that does not have a next value, using the given continuation and no-next-reason.
      * The continuation may be an end continuation if and only if the no-next-reason is {@code SOURCE_EXHAUSTED}.
+     *
      * @param continuation the continuation of the result
      * @param noNextReason the {@link com.apple.foundationdb.record.RecordCursor.NoNextReason} that no value was present
      * @param <T> the type of the value if it were present
@@ -264,6 +272,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Cast a {@code RecordCursorResult} to one with a new type from a result without a next value.
+     *
      * @param withoutNext a result without a next value
      * @param <T> the type of value that would be included in the desired result if one were present
      * @param <U> the type of value that would be included in the given result if one were present
@@ -280,6 +289,7 @@ public class RecordCursorResult<T> {
 
     /**
      * Obtain the static result that a cursor can return when it is completely exhausted.
+     *
      * @param <T> the type of value that would be returned if a value were present
      * @return a {@code RecordCursorResult} containing an end continuation and a no-next-reason of {@code SOURCE_EXHAUSTED}
      */

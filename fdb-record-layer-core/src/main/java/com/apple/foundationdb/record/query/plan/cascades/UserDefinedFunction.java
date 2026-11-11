@@ -32,13 +32,14 @@ import java.util.Optional;
 /**
  * Functions that are defined by customers and serialized to {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}.
  *
- * note: user defined functions do not currently support variadic parameters.
+ * <p>note: user defined functions do not currently support variadic parameters.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Creates a new instance of {@link UserDefinedFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The types of function parameters.
      */
@@ -48,6 +49,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Creates a new instance of {@link UserDefinedFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterNames The names of the function parameters.
      * @param parameterTypes The types of the function parameters.
@@ -62,6 +64,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Serializes the {@link UserDefinedFunction} instance as a protobuf message.
+     *
      * @return A serialized version of the {@link UserDefinedFunction} as a protobuf message.
      */
     @Nonnull

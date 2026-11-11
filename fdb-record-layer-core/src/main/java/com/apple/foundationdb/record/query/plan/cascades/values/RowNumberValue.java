@@ -49,21 +49,19 @@ import java.util.Set;
 /**
  * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
  * integer row numbers to rows within partitions based on a specified ordering.
- * <p>
- * This class extends {@link WindowedValue} to provide window function semantics and implements
+ *
+ * <p>This class extends {@link WindowedValue} to provide window function semantics and implements
  * {@link Value.IndexOnlyValue} because row numbers are computed during index traversal for
  * vector similarity searches and cannot be reconstructed from base records alone.
- * </p>
  *
  * <h2>Primary Use Case: Vector Similarity Search</h2>
- * <p>
- * While {@code ROW_NUMBER()} is a standard SQL window function, this implementation is specifically
+ *
+ * <p>While {@code ROW_NUMBER()} is a standard SQL window function, this implementation is specifically
  * designed for K-nearest neighbor (K-NN) vector similarity searches using HNSW indexes. The function
  * assigns rank positions to vectors based on their distance from a query vector, enabling efficient
  * "top-K" result limiting through the {@code QUALIFY} clause.
- * </p>
- * <p>
- * <strong>Typical Query Pattern:</strong>
+ *
+ * <p><strong>Typical Query Pattern:</strong>
  * <pre>
  * SELECT docId, title
  * FROM documents
@@ -75,7 +73,6 @@ import java.util.Set;
  * ) &lt;= 10
  * </pre>
  * This query finds the 10 nearest documents in the 'tech' category to the query vector {@code [0.1, 0.2, 0.3]}.
- * </p>
  *
  * <h2>Configuration Parameters</h2>
  * <ul>
@@ -90,14 +87,13 @@ import java.util.Set;
  * </ul>
  *
  * <h2>Comparison Transformation</h2>
- * <p>
- * The {@link #transformComparisonMaybe(Comparisons.Type, Value)} method performs critical pattern
+ *
+ * <p>The {@link #transformComparisonMaybe(Comparisons.Type, Value)} method performs critical pattern
  * matching to enable HNSW index usage. When a comparison like {@code ROW_NUMBER() <= 10} is detected,
  * it transforms the predicate into a {@link Comparisons.DistanceRankValueComparison} that the query
  * planner recognizes as a K-NN search pattern.
- * </p>
- * <p>
- * <strong>Transformation Example:</strong>
+ *
+ * <p><strong>Transformation Example:</strong>
  * <pre>
  * // Original predicate
  * ROW_NUMBER() OVER (ORDER BY euclidean_distance(embedding, queryVec)) &lt;= 10
@@ -110,7 +106,6 @@ import java.util.Set;
  * </pre>
  * This transformation allows {@link com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate}
  * to recognize and satisfy the pattern using an HNSW index scan.
- * </p>
  *
  * <h2>Class Hierarchy</h2>
  * <ul>
@@ -118,24 +113,22 @@ import java.util.Set;
  *   <li><strong>{@link EuclideanDistanceRowNumberValue}</strong> - Specialized for Euclidean distance ordering</li>
  *   <li><strong>{@link CosineDistanceRowNumberValue}</strong> - Specialized for Cosine distance ordering</li>
  * </ul>
- * <p>
- * The specialized subclasses are created during comparison transformation to explicitly capture the
+ *
+ * <p>The specialized subclasses are created during comparison transformation to explicitly capture the
  * distance metric being used, enabling the query planner to match against appropriately-configured
  * HNSW indexes.
- * </p>
  *
  * <h2>Resolution</h2>
- * <p>
- * {@code ROW_NUMBER()} is resolved in a single step by {@link RowNumberFn}. The partitioning and ordering columns
+ *
+ * <p>{@code ROW_NUMBER()} is resolved in a single step by {@link RowNumberFn}. The partitioning and ordering columns
  * are taken from the {@link com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments.WindowSpecification},
  * while the vector-search options ({@code ef_search}, {@code return_vectors}) are read from the
  * {@link com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments} options map. {@code RowNumberFn} reads
  * both and constructs the final {@code RowNumberValue} directly.
- * </p>
  *
  * <h2>Index-Only Semantics</h2>
- * <p>
- * This class implements {@link Value.IndexOnlyValue} because row numbers are computed during the
+ *
+ * <p>This class implements {@link Value.IndexOnlyValue} because row numbers are computed during the
  * HNSW index traversal based on distance rankings. These rankings cannot be reconstructed from the
  * base record data alone - they fundamentally depend on the index's graph structure and search
  * algorithm. This constraint ensures that:
@@ -144,7 +137,6 @@ import java.util.Set;
  *   <li>No covering index optimizations at the moment</li>
  *   <li>Plan validation catches attempts to use {@code ROW_NUMBER()} without an appropriate index</li>
  * </ul>
- * </p>
  *
  * @see WindowedValue for the window function base class
  * @see RowNumberFn for the function definition and resolution
@@ -210,17 +202,16 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
     /**
      * Attempts to adjust a comparison predicate and transform it into a specialized distance rank comparison
      * that can leverage vector similarity indexes for more efficient query execution.
-     * <p>
-     * This method performs a pattern-matching transformation on queries involving {@code ROW_NUMBER()} window
+     *
+     * <p>This method performs a pattern-matching transformation on queries involving {@code ROW_NUMBER()} window
      * functions ordered by distance metrics (Euclidean, Euclidean square, Cosine, or Dot product distance). When
      * the pattern matches, it converts the comparison into a {@link Comparisons.DistanceRankValueComparison} wrapped
      * in the appropriate distance-specific {@code RowNumberValue} ({@link EuclideanDistanceRowNumberValue},
      * {@link EuclideanSquareDistanceRowNumberValue}, {@link CosineDistanceRowNumberValue}, or
      * {@link DotProductDistanceRowNumberValue}), which enables the query planner to use specialized vector
      * similarity search indexes (such as HNSW indexes).
-     * </p>
-     * <p>
-     * <strong>Matched Pattern:</strong>
+     *
+     * <p><strong>Matched Pattern:</strong>
      * <pre>
      *                      Comparison (&lt;=, &lt;, or =)
      *                      /                      \
@@ -236,12 +227,10 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      *   <li><strong>Vector</strong> = Constant value ({@link ConstantObjectValue} or {@link LiteralValue}) representing the query vector</li>
      *   <li><strong>Constant</strong> = Constant value representing the k in "top-k" nearest neighbor search</li>
      * </ul>
-     * </p>
-     * <p>
-     * The method accepts distance arguments in either order: {@code Distance(Field, Vector)} or {@code Distance(Vector, Field)}.
-     * </p>
-     * <p>
-     * <strong>Example Queries:</strong><br>
+     *
+     * <p>The method accepts distance arguments in either order: {@code Distance(Field, Vector)} or {@code Distance(Vector, Field)}.
+     *
+     * <p><strong>Example Queries:</strong><br>
      * <pre>
      * -- Euclidean distance example:
      * ROW_NUMBER() OVER (
@@ -255,9 +244,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * ) &lt; 5
      * </pre>
      * These would be transformed to find the k nearest neighbors using appropriate distance metrics.
-     * </p>
-     * <p>
-     * <strong>Transformation Output:</strong><br>
+     *
+     * <p><strong>Transformation Output:</strong><br>
      * The method transforms the comparison into:
      * <pre>
      * ValuePredicate(
@@ -267,26 +255,23 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * </pre>
      * Where {@code DistanceRowNumberValue} is either {@link EuclideanDistanceRowNumberValue} or
      * {@link CosineDistanceRowNumberValue} depending on the distance metric used.
-     * </p>
-     * <p>
-     * <strong>Supported Comparison Types:</strong>
+     *
+     * <p><strong>Supported Comparison Types:</strong>
      * <ul>
      *   <li>{@code EQUALS} → {@code DISTANCE_RANK_EQUALS}</li>
      *   <li>{@code LESS_THAN} → {@code DISTANCE_RANK_LESS_THAN}</li>
      *   <li>{@code LESS_THAN_OR_EQUALS} → {@code DISTANCE_RANK_LESS_THAN_OR_EQUAL}</li>
      * </ul>
-     * </p>
-     * <p>
-     * <strong>Supported Distance Metrics:</strong>
+     *
+     * <p><strong>Supported Distance Metrics:</strong>
      * <ul>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#EUCLIDEAN_DISTANCE}
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#EUCLIDEAN_SQUARE_DISTANCE}</li>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#COSINE_DISTANCE}</li>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#DOT_PRODUCT_DISTANCE}</li>
      * </ul>
-     * </p>
-     * <p>
-     * <strong>Requirements for Transformation:</strong>
+     *
+     * <p><strong>Requirements for Transformation:</strong>
      * <ul>
      *   <li>Window function must have exactly one argument value</li>
      *   <li>Argument must be an {@link ArithmeticValue} with a supported distance operator</li>
@@ -294,7 +279,6 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      *   <li>Comparison must be against a constant value</li>
      *   <li>Comparison type must be one of: {@code =}, {@code <}, or {@code <=}</li>
      * </ul>
-     * </p>
      *
      * @param comparisonType the type of comparison being performed (must be {@code =}, {@code <}, or {@code <=})
      * @param comparand the value being compared against (must be a constant representing the k in top-k search)
@@ -405,13 +389,12 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
     /**
      * The {@code row_number} window function.
-     * <p>
-     * The partitioning and ordering columns are taken from the {@link CallSiteArguments.WindowSpecification} rather
+     *
+     * <p>The partitioning and ordering columns are taken from the {@link CallSiteArguments.WindowSpecification} rather
      * than from positional arguments, and the vector-search options ({@code ef_search}, {@code return_vectors}) are
      * read from the call site's {@link CallSiteArguments.Options} through the typed keys this function declares in
      * {@link #getSupportedOptions()}. This lets {@code row_number} be encapsulated in a single step without the
      * higher-order currying it previously relied on.
-     * </p>
      */
     @AutoService(BuiltInFunction.class)
     public static final class RowNumberFn extends BuiltInFunction<RowNumberValue> {

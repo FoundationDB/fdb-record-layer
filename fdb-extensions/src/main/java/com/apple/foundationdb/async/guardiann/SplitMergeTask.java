@@ -69,13 +69,11 @@ import java.util.function.Predicate;
  * the cluster is partitioned into multiple new clusters using k-means. When the count falls below
  * {@link Config#primaryClusterMin()}, neighboring clusters are merged to reduce the total cluster count.
  *
- * <p>
- * The task operates in two phases: first, it evaluates candidate repartitionings (potentially trying
+ * <p>The task operates in two phases: first, it evaluates candidate repartitionings (potentially trying
  * both 1-to-2 and 2-to-3 splits) and selects the best one using {@link PartitionEvaluator}. Second,
  * it executes the chosen repartitioning by reassigning vectors, updating the HNSW centroid index,
  * and propagating replication information. If no valid repartitioning exists (e.g., due to duplicate
  * vectors), the task may fall back to enqueuing a {@link CollapseTask} instead.
- * </p>
  */
 class SplitMergeTask extends AbstractDeferredTask {
     @Nonnull
@@ -404,7 +402,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param estimator the distance estimator
      * @param innerClusters the core clusters, the target first
      * @param initialCandidates the split's candidates, fitted with the first strength of the ladder
-     *
      * @return the candidates of the first strength that produced an admissible one (or, failing that, of the last
      *         strength), with their verdicts
      */
@@ -452,7 +449,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param estimator the distance estimator
      * @param innerClusters the core clusters of the larger classification, the target first
      * @param candidates the candidates to score
-     *
      * @return the candidates with their verdicts
      */
     @Nonnull
@@ -477,7 +473,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * that genuinely cannot be partitioned within it.
      *
      * @param candidateToEvaluationResultMap the candidates that were considered, with their verdicts
-     *
      * @return the message for the thrown exception
      */
     @Nonnull
@@ -1043,7 +1038,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @param random source of randomness for the high-priority task id
      * @param nearestClusters the precomputed nearest clusters to attach to the re-enqueued task
-     *
      * @return a high-priority copy of this task carrying the given nearest clusters
      */
     @Nonnull
@@ -1092,7 +1086,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param taskId the id to assign to the new task
      * @param clusterId the id of the cluster to split or merge
      * @param centroid the transformed centroid of the target cluster
-     *
      * @return a new task without precomputed nearest clusters
      */
     @Nonnull
@@ -1112,7 +1105,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param clusterId the id of the cluster to split or merge
      * @param centroid the transformed centroid of the target cluster
      * @param nearestClusters the precomputed nearest clusters of the target cluster
-     *
      * @return a new task carrying the given precomputed nearest clusters
      */
     @Nonnull
@@ -1130,7 +1122,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @param classification1 the first ({@code 1 → 2}) cluster classification, or {@code null} if not applicable
      * @param classification2 the second ({@code 2 → 3}) cluster classification, or {@code null} if not applicable
-     *
      * @return the larger of the two core-cluster lists
      */
     @Nonnull
@@ -1258,7 +1249,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * the lowest-objective run overall only when none does, which the evaluator then rejects.
      *
      * @param config the configuration supplying the floor
-     *
      * @return a predicate over a k-means run's cluster sizes
      */
     @Nonnull
@@ -1335,14 +1325,14 @@ class SplitMergeTask extends AbstractDeferredTask {
 
     /**
      * Returns the {@link PartitionEvaluator.Parameters} used to judge a repartitioning candidate.
-     * <p>
-     * The balance gates are the same for every transition. {@link Config#minChildFraction()} rejects a candidate
+     *
+     * <p>The balance gates are the same for every transition. {@link Config#minChildFraction()} rejects a candidate
      * that would produce a cluster too small to be worth having, and {@link Config#maxRelativeImbalance()} declines
      * one whose clusters are too unevenly sized; because the latter is measured as a fraction of the worst
      * imbalance achievable at that {@code k}, one value means the same thing for a 2-way and a 3-way partitioning,
      * and a merge to a single cluster passes both by construction.
-     * <p>
-     * Only the imbalance weight varies by transition: splits are biased toward balance by
+     *
+     * <p>Only the imbalance weight varies by transition: splits are biased toward balance by
      * {@link Config#splitImbalancePenalty()}, which docks the {@code scoreGain} of the more lopsided candidate so
      * the more balanced one wins. Merges keep the evaluator's default weight — a merge's shape is dictated by the
      * clusters it is given, so there is less to steer.
@@ -1351,7 +1341,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param estimator the distance estimator the evaluator uses to score partitions
      * @param currentK the current number of clusters in the nearest clusters
      * @param candidateK the proposed number of clusters after the transition
-     *
      * @return the evaluator parameters tuned for the {@code currentK → candidateK} transition
      */
     @Nonnull
@@ -1373,8 +1362,8 @@ class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Selects the best valid candidate from the evaluated candidates map. A candidate is out of the running only if
      * the evaluator marked it {@link PartitionEvaluator.Decision#INVALID_CANDIDATE}; anything else is usable.
-     * <p>
-     * Among the usable ones, {@link PartitionEvaluator.Decision#ACCEPT_CANDIDATE} outranks
+     *
+     * <p>Among the usable ones, {@link PartitionEvaluator.Decision#ACCEPT_CANDIDATE} outranks
      * {@link PartitionEvaluator.Decision#KEEP_CURRENT}, and only within the same verdict does the higher
      * {@code scoreGain} decide. That ordering is the point of the soft gates: a candidate that trips one of them is
      * still available when nothing better is on offer, but it must not displace a candidate that cleared them all

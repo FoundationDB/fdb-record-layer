@@ -317,11 +317,9 @@ public class FilterSatisfiedMask {
      * If this filter is unsatisfied and it does not traverse down this mask's children,
      * then it will return <code>false</code>.
      *
-     * <p>
-     * This is supposed to be functionally equivalent to calling {@link #getUnsatisfiedFilter()}
+     * <p>This is supposed to be functionally equivalent to calling {@link #getUnsatisfiedFilter()}
      * and checking to see if the result is <code>null</code>. This does not attempt to
      * construct the unsatisfied filter if one exists, so this should be cheaper to call.
-     * </p>
      *
      * @return whether the whole filter is known to have been satisfied
      */

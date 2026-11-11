@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -200,6 +201,15 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
+        resultBuilder.addAll(super.computeDynamicTypes());
+        getInSources().forEach(inSource -> resultBuilder.addAll(inSource.getDynamicTypes()));
+        return resultBuilder.build();
     }
 
     @Nonnull

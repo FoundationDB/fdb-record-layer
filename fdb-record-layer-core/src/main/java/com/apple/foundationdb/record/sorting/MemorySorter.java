@@ -31,6 +31,7 @@ import java.util.TreeMap;
 
 /**
  * Collect keyed values into a {@link TreeMap} so that they end up sorted.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */

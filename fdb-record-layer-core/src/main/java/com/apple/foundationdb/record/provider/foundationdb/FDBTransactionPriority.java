@@ -26,9 +26,7 @@ import com.apple.foundationdb.annotation.API;
  * An enum indicating the priority of transactions against FoundationDB. This value can then be used to set options on
  * the transaction to indicate to the database the priority of the transaction's work.
  *
- * <p>
- * This API is {@link API.Status#UNSTABLE UNSTABLE}, but it may add additional values if they become available.
- * </p>
+ * <p>This API is {@link API.Status#UNSTABLE UNSTABLE}, but it may add additional values if they become available.
  */
 @API(API.Status.UNSTABLE)
 public enum FDBTransactionPriority {

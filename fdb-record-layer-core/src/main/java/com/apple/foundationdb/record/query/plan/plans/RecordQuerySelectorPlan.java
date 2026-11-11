@@ -133,7 +133,6 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
      * @param <M> the type of records in the store
-     *
      * @return {@link RecordCursor} that iterates through the results of the execution
      */
     @Nonnull

@@ -42,18 +42,19 @@ import java.util.function.Consumer;
 /**
  * An implementation of the Hierarchical Navigable Small World (HNSW) algorithm for
  * efficient approximate nearest neighbor (ANN) search.
- * <p>
- * HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
+ *
+ * <p>HNSW constructs a multi-layer graph, where each layer is a subset of the one below it.
  * The top layers serve as fast entry points to navigate the graph, while the bottom layer
  * contains all the data points. This structure allows for logarithmic-time complexity
  * for search operations, making it suitable for large-scale, high-dimensional datasets.
- * <p>
- * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector, Tuple)})
+ *
+ * <p>This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector, Tuple)})
  * and performing k-NN searches ({@link #kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)}).
  * It is designed to be used with a transactional storage backend, managed via a {@link Subspace}.
- * <p>
- * This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
+ *
+ * <p>This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
  * the respective operations classes which implement the actual algorithms to maintain and to search the structure.
+ *
  * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -64,6 +65,7 @@ public class HNSW {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link HNSW}
      * @see Config.ConfigBuilder#build
      */
@@ -72,9 +74,9 @@ public class HNSW {
     }
 
     /**
-     * Returns a default {@link Config}.
+     * {@return a new default {@code Config}}
+     *
      * @param numDimensions number of dimensions
-     * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
      */
     @Nonnull
@@ -84,8 +86,8 @@ public class HNSW {
 
     /**
      * Constructs a new HNSW graph instance.
-     * <p>
-     * This constructor initializes the HNSW graph with the necessary components for storage,
+     *
+     * <p>This constructor initializes the HNSW graph with the necessary components for storage,
      * execution, configuration, and event handling. All parameters are mandatory and must not be null.
      *
      * @param subspace the {@link Subspace} where the graph data is stored.
@@ -93,7 +95,6 @@ public class HNSW {
      * @param config the {@link Config} object containing HNSW algorithm parameters.
      * @param onWriteListener a listener to be notified of write events on the graph.
      * @param onReadListener a listener to be notified of read events on the graph.
-     *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public HNSW(@Nonnull final Subspace subspace,
@@ -121,6 +122,7 @@ public class HNSW {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -129,8 +131,7 @@ public class HNSW {
     }
 
     /**
-     * Get this hnsw's configuration.
-     * @return hnsw configuration
+     * {@return this hnsw's configuration}
      */
     @Nonnull
     public Config getConfig() {
@@ -138,8 +139,7 @@ public class HNSW {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -147,8 +147,7 @@ public class HNSW {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -177,6 +176,7 @@ public class HNSW {
 
     /**
      * Fetch a node and return its values as a {@link ResultEntry}.
+     *
      * @param readTransaction the transaction to use for reading from the database
      * @param primaryKey the primary key of the record
      * @return a new {@link ResultEntry} where {@link ResultEntry#distance()} returns {@code 0.0d} and
@@ -191,15 +191,14 @@ public class HNSW {
     /**
      * Classifies how many nodes currently live on the base layer (layer 0) of the graph as
      * {@link Cardinality#EMPTY}, {@link Cardinality#SINGLE} or {@link Cardinality#MULTIPLE}.
-     * <p>
-     * Since layer 0 holds every node, this doubles as a coarse classification of the whole graph: empty,
+     *
+     * <p>Since layer 0 holds every node, this doubles as a coarse classification of the whole graph: empty,
      * holding exactly one node, or holding two or more nodes. The scan stops after the second node, so the cost
      * is independent of the size of the graph. This is useful for callers that need to make a decision based on
      * whether more than one node exists without paying to count them all — for example, deciding whether a merge
      * with a neighbor is even possible.
      *
      * @param readTransaction the transaction to use for reading from the database
-     *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
     @Nonnull
@@ -216,7 +215,6 @@ public class HNSW {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -240,7 +238,6 @@ public class HNSW {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -258,13 +255,13 @@ public class HNSW {
 
     /**
      * Inserts a new vector with its associated primary key into the HNSW graph.
-     * <p>
-     * The method first determines a layer for the new node, called the {@code top layer}.
+     *
+     * <p>The method first determines a layer for the new node, called the {@code top layer}.
      * It then traverses the graph from the entry point downwards, greedily searching for the nearest
      * neighbors to the {@code newVector} at each layer. This search identifies the optimal
      * connection points for the new node.
-     * <p>
-     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
+     *
+     * <p>Once the nearest neighbors are found, the new node is linked into the graph structure at all
      * layers up to its {@code top layer}. Special handling is included for inserting the
      * first-ever node into the graph or when a new node's layer is higher than any existing node,
      * which updates the graph's entry point. All operations are performed asynchronously.
@@ -273,7 +270,6 @@ public class HNSW {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
      * @param additionalValues additional values to be associated with the new vector/record
-     *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
@@ -284,8 +280,8 @@ public class HNSW {
 
     /**
      * Deletes a record using its associated primary key from the HNSW graph.
-     * <p>
-     * This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
+     *
+     * <p>This method implements a multi-layer deletion algorithm that maintains the structural integrity of the HNSW
      * graph. The deletion process consists of several key phases:
      * <ul>
      *     <li><b>Layer Determination:</b> First determines the top layer for the node using the same deterministic
@@ -319,7 +315,6 @@ public class HNSW {
      * @param transaction the {@link Transaction} context for all database operations, ensuring atomicity
      *        and consistency of the deletion and repair operations
      * @param primaryKey the unique {@link Tuple} primary key identifying the node to be deleted from the graph
-     *
      * @return a {@link CompletableFuture} that completes when the deletion operation is fully finished,
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.
@@ -331,8 +326,8 @@ public class HNSW {
 
     /**
      * Returns an async iterator that returns results ordered by their distance from a given center vector.
-     * <p>
-     * This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
+     *
+     * <p>This method initiates an outward traversal from the {@code centerVector}, effectively performing a k-NN
      * (k-Nearest Neighbor) or beam search. The results are returned as an {@link AsyncIterator}, with items
      * yielded in increasing order of their distance from the center. The search can be started or resumed from a
      * specific point defined by {@code minimumRadius} and {@code minimumPrimaryKey}, allowing for pagination.
@@ -384,8 +379,8 @@ public class HNSW {
 
     /**
      * Scans all nodes within a given layer of the database.
-     * <p>
-     * The scan is performed transactionally in batches to avoid loading the entire layer into memory at once. Each
+     *
+     * <p>The scan is performed transactionally in batches to avoid loading the entire layer into memory at once. Each
      * discovered node is passed to the provided {@link Consumer} for processing. The operation continues fetching
      * batches until all nodes in the specified layer have been processed.
      *
@@ -408,8 +403,8 @@ public class HNSW {
 
     /**
      * Gets the appropriate storage adapter for a given layer.
-     * <p>
-     * This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
+     *
+     * <p>This method selects a {@link StorageAdapter} implementation based on the layer number. The logic is intended to
      * use an {@code InliningStorageAdapter} for layers greater than {@code 0} and a {@code CompactStorageAdapter} for
      * layer 0. Note that we will only use inlining at all if the config indicates we should use inlining.
      *

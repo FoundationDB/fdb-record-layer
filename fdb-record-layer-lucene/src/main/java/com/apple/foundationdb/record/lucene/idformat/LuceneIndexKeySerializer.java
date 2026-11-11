@@ -67,6 +67,7 @@ public class LuceneIndexKeySerializer {
     /**
      * Construct a new serializer using a format. The format parameter is optional. Absence of the format parameter will
      * cause failure when trying to use the {@link #asFormattedBinaryPoint} method.
+     *
      * @param format optional the key format
      */
     public LuceneIndexKeySerializer(@Nullable RecordIdFormat format) {
@@ -77,6 +78,7 @@ public class LuceneIndexKeySerializer {
      * Construct a new serializer using a String format. The format is parsed using {@link RecordIdFormatParser} (see that
      * class for a description of the syntax). The format parameter is optional. Absence of the format parameter will
      * cause failure when trying to use the {@link #asFormattedBinaryPoint} method.
+     *
      * @param formatString optional string representing the key format
      * @return the created serializer
      */
@@ -87,6 +89,7 @@ public class LuceneIndexKeySerializer {
 
     /**
      * Serialize the key as a single byte array (this will result in a {@code Tuple.pack()}).
+     *
      * @param key the key to serialize
      * @return the serialized key
      */
@@ -97,6 +100,7 @@ public class LuceneIndexKeySerializer {
     /**
      * Serialize the key as a {@link BinaryPoint} without a format. This format SHOULD NOT be used to store in Lucene as
      * it is not guaranteed to be of fixed length. As the content grows, it may generate more dimensions.
+     *
      * @param key the key to serialize
      * @return the split (BinaryPoint) style serialized key
      */
@@ -110,6 +114,7 @@ public class LuceneIndexKeySerializer {
      * Serialize the key as a {@link BinaryPoint}. This method uses the given {@link RecordIdFormat} as a guide to ensure
      * the returned BinaryPoint is going to be of fixed length, and searchable (by separating the components to different
      * dimensions, thus allowing range searches).
+     *
      * @param key the key to serialize
      * @return the formatted serialized key
      * @throws RecordCoreFormatException in case there is no format or the format failed to parse or validate
@@ -130,6 +135,7 @@ public class LuceneIndexKeySerializer {
 
     /**
      * Split all the byte arrays to the dimension size.
+     *
      * @param byteArrayList the given list of arrays
      * @return the list of arrays, where arrays longer than the dimension size are split
      */
@@ -147,6 +153,7 @@ public class LuceneIndexKeySerializer {
     /**
      * Split a single array to fit in a dimension size, padding if necessary. Shorter arrays are padded, longer ones are
      * split and then padded to the next dimension-sized array.
+     *
      * @param source the given array
      * @param splitLength the dimension length
      * @return the array that was split to fit in a number of dimension-sized chunks
@@ -181,6 +188,7 @@ public class LuceneIndexKeySerializer {
      * Note that there is no nesting indication in the flattened result - all elements from all tuples are in a single list.
      * This is OK since teh structure of the key is not allowed to be changed once the index is populated, and so we assume
      * that the only allowable variance is the value of each element.
+     *
      * @param format the key format
      * @param key the key tuple
      * @return the formatted key as a BinaryPoint

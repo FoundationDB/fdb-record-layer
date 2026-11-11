@@ -69,19 +69,19 @@ import java.util.stream.Collectors;
  *  <li> a contiguous compile-time evaluable range. </li>
  *  <li> a set of non-compile-time (deferred) ranges. </li>
  * </ul>
- * <br>
- * The set here represents a disjunction of these ranges. So, in a way, this class represents a boolean expression in
+ *
+ * <p>The set here represents a disjunction of these ranges. So, in a way, this class represents a boolean expression in
  * DNF form defined on the associated {@link Value}.
- * <br>
- * It is mainly used for index matching, i.e. it is not evaluable at runtime. On the query side it is normally used to
+ *
+ * <p>It is mainly used for index matching, i.e. it is not evaluable at runtime. On the query side it is normally used to
  * represent a search-argument (sargable). On the candidate side, it is normally used to either represent a restriction
  * on a specific attribute of a scan.
- * <br>
- * If the attribute is indexed, we use the {@link Placeholder} subtype to represent it along with its alias used later
+ *
+ * <p>If the attribute is indexed, we use the {@link Placeholder} subtype to represent it along with its alias used later
  * on for substituting one of the index scan search prefix) and an (optional) range(s) defined on it to semantically
  * represent the filtering nature of the associated index and use it to plan accordingly.
- * <br>
- * If the attribute, however, is not indexed, then we use an instance of {@code this} class as a restriction on that
+ *
+ * <p>If the attribute, however, is not indexed, then we use an instance of {@code this} class as a restriction on that
  * particular attribute.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -283,8 +283,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * Checks whether this predicate implies a {@code candidatePredicate}, if so, we return a {@link PredicateMapping}
      * reflecting the implication itself in addition to a context needed to effectively implement the mapping (i.e. the
      * necessity to apply a residual on top).
-     * <br>
-     * The implication is done by pattern matching the following cases:
+     *
+     * <p>The implication is done by pattern matching the following cases:
      * <ul>
      *  <li>If {@code candidatePredicate} is a contradiction, we do not have an implication, so we return an empty
      *  mapping.</li>
@@ -304,7 +304,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
-     *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
     @Nonnull
@@ -476,6 +475,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     /**
      * transforms this Sargable into a conjunction of equality and non-equality predicates.
+     *
      * @return a conjunction of equality and non-equality predicates.
      */
     @Override
@@ -532,19 +532,19 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * Captures a given candidate predicate into a plan constraint that is added to the corresponding physical plan operator.
      * This is important to make sure a logical expression's eligibility of using a physical plan containing this candidate
      * predicate.
-     * <br>
-     * The construction is done by pulling _each_ stripped literal on the query predicate (i.e. a {@link ConstantObjectValue})
+     *
+     * <p>The construction is done by pulling _each_ stripped literal on the query predicate (i.e. a {@link ConstantObjectValue})
      * and construct, for each one of them, a {@link PredicateWithValueAndRanges} having it on LHS, and the candidate predicate
      * ranges on the RHS.
      * The logical grouping of the {@link ConstantObjectValue} is preserved. Here is an example:
-     * <br>
-     * Query Predicate: (Value1, ( ((GT,#COV1) AND (LT,#COV4)) OR ((EQ,#COV5)) ) (note that the ranges in {@link PredicateWithValueAndRanges} is in DNF format).
-     * <br>
-     * Candidate Predicate: (Value1, ((LTE,1000) AND (LTE,2000)))
-     * <br>
-     * The resulting constraint: ((#COV1, ((LTE,1000) AND (LTE,2000))) AND (#COV4, ((LTE,1000) AND (LTE,2000))) OR (#COV5,((LTE,1000) AND (LTE,2000)))
-     * <br>
-     * Any candidate range that is exclusive is turned into inclusive, this is necessary, so we can match, for example, query
+     *
+     * <p>Query Predicate: (Value1, ( ((GT,#COV1) AND (LT,#COV4)) OR ((EQ,#COV5)) ) (note that the ranges in {@link PredicateWithValueAndRanges} is in DNF format).
+     *
+     * <p>Candidate Predicate: (Value1, ((LTE,1000) AND (LTE,2000)))
+     *
+     * <p>The resulting constraint: ((#COV1, ((LTE,1000) AND (LTE,2000))) AND (#COV4, ((LTE,1000) AND (LTE,2000))) OR (#COV5,((LTE,1000) AND (LTE,2000)))
+     *
+     * <p>Any candidate range that is exclusive is turned into inclusive, this is necessary, so we can match, for example, query
      * predicates with exactly the same range boundaries.
      *
      * @param candidatePredicate The candidate predicate to capture as a {@link QueryPlanConstraint}.

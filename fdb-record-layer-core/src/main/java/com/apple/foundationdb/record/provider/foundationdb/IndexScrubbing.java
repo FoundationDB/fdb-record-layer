@@ -189,12 +189,11 @@ public class IndexScrubbing extends IndexingBase {
 
     /**
      * Record the progress of a single scrubbing iteration in the range set and report whether more work remains.
-     * <p>
-     * After a chunk of records has been scanned, this marks the sub-range {@code [rangeStart, continuation)} as
+     *
+     * <p>After a chunk of records has been scanned, this marks the sub-range {@code [rangeStart, continuation)} as
      * covered by inserting it into {@code rangeSet}. If the cursor reached the end of the overall scrubbed range
      * (see {@link #allRangesAreExhausted(Tuple, Tuple)}), the entire range set is cleared so that the next
      * scrubbing session starts fresh rather than resuming from a stale checkpoint.
-     * </p>
      *
      * @param rangeSet the persistent range set tracking which sub-ranges have already been scrubbed
      * @param rangeStart the inclusive start of the sub-range that was just scanned, or {@code null} for the first key

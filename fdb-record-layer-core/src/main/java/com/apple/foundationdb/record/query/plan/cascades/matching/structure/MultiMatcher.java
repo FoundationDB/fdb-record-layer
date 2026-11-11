@@ -39,6 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * collection of objects in the presented collection. The multi matcher is abstract and only implemented by
  * {@link AllMatcher} and {@link SomeMatcher} that provided different semantics in the way they deal with non-matching
  * downstreams.
+ *
  * @param <T> the bindable type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
@@ -94,6 +95,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
      * A multi matcher that binds a sub collection of objects of the collection it is being matched. That includes the empty
      * collection which is the minimal sub collection this matcher binds, that is if no down stream matchers match
      * this matcher still binds the empty collection.
+     *
      * @param <T> type param
      */
     public static class SomeMatcher<T> extends MultiMatcher<T> {
@@ -126,6 +128,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
     /**
      * A multi matcher that binds to all objects in the collection it is being matched or it does not match anything at all,
      * i.e. nothing is bound.
+     *
      * @param <T> type param
      */
     public static class AllMatcher<T> extends MultiMatcher<T> {
@@ -158,6 +161,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
     /**
      * A multi matcher that binds a sub collection of objects of the collection it is being matched if the number of
      * objects exceeds a certain threshold.
+     *
      * @param <T> type param
      */
     public static class AtLeastMatcher<T> extends MultiMatcher<T> {

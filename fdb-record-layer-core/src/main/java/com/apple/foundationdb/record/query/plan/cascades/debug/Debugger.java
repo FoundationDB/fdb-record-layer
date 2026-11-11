@@ -37,30 +37,28 @@ import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 
 /**
- * <p>
  * This interface functions as a stub providing hooks which can be called from the planner logic during planning.
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton) via {@link PlannerEventListeners}.
  * The main mean of communication with the debugger is the set of statics defined within this interface.
- * </p>
- * <p>
- * In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
+ *
+ * <p>In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
- * </p>
- * <b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
- * <p>
- * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
+ *
+ * <p><b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
+ *
+ * <p>Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
  * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
  * There is a guarantee that {@link #withDebugger} does not invoke any given action if there is no debugger currently
  * set for this thread. In this way, the planner implementation can freely call debug hooks which never will incur any
  * penalties (performance or otherwise) for a production deployment.
- * </p>
  */
 @SuppressWarnings("java:S1214")
 public interface Debugger extends PlannerEventListeners.EventListener {
     /**
      * Set the debugger. Override the currently set debugger if necessary.
+     *
      * @param debugger the new debugger. If {@code debugger} is {@code null}, the current debugger
      *        will be removed.
      */
@@ -88,6 +86,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     /**
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
+     *
      * @param action consumer to invoke
      */
     static void withDebugger(@Nonnull final Consumer<Debugger> action) {
@@ -117,6 +116,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     /**
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
+     *
      * @param runnable to invoke that may throw an exception
      */
     static void sanityCheck(@Nonnull final Runnable runnable) {
@@ -129,6 +129,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     /**
      * Apply the {@link Function} on the currently set debugger. Do not do anything if there is no debugger set.
+     *
      * @param function function to apply
      * @param <T> the type {@code function} produces
      * @return {@code Optional.empty()} if there is no debugger currently set for this thread or if the function

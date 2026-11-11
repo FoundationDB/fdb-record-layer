@@ -42,7 +42,7 @@ import javax.annotation.Nonnull;
  * {@link com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainerFactory}.
  * This wrapping is not composable: a sliding window factory cannot itself be wrapped by
  * another sliding window factory. The detection and wrapping happen exactly once in
- * {@link IndexMaintainerFactoryRegistryImpl#getIndexMaintainerFactory(Index)}.</p>
+ * {@link IndexMaintainerFactoryRegistryImpl#getIndexMaintainerFactory(Index)}.
  */
 @API(API.Status.UNSTABLE)
 public interface IndexMaintainerFactoryRegistry extends IndexMaintainerRegistry, IndexMatchCandidateRegistry {

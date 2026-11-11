@@ -75,12 +75,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RecordQueryCoveringIndexValuePlan}, the covering scan that reads an index entry by evaluating a value
  * rather than by running the copiers of an {@code IndexKeyValueToPartialRecord}. See
  * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2907">issue 2907</a>.
- * <p>
- * Nothing creates the plan yet -- it ships ahead of the planner that will emit it, so that the fleet learns to
+ *
+ * <p>Nothing creates the plan yet -- it ships ahead of the planner that will emit it, so that the fleet learns to
  * deserialize it first. Every test therefore builds one by hand, over the very {@link RecordQueryIndexPlan} the planner
  * puts underneath a {@link RecordQueryCoveringIndexPlan} for the same query, which is what makes comparing the two
  * readers meaningful.
- * </p>
  */
 @Tag(Tags.RequiresFDB)
 class FDBCoveringIndexValuePlanTest extends FDBRecordStoreQueryTestBase {
@@ -314,10 +313,9 @@ class FDBCoveringIndexValuePlanTest extends FDBRecordStoreQueryTestBase {
     /**
      * Plans the query the covering scans are built from: it reads only the indexed field and the primary key, both of
      * which an entry of {@code MySimpleRecord$num_value_unique} carries, so the planner covers it.
-     * <p>
-     * Planned directly rather than through {@code planQuery}, which round trips the plan through its serialized form --
+     *
+     * <p>Planned directly rather than through {@code planQuery}, which round trips the plan through its serialized form --
      * and a deserialized index plan has lost its match candidate, which several of these tests are about.
-     * </p>
      */
     @Nonnull
     private RecordQueryCoveringIndexPlan planCoveringQuery() {

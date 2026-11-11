@@ -46,8 +46,8 @@ import java.util.stream.Stream;
  * Consolidated unit tests for the guardiann pure value/record types — {@link VectorId}, {@link PrimaryCopy},
  * {@link ReplicatedCopy}, {@link AccessInfo}, {@link ClusterMetadata}, {@link Cluster}, and {@link ClusterReference} —
  * plus the identity-preserving conversion/lens methods layered on top of them.
- * <p>
- * Modeled on {@code com.apple.foundationdb.async.hnsw.DataRecordsTest}: rather than a class per record (which would
+ *
+ * <p>Modeled on {@code com.apple.foundationdb.async.hnsw.DataRecordsTest}: rather than a class per record (which would
  * fragment coverage for a pile of trivial {@code toString}/{@code equals} overrides), a single generic harness pins
  * the {@code hashCode}/{@code equals}/{@code toString} contract of each type from a seeded builder, and a handful of
  * focused tests cover the load-bearing behavior — the {@code ==} short-circuits in {@code withVector}/

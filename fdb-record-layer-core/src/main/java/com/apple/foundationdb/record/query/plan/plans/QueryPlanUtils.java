@@ -39,13 +39,13 @@ public class QueryPlanUtils {
     /**
      * Some plans require serializable isolation (such as DML); this should be enforced by the parser, but as a backup
      * this method can be used to additionally protect.
-     * <p>
-     *     For example, data-modification plans must run at serializable isolation: they read existing records (to
+     *
+     * <p>For example, data-modification plans must run at serializable isolation: they read existing records (to
      *     maintain indexes, enforce uniqueness, etc.) and those reads must participate in conflict detection to remain
      *     correct. Executing at SNAPSHOT isolation would, at a minimum, require adding any records read to the conflict
      *     range to ensure index consistency. It also requires determining and documenting the exact semantics. Because
      *     of this complexity and a lack of immediate requests, this is not supported.
-     * </p>
+     *
      * @param executeProperties the execute properties used for executing
      * @param planClass the class of the plan being protected
      */

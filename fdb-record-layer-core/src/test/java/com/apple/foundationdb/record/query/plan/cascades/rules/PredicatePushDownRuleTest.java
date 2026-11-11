@@ -100,9 +100,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T) WHERE a = 42
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T WHERE a = 42)
      * }</pre>
@@ -135,9 +134,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a FROM (SELECT a, b, d FROM T) WHERE a = 42 AND EXISTS (SELECT alpha FROM TAU)
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT a FROM (SELECT a, b FROM T WHERE a = 42) WHERE EXISTS (SELECT alpha FROM TAU)
      * }</pre>
@@ -203,9 +201,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a FROM (SELECT a, b, d FROM T) WHERE b = d
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT a FROM (SELECT a, b FROM T WHERE b = d)
      * }</pre>
@@ -239,9 +236,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a, b FROM (SELECT a, b, c FROM T) WHERE c = @1
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT a, b FROM (SELECT a, b, c FROM T WHERE c = @1)
      * }</pre>
@@ -276,12 +272,11 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a, b, c FROM t WHERE b > 'hello'
      * }</pre>
-     * <p>
-     * In this case, the QGM contains a {@link SelectExpression} on top of a
+     *
+     * <p>In this case, the QGM contains a {@link SelectExpression} on top of a
      * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression}
      * on top of a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression}.
      * The predicate cannot be pushed through the type filter, and so we expect nothing to be returned.
-     * </p>
      */
     @Test
     void cannotPushDownPredicate() {
@@ -298,9 +293,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a FROM (SELECT a, b, c FROM T WHERE b = @1) WHERE c = @2
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT a FROM (SELECT a, b, c FROM T WHERE b = @1 AND c = @2)
      * }</pre>
@@ -337,9 +331,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T) WHERE a = $p
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T WHERE a = $p)
      * }</pre>
@@ -372,9 +365,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a, b, one FROM (SELECT a, b, p.one, p.two FROM T) WHERE two = ?
      * }</pre>
-     * <p>
-     * Becomes:
-     * </p>
+     *
+     * <p>Becomes:
      * <pre>{@code
      * SELECT a, b, one FROM (SELECT a, b p.one, p.two FROM T WHERE p.two = ?)
      * }</pre>
@@ -456,9 +448,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT a, b FROM (SELECT a, b, d FROM t) WHERE a = $p OR b > 'hello' OR @1 = d
      * }</pre>
-     * <p>
-     * And modifies it to:
-     * </p>
+     *
+     * <p>And modifies it to:
      * <pre>{@code
      * SELECT a, b FROM (SELECT a, b, d FROM t WHERE a = $p OR b > 'hello' OR @1 = d)
      * }</pre>
@@ -500,9 +491,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T) WHERE a = 42 AND b > 'hello'
      * }</pre>
-     * <p>
-     * And become:
-     * </p>
+     *
+     * <p>And become:
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T WHERE a = 42 AND b > 'hello')
      * }</pre>
@@ -537,9 +527,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT b, c FROM (FILTER t WHERE a = 42) WHERE b > d AND c != @1
      * }</pre>
-     * <p>
-     * And rewrites it as:
-     * </p>
+     *
+     * <p>And rewrites it as:
      * <pre>{@code
      * SELECT b, c FROM (SELECT * FROM t WHERE a = 42 AND b > d AND c != @1)
      * }</pre>
@@ -577,32 +566,29 @@ public class PredicatePushDownRuleTest {
      *   FROM (SELECT a, b, c FROM t WHERE starts_with(d, 'blah')) OR ELSE NULL
      *   WHERE b = 'bar'
      * }</pre>
-     * <p>
-     * Suppose there is only one element in {@code t} that satisfies the predicate on {@code d}, and
+     *
+     * <p>Suppose there is only one element in {@code t} that satisfies the predicate on {@code d}, and
      * suppose further that {@code b} does not equal {@code "bar"} on that row. Then the initial query
      * would return no results (as the single row would be returned by the lower select and then filtered
      * out by the {@code b = 'bar'} filter). If it were to be rewritten the same way as other select
      * queries are, say:
-     * </p>
      * <pre>{@code
      * SELECT a, c
      *   FROM (SELECT a, b, c FROM t WHERE starts_with(d, 'blah') AND b = 'bar') OR ELSE NULL
      * }</pre>
-     * <p>
-     * Then the underlying query would return zero results, so we'd get back a single {@code null}
+     *
+     * <p>Then the underlying query would return zero results, so we'd get back a single {@code null}
      * value back. We could theoretically re-apply the predicate, something like:
-     * </p>
      * <pre>{@code
      * SELECT a, c
      *   FROM (SELECT a, b, c FROM t WHERE starts_with(d, 'blah') AND b = 'bar') OR ELSE NULL
      *   WHERE b = 'bar'
      * }</pre>
-     * <p>
-     * And that works here because the {@code b} predicate can never be true if the underlying quantifier
+     *
+     * <p>And that works here because the {@code b} predicate can never be true if the underlying quantifier
      * returned an injected {@code null}. However, if the predicate were {@code b IS NULL}, we'd have a harder
      * time, as we'd be unable to validate whether the result from the lower select was {@code null} because
      * there was an all-null row or if the null came from
-     * </p>
      */
     @Test
     void doNotPushIntoSelectWithNullOnEmpty() {
@@ -661,9 +647,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT y FROM (SELECT a AS x, b AS y FROM T) WHERE x = 42 AND y > 'hello'
      * }</pre>
-     * <p>
-     * Should become:
-     * </p>
+     *
+     * <p>Should become:
      * <pre>{@code
      * SELECT y FROM (SELECT a AS x, b AS y FROM T WHERE a = 42 AND b > 'hello')
      * }</pre>
@@ -699,9 +684,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT x, y, z FROM (SELECT a AS x, b AS y, d AS z FROM t) WHERE y > z
      * }</pre>
-     * <p>
-     * Then we expect both {@code y} and {@code z} to be renamed to their original names when pushed down:
-     * </p>
+     *
+     * <p>Then we expect both {@code y} and {@code z} to be renamed to their original names when pushed down:
      * <pre>{@code
      * SELECT x, y, z FROM (SELECT a AS x, b AS y, d AS z FROM t WHERE b > d)
      * }</pre>
@@ -735,9 +719,8 @@ public class PredicatePushDownRuleTest {
      * <pre>{@code
      * SELECT x.a, y.alpha FROM (SELECT a, b FROM t) AS x, (SELECT alpha, beta FROM tau) AS y WHERE x.b = y.beta
      * }</pre>
-     * <p>
-     * This does not yield any rewrites as the only predicate is used for joining.
-     * </p>
+     *
+     * <p>This does not yield any rewrites as the only predicate is used for joining.
      */
     @Test
     void testDoesNotPushJoinCriteria() {
@@ -770,10 +753,9 @@ public class PredicatePushDownRuleTest {
      *   WHERE t.a = tau.alpha
      *     AND (t.b > 'hello' OR tau.beta > 'hello')
      * }</pre>
-     * <p>
-     * In this case, there's nothing to do be done, as we can't push the OR to either side, and we can't break
+     *
+     * <p>In this case, there's nothing to do be done, as we can't push the OR to either side, and we can't break
      * up the predicate in some way.
-     * </p>
      */
     @Test
     void doesNotPushOrWithMixedJoinElements() {
@@ -805,19 +787,17 @@ public class PredicatePushDownRuleTest {
      *        (SELECT alpha, beta, gamma FROM tau) tau
      *   WHERE t.b = tau.beta AND t.a = @1 AND tau.alpha = @2
      * }</pre>
-     * <p>
-     * We can push down the two predicates (that aren't the join criteria) to the two legs:
-     * </p>
+     *
+     * <p>We can push down the two predicates (that aren't the join criteria) to the two legs:
      * <pre>{@code
      * SELECT t.a, tau.alpha
      *   FROM (SELECT a, b, c FROM t WHERE t.a = @1) t,
      *        (SELECT alpha, beta, gamma FROM tau WHERE tau.alpha = @2) tau
      *   WHERE t.b = tau.beta
      * }</pre>
-     * <p>
-     * Both single-leg predicates are pushed down in a single rule invocation, leaving only the join predicate on the
+     *
+     * <p>Both single-leg predicates are pushed down in a single rule invocation, leaving only the join predicate on the
      * top-level select.
-     * </p>
      */
     @Test
     void testPartitionPredicatesByJoinSource() {
@@ -872,9 +852,8 @@ public class PredicatePushDownRuleTest {
      *   WHERE t.b = tau.beta
      * ) WHERE a1 = 42 AND a2 = $param
      * }</pre>
-     * <p>
-     * And rewrites it as:
-     * </p>
+     *
+     * <p>And rewrites it as:
      * <pre>{@code
      * SELECT b, c1, c2 FROM (
      *   SELECT t.a AS a1, tau.alpha AS a2, t.b AS b, t.c AS c1, tau.gamma AS c2
@@ -882,9 +861,8 @@ public class PredicatePushDownRuleTest {
      *   WHERE t.b = tau.beta AND t.a = 42 AND tau.alpha = $param
      * )
      * }</pre>
-     * <p>
-     * Note the translation of {@code a1}  and {@code a2} to their original names and sources.
-     * </p>
+     *
+     * <p>Note the translation of {@code a1}  and {@code a2} to their original names and sources.
      */
     @Test
     void rewritePushedPredicatesOntoAppropriateJoinSource() {
@@ -933,9 +911,8 @@ public class PredicatePushDownRuleTest {
      *   )
      *   WHERE x = 42
      * }</pre>
-     * <p>
-     * And rewrites it as:
-     * </p>
+     *
+     * <p>And rewrites it as:
      * <pre>{@code
      * SELECT y, z
      *   FROM (
@@ -944,12 +921,11 @@ public class PredicatePushDownRuleTest {
      *      SELECT * FROM (SELECT alpha AS x, beta AS y, gamma AS z FROM tau) WHERE x = 42
      *   )
      * }</pre>
-     * <p>
-     * Note the introduction of additional {@code SELECT}s in the union legs. These come from the fact
+     *
+     * <p>Note the introduction of additional {@code SELECT}s in the union legs. These come from the fact
      * that the initial rewrite only pushes the predicate down one level. When run in
      * the full planner, the predicate will be pushed down all the way, and additional simplification
      * rules will ensure that the intermediate {@code SELECT}s will be merged.
-     * </p>
      */
     @Test
     void pushSimplePredicateThroughUnion() {
@@ -1063,20 +1039,18 @@ public class PredicatePushDownRuleTest {
      *  GROUP BY b, d
      *  HAVING b = ?param
      * }</pre>
-     * <p>
-     * And rewrites it as:
-     * </p>
+     *
+     * <p>And rewrites it as:
      * <pre>{@code
      * SELECT b, d, sum(a)
      *  FROM T
      *  WHERE b = ?param
      *  GROUP BY b, d
      * }</pre>
-     * <p>
-     * In other words, it moves predicates from the {@code SELECT HAVING} to the {@code SELECT WHERE}.
+     *
+     * <p>In other words, it moves predicates from the {@code SELECT HAVING} to the {@code SELECT WHERE}.
      * Note that there is a bunch of field re-naming stuff that is elided in the SQL description
      * above but that the rewriting has to handle.
-     * </p>
      */
     @Disabled // should work once we add support for pushing through predicates on grouping columns
     @Test
@@ -1165,21 +1139,19 @@ public class PredicatePushDownRuleTest {
      *  GROUP BY b, d
      *  HAVING sum(a) < @1
      * }</pre>
-     * <p>
-     * In this case, because the sum is dependent on the grouping, it would be invalid to do something
+     *
+     * <p>In this case, because the sum is dependent on the grouping, it would be invalid to do something
      * like:
-     * </p>
      * <pre>{@code
      * SELECT b, d, sum(a)
      *  FROM T
      *  WHERE sum(a) < @1
      *  GROUP BY b, d
      * }</pre>
-     * <p>
-     * Which probably doesn't mean anything at all, but if it does, it isn't semantically equivalent.
+     *
+     * <p>Which probably doesn't mean anything at all, but if it does, it isn't semantically equivalent.
      * Nevertheless, it is (approximately) what some buggy versions of predicate push down through a
      * group-by expression would do. Validate that this instead yields nothing.
-     * </p>
      */
     @Test
     void doNotPushDownPredicateOnAggregateValueNestedResult() {

@@ -42,11 +42,9 @@ import java.util.concurrent.CompletableFuture;
  * distinct from otherwise homogeneous record stores such as the readability state of its indexes or what format
  * or meta-data version the store was created using.
  *
- * <p>
- * This class is used internally to cache the retrieved results from initializing a record store so that
+ * <p>This class is used internally to cache the retrieved results from initializing a record store so that
  * future record stores initialized from the same subspace can be initialized without needing to perform
  * initialization checks multiple times.
- * </p>
  */
 @API(API.Status.INTERNAL)
 public class FDBRecordStoreStateCacheEntry {
@@ -70,9 +68,7 @@ public class FDBRecordStoreStateCacheEntry {
     }
 
     /**
-     * Get the {@link RecordStoreState} contained within this entry.
-     *
-     * @return the {@link RecordStoreState} contained within this entry
+     * {@return the {@link RecordStoreState} contained within this entry}
      */
     @Nonnull
     public RecordStoreState getRecordStoreState() {

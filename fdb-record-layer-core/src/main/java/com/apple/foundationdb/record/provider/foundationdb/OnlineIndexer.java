@@ -68,26 +68,22 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  * priorities of its transactions. Additionally, it attempts to limit the amount of work it will
  * do in a fashion that will decrease as the number of failures for a given build attempt increases.
  *
- * <p>
- * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
+ * <p>As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
  * associated with the index being built. This {@link RangeSet} is used to (a) coordinate work between
  * different builders that might be running on different machines to ensure that the same work isn't
  * duplicated and to (b) make sure that non-idempotent indexes (like <code>COUNT</code> or <code>SUM_LONG</code>)
  * don't update themselves (or fail to update themselves) incorrectly.
- * </p>
  *
- * <p>
- * Unlike many other features in the Record Layer core, this has a retry loop.
- * </p>
+ * <p>Unlike many other features in the Record Layer core, this has a retry loop.
  *
- * <p>Build an index immediately in the current transaction:</p>
+ * <p>Build an index immediately in the current transaction:
  * <pre><code>
  * try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
  *     indexBuilder.rebuildIndex(recordStore);
  * }
  * </code></pre>
  *
- * <p>Build an index synchronously in the multiple transactions:</p>
+ * <p>Build an index synchronously in the multiple transactions:
  * <pre><code>
  * try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
  *     indexBuilder.buildIndex();
@@ -396,8 +392,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Get the current config parameters of the online indexer.
-     * @return the config parameters of the online indexer
+     * {@return the current config parameters of the online indexer}
      */
     @Nonnull
     @VisibleForTesting
@@ -407,6 +402,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the number of times the configuration was loaded.
+     *
      * @return the number of times the {@code configLoader} was invoked
      */
     @VisibleForTesting
@@ -416,6 +412,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the number of indexing attempts that were made during the last indexing operation.
+     *
      * @return the number of indexing attempts
      */
     @VisibleForTesting
@@ -426,6 +423,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Get the current number of records to process in one transaction.
      * This may go up or down during committing failures or successes.
+     *
      * @return the current number of records to process in one transaction
      */
     public int getLimit() {
@@ -468,7 +466,7 @@ public class OnlineIndexer implements AutoCloseable {
      * do this within a single transaction, and it may fail if there are too many records, so this
      * is only safe to do for small record stores.
      *
-     * Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
+     * <p>Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
      * changing an index to write-only mode while the index is being rebuilt.
      *
      * @param store the record store in which to rebuild the index
@@ -493,6 +491,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * If applicable, merge the target indexes as a background maintenance. This experimental feature completes
      * {@link FDBRecordStore#getIndexDeferredMaintenanceControl()} and {@link IndexDeferredMaintenanceControl}.
+     *
      * @return a future with the merge index operation
      */
     @API(API.Status.EXPERIMENTAL)
@@ -511,6 +510,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
+     *
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public boolean checkAnyOngoingOnlineIndexBuilds() {
@@ -519,6 +519,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     *
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
@@ -530,6 +531,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
      * Where "active session" is determined by an indexing heartbeat that is less than {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS} old.
+     *
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
@@ -540,6 +542,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Check if the provided index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     *
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @param leasingMilliseconds max heartbeat age to be considered an "active session"
@@ -555,14 +558,14 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Builds an index across multiple transactions.
-     * <p>
-     * If the indexing session is not mutual, it will stop with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
+     *
+     * <p>If the indexing session is not mutual, it will stop with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
      * if there is another active indexing session on the same index. It first checks and updates index states and
      * clear index data respecting the {@link IndexStatePrecondition} being set. It then builds the index across
      * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
      * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
      * store.
-     * </p>
+     *
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
@@ -581,6 +584,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Builds an index across multiple transactions.
      * Synchronous version of {@link #buildIndexAsync}.
+     *
      * @param markReadable whether to mark the index as readable after building the index
      */
     public void buildIndex(boolean markReadable) {
@@ -597,6 +601,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Mark the index as readable if it is built.
+     *
      * @return a future that will complete to <code>true</code> if all the target indexes are readable or marked readable
      * and <code>false</code> otherwise
      */
@@ -608,6 +613,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Mark the index as readable.
+     *
      * @return a future that will either complete exceptionally if any of the target indexes can not
      * be made readable or will contain <code>true</code> if the store was modified and <code>false</code>
      * otherwise
@@ -622,6 +628,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Query the current indexing session.
      * Note that this query cannot tell if another process is actively indexing now, but whether or not an index is in
      * the process of being built (and how).
+     *
      * @return a map of target indexes and their "indexing stamps".
      */
     @API(API.Status.EXPERIMENTAL)
@@ -633,6 +640,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Block partly built indexes, preventing continuation.
      * Active indexing sessions will check for this block during every iterating transaction, which still requires the caller to
      * wait a few seconds before assuming that all indexing had stopped.
+     *
      * @param id if non-null, will be added to the "indexing stamp" as an id/hint for the blocking reason.
      * @param ttlSeconds if non-null, the block will automatically expire after this value (in seconds).
      * @return a map of target indexes and their "indexing stamps" after the change.
@@ -644,6 +652,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Unblock partly built indexes, allowing continuation.
+     *
      * @param id if non-null nor empty, unblock the indexes only if this matches the id in the "indexing stamp", as was
      * set by {@link #blockIndexBuilds(String, Long)}.
      * @return  a map of target indexes and their "indexing stamps" after the change.
@@ -668,6 +677,7 @@ public class OnlineIndexer implements AutoCloseable {
      * When an index becomes readable any existing heartbeat will be deleted.
      * Note that heartbeats that cannot be decrypted will show in the returned map as having creation time of 0 and its info will
      * be set to {@link IndexingHeartbeat#INVALID_HEARTBEAT_INFO}.
+     *
      * @param maxCount safety valve to limit number items to read. Typically set to zero to keep unlimited.
      * @return map of session ids to {@link IndexBuildProto.IndexBuildHeartbeat}
      */
@@ -681,6 +691,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Clear old indexing heartbeats for a given index (single target or primary index).
      * Typically, heartbeats are deleted either at the end of an indexing sessions or when the index becomes readable. This
      * cleanup function can be used if, for any reason, the heartbeats could not be deleted from the database at the end of a session.
+     *
      * @param minAgeMilliseconds minimum heartbeat age (time elapsed since the last heartbeat, in milliseconds) to clear.
      * @param maxIteration safety valve to limit number of items to check. Typically set to zero to keep unlimited
      * @return number of cleared heartbeats
@@ -750,6 +761,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the index to be built.
+         *
          * @param index the index to be built
          * @return this builder
          *
@@ -767,6 +779,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the index to be built.
+         *
          * @param indexName the index to be built
          * @return this builder
          *
@@ -781,6 +794,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Replace any previous target indexes list with this new one.
+         *
          * @param indexes list of target indexes
          * @return this builder
          */
@@ -791,6 +805,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Replace any previous target indexes list with this new one.
+         *
          * @param indexes list of target index names
          * @return this builder
          */
@@ -803,6 +818,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add one target index to the target indexes list. The online indexer will attempt building
          * all the target indexes within a single records scan. Hence, at least one target index should
          * be defined.
+         *
          * @param index an index to add
          * @return this builder
          */
@@ -815,6 +831,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add one target index to the target indexes list. The online indexer will attempt building
          * all the target indexes within a single records scan. Hence, at least one target index should
          * be defined.
+         *
          * @param indexName an index's name to add
          * @return this builder
          */
@@ -826,7 +843,8 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Get the explicit set of record types to be indexed.
          *
-         * Normally, all record types associated with the chosen index will be indexed.
+         * <p>Normally, all record types associated with the chosen index will be indexed.
+         *
          * @return the record types to be indexed
          */
         @Nullable
@@ -837,8 +855,9 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the explicit set of record types to be indexed.
          *
-         * Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
+         * <p>Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
          * explicitly is not allowed with multi targets indexing.
+         *
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
@@ -852,19 +871,19 @@ public class OnlineIndexer implements AutoCloseable {
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
+         *
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
          * @return this builder
-         *
          * @deprecated use {@link IndexingPolicy.Builder} instead. Example:
-         * <p>
-         *   setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+         *
+         * <p>setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
          *                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
          *                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
-         * </p>
-         * For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
+         *
+         * <p>For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
          * methods: setIfDisabled, setIfWriteOnly, setIfMismatchPrevious, setIfReadable
          */
         @Deprecated
@@ -877,6 +896,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
+         *
          * @param indexingPolicy see {@link IndexingPolicy}
          * @return this Builder
          */
@@ -894,6 +914,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Add an {@link IndexingPolicy.Builder}. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
+         *
          * @param builder an IndexingPolicy builder.
          * @return this Builder
          */
@@ -905,6 +926,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Build an {@link OnlineIndexer}.
+         *
          * @return a new online indexer
          */
         public OnlineIndexer build() {
@@ -1043,6 +1065,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create a policy for the indexing session.
+         *
          * @param sourceIndex Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index
          * @param sourceIndexSubspaceKey if non-null, overrides the sourceIndex param
          * @param forbidRecordScan forbid fallback to a by-records scan
@@ -1097,6 +1120,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Check if active.
+         *
          * @return True if active
          */
         public boolean isByIndex() {
@@ -1105,6 +1129,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If active, get the source index.
+         *
          * @return source index name
          */
         @Nullable
@@ -1119,6 +1144,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If another indexing method is not possible, indicate if a fallback to records scan is forbidden.
+         *
          * @return  {@code true} if a record scan is forbidden
          */
         public boolean isForbidRecordScan() {
@@ -1127,6 +1153,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * In this mode, assume concurrently indexing with other entities.
+         *
          * @return true if mutual
          */
         public boolean isMutual() {
@@ -1135,6 +1162,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create an indexing policy builder.
+         *
          * @return a new {@link IndexingPolicy} builder
          */
         @Nonnull
@@ -1144,6 +1172,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Create an indexing policy builder from existing object.
+         *
          * @return an {@link IndexingPolicy} builder, defaulted to the existing object's values.
          */
         @Nonnull
@@ -1171,6 +1200,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is disabled.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfDisabled() {
@@ -1179,6 +1209,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in write only mode.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfWriteOnly() {
@@ -1187,6 +1218,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in partly built, but the requested policy mismatches the previous one.
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfMismatchPrevious() {
@@ -1195,6 +1227,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * The desired action if the index is in readable mode (i.e. already built).
+         *
          * @return requested {@link DesiredAction}
          */
         public DesiredAction getIfReadable() {
@@ -1203,6 +1236,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the appropriate desired action for a given index state.
+         *
          * @param state A given index state
          * @return The appropriate {@link DesiredAction}
          */
@@ -1218,6 +1252,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, mark readable (after indexing) should allow the {@link IndexState#READABLE_UNIQUE_PENDING} index state.
+         *
          * @param store the relevant store - used to check if matching format-version.
          * @return true if allowed
          */
@@ -1229,6 +1264,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * If true, allow - in some specific cases - to continue building an index that was partly built by a different indexing method.
          * (See {@link Builder#allowTakeoverContinue(Collection)} and {@link Builder#allowTakeoverContinue(boolean)}).
+         *
          * @param newStamp the new (attempting to continue) indexing type stamp
          * @param oldStamp the old (previously used) indexing type stamp
          * @return true if allowed
@@ -1276,6 +1312,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, allow indexing continuation of a blocked partly built index.
+         *
          * @param stampBlockId if non-null and non-empty, allow unblock only if matches the existing stamp's block id
          * @return true if unblock is allowed
          */
@@ -1287,6 +1324,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Get the initial merges count limit for {@link #mergeIndex()} and the indexing process.
          * The default is 0 - which means unlimited.
+         *
          * @return the initial merges count limit.
          */
         @API(API.Status.EXPERIMENTAL)
@@ -1296,6 +1334,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get caller's request to scan records in reverse order while indexing.
+         *
          * @return true if reverse scan order was requested
          */
         public boolean isReverseScanOrder() {
@@ -1306,6 +1345,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Whether the given target index should be built with a pending write queue. While such an index is being
          * built, user updates are accumulated in a pending write queue (to be drained by the indexer) instead of being
          * written to the index directly.
+         *
          * @param index the target index to check
          * @return true if the given index should be built with a pending write queue
          */
@@ -1318,6 +1358,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Whether the given target index should be built in the write-only-with-tracking state. While such a (non-idempotent)
          * index is being built, user inserts are always indexed and tracked in a dedicated table, which the indexer
          * consults to avoid indexing them again; the indexer itself needs no range conflicts, just like the indexer of an idempotent index.
+         *
          * @param index the target index to check
          * @return true if the given index should be built in the write-only-with-tracking state
          */
@@ -1331,6 +1372,7 @@ public class OnlineIndexer implements AutoCloseable {
          * as readable. Because the queue is drained and the index is marked readable in separate transactions while
          * concurrent writers may still be enqueuing, the queue can be observed non-empty at mark-readable time; each
          * attempt re-drains before re-checking. The default is 100.
+         *
          * @return the maximum number of drain-and-mark-readable attempts
          */
         @API(API.Status.EXPERIMENTAL)
@@ -1345,7 +1387,7 @@ public class OnlineIndexer implements AutoCloseable {
          * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").build()
          * </code></pre>
          *
-         * Forbid fallback:
+         * <p>Forbid fallback:
          * <pre><code>
          * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").forbidRecordScan().build()
          * </code></pre>
@@ -1422,6 +1464,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Same as calling {@link #setForbidRecordScan(boolean)} with the value {@code true}.
+             *
              * @return this builder
              */
             public Builder forbidRecordScan() {
@@ -1432,6 +1475,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is disabled.
+             *
              * @param ifDisabled CONTINUE: build the index (effectively, it's the same as rebuild)
              *                   REBUILD: rebuild the index.
              *                   ERROR: reject (with exception).
@@ -1444,6 +1488,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is in a write-only mode (i.e. partly built).
+             *
              * @param ifWriteOnly CONTINUE: (default) attempt to continue the previous indexing process
              *                    REBUILD: clear the existing data and rebuild
              *                    ERROR: reject (with exception).
@@ -1456,6 +1501,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is in a write-only mode but the previous indexing method mismatches the requested one.
+             *
              * @param ifMismatchPrevious CONTINUE: (default) attempt to continue the previous indexing process, using the previous policy
              *                       REBUILD: clear the existing data and rebuild, using the new policy
              *                       ERROR: reject (with exception).
@@ -1468,6 +1514,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is readable.
+             *
              * @param ifReadable CONTINUE: (default) do nothing.
              *                   REBUILD: clear the existing data and rebuild.
              *                   ERROR: reject (with exception)
@@ -1480,6 +1527,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #allowUniquePendingState(boolean)} with default true.
+             *
              * @return this builder
              */
             public Builder allowUniquePendingState() {
@@ -1494,6 +1542,7 @@ public class OnlineIndexer implements AutoCloseable {
              *                have duplications, the exception will only refer to an arbitrary one. Other target indexes (if
              *                indexed successfully) will be marked as readable.
              *    This state might not be compatible with older code. Please verify that all instances are up-to-date before allowing it.
+             *
              * @param allow allow a {@link IndexState#READABLE_UNIQUE_PENDING} index states.
              * @return this builder
              */
@@ -1504,6 +1553,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #allowTakeoverContinue(boolean)} with default true.
+             *
              * @return this builder
              */
             public Builder allowTakeoverContinue() {
@@ -1521,6 +1571,7 @@ public class OnlineIndexer implements AutoCloseable {
              *  </ul>
              *  This function will allow/disallow all possible conversion types. {@link #allowTakeoverContinue(Collection)} supports allowing a subset of these conversions.
              *  Note - if {@link #allowTakeoverContinue(Collection)} is called with a non-null argument, it will override this function's argument.
+             *
              * @param allow if true, allow takeover.
              * @return this builder
              */
@@ -1547,6 +1598,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #setMutualIndexing(boolean)} with default true.
+             *
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
@@ -1583,6 +1635,7 @@ public class OnlineIndexer implements AutoCloseable {
              * Same as {@link #setMutualIndexing()}, but will use a pre-defined set of keys to split
              * the records space to fragments. {@code null} can be used to clear this value.
              * To ensure defining the full records range, the boundaries list can begin and end with a `null`.
+             *
              * @param primaryKeysBoundaries set of primary keys that will be used to split the records space to fragments.
              * @return this builder
              */
@@ -1598,6 +1651,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * If the index is partly built and blocked, allowed (or disallow) unblocking before indexing.
+             *
              * @param allowUnblock if true, unblock (if blocked) and continue.
              * @param allowUnblockId if non-null and non-empty, unblock only if the indexing stamp's id matches it. Will not continue if not blocked.
              * @return this builder
@@ -1611,6 +1665,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Call {@link #setAllowUnblock(boolean, String)} without block-id.
+             *
              * @param allowUnblock if true, allow unblock and continue
              * @return this builder
              */
@@ -1623,6 +1678,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Set the initial merges count limit for {@link #mergeIndex()} and the indexing process.
              * The default is 0 - which means unlimited.
+             *
              * @param initialMergesCountLimit the initial merges count limit
              * @return this builder
              */
@@ -1635,6 +1691,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Set a reverse records scan order for indexing. Calling it will make sense only if the scan order matters.
              * Note that reverse scan order is supported only for ByIndex and MultiTarget index builds (but not rebuild).
+             *
              * @param reverseScanOrder if true, scan records in reverse order
              * @return this builder
              */
@@ -1650,6 +1707,7 @@ public class OnlineIndexer implements AutoCloseable {
              * This state is intended to reduce conflicts between user transactions and indexer transactions, which might
              * help in cases of index types that with indexing bottlenecks. Not all index maintainers can support this
              * state. Since the index update operation is deferred, this state may break versioned indexes.
+             *
              * @param indexes the target indexes that should be built with a pending write queue
              * @return this builder
              */
@@ -1664,6 +1722,7 @@ public class OnlineIndexer implements AutoCloseable {
              * index as readable. The queue is drained and the index is marked readable in separate transactions, so while
              * concurrent writers keep enqueuing, the queue can be observed non-empty at mark-readable time; each attempt
              * re-drains before re-checking. Must be positive. The default is 100.
+             *
              * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of drain-and-mark-readable attempts
              * @return this builder
              */
@@ -1678,6 +1737,7 @@ public class OnlineIndexer implements AutoCloseable {
              * process of non-idempotent indexes can run without range conflicts (just like the indexing of idempotent indexes).
              * This may be useful for non-idempotent indexes of a record store that is rapidly changing in a way that causes
              * many conflicts with the indexer. Idempotent indexes will be ignored.
+             *
              * @param indexes the target indexes that should be built in the write-only-with-tracking state
              * @return this builder
              */
@@ -1704,6 +1764,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Create an online indexer builder.
+     *
      * @return a new online indexer builder
      */
     @Nonnull
@@ -1713,6 +1774,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Create an online indexer for the given record store and index.
+     *
      * @param recordStore record store in which to index
      * @param index name of index to build
      * @return a new online indexer
@@ -1729,10 +1791,9 @@ public class OnlineIndexer implements AutoCloseable {
      * and {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED}
      * are sorted in a way so that each option will build the index in more situations than the
      * ones before it.
-     * <p>
-     * Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
+     *
+     * <p>Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
      * current index data is corrupted.
-     * </p>
      */
     public enum IndexStatePrecondition {
         /**
@@ -1751,9 +1812,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Alternatives for this continuation are provided by the options {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED}
          * and {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED}
          *
-         * <p>
-         * Recommended. This should be sufficient if current index data is not corrupted.
-         * </p>
+         * <p>Recommended. This should be sufficient if current index data is not corrupted.
          */
         BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY(IndexingPolicy.DesiredAction.REBUILD, IndexingPolicy.DesiredAction.CONTINUE, IndexingPolicy.DesiredAction.CONTINUE, IndexingPolicy.DesiredAction.CONTINUE),
         /**

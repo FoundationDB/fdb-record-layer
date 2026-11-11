@@ -33,7 +33,7 @@ import java.util.Set;
  * A {@code PlannableIndexTypes} object can be passed to a {@link RecordQueryPlanner} when it is initialized so that
  * users of the Record Layer can define their own index types.
  *
- * This is a bit of a hack, and we should really fix it in the future.
+ * <p>This is a bit of a hack, and we should really fix it in the future.
  * TODO: Define index "behaviors" with defined contracts, for use in planning and index maintenance (https://github.com/FoundationDB/fdb-record-layer/issues/16)
  *
  * @see IndexTypes

@@ -29,7 +29,7 @@ import java.util.List;
  * Interface to allow {@link RelationalExpression}s to rewrite their own
  * graph representation.
  *
- * This interface allows a {@link RelationalExpression} to create/modify
+ * <p>This interface allows a {@link RelationalExpression} to create/modify
  * low level planner graph structures while a planner graph is created through an expression walk in
  * {@link PlannerGraphVisitor}. Such a rewrite can be useful if the standard representation is confusing, misleading,
  * or just too complicated. For instance, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex}
@@ -38,12 +38,12 @@ import java.util.List;
  * other common logic. Expressions that decide to implement this interface must then implement
  * {@link #rewritePlannerGraph} to do the actual rewrite.
  *
- * Implementors of this interface should rewrite the planner graph for both internal show as well as
+ * <p>Implementors of this interface should rewrite the planner graph for both internal show as well as
  * explain purposes. There are two other flavors of this interface: see {@link InternalPlannerGraphRewritable} and
  * {@link ExplainPlannerGraphRewritable}. Those interfaces allow an expression to rewrite only for one of the use
  * cases or differently for either of them.
  *
- * Note that these three interfaces do not form a hierarchy themselves. Also, in order to keep the code from bleeding
+ * <p>Note that these three interfaces do not form a hierarchy themselves. Also, in order to keep the code from bleeding
  * into general expression structures, we didn't want to have another set of methods on
  * {@link RelationalExpression}.
  * The approach taken here works more like a tag interface that can be chosen by a specific operator to do something

@@ -34,6 +34,7 @@ import java.util.Objects;
 public abstract class DoubleValueOrParameter implements PlanHashable {
     /**
      * Get the current value from the query bindings.
+     *
      * @param context the query context
      * @return a double value or {@code null}.
      */
@@ -41,6 +42,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
 
     /**
      * Get a coordinate for a constant value.
+     *
      * @param value the coordinate value
      * @return a new coordinate using the given value
      */
@@ -51,6 +53,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
 
     /**
      * Get a coordinate for a parameterized value.
+     *
      * @param parameter the parameter name
      * @return a new coordinate using the given parameter
      */

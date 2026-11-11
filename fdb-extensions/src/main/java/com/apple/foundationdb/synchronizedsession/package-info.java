@@ -20,6 +20,7 @@
 
 /**
  * Basic classes to support running operations in synchronized sessions.
+ *
  * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
  */
 package com.apple.foundationdb.synchronizedsession;

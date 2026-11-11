@@ -111,7 +111,6 @@ public class MoreAsyncUtil {
      * @param iterable the iterable to drain
      * @param executor the executor to advance the iteration on
      * @param <T> the element type (elements are discarded)
-     *
      * @return a future that completes with {@code null} once the iterable is exhausted, or exceptionally if advancing
      *         it fails
      */
@@ -129,7 +128,6 @@ public class MoreAsyncUtil {
      * @param iterator the iterator to drain from its current position
      * @param executor the executor to advance the iteration on
      * @param <T> the element type (elements are discarded)
-     *
      * @return a future that completes with {@code null} once the iterator is exhausted, or exceptionally if advancing
      *         it fails
      */
@@ -195,7 +193,6 @@ public class MoreAsyncUtil {
      * @param whilePredicate the predicate an element must satisfy to be included; the first failure ends the stream
      * @param executor the executor used to drive the asynchronous iteration
      * @param <T> the element type
-     *
      * @return an {@link AsyncIterable} over the leading run of matching elements
      */
     @Nonnull
@@ -210,8 +207,8 @@ public class MoreAsyncUtil {
      * elements all satisfy {@code whilePredicate}: it yields every leading element that matches and stops as soon as
      * one does not (that first failing element is not returned). For example, taking-while {@code isEven} over
      * {@code [2, 4, 3, 6, 5]} yields {@code [2, 4]}.
-     * <p>
-     * <b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
+     *
+     * <p><b>Note on a shared source iterator.</b> Because {@link AsyncIterator} offers no {@code peek}, deciding where to
      * stop requires actually pulling the first non-matching element ({@code iterator.next()}) in order to test it —
      * that element is then dropped rather than returned. A caller that retains a reference to the source
      * {@code iterator} will therefore find it positioned <em>past</em> the first failure: in the example above,
@@ -222,7 +219,6 @@ public class MoreAsyncUtil {
      * @param iterator the source iterator; consumed up to and including the first non-matching element
      * @param whilePredicate the predicate an element must satisfy to be included; the first failure ends the stream
      * @param <T> the element type
-     *
      * @return a {@link CloseableAsyncIterator} over the leading run of matching elements
      */
     @Nonnull
@@ -294,6 +290,7 @@ public class MoreAsyncUtil {
 
     /**
      * Filter items from an async iterable.
+     *
      * @param iterable the source
      * @param filter only items in iterable for which this function returns true will appear in the return value
      * @param <T> the source type
@@ -385,6 +382,7 @@ public class MoreAsyncUtil {
     /**
      * Remove adjacent duplicates form iterable.
      * Note: if iterable is sorted, this will actually remove duplicates.
+     *
      * @param iterable the source
      * @param <T> the source type
      * @return a new {@code AsyncIterable} that only contains those items in iterable for which the previous item was different
@@ -416,6 +414,7 @@ public class MoreAsyncUtil {
 
     /**
      * Create a new iterable that has the contents of all the parameters in order.
+     *
      * @param iterables a list of iterables to concatenate together
      * @param <T> the source type
      * @return a new {@code AsyncIterable} that starts with all the elements of the first iterable provided,
@@ -549,6 +548,7 @@ public class MoreAsyncUtil {
      * for up to a requested number of elements of the iterable, in parallel with requests to the mapping results.
      * This does not pipeline the overlapping concatenations, i.e. it won't grab the first item of the
      * second result of func, until it has exhausted the first result of func.
+     *
      * @param executor the executor
      * @param iterable the source
      * @param func mapping function from each element of iterable to a new iterable
@@ -702,6 +702,7 @@ public class MoreAsyncUtil {
      * Filters a single item, returning an {@link AsyncIterable} of either 0 elements or just the provided one.
      * If the filter returns a {@code true} future, the resulting {@code AsyncIterable} will have the given item,
      * otherwise it will be empty.
+     *
      * @param item an item to potentially be filtered
      * @param filter a function that returns an asynchronous future to determine whether or not
      * to return item
@@ -788,6 +789,7 @@ public class MoreAsyncUtil {
 
     /**
      * Converts a single item to an iterable of a different type.
+     *
      * @param item the source
      * @param func asynchronously map item to a new type
      * @param <T1> the source type
@@ -867,6 +869,7 @@ public class MoreAsyncUtil {
 
     /**
      * Maps an AsyncIterable using an asynchronous mapping function.
+     *
      * @param iterable the source
      * @param func Maps items of iterable to a new value asynchronously
      * @param pipelineSize the number of map results to pipeline. As items comes back from iterable,
@@ -885,6 +888,7 @@ public class MoreAsyncUtil {
 
     /**
      * Maps an AsyncIterable using an asynchronous mapping function.
+     *
      * @param executor the executor to use to do the work
      * @param iterable the source
      * @param func Maps items of iterable to a new value asynchronously
@@ -907,6 +911,7 @@ public class MoreAsyncUtil {
 
     /**
      * A holder for a (mutable) value.
+     *
      * @param <T> type of value to hold
      */
     public static class Holder<T> {
@@ -919,6 +924,7 @@ public class MoreAsyncUtil {
 
     /**
      * Reduce contents of iterator to single value.
+     *
      * @param iterator source of values
      * @param identity initial value for reduction
      * @param accumulator function that takes previous reduced value and computes new value combining iterator element
@@ -949,6 +955,7 @@ public class MoreAsyncUtil {
      * Returns whether the given {@link CompletableFuture} has completed normally, i.e., not exceptionally.
      * If the future is yet to complete or if the future completed with an error, then this
      * will return <code>false</code>.
+     *
      * @param future the future to check for normal completion
      * @return whether the future has completed without exception
      */
@@ -962,12 +969,10 @@ public class MoreAsyncUtil {
      * in an efficient way by {@link #delayedFuture(long, TimeUnit)}. Adopters can provide their
      * own {@link ScheduledExecutorService} by using the overloaded method.
      *
-     * <p>
-     * By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
+     * <p>By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
      * with a single thread used for executing delayed tasks. In practice, with a future chain,
      * this should be quick asynchronous callbacks, and blocking in such a callback can
      * block the task thread.
-     * </p>
      *
      * @return an executor service that allows for tasks to be efficiently scheduled for later
      * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
@@ -1049,6 +1054,7 @@ public class MoreAsyncUtil {
 
     /**
      * Close the given iterator, or at least cancel it.
+     *
      * @param iterator iterator to close
      */
     @API(API.Status.UNSTABLE)
@@ -1071,6 +1077,7 @@ public class MoreAsyncUtil {
     /**
      * This is supposed to replicate the semantics of {@link java.util.concurrent.CompletionStage#whenComplete(BiConsumer)}
      * but to handle the case where the completion handler might itself contain async work.
+     *
      * @param future future to compose the handler onto
      * @param handler handler bi-function to compose onto the passed future
      * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
@@ -1093,6 +1100,7 @@ public class MoreAsyncUtil {
      * {@link AsyncUtil#composeHandle(CompletableFuture, BiFunction)}, which completes exceptionally only when the
      * <code>handler</code> completes exceptionally, it completes exceptionally even if the supplied action itself
      * (<code>future</code>) encounters an exception.
+     *
      * @param future future to compose the handler onto
      * @param handler handler bi-function to compose onto the passed future
      * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
@@ -1128,6 +1136,7 @@ public class MoreAsyncUtil {
      * Handle when <code>futureSupplier</code> encounters an exception when supplying a future, or the future is completed
      * exceptionally. Unlike the "handle" in CompletableFuture, <code>handlerOnException</code> is not executed if
      * the future is successful.
+     *
      * @param futureSupplier the supplier of future which needs to be handled
      * @param handlerOnException the handler when the future encounters an exception
      * @param <V> the result type of the future
@@ -1157,18 +1166,16 @@ public class MoreAsyncUtil {
 
     /**
      * Combine the results of two futures, but fail fast if either future fails.
-     * <p>
-     *     This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
+     *
+     * <p>This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
      *     wait for the other one to complete before completing the result with the failure.
-     * </p>
+     *
      * @param future1 one future
      * @param future2 another future
      * @param combiner a function to combine the results of both {@code future1} and {@code future2} into a single result.
-     *
      * @param <T> the result type for {@code future1}
      * @param <U> the result type for {@code future2}
      * @param <R> the result type for the returned future
-     *
      * @return a future that fails with one of the exceptions from {@code future1} or {@code future2} if either of those
      * failed, or the result of applying {@code combiner} to their results if both succeeded.
      */
@@ -1185,11 +1192,11 @@ public class MoreAsyncUtil {
 
     /**
      * Swallows exceptions matching a given predicate from a future.
+     *
      * @param future a future which you expect to potentially throw an exception
      * @param shouldSwallow a predicate on whether to swallow the error from the future. Note that if the future failed
      * with a {@link CompletionException}, {@code swallowException} will also be called with its cause so that you don't
      * need special handling to cover this.
-     *
      * @return a future that will complete successfully if  {@code future} completed successfully, <em>or</em> the
      * {@code shouldSwallow} predicate returned {@code true} for the error that {@code future} threw
      */
@@ -1210,6 +1217,7 @@ public class MoreAsyncUtil {
     /**
      * Method that provides the functionality of a for loop, however, in an asynchronous way. The result of this method
      * is a {@link CompletableFuture} that represents the result of the last iteration of the loop body.
+     *
      * @param startI an integer analogous to the starting value of a loop variable in a for loop
      * @param startU an object of some type {@code U} that represents some initial state that is passed to the loop's
      *        initial state
@@ -1238,6 +1246,7 @@ public class MoreAsyncUtil {
     /**
      * Method that provides the functionality of a for loop, however, in an asynchronous way. The result of this method
      * is a {@link CompletableFuture} that represents the result of the last iteration of the loop body.
+     *
      * @param startI an integer analogous to the starting value of a loop variable in a for loop
      * @param startU an object of some type {@code U} that represents some initial state that is passed to the loop's
      *        initial state
@@ -1277,6 +1286,7 @@ public class MoreAsyncUtil {
     /**
      * Method to iterate over some items, for each of which a body is executed asynchronously. The result of each such
      * executed is then collected in a list and returned as a {@link CompletableFuture} over that list.
+     *
      * @param items the items to iterate over
      * @param body a function to be called for each item
      * @param parallelism the maximum degree of parallelism this method should use
@@ -1375,6 +1385,7 @@ public class MoreAsyncUtil {
 
     /**
      * A {@code Boolean} function that is always true.
+     *
      * @param <T> the type of the (ignored) argument to the function
      */
     public static class AlwaysTrue<T> implements Function<T, Boolean> {

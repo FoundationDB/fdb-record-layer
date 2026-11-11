@@ -65,7 +65,7 @@ import java.util.stream.StreamSupport;
 /**
  * An asynchronous iterator that supports continuations.
  *
- * Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
+ * <p>Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
  * It differs in three primary respects:
  *
  * <ol>
@@ -90,13 +90,11 @@ import java.util.stream.StreamSupport;
  * </li>
  * </ol>
  *
- * <p>
- * When a cursor stops producing values, it can report why using a {@link NoNextReason}. This is returned as part of the
+ * <p>When a cursor stops producing values, it can report why using a {@link NoNextReason}. This is returned as part of the
  * final {@link RecordCursorResult}. No-next-reasons are fundamentally distinguished between those that are due to the data
  * itself (in-band) and those that are due to the environment / context (out-of-band). For example, running out of data
  * or having returned the maximum number of records requested are in-band, while reaching a limit on the number of
  * key-value pairs scanned by the transaction or the time that a transaction has been open are out-of-band.
- * </p>
  *
  * @param <T> the type of elements of the cursor
  */
@@ -118,6 +116,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * This limit may be specified by a an explicit {@link ExecuteProperties#setReturnedRowLimit} of by an implicit
          * limit based on a predicate for continuing, as in {@link com.apple.foundationdb.record.cursors.MapWhileCursor}.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for after the requested limit.
+         *
          * @see ExecuteProperties#setReturnedRowLimit
          * @see #limitRowsTo
          * @see com.apple.foundationdb.record.cursors.MapWhileCursor
@@ -128,9 +127,10 @@ public interface RecordCursor<T> extends AutoCloseable {
          * The limit on the amount of time that a scan can take was reached.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
-         * Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
+         * <p>Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
          * any actual records if a complex scan takes a lot of work to reach the requested records,
          * such as a query that does filtering.
+         *
          * @see ExecuteProperties.Builder#setTimeLimit(long)
          * @see TimeScanLimiter
          */
@@ -140,8 +140,9 @@ public interface RecordCursor<T> extends AutoCloseable {
          * The limit on the number of records to scan was reached.
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
-         * Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
+         * <p>Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
          * a scan retrieves many records that are discarded, such as by a filter or type filter.
+         *
          * @see ExecuteProperties.Builder#setScannedRecordsLimit(int)
          * @see RecordScanLimiter
          */
@@ -152,6 +153,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          * Note that it is possible for <code>BYTE_LIMIT_REACHED</code> to be returned before any actual records if
          * a scan retrieves many bytes for records that are discarded, such as by a filter or type filter.
+         *
          * @see ExecuteProperties.Builder#setScannedBytesLimit(long)
          * @see ByteScanLimiter
          */
@@ -167,6 +169,7 @@ public interface RecordCursor<T> extends AutoCloseable {
          * Does this reason represent an out-of-band (that is, not solely dependent on the records returned) completion?
          * In general, when an out-of-band reason is encountered, the entire cursor tree unwinds and returns to the
          * client to start over fresh with a new cursor.
+         *
          * @return {@code true} if this cursor stopped early
          */
         public boolean isOutOfBand() {
@@ -176,6 +179,7 @@ public interface RecordCursor<T> extends AutoCloseable {
         /**
          * Does this reason indicate that there is no more data available?
          * These are the cases in which {@link RecordCursorResult#getContinuation()} would return <code>null</code>.
+         *
          * @return {@code true} if the source of this cursor is completely exhausted and no completion is possible
          */
         public boolean isSourceExhausted() {
@@ -185,6 +189,7 @@ public interface RecordCursor<T> extends AutoCloseable {
         /**
          * Does this reason indicate that some limit was reached?
          * This includes both the in-band returned row limit and the out-of-band time and other resource limits.
+         *
          * @return {@code true} if this cursor stopped due to any kind of limit being reached
          */
         public boolean isLimitReached() {
@@ -271,6 +276,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * Accept a visit from hierarchical visitor, which implements {@link RecordCursorVisitor}.
      * By contract, implementations of this method must return the value of <code>visitor.visitLeave(this)</code>,
      * which determines whether or not subsequent siblings of this cursor should be visited.
+     *
      * @param visitor a hierarchical visitor
      * @return <code>true</code> if the subsequent siblings of the <code>cursor</code> should be visited, and <code>false</code> otherwise
      */
@@ -278,6 +284,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Return the entire stream of records as an asynchronous list.
+     *
      * @return a future that when complete has a list with all remaining records.
      */
     @Nonnull
@@ -307,6 +314,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Count the number of records remaining.
+     *
      * @return a future that completes to the number of records in the cursor
      */
     @Nonnull
@@ -328,6 +336,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor by applying the given function to the records in this cursor.
+     *
      * @param func the function to apply
      * @param <V> the type of the elements of the new cursor
      * @return a new cursor that applies the given function
@@ -398,13 +407,11 @@ public interface RecordCursor<T> extends AutoCloseable {
      * {@link ContinuationConvertor#wrapContinuation(RecordCursorContinuation) wrapContinuation}
      * method to each result.
      *
-     * <p>
-     * One common use case for this function is to allow the user to attach additional context to the
+     * <p>One common use case for this function is to allow the user to attach additional context to the
      * to the continuation that might come from the cursor execution environment. So the final cursor's
      * continuation might be a serialized data structure containing that context plus the original cursor's
      * continuation. The {@link ContinuationConvertor#unwrapContinuation(byte[])} should then be able to
      * extract the original cursor's continuation and use it to resume a copy of the original cursor.
-     * </p>
      *
      * @param cursorFunction a function that constructs a cursor based on the unwrapped continuation
      * @param convertor a convertor that can transform continuations
@@ -422,6 +429,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that applies the given consumer to the records in this cursor, without modifying the cursor records.
+     *
      * @param consumer the consumer to apply
      * @return a new cursor that applies the given consumer
      */
@@ -435,6 +443,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that runs the given runnable every time a record arrives, without modifying the cursor records.
+     *
      * @param runnable the runnable to call
      * @return a new cursor that runs the given runnable as record pass through
      */
@@ -448,6 +457,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that skips records that do not satisfy the given predicate.
+     *
      * @param pred the predicate to apply
      * @return a new cursor that filters out records for which {@code pred} returns {@code false}
      */
@@ -473,6 +483,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * Get a new cursor that skips records that do not satisfy the given predicate, while instrumenting the number of
      * records that the filter sees, the number that it passes, the number that it fails, and the amount of time that it
      * spends computing the predicate.
+     *
      * @param pred a boolean predicate to filter on
      * @param timer a StoreTimer to log the counts and events
      * @param inSet a set StoreTimer.Count that will be incremented for each record the filter sees
@@ -518,6 +529,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that skips the given number of records.
+     *
      * @param skip number of records to skip
      * @return a new cursor that starts after {@code skip} records
      */
@@ -533,6 +545,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that will only return records up to the given limit.
+     *
      * @param limit the maximum number of records to return
      * @return a new cursor that will return at most {@code limit} records
      */
@@ -556,6 +569,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor by applying the given asynchronous function to the records in this cursor.
+     *
      * @param func the function to apply to each record
      * @param pipelineSize the number of futures from applications of the mapping function to start ahead of time
      * @param <V> the result type of the mapping function
@@ -592,8 +606,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * resulting cursor can be resumed with the given continuation or started from the beginning if the continuation is
      * {@code null}.
      *
-     * <p>
-     * The {@code checker} function, if specified, allows the cursor to determine if the outer cursor has been resumed
+     * <p>The {@code checker} function, if specified, allows the cursor to determine if the outer cursor has been resumed
      * from a continuation to the same place where it left off the last time, and it is intended as a safety guarantee.
      * When computing the continuation, this is called on the current outer record and the result, if not <code>null</code>,
      * becomes part of the continuation. When this continuation is used, the function (presumably the same one) is called
@@ -603,7 +616,6 @@ public interface RecordCursor<T> extends AutoCloseable {
      * or a new record being inserted right before it (do full inner cursor, not partial based on previous).
      * If a null {@code checker} function is passed in, this check is skipped, and the cursor assumes the outer
      * cursor is correctly positioned.
-     * </p>
      *
      * @param outerFunc a function that takes the outer continuation and returns the outer cursor
      * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
@@ -641,6 +653,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that skips records that do not satisfy the given asynchronous predicate.
+     *
      * @param pred a predicate to apply
      * @param pipelineSize the number of futures from applications of the predicate to start ahead of time
      * @return a new cursor that filters out records for which {@code pred} returned a future that completed to {@code false}
@@ -672,6 +685,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * Get a new cursor that skips records that do not satisfy the given asynchronous predicate, while instrumenting the
      * number of records that the filter sees, the number that it passes, the number that it fails, and the amount of
      * time that it spends computing the predicate.
+     *
      * @param pred a boolean predicate to filter on
      * @param pipelineSize the number of futures from applications of the predicate to start ahead of time
      * @param timer a StoreTimer to log the counts and events
@@ -723,6 +737,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Call the given consumer as each record becomes available.
+     *
      * @param consumer function to be applied to each record
      * @return a future that is complete when the consumer has been called on all remaining records
      */
@@ -799,6 +814,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * Get a new cursor that substitutes another cursor if a given inner cursor is empty.
      * If a nonnull continuation is provided, it must come from a cursor that is structurally identical to the
      * cursor being defined.
+     *
      * @param innerFunc a function that takes a continuation and creates an inner cursor
      * @param elseFunc a function to be called if the cursor is empty to give another source of records
      * @param continuation a continuation (from a cursor with the same structure) to resume where it left off
@@ -815,6 +831,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor from an ordinary <code>Iterator</code>.
+     *
      * @param iterator the iterator of records
      * @param <T> the type of elements of {@code iterator}
      * @return a new cursor that produces the elements of the given iterator
@@ -834,6 +851,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor from an ordinary <code>List</code>.
+     *
      * @param list the list of records
      * @param <T> the type of elements of {@code list}
      * @return a new cursor that produces the items of {@code list}
@@ -850,6 +868,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor from an ordinary <code>List</code>, skipping ahead according to the given continuation.
+     *
      * @param list the list of records
      * @param continuation the result of {@link RecordCursorResult#getContinuation()} from an earlier list cursor.
      * @param <T> the type of elements of {@code list}
@@ -872,6 +891,7 @@ public interface RecordCursor<T> extends AutoCloseable {
     /**
      * Get a new cursor that has the contents of the given future as its only record
      * The record will be available when the future is complete.
+     *
      * @param future a future that completes to the only element of the cursor
      * @param <T> the result type of the future
      * @return a new cursor producing the contents of {@code future}
@@ -914,13 +934,11 @@ public interface RecordCursor<T> extends AutoCloseable {
      * that is not guaranteed to have anyone wait on. For that reason, this should generally be preferred
      * to {@link #fromFuture(Executor, CompletableFuture, byte[])}.
      *
-     * <p>
-     * <em>Warning:</em> Using a {@link FutureCursor} here may lead to incorrect results if the underlying
+     * <p><em>Warning:</em> Using a {@link FutureCursor} here may lead to incorrect results if the underlying
      * future is backed by something that has some kind of state that should be included in the continuation.
      * For example, if the future is backed by a cursor that may stop for an out-of-band {@link NoNextReason},
      * it may be desirable to include the progress included in the underlying cursor in the final continuation.
      * That is not done by this class, so something more bespoke may be required.
-     * </p>
      *
      * @param executor an executor for executing the future
      * @param futureSupplier a supplier of a future that completes to the only element of the cursor
@@ -940,6 +958,7 @@ public interface RecordCursor<T> extends AutoCloseable {
     /**
      * Get a new cursor by applying the contents of the given future
      * to the given function, with proper continuation handling.
+     *
      * @param executor an executor in which to run asynchronous calls
      * @param future a future that completes to the argument to the function
      * @param continuation any continuation from a previous invocation of this method
@@ -959,6 +978,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Get a new cursor that does not return any records.
+     *
      * @param <T> the type of elements of the cursor
      * @return a new empty cursor
      */
@@ -974,6 +994,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Reduce contents of cursor to single value.
+     *
      * @param identity initial value for reduction
      * @param accumulator function that takes previous reduced value and computes new value by combining with each record
      * @param <U> the result type of the reduction
@@ -987,6 +1008,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * A reduce variant which allows stopping the processing when the value has been successfully reduced.
+     *
      * @param identity initial value for reduction
      * @param accumulator function that takes previous reduces value and computes new value by combining with each record
      * @param stopCondition predicate which runs against the accumulated result before fetching new records
@@ -1010,6 +1032,7 @@ public interface RecordCursor<T> extends AutoCloseable {
     /**
      * Retrieve a sequential stream of type T that registers an on-close handler that will close this RecordCursor when the
      * stream is closed.
+     *
      * @return a new stream that filters out records for which {@code pred} returned a future that completed to {@code false}
      */
     @Nonnull
@@ -1020,6 +1043,7 @@ public interface RecordCursor<T> extends AutoCloseable {
     /**
      * Retrieve a sequential stream of type T that registers the supplied on-close handler that will execute when the
      * stream is closed.
+     *
      * @param closeHandler the function to run when closed
      * @return a new stream that filters out records for which {@code pred} returned a future that completed to {@code false}
      */

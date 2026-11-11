@@ -84,10 +84,9 @@ class SelectMergeRuleTest {
      *   FROM t
      *   WHERE d = $param
      * }</pre>
-     * <p>
-     * There aren't any select expressions that can be merged there. The rule may still visit the expression,
+     *
+     * <p>There aren't any select expressions that can be merged there. The rule may still visit the expression,
      * but it will find there's nothing to do.
-     * </p>
      */
     @Test
     void doNotRewriteSimple() {
@@ -106,9 +105,8 @@ class SelectMergeRuleTest {
      *   FROM (SELECT a, b, c WHERE d = $param)
      *   WHERE a = 42
      * }</pre>
-     * <p>
-     * And we end with a combined query:
-     * </p>
+     *
+     * <p>And we end with a combined query:
      * <pre>{@code
      * SELECT b, c
      *   FROM t
@@ -176,10 +174,9 @@ class SelectMergeRuleTest {
      *  )
      *  WHERE b1 = $param AND b2 IS NULL AND b3 = b1
      * }</pre>
-     * <p>
-     * The upper select can be merged with the join below, but the upper predicates and final projection must
+     *
+     * <p>The upper select can be merged with the join below, but the upper predicates and final projection must
      * be rewritten to apply to the base join components:
-     * </p>
      * <pre>{@code
      * SELECT t.a AS x, tPrime.a AS y, tau.alpha AS z
      *   FROM t, t AS tPrime, tau
@@ -235,18 +232,16 @@ class SelectMergeRuleTest {
      *    FROM t, (SELECT f FROM t.f WHERE f > 42)
      *    WHERE t.a = 42
      * }</pre>
-     * <p>
-     * And it pulls the filter into the top level:
-     * </p>
+     *
+     * <p>And it pulls the filter into the top level:
      * <pre>{@code
      *  SELECT t.b, f
      *    FROM t, t.f AS f
      *    WHERE f > 42 AND t.a = 42
      * }</pre>
-     * <p>
-     * Here, {@code f} is an array of longs, and so the syntax here is a little iffy, but the
+     *
+     * <p>Here, {@code f} is an array of longs, and so the syntax here is a little iffy, but the
      * typing in terms of the lower level objects is sensible.
-     * </p>
      */
     @Test
     void mergeFilterOnPrimitiveExplode() {
@@ -281,11 +276,10 @@ class SelectMergeRuleTest {
      *    FROM t
      *    WHERE EXISTS (SELECT * FROM t.f WHERE f > 42)
      * }</pre>
-     * <p>
-     * Here, {@code f} is an array of longs, and so the syntax here is a little iffy, but the
+     *
+     * <p>Here, {@code f} is an array of longs, and so the syntax here is a little iffy, but the
      * typing in terms of the lower level objects is sensible. In any case, there is no way to
      * merge the existential into the upper select.
-     * </p>
      */
     @Test
     void doNotMergeExistentials() {
@@ -312,17 +306,15 @@ class SelectMergeRuleTest {
      *    FROM t, (SELECT one, three FROM t.g WHERE two > 'hello') AS q
      *    WHERE t.d = q.three
      * }</pre>
-     * <p>
-     * And it pulls the sub-select on the repeated field into the top level:
-     * </p>
+     *
+     * <p>And it pulls the sub-select on the repeated field into the top level:
      * <pre>{@code
      *  SELECT t.b, q.one
      *    FROM t, t.g AS q
      *    WHERE q.two > 'hello' AND t.d = q.three
      * }</pre>
-     * <p>
-     * Here, {@code g} is an array of a nested message.
-     * </p>
+     *
+     * <p>Here, {@code g} is an array of a nested message.
      */
     @Test
     void mergeFilterOnNestedExplode() {
@@ -356,9 +348,8 @@ class SelectMergeRuleTest {
      *    FROM t
      *    WHERE EXISTS (SELECT * FROM t.g WHERE two > 'hello')
      * }</pre>
-     * <p>
-     * There is no way to merge the existential into the upper select.
-     * </p>
+     *
+     * <p>There is no way to merge the existential into the upper select.
      */
     @Test
     void doNotMergeExistentialOnNested() {
@@ -385,12 +376,11 @@ class SelectMergeRuleTest {
      *   FROM (SELECT a, b, c FROM t WHERE b > 'hello') OR ELSE NULL
      *   WHERE a = 42
      * }</pre>
-     * <p>
-     * Then we can't merge the statements. In this case, this is because the inner select
+     *
+     * <p>Then we can't merge the statements. In this case, this is because the inner select
      * may introduce an extra {@code null}. In theory, if we could prove that the predicates on the
      * upper level select will always prevent us from actually returning {@code null}. If we start
      * to allow that, we'll need to modify this test.
-     * </p>
      */
     @Test
     void doNotMergeDefaultOnEmpty() {
@@ -425,19 +415,17 @@ class SelectMergeRuleTest {
      *     ) as j2
      *   WHERE j1.b = j2.b1 AND j1.b = j2.b2 AND j1.beta = j2.beta
      * }</pre>
-     * <p>
-     * This gets merged into one larger five-way join:
-     * </p>
+     *
+     * <p>This gets merged into one larger five-way join:
      * <pre>{@code
      * SELECT t0.a AS a0, tau0.alpha AS alpha0, t1.a AS a1, t2.a AS a2, tau1.alpha AS alpha1
      *   FROM t AS t0, tau AS tau0, t AS t1, t AS t2, tau AS tau1
      *   WHERE t0.c >= tau0.gamma AND t1.d = t2.d AND t1.d = tau1.delta
      *     AND t0.b = t1.b AND t0.b = t2.b AND tau0.beta = tau1.beta
      * }</pre>
-     * <p>
-     * The rule will do this in one shot because it merges together all eligible candidates at
+     *
+     * <p>The rule will do this in one shot because it merges together all eligible candidates at
      * once.
-     * </p>
      */
     @Test
     void combineTwoJoins() {
@@ -534,11 +522,10 @@ class SelectMergeRuleTest {
      *     (SELECT two, three FROM T.g WHERE one IS NOT NULL) x
      *   WHERE u.b = x.two
      * }</pre>
-     * <p>
-     * Here, the union cannot be merged up (at least not without further transformations like converting it to an
+     *
+     * <p>Here, the union cannot be merged up (at least not without further transformations like converting it to an
      * OR, which would require proving that there are no duplicates between the legs of the union, or proving that
      * one side of the union is empty). The select over the explode however can be, so we get:
-     * </p>
      * <pre>{@code
      * SELECT u.a, u.b, u.c, x.two, x.three
      *   FROM
@@ -595,11 +582,10 @@ class SelectMergeRuleTest {
      *   FROM (SELECT b, c, d FROM t WHERE a = 42) x,
      *        (SELECT alpha, beta, gamma, delta FROM tau WHERE beta > x.b) y
      * }</pre>
-     * <p>
-     * Note that the predicate {@code beta > x.b} makes a reference to the other leg of the join.
+     *
+     * <p>Note that the predicate {@code beta > x.b} makes a reference to the other leg of the join.
      * So, in this case, the logic works by merging the independent leg and then consequently rewriting the dependant
      * leg and merge that. We get the following in a single step:
-     * </p>
      * <pre>{@code
      * SELECT t.c, tau.gamma
      *   FROM t, tau
@@ -901,22 +887,20 @@ class SelectMergeRuleTest {
      *        (SELECT a, b, c, d, FROM T WHERE T.b = ?param) AS R
      *   WHERE L.a = R.a AND L.b = R.b
      * }</pre>
-     * <p>
-     * And in the query graph, the {@code T} value is a single (re-used) quantifier. Note that though this
+     *
+     * <p>And in the query graph, the {@code T} value is a single (re-used) quantifier. Note that though this
      * quantifier is re-used, it's not ambiguous at any point which one is being referred to. The rewritten graph
      * may look something like:
-     * </p>
      * <pre>{@code
      * SELECT L.c AS c1, R.c AS c2, L.d AS d1, L.d AS d2
      *   FROM T AS L,
      *        T AS R
      *   WHERE L.a = 42 AND R.b = ?param AND L.a = R.a AND L.b = R.b
      * }</pre>
-     * <p>
-     * Note that the quantifiers for {@code T AS L} and {@code T AS R} need to be disambiguated. That is,
+     *
+     * <p>Note that the quantifiers for {@code T AS L} and {@code T AS R} need to be disambiguated. That is,
      * (at least) one of them should be copied into a new quantifier so that the merged select can consume
      * both of them.
-     * </p>
      */
     @Test
     void mergeUpAvoidingDuplicates() {
@@ -964,10 +948,9 @@ class SelectMergeRuleTest {
      *        (SELECT U.a AS a, v.y AS b, U.c AS c, U.d AS d FROM values(x = @0, y = @1) AS v, (SELECT a, c, d FROM T WHERE T.b = v.y) AS U) AS R
      *   WHERE L.a = R.a AND L.b = R.b
      * }</pre>
-     * <p>
-     * In this case, the two values boxes (both denoted {@code v}) are the same quantifier. When we do the
+     *
+     * <p>In this case, the two values boxes (both denoted {@code v}) are the same quantifier. When we do the
      * merge up, we get:
-     * </p>
      * <pre>{@code
      * SELECT v1.x AS a1, R.a AS a2, L.b AS b1, v2.y AS b2, L.c AS c1, R.c AS c2, L.d AS d1, L.d AS d2
      *   FROM values(x = @0, y = @1) AS v1,
@@ -976,11 +959,10 @@ class SelectMergeRuleTest {
      *        (SELECT a, c, d FROM T WHERE T.b = v2.x) AS R
      *   WHERE v1.x = R.a AND L.b = v2.y
      * }</pre>
-     * <p>
-     * Now we have two copies of the values box pulled into the top-level box. It needs to have a new quantifier
+     *
+     * <p>Now we have two copies of the values box pulled into the top-level box. It needs to have a new quantifier
      * name, <em>and</em> the correlation to it within each of {@code L} and {@code R} need to point to
      * the appropriate one.
-     * </p>
      */
     @Test
     void mergeUpWithRenamedCorrelations() {

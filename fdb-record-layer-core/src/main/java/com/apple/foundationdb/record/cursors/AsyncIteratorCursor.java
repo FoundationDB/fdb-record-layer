@@ -30,6 +30,7 @@ import java.util.concurrent.Executor;
 
 /**
  * A cursor that returns the elements of an {@link AsyncIterator}.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

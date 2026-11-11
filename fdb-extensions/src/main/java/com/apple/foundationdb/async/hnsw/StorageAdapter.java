@@ -39,8 +39,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Defines the contract for storing and retrieving HNSW graph data to/from a persistent store.
- * <p>
- * This interface provides an abstraction layer over the underlying database, handling the serialization and
+ *
+ * <p>This interface provides an abstraction layer over the underlying database, handling the serialization and
  * deserialization of HNSW graph components such as nodes, vectors, and their relationships. Implementations of this
  * interface are responsible for managing the physical layout of data within a given {@link Subspace}.
  * The generic type {@code N} represents the specific type of {@link NodeReference} that this storage adapter manages.
@@ -66,10 +66,11 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Returns the configuration of the HNSW graph.
-     * <p>
-     * This configuration object contains all the parameters used to build and search the graph,
+     *
+     * <p>This configuration object contains all the parameters used to build and search the graph,
      * such as the number of neighbors to connect (M), the size of the dynamic list for
      * construction (efConstruction), and the beam width for searching (ef).
+     *
      * @return the {@code HNSW.Config} for this graph, never {@code null}.
      */
     @Nonnull
@@ -77,8 +78,9 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Gets the factory used to create new nodes.
-     * <p>
-     * This factory is responsible for instantiating new nodes of type {@code N}.
+     *
+     * <p>This factory is responsible for instantiating new nodes of type {@code N}.
+     *
      * @return the non-null factory for creating nodes.
      */
     @Nonnull
@@ -87,6 +89,7 @@ interface StorageAdapter<N extends NodeReference> {
     /**
      * Method that returns {@code true} iff this {@link StorageAdapter} is inlining neighboring vectors (i.e. it is
      * an {@link InliningStorageAdapter}).
+     *
      * @return {@code true} iff this {@link StorageAdapter} is inlining neighboring vectors.
      */
     boolean isInliningStorageAdapter();
@@ -96,6 +99,7 @@ interface StorageAdapter<N extends NodeReference> {
      * inlining neighboring vectors and is an {@link InliningStorageAdapter}. This method throws an exception if this
      * storage adapter is any other kind of storage adapter. Callers of this method should ensure prior to calling this
      * method that the storage adapter actually is of the right kind (by calling{@link #isInliningStorageAdapter()}.
+     *
      * @return {@code this} as an {@link InliningStorageAdapter}
      */
     @Nonnull
@@ -104,6 +108,7 @@ interface StorageAdapter<N extends NodeReference> {
     /**
      * Method that returns {@code true} iff this {@link StorageAdapter} is a compact storage adapter which means it is
      * not inlining neighboring vectors (i.e. {@code this} is a {@link CompactStorageAdapter}).
+     *
      * @return {@code true} iff this {@link StorageAdapter} is a {@link CompactStorageAdapter}.
      */
     boolean isCompactStorageAdapter();
@@ -113,6 +118,7 @@ interface StorageAdapter<N extends NodeReference> {
      * a {@link CompactStorageAdapter}. This method throws an exception if this storage adapter is any other kind of
      * storage adapter. Callers of this method should ensure prior to calling this method that the storage adapter
      * actually is of the right kind (by calling{@link #isCompactStorageAdapter()}.
+     *
      * @return {@code this} as a {@link CompactStorageAdapter}
      */
     @Nonnull
@@ -120,6 +126,7 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Get the subspace used to store this HNSW structure.
+     *
      * @return the subspace
      */
     @Nonnull
@@ -127,24 +134,23 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Gets the subspace that contains the data for this object.
-     * <p>
-     * This subspace represents the portion of the keyspace dedicated to storing the actual data, as opposed to metadata
+     *
+     * <p>This subspace represents the portion of the keyspace dedicated to storing the actual data, as opposed to metadata
      * or other system-level information.
+     *
      * @return the subspace containing the data, which is guaranteed to be non-null
      */
     @Nonnull
     Subspace getDataSubspace();
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener.
+     * {@return the on-write listener}
      */
     @Nonnull
     OnWriteListener getOnWriteListener();
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener.
+     * {@return the on-read listener}
      */
     @Nonnull
     OnReadListener getOnReadListener();
@@ -155,6 +161,7 @@ interface StorageAdapter<N extends NodeReference> {
      * (when using {@link InliningStorageAdapter}) or is s part of the {@link AbstractNode} itself (when using
      * {@link CompactStorageAdapter}). This method hides that detail from the caller and correctly resolves the vector
      * for both use cases.
+     *
      * @param nodeReference a node reference
      * @param node the accompanying node to {@code nodeReference}
      * @return the associated vector as {@link Transformed} of {@link RealVector}
@@ -164,10 +171,11 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Asynchronously fetches a node from a specific layer, identified by its primary key.
-     * <p>
-     * The fetch operation is performed within the scope of the provided {@link ReadTransaction}, ensuring a consistent
+     *
+     * <p>The fetch operation is performed within the scope of the provided {@link ReadTransaction}, ensuring a consistent
      * view of the data. The returned {@link CompletableFuture} will be completed with the node once it has been
      * retrieved from the underlying data store.
+     *
      * @param readTransaction the {@link ReadTransaction} context for this read operation
      * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
@@ -183,8 +191,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Writes a node and its neighbor changes to the data store within a given transaction.
-     * <p>
-     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to
+     *
+     * <p>This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to
      * its
      * neighboring nodes as defined in the {@code NeighborsChangeSet}. The entire operation is performed atomically as
      * part of the provided {@link Transaction}.
@@ -201,6 +209,7 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Deletes a node from a particular layer in the database.
+     *
      * @param transaction the transaction to use
      * @param layer the layer the node should be deleted from
      * @param primaryKey the primary key of the node
@@ -209,8 +218,8 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Scans a specified layer of the structure, returning an iterable sequence of nodes.
-     * <p>
-     * This method allows for paginated scanning of a layer. The scan can be started from the beginning of the layer by
+     *
+     * <p>This method allows for paginated scanning of a layer. The scan can be started from the beginning of the layer by
      * passing {@code null} for the {@code lastPrimaryKey}, or it can be resumed from a previous point by providing the
      * key of the last item from the prior scan. The number of nodes returned is limited by {@code maxNumRead}.
      *
@@ -264,10 +273,11 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Writes an {@link AccessInfo} to the database within a given transaction and subspace.
-     * <p>
-     * This method serializes the provided {@link EntryNodeReference} into a key-value pair. The key is determined by
+     *
+     * <p>This method serializes the provided {@link EntryNodeReference} into a key-value pair. The key is determined by
      * a dedicated subspace for entry nodes, and the value is a tuple containing the layer, primary key, and vector from
      * the reference. After writing the data, it notifies the provided {@link OnWriteListener}.
+     *
      * @param transaction the database transaction to use for the write operation
      * @param subspace the subspace where the entry node reference will be stored
      * @param accessInfo the {@link AccessInfo} object to write
@@ -293,6 +303,7 @@ interface StorageAdapter<N extends NodeReference> {
 
     /**
      * Deletes the {@link AccessInfo} from the database within a given transaction and subspace.
+     *
      * @param transaction the database transaction to use for the write operation
      * @param subspace the subspace where the entry node reference will be stored
      * @param onWriteListener the listener to be notified after the key-value pair is written

@@ -46,10 +46,8 @@ import java.util.UUID;
  * TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
  * </pre>
  *
- * <p>
- * Within the test, call {@link #getSubspace()} to get the test's allocated exception. As long as all usage
+ * <p>Within the test, call {@link #getSubspace()} to get the test's allocated exception. As long as all usage
  * for that test goes through the extension, the data will be deleted after the test has completed.
- * </p>
  *
  * @see TestDatabaseExtension
  */

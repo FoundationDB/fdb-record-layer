@@ -29,9 +29,7 @@ import javax.annotation.Nonnull;
 public interface Metadata {
 
     /**
-     * Returns the name of the metadata.
-     *
-     * @return the name of the metadata.
+     * {@return the name of the metadata}
      */
     @Nonnull
     String getName();

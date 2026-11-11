@@ -112,7 +112,6 @@ final class QuantifierValues {
      * Collects the mapping for a plan.
      *
      * @param expression the root of the index-defining plan
-     *
      * @return what each of its quantifiers stands for
      */
     @Nonnull
@@ -126,7 +125,6 @@ final class QuantifierValues {
      * Resolves a value down to the base record and simplifies it.
      *
      * @param value a value written in terms of the plan's quantifiers
-     *
      * @return the same value with every quantifier replaced by what it stands for
      */
     @Nonnull
@@ -241,8 +239,8 @@ final class QuantifierValues {
     /**
      * A {@link FieldValue.ResolvedAccessor} tagged with which unnesting it came from, which distinguishes two unnestings
      * of the same array field and marks the field as reached through an unnest.
-     * <p>
-     * That tag is the marker: a small integer handed to each explode of the plan in the order the traversal finds them,
+     *
+     * <p>That tag is the marker: a small integer handed to each explode of the plan in the order the traversal finds them,
      * so that it is also the explode's position in {@link QuantifierValues#getExplodes()}. It is stamped onto the last
      * accessor of the field path that reaches the array, and so travels along with every value later built from that
      * path; a plain {@link FieldValue.ResolvedAccessor} in that position means the field was not reached through an

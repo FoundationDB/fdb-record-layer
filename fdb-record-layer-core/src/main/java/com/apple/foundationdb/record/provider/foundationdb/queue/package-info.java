@@ -24,7 +24,7 @@
  * <p>The main class is
  * {@link com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue
  * PendingWritesQueue}, which holds pending entries while the index is busy (e.g. the indexer is running
- * in the background. The intent is for the queue to be drained when the index becomes available again.</p>
+ * in the background. The intent is for the queue to be drained when the index becomes available again.
  *
  */
 package com.apple.foundationdb.record.provider.foundationdb.queue;

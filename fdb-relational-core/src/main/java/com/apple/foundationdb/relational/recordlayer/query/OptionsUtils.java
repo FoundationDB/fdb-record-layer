@@ -98,8 +98,8 @@ public final class OptionsUtils {
 
     /**
      * Retrieve the evaluation timestamp to use for current datetime value functions.
-     * <p>
-     * If the option {@link Options.Name#FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS} is set
+     *
+     * <p>If the option {@link Options.Name#FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS} is set
      * in the provided {@link Options} instance, its value is used. Otherwise, the current timestamp according
      * to the system clock, is returned.
      *

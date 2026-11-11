@@ -102,8 +102,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         return true;
     }
 
+    @Nonnull
     @Override
-    public Set<Comparisons.Comparison> getComparisons() {
+    public Set<Comparisons.Comparison> computeComparisons() {
         final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
         if (scanParameters instanceof LuceneScanParameters) {
             final var luceneScanParameters = (LuceneScanParameters)scanParameters;

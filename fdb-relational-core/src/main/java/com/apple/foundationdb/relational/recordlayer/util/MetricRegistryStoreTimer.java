@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * An implementation of {@link com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer} that defers
  * actual metric collection to a {@link com.codahale.metrics.MetricRegistry}.
  *
- * Relational at the upper levels uses MetricRegistry instances to manage its metrics so that metric values
+ * <p>Relational at the upper levels uses MetricRegistry instances to manage its metrics so that metric values
  * can be exposed as psuedo-tables and stored procedures and also to integrate with metrics
  * collection systems. RecordLayer uses a StoreTimer, and so it's necessary that we pass RecordLayer an adapted
  * StoreTimer instance that will pass through the StoreTimer metrics to the MetricRegistry. This class provides

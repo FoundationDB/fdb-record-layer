@@ -35,17 +35,13 @@ import java.util.List;
  * A property that determines whether a {@link RecordQueryPlan} can be safely continued (resumed from a continuation)
  * without producing duplicate records.
  *
- * <p>
- * Certain plan operators maintain in-memory state (e.g. {@link RecordQueryUnorderedDistinctPlan}) that is
+ * <p>Certain plan operators maintain in-memory state (e.g. {@link RecordQueryUnorderedDistinctPlan}) that is
  * lost across continuations. If such a plan appears anywhere in the plan tree, resuming from a
  * continuation may result in a record that was already processed to be produced again.
  * This property traverses the plan tree and returns {@code false} if any such operator is found,
  * and {@code true} otherwise.
- * </p>
  *
- * <p>
- * This class is a singleton; use {@link #continuableWithoutDuplicates()} to obtain the instance.
- * </p>
+ * <p>This class is a singleton; use {@link #continuableWithoutDuplicates()} to obtain the instance.
  */
 public final class ContinuableWithoutDuplicatesProperty implements ExpressionProperty<Boolean> {
     private static final ContinuableWithoutDuplicatesProperty CONTINUABLE_WITHOUT_DUPLICATES_PROPERTY =
@@ -98,11 +94,9 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
      * whose in-memory state, which is not included in the serialized continuation, makes the plan unsafe to continue
      * without producing duplicates records.
      *
-     * <p>
-     * By default, all plan operators are considered safe (the visitor recurses into children and returns {@code true}
+     * <p>By default, all plan operators are considered safe (the visitor recurses into children and returns {@code true}
      * if all children are also safe). Specific plans that maintain ephemeral in-memory state override this to return
      * {@code false}.
-     * </p>
      */
     public static class ContinuableWithoutDuplicatesPropertyVisitor implements RecordQueryPlanVisitorWithDefaults<Boolean> {
         /**

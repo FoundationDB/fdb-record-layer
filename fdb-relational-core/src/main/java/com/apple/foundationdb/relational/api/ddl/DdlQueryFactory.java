@@ -26,7 +26,7 @@ import java.net.URI;
 /**
  * Placeholder factory for creating DdlQuery entities.
  *
- * Eventually, this should be supplanted by a general-purpose query engine which can read the Catalog as if
+ * <p>Eventually, this should be supplanted by a general-purpose query engine which can read the Catalog as if
  * it were any other database, but for now.
  */
 public interface DdlQueryFactory {

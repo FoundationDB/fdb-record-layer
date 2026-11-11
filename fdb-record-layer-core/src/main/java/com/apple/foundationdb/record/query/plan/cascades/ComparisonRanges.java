@@ -47,20 +47,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * <p>
  *   Helper class that operates on a list of {@link ComparisonRange}s. This class is used by the heuristic planner
  *   to match index key expressions to filters. While the purpose of this class is similar to {@link ScanComparisons}
  *   which is used to describe the physical aspects of a scan (more precisely a scan of exactly one range),
  *   it treats its matches in a more general fashion by allowing a mix of equalities, inequalities, and even empty
  *   matches (i.e. no match).
- * </p>
- * <p>
- *   An object of this class can be transformed into a {@link ScanComparisons} object by finding the <em>best</em>
+ *
+ * <p>An object of this class can be transformed into a {@link ScanComparisons} object by finding the <em>best</em>
  *   prefix of the match spanning exactly one contiguous range (see {@link #toScanComparisons()}. This transformation
  *   is considered to be lossy unless certain conditions are known to hold (for instance, all matches are equalities
  *   or similar). Conversely, the inverse transformation is possible as well
  *   (see {@link #from(ScanComparisons)} which is always lossless.
- * </p>
  */
 public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRanges> {
     @Nonnull

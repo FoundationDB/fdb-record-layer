@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Tag interface used for overloads for matchers.
+ *
  * @param <T> the type that this matcher binds to
  * @param <C> the type of container this matcher binds to
  */

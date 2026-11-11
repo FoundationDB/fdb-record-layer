@@ -81,8 +81,7 @@ import java.util.concurrent.CompletableFuture;
  *     </li>
  * </ul>
  *
- * <p>
- * Such a directory structure would be constructed as:
+ * <p>Such a directory structure would be constructed as:
  * <pre>
  *  KeySpace keySpace = new KeySpace(
  *          new KeySpaceDirectory("state", KeyType.STRING)
@@ -96,8 +95,7 @@ import java.util.concurrent.CompletableFuture;
  *                      .addSubdirectory(new KeySpaceDirectory( "layaways", KeyType.NULL)))));
  * </pre>
  *
- * <p>
- * Once defined, a <code>KeySpace</code> provides a convenient mechanism for constructing tuples that may then
+ * <p>Once defined, a <code>KeySpace</code> provides a convenient mechanism for constructing tuples that may then
  * be used to form an FDB row key.  For example:
  * <pre>
  *     Tuple transactionKey = keySpace.path("state", "CA")
@@ -135,6 +133,7 @@ public class KeySpace {
 
     /**
      * Retrieves a subdirectory.
+     *
      * @param name the name of the directory to return
      * @return the directory with the specified <code>name</code>
      * @throws NoSuchDirectoryException if the directory does not exist
@@ -146,6 +145,7 @@ public class KeySpace {
 
     /**
      * Returns the available root directories in the <code>KeySpace</code>.
+     *
      * @return a list of root directories
      */
     @Nonnull
@@ -186,10 +186,10 @@ public class KeySpace {
     /**
      * Given a tuple from an FDB key, attempts to determine what path through this directory the tuple
      * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
-     * <p>
-     *     If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()} can be
+     *
+     * <p>If entries remained in the tuple beyond the leaf directory, then {@link ResolvedKeySpacePath#getRemainder()} can be
      *     used to fetch the remaining portion.
-     * </p>
+     *
      * @param context context used, if needed, for any database operations
      * @param key the tuple to be decoded
      * @return a path entry representing the leaf directory entry that corresponds to a value in the
@@ -225,7 +225,6 @@ public class KeySpace {
      * @param continuation if non-null, provides a continuation from a previous listing
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a cursor over the paths that were found
-     *
      * @deprecated use {@link #listDirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
     @API(API.Status.DEPRECATED)
@@ -244,7 +243,6 @@ public class KeySpace {
      * @param directory the path under which to list
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a list of the paths that were found
-     *
      * @deprecated use {@link #listDirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
     @API(API.Status.DEPRECATED)
@@ -325,6 +323,7 @@ public class KeySpace {
 
     /**
      * Synchronously list the available paths from a directory.
+     *
      * @param context the context in which to perform database access
      * @param directory the path under which to list
      * @return a list of the paths that were found
@@ -336,8 +335,7 @@ public class KeySpace {
 
 
     /**
-     * Get the root of this key space.
-     * @return the root key space
+     * {@return the root of this key space}
      */
     public KeySpaceDirectory getRoot() {
         return root;
@@ -350,6 +348,7 @@ public class KeySpace {
 
     /**
      * Creates a visually pleasing ASCII-art representation of the directory tree.
+     *
      * @param out the print destination
      * @throws IOException if there is a problem writing to the destination
      */

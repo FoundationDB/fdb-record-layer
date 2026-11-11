@@ -77,6 +77,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
     /**
      * Get all stored primary key index entries.
      * Really only useful for small-scale debugging.
+     *
      * @return a list of Tuple-decoded key entries
      */
     @VisibleForTesting
@@ -111,6 +112,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
     /**
      * Return all the segments in which the given primary key appears.
      * Mostly for debug logging.
+     *
      * @param primaryKey the document's record's primary key
      * @return a list of segment names or segment ids when apparently not associated with a name
      */
@@ -201,6 +203,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
 
     /**
      * Hook the fields writer to also record primary keys in index.
+     *
      * @param storedFieldsWriter normal field writer
      * @param si segment info for current writer
      * @return a wrapped writer

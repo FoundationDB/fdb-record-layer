@@ -297,6 +297,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     /**
      * Nest a single scalar field inside of this one.
      * Shorthand to {@code nest(field(fieldName))}
+     *
      * @param fieldName the name of the nested field. This is contextual, there is no need to use the full path.
      * @return a new expression that will get the value from the value of the given field
      * for each value of this field.
@@ -309,6 +310,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     /**
      * Nest a single field inside of this one, optionally setting the handling for a repeated field.
      * Shorthand to {@code nest(field(fieldName, fanType))}
+     *
      * @param fieldName the name of the nested field
      * @param fanType how to handle the nested field repeated state
      * @return a new key that will get all of the values from the value of the given field within this field
@@ -320,6 +322,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     /**
      * Shorthand for <code>nest(concat(first, second, rest))</code>.
+     *
      * @param first the first child expression to use
      * @param second the second child expression to use
      * @param rest this supports any number children (at least 2), this is the rest of them
@@ -336,6 +339,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * context of this field. This field must be pointed to a Message. The child also has no access to the parts of
      * the record outside of this field value.
      * If this field is repeated with FanOut, there will be one index entry for each value of this field.
+     *
      * @param child a child expression to be evaluated on the message that this field has
      * @return a new expression for evaluating this complicated nesting
      * @throws InvalidExpressionException if this field is of concatenate type
@@ -353,8 +357,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     /**
-     * Get this field as a group without any grouping keys.
-     * @return this field without any grouping keys
+     * {@return this field as a group without any grouping keys}
      */
     @Nonnull
     public GroupingKeyExpression ungrouped() {

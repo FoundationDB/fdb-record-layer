@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * Exception thrown when the record store has a newer meta-data version than the one from the given {@link com.apple.foundationdb.record.RecordMetaDataProvider}.
  *
- * This happens when, perhaps due to caching, one instance writes with newer code and an instance yet to be upgraded encounters that record store.
+ * <p>This happens when, perhaps due to caching, one instance writes with newer code and an instance yet to be upgraded encounters that record store.
  */
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)

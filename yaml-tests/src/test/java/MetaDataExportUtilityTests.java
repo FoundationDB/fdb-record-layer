@@ -40,22 +40,18 @@ import java.util.stream.Collectors;
 /**
  * Test utility methods that can be used to set up custom meta-data definitions for YAML tests.
  *
- * <p>
- * The idea here is that we may have a test that wants to control its meta-data more than other tests.
+ * <p>The idea here is that we may have a test that wants to control its meta-data more than other tests.
  * For example, it may want to ensure that some choice is made that would be legal for a {@link RecordMetaData}
  * but that the schema template generator may not make. One common case for this is backwards compatibility:
  * if we change the schema template to meta-data code path, we may want to make sure that we can can still deserialize
  * meta-data objects in the old format.
- * </p>
  *
- * <p>
- * To assist with this, there's functionality in the YAML framework that allows the user to specify a JSON file
+ * <p>To assist with this, there's functionality in the YAML framework that allows the user to specify a JSON file
  * which contains the serialized Protobuf meta-data. These methods allow the user to create a {@link RecordMetaData}
  * using a {@link RecordMetaDataBuilder} or some other method, and then create
  * such a JSON file. The user should then commit the output of running these tests. If an existing test file
  * needs to be updated, it is usually the case that the user should update this file and regenerate the meta-data
  * rather than manually update the file.
- * </p>
  */
 @Disabled("for updating test files that should be checked in")
 class MetaDataExportUtilityTests {

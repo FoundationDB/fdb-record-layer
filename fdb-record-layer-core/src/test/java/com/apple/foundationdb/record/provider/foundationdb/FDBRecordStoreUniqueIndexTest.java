@@ -478,6 +478,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     /**
      * This test covers the situation where you change the index to non-unique, and then, in the same transaction, add
      * what would be more violations if the index were still unique.
+     *
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      * @throws Exception if there is an issue
      */
@@ -493,11 +494,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     /**
      * This test covers the situation where you add some violations, and then, in the same transaction, change the index
      * to no longer be unique.
-     * <p>
-     *     Right now this will fail {@link FDBRecordStore#checkVersion(FDBRecordStoreBase.UserVersionChecker, FDBRecordStoreBase.StoreExistenceCheck)}
+     *
+     * <p>Right now this will fail {@link FDBRecordStore#checkVersion(FDBRecordStoreBase.UserVersionChecker, FDBRecordStoreBase.StoreExistenceCheck)}
      *     and fail the commit. In theory, we could support this clearing out the index violation checks, but that
      *     proved tricky, and this seems like pathological use case.
-     * </p>
+     *
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      * @throws Exception if there is an issue
      */
@@ -514,6 +515,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * This test is primarily here to make sure that if there is an index maintainer that doesn't implement the new
      * {@link IndexMaintainer#clearUniquenessViolations}, the old flow of increasing the version when changing the state
      * still works.
+     *
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      */
     @ParameterizedTest
@@ -530,6 +532,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * Test to show what happens if you drop the uniqueness constraint on an index that doesn't implement the new
      * {@link IndexMaintainer#clearUniquenessViolations} without bumping {@code lastModifiedVersion}, despite the
      * instructions on {@link IndexOptions#UNIQUE_OPTION}.
+     *
      * @param allowReadableUniquePending whether to test with allowing {@link IndexState#READABLE_UNIQUE_PENDING}
      */
     @ParameterizedTest
@@ -818,12 +821,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * An index maintainer that is exactly the same as {@link ValueIndexMaintainer} except it uses the default
      * implementation of {@link IndexMaintainer#clearUniquenessViolations()}, to simulate an index that didn't implement
      * {@code clearUniquenessViolations}.
-     * <p>
-     *     It does this by creating a {@link ValueIndexMaintainer}, but extending {@link IndexMaintainer} and delegating
+     *
+     * <p>It does this by creating a {@link ValueIndexMaintainer}, but extending {@link IndexMaintainer} and delegating
      *     every method to the underlying {@code ValueIndexMaintainer}, except
      *     {@link IndexMaintainer#clearUniquenessViolations()}, for which it calls
      *     {@code super.clearUniquenessViolations()}.
-     * </p>
      */
     private static class DefaultClearUniquenessViolations extends IndexMaintainer {
         IndexMaintainer underlying;

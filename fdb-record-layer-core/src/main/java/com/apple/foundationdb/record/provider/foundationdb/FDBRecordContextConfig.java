@@ -148,8 +148,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Returns whether or not internal correctness assertions are enabled.
-     * @return whether or not internal correctness assertions are enabled
+     * {@return whether or not internal correctness assertions are enabled}
      */
     public boolean areAssertionsEnabled() {
         return enableAssertions;
@@ -157,6 +156,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether transaction is logged to FDB client logs.
+     *
      * @return {@code true} if transaction is logged.
      */
     public boolean isLogTransaction() {
@@ -165,6 +165,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether FDB server request tracing is enabled.
+     *
      * @return {@code true} if FDB server request tracing is enabled
      * @see FDBRecordContextConfig.Builder#setServerRequestTracing(boolean)
      * @see TransactionOptions#setServerRequestTracing()
@@ -175,6 +176,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether open context is tracked in the associated {@link FDBDatabase}.
+     *
      * @return {@code true} if context is tracked.
      */
     public boolean isTrackOpen() {
@@ -183,6 +185,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether stack trace is recorded when context is opened.
+     *
      * @return {@code true} if stack trace is generated.
      */
     public boolean isSaveOpenStackTrace() {
@@ -190,9 +193,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Get a new builder for this class.
-     *
-     * @return a new builder for this class
+     * {@return a new builder for this class}
      */
     @Nonnull
     public static Builder newBuilder() {
@@ -200,9 +201,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Return the listener to be notified of transaction events.
-     *
-     * @return the listener to be notified of transaction events
+     * {@return the listener to be notified of transaction events}
      */
     @Nullable
     public TransactionListener getTransactionListener() {
@@ -220,8 +219,7 @@ public class FDBRecordContextConfig {
     }
 
     /**
-     * Get tags used for throttling.
-     * @return throttling tags
+     * {@return the tags used for throttling}
      */
     @Nonnull
     public Set<String> getTags() {
@@ -230,6 +228,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get whether to report conflicting key ranges on commit conflict.
+     *
      * @return {@code true} to report conflicting keys
      */
     public boolean isReportConflictingKeys() {
@@ -238,6 +237,7 @@ public class FDBRecordContextConfig {
 
     /**
      * Get the key checker to hook operations' keys.
+     *
      * @return the key checker to use
      */
     @Nullable
@@ -343,9 +343,8 @@ public class FDBRecordContextConfig {
         }
 
         /**
-         * Get the MDC context.
+         * {@return the MDC context}
          *
-         * @return the MDC context
          * @see FDBRecordContextConfig#getMdcContext()
          */
         @Nullable
@@ -440,11 +439,9 @@ public class FDBRecordContextConfig {
          * {@code null}, which indicates that the transaction should look at the "uuid" key of the
          * MDC context (if set) to set the transaction ID.
          *
-         * <p>
-         * The transaction ID should typically be set to a string of entirely ASCII characters, and
+         * <p>The transaction ID should typically be set to a string of entirely ASCII characters, and
          * it should not exceed 100 bytes in length. If the string is longer than 100 bytes, then the
          * ID may be truncated or dropped. See {@link FDBRecordContext#getTransactionId()}.
-         * </p>
          *
          * @param transactionId the ID to use for the transaction in FDB logs
          * @return this builder
@@ -459,9 +456,8 @@ public class FDBRecordContextConfig {
         }
 
         /**
-         * Get the ID to use for the transaction within FDB logs.
+         * {@return the ID to use for the transaction within FDB logs}
          *
-         * @return the ID to use for the transaction within FDB logs
          * @see FDBRecordContextConfig#getTransactionId()
          */
         @Nullable
@@ -494,6 +490,7 @@ public class FDBRecordContextConfig {
          * Set the transaction timeout time in milliseconds.
          * A value of {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS} indicates that a created transaction should inherit its default from the {@link FDBDatabaseFactory}
          * used to create it. A value of {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS} indicates that no timeout will be imposed on the transaction.
+         *
          * @return the timeout time in milliseconds
          */
         public long getTransactionTimeoutMillis() {
@@ -515,6 +512,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Return whether or not correctness assertions will enabled for the context.
+         *
          * @return {@code true} if correctness assertions are to be enabled for the context
          */
         public boolean areAssertionsEnabled() {
@@ -523,6 +521,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether transaction is logged to FDB client logs.
+         *
          * @return {@code true} if transaction is logged.
          */
         public boolean isLogTransaction() {
@@ -532,6 +531,7 @@ public class FDBRecordContextConfig {
         /**
          * Set whether transaction is logged to FDB client logs.
          * In order to enable logging, {@link #setTransactionId} must also be set or available implicitly in {@link #setMdcContext}.
+         *
          * @param logTransaction {@code true} if transaction is logged.
          * @return this builder
          * @see TransactionOptions#setLogTransaction
@@ -543,6 +543,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether FDB server request tracing is enabled for this transaction.
+         *
          * @return {@code true} if the transaction will have additional server-side tracing enabled
          * @see TransactionOptions#setServerRequestTracing()
          * @see #setServerRequestTracing(boolean)
@@ -570,6 +571,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether open context is tracked in the associated {@link FDBDatabase}.
+         *
          * @return {@code true} if context is tracked.
          */
         public boolean isTrackOpen() {
@@ -578,6 +580,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Set whether open context is tracked in the associated {@link FDBDatabase}.
+         *
          * @param trackOpen {@code true} if context is tracked.
          * @return this builder
          */
@@ -588,6 +591,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether stack trace is recorded when context is opened.
+         *
          * @return {@code true} if stack trace is generated.
          */
         public boolean isSaveOpenStackTrace() {
@@ -597,6 +601,7 @@ public class FDBRecordContextConfig {
         /**
          * Set whether stack trace is recorded when context is opened.
          * Generating the stack trace is relatively expensive, so this should probably only be done for a fraction of contexts.
+         *
          * @param saveOpenStackTrace {@code true} if stack trace is generated.
          * @return this builder
          */
@@ -645,8 +650,7 @@ public class FDBRecordContextConfig {
         }
 
         /**
-         * Get tags used for throttling.
-         * @return throttling tags
+         * {@return throttling tags}
          */
         @Nonnull
         public Set<String> getTags() {
@@ -655,6 +659,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Set tags used for throttling.
+         *
          * @param tags new set of tags
          * @return this builder
          */
@@ -673,6 +678,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get whether to report conflicting key ranges on commit conflict.
+         *
          * @return {@code true} to report conflicting keys
          */
         public boolean isReportConflictingKeys() {
@@ -681,6 +687,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Set whether to report conflicting key rangs on commit conflict.
+         *
          * @param reportConflictingKeys {@code true} to report conflicting keys
          * @return this builder
          */
@@ -691,6 +698,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Get the key checker to hook operations' keys.
+         *
          * @return the key checker to use
          */
         @Nullable
@@ -700,6 +708,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Set the key checker to hook operations' keys.
+         *
          * @param keyChecker the key checker to use
          */
         public void setKeyChecker(@Nullable final KeyChecker keyChecker) {
@@ -718,6 +727,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Make a copy of this builder.
+         *
          * @return a new builder with the same values as this builder
          */
         public Builder copyBuilder() {

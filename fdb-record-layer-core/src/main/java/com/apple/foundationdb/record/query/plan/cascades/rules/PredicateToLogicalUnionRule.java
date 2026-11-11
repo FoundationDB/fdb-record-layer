@@ -71,8 +71,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * Transform a {@link SelectExpression} with a set of {@link QueryPredicate}s into a union operation.
- * <br>
- * The basic idea around this transformation: First, the {@link QueryPredicate}s in a {@link SelectExpression}
+ *
+ * <p>The basic idea around this transformation: First, the {@link QueryPredicate}s in a {@link SelectExpression}
  * can be viewed as one conjuncted predicate. This predicate can be assumed to have been transformed into a CNF using
  * distribute low, deMorgan's law, etc. by {@link NormalizePredicatesRule}. That technically means that the
  * {@link QueryPredicate}s in the current {@link SelectExpression} only contain
@@ -83,37 +83,37 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *          variables</li>
  * </ol>
  *
- * Note that this rule currently also attempts the best effort on predicates in non-normal forms (i.e. as written in the
+ * <p>Note that this rule currently also attempts the best effort on predicates in non-normal forms (i.e. as written in the
  * query), but the outcome may not be exhaustive. This is important if the CNF is too complex.
- * <br>
- * Let's first assume the CNF is simple, i.e. the number of conjuncts is within the limit given by
+ *
+ * <p>Let's first assume the CNF is simple, i.e. the number of conjuncts is within the limit given by
  * {@link RecordQueryPlannerConfiguration#getOrToUnionMaxNumConjuncts()} (defaulted by
  * {@link #DEFAULT_MAX_NUM_CONJUNCTS}).
  * The CNF can be repeatedly multiplied out to eventually obtain the DNF. It is, however, beneficial to create all
  * intermediate forms as well.
- * <br>
- * In particular, a CNF represented by {@code a1 ^ a2 ^ ... ^ an} can be transformed into another form by fixing any
+ *
+ * <p>In particular, a CNF represented by {@code a1 ^ a2 ^ ... ^ an} can be transformed into another form by fixing any
  * combination of {@code k} factors, transforming the remaining factors into their DNF and leaving the fixed factors
  * untouched.
- * <br>
- * For instance, the first three factors in {@code a1 ^ a2 ^ a3 ^ a4 ^ a5} can be fixed to obtain
+ *
+ * <p>For instance, the first three factors in {@code a1 ^ a2 ^ a3 ^ a4 ^ a5} can be fixed to obtain
  * {@code a1 ^ a2 ^ a3 ^ DNF(a4, a5)}.
- * <br>
- * Note that the DNF of the remaining factors (in the example {@code DNF(a4, a5)}) is an {@link OrPredicate} as long as
+ *
+ * <p>Note that the DNF of the remaining factors (in the example {@code DNF(a4, a5)}) is an {@link OrPredicate} as long as
  * the DNF is not trivial. The DNF thus can usually be written as {@code o1 v o2 v ... v om}.
- * <br>
- * At this stage of the transformation the predicate is of the shape:
+ *
+ * <p>At this stage of the transformation the predicate is of the shape:
  * {@code AND(fixed factors) ^ OR(transformed (DNF) remaining factors} or written out
  * {@code af1 ^ af2 ^ ... ^ afk ^ (o1 v o2 v ... v om)}}.
- * <br>
- * It is now useful to multiply out the OR against the fixed factors:
+ *
+ * <p>It is now useful to multiply out the OR against the fixed factors:
  * {@code (af1 ^ (o1 v o2 v ... v om)) v (af2 ^ (o1 v o2 v ... v om)) v ... v (afk ^ (o1 v o2 v ... v om))}}.
  * Note that in this term all fixed factors remain intact; they just happen to be repeated per OR term.
- * <br>
- * As a final step this term is used to create a {@link LogicalUnionExpression} over {@link SelectExpression}s that
+ *
+ * <p>As a final step this term is used to create a {@link LogicalUnionExpression} over {@link SelectExpression}s that
  * contain each contain a term {@code (ai ^ (o1 v o2 v ... v om))}.
- * <br>
- * In order to create all meaningful forms starting with the CNF and ending at the DNF (all factors have been multiplied
+ *
+ * <p>In order to create all meaningful forms starting with the CNF and ending at the DNF (all factors have been multiplied
  * out) we need to consider all combinations of factors in the CNF. Note that for a given combination we are not
  * interested in different permutations of the fixed factors, i.e. it does not matter if we first multiply out some
  * factor {@code f1} and then {@code f2} or vice versa. We do not want to find all n-ary UNIONs (including all shapes

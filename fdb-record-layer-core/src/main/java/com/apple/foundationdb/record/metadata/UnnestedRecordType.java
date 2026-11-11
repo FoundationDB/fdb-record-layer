@@ -55,11 +55,13 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 
@@ -80,42 +82,34 @@ import java.util.concurrent.CompletableFuture;
  * }
  * }</pre>
  *
- * <p>
- * Then an {@code UnnestedRecordType} may be defined that is constructed with two constituents,
+ * <p>Then an {@code UnnestedRecordType} may be defined that is constructed with two constituents,
  * one of which refers to the {@code OuterType} and the other contains one {@code NestedInnerMessage}. This
  * can then be used to define indexes that would not normally be possible using other key expressions. For
  * example, consider the expression:
- * </p>
  *
  * <pre>
  *
  * concat(field("nested_repeated", FanOut).nest("a"), field("other_field"), field("nested_repeated", FanOut).nest("b"))
  * </pre>
  *
- * <p>
- * In this expression, the first field ({@code nested_repeated.a}) and the third field ({@code nested_repeated.b}) are
+ * <p>In this expression, the first field ({@code nested_repeated.a}) and the third field ({@code nested_repeated.b}) are
  * not associated with the same {@code NestedInnerMessage}. So, if there are <em>n</em> items in that repeated list,
  * there will end up being <em>n</em><sup>2</sup> different values returned from evaluating this expression. By
  * contrast, this expression:
- * </p>
  *
  * <pre>
  *
  * concat(field("other_field"), field("nested_repeated", FanOut).nest("a", "b"))
  * </pre>
  *
- * <p>
- * Evaluates to only <em>n</em>, as in every evaluated entry, the {@code a} and {@code b} fields come from the same
+ * <p>Evaluates to only <em>n</em>, as in every evaluated entry, the {@code a} and {@code b} fields come from the same
  * {@code NestedInnerMessage}. However, to acheive this, we have had to swap the order of {@code other_field} and
  * {@code nested_repeated.a}.
- * </p>
  *
- * <p>
- * If we want to retain the original order but we only want one entry per {@code NestedInnerMessage}, we can
+ * <p>If we want to retain the original order but we only want one entry per {@code NestedInnerMessage}, we can
  * do this with an unnested type. We associate two constituents with the type: one of them, {@code "parent"},
  * is used to refer to the {@code OuterType}. The other, {@code "child"}, can be used to refer to the results of the
  * {@code nested_repeated} field:
- * </p>
  *
  * <pre> {@code
  * var typeBuilder = metaDataBuilder.addUnnestedRecordType(typeName);
@@ -123,28 +117,22 @@ import java.util.concurrent.CompletableFuture;
  * typeBuilder.addNestedConstituent("child", NestedInnerMessage.getDescriptor(), "parent", field("nested_repeated", FanType.FanOut));
  * }</pre>
  *
- * <p>
- * Then one can define an index on the expression:
- * </p>
+ * <p>Then one can define an index on the expression:
  *
  * <pre>
  *
  * concat(field("child").nest("a"), field("parent").nest("other_field"), field("child").nest("b"))
  * </pre>
  *
- * <p>
- * Will contain precisely one entry for every {@code NestedInnerMessage} (like the second expression) and the fields
+ * <p>Will contain precisely one entry for every {@code NestedInnerMessage} (like the second expression) and the fields
  * will be in the same order as the original expression.
- * </p>
  *
  * <h2>Primary Keys</h2>
  *
- * <p>
- * The primary key structure for this record type is similar to other {@link SyntheticRecordType}s, but unlike s
+ * <p>The primary key structure for this record type is similar to other {@link SyntheticRecordType}s, but unlike s
  * {@link JoinedRecordType}, where every constituent is a member of a proper {@link RecordType} which has a well-defined
  * primary key, the non-parent constituents of an {@code UnnestedRecordType} do not have their own primary key
  * expression to evaluate. For this reason, each synthetic record's primary key consists of:
- * </p>
  *
  * <ol>
  *     <li>The record type key</li>
@@ -154,10 +142,8 @@ import java.util.concurrent.CompletableFuture;
  *          constituent's parent</li>
  * </ol>
  *
- * <p>
- * For example, using the {@code OuterType} as above, if the {@code OuterType}'s primary key is on
+ * <p>For example, using the {@code OuterType} as above, if the {@code OuterType}'s primary key is on
  * {@code field("other_field")}, and its primary key might conceptually look something like:
- * </p>
  *
  * <pre>
  * Tuple.from(
@@ -167,11 +153,9 @@ import java.util.concurrent.CompletableFuture;
  * )
  * </pre>
  *
- * <p>
- * Note that if the same value appears multiple times for the same nested constituent, each occurrence is given
+ * <p>Note that if the same value appears multiple times for the same nested constituent, each occurrence is given
  * its own index and so it will generate a different {@link FDBSyntheticRecord}. Note that this also means that
  * if the order of the elements changes, then the synthetic records will similarly be changed.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.NestedConstituent> {
@@ -277,6 +261,12 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Nonnull
     public NestedConstituent getParentConstituent() {
         return parentConstituent;
+    }
+
+    @Nonnull
+    @Override
+    public Set<RecordType> getStoredRecordTypes() {
+        return Collections.singleton(getParentConstituent().getRecordType());
     }
 
     @Override

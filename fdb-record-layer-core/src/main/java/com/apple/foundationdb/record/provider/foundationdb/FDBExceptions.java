@@ -110,9 +110,7 @@ public class FDBExceptions {
      * FoundationDB client, which can be configured by either setting the transaction timeout milliseconds
      * on the {@link FDBDatabaseFactory}, the {@link FDBDatabaseRunner}, or the {@link FDBRecordContextConfig}.
      *
-     * <p>
-     * Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
-     * </p>
+     * <p>Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
      *
      * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
      * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)
@@ -171,6 +169,7 @@ public class FDBExceptions {
         /**
          * If available, get the lease time that was left when the lock attempt failed. The lock holder may renew the
          * lease before it expires.
+         *
          * @return the time left in milliseconds, or {@code null} if unknown
          */
         @Nullable
@@ -181,6 +180,7 @@ public class FDBExceptions {
 
     /**
      * An exception that should be retried by the caller because is stems from a transient condition in FDB.
+     *
      * @see FDBException#isRetryable
      */
     @SuppressWarnings("serial")
@@ -196,6 +196,7 @@ public class FDBExceptions {
 
     /**
      * A retriable exception where the transaction may have committed, so a blind retry is not safe.
+     *
      * @see FDBException#isMaybeCommitted
      */
     @SuppressWarnings("serial")
@@ -296,6 +297,7 @@ public class FDBExceptions {
      * {@link java.util.concurrent.CompletableFuture} composition nests the real cause inside — can recognize a
      * particular cause without unwrapping by hand. The walk is guarded by an identity set so a self-referential or
      * cyclic cause chain terminates rather than looping forever.
+     *
      * @param throwable the throwable to inspect (typically a wrapper such as a {@link CompletionException})
      * @param type the exception type to look for in the cause chain
      * @return {@code true} if {@code type} is found at or below {@code throwable}

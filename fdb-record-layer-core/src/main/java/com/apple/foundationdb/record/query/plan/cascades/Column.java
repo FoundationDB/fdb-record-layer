@@ -34,6 +34,7 @@ import java.util.Optional;
 /**
  * A class to hold a value computing a column together with information about the field of a record it supplies
  * the result for.
+ *
  * @param <V> type parameter for the {@link Value}
  */
 public class Column<V extends Value> implements PlanHashable, PlanSerializable {

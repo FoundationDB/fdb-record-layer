@@ -67,6 +67,7 @@ public abstract class IndexPredicate {
 
     /**
      * Check if a given record should be indexed.
+     *
      * @param <M> the subtype of {@link Message}
      * @param store record store
      * @param savedRecord the updated record
@@ -97,6 +98,7 @@ public abstract class IndexPredicate {
 
     /**
      * Parses a proto message into a corresponding predicate.
+     *
      * @param proto The serialized protobuf representation of the {@link IndexPredicate}.
      * @return a deserialized {@link IndexPredicate}.
      * @throws RecordCoreException if the provided message is not supported.
@@ -122,6 +124,7 @@ public abstract class IndexPredicate {
 
     /**
      * Parses a {@link QueryPredicate} into an equivalent {@link IndexPredicate}.
+     *
      * @param queryPredicate The query predicate to convert.
      * @return an equivalent {@link IndexPredicate}.
      * @throws RecordCoreException if the provided query predicate is not supported.
@@ -154,7 +157,7 @@ public abstract class IndexPredicate {
      * wrapping a {@link RowNumberValue} with a field ordering and a constant size comparison into
      * a {@link RowNumberWindowPredicate}.
      *
-     * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.</p>
+     * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.
      *
      * @param valuePredicate the value predicate to inspect
      * @return a {@link RowNumberWindowPredicate} if the pattern matches, or {@code null} otherwise
@@ -171,7 +174,7 @@ public abstract class IndexPredicate {
             return null;
         }
         final var fieldValue = (FieldValue)argumentValues.get(0);
-        final var fieldNames = fieldValue.getFieldPathNames();
+        final var fieldNames = fieldValue.getFieldPathStorageNames();
         if (fieldNames.isEmpty()) {
             return null;
         }
@@ -192,7 +195,7 @@ public abstract class IndexPredicate {
             if (!(pv instanceof FieldValue)) {
                 return null;
             }
-            final var partFieldNames = ((FieldValue)pv).getFieldPathNames();
+            final var partFieldNames = ((FieldValue)pv).getFieldPathStorageNames();
             if (partFieldNames.isEmpty()) {
                 return null;
             }
@@ -225,7 +228,7 @@ public abstract class IndexPredicate {
             }
             return IndexComparison.isSupported(valuePredicate.getComparison()) &&
                    valuePredicate.getValue() instanceof FieldValue &&
-                   ((FieldValue)valuePredicate.getValue()).getFieldPathNamesMaybe().stream().allMatch(Optional::isPresent);
+                   ((FieldValue)valuePredicate.getValue()).getFieldPathStorageNamesMaybe().stream().allMatch(Optional::isPresent);
         } else {
             return false;
         }
@@ -561,7 +564,7 @@ public abstract class IndexPredicate {
         @SuppressWarnings("java:S5803")
         ValuePredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate predicate) {
             Verify.verify(predicate.getValue() instanceof FieldValue);
-            this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathNames());
+            this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathStorageNames());
             this.comparison = IndexComparison.fromComparison(predicate.getComparison());
         }
 
@@ -610,7 +613,7 @@ public abstract class IndexPredicate {
      * Syntax: {@code QualifyRowNumber(fieldPath, direction) <= size}.
      *
      * <p>For example, {@code QualifyRowNumber(score, DESC) <= 100} keeps the 100 records with
-     * the highest {@code score} values in the index.</p>
+     * the highest {@code score} values in the index.
      *
      * <ul>
      *     <li>{@code ASC}: keeps the smallest values (lowest row numbers in ascending order)</li>
@@ -680,6 +683,7 @@ public abstract class IndexPredicate {
 
         /**
          * Returns the simple field name. Convenience method for single-element ordering fields.
+         *
          * @return the first (and only) element of the ordering field path
          * @throws RecordCoreException if the field path has more than one element
          */

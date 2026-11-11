@@ -54,8 +54,7 @@ import java.util.stream.Collectors;
 /**
  * The root expression of a {@code LUCENE} index specifies how select fields of a record are mapped to fields of a Lucene document.
  *
- * <p>
- * The expression tree is made up of the following.<br>
+ * <p>The expression tree is made up of the following.<br>
  * <b>Structure</b><ul>
  * <li>{@link ThenKeyExpression concat} includes multiple subexpressions in the index.
  * Since these are flattened, order does not really matter.</li>
@@ -63,8 +62,7 @@ import java.util.stream.Collectors;
  * By default, the name of the parent field is prepended to the names of descendent fields.</li>
  * </ul>
  *
- * <p>
- * <b>Fields</b><ul>
+ * <p><b>Fields</b><ul>
  * <li>{@link FieldKeyExpression field} is a record field whose value is added to the index.
  * By default, a field is indexed as a scalar value. That is, even a string with whitespace is a single token.
  * </li>
@@ -72,16 +70,14 @@ import java.util.stream.Collectors;
  * <li>{@link LuceneFunctionNames#LUCENE_STORED function(lucene_stored)} annotates a document field as additionally stored in the document so that its value is returned in searches.</li>
  * </ul>
  *
- * <p>
- * <b>Names</b><br>
+ * <p><b>Names</b><br>
  * By default, the name of each field in the hierarchy of nested subrecords is included in the name of flattened fields.
  * {@link LuceneFunctionNames#LUCENE_FIELD_NAME function(lucene_field_name)} overrides this.<ul>
  * <li>{@code value(null)} skips adding any name prefix, introducing the possibility of flattened name collisions.</li>
  * <li>{@code field(key)} allows another field to give the name. This is useful for map-like nested subrecords with well-known keys.</li>
  * </ul>
  *
- * <p>
- * The expression tree can be walked in several different ways, either with an actual record to produce actual fields, or with
+ * <p>The expression tree can be walked in several different ways, either with an actual record to produce actual fields, or with
  * record meta-data to determine what possible fields there are. Specifically,<ul>
  * <li>map a record into a document</li>
  * <li>get a list of document field names</li>
@@ -100,6 +96,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Validate this key expression by interpreting it against the given meta-data.
+     *
      * @param root the {@code LUCENE} index root expresison
      * @param recordType Protobuf meta-data for record type
      */
@@ -217,6 +214,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Get the derivations of known document fields.
+     *
      * @param root the {@code LUCENE} index root expression
      * @param recordType Protobuf meta-data for record type
      * @return a map of document field names to {@link DocumentFieldDerivation}
@@ -247,6 +245,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Constructs a point-config map for a given {@link Index} fields.
+     *
      * @param store The record store, used to retrieve metadata.
      * @param index The index.
      * @return a mapping between an index field name and its {@link PointsConfig}.
@@ -273,6 +272,7 @@ public class LuceneIndexExpressions {
 
     /**
      * An actual record / record meta-data.
+     *
      * @param <T> the actual type of this source
      */
     public interface RecordSource<T extends RecordSource<T>> {
@@ -288,11 +288,13 @@ public class LuceneIndexExpressions {
 
     /**
      * An actual document / document meta-data.
+     *
      * @param <T> the actual type of the source
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
         /**
          * Add fields to the destination of the "getFields" traversal.
+         *
          * @param source the RecordSource for the field to be added
          * @param fieldName the (full) field name
          * @param value the last element of the field name
@@ -315,6 +317,7 @@ public class LuceneIndexExpressions {
 
     /**
      * Interpret the index key expression, either concretely for an actual record, or symbolically using meta-data.
+     *
      * @param <T> specific kind of {@link RecordSource}
      * @param root the {@code LUCENE} index root expresison
      * @param source the record / record meta-data

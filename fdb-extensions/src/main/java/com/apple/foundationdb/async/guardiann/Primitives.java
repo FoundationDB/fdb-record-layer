@@ -126,6 +126,7 @@ class Primitives {
 
     /**
      * Get the executor used by this guardiann.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -134,8 +135,7 @@ class Primitives {
     }
 
     /**
-     * Get the configuration.
-     * @return the configuration
+     * {@return the configuration}
      */
     @Nonnull
     private Config getConfig() {
@@ -143,8 +143,7 @@ class Primitives {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     private OnWriteListener getOnWriteListener() {
@@ -152,8 +151,7 @@ class Primitives {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     private OnReadListener getOnReadListener() {
@@ -942,8 +940,8 @@ class Primitives {
      * Drains up to {@code numTasks} pending maintenance tasks and runs them inline within this transaction. This is
      * how background structure maintenance is paid for: each foreground insert/delete absorbs a small, bounded slice
      * of queued work rather than relying on a separate sweeper.
-     * <p>
-     * {@code numTasks} bounds only the tasks this method runs <em>directly</em> from the queue. A task may itself run
+     *
+     * <p>{@code numTasks} bounds only the tasks this method runs <em>directly</em> from the queue. A task may itself run
      * further tasks — notably a {@link BounceTask}, which runs one of its dependency tasks — and those are not counted
      * against {@code numTasks}, so the total number of tasks executed in this transaction can exceed it.
      *
@@ -1002,8 +1000,8 @@ class Primitives {
      * caller's fetched batch. Re-running would be a no-op for the task's own work (tasks are guarded by their
      * cluster-state flags), but it would still notify {@link OnWriteListener#onTaskExecuted} a second time and thus
      * over-decrement any outstanding-work count kept off that callback.
-     * <p>
-     * If the task is still present it is removed from the queue <em>before</em> it runs (not after), so a task that
+     *
+     * <p>If the task is still present it is removed from the queue <em>before</em> it runs (not after), so a task that
      * re-enqueues follow-up work cannot collide with its own still-present queue entry — and so a task is free to
      * reuse its own just-freed slot. On success the {@link OnWriteListener} is notified; on failure the future
      * completes exceptionally and the enclosing transaction will not commit, so the removal is rolled back with it.
@@ -1122,8 +1120,8 @@ class Primitives {
      * Applies a set of vector-count changes to a cluster's metadata and, if adding primary vectors pushed the
      * cluster over {@code primaryClusterMax}, enqueues a {@link SplitMergeTask} to split it; otherwise it
      * enqueues a {@link ReassignTask} or simply writes the updated metadata, as warranted.
-     * <p>
-     * This method <em>never</em> enqueues a merge. A merge is triggered only by deleting a primary vector and
+     *
+     * <p>This method <em>never</em> enqueues a merge. A merge is triggered only by deleting a primary vector and
      * is handled separately by {@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe}, because deciding whether a
      * merge is even possible requires an asynchronous read of the centroid HNSW. Callers that push vectors out of a
      * cluster during a reassign or a split may still call this method — it will reassign or plain-write the
@@ -1140,7 +1138,6 @@ class Primitives {
      * @param updatedStandardDeviation the recomputed running statistics of member distances to the centroid
      * @param causeClusterIds the ids of clusters produced by the operation that triggered this update (for example
      *        the clusters a split created); used by the reassign tail to decide whether a {@link ReassignTask} is needed
-     *
      * @return the id of an enqueued task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
@@ -1199,7 +1196,6 @@ class Primitives {
      * @param causeClusterIds the ids of clusters produced by the operation that triggered this update (for example
      *        the clusters a split created); a cluster in this set is never reassigned, and a non-empty set forces a
      *        reassign of clusters that are not in it
-     *
      * @return the id of an enqueued reassign task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
@@ -1266,8 +1262,8 @@ class Primitives {
      * Updates a cluster's metadata after a single primary vector has been deleted from it and, when that drops
      * the cluster below its {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge
      * {@link SplitMergeTask} — but only when a merge is actually possible.
-     * <p>
-     * A merge needs at least one other cluster to merge with. The clusters are exactly the nodes of the centroid
+     *
+     * <p>A merge needs at least one other cluster to merge with. The clusters are exactly the nodes of the centroid
      * HNSW, so this consults {@link HNSW#cardinality(com.apple.foundationdb.ReadTransaction)} and enqueues a
      * merge only when layer 0 holds two or more nodes ({@link Cardinality#MULTIPLE}). For a lone cluster below
      * the minimum — as happens when a structure is drained toward empty — there is nothing to merge with;
@@ -1275,8 +1271,8 @@ class Primitives {
      * {@link ClusterMetadata.State#SPLIT_MERGE} flag would both stick and churn one impossible task per delete.
      * In that case the decrement is merely persisted via
      * {@link #updateClusterMetadataAndEnqueueReassignTaskMaybe}.
-     * <p>
-     * This is the only path that can enqueue a merge.
+     *
+     * <p>This is the only path that can enqueue a merge.
      *
      * @param transaction the transaction to use
      * @param random a source of randomness used to mint a task id
@@ -1285,7 +1281,6 @@ class Primitives {
      * @param accessInfo the current access info
      * @param updatedStandardDeviation the running stats already reflecting the removed primary (this carries the
      *        decremented primary-vector count)
-     *
      * @return a future that completes once the metadata has been written and any task enqueued
      */
     @Nonnull
@@ -1363,8 +1358,8 @@ class Primitives {
      * Merge follow-up for a reassign. If the just-reassigned target cluster has shrunk below its
      * {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge. Reuses the delete path's merge core but
      * supplies no fallback — the target metadata has already been written with its final post-reassign counts.
-     * <p>
-     * A freshly split child, reassigned post-bounce while still at its birth size, is not caught here: a cluster at its
+     *
+     * <p>A freshly split child, reassigned post-bounce while still at its birth size, is not caught here: a cluster at its
      * own peak is merge-eligible only if it sits below {@link Config#primaryClusterMin()}, and
      * {@link Config#minChildFraction()} already bounds a split from producing one that small. So no split-vs-shrink
      * discriminator is needed — but note it is the child-size floor that provides that, not the max-ever peak.
@@ -1396,7 +1391,6 @@ class Primitives {
      * @param numPrimaryUnderreplicatedVectorsAdded delta of primary-underreplicated vectors to apply
      * @param numReplicatedVectorsAdded delta of replicated vectors to apply
      * @param updatedStandardDeviation the running stats to write (carries the updated primary-vector count)
-     *
      * @return the id of the enqueued task
      */
     @Nonnull

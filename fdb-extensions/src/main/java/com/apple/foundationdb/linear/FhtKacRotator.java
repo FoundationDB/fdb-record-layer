@@ -29,22 +29,22 @@ import java.util.Random;
 
 /**
  * FhtKac-like random orthogonal rotator which implements {@link LinearOperator}.
- * <p>
- * An orthogonal rotator conceptually is an orthogonal matrix that is applied to some vector {@code x} yielding a
+ *
+ * <p>An orthogonal rotator conceptually is an orthogonal matrix that is applied to some vector {@code x} yielding a
  * new vector {@code y} that is rotated in some way along its n dimensions. Important to notice here is that such a
  * rotation preserves distances/lengths as well as angles between vectors.
- * <p>
- * Practically, we do not want to materialize such a rotator in memory as for {@code n} dimensions that would amount
+ *
+ * <p>Practically, we do not want to materialize such a rotator in memory as for {@code n} dimensions that would amount
  * to {@code n^2} cells. In addition to that multiplying a matrix with a vector computationally is {@code O(n^2)} which
  * is prohibitively expensive for large {@code n}.
- * <p>
- * We also want to achieve some sort of randomness with these rotations. For small {@code n}, we can start by creating a
+ *
+ * <p>We also want to achieve some sort of randomness with these rotations. For small {@code n}, we can start by creating a
  * randomly generated matrix and decompose it using QR-decomposition into an orthogonal matrix {@code Q} and an upper
  * triangular matrix {@code R}. That matrix {@code Q} is indeed random (see matrix Haar randomness) and what we are
  * actually trying to find. For larger {@code R} this approach becomes impractical as {@code Q} needs to be represented
  * as a dense matrix which increases memory footprint and makes rotations slow (see above).
- * <p>
- * The main idea is to use several operators in conjunction:
+ *
+ * <p>The main idea is to use several operators in conjunction:
  * <ul>
  *     <li>{@code K} which is orthogonal and applies several
  *          <a href="https://en.wikipedia.org/wiki/Givens_rotation">Givens rotation</a> at once.</li>
@@ -55,8 +55,8 @@ import java.util.Random;
  *     <li>{@code H} a <a href="https://en.wikipedia.org/wiki/Hadamard_matrix">Hadamard matrix </a> of a suitable size.
  *     </li>
  * </ul>
- * <p>
- * All these linear operators are combined in a way that we eventually compute the result of
+ *
+ * <p>All these linear operators are combined in a way that we eventually compute the result of
  * <pre>
  * {@code
  *     x' = D1 H D_2 H ... D_(R-1) H D_(R) H K x
@@ -275,6 +275,7 @@ public final class FhtKacRotator implements LinearOperator {
 
     /**
      * Apply transpose (inverse) of the π/4 Givens.
+     *
      * @see #givensPiOver4(double[])
      */
     private static void givensMinusPiOver4(double[] y) {

@@ -30,6 +30,7 @@ import java.util.List;
 
 /**
  * Implemention of Lucene index key functions.
+ *
  * @see LuceneFunctionNames
  */
 @AutoService(FunctionKeyExpression.Factory.class)

@@ -322,6 +322,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Traverse from the root of a key expression of a multidimensional index to the {@link DimensionsKeyExpression}.
+     *
      * @param root the root {@link KeyExpression} of the index definition
      * @return a {@link DimensionsKeyExpression}
      */

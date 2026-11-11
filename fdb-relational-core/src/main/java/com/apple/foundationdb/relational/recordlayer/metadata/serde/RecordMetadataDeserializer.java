@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -33,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
@@ -43,10 +46,15 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnneste
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -62,6 +70,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataDeserializer {
+    private static final Logger logger = LoggerFactory.getLogger(RecordMetadataDeserializer.class);
 
     @Nonnull
     protected final RecordMetaData recordMetaData;
@@ -92,25 +101,18 @@ public class RecordMetadataDeserializer {
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
         final Map<String, RecordLayerTable.Builder> nameToTableBuilder = new HashMap<>();
         for (final Descriptors.FieldDescriptor registeredType : registeredTypes) {
-            switch (registeredType.getType()) {
-                case MESSAGE:
-                    final String storageName = registeredType.getMessageType().getName();
-                    final String userName = ProtoUtils.toUserIdentifier(storageName);
-                    nameToTableBuilder
-                            .computeIfAbsent(userName, key -> generateTableBuilder(recordMetaData, key, storageName))
-                            .addGeneration(registeredType.getNumber(), registeredType.getOptions());
-                    break;
-                case ENUM:
-                    // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
-                    final var recordLayerType = Type.Enum.fromDescriptorPreservingNames(false, registeredType.getEnumType());
-                    schemaTemplateBuilder.addAuxiliaryType((DataType.Named) DataTypeUtils.toRelationalType(recordLayerType));
-                    break;
-                default:
-                    Assert.failUnchecked(String.format(Locale.ROOT, "Unexpected type '%s' found in union descriptor!", registeredType.getType()));
-                    break;
+            if (registeredType.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
+                final String storageName = registeredType.getMessageType().getName();
+                final String userName = ProtoUtils.toUserIdentifier(storageName);
+                nameToTableBuilder
+                        .computeIfAbsent(userName, key -> generateTableBuilder(recordMetaData, key, storageName))
+                        .addGeneration(registeredType.getNumber(), registeredType.getOptions());
+            } else {
+                Assert.failUnchecked(String.format(Locale.ROOT, "Unexpected type '%s' found in union descriptor!", registeredType.getType()));
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+
         final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
             // TODO: topsort deps of functions.
@@ -141,10 +143,49 @@ public class RecordMetadataDeserializer {
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
             final RecordMetaData.StoredQuery storedQuery = entry.getValue();
-            schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
+            schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions(),
+                    storedQuery.getParameters(), parsePreparedCases(entry.getKey(), storedQuery.getPreparedCases()));
         }
+
+        for (final var auxiliaryTypeDescriptor : recordMetaData.getNonRecordTypeDescriptors()) {
+            // Skip descriptors for nullable arrays as these are unwrapped to `DataType.ArrayType` when they are used in
+            // any other type and shouldn't be used in SQL queries.
+            if (auxiliaryTypeDescriptor instanceof Descriptors.Descriptor typeDescriptor
+                    && NullableArrayUtils.isWrappedArrayDescriptor(typeDescriptor)) {
+                continue;
+            }
+
+            final var auxiliaryTypeName = ProtoUtils.toUserIdentifier(auxiliaryTypeDescriptor.getFullName());
+            if (schemaTemplateBuilder.findType(auxiliaryTypeName).isEmpty()) {
+                schemaTemplateBuilder.addResolvedAuxiliaryTypeSupplier(
+                        auxiliaryTypeName,
+                        Suppliers.memoize(() -> namedDataTypeFromDescriptor(auxiliaryTypeDescriptor)));
+            } else {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("RecordMetadata contains non-record types with duplicate user-facing full names",
+                            LogMessageKeys.NAME, auxiliaryTypeName));
+                }
+            }
+        }
+
         schemaTemplateBuilder.setCachedMetadata(recordMetaData);
         return schemaTemplateBuilder;
+    }
+
+    @Nonnull
+    private static DataType.Named namedDataTypeFromDescriptor(@Nonnull final Descriptors.GenericDescriptor descriptor) {
+        final Type recordLayerType;
+        if (descriptor instanceof Descriptors.EnumDescriptor) {
+            recordLayerType = Type.Enum.fromDescriptorPreservingNames(true, (Descriptors.EnumDescriptor)descriptor);
+        } else {
+            Assert.thatUnchecked(descriptor instanceof Descriptors.Descriptor,
+                    ErrorCode.INTERNAL_ERROR,
+                    () -> String.format("Unsupported auxiliary type descriptor with name '%s'", descriptor.getFullName()));
+            recordLayerType = Type.Record
+                    .fromDescriptorPreservingName((Descriptors.Descriptor)descriptor)
+                    .withNullability(true);
+        }
+        return (DataType.Named)DataTypeUtils.toRelationalType(recordLayerType);
     }
 
     @Nonnull
@@ -266,5 +307,40 @@ public class RecordMetadataDeserializer {
     @Nonnull
     public RecordMetaData getRecordMetaData() {
         return recordMetaData;
+    }
+
+    /**
+     * Turns the canonical tokens the record layer stores back into {@link StoredQuery.ParameterState} constants. An
+     * unrecognized token throws, which fails the load of the whole schema template.
+     *
+     * @param queryName the stored query the cases belong to, for the error message
+     * @param preparedCases one map per case, from parameter name to canonical token
+     * @return the same cases with each token resolved
+     */
+    @Nonnull
+    private static List<Map<String, StoredQuery.ParameterState>> parsePreparedCases(
+            @Nonnull final String queryName, @Nonnull final List<Map<String, String>> preparedCases) {
+        final ImmutableList.Builder<Map<String, StoredQuery.ParameterState>> parsed = ImmutableList.builder();
+        for (final Map<String, String> preparedCase : preparedCases) {
+            final ImmutableMap.Builder<String, StoredQuery.ParameterState> states = ImmutableMap.builder();
+            for (final Map.Entry<String, String> entry : preparedCase.entrySet()) {
+                states.put(entry.getKey(), parseParameterState(queryName, entry.getKey(), entry.getValue()));
+            }
+            parsed.add(states.build());
+        }
+        return parsed.build();
+    }
+
+    @Nonnull
+    private static StoredQuery.ParameterState parseParameterState(@Nonnull final String queryName,
+                                                                  @Nonnull final String parameterName,
+                                                                  @Nonnull final String token) {
+        try {
+            return StoredQuery.ParameterState.valueOf(token);
+        } catch (final IllegalArgumentException e) {
+            throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR,
+                    "unknown prepared case state '" + token + "' for parameter '" + parameterName
+                            + "' of stored query '" + queryName + "'", e);
+        }
     }
 }

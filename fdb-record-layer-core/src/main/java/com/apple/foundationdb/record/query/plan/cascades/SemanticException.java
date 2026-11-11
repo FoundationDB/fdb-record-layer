@@ -125,6 +125,7 @@ public class SemanticException extends RecordCoreException {
 
     /**
      * Creates (but does not throw) a new exception, for callers that need to attach log info before throwing.
+     *
      * @param errorCode the error code
      * @param additionalErrorMessage a static message that supplements the error code's message
      * @return a new {@link SemanticException}

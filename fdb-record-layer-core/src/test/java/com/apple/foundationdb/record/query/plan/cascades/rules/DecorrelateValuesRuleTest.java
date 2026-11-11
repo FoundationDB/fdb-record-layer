@@ -103,16 +103,14 @@ class DecorrelateValuesRuleTest {
      * <pre>{@code
      * SELECT T.b, V.y FROM T, values(x = 3, y = @0) as V WHERE T.a = V.x
      * }</pre>
-     * <p>
-     * And it rewrites it as:
-     * </p>
+     *
+     * <p>And it rewrites it as:
      * <pre>{@code
      * SELECT b, @0 as y FROM T WHERE T.a = 3
      * }</pre>
-     * <p>
-     * That is, it rewrites the predicate and the result value to inline the values, and then
+     *
+     * <p>That is, it rewrites the predicate and the result value to inline the values, and then
      * it removes the values box as that box is no longer necessary.
-     * </p>
      */
     @Test
     void simpleDecorrelation() {
@@ -183,27 +181,24 @@ class DecorrelateValuesRuleTest {
      * CREATE FUNCTION foo(x string, y bytes)
      *   AS SELECT a, c, d FROM T where b = @x AND @y >= T.c
      * }</pre>
-     * <p>
-     * And then invoked the function with arguments like {@code foo('hello', @0)}. In that case, function execution
+     *
+     * <p>And then invoked the function with arguments like {@code foo('hello', @0)}. In that case, function execution
      * would get rewritten into a join between a values box and the original statement in a manner like:
-     * </p>
      * <pre>{@code
      *    SELECT t.* FROM
      *      values(x = 'hello', y = @0) AS v,
      *      (SELECT a, c, d FROM T WHERE b = v.x AND v.y >= c) AS t
      * }</pre>
-     * <p>
-     * Which is the kind of expression we test out here. The result of this is to push the values into the rhs of the
+     *
+     * <p>Which is the kind of expression we test out here. The result of this is to push the values into the rhs of the
      * join:
-     * </p>
      * <pre>{@code
      *    SELECT t.* FROM
      *      (SELECT a, c, d FROM values(x = 'hello', y = @0) AS v, T WHERE b = v.x AND v.y >= c) AS t
      * }</pre>
-     * <p>
-     * Note that this is now in the form of expressions contemplated by the test {@link #simpleDecorrelation()}, and
+     *
+     * <p>Note that this is now in the form of expressions contemplated by the test {@link #simpleDecorrelation()}, and
      * that a further application of the rule would remove the values box in its entirety.
-     * </p>
      */
     @Test
     void pushIntoChildSelect() {
@@ -596,10 +591,9 @@ class DecorrelateValuesRuleTest {
      *       (SELECT b, c, d FROM T WHERE a = 42) AS s
      *    WHERE s.b = @0
      * }</pre>
-     * <p>
-     * Note that nothing is actually correlated to the values box. We can therefore just remove it
+     *
+     * <p>Note that nothing is actually correlated to the values box. We can therefore just remove it
      * and get the semantically equivalent:
-     * </p>
      * <pre>{@code
      * SELECT s.d
      *    FROM (SELECT b, c, d FROM T WHERE a = 42) AS s
@@ -631,19 +625,17 @@ class DecorrelateValuesRuleTest {
      * Similar to {@link #trimUncorrelatedValuesBoxes()}, this also operates on an uncorrelated values box.
      * In this case, however, the uncorrelated box is used only in predicates on the top value. So we still
      * want to leave the child boxes the same, but we re-write the predicate at the top level.
-     * <p>
-     * In particular we start with a query like:
-     * </p>
+     *
+     * <p>In particular we start with a query like:
      * <pre>{@code
      * SELECT v.y, s.d
      *    FROM values(x = @0, y = 42) AS v,
      *       (SELECT b, c, d FROM T WHERE a = 42) AS s
      *    WHERE s.b = v.x
      * }</pre>
-     * <p>
-     * The lower select should remain the same, as it is not correlated to the values box. However, the
+     *
+     * <p>The lower select should remain the same, as it is not correlated to the values box. However, the
      * result value and predicates should be rewritten in response to the now removed values box:
-     * </p>
      * <pre>{@code
      * SELECT 42 AS y, s.d
      *    FROM (SELECT b, c, d FROM T WHERE a = 42) AS s
@@ -807,17 +799,15 @@ class DecorrelateValuesRuleTest {
      *    WHERE T.d = v
      *    GROUP BY T.b, T.c
      * }</pre>
-     * <p>
-     * This will be rewritten as:
-     * </p>
+     *
+     * <p>This will be rewritten as:
      * <pre>{@code
      * SELECT T.b, T.c, sum(T.a) as sum FROM
      *    (SELECT T.* FROM values(@0) as v, T WHERE T.d = v) T
      *    GROUP BY T.b, T.c
      * }</pre>
-     * <p>
-     * A later step will simplify the inner select.
-     * </p>
+     *
+     * <p>A later step will simplify the inner select.
      */
     @Test
     void pushIntoGroupBySelectWhere() {
@@ -876,19 +866,17 @@ class DecorrelateValuesRuleTest {
      *    WHERE T.b = 'hello'
      *    GROUP BY v
      * }</pre>
-     * <p>
-     * Note that the values box is only referenced in the grouping columns. This will be rewritten as:
-     * </p>
+     *
+     * <p>Note that the values box is only referenced in the grouping columns. This will be rewritten as:
      * <pre>{@code
      * SELECT @0 AS group, min(T.a) AS min FROM
      *    T
      *    WHERE T.b = 'hello'
      *    GROUP BY @0
      * }</pre>
-     * <p>
-     * A later step will simplify the inner select. Note that the inner grouping logic is the same,
+     *
+     * <p>A later step will simplify the inner select. Note that the inner grouping logic is the same,
      * as the values quantifier does not need to be pushed into the children.
-     * </p>
      */
     @Test
     void pushIntoGroupByGroupingColumns() {
@@ -949,9 +937,8 @@ class DecorrelateValuesRuleTest {
      *   FROM (SELECT count(*) AS count FROM T) x,
      *        (SELECT b, c, d FROM T WHERE a = x.count) y
      * }</pre>
-     * <p>
-     * We then assert that the count box does not get pushed into the {@code y} leg by this rule.
-     * </p>
+     *
+     * <p>We then assert that the count box does not get pushed into the {@code y} leg by this rule.
      */
     @Test
     void doNotTreatUngroupedCountAsValues() {
@@ -1074,33 +1061,28 @@ class DecorrelateValuesRuleTest {
      * box(es). Then another application of the rule on the rewritten values box should yield an appropriate new
      * values box. Finally, applying the rule to the top expression should simplify this fully.
      *
-     * <p>
-     * The exact sequence here is something like:
-     * </p>
+     * <p>The exact sequence here is something like:
      * <pre>{@code
      *    SELECT T.a, T.b, T.c
      *       FROM T, values(x = @0, y = @1) AS v1, values(z = v1.y + 1) AS v2
      *       WHERE T.d = v1.x AND T.a > v2.z
      * }</pre>
-     * <p>
-     * The first stage pushes the {@code v1} down:
-     * </p>
+     *
+     * <p>The first stage pushes the {@code v1} down:
      * <pre>{@code
      *    SELECT T.a, T.b, T.c
      *       FROM T, (SELECT v1.y + 1 AS z FROM values(x = @0, y = @1) AS v1, range(1)) AS v2
      *       WHERE T.d = @0 AND T.a > v2.z
      * }</pre>
-     * <p>
-     * Then we re-write {@code v2}:
-     * </p>
+     *
+     * <p>Then we re-write {@code v2}:
      * <pre>{@code
      *    SELECT T.a, T.b, T.c
      *       FROM T, values(z = @1 + 1) AS v2
      *       WHERE T.d = @0 AND T.a > v2.z
      * }</pre>
-     * <p>
-     * Which lets us rewrite the final expression as:
-     * </p>
+     *
+     * <p>Which lets us rewrite the final expression as:
      * <pre>{@code
      *    SELECT T.a, T.b, T.c
      *       FROM T

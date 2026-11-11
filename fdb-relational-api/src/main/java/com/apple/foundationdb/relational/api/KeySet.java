@@ -56,6 +56,7 @@ public class KeySet {
 
     /**
      * Sets the map entry (columnName.UPPER, value).
+     *
      * @param columnName the name of the column
      * @param value the value object to insert in the KeySet
      * @return the constructed key set that was inserted in the map

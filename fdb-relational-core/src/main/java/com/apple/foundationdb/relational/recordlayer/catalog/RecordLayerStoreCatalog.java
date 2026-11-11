@@ -81,15 +81,15 @@ import java.util.Objects;
 
 /**
  * This class defines and constructs the record store that holds and manipulates the catalog metadata.
- * <p>
- * We currently have three tables in this catalog: Schema, DatabaseInfo, and SchemaTemplate.
+ *
+ * <p>We currently have three tables in this catalog: Schema, DatabaseInfo, and SchemaTemplate.
  * You can find the definition of these tables either in {@code catalog_schema_data.proto}, or
  * in the respective system tables classes: e.g.
  * {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaSystemTable},
  * {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.DatabaseInfoSystemTable}, and
  * {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaTemplateSystemTable}.
- * <p>
- * Internally, here is how this is stored:
+ *
+ * <p>Internally, here is how this is stored:
  * <pre>
  * - We use a prefix "/__SYS/catalog".
  * - For {@code Schema}, we use '0' (zero) as a record type key.

@@ -31,23 +31,34 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A <i>synthetic</i> record type representing the indexable result of <em>joining</em> stored records.
- * <p>
- * Joined record represents a collection of <i>joined constituents</i>, each represented by another record in the database.
+ *
+ * <p>Joined record represents a collection of <i>joined constituents</i>, each represented by another record in the database.
  * The constituents are joined together by a <i>join condition</i>: in this case, a set of fields that are tested for
  * equality across all constituents.
  * The joined record primary key is represented by a Tuple as follows:
@@ -56,13 +67,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </pre>
  * When loading a joined record, the joined record primary key is used to iterate and load each constituent, eventually
  * combining the collection of constituents into the completed record.
- * <p>
- * There is nothing special needed to be done to save a joined record. Once the constituent records are saved
+ *
+ * <p>There is nothing special needed to be done to save a joined record. Once the constituent records are saved
  * a joined record instance is implicitly assumed to exist. A subsequent {@link #loadByPrimaryKeyAsync(FDBRecordStore, Tuple, IndexOrphanBehavior)}
  * or a query for the record or a scan of a joined index will create the joined record. similarly, a deletion
  * of any or all of the constituents will implicitly render the joined record type deleted.
- * <p>
- * When loading a joined record (and similarly when scanning an index) an {@link IndexOrphanBehavior} can be used
+ *
+ * <p>When loading a joined record (and similarly when scanning an index) an {@link IndexOrphanBehavior} can be used
  * to determine the behavior in case one or more of the constituents are missing:
  * <ul>
  *     <li>{@link IndexOrphanBehavior#ERROR} (the default) will throw an exception</li>
@@ -144,6 +155,14 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
     }
 
     @Nonnull
+    @Override
+    public Set<RecordType> getStoredRecordTypes() {
+        return getConstituents().stream()
+                .map(JoinConstituent::getRecordType)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
     public List<Join> getJoins() {
         return joins;
     }
@@ -222,7 +241,41 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
     @Override
     @API(API.Status.INTERNAL)
     public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
-        throw new UnsupportedOperationException("cannot expand an index defined on a " + getClass().getSimpleName());
+        final GraphExpansion.Builder builder = GraphExpansion.builder();
+        final Map<String, Quantifier> quantifiersByConstituent = new HashMap<>();
+        for (final JoinConstituent constituent : getConstituents()) {
+            if (constituent.isOuterJoined()) {
+                throw new UnsupportedOperationException("cannot expand an outer-joined constituent of a " +
+                        getClass().getSimpleName());
+            }
+            final GraphExpansion constituentExpansion = constituent.getRecordType().expand(accessHint);
+            final Quantifier constituentQuantifier = Iterables.getOnlyElement(constituentExpansion.getQuantifiers());
+            builder.addQuantifier(constituentQuantifier);
+            builder.addResultColumn(Column.of(Optional.of(constituent.getName()),
+                    Iterables.getOnlyElement(constituentExpansion.getResultColumns()).getValue()));
+            quantifiersByConstituent.put(constituent.getName(), constituentQuantifier);
+        }
+        // a joined record is a combination of constituent records satisfying every join, an inner join of them
+        for (final Join join : getJoins()) {
+            final Value leftValue = joinColumnValue(quantifiersByConstituent.get(join.getLeft().getName()),
+                    join.getLeftExpression());
+            final Value rightValue = joinColumnValue(quantifiersByConstituent.get(join.getRight().getName()),
+                    join.getRightExpression());
+            builder.addPredicate(new ValuePredicate(leftValue,
+                    new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightValue)));
+        }
+        return builder.build();
+    }
+
+    /**
+     * The value a join reads from a constituent: its expression, which addresses a single column, over the records the
+     * constituent's quantifier flows.
+     */
+    @Nonnull
+    private static Value joinColumnValue(@Nonnull final Quantifier constituentQuantifier,
+                                         @Nonnull final KeyExpression expression) {
+        return new ScalarTranslationVisitor(expression).toResultValue(constituentQuantifier.getAlias(),
+                constituentQuantifier.getFlowedObjectType());
     }
 
 }

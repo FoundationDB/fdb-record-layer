@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 
 /**
  * A matcher that matches an optional if the object is present.
+ *
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)

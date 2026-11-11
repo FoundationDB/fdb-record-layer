@@ -130,6 +130,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Scan the vector index.
+     *
      * @param scanBounds the {@link VectorIndexScanBounds bounds} of the scan to perform
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
@@ -191,6 +192,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Scan one partition of the vector index, i.e. the one vector structure that holds the data for the partition
      * identified by {@code prefixTuple}.
+     *
      * @param prefixTuple the tuple identifying the partition
      * @param continuation the continuation for this scan or {@code null} if this is the first execution
      * @param partitionSubspace the subspace where the partition's vector structure resides
@@ -512,8 +514,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * a per-partition lease so at most one merge drains a given prefix at a time — and, crucially, so a second merge
      * sees a claim (committed) and skips the prefix <em>before</em> doing the expensive drain, rather than racing into
      * it and rolling one back. HNSW and other inline engines defer no work and merge to a no-op.
-     * <p>
-     * Because claiming and draining must not share a transaction (the claim has to commit and become visible first),
+     *
+     * <p>Because claiming and draining must not share a transaction (the claim has to commit and become visible first),
      * each invocation does at most one of: <b>drain</b> a prefix this process already holds a lease on (re-verified
      * this invocation), or <b>claim</b> one free/stale prefix and return so the claim commits (the next invocation
      * drains it). Prefixes held live by another owner are skipped; when only those remain, the run stops and their
@@ -702,6 +704,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Whether this index has any outstanding deferred-maintenance work, via an O(1) snapshot read of the index-wide
      * total. Always {@code false} for engines that do not defer work (HNSW).
+     *
      * @return a future that is {@code true} iff some partition has outstanding tasks
      */
     @Nonnull

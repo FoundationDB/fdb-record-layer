@@ -44,8 +44,8 @@ import static org.assertj.core.api.Assertions.fail;
  * tasks are not drained in the writing transaction, an insert that would push a cluster above its hard cap must
  * back-pressure the writer with a {@link VectorIndexClusterTooLargeException} instead of letting the cluster grow
  * without bound; when they are drained in-transaction the write self-maintains and is never capped.
- * <p>
- * The cluster-size knobs are tiny and the hard cap low so a short insert burst reaches the cap: with splits deferred,
+ *
+ * <p>The cluster-size knobs are tiny and the hard cap low so a short insert burst reaches the cap: with splits deferred,
  * primaries pile into a single over-grown cluster, so a handful of inserts crosses the cap.
  */
 class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {

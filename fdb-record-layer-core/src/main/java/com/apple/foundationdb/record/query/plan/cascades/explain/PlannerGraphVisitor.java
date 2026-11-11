@@ -84,6 +84,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Helper class to provide an incrementing integer identifier per use.
+     *
      * @param <T> the class of the component the {@code apply} method generates an identifier for.
      */
     private static class CountingIdProvider<T> implements ComponentIdProvider<T> {
@@ -98,6 +99,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Validate the flags upon instance creations.
+     *
      * @param flags the flags to validate
      */
     private static boolean validateFlags(final int flags) {
@@ -109,6 +111,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
+     *
      * @param renderSingleGroups iff true group references with just one member are not rendered
      * @param relationalExpression the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
@@ -120,6 +123,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
+     *
      * @param renderSingleGroups iff true group references with just one member are not rendered
      * @param rootReference the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
@@ -131,6 +135,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
+     *
      * @param flags iff true group references with just one member are not rendered
      * @param relationalExpression the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
@@ -146,6 +151,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
+     *
      * @param flags rendering options
      * @param rootReference the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
@@ -161,6 +167,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     /**
      * Show the planner expression that and all the match candidates rendered in your default browser. This also
      * shows {@link PartialMatch}es between references if they exist.
+     *
      * @param renderSingleGroups iff true group references with just one member are not rendered
      * @param queryPlanRootReference the planner expression to be rendered.
      * @param matchCandidates a set of candidates for matching which should also be shown
@@ -212,6 +219,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
+     *
      * @param dotString graph serialized as dot-compatible string
      * @return the word "done" (IntelliJ really likes a return of String).
      */
@@ -234,6 +242,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Creates a serialized format of this graph as a dot-compatible definition.
+     *
      * @param plannerGraph the planner graph we should export to dot
      * @param queryPlannerNodes set of nodes which is a subset of nodes of {@code plannerGraph} which represents the
      *        actual query graph
@@ -332,6 +341,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Generate the internal graphical explain of the planner expression that is passed in, in dot format.
+     *
      * @param relationalExpression the planner expression to be explained.
      * @return the internal explain of the planner expression handing in as a string in DOT format.
      */
@@ -344,6 +354,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Generate the explain of the planner expression that is passed in.
+     *
      * @param relationalExpression the planner expression to be explained.
      * @return the explain of the planner expression handing in as a string in GML format.
      */
@@ -354,6 +365,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Generate the explain of the planner expression that is passed in.
+     *
      * @param relationalExpression the planner expression to be explained.
      * @param additionalDescriptionMap a map used to generate names and descriptions for operators.
      * @return the explain of the planner expression handing in as a string in GML format.
@@ -373,6 +385,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     /**
      * Creates a serialized format of this graph as a gml-compatible definition.
+     *
      * @param plannerGraph the planner graph to be exported
      * @param additionalInfoMap a map used to generate names and descriptions for operators.
      * @return the graph as string in gml format.
@@ -428,7 +441,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     /**
      * Private constructor.
      *
-     * Creates a property object that can be passed into a {@link RelationalExpression} visitor to create an
+     * <p>Creates a property object that can be passed into a {@link RelationalExpression} visitor to create an
      * internal planner graph.
      *
      * @param flags for options

@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -91,6 +92,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -110,27 +112,21 @@ import java.util.function.Supplier;
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
  *
- * <p>
- * This scans a larger range internally when {@link IndexScanType#BY_VALUE_OVER_SCAN} is applied.
+ * <p>This scans a larger range internally when {@link IndexScanType#BY_VALUE_OVER_SCAN} is applied.
  * Semantically, this returns the same results as a {@link IndexScanType#BY_VALUE} over the same range.
  * However, internally, it will scan additional data for the purposes of loading that data into an
  * in-memory cache that lives within the FDB client.
- * </p>
  *
- * <p>
- * {@link IndexScanType#BY_VALUE_OVER_SCAN} is most useful in the following situation: a query with
+ * <p>{@link IndexScanType#BY_VALUE_OVER_SCAN} is most useful in the following situation: a query with
  * parameters is planned once, and then executed multiple times in the same transaction with different
  * parameter values. In this case, the first time the plan is executed, this plan will incur additional
  * I/O in order to place entries in the cache, but subsequent executions of the plan may be able to be
  * served from this cache, saving time overall.
- * </p>
  *
- * <p>
- * This plan's continuations are also designed to be equivalent between {@link IndexScanType#BY_VALUE}
+ * <p>This plan's continuations are also designed to be equivalent between {@link IndexScanType#BY_VALUE}
  * and {@link IndexScanType#BY_VALUE_OVER_SCAN} over the same scan range, so a query plan with a
  * {@link IndexScanType#BY_VALUE} can be executed, and then the continuation from that plan can be given
  * to an identical plan that substitutes the index scan with {@link IndexScanType#BY_VALUE_OVER_SCAN} (or vice versa).
- * </p>
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -162,6 +158,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Nonnull
     private final QueryPlanConstraint constraint;
 
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Comparisons.Comparison>> comparisonsSupplier = Suppliers.memoize(this::computeComparisons);
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
@@ -603,6 +602,12 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Nonnull
     @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        return comparisonsSupplier.get();
+    }
+
+    @Nonnull
+    @Override
     public ScanComparisons getScanComparisons() {
         Verify.verify(hasScanComparisons());
         return scanParameters.getScanComparisons();
@@ -641,6 +646,15 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return ComparisonRanges.from(getScanComparisons());
     }
 
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RecordQueryPlanWithComparisons.super.computeDynamicTypesFromComparisons())
+                .build();
+    }
+
     @Override
     public boolean hasComparisonRanges() {
         if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
@@ -656,6 +670,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     /**
      * Create a planner graph for better visualization of a query index plan.
+     *
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */

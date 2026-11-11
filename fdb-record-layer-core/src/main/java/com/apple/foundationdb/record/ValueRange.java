@@ -26,6 +26,7 @@ import java.util.Objects;
 
 /**
  * A range defines the boundaries around a contiguous span of values of some type.
+ *
  * @param <T> the type of values defined by this range.
  */
 public class ValueRange<T> {

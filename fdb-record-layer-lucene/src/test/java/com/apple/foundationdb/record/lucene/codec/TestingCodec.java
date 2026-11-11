@@ -54,10 +54,9 @@ import java.util.Set;
 
 /**
  * Wrapper around {@link LuceneOptimizedCodec} to better support tests provided by lucene.
- * <p>
- *     This adds some switches to change the behavior of the codec to work around some characteristics of the Lucene
+ *
+ * <p>This adds some switches to change the behavior of the codec to work around some characteristics of the Lucene
  *     test framework that we consider to be irrelevant to the actual usages.
- * </p>
  */
 @AutoService(Codec.class)
 public class TestingCodec extends Codec {

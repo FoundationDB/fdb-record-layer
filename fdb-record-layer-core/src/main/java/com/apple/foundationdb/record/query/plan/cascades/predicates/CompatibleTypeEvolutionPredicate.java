@@ -71,8 +71,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Deriv
 /**
  * A predicate to be used as part of a {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint}
  * which can determine if a given plan can be executed under the types currently defined in the schema.
- * <br>
- * The idea is the following. A record query plan {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}
+ *
+ * <p>The idea is the following. A record query plan {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}
  * as result of planning a query using a {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} can
  * be introspected by {@link com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty} to
  * produce a trie of field accesses for each record type that is being accessed in the plan. A field access is a path
@@ -81,19 +81,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Deriv
  * just have a huge set of such paths, we condense these paths into a trie data structure ({@link FieldAccessTrieNode}.
  * A {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint} is then created using this predicate that
  * in turn encodes all field accesses of a plan.
- * <br>
- * Once the plan and its constraints are created, it can be executed, and later continued, cached, passed back and forth
+ *
+ * <p>Once the plan and its constraints are created, it can be executed, and later continued, cached, passed back and forth
  * through different systems and in general be executed again at a later time. Unfortunately, other things may happen
  * concurrently that we need to guard against. The record type definitions may change between planning time and
  * execution time of a query. A plan may be invalidated by some change to the metadata, a dropped index or similar, and
  * must not be executed anymore.
- * <br>
- * One such change that may or may not be benign is an evolving schema. A record type may be amended to include a new
+ *
+ * <p>One such change that may or may not be benign is an evolving schema. A record type may be amended to include a new
  * field, a field may be dropped, or the type itself is dropped. A newly added field may be benign if it does not shift
  * existing fields accessed by the query, a dropped record type needs to invalidate the plan if the plan needs to access
  * it.
- * <br>
- * The runtime system is expected to test all of a plan's
+ *
+ * <p>The runtime system is expected to test all of a plan's
  * {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint}s prior to the execution of that plan.
  * This predicate evaluates to {@code true}, if and only if a possible type evolution did not change any of the field
  * accesses in incompatible ways.
@@ -110,6 +110,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     /**
      * Constructs a new {@link CompatibleTypeEvolutionPredicate} instance.
+     *
      * @param recordTypeNameFieldAccessMap a map from record type names to field access tries that for each referenced
      *        record type in a query (designated by its record type name) encodes the accessed fields of that record
      *        type in that query.

@@ -50,8 +50,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoole
  * {@link UsesValueEquivalence#semanticEquals(Object, ValueEquivalence)} and related methods to signal that there are
  * additional equalities that these methods need to consider. These equalities are axiomatic, i.e. they are assumed
  * to be true when e.g. semantic equality for e.g. two {@link Value}s is computed.
- * <br>
- * Example:
+ *
+ * <p>Example:
  * <pre>
  * {@code
  * semanticEquals(qov($i).a, qov($i).a) under no value equivalence --> true
@@ -60,8 +60,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoole
  * semanticEquals(qov($i).a.c, qov($j).b.c) under value equivalence (qov($i).a <-> qov($j).b) --> true
  * }
  * </pre>
- * <br>
- * Note that we do not enforce {@code a R a} (reflexivity) nor {@code a R b => b R a} (symmetry). While reflexivity is
+ *
+ * <p>Note that we do not enforce {@code a R a} (reflexivity) nor {@code a R b => b R a} (symmetry). While reflexivity is
  * naturally enforced in the absence of a defined equality, symmetry needs to be added (and enforced) by the client
  * of this class if necessary.
  */
@@ -85,6 +85,7 @@ public abstract class ValueEquivalence {
      * Method that returns the inverse of this value equivalence. Note that the inverse may not exist due to
      * ambiguous left sides that are equal to one right side. This does not happen currently, but it is possible
      * it may happen in the future, thus the inverse may or may not be defined.
+     *
      * @return the inverse if it exists, {@code Optional.empty()} otherwise.
      */
     @Nonnull
@@ -374,6 +375,11 @@ public abstract class ValueEquivalence {
         @Nonnull
         public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                  @Nonnull final LiteralValue<?> literalValue) {
+            if (evaluationContext.isValueFreeConstant(constantObjectValue.getAlias(),
+                    constantObjectValue.getConstantId())) {
+                // The constant has no value, so it equals no literal.
+                return falseValue();
+            }
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {

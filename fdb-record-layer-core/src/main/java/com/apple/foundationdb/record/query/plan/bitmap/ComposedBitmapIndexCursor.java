@@ -44,7 +44,7 @@ import java.util.function.Function;
 /**
  * A {@link RecordCursor} doing a bit-wise merge of bitmaps from two or more {@code BITMAP_VALUE} indexes.
  *
- * The bit operations can correspond to a Boolean expression over those indexes' rightmost grouping keys.
+ * <p>The bit operations can correspond to a Boolean expression over those indexes' rightmost grouping keys.
  *
  * @see BitmapValueIndexMaintainer
  */
@@ -60,6 +60,7 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
     public interface Composer {
         /**
          * Generate a bitmap from several others.
+         *
          * @param bitmaps a list of bitmaps or {@code null} if the corresponding input is absent / empty
          * @param size the common size of the bitmaps
          * @return a new bitmap formed from the inputs or {@code null} to represent an empty (all zero) bitmap

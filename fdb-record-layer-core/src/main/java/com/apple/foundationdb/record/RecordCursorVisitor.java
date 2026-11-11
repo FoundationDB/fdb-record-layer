@@ -32,6 +32,7 @@ public interface RecordCursorVisitor {
     /**
      * Called on nodes in the record cursor tree in visit pre-order of the depth-first traversal of the tree.
      * That is, as each node is visited for the first time, <code>visitEnter()</code> is called on that node.
+     *
      * @param cursor the cursor to visit
      * @return <code>true</code> if the children of <code>cursor</code> should be visited, and <code>false</code> if they should not be visited
      */
@@ -41,6 +42,7 @@ public interface RecordCursorVisitor {
      * Called on nodes in the record cursor tree in visit post-order of the depth-first traversal of the tree.
      * That is, as each node is visited for the last time (after all of its children have been visited, if applicable),
      * <code>visitLeave()</code> is called on that node.
+     *
      * @param cursor the cursor to visit
      * @return <code>true</code> if the subsequent siblings of the <code>cursor</code> should be visited, and <code>false</code> otherwise
      */

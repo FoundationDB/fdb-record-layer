@@ -21,28 +21,20 @@
 /**
  * Classes implementing executable query plan elements.
  *
- * <p>
- * The result of planning a query is a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, which supports an {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute execute} method
+ * <p>The result of planning a query is a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, which supports an {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute execute} method
  * against an {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore} with an {@link com.apple.foundationdb.record.EvaluationContext} holding dynamic parameter values.
- * </p>
  *
- * <p>
- * The most basic plan elements read from the database. For example,
- * </p>
+ * <p>The most basic plan elements read from the database. For example,
  * <ul>
  * <li>{@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan} scans the record store for all records.</li>
  * <li>{@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} scans a secondary index.</li>
  * </ul>
  *
- * <p>
- * In most cases, a plan is actually a tree of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan} elements,
+ * <p>In most cases, a plan is actually a tree of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan} elements,
  * which is executed by asynchronously streaming the results of child plan elements into the parent processor.
- * </p>
  *
- * <p>
- * For example,
- * </p>
-  * <ul>
+ * <p>For example,
+ * <ul>
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} evaluates a boolean predicate expression against upstream records, only letting through those that satisfy it.</li>
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan} merges two or more compatibly-ordered streams of records into one, eliminating duplicates.</li>
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan} merges two or more compatibly-ordered streams of records into one, keeping only those that appear in all streams.</li>

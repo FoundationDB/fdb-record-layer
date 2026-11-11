@@ -51,8 +51,8 @@ import java.util.stream.Stream;
 
 /**
  * A context-wide accumulator of timing information.
- * <p>
- * A store timer is a thread-safe record of call counts and nanosecond call times for various database operations,
+ *
+ * <p>A store timer is a thread-safe record of call counts and nanosecond call times for various database operations,
  * classified by an {@link Event}.
  * If a context has a store timer, various operations will record timing information in it. It is up to the caller to
  * provide the necessary integration between this information and any system monitoring tools.
@@ -85,16 +85,15 @@ public class StoreTimer {
 
     /**
      * Subtracts counts and times recorded by a snapshot of a timer returning a new timer representing the difference.
-     * <p>
-     * Subtracting a snapshot of a timer from the original timer after subsequent operations have
+     *
+     * <p>Subtracting a snapshot of a timer from the original timer after subsequent operations have
      * been performed and timed can provide useful metrics as to the cost of those subsequent operations.
-     * <p>
-     * The timer must have been previously derived from the snapshot. Moreover,
+     *
+     * <p>The timer must have been previously derived from the snapshot. Moreover,
      * the timer should not have been reset after the snapshot was taken.
      *
      * @param timer timer to subtract the snapshot from
      * @param timerSnapshot snapshot of the provided timer
-     *
      * @return a snapshot of the provided timer
      */
     @Nonnull
@@ -267,6 +266,7 @@ public class StoreTimer {
          * in a manner such that some events contributed to the aggregate in different fashions (for example,
          * {@code eventA + eventB - eventC}), in which case this method would return the fact that the three events
          * comprise the aggregate but with no indication of in which manner they contribute to its value.
+         *
          * @return the events that comprise the aggregate
          */
         Set<? extends Event> getComponentEvents();
@@ -393,7 +393,7 @@ public class StoreTimer {
      * is not the time. It is also different from {@link Count} since along with the size of the event in concern, it
      * also records the number of times the event has occurred.
      *
-     * Since {@link SizeEvent} tracks count and size together, it is easier for the consumer than having two {@link Count}
+     * <p>Since {@link SizeEvent} tracks count and size together, it is easier for the consumer than having two {@link Count}
      * events that track them separately. In essence, the consumer benefits from recording only a single event to capture
      * both pieces of information and also from the fact that the link between count and size is more obvious when
      * reading metrics.
@@ -437,9 +437,7 @@ public class StoreTimer {
         }
 
         /**
-         * Get the number of occurrences of the associated event.
-         *
-         * @return the number of occurrences of the associated event
+         * {@return the number of occurrences of the associated event}
          */
         public int getCount() {
             return count.get();
@@ -457,9 +455,7 @@ public class StoreTimer {
         }
 
         /**
-         * Get the cumulative value of the associated event.
-         *
-         * @return the cumulative value of the associated event
+         * {@return the cumulative value of the associated event}
          */
         public long getCumulativeValue() {
             return cumulativeValue.get();
@@ -524,9 +520,7 @@ public class StoreTimer {
     }
 
     /**
-     * Get the UUID of this timer.
-     *
-     * @return the UUID of this timer
+     * {@return the UUID of this timer}
      */
     @Nonnull
     public UUID geUUID() {
@@ -640,7 +634,6 @@ public class StoreTimer {
      * Get the total time spent for a given event.
      *
      * @param event the event to get time information for
-     *
      * @return the total number of nanoseconds recorded for the event
      */
     public long getTimeNanos(Event event) {
@@ -652,7 +645,6 @@ public class StoreTimer {
      * Get the total count for a given event.
      *
      * @param event the event to get count information for
-     *
      * @return the total number times that event was recorded
      */
     public int getCount(Event event) {
@@ -664,7 +656,6 @@ public class StoreTimer {
      * Get the total size for a given event.
      *
      * @param event the event to get size information for
-     *
      * @return the total size of the recorded event
      */
     public long getSize(SizeEvent event) {
@@ -676,7 +667,6 @@ public class StoreTimer {
      * Get the total time spent for a given event that timed out.
      *
      * @param event the event to get time information for
-     *
      * @return the total number of nanoseconds recorded for when the event timed out
      */
     public long getTimeoutTimeNanos(Event event) {
@@ -688,7 +678,6 @@ public class StoreTimer {
      * Get the total count of timeouts for a given event.
      *
      * @param event the event to get timeout information for
-     *
      * @return the total number times that event was recorded as timed out
      */
     public int getTimeoutCount(Event event) {
@@ -794,7 +783,6 @@ public class StoreTimer {
      * @param event the event type to use to record timing
      * @param future a future that will complete when the operation is finished
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future) {
@@ -809,7 +797,6 @@ public class StoreTimer {
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor) {
@@ -827,7 +814,6 @@ public class StoreTimer {
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Set<Event> events, CompletableFuture<T> future, Executor executor) {
@@ -848,7 +834,6 @@ public class StoreTimer {
      * @param executor an asynchronous executor to use to run the recording
      * @param startTime the nanosecond time at which the operation started
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor, long startTime) {
@@ -867,7 +852,6 @@ public class StoreTimer {
      * @param executor an asynchronous executor to use to run the recording
      * @param startTime the nanosecond time at which the operation started
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Set<Event> events, CompletableFuture<T> future, Executor executor, long startTime) {
@@ -888,7 +872,6 @@ public class StoreTimer {
      * @param event the event type to use to record timing
      * @param inner the cursor to record timing information for
      * @param <T> the type of the cursor elements
-     *
      * @return a new cursor that returns the same elements and also records timing information
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {

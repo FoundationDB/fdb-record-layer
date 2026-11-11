@@ -42,8 +42,8 @@ import java.util.function.Predicate;
  * A Lloyd-style k-means++ implementation that makes several independent runs, intended for LOCAL cluster
  * restructuring (SPFresh-style). Self-contained and stateless: a single static {@link #fit fit} entry point
  * runs the whole algorithm and returns a {@link Result} describing the chosen partitioning.
- * <p>
- * The algorithm assumes the external metric is ordinary L2, but the k-means core optimizes the
+ *
+ * <p>The algorithm assumes the external metric is ordinary L2, but the k-means core optimizes the
  * standard squared-L2 objective internally:
  * <ul>
  *   <li>assignment uses squared distance,</li>
@@ -53,12 +53,12 @@ import java.util.function.Predicate;
  *   <li>run selection compares the per-run k-means objective, preferring the runs whose cluster sizes pass the
  *       caller's size predicate.</li>
  * </ul>
- * <p>
- * Optional <i>soft size balancing</i> biases the assignment steps of the Lloyd iterations by the running projected
+ *
+ * <p>Optional <i>soft size balancing</i> biases the assignment steps of the Lloyd iterations by the running projected
  * cluster size (see {@link SizePenalty}), which steers where the centroids settle; set {@code relativeLambda == 0} or
  * {@code sizePenalty == null} to disable.
- * <p>
- * After the main Lloyd loop of a run exits — whether via convergence ({@code changed == 0}) or by hitting
+ *
+ * <p>After the main Lloyd loop of a run exits — whether via convergence ({@code changed == 0}) or by hitting
  * {@code maxIterations} — {@link #fit} runs one final assignment pass against the latest centroids by distance
  * alone, without any size penalty. This guarantees that the returned {@link Result#assignment()},
  * {@link Result#clusterSizes()}, and {@link Result#distances()} describe the nearest-centroid partitioning of
@@ -88,22 +88,22 @@ public final class KMeans {
     /**
      * Fits {@code k} clusters using Lloyd-style squared-L2 k-means with k-means++ initialization, making
      * {@code numRuns} independent runs and returning one of them.
-     * <p>
-     * Each run makes at most {@code maxIterations} Lloyd iterations of (assignment, centroid update). Empty clusters
+     *
+     * <p>Each run makes at most {@code maxIterations} Lloyd iterations of (assignment, centroid update). Empty clusters
      * detected during the centroid update are reseeded with the data point currently farthest from any centroid.
      * After the main loop, a final assignment pass assigns every vector to its nearest centroid by distance alone, so
      * the run's assignment, cluster sizes, distances and objective describe the nearest-centroid partitioning of its
      * centroids.
-     * <p>
-     * Run selection is two-tier. If the cluster sizes of at least one run pass {@code sizePredicate}, {@code fit}
+     *
+     * <p>Run selection is two-tier. If the cluster sizes of at least one run pass {@code sizePredicate}, {@code fit}
      * returns the passing run with the lowest objective; if no run passes, it returns the run with the lowest
      * objective overall, so that the caller still gets a concrete partitioning to judge and report. Equivalently, the
      * runs are ordered by passing before failing, then by lower objective, and the first one is returned. The
      * predicate is thus a preference, not a guarantee: a caller that needs the sizes to pass checks the returned
      * {@link Result#clusterSizes()} itself, which is also how it recognizes the fallback. With
      * {@code sizePredicate == null} every run passes, and the run with the lowest objective is returned.
-     * <p>
-     * The size-balancing strength is given relative to the natural scale of the base objective of {@code vectors}:
+     *
+     * <p>The size-balancing strength is given relative to the natural scale of the base objective of {@code vectors}:
      * during the iterations, the penalty is weighted by {@code lambda = relativeLambda * s}, where {@code s} is the
      * per-vector objective of the closed-form single-cluster fit (their mean squared L2 distance to their mean in
      * Euclidean mode, their mean cosine distance to their normalized mean in cosine mode). A relative strength is thus
@@ -112,8 +112,8 @@ public final class KMeans {
      * and numbers of dimensions. When all vectors are identical (in cosine mode: parallel), {@code s == 0}, and so is
      * the weight: balancing is off. Computing {@code s} consumes no randomness, and is skipped for {@code k == 1}, for
      * {@code relativeLambda == 0} and for {@code sizePenalty == null}.
-     * <p>
-     * The penalty acts only in the assignment steps of the iterations, where it steers the centroids: the final pass
+     *
+     * <p>The penalty acts only in the assignment steps of the iterations, where it steers the centroids: the final pass
      * of each run ignores it, and so does the objective the runs are ranked by. With the penalty active
      * ({@code lambda > 0}) the assignment step of an iteration is order-dependent (each vector's size-balance penalty
      * is evaluated against the running projected sizes of all clusters assigned <em>before</em> it). To stop a fixed
@@ -381,8 +381,8 @@ public final class KMeans {
      * Computes the per-cluster assignment score for {@code vector} against centroid {@code c}:
      * the metric-adapter's base objective plus an optional size-balancing penalty derived from
      * the running projected size of cluster {@code c}.
-     * <p>
-     * When {@code lambda == 0} or {@code sizePenalty == null} this collapses to the unbiased
+     *
+     * <p>When {@code lambda == 0} or {@code sizePenalty == null} this collapses to the unbiased
      * geometric base objective.
      *
      * @param metricAdapter adapter that computes the metric-specific base objective
@@ -417,8 +417,8 @@ public final class KMeans {
 
     /**
      * One assignment-step pass over {@code vectors} in the order specified by {@code order}.
-     * <p>
-     * For each vector this picks the cluster minimizing
+     *
+     * <p>For each vector this picks the cluster minimizing
      * {@link #score(MetricAdapter, RealVector, int, List, int[], int, double, SizePenalty)} and
      * accumulates the resulting cluster index into {@code projected} as we go, so the
      * size-balance bias is applied online, in visitation order. Used both inside the Lloyd loop
@@ -485,8 +485,8 @@ public final class KMeans {
 
     /**
      * <a href="https://en.wikipedia.org/wiki/K-means%2B%2B">k-means++</a> initialization.
-     * <p>
-     * Vanilla random initialization (just pick {@code k} random points) often hands Lloyd's
+     *
+     * <p>Vanilla random initialization (just pick {@code k} random points) often hands Lloyd's
      * algorithm a terrible starting point — two centroids placed near each other will fight
      * over the same cluster forever, locking in a bad local minimum. K-means++ instead biases
      * the initial centroids to be <em>well-spread</em>:
@@ -501,13 +501,13 @@ public final class KMeans {
      * </ol>
      * The squared-distance weighting is what gives k-means++ its theoretical guarantee that the
      * expected SSE is within {@code O(log k)} of the optimum, independent of the data.
-     * <p>
-     * Implementation note: a textbook k-means++ recomputes step (2) from scratch every round,
+     *
+     * <p>Implementation note: a textbook k-means++ recomputes step (2) from scratch every round,
      * which is {@code O(k² · n)}. This implementation maintains {@code weights[i]} (the minimum
      * over all already-chosen centroids of {@code d²(i, centroid)}) across rounds and updates
      * it incrementally against the just-added centroid, bringing the total to {@code O(k · n)}.
-     * <p>
-     * Degenerate fallback: if the cumulative weight is zero (e.g. all remaining points coincide
+     *
+     * <p>Degenerate fallback: if the cumulative weight is zero (e.g. all remaining points coincide
      * with already-chosen centroids), the next centroid is picked uniformly at random.
      *
      * @param metricAdapter adapter that computes the metric-specific base objective used as the
@@ -738,19 +738,19 @@ public final class KMeans {
     /**
      * {@link MetricAdapter} for the Euclidean metric. Base objective is squared Euclidean
      * distance.
-     * <p>
-     * For non-quantization-aware estimators (the common case: any
+     *
+     * <p>For non-quantization-aware estimators (the common case: any
      * {@link DistanceEstimator#ofMetric}-built estimator) this is computed directly via
      * {@link RealVector#l2SquaredDistance} to skip the {@code sqrt} that
      * {@link DistanceEstimator#distance DistanceEstimator.distance(...)} performs only to be squared again.
-     * <p>
-     * When {@link DistanceEstimator#isOptimized} reports that the estimator has a metric-specific fast
+     *
+     * <p>When {@link DistanceEstimator#isOptimized} reports that the estimator has a metric-specific fast
      * path for the given pair (e.g. a {@code RaBitDistanceEstimator} acting on at least one encoded
      * vector), the call is routed through {@code estimator.distance(...)} so the
      * quantization-aware estimate is preserved — bypassing it via {@code getData()} would
      * produce a different (more accurate, but not what the caller wants) value.
-     * <p>
-     * No renormalization, no degenerate-norm handling — Euclidean centroids are always
+     *
+     * <p>No renormalization, no degenerate-norm handling — Euclidean centroids are always
      * well-defined.
      */
     private static class EuclideanMetricAdapter implements MetricAdapter {
@@ -821,8 +821,8 @@ public final class KMeans {
      * {@code distances[i] == baseObjective(vectors[i], clusterCentroids[assignment[i]])}, and
      * {@code clusterSizes[c] == count(j: assignment[j] == c)}. The assignment is the nearest-centroid one: each
      * vector is assigned to a centroid at the smallest base objective, whether or not balancing was active.
-     * <p>
-     * The compact constructor defensively copies {@code clusterCentroids} into an immutable list.
+     *
+     * <p>The compact constructor defensively copies {@code clusterCentroids} into an immutable list.
      * The three primitive arrays are <em>not</em> copied — the caller transfers ownership to the
      * record, and accessors return the underlying array references directly.
      *
@@ -856,8 +856,8 @@ public final class KMeans {
      * per-vector objective of the single-cluster fit (see {@link #fit}), and adds it to the per-pair base objective,
      * biasing the iterations, and with them the centroids, away from oversized clusters. The final, distance-only
      * assignment pass of each run ignores it.
-     * <p>
-     * Pass {@code relativeLambda == 0} (or {@code sizePenalty == null}) to {@link #fit fit} to disable balancing.
+     *
+     * <p>Pass {@code relativeLambda == 0} (or {@code sizePenalty == null}) to {@link #fit fit} to disable balancing.
      *
      * @see #overflowQuadraticPenalty()
      */
@@ -865,6 +865,7 @@ public final class KMeans {
     public interface SizePenalty {
         /**
          * Implementation of penalty function.
+         *
          * @param projectedSize the projected size of the candidate cluster <i>after</i>
          *                      hypothetically assigning the current vector to it
          * @param targetSize the target cluster size, {@code n / k}

@@ -57,11 +57,9 @@ import java.util.function.Consumer;
 /**
  * Serialization of {@link RecordMetaData} into the database.
  *
- * <p>
- * Storing meta-data in the database allows for it to be updated atomically. All clients of the database will see the new version at the same time.
+ * <p>Storing meta-data in the database allows for it to be updated atomically. All clients of the database will see the new version at the same time.
  * If, on the other hand, meta-data is part of the application itself, it is possible that during deployment of a new version of the application some
  * instances will have out-of-date meta-data.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProvider {
@@ -113,6 +111,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Set dependencies upon which record descriptors may depend.
+     *
      * @param dependencies array of descriptors that record descriptors might depend on
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
@@ -123,6 +122,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Get the local meta-data file descriptor.
      * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
+     *
      * @return the local meta-data file descriptor
      * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
@@ -134,17 +134,13 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Set the local meta-data file descriptor.
      *
-     * <p>
-     * A record store created off of the meta-data store may not be able to store a record created by a
+     * <p>A record store created off of the meta-data store may not be able to store a record created by a
      * statically-generated proto file because the meta-data and record have mismatched descriptors. Using this method,
      * the meta-data can use the same version of the descriptor as the record.
      * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
-     * </p>
      *
-     * <p>
-     * Note that it is not allowed to (a) change the name of the existing record types or (b) change existing
+     * <p>Note that it is not allowed to (a) change the name of the existing record types or (b) change existing
      * non-{@code NESTED} record types to {@code NESTED} record types in the evolved local file descriptor.
-     * </p>
      *
      * @param localFileDescriptor the local descriptor of the meta-data
      * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
@@ -173,18 +169,14 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Set the validator used when saving a new version of the meta-data to ensure the new meta-data is a valid
      * evolution of the old meta-data. See {@link #getEvolutionValidator()} for more details.
      *
-     * <p>
-     * Whenever the meta-data store, saves a new version of the meta-data (through, for example, {@link #saveRecordMetaData(RecordMetaDataProvider)}),
+     * <p>Whenever the meta-data store, saves a new version of the meta-data (through, for example, {@link #saveRecordMetaData(RecordMetaDataProvider)}),
      * the existing meta-data from the store is read. The new and existing meta-data are then compared, and an error
      * is thrown if the new meta-data is not a valid evolution of the existing meta-data. See {@link MetaDataEvolutionValidator}
      * for more details on how the meta-data should be evolved.
-     * </p>
      *
-     * <p>
-     * If one sets a {@linkplain #setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}, then this
+     * <p>If one sets a {@linkplain #setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}, then this
      * validator is also used to make sure that the local file descriptor is compatible with the file descriptor within
      * the meta-data proto retrieved from the database.
-     * </p>
      *
      * @param evolutionValidator the validator used to ensure the new meta-data is a valid evolution of the existing meta-data
      * @see MetaDataEvolutionValidator
@@ -198,13 +190,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * will have only the extensions specified in "{@code record_metadata_options.proto}". Note that this
      * differs from the {@linkplain ExtensionRegistry#getEmptyRegistry() empty extension registry}.
      *
-     * <p>
-     * When the meta-data proto is built into a {@link RecordMetaData} object, extension options on fields
+     * <p>When the meta-data proto is built into a {@link RecordMetaData} object, extension options on fields
      * specifying primary key and index information are ignored. However, options specifying each record's
      * type are still processed, including information specifying the meta-data's union descriptor. As a result,
      * if the provided registry does not at least register the {@code (record).usage} extension option, the
      * {@code RecordMetaData} may fail to build with an error message indicating that no union descriptor was specified.
-     * </p>
      *
      * @return the extension registry used when parsing meta-data
      */
@@ -229,6 +219,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Set whether this store keeps a record of older versions.
+     *
      * @param maintainHistory {@code true} if this store should maintain a history
      */
     public void setMaintainHistory(boolean maintainHistory) {
@@ -237,6 +228,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Load current meta-data from store and set for <code>getRecordMetaData</code>.
+     *
      * @param checkCache {@code true} if the cache should be checked first
      * @param currentVersion the version to load
      * @return a future that completes with the Protobuf form of the meta-data
@@ -368,6 +360,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Build meta-data to use from Protobuf and save.
+     *
      * @param metaDataProto the Protobuf form of the meta-data to save
      * @return a future that completes when the save is done
      */
@@ -462,6 +455,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Prepare a meta-data store for use by loading any existing {@link RecordMetaData} or storing an initial
      * seed from the given provider.
+     *
      * @param metaDataProvider a provider for a seed meta-data to be used when this store is empty
      * @return a future that is complete when this store is ready for use
      */
@@ -532,14 +526,12 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Save the record meta-data into the meta-data store.
      *
-     * <p>
-     * If the given records descriptor is missing a union message, this method will automatically add one to the descriptor
+     * <p>If the given records descriptor is missing a union message, this method will automatically add one to the descriptor
      * before saving the meta-data. If the meta-data store is currently empty, a default union descriptor will be added to
      * the meta-data based on the non-{@code NESTED} record types. Otherwise, it will update the records descriptor of
      * the currently stored meta-data (see {@link #updateRecords(Descriptors.FileDescriptor)}). The new union descriptor
      * will include any type in existing union and any new record type in the new file descriptor. This method will
      * process extension options.
-     * </p>
      *
      * @param fileDescriptor the file descriptor of the record meta-data
      * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
@@ -570,14 +562,12 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Save the record meta-data into the meta-data store.
      *
-     * <p>
-     * If the given records descriptor is missing a union message, this method will automatically add one to the descriptor
+     * <p>If the given records descriptor is missing a union message, this method will automatically add one to the descriptor
      * before saving the meta-data. If the meta-data store is currently empty, a default union descriptor will be added to
      * the meta-data based on the non-{@code NESTED} record types. Otherwise, it will update the records descriptor of
      * the currently stored meta-data (see {@link #updateRecords(Descriptors.FileDescriptor)}). The new union descriptor
      * will include any type in existing union and any new record type in the new file descriptor. This method will
      * process extension options. Also the records descriptor of the meta-data will change while generating the union.
-     * </p>
      *
      * @param fileDescriptor the file descriptor of the record meta-data
      * @return a future when save is completed
@@ -607,6 +597,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param fieldName the field to be indexed
@@ -617,6 +608,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the index
@@ -627,6 +619,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data.
+     *
      * @param recordType the name of the record type
      * @param index the new index to be added
      */
@@ -636,6 +629,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data asynchronously.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param fieldName the field to be indexed
@@ -648,6 +642,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data asynchronously.
+     *
      * @param recordType the name of the record type
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the index
@@ -661,6 +656,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index to the record meta-data asynchronously.
+     *
      * @param recordType the name of the record type
      * @param index the index to be added
      * @return a future that completes when the index is added
@@ -678,6 +674,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Add a new index to the record meta-data that contains multiple record types.
      * If the list is null or empty, the resulting index will include all record types.
      * If the list has one element it will just be a normal single record type index.
+     *
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      */
@@ -689,6 +686,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Add a new index to the record meta-data that contains multiple record types asynchronously.
      * If the list is null or empty, the resulting index will include all record types.
      * If the list has one element it will just be a normal single record type index.
+     *
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      * @return a future that completes when the index is added
@@ -710,6 +708,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index on all record types.
+     *
      * @param index the index to be added
      */
     public void addUniversalIndex(@Nonnull Index index) {
@@ -718,6 +717,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Add a new index on all record types.
+     *
      * @param index the index to be added
      * @return a future that completes when the index is added
      */
@@ -732,6 +732,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Remove the given index from the record meta-data.
+     *
      * @param indexName the name of the index to be removed
      */
     public void dropIndex(@Nonnull String indexName) {
@@ -740,6 +741,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     /**
      * Remove the given index from the record meta-data asynchronously.
+     *
      * @param indexName the name of the index to be removed
      * @return a future that is complete when the index is dropped
      */
@@ -756,20 +758,16 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Update the meta-data records descriptor.
      * This adds any new record types to the meta-data and replaces all of the current descriptors with the new descriptors.
      *
-     * <p>
-     *  It is important to note that if a local file descriptor is set using {@link #setLocalFileDescriptor(Descriptors.FileDescriptor)},
+     * <p>It is important to note that if a local file descriptor is set using {@link #setLocalFileDescriptor(Descriptors.FileDescriptor)},
      *  the local file descriptor must be at least as evolved as the records descriptor passed to this method.
      *  Otherwise, {@code updateRecords} will fail.
-     * </p>
      *
-     * <p>
-     * If the given file descriptor is missing a union message, this method will add one before updating the meta-data.
+     * <p>If the given file descriptor is missing a union message, this method will add one before updating the meta-data.
      * The generated union descriptor is constructed by adding any non-{@code NESTED} types in the file descriptor to the
      * union descriptor from the currently stored meta-data. A new field is not added if a field of the given type already
      * exists, and the order of any existing fields is preserved. Note that types are identified by name, so renaming
      * top-level message types may result in validation errors when trying to update the record descriptor. Also the records
      * descriptor of the meta-data will change while generating the union.
-     * </p>
      *
      * @param recordsDescriptor the new recordsDescriptor
      */
@@ -782,19 +780,15 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Update the meta-data records descriptor asynchronously.
      * This adds any new record types to the meta-data and replaces all of the current descriptors with the new descriptors.
      *
-     * <p>
-     *  It is important to note that if a local file descriptor is set using {@link #setLocalFileDescriptor(Descriptors.FileDescriptor)},
+     * <p>It is important to note that if a local file descriptor is set using {@link #setLocalFileDescriptor(Descriptors.FileDescriptor)},
      *  the local file descriptor must be at least as evolved as the records descriptor passed to this method.
      *  Otherwise, {@code updateRecordsAsync} will fail.
-     * </p>
      *
-     * <p>
-     * If the given file descriptor is missing a union message, this method will add one before updating the meta-data.
+     * <p>If the given file descriptor is missing a union message, this method will add one before updating the meta-data.
      * The generated union descriptor is constructed by adding any non-{@code NESTED} types in the file descriptor to the
      * union descriptor from the currently stored meta-data. A new field is not added if a field of the given type already
      * exists, and the order of any existing fields is preserved. Note that types are identified by name, so renaming
      * top-level message types may result in validation errors when trying to update the record descriptor.
-     * </p>
      *
      * @param recordsDescriptor the new recordsDescriptor
      * @return a future that completes when the records descriptor is updated
@@ -815,17 +809,13 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Mutate the stored meta-data proto using a mutation callback.
      *
-     * <p>
-     * This method applies the given mutation callback on the stored meta-data and then saves it back to the store.
+     * <p>This method applies the given mutation callback on the stored meta-data and then saves it back to the store.
      * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
      * changes that the callback performs.
-     * </p>
      *
-     * <p>
-     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
+     * <p>Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
-     * </p>
      *
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      */
@@ -836,19 +826,15 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Mutate the stored meta-data proto and record meta-data builder using mutation callbacks.
      *
-     * <p>
-     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store. Note the
+     * <p>This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store. Note the
      * order that the callbacks are executed. {@code mutateMetaDataProto} is called first on the meta-data proto and then the
      * second {@code mutateRecordMetaDataBuilder} is executed on the meta-data builder.
      * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
      * changes that the callbacks perform.
-     * </p>
      *
-     * <p>
-     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
+     * <p>Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
-     * </p>
      *
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      * @param mutateRecordMetaDataBuilder a callback that mutates the record meta-data builder after the meta-data proto is mutated
@@ -861,17 +847,13 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Mutate the stored meta-data proto using a mutation callback asynchronously.
      *
-     * <p>
-     * This method applies the given mutation callback on the stored meta-data and then saves it back to the store.
+     * <p>This method applies the given mutation callback on the stored meta-data and then saves it back to the store.
      * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
      * changes that the callback performs.
-     * </p>
      *
-     * <p>
-     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
+     * <p>Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
-     * </p>
      *
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      * @return a future that completes when the meta-data is mutated
@@ -884,19 +866,15 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Mutate the stored meta-data proto and record meta-data builder using mutation callbacks asynchronously.
      *
-     * <p>
-     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store. Note the
+     * <p>This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store. Note the
      * order that the callbacks are executed. {@code mutateMetaDataProto} is called first on the meta-data proto and then the
      * second {@code mutateRecordMetaDataBuilder} is executed on the meta-data builder.
      * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
      * changes that the callbacks perform.
-     * </p>
      *
-     * <p>
-     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
+     * <p>Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
-     * </p>
      *
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      * @param mutateRecordMetaDataBuilder a callback that mutates the record meta-data builder after the meta-data proto is mutated
@@ -944,13 +922,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Enable splitting long records.
      *
-     * <p>
-     * Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
+     * <p>Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
      * {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}.
      * Hence the default evolution validator will fail if one enables it. To enable this, first build a custom evolution validator that {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}
      * and use {@link #setEvolutionValidator(MetaDataEvolutionValidator)} to set the evolution validator used by this store.
      * For more details, see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
-     * </p>
      */
     public void enableSplitLongRecords() {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ENABLE_SPLIT_LONG_RECORDS, enableSplitLongRecordsAsync());
@@ -959,13 +935,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     /**
      * Enable splitting long records asynchronously.
      *
-     * <p>
-     * Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
+     * <p>Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
      * {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}.
      * Hence the default evolution validator will fail if one enables it. To enable this, first build a custom evolution validator that {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}
      * and use {@link #setEvolutionValidator(MetaDataEvolutionValidator)} to set the evolution validator used by this store.
      * For more details, see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
-     * </p>
      *
      * @return a future that completes when {@code splitLongRecords} is set
      */

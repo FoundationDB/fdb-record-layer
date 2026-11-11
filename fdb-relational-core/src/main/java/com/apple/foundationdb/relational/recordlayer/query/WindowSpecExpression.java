@@ -29,17 +29,17 @@ import javax.annotation.Nonnull;
 
 /**
  * Helper class that captures the components of an SQL {@code OVER} clause used in window functions.
- * <p>
- * The {@code OVER} clause defines the window (set of rows) over which a window function operates.
+ *
+ * <p>The {@code OVER} clause defines the window (set of rows) over which a window function operates.
  * It consists of two optional components:
  * <ul>
  *     <li><b>PARTITION BY</b> - Divides the result set into partitions to which the window function is applied independently</li>
  *     <li><b>ORDER BY</b> - Defines the logical order of rows within each partition</li>
  * </ul>
- * <p>
- * Example SQL: {@code ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)}
- * <p>
- * This class is immutable and uses the static factory method {@link #of} for construction.
+ *
+ * <p>Example SQL: {@code ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)}
+ *
+ * <p>This class is immutable and uses the static factory method {@link #of} for construction.
  */
 public final class WindowSpecExpression {
 
