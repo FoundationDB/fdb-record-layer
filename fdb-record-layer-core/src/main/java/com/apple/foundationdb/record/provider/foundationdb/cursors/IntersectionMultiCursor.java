@@ -67,12 +67,10 @@ public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T
      * key function that identifies the primary key) and then also apply some filter
      * on all of the entries that come back.
      *
-     * <p>
-     * Otherwise, this function returns a cursor that is subject to all of the constraints
+     * <p>Otherwise, this function returns a cursor that is subject to all of the constraints
      * as an {@link IntersectionCursor} returned by its equivalent
      * {@link IntersectionCursor#create(Function, boolean, List, byte[], FDBStoreTimer) create()}
      * method.
-     * </p>
      *
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
      * @param reverse whether records are returned in descending or ascending order by the comparison key

@@ -78,7 +78,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule.findInnerQuantifier;
@@ -90,7 +90,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
 @SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738", "java:S3776"})
 public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
-    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
+    // Match plain for-each quantifiers only. This rule turns each matched explode quantifier into an `InSource` instead
+    // of planning it, so there would be no plan to apply the glue for a null-on-empty quantifier to.
+    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(plainForEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);
@@ -303,8 +305,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                 // inner quantifier.
                 //
                 return concatenatedOrdering.satisfies(requestedOrdering)
-                       ? Stream.of(prefix)
-                       : Stream.empty();
+                        ? Stream.of(prefix)
+                        : Stream.empty();
             });
         } else {
             //
@@ -409,8 +411,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
             final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
             if (literalValue instanceof List<?>) {
                 return attemptedSortOrder == null
-                       ? new InValuesSource(bindingName, (List<Object>)literalValue)
-                       : new SortedInValuesSource(bindingName, (List<Object>)literalValue,
+                        ? new InValuesSource(bindingName, (List<Object>)literalValue)
+                        : new SortedInValuesSource(bindingName, (List<Object>)literalValue,
                         attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
             } else {
                 return null;
@@ -418,17 +420,17 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         } else if (explodeValue instanceof QuantifiedObjectValue) {
             final var alias = ((QuantifiedObjectValue)explodeValue).getAlias().getId();
             return attemptedSortOrder == null
-                   ? new InParameterSource(bindingName, alias)
-                   : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+                    ? new InParameterSource(bindingName, alias)
+                    : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         } else if (explodeValue instanceof ParameterObjectValue) {
             final var parameterName = ((ParameterObjectValue)explodeValue).getParameterName();
             return attemptedSortOrder == null
-                   ? new InParameterSource(bindingName, parameterName)
-                   : new SortedInParameterSource(bindingName, parameterName, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+                    ? new InParameterSource(bindingName, parameterName)
+                    : new SortedInParameterSource(bindingName, parameterName, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         } else if (explodeValue.isConstant()) {
             return attemptedSortOrder == null
-                   ? new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue))
-                   : new SortedInComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue),
+                    ? new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue))
+                    : new SortedInComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue),
                     attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         }
         return null;

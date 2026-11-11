@@ -888,14 +888,13 @@ public class PreparedStatementTests {
                 final var structB = ddl.getConnection().createStruct("na", new Object[]{2L, "basil & brawn"});
                 ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{structA, structB}));
 
+                final var restNos = new HashSet<Long>();
                 try (var rs = ps.executeQuery()) {
-                    ResultSetAssert.assertThat(rs)
-                            .hasNextRow()
-                            .hasColumn("REST_NO", 2L)
-                            .hasNextRow()
-                            .hasColumn("REST_NO", 1L)
-                            .hasNoNextRow();
+                    while (rs.next()) {
+                        Assertions.assertThat(restNos.add(rs.getLong("REST_NO"))).isTrue();
+                    }
                 }
+                Assertions.assertThat(restNos).containsExactlyInAnyOrder(1L, 2L);
             }
         }
     }

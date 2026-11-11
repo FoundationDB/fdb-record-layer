@@ -35,9 +35,7 @@ import java.util.concurrent.CompletableFuture;
  * is high and therefore keeping the machinery around to maintain the cache is not worth the cost. This is also the
  * default implementation.
  *
- * <p>
- * Note that this class is a singleton as it requires no state.
- * </p>
+ * <p>Note that this class is a singleton as it requires no state.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PassThroughRecordStoreStateCache implements FDBRecordStoreStateCache {

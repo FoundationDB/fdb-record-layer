@@ -31,7 +31,7 @@ public interface DataSet {
     /**
      * Get the data set, as a stream of records.
      *
-     * Note that this method is <em>not</em> thread-safe. The Autotesting system won't(/shouldn't)
+     * <p>Note that this method is <em>not</em> thread-safe. The Autotesting system won't(/shouldn't)
      * be calling this from multiple threads, so it's not a big deal, but if you want to, make sure you
      * have external synchronization.
      *

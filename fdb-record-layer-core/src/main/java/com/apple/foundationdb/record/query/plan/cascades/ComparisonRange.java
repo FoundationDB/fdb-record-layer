@@ -50,11 +50,9 @@ import java.util.stream.Collectors;
  * A set of compatible comparisons on a single field of a {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression}
  * representing a contiguous range of values for that field.
  *
- * <p>
- * A {@code ComparisonRange} is similar to a {@link ScanComparisons} but represents a contiguous range of values for a
+ * <p>A {@code ComparisonRange} is similar to a {@link ScanComparisons} but represents a contiguous range of values for a
  * single field, rather than for an entire {@code KeyExpression}. A comparison range is effectively a sum type, with
  * the following options:
- * </p>
  * <ul>
  *     <li>An empty set of comparisons, indicating that the entire universe of possible values is in the range.</li>
  *     <li>
@@ -73,10 +71,8 @@ import java.util.stream.Collectors;
  *     </li>
  * </ul>
  *
- * <p>
- * A {@code ComparisonRange} is an immutable object that provides a variety of methods for producing new range from the
+ * <p>A {@code ComparisonRange} is an immutable object that provides a variety of methods for producing new range from the
  * current one and some {@link Comparisons.Comparison} objects.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange> {
@@ -91,11 +87,9 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      *     <li>Inequality ranges, to which any other comparison can be added.</li>
      * </ul>
      *
-     * <p>
-     * Furthermore, the planner uses this trichotomy of range types to determine other planning behavior. For example,
+     * <p>Furthermore, the planner uses this trichotomy of range types to determine other planning behavior. For example,
      * an index scan must involve (from left to right) any number of equality ranges on the fields, followed by a single,
      * optional inequality range, followed by any number of empty ranges.
-     * </p>
      */
     public enum Type {
         EMPTY,
@@ -484,9 +478,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      *     <li>A list of {@linkplain #getResidualComparisons() residual comparisons} that contains any range that was not merged in</li>
      * </ul>
      *
-     * <p>
-     * Multiple comparisons can be combined using {@link ComparisonRange#mergeAll(Collection)}.
-     * </p>
+     * <p>Multiple comparisons can be combined using {@link ComparisonRange#mergeAll(Collection)}.
      *
      * @see ComparisonRange#merge(Comparisons.Comparison)
      * @see ComparisonRange#mergeAll(Collection)

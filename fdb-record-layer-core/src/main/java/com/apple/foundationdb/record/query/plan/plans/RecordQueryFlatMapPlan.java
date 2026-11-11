@@ -140,8 +140,8 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
                                         fromOuterContext.withBinding(Bindings.Internal.CORRELATION, innerQuantifier.getAlias(), innerResult);
                                 final var computed = resultValue.eval(store, nestedContext);
                                 return inheritOuterRecordProperties
-                                       ? outerResult.withComputed(computed)
-                                       : QueryResult.ofComputed(computed);
+                                        ? outerResult.withComputed(computed)
+                                        : QueryResult.ofComputed(computed);
                             });
                 },
                 continuation,

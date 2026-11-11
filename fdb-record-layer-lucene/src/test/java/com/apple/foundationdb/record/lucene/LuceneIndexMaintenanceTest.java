@@ -550,7 +550,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
 
-        long timestamp = System.currentTimeMillis();
+        final long timestamp = System.currentTimeMillis();
         Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
         // save a record
         createComplexRecords(1, insertedDocs, contextProps, schemaSetup);
@@ -1334,10 +1334,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     /**
      * Test that updating records in the same transaction does not cause issues with the executor, and doesn't result in
      * a corrupted index.
-     * <p>
-     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *
+     * <p>See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
      *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
-     * </p>
+     *
      * @throws IOException if there's an issue with Lucene
      */
     @ParameterizedTest
@@ -1353,10 +1353,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     /**
      * Test that deleting records in the same transaction does not cause issues with the executor, and doesn't result in
      * a corrupted index.
-     * <p>
-     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *
+     * <p>See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
      *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
-     * </p>
+     *
      * @throws IOException if there's an issue with Lucene
      */
     @ParameterizedTest
@@ -1375,10 +1375,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     /**
      * Test that inserting records in the same transaction does not cause issues with the executor, and doesn't result in
      * a corrupted index.
-     * <p>
-     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *
+     * <p>See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
      *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
-     * </p>
+     *
      * @throws IOException if there's an issue with Lucene
      */
     @ParameterizedTest
@@ -1402,10 +1402,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     /**
      * Test that mutating records in the same transaction does not cause issues with the executor, and doesn't result in
      * a corrupted index.
-     * <p>
-     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *
+     * <p>See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
      *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
-     * </p>
+     *
      * @throws IOException if there's an issue with Lucene
      */
     @ParameterizedTest

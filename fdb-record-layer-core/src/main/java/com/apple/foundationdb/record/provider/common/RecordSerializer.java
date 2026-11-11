@@ -34,6 +34,7 @@ import java.util.Objects;
 
 /**
  * A converter between a Protobuf record and a byte string stored in one or more values in the FDB key-value store.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
@@ -89,11 +90,11 @@ public interface RecordSerializer<M extends Message> {
      * <li>If this serializer is inherently bound to its type parameter, throw an exception.</li>
      * </ul>
      *
-     * <p>
-     * If a {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore} is created without calling
+     * <p>If a {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore} is created without calling
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore.Builder#setUntypedSerializer}, then
      * in order to make the untyped record store that is paired with the typed store (used, for instance, to rebuild indexes),
      * the given typed serializer will be widened by calling this method.
+     *
      * @return a new serializer that works the same way but handles all record types.
      */
     @Nonnull
@@ -188,18 +189,10 @@ public interface RecordSerializer<M extends Message> {
         private final boolean isSize;
         private final String logKey;
 
-        Counts(String title, boolean isSize, String logKey) {
+        Counts(String title) {
             this.title = title;
             this.isSize = false;
-            this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
-        }
-
-        Counts(String title, boolean isSize) {
-            this(title, isSize, null);
-        }
-
-        Counts(String title) {
-            this(title, false, null);
+            this.logKey = StoreTimer.Count.super.logKey();
         }
 
         @Override

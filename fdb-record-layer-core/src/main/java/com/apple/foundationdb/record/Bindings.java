@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PParameterComparison.PBindingKind;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
@@ -34,9 +35,8 @@ import java.util.Map;
 
 /**
  * A map of bound parameter values passed to query evaluation.
- * <p>
- * A binding map can also have a parent from which values are taken if they are absent in the child.
- * </p>
+ *
+ * <p>A binding map can also have a parent from which values are taken if they are absent in the child.
  */
 @API(API.Status.UNSTABLE)
 public class Bindings {
@@ -48,7 +48,8 @@ public class Bindings {
         IN("__in_"),
         RANK("__rank_"),
         CORRELATION("__corr_"),
-        CONSTANT("__const_");
+        CONSTANT("__const_"),
+        VALUE_FREE("__value_free_");
 
         public static final String PREFIX = "__";
         private final String value;
@@ -133,7 +134,7 @@ public class Bindings {
         } else if (parent != null) {
             return parent.get(name);
         } else {
-            throw new RecordCoreException("Missing binding for " + name);
+            throw new MissingBindingException("Missing binding").addLogInfo(LogMessageKeys.NAME, name);
         }
     }
 
@@ -168,6 +169,17 @@ public class Bindings {
     @Override
     public String toString() {
         return "Bindings(" + asMappingList() + ")";
+    }
+
+    /**
+     * Thrown by {@link #get(String)} when no binding exists for the requested name. A distinct
+     * {@link RecordCoreException} subtype so a caller that can tolerate an absent binding catches this case alone.
+     */
+    @SuppressWarnings("serial")
+    public static class MissingBindingException extends RecordCoreException {
+        public MissingBindingException(@Nonnull final String message) {
+            super(message);
+        }
     }
 
     /**

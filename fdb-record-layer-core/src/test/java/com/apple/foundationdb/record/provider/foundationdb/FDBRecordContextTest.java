@@ -163,7 +163,7 @@ public class FDBRecordContextTest {
     public void getReadVersionTimingWithInjectedLatency() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         FDBDatabaseFactory factory = fdb.getFactory();
-        Function<FDBLatencySource, Long> oldLatencyInjector = factory.getLatencyInjector();
+        final Function<FDBLatencySource, Long> oldLatencyInjector = factory.getLatencyInjector();
         factory.setLatencyInjector(latencySource -> {
             if (latencySource.equals(FDBLatencySource.GET_READ_VERSION)) {
                 return 50L;

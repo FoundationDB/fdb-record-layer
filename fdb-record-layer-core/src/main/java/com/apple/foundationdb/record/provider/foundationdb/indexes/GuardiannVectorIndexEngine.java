@@ -61,6 +61,7 @@ import java.util.function.IntConsumer;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.allowChange;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyBoolean;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyDouble;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyDoubleList;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.applyInteger;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionsHelper.disallowChange;
 
@@ -69,8 +70,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
  * a parsed {@link Config} and constructs a fresh {@code Guardiann} bound to the partition subspace for each operation;
  * Guardiann runs its deferred maintenance (split/merge/reassign/collapse) piggy-backed on inserts and deletes, so
  * per-call construction is the intended usage.
- * <p>
- * Two things differ from HNSW. First, a Guardiann {@code delete} needs the vector (not just the primary key) to locate
+ *
+ * <p>Two things differ from HNSW. First, a Guardiann {@code delete} needs the vector (not just the primary key) to locate
  * the vector's cluster references, which is why the {@link VectorIndexEngine} delete contract always carries the vector.
  * Second, a Guardiann search requires a per-query {@link SearchConfig}, which is built from the per-query scan options
  * ({@link VectorIndexScanOptions}'s {@code GUARDIANN_*} knobs), each knob falling back to its {@link SearchConfig}
@@ -79,8 +80,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.Vector
 @SuppressWarnings("PMD.TooManyStaticImports")
 final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     // Only stats and concurrency knobs may change on an existing index, plus the primary-cluster hard cap (a runtime
-    // back-pressure valve, not an on-disk encoding knob); see validateChangedOptions. Each key already covers its
-    // current and legacy names.
+    // back-pressure valve, not an on-disk encoding knob) and whether the centroid HNSW uses appendable nodes (both formats
+    // can coexist); see validateChangedOptions. Each key already covers its current and legacy names.
     private static final List<VectorOptionKey<?>> MUTABLE_OPTIONS = ImmutableList.of(
             // stats knobs
             VectorIndexOptionKeys.SAMPLE_VECTOR_STATS_PROBABILITY,
@@ -94,7 +95,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.GUARDIANN_COLLAPSE_CONCURRENCY,
             VectorIndexOptionKeys.GUARDIANN_BOUNCE_CONCURRENCY,
             // back-pressure valve (does not reinterpret on-disk data)
-            VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX);
+            VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX,
+            // whether the centroid HNSW uses appendable nodes
+            VectorIndexOptionKeys.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES);
 
     @Nonnull
     private final Config config;
@@ -314,6 +317,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 builder::setMaxRelativeImbalance);
         applyDouble(VectorIndexOptionKeys.GUARDIANN_SPLIT_IMBALANCE_PENALTY, index,
                 builder::setSplitImbalancePenalty);
+        applyBoolean(VectorIndexOptionKeys.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, index,
+                builder::setWriteAppendableCentroidNodes);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX, index, builder::setPrimaryClusterMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, index,
                 builder::setPrimaryClusterHardMax);
@@ -343,7 +348,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         applyInteger(VectorIndexOptionKeys.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS, index,
                 builder::setMergeNumNearestClusters);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_ITERATIONS, index, builder::setKMeansMaxIterations);
-        applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_RESTARTS, index, builder::setKMeansMaxRestarts);
+        applyInteger(VectorIndexOptionKeys.GUARDIANN_KMEANS_NUM_RUNS, index, builder::setKMeansNumRuns);
+        applyDoubleList(VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER, index,
+                builder::setKMeansBalancingLadder);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS, index,
                 builder::setReassignNumNeighboringClusters);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES, index, builder::setCollapseMinDuplicates);
@@ -434,8 +441,10 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 oldConfig.mergeNumNearestClusters(), newConfig.mergeNumNearestClusters(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_ITERATIONS,
                 oldConfig.kMeansMaxIterations(), newConfig.kMeansMaxIterations(), name);
-        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_MAX_RESTARTS,
-                oldConfig.kMeansMaxRestarts(), newConfig.kMeansMaxRestarts(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_NUM_RUNS,
+                oldConfig.kMeansNumRuns(), newConfig.kMeansNumRuns(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER,
+                oldConfig.kMeansBalancingLadder(), newConfig.kMeansBalancingLadder(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS,
                 oldConfig.reassignNumNeighboringClusters(), newConfig.reassignNumNeighboringClusters(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,

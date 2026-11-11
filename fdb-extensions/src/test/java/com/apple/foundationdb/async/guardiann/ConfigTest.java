@@ -21,8 +21,12 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 class ConfigTest {
     private static final int NUM_DIMENSIONS = 128;
@@ -58,7 +62,8 @@ class ConfigTest {
         final int splitNumNearestClusters = Config.DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS + 1;
         final int mergeNumNearestClusters = Config.DEFAULT_MERGE_NUM_NEAREST_CLUSTERS + 1;
         final int kMeansMaxIterations = Config.DEFAULT_KMEANS_MAX_ITERATIONS + 1;
-        final int kMeansMaxRestarts = Config.DEFAULT_KMEANS_MAX_RESTARTS + 1;
+        final int kMeansNumRuns = Config.DEFAULT_KMEANS_NUM_RUNS + 1;
+        final List<Double> kMeansBalancingLadder = List.of(0.0d, 0.05d, 0.2d);
         final int reassignNumNeighboringClusters = Config.DEFAULT_REASSIGN_NUM_NEIGHBORING_CLUSTERS + 1;
         final int collapseMinDuplicates = Config.DEFAULT_COLLAPSE_MIN_DUPLICATES + 1;
         final int splitMergeConcurrency = Config.DEFAULT_SPLIT_MERGE_CONCURRENCY + 1;
@@ -72,6 +77,7 @@ class ConfigTest {
         final double minChildFraction = 0.07d;
         final double maxRelativeImbalance = 0.44d;
         final double splitImbalancePenalty = 2.5d;
+        final boolean writeAppendableCentroidNodes = !Config.DEFAULT_WRITE_APPENDABLE_CENTROID_NODES;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -97,7 +103,8 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.splitNumNearestClusters()).isNotEqualTo(splitNumNearestClusters);
         Assertions.assertThat(defaultConfig.mergeNumNearestClusters()).isNotEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(defaultConfig.kMeansMaxIterations()).isNotEqualTo(kMeansMaxIterations);
-        Assertions.assertThat(defaultConfig.kMeansMaxRestarts()).isNotEqualTo(kMeansMaxRestarts);
+        Assertions.assertThat(defaultConfig.kMeansNumRuns()).isNotEqualTo(kMeansNumRuns);
+        Assertions.assertThat(defaultConfig.kMeansBalancingLadder()).isNotEqualTo(kMeansBalancingLadder);
         Assertions.assertThat(defaultConfig.reassignNumNeighboringClusters()).isNotEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(defaultConfig.collapseMinDuplicates()).isNotEqualTo(collapseMinDuplicates);
         Assertions.assertThat(defaultConfig.splitMergeConcurrency()).isNotEqualTo(splitMergeConcurrency);
@@ -109,6 +116,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.minChildFraction()).isNotEqualTo(minChildFraction);
         Assertions.assertThat(defaultConfig.maxRelativeImbalance()).isNotEqualTo(maxRelativeImbalance);
         Assertions.assertThat(defaultConfig.splitImbalancePenalty()).isNotEqualTo(splitImbalancePenalty);
+        Assertions.assertThat(defaultConfig.writeAppendableCentroidNodes()).isNotEqualTo(writeAppendableCentroidNodes);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -136,7 +144,8 @@ class ConfigTest {
                         .setSplitNumNearestClusters(splitNumNearestClusters)
                         .setMergeNumNearestClusters(mergeNumNearestClusters)
                         .setKMeansMaxIterations(kMeansMaxIterations)
-                        .setKMeansMaxRestarts(kMeansMaxRestarts)
+                        .setKMeansNumRuns(kMeansNumRuns)
+                        .setKMeansBalancingLadder(kMeansBalancingLadder)
                         .setReassignNumNeighboringClusters(reassignNumNeighboringClusters)
                         .setCollapseMinDuplicates(collapseMinDuplicates)
                         .setSplitMergeConcurrency(splitMergeConcurrency)
@@ -148,6 +157,7 @@ class ConfigTest {
                         .setMinChildFraction(minChildFraction)
                         .setMaxRelativeImbalance(maxRelativeImbalance)
                         .setSplitImbalancePenalty(splitImbalancePenalty)
+                        .setWriteAppendableCentroidNodes(writeAppendableCentroidNodes)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -174,7 +184,8 @@ class ConfigTest {
         Assertions.assertThat(newConfig.splitNumNearestClusters()).isEqualTo(splitNumNearestClusters);
         Assertions.assertThat(newConfig.mergeNumNearestClusters()).isEqualTo(mergeNumNearestClusters);
         Assertions.assertThat(newConfig.kMeansMaxIterations()).isEqualTo(kMeansMaxIterations);
-        Assertions.assertThat(newConfig.kMeansMaxRestarts()).isEqualTo(kMeansMaxRestarts);
+        Assertions.assertThat(newConfig.kMeansNumRuns()).isEqualTo(kMeansNumRuns);
+        Assertions.assertThat(newConfig.kMeansBalancingLadder()).isEqualTo(kMeansBalancingLadder);
         Assertions.assertThat(newConfig.reassignNumNeighboringClusters()).isEqualTo(reassignNumNeighboringClusters);
         Assertions.assertThat(newConfig.collapseMinDuplicates()).isEqualTo(collapseMinDuplicates);
         Assertions.assertThat(newConfig.splitMergeConcurrency()).isEqualTo(splitMergeConcurrency);
@@ -186,6 +197,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.minChildFraction()).isEqualTo(minChildFraction);
         Assertions.assertThat(newConfig.maxRelativeImbalance()).isEqualTo(maxRelativeImbalance);
         Assertions.assertThat(newConfig.splitImbalancePenalty()).isEqualTo(splitImbalancePenalty);
+        Assertions.assertThat(newConfig.writeAppendableCentroidNodes()).isEqualTo(writeAppendableCentroidNodes);
 
         // Round-tripping a config whose every component differs from the default is what actually pins toBuilder():
         // doing it on the default config above cannot detect a component that toBuilder() drops or transposes,
@@ -272,6 +284,54 @@ class ConfigTest {
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setMaxRelativeImbalance(1.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
                 .isEqualTo(1.0d);
+    }
+
+    @Test
+    void testKMeansNumRunsMustBePositive() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansNumRuns(0).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // A single run is legal: every fit then keeps the one run it makes.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setKMeansNumRuns(1).build(NUM_DIMENSIONS).kMeansNumRuns())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void testKMeansBalancingLadderMustBeNonEmptyNonNegativeAndStrictlyIncreasing() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of()).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(-0.1d, 0.1d)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.1d, 0.1d)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.1d, 0.05d)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.0d, Double.POSITIVE_INFINITY)).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // A single rung of zero is legal and means no balancing at all.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setKMeansBalancingLadder(List.of(0.0d)).build(NUM_DIMENSIONS).kMeansBalancingLadder())
+                .containsExactly(0.0d);
+    }
+
+    @Test
+    void testCentroidHnswConfigFollowsStorageFormat() {
+        for (final boolean writeAppendableCentroidNodes : List.of(false, true)) {
+            final Config config = Guardiann.newConfigBuilder()
+                    .setWriteAppendableCentroidNodes(writeAppendableCentroidNodes)
+                    .build(NUM_DIMENSIONS);
+            final StorageAdapter storageAdapter =
+                    new StorageAdapter(config, new Subspace(Tuple.from("c")), OnWriteListener.NOOP,
+                            OnReadListener.NOOP);
+            Assertions.assertThat(storageAdapter.getClusterCentroidsHnswConfig().writeAppendableNodes())
+                    .isEqualTo(writeAppendableCentroidNodes);
+        }
     }
 
     @Test

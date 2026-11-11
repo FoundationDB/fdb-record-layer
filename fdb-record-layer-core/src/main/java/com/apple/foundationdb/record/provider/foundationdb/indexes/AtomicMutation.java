@@ -41,6 +41,7 @@ public interface AtomicMutation {
 
     /**
      * Get the underlying mutation performed by the FDB API.
+     *
      * @return the underlying mutation type
      */
     @Nonnull
@@ -48,6 +49,7 @@ public interface AtomicMutation {
 
     /**
      * Get the underlying argument to the FDB API.
+     *
      * @param value the {@link Tuple} form of the value being stored into the index
      * @param remove {@code true} if the entry is being removed from the index
      * @return a byte array to pass to the FDB API or {@code null} to do nothing for this mutation
@@ -58,6 +60,7 @@ public interface AtomicMutation {
     /**
      * Get a function to aggregate multiple index entries.
      * For example, summing subtotals or maxing individual maxima.
+     *
      * @return a function that combines a running aggregate with a single entry to produce a new aggregate
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
@@ -66,6 +69,7 @@ public interface AtomicMutation {
 
     /**
      * Get the initial value for aggregating multiple index entries.
+     *
      * @return the initial value of a running aggregate for this type
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
@@ -75,19 +79,22 @@ public interface AtomicMutation {
     /**
      * Determine whether this type aggregates values (as opposed to something like counting records).
      *
-     * The values are specified in the grouped part of the {@link com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression}.
+     * <p>The values are specified in the grouped part of the {@link com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression}.
+     *
      * @return {@code true} if values are allowed
      */
     boolean hasValues();
 
     /**
      * Determine whether this type aggregates exactly one value.
+     *
      * @return {@code true} if only a single value is allowed
      */
     boolean hasSingleValue();
 
     /**
      * Determine whether this type aggregates long (integer) values.
+     *
      * @return {@code true} if only a long value is allowed
      */
     boolean hasLongValue();
@@ -95,8 +102,9 @@ public interface AtomicMutation {
     /**
      * Determine whether this type allows negative values.
      *
-     * If negative values are not allowed, an exception is thrown when a record is saved that contains a negative
+     * <p>If negative values are not allowed, an exception is thrown when a record is saved that contains a negative
      * value in the indexed field.
+     *
      * @return {@code true} if negative values are allowed
      */
     boolean allowsNegative();
@@ -104,12 +112,14 @@ public interface AtomicMutation {
     /**
      * Determine whether this type is idempotent.
      * Max and min type operations are idempotent; sum and count type operations are not.
+     *
      * @return {@code true} if updating the index multiple times with the same value yields the same result
      */
     boolean isIdempotent();
 
     /**
      * Get a value that causes the index entry to be removed if the result of the mutation matches.
+     *
      * @return a byte array to pass to {@code COMPARE_AND_CLEAR} or {@code null} to do nothing for this mutation
      */
     @Nullable

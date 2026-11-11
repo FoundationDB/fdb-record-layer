@@ -37,6 +37,7 @@ import java.util.function.Supplier;
 /**
  * A map of items that uses reference equality to determine equivalence for the
  * purposes of set membership, rather than the {@link #equals(Object)} method used by the Java {@link Set} interface.
+ *
  * @param <K> key type
  * @param <V> value type
  */

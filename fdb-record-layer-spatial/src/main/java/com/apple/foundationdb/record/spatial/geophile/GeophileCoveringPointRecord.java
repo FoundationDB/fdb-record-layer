@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * Index entry with original point in the value portion.
  *
- * This allow more efficient filtering out of spatial join false positives.
+ * <p>This allow more efficient filtering out of spatial join false positives.
  */
 class GeophileCoveringPointRecord extends GeophileRecordImpl {
     @Nonnull

@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
@@ -37,8 +38,8 @@ import java.util.function.Predicate;
 
 /**
  * A {@link NeighborsChangeSet} that represents the deletion of a set of neighbors from a parent change set.
- * <p>
- * This class acts as a filter, wrapping a parent {@link NeighborsChangeSet} and providing a view of the neighbors
+ *
+ * <p>This class acts as a filter, wrapping a parent {@link NeighborsChangeSet} and providing a view of the neighbors
  * that excludes those whose primary keys have been marked for deletion.
  *
  * @param <N> the type of the node reference, which must extend {@link NodeReference}
@@ -61,8 +62,8 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Constructs a new {@code DeleteNeighborsChangeSet}.
-     * <p>
-     * This object represents a set of changes where specific neighbors are marked for deletion.
+     *
+     * <p>This object represents a set of changes where specific neighbors are marked for deletion.
      * It holds a reference to a parent {@link NeighborsChangeSet} and creates an immutable copy
      * of the primary keys for the neighbors to be deleted.
      *
@@ -85,8 +86,8 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Gets the parent change set from which this change set was derived.
-     * <p>
-     * In a sequence of modifications, each {@code NeighborsChangeSet} is derived from a previous state, which is
+     *
+     * <p>In a sequence of modifications, each {@code NeighborsChangeSet} is derived from a previous state, which is
      * considered its parent. This method allows traversing the history of changes backward.
      *
      * @return the parent {@link NeighborsChangeSet}
@@ -109,8 +110,8 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Merges the neighbors from the parent context, filtering out any neighbors that have been marked as deleted.
-     * <p>
-     * This implementation retrieves the collection of neighbors from its parent by calling
+     *
+     * <p>This implementation retrieves the collection of neighbors from its parent by calling
      * {@code getParent().merge()}.
      * It then filters this collection, removing any neighbor whose primary key is present in the
      * {@code deletedNeighborsPrimaryKeys} set.
@@ -137,13 +138,20 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
                 current -> !deletedNeighborsPrimaryKeys.contains(Objects.requireNonNull(current).getPrimaryKey()));
     }
 
+    @Nullable
+    @Override
+    public Iterable<N> getPureInsertions() {
+        // There are deletes, so the change set is not insert only. Return null.
+        return null;
+    }
+
     /**
      * Writes the delta of changes for a given node to the storage layer.
-     * <p>
-     * This implementation first delegates to the parent's {@code writeDelta} method to handle its changes, but modifies
+     *
+     * <p>This implementation first delegates to the parent's {@code writeDelta} method to handle its changes, but modifies
      * the predicate to exclude any neighbors that are marked for deletion in this delta.
-     * <p>
-     * It then iterates through the set of locally deleted neighbor primary keys. For each key that matches the supplied
+     *
+     * <p>It then iterates through the set of locally deleted neighbor primary keys. For each key that matches the supplied
      * {@code tuplePredicate}, it instructs the {@link InliningStorageAdapter} to delete the corresponding neighbor
      * relationship for the given {@code node}.
      *

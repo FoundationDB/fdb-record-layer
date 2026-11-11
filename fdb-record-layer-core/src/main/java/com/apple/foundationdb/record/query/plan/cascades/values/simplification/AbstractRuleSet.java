@@ -46,6 +46,7 @@ import java.util.stream.Stream;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ *
  * @param <CALL> the type of the call rules in this set will receive
  *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.
  * @param <BASE> the type of entity all rules in the set must match

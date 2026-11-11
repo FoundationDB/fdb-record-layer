@@ -50,10 +50,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that traverses the predicates in a {@link SelectExpression} and attempts to simplify their conjunction, if
  * successful, it will create a new {@link SelectExpression} with the simplified predicate (or its simplified terms in
  * case of {@link AndPredicate}).
- * <br>
- * The rule will delegate the simplification legwork to the {@link QueryPredicate} simplification engine.
- * <br>
- * <b>Example 1</b>
+ *
+ * <p>The rule will delegate the simplification legwork to the {@link QueryPredicate} simplification engine.
+ *
+ * <p><b>Example 1</b>
  * <pre>{@code
  *  SELECT a, b, c
  *  FROM t

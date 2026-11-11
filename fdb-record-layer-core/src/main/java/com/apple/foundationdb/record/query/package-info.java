@@ -21,10 +21,8 @@
 /**
  * Classes for querying records.
  *
- * <p>
- * A {@link com.apple.foundationdb.record.query.RecordQuery} represents a logical query.
+ * <p>A {@link com.apple.foundationdb.record.query.RecordQuery} represents a logical query.
  * A {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} transforms a logical query into an executable {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, which can be run against a record store
  * to give a {@link com.apple.foundationdb.record.RecordCursor} of records.
- * </p>
  */
 package com.apple.foundationdb.record.query;

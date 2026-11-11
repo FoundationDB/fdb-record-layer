@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * An exception thrown when there is an attempt to store a duplicate value in a unique index.
  *
- * This exception is not necessarily thrown by the specific {@code saveRecord} that caused the violation,
+ * <p>This exception is not necessarily thrown by the specific {@code saveRecord} that caused the violation,
  * but it will always be thrown before {@code commit} would have completed successfully. When this is thrown,
  * {@code commit} <em>will not</em> complete successfully, whether it was thrown earlier or from {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext#commit}
  * itself.
@@ -69,8 +69,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
     }
 
     /**
-     * Get the index associated with this uniqueness violation.
-     * @return the index associated with this uniqueness violation
+     * {@return the index associated with this uniqueness violation}
      */
     @Nonnull
     public Index getIndex() {
@@ -81,6 +80,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the index value of this uniqueness violation. This is the value the
      * index took for some record that conflicted with the value
      * for a different record.
+     *
      * @return the index key of this uniqueness violation
      */
     @Nullable
@@ -92,6 +92,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the primary key of this uniqueness violation. This is the
      * record that was added that triggered the uniqueness
      * violation
+     *
      * @return the primary key of this uniqueness violation
      */
     @Nullable
@@ -103,6 +104,7 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the existing key of this uniqueness violation. This is the
      * primary key of the record that was already within the database
      * at the time the second record was added.
+     *
      * @return the existing key of this uniqueness violation
      */
     @Nullable

@@ -65,7 +65,7 @@ import java.util.function.Predicate;
 /**
  * Represents a subset of the fields available in a stream of records, including partial records.
  *
- * If a stream includes full records, all fields are available; they are not represented individually.
+ * <p>If a stream includes full records, all fields are available; they are not represented individually.
  * For partial records, this class tracks a (non-strict) subset of the fields that are actually available.
  * For example, all repeated fields are currently dropped. It is extremely important that no field ever be included
  * when it is not actually available on a partial record.
@@ -115,11 +115,11 @@ public class AvailableFields {
         return builder;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     /**
      * Get the fields that are available from just the index scan part of an index plan.
      */
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
     public static AvailableFields fromIndex(@Nonnull final RecordType recordType,
                                             @Nonnull final Index index,
                                             @Nonnull final PlannableIndexTypes indexTypes,
@@ -320,8 +320,8 @@ public class AvailableFields {
             // NULL in the base record), we cannot use the key part of the index tuple in stead of the field from
             // the fetched record as we don't know if the field is in fact NULL or a non-NULL value
             // (e.g., a default value).
-            if (fieldKeyExpression.getNullStandin().equals(Key.Evaluated.NullStandin.NOT_NULL) ||
-                    fieldKeyExpression.getFanType().equals(KeyExpression.FanType.FanOut)) {
+            if (fieldKeyExpression.getNullStandin() == Key.Evaluated.NullStandin.NOT_NULL ||
+                    fieldKeyExpression.getFanType() == KeyExpression.FanType.FanOut) {
                 return false;
             }
             if (!builder.hasField(fieldKeyExpression.getFieldName())) {
@@ -513,7 +513,7 @@ public class AvailableFields {
         @Override
         public PConditionalUponPathPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PConditionalUponPathPredicate.Builder builder = PConditionalUponPathPredicate.newBuilder();
-            conditionalPath.forEach(i -> builder.addOrdinalPath(i));
+            conditionalPath.forEach(builder::addOrdinalPath);
             return builder.build();
         }
 
@@ -533,7 +533,7 @@ public class AvailableFields {
                                                              @Nonnull final PConditionalUponPathPredicate conditionalUponPredicateProto) {
             final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
             for (int i = 0; i < conditionalUponPredicateProto.getOrdinalPathCount(); i ++) {
-                ordinalPathBuilder.add(i);
+                ordinalPathBuilder.add(conditionalUponPredicateProto.getOrdinalPath(i));
             }
             return new ConditionalUponPathPredicate(ordinalPathBuilder.build());
         }

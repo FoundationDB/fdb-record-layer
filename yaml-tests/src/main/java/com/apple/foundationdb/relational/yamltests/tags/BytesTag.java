@@ -34,12 +34,10 @@ import javax.annotation.Nonnull;
 
 /**
  * A custom YAML tag for byte array values in the {@code x'...'} hex format.
- * <p>
- *     Usage in parameter injection: {@code !! !b x'deadbeef' !!}
- * </p>
- * <p>
- *     Usage in result matching: {@code result: [{!b x'deadbeef'}]}
- * </p>
+ *
+ * <p>Usage in parameter injection: {@code !! !b x'deadbeef' !!}
+ *
+ * <p>Usage in result matching: {@code result: [{!b x'deadbeef'}]}
  */
 @AutoService(CustomTag.class)
 public class BytesTag implements CustomTag {

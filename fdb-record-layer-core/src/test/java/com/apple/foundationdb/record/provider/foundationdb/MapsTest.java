@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Test {@code map} fields.
  *
- * Maps are just a surface phenomenon in the generated code; the underlying representation is still a repeated message with
+ * <p>Maps are just a surface phenomenon in the generated code; the underlying representation is still a repeated message with
  * {@code key} and {@code value} fields.
  */
 @Tag(Tags.RequiresFDB)

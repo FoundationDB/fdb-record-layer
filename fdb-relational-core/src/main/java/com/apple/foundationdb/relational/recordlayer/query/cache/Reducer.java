@@ -33,14 +33,14 @@ import java.util.stream.Stream;
 
 /**
  * Decides what a tertiary cache lookup yields, and what it leaves behind in the cache.
- * <br>
- * A {@link Reducer} is handed the tertiary map whole rather than a pre-selected list of candidates, and the map is
+ *
+ * <p>A {@link Reducer} is handed the tertiary map whole rather than a pre-selected list of candidates, and the map is
  * the cache's own live view, so an implementation owns every part of the decision: which entries are eligible, which
  * eligible one wins, whether to store a freshly supplied entry, and which metrics that amounts to. An implementation
  * that stores unconditionally is therefore all it takes to write into the cache — see {@link #writeOnly()} — and
  * {@link MultiStageCache} needs no separate {@code put} entry point.
- * <br>
- * Beware that a tertiary key such as {@link PhysicalPlanEquivalence} implements a <em>match</em> relation rather than
+ *
+ * <p>Beware that a tertiary key such as {@link PhysicalPlanEquivalence} implements a <em>match</em> relation rather than
  * an equivalence: its {@code hashCode()} is constant and its {@code equals} is asymmetric, evaluating a stored plan
  * constraint against the evaluation context of the key being looked up. An implementation that selects entries must
  * scan rather than call {@link Map#get(Object)}, and must keep the stored key as the receiver of the {@code equals}
@@ -114,8 +114,8 @@ public abstract sealed class Reducer<T, V>
 
     /**
      * Creates a {@link Reducer} that never reads, and always stores and returns a freshly supplied entry.
-     * <br>
-     * Because it does not select, the stored tertiary keys are never compared and no {@link PhysicalPlanEquivalence}
+     *
+     * <p>Because it does not select, the stored tertiary keys are never compared and no {@link PhysicalPlanEquivalence}
      * comparison takes place. An entry already held under an equal key is replaced. This is what backs
      * {@code PLAN_CACHE_WRITE_ONLY}: warming the cache without paying for, or being influenced by, a lookup.
      *

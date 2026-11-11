@@ -42,7 +42,6 @@ public interface FinalMemoizer {
      *
      * @param reference the source reference containing all passed-in expressions
      * @param expressions the expressions to memoize
-     *
      * @return a new reference
      */
     @Nonnull
@@ -52,6 +51,7 @@ public interface FinalMemoizer {
     /**
      * Memoize the given final {@link RelationalExpression}. A new reference is created and returned to the caller.
      * The expression that is passed in must be a final expression of the current planner phase.
+     *
      * @param expression final expression to memoize
      * @return a new reference
      */
@@ -61,6 +61,7 @@ public interface FinalMemoizer {
     /**
      * Memoize the given final {@link RelationalExpression}s. A new reference is created and returned to the caller.
      * The expressions that are passed in must be final expressions of the current planner phase.
+     *
      * @param expressions a collection of final expressions to memoize
      * @return a new reference
      */
@@ -70,11 +71,12 @@ public interface FinalMemoizer {
     /**
      * Memoize the given exploratory of final {@link RelationalExpression}. A new reference is created and returned to
      * the caller.
-     * <br>
-     * This method can only be called during {@link PlannerPhase#PLANNING} as the distinction between exploratory and
+     *
+     * <p>This method can only be called during {@link PlannerPhase#PLANNING} as the distinction between exploratory and
      * final expression is made by using the Java type for the expression that is passed in. If an expression is of
      * type {@link RecordQueryPlan}, the expression is considered a final expression, otherwise it is considered an
      * exploratory expression. Note that this method is only allowed to be called during {@link PlannerPhase#PLANNING}.
+     *
      * @param expression final expression to memoize
      * @return a new reference or a reused reference (only if the expression is considered to be exploartory)
      */
@@ -91,7 +93,6 @@ public interface FinalMemoizer {
      *
      * @param reference the source reference containing all passed-in expressions
      * @param plans the plans to memoize
-     *
      * @return a new reference
      */
     @Nonnull
@@ -101,6 +102,7 @@ public interface FinalMemoizer {
     /**
      * Memoize the given plan. A new reference is created and returned to the caller. Note that this method is only
      * allowed to be called during {@link PlannerPhase#PLANNING}.
+     *
      * @param plan plan to memoize
      * @return a new reference
      */
@@ -111,6 +113,7 @@ public interface FinalMemoizer {
      * Return a new {@link ReferenceBuilder} for final expressions. The expressions passed in are memoized when
      * the builder's {@link ReferenceBuilder#reference()} is called. The expressions are treated as final expressions
      * meaning that the reference that is eventually obtained is a new {@link Reference}.
+     *
      * @param expressions a collection of expressions to potentially memoize
      * @return a new {@link ReferenceBuilder}
      */
@@ -124,6 +127,7 @@ public interface FinalMemoizer {
      * {@link Reference}. Just as in {@link #memoizeMemberPlansFromOther(Reference, Collection)}, the other given
      * reference must already have been explored. The reference that is returned is also immediately explored. Note that
      * this method is only allowed to be called during {@link PlannerPhase#PLANNING}.
+     *
      * @param plans a collection of plans to potentially memoize
      * @return a new {@link ReferenceOfPlansBuilder}
      */
@@ -136,6 +140,7 @@ public interface FinalMemoizer {
      * builder's {@link ReferenceOfPlansBuilder#reference()} is called. The plan is treated as final expressions
      * meaning that the reference that is eventually obtained is a new {@link Reference}. Note that this method is only
      * allowed to be called during {@link PlannerPhase#PLANNING}.
+     *
      * @param plan a plan to potentially memoize
      * @return a new {@link ReferenceOfPlansBuilder}
      */
@@ -149,6 +154,7 @@ public interface FinalMemoizer {
      * builder's {@link ReferenceOfPlansBuilder#reference()} is called. The plans are treated as final expressions
      * meaning that the reference that is eventually obtained is a new {@link Reference}. Note that this method is only
      * allowed to be called during {@link PlannerPhase#PLANNING}.
+     *
      * @param plans a collection of plans to potentially memoize
      * @return a new {@link ReferenceOfPlansBuilder}
      */

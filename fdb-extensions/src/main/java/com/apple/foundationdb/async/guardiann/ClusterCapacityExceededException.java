@@ -30,8 +30,8 @@ import java.util.UUID;
  * write path is <em>not</em> draining deferred maintenance tasks in the writing transaction. It signals back-pressure:
  * inserts have outrun the deferred split backlog, so the caller should slow down until the background merge catches up
  * rather than letting the cluster grow without bound.
- * <p>
- * This lives in the extensions layer (which cannot reference the record layer's {@code RecordCoreException}); the
+ *
+ * <p>This lives in the extensions layer (which cannot reference the record layer's {@code RecordCoreException}); the
  * vector index engine translates it into a record-layer exception for callers.
  */
 @SuppressWarnings("serial")

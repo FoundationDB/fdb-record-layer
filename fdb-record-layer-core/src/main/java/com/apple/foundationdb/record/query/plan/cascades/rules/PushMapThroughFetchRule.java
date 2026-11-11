@@ -45,23 +45,23 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that pushes a map expression containing a {@link Value} that can be evaluated on a partial record of keys and
  * values that were retrieved by an index scan underneath a {@link RecordQueryFetchFromPartialRecordPlan} in order to
  * eliminate the fetch altogether.
- * <br>
- * A map operation can be pushed if and only if the {@link Value}s leaves refer to only entities in the fetched full
+ *
+ * <p>A map operation can be pushed if and only if the {@link Value}s leaves refer to only entities in the fetched full
  * record that can be translated to counterparts in the index record. The translation is specific to the kind of index and
  * therefore the kind of {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
- * <br>
- * As the map operation itself changes the shape of the resulting record in a way that the data flow above the map is
+ *
+ * <p>As the map operation itself changes the shape of the resulting record in a way that the data flow above the map is
  * completely detached from the partial records coming from the pure covering index scan (or records coming from the
  * index scan AND fetch), it is not simply enough to push the map underneath the fetch and then continue. We actually
  * need to make sure that the fetch can be completely eliminated. That can only happen when the down stream data flow
  * only accesses fields of the index. That is ensured either if all fields accessed by the map are leaves in
  * their record structures OR if we know that partially contained sub-records that are referred to in the map are not
  * further accessed downstream in ways that would require fetching the actual record in the first place.
- * <br>
- * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
+ *
+ * <p>This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for details.
- * <br>
- * Example 1:
+ *
+ * <p>Example 1:
  * <pre>
  * {@code
  *   index i1: _.a, _.b
@@ -77,8 +77,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  * TODO the following is possible but not implemented 
- * <br>
- * Example 2: {@code b} is nested, containing {@code c}s and {@code d}s. Index only contains {@code c}s
+ *
+ * <p>Example 2: {@code b} is nested, containing {@code c}s and {@code d}s. Index only contains {@code c}s
  * <pre>
  * {@code
  *   index i1: _.a, _.b.c
@@ -95,7 +95,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  * as {@code q.b} is a partially populated sub-record as {@code i1} does not contain {@code d}s
  *
- * Example 3: {@code b} is nested, containing {@code c}s and {@code d}s. Index contains both {@code c}s and {@code d}s.
+ * <p>Example 3: {@code b} is nested, containing {@code c}s and {@code d}s. Index contains both {@code c}s and {@code d}s.
  * <pre>
  * {@code
  *   index i2: _.a, _.b.c, _.b.d

@@ -38,16 +38,16 @@ import java.util.Optional;
  * method is called, with a parameter that provides the planner's {@link PlanContext} and access to the map of bindings,
  * among other things. This method can inspect the operators bound during the structural matching and implement other
  * logic.
- * <br>
- * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
+ *
+ * <p>The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
  * yield methods on its rule call, with a new result. The <code>yield()</code> methods can be called more than once,
  * or zero times if no alternative expressions are found.
- * <br>
- * A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
+ *
+ * <p>A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
  * immutable, and the mutable ones are hidden behind interfaces that do not expose mutation methods. In particular,
  * a rule should never cast an {@link Reference} in an attempt to access it.
- * <br>
- * A rule should not store state between successive calls to {@link #onMatch(PlannerRuleCall)},
+ *
+ * <p>A rule should not store state between successive calls to {@link #onMatch(PlannerRuleCall)},
  * since it may be reused an arbitrary number of times and may be re-instantiated at any time. To simplify cleanup,
  * any state that needs to be shared within a rule call should be encapsulated in a helper object (such as a static
  * inner class) or documented carefully.
@@ -71,6 +71,7 @@ public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT,
     /**
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
      * Used primarily for indexing rules for more efficient rule search.
+     *
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlanningRuleSet
      */

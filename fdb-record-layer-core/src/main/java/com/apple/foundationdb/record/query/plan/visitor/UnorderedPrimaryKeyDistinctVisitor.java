@@ -35,19 +35,18 @@ import java.util.Collections;
 
 
 /**
- *
  * This class moves the index fetch up from the index scan to after a distinct operation has been applied to the records.
  *
- *                               UnorderedPrimaryKeyDistinct
+ * <p>UnorderedPrimaryKeyDistinct
  *                                          |
  *                                          |
  *                             RecordQueryPlanWithIndex (Index Lookup)
  *
- *                                         ||
+ * <p>||
  *                                         ||
  *                                         V
  *
- *                               UnorderedPrimaryKeyDistinct (Index Lookup)
+ * <p>UnorderedPrimaryKeyDistinct (Index Lookup)
  *                                          |
  *                                          |
  *                             RecordQueryPlanWithIndex (Covering Index)

@@ -40,8 +40,8 @@ import java.util.stream.Stream;
 /**
  * This represents a user-defined field, this allows the user to explicitly set the field
  * name and type without resorting to any form of metadata resolution.
- * <br>
- * This could be useful for testing, and referring to qualified fields with subquery aliases for example.
+ *
+ * <p>This could be useful for testing, and referring to qualified fields with subquery aliases for example.
  *
  * @param <T> the type of the field.
  */
@@ -146,7 +146,7 @@ public final class UserDefinedField<T extends DataType> implements Field<T> {
     }
 
     private void expectingType(@Nonnull final DataType.Code code) {
-        if (type.getCode() != DataType.Code.UNKNOWN && !type.getCode().equals(code)) {
+        if (type.getCode() != DataType.Code.UNKNOWN && type.getCode() != code) {
             throw new RelationalException("Type mismatch, expected type '" + code.name() + "', actual type '" + type.getCode().name() + "'", ErrorCode.DATATYPE_MISMATCH).toUncheckedWrappedException();
         }
     }

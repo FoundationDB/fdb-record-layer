@@ -35,8 +35,8 @@ import java.util.Objects;
 
 /**
  * Run directly against an instance of {@link FRL}.
- * <p>
- * Starts one FRL per cluster file so that multi-cluster tests
+ *
+ * <p>Starts one FRL per cluster file so that multi-cluster tests
  * (using {@code connect: { cluster: N }}) can route to the correct cluster.
  */
 public class EmbeddedConfig implements YamlTestConfig {

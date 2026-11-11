@@ -53,6 +53,16 @@ import javax.annotation.Nonnull;
  *        The replacement restores the out-degree the node had before the delete, so it never raises a node above
  *        that. {@code 0} disables replacement edges. Set it with
  *        {@link ConfigBuilder#setReplacementEdgeMaxOutDegree(int)}
+ * @param replacementEntryNodeScanLimit how many nodes of a layer a delete may read when the node it is deleting was
+ *        the entry node and none of that node's neighbors can be traversed through, so that it can hand the promotion
+ *        a node that can. It is at least {@code 1}, so that a compact layer that still holds a node always offers
+ *        one
+ * @param writeAppendableNodes whether compact nodes (those on layer 0, and on all other layers unless
+ *        {@code useInlining} is set) are written in the appendable format, which lets a pure insertion of neighbors
+ *        into an already appendable node be persisted as an append of just the new neighbors instead of a rewrite of
+ *        the whole node. Nodes of either format are always readable, so this can
+ *        be switched on for an existing graph (nodes are converted as they are rewritten) and switched off again
+ *        (nodes are then converted back as they are rewritten)
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -73,7 +83,9 @@ public record Config(@Nonnull Metric metric,
                      int maxNumConcurrentNodeFetches,
                      int maxNumConcurrentNeighborhoodFetches,
                      int maxNumConcurrentDeleteFromLayer,
-                     int replacementEdgeMaxOutDegree) implements VectorEncodingConfig {
+                     int replacementEdgeMaxOutDegree,
+                     int replacementEntryNodeScanLimit,
+                     boolean writeAppendableNodes) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
@@ -97,6 +109,9 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = 2;
     // delete repair
     public static final int DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE = DEFAULT_M / 2;
+    public static final int DEFAULT_REPLACEMENT_ENTRY_NODE_SCAN_LIMIT = 10;
+    // storage format
+    public static final boolean DEFAULT_WRITE_APPENDABLE_NODES = false;
 
     public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
@@ -128,6 +143,8 @@ public record Config(@Nonnull Metric metric,
                 "maxNumConcurrentDeleteFromLayer must be (0, 10]");
         Preconditions.checkArgument(replacementEdgeMaxOutDegree >= 0,
                 "replacementEdgeMaxOutDegree must be [0, MAX_INT]");
+        Preconditions.checkArgument(replacementEntryNodeScanLimit >= 1,
+                "replacementEntryNodeScanLimit must be [1, MAX_INT]");
     }
 
     @Nonnull
@@ -137,7 +154,7 @@ public record Config(@Nonnull Metric metric,
                 sampleVectorStatsProbability(), maintainStatsProbability(), statsThreshold(),
                 useRaBitQ(), raBitQNumExBits(), maxNumConcurrentNodeFetches(),
                 maxNumConcurrentNeighborhoodFetches(), maxNumConcurrentDeleteFromLayer(),
-                replacementEdgeMaxOutDegree());
+                replacementEdgeMaxOutDegree(), replacementEntryNodeScanLimit(), writeAppendableNodes());
     }
 
     @Override
@@ -156,6 +173,8 @@ public record Config(@Nonnull Metric metric,
                 ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
                 ", maxNumConcurrentDeleteFromLayer=" + maxNumConcurrentDeleteFromLayer() +
                 ", replacementEdgeMaxOutDegree=" + replacementEdgeMaxOutDegree() +
+                ", replacementEntryNodeScanLimit=" + replacementEntryNodeScanLimit() +
+                ", writeAppendableNodes=" + writeAppendableNodes() +
                 "]";
     }
 
@@ -190,6 +209,9 @@ public record Config(@Nonnull Metric metric,
         private int maxNumConcurrentDeleteFromLayer = DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER;
 
         private int replacementEdgeMaxOutDegree = DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE;
+        private int replacementEntryNodeScanLimit = DEFAULT_REPLACEMENT_ENTRY_NODE_SCAN_LIMIT;
+
+        private boolean writeAppendableNodes = DEFAULT_WRITE_APPENDABLE_NODES;
 
         public ConfigBuilder() {
         }
@@ -200,7 +222,9 @@ public record Config(@Nonnull Metric metric,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
-                             final int maxNumConcurrentDeleteFromLayer, final int replacementEdgeMaxOutDegree) {
+                             final int maxNumConcurrentDeleteFromLayer, final int replacementEdgeMaxOutDegree,
+                             final int replacementEntryNodeScanLimit,
+                             final boolean writeAppendableNodes) {
             this.metric = metric;
             this.useInlining = useInlining;
             this.m = m;
@@ -219,6 +243,8 @@ public record Config(@Nonnull Metric metric,
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
             this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
             this.replacementEdgeMaxOutDegree = replacementEdgeMaxOutDegree;
+            this.replacementEntryNodeScanLimit = replacementEntryNodeScanLimit;
+            this.writeAppendableNodes = writeAppendableNodes;
         }
 
         @Nonnull
@@ -399,13 +425,36 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public int getReplacementEntryNodeScanLimit() {
+            return replacementEntryNodeScanLimit;
+        }
+
+        @Nonnull
+        @CanIgnoreReturnValue
+        public ConfigBuilder setReplacementEntryNodeScanLimit(final int replacementEntryNodeScanLimit) {
+            this.replacementEntryNodeScanLimit = replacementEntryNodeScanLimit;
+            return this;
+        }
+
+        public boolean isWriteAppendableNodes() {
+            return writeAppendableNodes;
+        }
+
+        @Nonnull
+        @CanIgnoreReturnValue
+        public ConfigBuilder setWriteAppendableNodes(final boolean writeAppendableNodes) {
+            this.writeAppendableNodes = writeAppendableNodes;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, isUseInlining(), getM(), getMMax(),
                     getMMax0(), getEfConstruction(), getEfRepair(), isExtendCandidates(), isKeepPrunedConnections(),
                     getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
                     isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
                     getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer(),
-                    getReplacementEdgeMaxOutDegree());
+                    getReplacementEdgeMaxOutDegree(), getReplacementEntryNodeScanLimit(),
+                    isWriteAppendableNodes());
         }
     }
 }

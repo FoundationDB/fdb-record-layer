@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStoreBase#updateRecord} is called, but the record does not exist yet.
+ *
  * @see FDBRecordStoreBase.RecordExistenceCheck#ERROR_IF_NOT_EXISTS
  */
 @SuppressWarnings("serial")

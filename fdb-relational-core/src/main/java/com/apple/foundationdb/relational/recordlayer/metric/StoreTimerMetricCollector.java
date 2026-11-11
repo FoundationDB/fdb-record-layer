@@ -50,12 +50,15 @@ import java.util.function.Function;
  *       hands the same instance back for every event. Suitable for non-transactional paths (e.g.
  *       engine startup work) that still want their metrics surfaced on the engine-wide
  *       registry.</li>
+ *   <li>{@link #fromStoreTimer(StoreTimer)} &mdash; hands the supplied {@link StoreTimer} back for
+ *       every event. Suitable for non-transactional paths whose caller owns the timer and publishes
+ *       the metrics itself.</li>
  * </ul>
  *
  * <p>Writes ({@link #increment}, {@link #clock}) resolve the timer per call and no-op if the
  * lookup returns {@code null}. Reads ({@link #getAverageTimeMicrosForEvent},
  * {@link #getCountsForCounter}, {@link #hasCounter}) resolve the timer per call too; they throw
- * or return {@code false} if the lookup returns {@code null}.</p>
+ * or return {@code false} if the lookup returns {@code null}.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class StoreTimerMetricCollector implements MetricCollector {
@@ -73,7 +76,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
      * delayed timer while all others use the normal timer.
      *
      * <p>If {@code context} has no timer attached (e.g. a transaction-bound database context),
-     * the lookup returns {@code null} and the collector silently drops writes; reads throw.</p>
+     * the lookup returns {@code null} and the collector silently drops writes; reads throw.
      */
     @Nonnull
     public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {
@@ -87,6 +90,14 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     @Nonnull
     public static StoreTimerMetricCollector fromMetricRegistry(@Nonnull final MetricRegistry registry) {
         final StoreTimer timer = new MetricRegistryStoreTimer(registry);
+        return new StoreTimerMetricCollector(event -> timer);
+    }
+
+    /**
+     * Hands {@code timer} back for every event lookup. All metrics land on the supplied timer.
+     */
+    @Nonnull
+    public static StoreTimerMetricCollector fromStoreTimer(@Nonnull final StoreTimer timer) {
         return new StoreTimerMetricCollector(event -> timer);
     }
 

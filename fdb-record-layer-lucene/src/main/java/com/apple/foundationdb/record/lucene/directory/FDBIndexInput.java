@@ -64,9 +64,8 @@ public final class FDBIndexInput extends IndexInput {
 
     /**
      * Constructor to create an FDBIndexInput from a file referenced in the metadata keyspace.
-     * <p>
-     *     This constructor will begin an asynchronous query (lookahead) to the first block.
-     * </p>
+     *
+     * <p>This constructor will begin an asynchronous query (lookahead) to the first block.
      *
      * @param fileName the name of the file being read
      * @param fdbDirectory FDB directory mapping
@@ -143,7 +142,6 @@ public final class FDBIndexInput extends IndexInput {
 
 
     /**
-     *
      * Close IndexInput (NoOp).
      */
     @Override
@@ -168,7 +166,7 @@ public final class FDBIndexInput extends IndexInput {
      * Seeks to the offset provided.  That actual seek offset will take into account the
      * absolute position taking into account if the IndexInput has been Sliced.
      *
-     * If the currentBlock is the same block after the offset, no physical seek will occur.
+     * <p>If the currentBlock is the same block after the offset, no physical seek will occur.
      *
      * @param offset positionToSeekTo
      * @throws IOException exception
@@ -204,7 +202,6 @@ public final class FDBIndexInput extends IndexInput {
     }
 
     /**
-     *
      * This takes an existing FDBIndexInput and provides a new initial offset plus
      * a FDBLuceneFileReference that is not <b>not</b> backed in the metadata keyspace.
      *
@@ -236,7 +233,6 @@ public final class FDBIndexInput extends IndexInput {
     }
 
     /**
-     *
      * The relative position plus any initial offsets provided (slice).
      *
      * @return position+initialOffset
@@ -249,7 +245,7 @@ public final class FDBIndexInput extends IndexInput {
      * Read a byte based on the current relative position taking into account the
      * absolute position (slice).
      *
-     * If the next byte will be on another block, asynchronously call read ahead.
+     * <p>If the next byte will be on another block, asynchronously call read ahead.
      *
      * @return byte
      * @throws IOException exception
@@ -268,9 +264,9 @@ public final class FDBIndexInput extends IndexInput {
         }
         try {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
-            position++;
             byte[] data = getCurrentData();
             verify(data != null, "current Data is null: " + fileName + " " + fileReference.getId());
+            position++;
             return data[probe];
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);
@@ -286,7 +282,7 @@ public final class FDBIndexInput extends IndexInput {
     /**
      * Read bytes based on the offset and taking into account the absolute position.
      *
-     * Perform asynchronous read aheads when required.
+     * <p>Perform asynchronous read aheads when required.
      *
      * @param bytes bytes
      * @param offset offset

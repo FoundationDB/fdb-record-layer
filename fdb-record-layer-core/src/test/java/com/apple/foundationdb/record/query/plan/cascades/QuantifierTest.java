@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
@@ -33,6 +34,7 @@ import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,5 +148,98 @@ class QuantifierTest {
 
         final Memoizer.ReferenceOfPlansBuilder builder = memoizer.memoizePlansBuilder(ImmutableList.of(scanPlan));
         assertThat(quantifier.applyGlue(memoizer, builder)).isSameAs(builder);
+    }
+
+    /**
+     * Tests that the glue plans of a null-on-empty for-each quantifier and of an existential quantifier report the
+     * direction of their input, even if the glued reference holds more than one plan.
+     */
+    @Test
+    void testGluePlanIsReverse1() {
+        final Reference reverseReference = memoizer.memoizePlansBuilder(ImmutableList.of(
+                new RecordQueryScanPlan(ImmutableSet.of("A"), new Type.Any(), null, ScanComparisons.EMPTY, true, false, Optional.empty()),
+                new RecordQueryScanPlan(ImmutableSet.of("B"), new Type.Any(), null, ScanComparisons.EMPTY, true, false, Optional.empty()))).reference();
+        assertThat(reverseReference.getFinalExpressions()).hasSize(2);
+
+        final RecordQueryPlan defaultOnEmptyPlan = (RecordQueryPlan)Iterables.getOnlyElement(
+                Quantifier.forEachWithNullOnEmpty(reverseReference).applyGlue(memoizer, reverseReference).getFinalExpressions());
+        assertThat(defaultOnEmptyPlan).isInstanceOf(RecordQueryDefaultOnEmptyPlan.class);
+        assertThat(defaultOnEmptyPlan.isReverse()).isTrue();
+
+        final RecordQueryPlan firstOrDefaultPlan = (RecordQueryPlan)Iterables.getOnlyElement(
+                Quantifier.existential(reverseReference).applyGlue(memoizer, reverseReference).getFinalExpressions());
+        assertThat(firstOrDefaultPlan).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
+        assertThat(firstOrDefaultPlan.isReverse()).isTrue();
+    }
+
+    /**
+     * Tests that rebuilding an existential quantifier via {@code toBuilder()} preserves its alias unless a new one is
+     * given.
+     */
+    @Test
+    void testExistential1() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+
+        assertThat(quantifier.toBuilder().build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Existential.class,
+                        rebuilt -> assertThat(rebuilt.getAlias()).isEqualTo(quantifier.getAlias()));
+
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        assertThat(quantifier.toBuilder().withAlias(newAlias).build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Existential.class,
+                        rebuilt -> assertThat(rebuilt.getAlias()).isEqualTo(newAlias));
+    }
+
+    /**
+     * Tests that {@code overNewReference()} on an existential quantifier keeps it existential, and keeps its alias
+     * unless a new one is given.
+     */
+    @Test
+    void testExistential2() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+
+        final Quantifier.Existential moved = quantifier.overNewReference(otherReference);
+        assertThat(moved.getAlias()).isEqualTo(quantifier.getAlias());
+        assertThat(moved.getRangesOver()).isSameAs(otherReference);
+
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        final Quantifier.Existential renamed = quantifier.overNewReference(otherReference, newAlias);
+        assertThat(renamed.getAlias()).isEqualTo(newAlias);
+        assertThat(renamed.getRangesOver()).isSameAs(otherReference);
+    }
+
+    /**
+     * Tests that existential quantifiers over the same reference are semantically equal, but not equal to a for-each
+     * quantifier over the same reference or to an existential quantifier over a different reference.
+     */
+    @Test
+    void testExistential3() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        final Quantifier.Existential sameQuantifier = Quantifier.existential(scanReference);
+        assertThat(quantifier).isEqualTo(sameQuantifier);
+        assertThat(quantifier.semanticHashCode()).isEqualTo(sameQuantifier.semanticHashCode());
+
+        final Quantifier.ForEach forEachQuantifier = Quantifier.forEach(scanReference);
+        assertThat(quantifier).isNotEqualTo(forEachQuantifier);
+        assertThat(forEachQuantifier).isNotEqualTo(quantifier);
+
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+        assertThat(quantifier).isNotEqualTo(Quantifier.existential(otherReference));
+    }
+
+    /**
+     * Tests that an existential quantifier is an {@link Quantifier.AtMostOne}, which flows the nullable variant of the
+     * inner type, whereas a for-each quantifier is not an {@link Quantifier.AtMostOne}.
+     */
+    @Test
+    void testExistential4() {
+        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        assertThat(quantifier).isInstanceOf(Quantifier.AtMostOne.class);
+        assertThat(Quantifier.forEach(scanReference)).isNotInstanceOf(Quantifier.AtMostOne.class);
+
+        assertThat(quantifier.getFlowedObjectType().isNullable()).isTrue();
+        assertThat(quantifier.getFlowedObjectType())
+                .isEqualTo(Quantifier.forEach(scanReference).getFlowedObjectType().nullable());
     }
 }

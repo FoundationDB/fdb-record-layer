@@ -72,11 +72,12 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
     }
 
     public static <K, V> Entry<V> mapEntry(Clusters.Entry<K> existing, Function<K, V> mapper) {
-        return new Clusters.Entry<V>(mapper.apply(existing.server), existing.clusterFile);
+        return new Clusters.Entry<>(mapper.apply(existing.server), existing.clusterFile);
     }
 
     /**
      * Return a piece of information about the underlying connections.
+     *
      * @param getter a function to extract information that should be the same for all clusters (since they are identical)
      * @param <R> the type of the extracted information.
      * @return the information

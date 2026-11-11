@@ -76,6 +76,7 @@ public class TypeConversion {
     /**
      * Return {@link RelationalStruct} instance found at <code>rowIndex</code> and <code>oneBasedColumn</code> offsets.
      * Manipulation of protobufs. Exploits package-private internal attributes of {@link RelationalStructFacade}.
+     *
      * @param resultSet Protobuf ResultSet to fetch {@link RelationalStruct} from.
      * @param rowIndex Current 'row' offset into <code>resultSet</code>
      * @param oneBasedColumn One-based column index where we'll find the {@link RelationalStruct} instance.
@@ -98,6 +99,7 @@ public class TypeConversion {
 
     /**
      * Convert list of {@link RelationalStruct} to {@link ResultSet}.
+     *
      * @param structs List of {@link RelationalStruct} which are expected to be of type {@link RelationalStructFacade}.
      * @return Populated {@link ResultSet}.
      * @throws SQLException If failed get of metadata or if unwrap to {@link RelationalStructFacade} fails.
@@ -124,6 +126,7 @@ public class TypeConversion {
 
     /**
      * Convert a {@link ResultSet} to a List of {@link RelationalStruct}.
+     *
      * @param data ResultSet to deserialize as a List of {@link RelationalStruct}.
      * @return List of {@link RelationalStruct}.
      * @see #toResultSetProtobuf(List)
@@ -295,10 +298,11 @@ public class TypeConversion {
     private static Array toArray(RelationalArray relationalArray) throws SQLException {
         var arrayBuilder = Array.newBuilder();
         if (relationalArray != null) {
-            var relationalResultSet = relationalArray.getResultSet();
-            while (relationalResultSet.next()) {
-                final var value = relationalResultSet.getObject(2);
-                arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+            try (var relationalResultSet = relationalArray.getResultSet()) {
+                while (relationalResultSet.next()) {
+                    final var value = relationalResultSet.getObject(2);
+                    arrayBuilder.addElement(toColumn(relationalResultSet.getMetaData().getRelationalDataType().getFields().get(1), value, relationalResultSet.wasNull()));
+                }
             }
         }
         return arrayBuilder.build();
@@ -320,6 +324,7 @@ public class TypeConversion {
 
     /**
      * Return the Java object stored within the proto.
+     *
      * @param columnType the type of object in the column
      * @param column the column to process
      * @return the Java object from the Column representation
@@ -366,6 +371,7 @@ public class TypeConversion {
 
     /**
      * Return the Java array stored within the proto.
+     *
      * @param array the array to process
      * @return the Java array from the proto representation
      * @throws SQLException in case of an error
@@ -381,6 +387,7 @@ public class TypeConversion {
 
     /**
      * Return the protobuf {@link Array} for a SQL {@link java.sql.Array}.
+     *
      * @param array the SQL array
      * @return the resulting protobuf array
      */
@@ -400,6 +407,7 @@ public class TypeConversion {
      * Note: In case {@code columnType} is of value {@link Types#NULL}, the {@code obj} parameter is expected to be the
      * type of null. That is, the {@code obj} will represent the {@link Types} constant for the type of variable whose
      * value is null.
+     *
      * @param columnType the SQL type to create (from {@link Types})
      * @param obj the value to use for the column
      * @return the created column
@@ -527,6 +535,7 @@ public class TypeConversion {
 
     /**
      * Build a Column from <code>p</code>.
+     *
      * @param p Particular of the generic to build the Column with (can be null).
      * @param f BiFunction to build column.
      * @param <P> Type we use building Column.
@@ -757,6 +766,9 @@ public class TypeConversion {
                             throw new SQLException("Unknown vector index engine preference");
                     }
                     break;
+                case FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS:
+                    builder.setFixedEpochTimestampMillisForCurrentDatetimeFunctions(((Long)entry.getValue()).toString());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -910,6 +922,9 @@ public class TypeConversion {
                     throw new SQLException("Unknown isolation level");
             }
             builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot);
+        }
+        if (!protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions().isEmpty()) {
+            builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, Long.valueOf(protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions()));
         }
         return builder.build();
     }

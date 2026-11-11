@@ -583,12 +583,10 @@ public abstract class LocatableResolverTest {
      *     <li>The transaction is used as the parent transaction during reverse lookup</li>
      * </ol>
      *
-     * <p>
-     * That the value written is still returned (instead of a {@link NoSuchElementException}).
+     * <p>That the value written is still returned (instead of a {@link NoSuchElementException}).
      * This is tricky because the reverse lookup will borrow the read version from the first
      * transaction, which will necessarily be from before the entry was committed to the
      * database, so the lookup will need to be retried with a fresher read version.
-     * </p>
      */
     @Test
     void testReverseLookupInSameTransaction() {

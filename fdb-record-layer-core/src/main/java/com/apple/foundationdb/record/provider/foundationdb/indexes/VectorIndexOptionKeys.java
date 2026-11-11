@@ -34,8 +34,8 @@ import java.util.List;
  * with the legacy {@code HNSW_*} alias, while engine-specific options declare a single {@code HNSW_*} or
  * {@code GUARDIANN_*} name. Readers ({@code parseConfig}) and change validators in the engines derive everything from
  * these keys, so the pairing is never hand-spelled at a call site.
- * <p>
- * Query-time (per-query) options are catalogued separately, on
+ *
+ * <p>Query-time (per-query) options are catalogued separately, on
  * {@link com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions}, but share the same
  * {@link VectorOptionKey} primitive.
  */
@@ -89,6 +89,8 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofInteger(IndexOptions.HNSW_EF_REPAIR);
     public static final VectorOptionKey<Integer> HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE =
             VectorOptionKey.ofInteger(IndexOptions.HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE);
+    public static final VectorOptionKey<Boolean> HNSW_WRITE_APPENDABLE_NODES =
+            VectorOptionKey.ofBoolean(IndexOptions.HNSW_WRITE_APPENDABLE_NODES);
     public static final VectorOptionKey<Boolean> HNSW_EXTEND_CANDIDATES =
             VectorOptionKey.ofBoolean(IndexOptions.HNSW_EXTEND_CANDIDATES);
     public static final VectorOptionKey<Boolean> HNSW_KEEP_PRUNED_CONNECTIONS =
@@ -147,8 +149,10 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS);
     public static final VectorOptionKey<Integer> GUARDIANN_KMEANS_MAX_ITERATIONS =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_K_MEANS_MAX_ITERATIONS);
-    public static final VectorOptionKey<Integer> GUARDIANN_KMEANS_MAX_RESTARTS =
-            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_K_MEANS_MAX_RESTARTS);
+    public static final VectorOptionKey<Integer> GUARDIANN_KMEANS_NUM_RUNS =
+            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_K_MEANS_NUM_RUNS);
+    public static final VectorOptionKey<List<Double>> GUARDIANN_KMEANS_BALANCING_LADDER =
+            VectorOptionKey.ofDoubleList(IndexOptions.GUARDIANN_K_MEANS_BALANCING_LADDER);
     public static final VectorOptionKey<Integer> GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS);
     public static final VectorOptionKey<Integer> GUARDIANN_COLLAPSE_MIN_DUPLICATES =
@@ -165,6 +169,8 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH);
     public static final VectorOptionKey<Integer> GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH);
+    public static final VectorOptionKey<Boolean> GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES =
+            VectorOptionKey.ofBoolean(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES);
 
     /**
      * Every index-time key declared above. Used to validate an index's options against all keys at once (e.g. to reject
@@ -176,7 +182,7 @@ public final class VectorIndexOptionKeys {
             METRIC, NUM_DIMENSIONS, SAMPLE_VECTOR_STATS_PROBABILITY, MAINTAIN_STATS_PROBABILITY, STATS_THRESHOLD,
             USE_RABITQ, RABITQ_NUM_EX_BITS,
             HNSW_USE_INLINING, HNSW_M, HNSW_M_MAX, HNSW_M_MAX_0, HNSW_EF_CONSTRUCTION, HNSW_EF_REPAIR,
-            HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE,
+            HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE, HNSW_WRITE_APPENDABLE_NODES,
             HNSW_EXTEND_CANDIDATES, HNSW_KEEP_PRUNED_CONNECTIONS, HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER,
             HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
             GUARDIANN_PRIMARY_CLUSTER_MIN, GUARDIANN_MERGE_MAX_EVER_FRACTION, GUARDIANN_PRIMARY_CLUSTER_MAX,
@@ -188,11 +194,12 @@ public final class VectorIndexOptionKeys {
             GUARDIANN_REPLICATION_Z_SCORE_WEIGHT, GUARDIANN_REPLICATION_STATS_MIN_SAMPLE_SIZE,
             GUARDIANN_DETERMINISTIC_RANDOMNESS, GUARDIANN_SAMPLE_BATCH_SIZE, GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS,
             GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS, GUARDIANN_DELETE_CONCURRENCY, GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS,
-            GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS, GUARDIANN_KMEANS_MAX_ITERATIONS, GUARDIANN_KMEANS_MAX_RESTARTS,
+            GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS, GUARDIANN_KMEANS_MAX_ITERATIONS, GUARDIANN_KMEANS_NUM_RUNS,
+            GUARDIANN_KMEANS_BALANCING_LADDER,
             GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS, GUARDIANN_COLLAPSE_MIN_DUPLICATES,
             GUARDIANN_SPLIT_MERGE_CONCURRENCY, GUARDIANN_REASSIGN_CONCURRENCY, GUARDIANN_COLLAPSE_CONCURRENCY,
             GUARDIANN_BOUNCE_CONCURRENCY, GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH,
-            GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH);
+            GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH, GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES);
 
     private VectorIndexOptionKeys() {
     }

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
@@ -49,6 +50,7 @@ import java.util.function.Supplier;
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
  * relational planner expression.
+ *
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
@@ -163,6 +165,15 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
     @Override
     public int computeHashCodeWithoutChildren() {
         return Objects.hash(getPredicates());
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RelationalExpressionWithPredicates.super.dynamicTypesFromPredicates())
+                .build();
     }
 
     @Nonnull

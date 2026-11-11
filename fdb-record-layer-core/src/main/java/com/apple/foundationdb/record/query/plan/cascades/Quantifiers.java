@@ -92,6 +92,7 @@ public class Quantifiers {
 
     /**
      * Create a list of for-each quantifiers from a list of references to range over.
+     *
      * @param rangesOverExpressions iterable {@link Reference}s of {@link RelationalExpression}s
      * @return a list of for-each quantifiers where each quantifier ranges over one of the given references
      */
@@ -102,6 +103,7 @@ public class Quantifiers {
 
     /**
      * Create a list of existential quantifiers from a list of expression references these quantifiers should range over.
+     *
      * @param rangesOverPlans iterable {@link Reference}s of of {@link RelationalExpression}s.
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
@@ -112,6 +114,7 @@ public class Quantifiers {
 
     /**
      * Create a list of physical quantifiers given a list of references these quantifiers should range over.
+     *
      * @param rangesOverPlans iterable {@link Reference}s of {@link RecordQueryPlan}
      * @return a list of physical quantifiers where each quantifier ranges over a reference contained in the given iterable
      */
@@ -122,6 +125,7 @@ public class Quantifiers {
 
     /**
      * Create a list of quantifiers given a list of references these quantifiers should range over.
+     *
      * @param rangesOverExpressions iterable of {@link Reference}s the quantifiers will be created to range over
      * @param creator lambda to to be called for each expression reference contained in {@code rangesOverExpression}s
      *        to create the actual quantifier. This allows for callers to create different kinds of quantifier based
@@ -141,6 +145,7 @@ public class Quantifiers {
     /**
      * Convenience helper to create a single ID translation map from the alias of one quantifier to the alias
      * of another quantifier.
+     *
      * @param from quantifier
      * @param to quantifier
      * @return a new translation map mapping from {@code from.getAlias()} to {@code to.getAlias()}
@@ -153,6 +158,7 @@ public class Quantifiers {
     /**
      * Convenience helper to create an alias translation map based on a translation map using quantifiers.
      * of another quantifier.
+     *
      * @param map quantifier to quantifier bi-map
      * @return a new {@link AliasMap} mapping from {@code from.getAlias()} to {@code to.getAlias()}
      */
@@ -166,6 +172,7 @@ public class Quantifiers {
 
     /**
      * Convenience helper to create an alias to quantifier map using a collection of quantifiers.
+     *
      * @param quantifiers collection of quantifiers
      * @return a new {@link BiMap} mapping from {@code q.getAlias()} to {@code q} for every {@code q} in {@code quantifiers}
      */
@@ -208,10 +215,10 @@ public class Quantifiers {
      * Method to find matches between the given set of quantifiers and the given set of other quantifiers using an alias map
      * and a {@code matchPredicate}.
      *
-     * This method makes use of {@link #predicatedMatcher} to create a matcher that is then used to perform actual
+     * <p>This method makes use of {@link #predicatedMatcher} to create a matcher that is then used to perform actual
      * matching.
      *
-     * Two quantifiers can only match if they are equal on kind and the {@code matchPredicate} handed in is also
+     * <p>Two quantifiers can only match if they are equal on kind and the {@code matchPredicate} handed in is also
      * satisfied.
      *
      * @param boundAliasesMap aliases map of already bound quantifiers
@@ -242,18 +249,18 @@ public class Quantifiers {
      * Method to create a matcher to subsequently find matches between the given set of quantifiers and the given set
      * of other quantifiers using an alias map and a {@code matchPredicate}.
      *
-     * Two quantifiers can be considered a match if the given predicate returns {@code true}.
+     * <p>Two quantifiers can be considered a match if the given predicate returns {@code true}.
      * This method attempts to match each quantifier from the set of quantifiers this expression owns to a quantifier
      * of the given other set of quantifiers such that the given predicate returns {@code true} for each mapping.
      * Note that there may be multiple distinct matches between the quantifier sets. This method returns an
      * {@link Iterable} of such matches where each match is only computed when it is requested by an iterator's
      * {@link Iterator#hasNext()}. Thus it can be assumed that this method never pre-computes all possible matches.
      *
-     * For expressions that cannot introduce correlations, this method's complexity is simply {@code O(n!)} where
+     * <p>For expressions that cannot introduce correlations, this method's complexity is simply {@code O(n!)} where
      * {@code n} is the number of quantifiers (which is equal for both sets). This path is taken by UNIONs and other set
      * operations.
      *
-     * For expressions that introduce correlations, the matching process is more complicated. First, we determine one
+     * <p>For expressions that introduce correlations, the matching process is more complicated. First, we determine one
      * topologically correct ordering. Then we iterate through all topologically correct orderings of the set of
      * quantifiers this expression owns. For each element in the permutation of quantifiers that is returned by
      * the {@link EnumeratingIterator} we try to match the quantifiers between the sets topologically from left to right
@@ -289,7 +296,7 @@ public class Quantifiers {
      * algorithm allows to compute an {@link Iterable} of results when a match is found which is then associated
      * with the actual {@link BoundMatch}.
      *
-     * Two quantifiers can be considered a match if the given {@link MatchFunction} returns a non-empty
+     * <p>Two quantifiers can be considered a match if the given {@link MatchFunction} returns a non-empty
      * {@link Iterable} of some type. This method attempts to match each quantifier from the set of quantifiers this
      * expression owns to a quantifier of the given other set of quantifiers such that the given match function is
      * returns a non-empty iterable for each mapping.
@@ -297,11 +304,11 @@ public class Quantifiers {
      * {@link Iterable} of such matches where each match is only computed when it is requested by an iterator's
      * {@link Iterator#hasNext()}. Thus it can be assumed that this method never pre-computes all possible matches.
      *
-     * For expressions that cannot introduce correlations, this method's complexity is simply {@code O(n!)} where
+     * <p>For expressions that cannot introduce correlations, this method's complexity is simply {@code O(n!)} where
      * {@code n} is the number of quantifiers (which is equal for both sets). This path is taken by UNIONs and other set
      * operations.
      *
-     * For expressions that introduce correlations, the matching process is more complicated. First, we determine one
+     * <p>For expressions that introduce correlations, the matching process is more complicated. First, we determine one
      * topologically correct ordering. Then we iterate through all topologically correct orderings of the set of
      * quantifiers this expression owns. For each element in the permutation of quantifiers that is returned by
      * the {@link EnumeratingIterator} we try to match the quantifiers between the sets topologically from left to right
@@ -338,7 +345,7 @@ public class Quantifiers {
      * algorithm allows to compute an {@link Iterable} of results when a match is found which is then associated
      * with the actual {@link BoundMatch}.
      *
-     * Two quantifiers can be considered a match if the given {@link MatchFunction} returns a non-empty
+     * <p>Two quantifiers can be considered a match if the given {@link MatchFunction} returns a non-empty
      * {@link Iterable} of some type. This method attempts to match each quantifier from the set of quantifiers this
      * expression owns to a quantifier of the given other set of quantifiers such that the given match function is
      * returns a non-empty iterable for each mapping.
@@ -346,11 +353,11 @@ public class Quantifiers {
      * {@link Iterable} of such matches where each match is only computed when it is requested by an iterator's
      * {@link Iterator#hasNext()}. Thus it can be assumed that this method never pre-computes all possible matches.
      *
-     * For expressions that cannot introduce correlations, this method's complexity is simply {@code O(n!)} where
+     * <p>For expressions that cannot introduce correlations, this method's complexity is simply {@code O(n!)} where
      * {@code n} is the number of quantifiers (which is equal for both sets). This path is taken by UNIONs and other set
      * operations.
      *
-     * For expressions that introduce correlations, the matching process is more complicated. First, we determine one
+     * <p>For expressions that introduce correlations, the matching process is more complicated. First, we determine one
      * topologically correct ordering. Then we iterate through all topologically correct orderings of the set of
      * quantifiers this expression owns. For each element in the permutation of quantifiers that is returned by
      * the {@link EnumeratingIterator} we try to match the quantifiers between the sets topologically from left to right
@@ -387,9 +394,9 @@ public class Quantifiers {
      * Method to enumerate the bound aliases due to constraints. This reduces the number of permutations the matching
      * algorithm has to enumerate in a subsequent step.
      *
-     * Consider the following example:
+     * <p>Consider the following example:
      *
-     * Let's say we have {@link AliasMap}s for three given quantifiers:
+     * <p>Let's say we have {@link AliasMap}s for three given quantifiers:
      *
      * <pre>{@code
      * q1: Iterable.of((a11 -> aa, a2 -> ab), (a11 -> ab, a2 -> aa), (a11 -> ac, a2 -> ad))
@@ -397,18 +404,18 @@ public class Quantifiers {
      * q3: Iterable.of((a11 -> aa, a2 -> ab), (a11 -> ab, a2 -> aa), (a11 -> ac, a2 -> ad))
      * }</pre>
      *
-     * All quantifiers have a constraint {@code (a11 -> aa, a2 -> ab)}. This means that in this example,
+     * <p>All quantifiers have a constraint {@code (a11 -> aa, a2 -> ab)}. This means that in this example,
      * for that alias map in {@code q1} we find exactly one compatible alias map for {@code q2} and {@code q3}. The same is
      * true for {@code (a11 -> ab, a2 -> aa)}. The map {@code (a11 -> ac, a2 -> ad)}, however, is not one of the constraints
      * in {@code q2}. Therefore, that map can never produce a proper match for all three quantifiers as they cannot
      * all use that mapping ({@code q2} only uses incompatible mappings). Similarly if the filtered cross product of
      * alias maps is empty we know that there cannot be any match between these quantifiers at all.
      *
-     * If the list of quantifiers passed in is empty, this method returns a singleton iterable of the given
+     * <p>If the list of quantifiers passed in is empty, this method returns a singleton iterable of the given
      * {@link AliasMap}. This is equivalent to saying that the (empty) set of quantifiers are not imposing a constraint
      * on matching.
      *
-     * If the quantifiers that are passed in use only empty alias maps, we consider the empty alias map compatible with
+     * <p>If the quantifiers that are passed in use only empty alias maps, we consider the empty alias map compatible with
      * any other alias map.
      *
      * @param aliasMap alias map of bound aliases

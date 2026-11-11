@@ -190,8 +190,7 @@ class WorkloadReporter {
     /**
      * Strip characters that are invalid in XML 1.0.
      *
-     * <p>
-     * XML defines valid characters as {@code 0x9 | 0xA | 0xD | [0x20-0xD7FF] | [0xE000-0xFFFD] | [0x10000-0x10FFFF]}.
+     * <p>XML defines valid characters as {@code 0x9 | 0xA | 0xD | [0x20-0xD7FF] | [0xE000-0xFFFD] | [0x10000-0x10FFFF]}.
      * The surrogate range D800–DFFF and the BMP non-characters FFFE and FFFF are excluded. The Java XML serializer
      * enforces this strictly (as of JDK 21, unlike earlier versions).
      */

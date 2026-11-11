@@ -69,7 +69,7 @@ import java.util.function.Supplier;
 /**
  * A type-safe record store.
  *
- * Takes a serializer that operates on a specific message type and an underlying record store and makes
+ * <p>Takes a serializer that operates on a specific message type and an underlying record store and makes
  * operations for reading and writing records type-safe while only operating on that one type.
  * The record store can contain other record types which can be accessed using a different typed record
  * store with the same underlying untyped record store.
@@ -348,8 +348,9 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     /**
      * A builder for {@link FDBTypedRecordStore}.
      *
-     * This is only used when creating both the untyped and typed record stores at the same time.
+     * <p>This is only used when creating both the untyped and typed record stores at the same time.
      * To create a new typed record store from an open record store, use {@link FDBRecordStoreBase#getTypedRecordStore}.
+     *
      * @param <M> generated Protobuf class for the record message type
      * @see FDBTypedRecordStore#newBuilder
      */
@@ -389,6 +390,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         /**
          * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         *
          * @return untyped serializer
          */
         @Nonnull
@@ -398,6 +400,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         /**
          * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         *
          * @param serializer untyped serializer
          * @return this builder
          */

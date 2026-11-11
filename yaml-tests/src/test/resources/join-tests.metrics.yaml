@@ -192,13 +192,13 @@ join-tests:
         [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS
         _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME
         AS _1, q2.NAME AS _2) } }'
-    task_count: 21936
-    task_total_time_ms: 2281
-    transform_count: 8112
-    transform_time_ms: 591
-    transform_yield_count: 1209
-    insert_time_ms: 301
-    insert_new_count: 3823
+    task_count: 22200
+    task_total_time_ms: 1389
+    transform_count: 8136
+    transform_time_ms: 398
+    transform_yield_count: 1215
+    insert_time_ms: 168
+    insert_new_count: 3866
     insert_reused_count: 409
 -   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
         and dept.id in (1, 2) and emp.id not in (1, 5)
@@ -207,13 +207,13 @@ join-tests:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID:
         KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) |
         FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 6257
-    task_total_time_ms: 1050
-    transform_count: 1873
-    transform_time_ms: 279
-    transform_yield_count: 368
-    insert_time_ms: 48
-    insert_new_count: 1096
+    task_count: 6400
+    task_total_time_ms: 974
+    transform_count: 1889
+    transform_time_ms: 286
+    transform_yield_count: 372
+    insert_time_ms: 59
+    insert_new_count: 1112
     insert_reused_count: 65
 -   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
         and dept.id in (1, 2) and emp.id not in (1, 5)
@@ -222,27 +222,27 @@ join-tests:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0],
         ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID
         EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 5354
-    task_total_time_ms: 769
-    transform_count: 1622
-    transform_time_ms: 216
-    transform_yield_count: 319
-    insert_time_ms: 36
-    insert_new_count: 882
+    task_count: 5463
+    task_total_time_ms: 816
+    transform_count: 1634
+    transform_time_ms: 257
+    transform_yield_count: 322
+    insert_time_ms: 44
+    insert_new_count: 894
     insert_reused_count: 60
 -   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
         = 1 and emp.id in (10, 20, 30)
     ref: join-tests.yamsql:401
-    explain: SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c27
-        AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID
-        EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }
-    task_count: 6626
-    task_total_time_ms: 1126
-    transform_count: 1914
-    transform_time_ms: 280
-    transform_yield_count: 406
-    insert_time_ms: 52
-    insert_new_count: 1216
+    explain: '[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
+        EMP, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS
+        LONG)]) | FILTER q1.DEPT_ID EQUALS _.ID AS q2 RETURN (q1.ID AS ID) }'
+    task_count: 6837
+    task_total_time_ms: 1127
+    transform_count: 1938
+    transform_time_ms: 305
+    transform_yield_count: 412
+    insert_time_ms: 66
+    insert_new_count: 1248
     insert_reused_count: 60
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:422
@@ -558,13 +558,13 @@ three-way-joins-right-deep-planner:
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP
         q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3
         } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }'
-    task_count: 8826
-    task_total_time_ms: 719
-    transform_count: 2647
-    transform_time_ms: 206
-    transform_yield_count: 525
-    insert_time_ms: 32
-    insert_new_count: 1559
+    task_count: 8912
+    task_total_time_ms: 1028
+    transform_count: 2655
+    transform_time_ms: 332
+    transform_yield_count: 527
+    insert_time_ms: 55
+    insert_new_count: 1573
     insert_reused_count: 110
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:627

@@ -85,22 +85,18 @@ import java.util.function.Supplier;
  * A Cascades-style query planner that converts a {@link RecordQuery} to a {@link RecordQueryPlan}, possibly using
  * secondary indexes defined in a {@link RecordMetaData} to execute the query efficiently.
  *
- * <p>
- * <a href="https://15721.courses.cs.cmu.edu/spring2017/papers/15-optimizer2/graefe-ieee1995.pdf">Cascades</a> is a
+ * <p><a href="https://15721.courses.cs.cmu.edu/spring2017/papers/15-optimizer2/graefe-ieee1995.pdf">Cascades</a> is a
  * framework for a query optimization introduced by Graefe in 1995. In Cascades, all parsed queries, query plans, and
  * intermediate state between the two are represented in a unified tree of {@link RelationalExpression}, which includes
  * types such as {@link RecordQueryPlan}. This highly flexible data structure reifies essentially the entire state of
  * the planner (i.e., partially planned elements, current optimization, goals, etc.) and allows individual planning
  * steps to be modular and stateless by keeping all state in the {@link RelationalExpression} tree.
- * </p>
  *
- * <p>
- * Like many optimization frameworks, Cascades is driven by sets of {@link AbstractCascadesRule}s that can be defined for
+ * <p>Like many optimization frameworks, Cascades is driven by sets of {@link AbstractCascadesRule}s that can be defined for
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlanningRuleSet} to find a matching rule and then executes that rule, creating zero or
  * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined by:
- * </p>
  * <ul>
  *     <li>
  *         An {@link BindingMatcher} that defines a
@@ -113,8 +109,7 @@ import java.util.function.Supplier;
  *     </li>
  * </ul>
  *
- * <p>
- * Since rules can be applied speculatively and need not be "reductive" in any reasonable sense, it is common for cyclic
+ * <p>Since rules can be applied speculatively and need not be "reductive" in any reasonable sense, it is common for cyclic
  * rule application to occur. Furthermore, the number of possible expression trees being considered at any time can be
  * enormous, since every rule might apply to many of the existing trees under consideration by the planner. To mitigate
  * this, Cascades uses aggressive memoization, which is represented by the <em>memo</em> data structure. The memo
@@ -125,23 +120,16 @@ import java.util.function.Supplier;
  * a set of {@link RelationalExpression}s. In turn, {@link RelationalExpression}s have some number of <em>children</em>, each
  * of which is a {@link Reference} and which can be traversed by the planner via the
  * {@link RelationalExpression#getQuantifiers()} method.
- * </p>
  *
- * <p>
- * A Cascades planner operates by repeatedly executing a {@link Task} from the task execution stack (in this case),
+ * <p>A Cascades planner operates by repeatedly executing a {@link Task} from the task execution stack (in this case),
  * which performs some actions and may schedule other tasks by pushing them onto the stack. The tasks in this particular
  * planner are the implementors of the {@link Task} interface.
- * </p>
  *
- * <p>
- * Since a Cascades-style planner produces many possible query plans, it needs some way to decide which ones to select.
+ * <p>Since a Cascades-style planner produces many possible query plans, it needs some way to decide which ones to select.
  * This is generally done with a cost model that scores plans according to some cost metric. For now, we use the
  * {@link CascadesCostModel} which is a heuristic model implemented as a {@link java.util.Comparator}.
- * </p>
  *
- * <p>
- * Simplified push/execute overview:
- * </p>
+ * <p>Simplified push/execute overview:
  *
  * <pre>
  * {@link InitiatePlannerPhase}
@@ -186,9 +174,9 @@ import java.util.function.Supplier;
  *         {@link OptimizeGroup} for all ranged over groups
  * </pre>
  *
- * Note: Pushed tasks are executed in typical stack machine order, that is LIFO.
- * <p>
- * There are three different kinds of transformations:
+ * <p>Note: Pushed tasks are executed in typical stack machine order, that is LIFO.
+ *
+ * <p>There are three different kinds of transformations:
  * <ul>
  *     <li>
  *         Transforms on expressions {@link TransformExpression}: These are the classical transforms creating new
@@ -209,7 +197,6 @@ import java.util.function.Supplier;
  *         to all synthesized matches for an expression at once.
  *     </li>
  * </ul>
- * </p>
  *
  * @see Reference
  * @see RelationalExpression
@@ -281,6 +268,7 @@ public class CascadesPlanner implements QueryPlanner {
      * Set the size limit of the Cascades planner task queue.
      * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
      * Default value is 0, which means "unbound".
+     *
      * @param maxTaskQueueSize the maximum size of the queue.
      */
     @SuppressWarnings("unused")
@@ -294,6 +282,7 @@ public class CascadesPlanner implements QueryPlanner {
      * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
      * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
      * Default value is 0, which means "unbound".
+     *
      * @param maxTotalTaskCount the maximum number of tasks.
      */
     @SuppressWarnings("unused")
@@ -306,6 +295,7 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Set the maximum number of yields that are permitted per rule call within the Cascades planner.
      * Default value is 0, which means "unbound".
+     *
      * @param maxNumYieldsPerRuleCall the desired maximum number of yields that are permitted per rule call
      */
     @SuppressWarnings("unused")
@@ -519,7 +509,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         // Also validate memo structure integrity at the end of planning
-        Debugger.sanityCheck(() -> traversal.verifyIntegrity());
+        Debugger.sanityCheck(traversal::verifyIntegrity);
     }
 
     private void pushInitialTasks() {
@@ -822,6 +812,7 @@ public class CascadesPlanner implements QueryPlanner {
         /**
          * Returns whether the given rule is worth trying for the current (group, expression) pair. By default every
          * rule is, subclasses that can prove that applying a rule cannot make progress override this.
+         *
          * @param rule the rule in question
          * @return {@code true} if a task should be pushed for the given rule
          */
@@ -1342,8 +1333,8 @@ public class CascadesPlanner implements QueryPlanner {
      * Optimize Inputs Task. This task is pushed for a (group, expression) pair together with the task that explores
      * that expression, and it runs once the exploration of the expression has drained. At that moment, we know that
      * exploration is done, and we can optimize the children.
-     * <br>
-     * Besides pushing an {@link OptimizeGroup} for each ranged over group, this task also schedules the rules that must
+     *
+     * <p>Besides pushing an {@link OptimizeGroup} for each ranged over group, this task also schedules the rules that must
      * only be applied to already-pruned inputs, that is the rules for which
      * {@link CascadesRule#onlyOnPrunedInputs()} is {@code true}. By the time such a rule is applied, every child
      * reference has therefore been pruned to its cheapest final expression by the cost model.

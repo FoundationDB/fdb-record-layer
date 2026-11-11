@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * Helper class for helping with logging of {@link java.util.concurrent.CompletionException}s.
  *
- * The {@code CompletionException} has a stack trace that indicates the call to a wait point, such as
+ * <p>The {@code CompletionException} has a stack trace that indicates the call to a wait point, such as
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext#asyncToSync}, which may
  * be the only indication of what the caller was actually doing.
  * But the cause of this exception is the one to analyze and wrap
@@ -50,8 +50,9 @@ public class CompletionExceptionLogHelper {
     /**
      * Change whether {@link Throwable#addSuppressed} is used.
      *
-     * When enabled, the exception graph will have a circularity. This can cause problems for some logging frameworks
+     * <p>When enabled, the exception graph will have a circularity. This can cause problems for some logging frameworks
      * and so may need to be disabled if using one of them.
+     *
      * @param addSuppressed {@code true} to use {@code addSuppressed} to give more information in logs
      */
     public static void setAddSuppressed(boolean addSuppressed) {
@@ -62,7 +63,8 @@ public class CompletionExceptionLogHelper {
      * Change the maximum number of suppressed exceptions to add to any given exception, if this maximum has not already
      * been set. Return whether or not the maximum was changed.
      *
-     * This method only changes behavior when {@link #addSuppressed} is {@code true}.
+     * <p>This method only changes behavior when {@link #addSuppressed} is {@code true}.
+     *
      * @param count the new maximum count
      * @return {@code true} if the count was changed and {@code false} if it was not
      */
@@ -97,6 +99,7 @@ public class CompletionExceptionLogHelper {
 
     /**
      * Return the cause of the given exception and also arrange for the original exception to be in the suppressed chain.
+     *
      * @param ex an exception from {@link java.util.concurrent.CompletableFuture#join} or the like
      * @return a throwable suitable for use as the cause of a wrapped exception
      */
@@ -109,6 +112,7 @@ public class CompletionExceptionLogHelper {
      * However, if the given exception's cause already has the maximum number of suppressed exceptions specified by
      * {@link #setMaxSuppressedCountIfNotSet(int)}, then the given exception is not added to the suppressed chain and
      * the exception counting the number of ignored exceptions is incremented instead.
+     *
      * @param ex an exception from {@link java.util.concurrent.CompletableFuture#get} or the like
      * @return a throwable suitable for use as the cause of a wrapped exception
      */

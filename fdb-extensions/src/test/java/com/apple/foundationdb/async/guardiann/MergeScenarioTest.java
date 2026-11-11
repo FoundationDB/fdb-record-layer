@@ -52,8 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Scenario: forces a cluster to drop below {@code primaryClusterMin}, which must trigger a merge.
- * <p>
- * First inserts more near-duplicates than fit in one cluster (as in
+ *
+ * <p>First inserts more near-duplicates than fit in one cluster (as in
  * {@link SplitScenarioTest}) so the structure splits into at least two clusters. Then it
  * deletes most of them, dropping the surviving clusters below {@code primaryClusterMin}; per
  * {@code Primitives}, a delete that takes a cluster under the minimum enqueues a
@@ -95,7 +95,7 @@ public class MergeScenarioTest implements BaseTest {
 
     private static Database db;
     private static Guardiann guardiann;
-    private static TestHelpers.TestOnWriteListener onWriteListener;
+    private static GuardiannTestHelpers.TestOnWriteListener onWriteListener;
 
     @Nonnull
     @Override
@@ -119,8 +119,8 @@ public class MergeScenarioTest implements BaseTest {
     public static void setUpDb() {
         db = dbExtension.getDatabase();
 
-        onWriteListener = new TestHelpers.TestOnWriteListener();
-        final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
+        onWriteListener = new GuardiannTestHelpers.TestOnWriteListener();
+        final GuardiannTestHelpers.TestOnReadListener onReadListener = new GuardiannTestHelpers.TestOnReadListener();
 
         final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, CLUSTER_MAX,
                         PRIMARY_CLUSTER_MIN)
@@ -228,6 +228,6 @@ public class MergeScenarioTest implements BaseTest {
     }
 
     private void deleteRecords(@Nonnull final List<PrimaryKeyAndVector> records) throws Exception {
-        TestHelpers.deleteToCompletion(getDb(), guardiann, records);
+        GuardiannTestHelpers.deleteToCompletion(getDb(), guardiann, records);
     }
 }

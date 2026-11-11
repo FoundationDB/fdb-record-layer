@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
  * This interface presents a state af an accumulated value. The AccumulatorState holds on to an intermediate state throughout
  * the aggregation operation, allowing for {@link #accumulate} operation to add additional values throughout the aggregation process
  * and then to {@link #finish()} operation once the aggregation is done.
+ *
  * @param <T> The type that is being accumulated (e.g. Integer when the aggregation is Sum of Integers)
  * @param <R> The type that is being returned (e.g. Double when the aggregation is Average of Integers)
  */
@@ -33,6 +34,7 @@ public interface AccumulatorState<T, R> {
     /**
      * Add additional value to the state. Depending on the type of aggregation (e.g. SUM/MIN/MAX etc.) that
      * value will be applied to the existing state differently.
+     *
      * @param value the value to accumulate.
      */
     void accumulate(@Nullable T value);
@@ -41,6 +43,7 @@ public interface AccumulatorState<T, R> {
      * Finalize the accumulation operation and return the result. Depending on the type of aggregation being done, different
      * actions will b taking place. For example, SUM, MIN and MAX simply return the accumulation, where AVG divides the sum by the count.
      * Note that after calling {@link #finish}, continuing to {@link #accumulate} may produce unpredictable results.
+     *
      * @return the finalized accumulation result.
      */
     @Nullable

@@ -205,6 +205,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *          (200, 'Heirloom Cafe', (), (), ());
      * }
      * </pre>
+     *
      * @throws Exception if problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -503,6 +504,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *   SET name = name + ' McDonald\'s'
      * }
      * </pre>
+     *
      * @throws Exception if problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -616,8 +618,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Tests composability of inserts and updates in an operation normally dubbed an upsert.
-     * <br>
-     * This plans, executes, and verifies the equivalent of these SQL queries
+     *
+     * <p>This plans, executes, and verifies the equivalent of these SQL queries
      * <pre>
      * {@code
      *   INSERT INTO Restaurants(rec_no, name)
@@ -645,6 +647,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *                (400, 'Bonita Burrito')) v;
      * }
      * </pre>
+     *
      * @throws Exception if there is a problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

@@ -85,8 +85,8 @@ class Delete {
 
     /**
      * Deletes a vector identified by its primary key from the Guardiann index.
-     * <p>
-     * Locates the vector's references in nearby clusters by querying the HNSW centroid index,
+     *
+     * <p>Locates the vector's references in nearby clusters by querying the HNSW centroid index,
      * removes them, adjusts cluster metadata, and enqueues a merge task via
      * {@link Primitives#updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe} if the primary cluster's size drops below the
      * configured minimum (and a mergeable neighbor exists). Finally, removes the vector's metadata entry.

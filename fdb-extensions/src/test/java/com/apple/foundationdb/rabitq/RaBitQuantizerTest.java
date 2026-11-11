@@ -206,6 +206,7 @@ public class RaBitQuantizerTest {
     /**
      * Create a random vector {@code v}, encode it into {@code encodedV} and estimate the distance between {@code v} and
      * {@code encodedV} which should be very close to {@code 0}.
+     *
      * @param seed a seed
      * @param numDimensions the number of dimensions
      * @param numExBits the number of bits per dimension used for encoding
@@ -226,6 +227,7 @@ public class RaBitQuantizerTest {
     /**
      * Create a random vector {@code v}, encode it into {@code encodedV} and estimate the distance between {@code v} and
      * {@code encodedV} which should be very close to {@code 0}.
+     *
      * @param seed a seed
      * @param numDimensions the number of dimensions
      * @param numExBits the number of bits per dimension used for encoding
@@ -247,6 +249,7 @@ public class RaBitQuantizerTest {
     /**
      * Create a random vector {@code v}, encode it into {@code encodedV} and estimate the distance between {@code v} and
      * {@code encodedV} which should be very close to {@code 0}.
+     *
      * @param seed a seed
      * @param numDimensions the number of dimensions
      * @param numExBits the number of bits per dimension used for encoding

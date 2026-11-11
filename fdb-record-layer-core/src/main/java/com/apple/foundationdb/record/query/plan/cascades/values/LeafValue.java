@@ -35,6 +35,7 @@ public interface LeafValue extends Value {
 
     /**
      * Method to retrieve a list of children values.
+     *
      * @return a list of children
      */
     @Nonnull
@@ -52,10 +53,10 @@ public interface LeafValue extends Value {
     /**
      * Return a new {@link Value} that is the same one but with the correlated identifiers updated to a new alias, or
      * {@code this} if there are no correlated identifiers.
-     * <p>
-     *     See: {@link com.apple.foundationdb.record.query.plan.cascades.Correlated} for more details.
-     * </p>
-     * In the case where this leaf returns values for {@link #getCorrelatedTo()}, this method is used to
+     *
+     * <p>See: {@link com.apple.foundationdb.record.query.plan.cascades.Correlated} for more details.
+     *
+     * <p>In the case where this leaf returns values for {@link #getCorrelatedTo()}, this method is used to
      * return a new {@link Value} that is the same as this one, but with the quantifiers updated.
      *
      *

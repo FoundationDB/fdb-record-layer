@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,8 +38,8 @@ import java.util.function.Predicate;
 /**
  * Represents an immutable change set for the neighbors of a node in the HNSW graph, specifically
  * capturing the insertion of new neighbors.
- * <p>
- * This class layers new neighbors on top of a parent {@link NeighborsChangeSet}, allowing for a
+ *
+ * <p>This class layers new neighbors on top of a parent {@link NeighborsChangeSet}, allowing for a
  * layered representation of modifications. The changes are not applied to the database until
  * {@link #writeDelta} is called.
  *
@@ -62,8 +63,8 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Creates a new {@code InsertNeighborsChangeSet}.
-     * <p>
-     * This constructor initializes the change set with its parent and a list of neighbors
+     *
+     * <p>This constructor initializes the change set with its parent and a list of neighbors
      * to be inserted. It internally builds an immutable map of the inserted neighbors,
      * keyed by their primary key for efficient lookups.
      *
@@ -90,6 +91,7 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     /**
      * Gets the parent {@code NeighborsChangeSet} from which this change set was derived.
+     *
      * @return the parent {@link NeighborsChangeSet}, which is never {@code null}.
      */
     @Nonnull
@@ -103,14 +105,6 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return true;
     }
 
-    /**
-     * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
-     * <p>
-     * This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
-     * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
-     * set of neighbors from this node and all its ancestors.
-     * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
-     */
     @Override
     public int size() {
         return size;
@@ -129,10 +123,25 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
                 insertedNeighborsMap.values());
     }
 
+    @Nullable
+    @Override
+    public Iterable<N> getPureInsertions() {
+        final Iterable<N> parentInsertions = getParent().getPureInsertions();
+        if (parentInsertions == null || size() != parent.size() + insertedNeighborsMap.size()) {
+            // Parent is not a pure insertion or an inserted neighbor duplicates one the parent already has (duplicates
+            // within the inserted list itself are rejected by the constructor). In either case, this is not considered
+            // a pure insertion.
+            return null;
+        }
+        // Add the insertions from this group into the ones from the parent. This does not remove
+        // duplicates as the size check above ensures that there are no duplicates
+        return Iterables.concat(parentInsertions, insertedNeighborsMap.values());
+    }
+
     /**
      * Writes the delta of this layer to the specified storage adapter.
-     * <p>
-     * This implementation first delegates to the parent to write its delta, but excludes any neighbors that have been
+     *
+     * <p>This implementation first delegates to the parent to write its delta, but excludes any neighbors that have been
      * newly inserted in the current context (i.e., those in {@code insertedNeighborsMap}). It then iterates through its
      * own newly inserted neighbors. For each neighbor that satisfies the given {@code tuplePredicate}, it writes the
      * neighbor relationship to storage via the {@link InliningStorageAdapter}.

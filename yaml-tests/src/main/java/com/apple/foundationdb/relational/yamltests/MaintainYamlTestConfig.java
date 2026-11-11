@@ -28,9 +28,8 @@ import java.lang.annotation.RetentionPolicy;
 /**
  * Mark specific {@link YamlTestConfig} that are designated test maintenance helper configs as enabled for the current
  * test in an {@link YamlTest} test class.
- * <p>
- *     Any config in {@link #value()} will be included for the annotated test. Any config not included will be skipped.
- * </p>
+ *
+ * <p>Any config in {@link #value()} will be included for the annotated test. Any config not included will be skipped.
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface MaintainYamlTestConfig {

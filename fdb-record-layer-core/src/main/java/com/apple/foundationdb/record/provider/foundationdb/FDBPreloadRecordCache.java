@@ -57,7 +57,7 @@ class FDBPreloadRecordCache {
      *    act on out-of-date record
      * </pre>
      *
-     * The {@code Future} effectively reserves an entry in the cache to be replaced by the future record. Under normal
+     * <p>The {@code Future} effectively reserves an entry in the cache to be replaced by the future record. Under normal
      * circumstances, completing the future ({@link Future#complete(FDBRawRecord)}) will replace that reserved
      * entry with the record that was read.  However, in scenarios such as the one depicted above, when
      * another operation invalidates ({@link #invalidate(Tuple)}), it will eject the uncompleted {@code Future}
@@ -76,6 +76,7 @@ class FDBPreloadRecordCache {
 
     /**
      * Invalidates an entry in the cache, or discarding the outstanding result of a pre-fetch when it completes.
+     *
      * @param tuple the tuple to invalidate
      */
     public void invalidate(@Nonnull Tuple tuple) {

@@ -115,6 +115,7 @@ dependencies {
 
     testFixturesImplementation(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
+        exclude(group: "com.google.code.findbugs", module: "jsr305")
     }
     testFixturesImplementation(project(':fdb-test-utils'))
     testFixturesImplementation(libs.snakeyaml) // required for FDBTestEnvironment

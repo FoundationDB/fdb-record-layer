@@ -109,9 +109,9 @@ class PlanningCostModelVectorEngineTest {
     @Nonnull
     private static Index vectorIndex(@Nonnull final String indexName, final boolean guardiann) {
         return guardiann
-               ? new Index(indexName, field("embedding"), IndexTypes.VECTOR,
+                ? new Index(indexName, field("embedding"), IndexTypes.VECTOR,
                        Collections.singletonMap(IndexOptions.VECTOR_ENGINE, "GUARDIANN"))
-               : new Index(indexName, field("embedding"), IndexTypes.VECTOR);
+                : new Index(indexName, field("embedding"), IndexTypes.VECTOR);
     }
 
     /**

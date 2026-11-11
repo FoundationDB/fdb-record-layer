@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 
 /**
  * An interface to provide a state-based visitor pattern that can traverse a tree of {@link KeyExpression}s.
+ *
  * @param <S> the type of the state object which depends on the specific implementation
  * @param <R> the type of the result object which is returned by all visitation methods
  */
@@ -41,6 +42,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
 
     /**
      * Method to return the (immutable) current state.
+     *
      * @return the current state of type {@code S}
      */
     S getCurrentState();

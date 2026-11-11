@@ -148,6 +148,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
      * TODO When this <a href="https://github.com/FoundationDB/fdb-record-layer/issues/1910">issue</a> gets addressed
      *      this code-path will become obsolete and can be removed. In fact, leaving it in wouldn't hurt as a deep copy
      *      would be deemed unnecessary.
+     *
      * @param typeRepository the type repository
      * @param fieldType the type of the field
      * @param field the object that may or may not be copied

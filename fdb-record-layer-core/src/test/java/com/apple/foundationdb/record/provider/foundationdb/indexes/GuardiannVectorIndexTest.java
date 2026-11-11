@@ -36,13 +36,12 @@ import java.util.Map;
  * Vector index tests against the Guardiann engine. The behavioral scenarios are inherited from
  * {@link VectorIndexEngineTestSuite}; this class pins the engine to Guardiann and adds the Guardiann-specific
  * option-evolution validation.
- * <p>
- * The cluster-size knobs are tuned so that each partition forms a handful of clusters (rather than one giant cluster or
+ *
+ * <p>The cluster-size knobs are tuned so that each partition forms a handful of clusters (rather than one giant cluster or
  * the production-sized defaults), which exercises Guardiann's multi-cluster search/replication paths while staying well
  * within {@code searchMaxClusters} so recall stays high on these small, uniformly-random test datasets.
  */
 class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
-
     @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
@@ -53,6 +52,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "20")
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
+                .put(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "true")
                 .build();
     }
 
@@ -93,7 +93,9 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.GUARDIANN_SPLIT_MERGE_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_REASSIGN_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_COLLAPSE_CONCURRENCY, "5")
-                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5").build());
+                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5")
+                            // the storage format of the centroid HNSW can be switched on (and off) for an existing index
+                            .put(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "false").build());
 
             // switching the engine is never allowed
             assertInvalidOptionsEvolution(metaData, index,
@@ -128,6 +130,10 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
 
             assertInvalidOptionsEvolution(metaData, index,
                     optionsWith(IndexOptions.GUARDIANN_SPLIT_IMBALANCE_PENALTY, "1.0"));
+
+            // so is the k-means balancing ladder, which decides how evenly an oversized cluster gets split
+            assertInvalidOptionsEvolution(metaData, index,
+                    optionsWith(IndexOptions.GUARDIANN_K_MEANS_BALANCING_LADDER, "0.0,0.05"));
 
             // changing an immutable construction-time centroid-walk knob is not allowed: an index must be built with a
             // single, fixed set of construction tuning

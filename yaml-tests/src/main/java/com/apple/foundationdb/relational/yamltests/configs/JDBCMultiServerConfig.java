@@ -32,8 +32,8 @@ import java.util.List;
 
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
- * <p>
- * Multi-cluster support (in-process servers for all cluster files) is inherited from
+ *
+ * <p>Multi-cluster support (in-process servers for all cluster files) is inherited from
  * {@link JDBCInProcessConfig}. The external server clusters should have one entry per cluster file
  * (matching the in-process servers), so that cluster-specific connections also alternate.
  */

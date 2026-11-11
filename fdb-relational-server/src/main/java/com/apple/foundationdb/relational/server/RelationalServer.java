@@ -60,6 +60,7 @@ import java.util.stream.Collectors;
  * Hosts the JDBC GRPC Service and an HTTP server to export metrics on.
  * (On why two ports in one server, see prometheus issue for discussion
  * https://github.com/prometheus/prometheus/issues/8414)
+ *
  * @see InProcessRelationalServer
  */
 // Exceptions are ongoing work. SQLException 'works' now. Polish. Other exceptions need to be figured and handled.
@@ -110,6 +111,7 @@ public class RelationalServer implements Closeable {
     /**
      * GRPC port.
      * Error if you call this method before {@link #start()} completes.
+     *
      * @return The port GRPC is listening on
      */
     public int getGrpcPort() {
@@ -119,6 +121,7 @@ public class RelationalServer implements Closeable {
     /**
      * HTTP port.
      * Error if you call this method before {@link #start()} completes.
+     *
      * @return The port HTTP is listening on
      */
     public int getHttpPort() {

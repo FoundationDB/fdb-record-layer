@@ -27,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 
 /**
  * Represents a function.
+ *
  * @param <T> The type of the function.
  */
 @Immutable

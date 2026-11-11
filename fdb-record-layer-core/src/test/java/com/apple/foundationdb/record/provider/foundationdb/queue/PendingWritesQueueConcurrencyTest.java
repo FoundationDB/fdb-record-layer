@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Randomized concurrency tests for {@link PendingWritesQueue}.
  *
- *  A storm of worker threads issues mixed enqueue / size-read / cursor-scan / drain
+ * <p>A storm of worker threads issues mixed enqueue / size-read / cursor-scan / drain
  *  operations. Enqueues are conflict-free by construction; size reads use a snapshot;
  *  cursor scans are read-only; drain workers clear a batch and record the cleared
  *  payloads into a shared result set. After the storm we drain whatever is left into the
@@ -193,11 +193,11 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
      *
      * <p>The cursor forces snapshot isolation, so two drainers could observe the same entry. Since clearEntry will
      * conflict on two drains to the same entry, only one drainer can commit. The loser rolls back and
-     * records nothing. This keeps draining exactly-once. Enqueues are not affected (different key)</p>
+     * records nothing. This keeps draining exactly-once. Enqueues are not affected (different key)
      *
      * <p>Like the enqueue path, the commit and the append to {@code drained} happen together
      * under {@code commitLock}. Because drains always take from the front (lowest versionstamps
-     * first), this makes the drained sequence match the enqueue/commit order.</p>
+     * first), this makes the drained sequence match the enqueue/commit order.
      */
     private void drainSomeIntoResult(@Nonnull PendingWritesQueue<TestQueuePayload> queue,
                                      @Nonnull ConcurrentLinkedQueue<TestQueuePayload> drained,

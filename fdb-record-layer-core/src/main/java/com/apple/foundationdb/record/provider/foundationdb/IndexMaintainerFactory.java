@@ -32,14 +32,10 @@ import java.util.Collections;
 /**
  * A factory for {@link IndexMaintainer}.
  *
- * <p>
- * An index maintainer factory is associated with one or more index types.
+ * <p>An index maintainer factory is associated with one or more index types.
  * It is also responsible for validation of {@link Index} meta-data.
- * </p>
  *
- * <p>
- * An index maintainer factory would typically be annotated to allow the classpath-based registry to find it.
- * </p>
+ * <p>An index maintainer factory would typically be annotated to allow the classpath-based registry to find it.
  * <pre><code>
  * &#64;AutoService(IndexMaintainerFactory.class)
  * </code></pre>
@@ -52,14 +48,14 @@ public interface IndexMaintainerFactory {
     IndexGeneralAttributes DEFAULT_GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     /**
-     * Get the index types supported by this factory.
-     * @return a collection of strings of index types supported by this factory
+     * {@return a collection of strings of index types supported by this factory}
      */
     @Nonnull
     Iterable<String> getIndexTypes();
 
     /**
      * Get a validator for the given index meta-data.
+     *
      * @param index an index that was produced by this factory
      * @return a validator for this kind of index
      */
@@ -68,6 +64,7 @@ public interface IndexMaintainerFactory {
 
     /**
      * Get an index maintainer for the given record store and index meta-data.
+     *
      * @param state the state of the new index maintainer
      * @return a new index maintainer for the type of index given
      */
@@ -87,18 +84,15 @@ public interface IndexMaintainerFactory {
      * with the planner as it changes. For that reason, this should only
      * be overridden by users who know what they are doing.
      *
-     * <p>
-     * By default, this returns an empty collection. This means that the
+     * <p>By default, this returns an empty collection. This means that the
      * index will not be matchable by the {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
      * Index types that want to be used in plans should implement this
      * method. Utility methods in {@link MatchCandidate} can be used to
      * create, for example, canonical expansions of indexes that behave like
      * indexes defined in the core repository (e.g., {@link com.apple.foundationdb.record.metadata.IndexTypes#VALUE}
      * indexes).
-     * </p>
      *
-     * <p>
-     * Indexes may return more than one {@link MatchCandidate}. This can be
+     * <p>Indexes may return more than one {@link MatchCandidate}. This can be
      * useful for index types that have more than one way of being scanned.
      * For example, the {@link com.apple.foundationdb.record.metadata.IndexTypes#RANK}
      * index can be scanned {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE},
@@ -107,7 +101,6 @@ public interface IndexMaintainerFactory {
      * at which point it behaves very differently. The different scan types are reflected
      * in different {@link MatchCandidate} which encode different information about
      * the index and how it should be scanned.
-     * </p>
      *
      * @param metaData the meta-data in which the index is defined
      * @param index the index to expend

@@ -36,8 +36,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An abstract base class for {@link StorageAdapter} implementations.
- * <p>
- * This class provides the common infrastructure for managing HNSW graph data within a {@link Subspace}.
+ *
+ * <p>This class provides the common infrastructure for managing HNSW graph data within a {@link Subspace}.
  * It handles the configuration, node creation, and listener management, while delegating the actual
  * storage-specific read and write operations to concrete subclasses through the {@code fetchNodeInternal}
  * and {@code writeNodeInternal} abstract methods.
@@ -64,8 +64,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Constructs a new {@code AbstractStorageAdapter}.
-     * <p>
-     * This constructor initializes the adapter with the necessary configuration,
+     *
+     * <p>This constructor initializes the adapter with the necessary configuration,
      * factories, and listeners for managing an HNSW graph. It also sets up a
      * dedicated data subspace within the provided main subspace for storing node data.
      *
@@ -115,7 +115,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     @Override
     public boolean isCompactStorageAdapter() {
-        final boolean isCompactStorageAdapter = getNodeFactory().getNodeKind() == NodeKind.COMPACT;
+        final boolean isCompactStorageAdapter = getNodeFactory().getNodeKind().isCompact();
         Verify.verify(!isCompactStorageAdapter || this instanceof CompactStorageAdapter);
         return isCompactStorageAdapter;
     }
@@ -135,8 +135,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Gets the cached subspace for the data associated with this component.
-     * <p>
-     * The data subspace defines the portion of the directory space where the data
+     *
+     * <p>The data subspace defines the portion of the directory space where the data
      * for this component is stored.
      *
      * @return the non-null {@link Subspace} for the data
@@ -169,8 +169,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Asynchronously fetches a specific node from the data store for a given layer and primary key.
-     * <p>
-     * This is an internal, abstract method that concrete subclasses must implement to define
+     *
+     * <p>This is an internal, abstract method that concrete subclasses must implement to define
      * the storage-specific logic for retrieving a node. The operation is performed within the
      * context of the provided {@link ReadTransaction}.
      *
@@ -179,7 +179,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *        into the storage space that is currently being used
      * @param layer the layer index from which to fetch the node
      * @param primaryKey the primary key that uniquely identifies the node to be fetched; must not be {@code null}
-     *
      * @return a {@link CompletableFuture} that will be completed with the fetched {@link AbstractNode}.
      *         The future will complete with {@code null} if no node is found for the given key and layer.
      */
@@ -193,7 +192,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      *
      * @param node the node to check
      * was passed in
-     *
      * @return the node that was passed in
      */
     @Nullable
@@ -203,8 +201,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Writes a given node and its neighbor modifications to the underlying storage.
-     * <p>
-     * This operation is executed within the context of the provided {@link Transaction}.
+     *
+     * <p>This operation is executed within the context of the provided {@link Transaction}.
      * It handles persisting the node's data at a specific {@code layer} and applies
      * the changes to its neighbors as defined in the {@link NeighborsChangeSet}.
      * This method delegates the core writing logic to an internal method and provides
@@ -229,8 +227,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Writes a single node to the given layer of the data store as part of a larger transaction.
-     * <p>
-     * This is an abstract method that concrete implementations must provide.
+     *
+     * <p>This is an abstract method that concrete implementations must provide.
      * It is responsible for the low-level persistence of the given {@code node} at a
      * specific {@code layer}. The implementation should also handle the modifications
      * to the node's neighbors, as detailed in the {@code changeSet}.
@@ -256,6 +254,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     /**
      * Deletes a single node from the given layer of the data store as part of a larger transaction.
+     *
      * @param transaction the transaction to use
      * @param layer the layer
      * @param primaryKey the primary key of the node

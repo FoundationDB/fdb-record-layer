@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -175,7 +176,7 @@ public class RecordQueryDefaultOnEmptyPlan extends AbstractRelationalExpressionW
 
     @Override
     public boolean isReverse() {
-        return getChild().isReverse();
+        return Quantifiers.isReversed(ImmutableList.of(inner));
     }
 
     @Override

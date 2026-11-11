@@ -74,6 +74,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
     /**
      * Dumb private constructor. Use static factory methods instead!
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map
@@ -112,6 +113,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
     /**
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     *
      * @return an iterable of match results.
      */
     @Nonnull
@@ -129,6 +131,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * the method {@link MatchAccumulator#accumulate} is called. Once a set of bindings is established for all aliases
      * in {@link #getAliases} this method then calls {@link MatchAccumulator#finish} to produce an iterable of type
      * {@code R}.
+     *
      * @param iterator an enumerating iterable for the permutations on this side
      * @param otherPermutation one permutation (that is not violating dependencies, constraints, etc.) of the other side
      * @return an {@link Iterator} of match results (of type {@code BoundMatch<R>})
@@ -146,7 +149,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
         final int size = otherPermutation.size();
 
-        return new AbstractIterator<BoundMatch<R>>() {
+        return new AbstractIterator<>() {
             @Override
             protected BoundMatch<R> computeNext() {
                 while (iterator.hasNext()) {
@@ -204,6 +207,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
     /**
      * Static factory method to create a generic matcher using element type {@code T}. This method is optimized to the
      * case when the dependsOn sets are already given by sets of {@link CorrelationIdentifier}s.
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map
@@ -268,7 +272,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      */
     @Nonnull
     public static <M> MatchAccumulator<M, EnumeratingIterable<M>> productAccumulator() {
-        return new MatchAccumulator<M, EnumeratingIterable<M>>() {
+        return new MatchAccumulator<>() {
             private final ImmutableList.Builder<Iterable<M>> state = ImmutableList.builder();
 
             @Override

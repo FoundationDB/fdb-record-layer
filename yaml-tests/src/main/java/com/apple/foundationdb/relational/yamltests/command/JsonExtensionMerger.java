@@ -42,8 +42,8 @@ import java.util.Map;
 
 /**
  * Re-attach the proto2 extensions that {@link JsonFormat} discards while parsing metadata from JSON.
- * <p>
- * {@code JsonFormat} implements the proto3 JSON mapping, which has no notion of extensions: they are treated as if they
+ *
+ * <p>{@code JsonFormat} implements the proto3 JSON mapping, which has no notion of extensions: they are treated as if they
  * did not exist. Extensions do, however, carry information the metadata cannot do without — a vector field is a
  * {@code bytes} field whose precision and dimensions live in an extension of {@code google.protobuf.FieldOptions}, so
  * dropping it silently turns the field into a plain {@code bytes} field. So this walks the JSON alongside the builder it
@@ -57,7 +57,6 @@ import java.util.Map;
  * extensions of one message may share one and the short form would be ambiguous. Note that
  * {@link JsonFormat#printer()} emits the short form, so a file it writes does not round-trip its extensions through
  * this class.
- * </p>
  */
 final class JsonExtensionMerger {
     /**
@@ -215,10 +214,10 @@ final class JsonExtensionMerger {
                     throw new IllegalArgumentException(notA("boolean", extension, value));
                 }
                 yield switch (value.getAsString()) {
-                        case "true" -> true;
-                        case "false" -> false;
-                        default -> throw new IllegalArgumentException(notA("boolean", extension, value));
-                    };
+                    case "true" -> true;
+                    case "false" -> false;
+                    default -> throw new IllegalArgumentException(notA("boolean", extension, value));
+                };
             }
             case BYTE_STRING -> {
                 // the printer emits the standard alphabet, but JsonFormat reads either

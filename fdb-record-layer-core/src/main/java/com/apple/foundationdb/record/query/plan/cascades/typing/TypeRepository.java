@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
  * A utility class that enables mapping of a structured {@link Type} into a dynamically-generated equivalent Protobuf message
  * descriptor.
  *
- * The generation cost is amortized, i.e. if two {@link Type}s are equal, then only a single Protobuf message descriptor will be
+ * <p>The generation cost is amortized, i.e. if two {@link Type}s are equal, then only a single Protobuf message descriptor will be
  * generated.
  */
 public class TypeRepository {
@@ -164,6 +164,7 @@ public class TypeRepository {
 
     /**
      * Returns the protobuf type name of the given {@link Type}.
+     *
      * @param type The type to get the name of.
      * @return The protobuf type name of the {@link Type}.
      */

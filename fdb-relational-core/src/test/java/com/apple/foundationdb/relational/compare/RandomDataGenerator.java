@@ -60,9 +60,7 @@ public class RandomDataGenerator implements DataGenerator {
     }
 
     /**
-     * Get the next randomly generated message.
-     *
-     * @return the next randomly generated message, or {@code null} if the generator is exhausted
+     * {@return the next randomly generated message, or {@code null} if the generator is exhausted}
      */
     @Override
     @Nullable

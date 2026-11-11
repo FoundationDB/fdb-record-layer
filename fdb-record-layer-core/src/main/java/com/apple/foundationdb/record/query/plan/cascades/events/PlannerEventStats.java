@@ -28,12 +28,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * <p>
  * Aggregated statistics for a single {@link PlannerEvent} class across the planning of a single query.
- * </p>
- * <p>
- * An instance of this class should be used to track a single {@link PlannerEvent} class.
- * </p>
+ *
+ * <p>An instance of this class should be used to track a single {@link PlannerEvent} class.
  */
 public class PlannerEventStats {
     @Nonnull
@@ -53,6 +50,7 @@ public class PlannerEventStats {
     /**
      * Get a {@link Map} of {@link PlannerEvent.Location} to the number of times instances of the {@link PlannerEvent}
      * class tracked by this instance were emitted with the provided {@link PlannerEvent.Location}.
+     *
      * @return a {@link Map} of {@link PlannerEvent.Location} to a {@link Long}.
      */
     @Nonnull
@@ -63,6 +61,7 @@ public class PlannerEventStats {
     /**
      * Get the number of times instances of the {@link PlannerEvent} class tracked by this instance
      * were emitted with the provided {@link PlannerEvent.Location}.
+     *
      * @return {@code long} representing the number of events emitted with {@code location}.
      */
     public long getCount(@Nonnull final PlannerEvent.Location location) {
@@ -70,16 +69,13 @@ public class PlannerEventStats {
     }
 
     /**
-     * <p>
      * Returns the total time spent executing instances of the {@link PlannerEvent} class this instance of
      * {@link PlannerEventStats} tracks, measured from {@link PlannerEvent.Location#BEGIN} to
      * {@link PlannerEvent.Location#END}. This includes time spent in any nested planner events that occurred within the
      * execution of this event type.
-     * </p>
-     * <p>
-     * For example, if Event A runs for 10ns and Event B (nested within A) runs for 3ns,
+     *
+     * <p>For example, if Event A runs for 10ns and Event B (nested within A) runs for 3ns,
      * then Event A's total time is 10ns and Event B's total time is 3ns.
-     * </p>
      *
      * @return the total execution time in nanoseconds for this event type
      */
@@ -88,15 +84,13 @@ public class PlannerEventStats {
     }
 
     /**
-     * <p>
      * Returns the total time spent executing instances of the {@link PlannerEvent} class this instance of
      * {@link PlannerEventStats} tracks, which excludes time spent in any nested planner events that occurred within the
      * execution of this event type. This represents the time directly attributable to this event type's processing.
-     * </p>
-     * <p>
-     * For example, if Event A runs for 10ms total and Event B (nested within A) runs for 3ms,
+     *
+     * <p>For example, if Event A runs for 10ms total and Event B (nested within A) runs for 3ms,
      * then Event A's own time is 7ms (10ms - 3ms) and Event B's own time is 3ms.
-     * </p>
+     *
      * @return the own exclusive execution time in nanoseconds for this event type
      */
     public long getOwnTimeInNs() {
@@ -105,6 +99,7 @@ public class PlannerEventStats {
 
     /**
      * Return an immutable copy of this instance.
+     *
      * @return an immutable instance of {@link PlannerEventStats}.
      */
     @Nonnull
@@ -114,6 +109,7 @@ public class PlannerEventStats {
 
     /**
      * Merge two instances of {@link PlannerEventStats}.
+     *
      * @param first the first instance of {@link PlannerEventStats}
      * @param second the second instance of {@link PlannerEventStats}
      * @return a new instance of {@link PlannerEventStats} containing the combined statistics for the {@link PlannerEvent} class

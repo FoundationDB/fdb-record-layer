@@ -26,12 +26,13 @@ import javax.annotation.Nonnull;
  * Basic interface for all attributes of {@link AbstractPlannerGraph.AbstractNode}
  * as well as {@link AbstractPlannerGraph.AbstractEdge}.
  *
- * Represents a tag object that annotates an {@link AbstractPlannerGraph.AbstractNode} or an
+ * <p>Represents a tag object that annotates an {@link AbstractPlannerGraph.AbstractNode} or an
  * {@link AbstractPlannerGraph.AbstractEdge}, providing additional information to a {@link GraphExporter}.
  */
 public interface Attribute {
     /**
      * Returns whether this method is visible in the given context.
+     *
      * @param context the exporter context of the exporter being used
      * @param <N> node type
      * @param <E> edge type
@@ -41,6 +42,7 @@ public interface Attribute {
 
     /**
      * Return the underlying object this attribute refers to.
+     *
      * @return the object.
      */
     @Nonnull
@@ -93,6 +95,7 @@ public interface Attribute {
 
     /**
      * Static factory method to create a GML attribute based on a reference to some object.
+     *
      * @param reference the reference
      * @return a new attribute that is only visible to the GML exporter
      */
@@ -115,6 +118,7 @@ public interface Attribute {
 
     /**
      * Static factory method to create a DOT attribute based on a reference to some object.
+     *
      * @param reference the reference
      * @return a new attribute that is only visible to the DOT exporter
      */
@@ -137,6 +141,7 @@ public interface Attribute {
 
     /**
      * Static factory method to create an attribute based on a reference to some object.
+     *
      * @param reference the reference
      * @return a new attribute that is visible to all exporters
      */
@@ -159,6 +164,7 @@ public interface Attribute {
 
     /**
      * Static factory method to create an attribute based on a reference to some object.
+     *
      * @param reference the reference
      * @return a new attribute that is invisible to all exporters. Attributes of this kind can only be used in variable
      *         substitutions.

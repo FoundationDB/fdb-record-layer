@@ -54,10 +54,8 @@ public final class FDBRecordStoreProperties {
      * Those keys are stored contiguously, and so they can be scanned with a single small range read, but if the data
      * are stored on an LSM, then the single scan may be less efficient than multiple gets.
      *
-     * <p>
-     * At the moment, this option is not recommended except during performance testing. Adopters should verify whether
+     * <p>At the moment, this option is not recommended except during performance testing. Adopters should verify whether
      * this change increases their measured performance on their workload before using.
-     * </p>
      */
     @API(API.Status.EXPERIMENTAL)
     public static final RecordLayerPropertyKey<Boolean> LOAD_RECORDS_VIA_GETS = RecordLayerPropertyKey.booleanPropertyKey(

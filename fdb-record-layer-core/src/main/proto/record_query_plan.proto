@@ -286,6 +286,8 @@ message PValue {
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
+    PCurrentTimestampValue current_timestamp_value = 65;
+    PExplodeValue explode_value = 66;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -1382,6 +1384,10 @@ message PIncarnationValue {
   // No fields needed - this function takes no arguments
 }
 
+message PCurrentTimestampValue {
+  optional PValue child_value = 1;
+}
+
 message PCardinalityValue {
   optional PValue child_value = 1;
 }
@@ -1402,6 +1408,13 @@ message PRangeValue {
   optional PValue end_exclusive_child = 1;
   optional PValue begin_inclusive_child = 2;
   optional PValue step_child = 3;
+}
+
+message PExplodeValue {
+  optional PValue collection_value = 1;
+  optional bool preserve_order = 2;
+  optional bool sorted = 3;
+  optional bool reverse = 4;
 }
 
 message PArrayDistinctValue {
@@ -1883,6 +1896,7 @@ message PRecordQueryDeletePlan {
 message PRecordQueryExplodePlan {
   optional PValue collection_value = 1;
   optional bool with_ordinality = 2;
+  // Note: Versions >4.16 no longer read `zero_based_ordinality`, but still write it on WITH ORDINALITY plans.
   optional bool zero_based_ordinality = 3;
   optional bool flows_record_constructor_value = 4;
 }
@@ -2051,6 +2065,7 @@ message PInSource {
     PSortedInParameterSource sorted_in_parameter_source = 4;
     PInValuesSource in_values_source = 5;
     PSortedInValuesSource sorted_in_values_source = 6;
+    PInExplodeSource in_explode_source = 7;
   }
 }
 
@@ -2082,6 +2097,12 @@ message PInValuesSource {
 message PSortedInValuesSource {
   optional PInValuesSource super = 1;
   optional bool reverse = 2;
+}
+
+message PInExplodeSource {
+  // the comparison of the source is derived from the explode, so it is not serialized
+  optional PInSource.Super super = 1;
+  optional PValue explode_value = 2;
 }
 
 //

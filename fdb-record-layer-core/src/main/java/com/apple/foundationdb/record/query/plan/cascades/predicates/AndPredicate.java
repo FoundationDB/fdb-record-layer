@@ -54,8 +54,8 @@ import java.util.function.Supplier;
 
 /**
  * A {@link QueryPredicate} that is satisfied when all of its child components are.
- * <br>
- * For tri-valued logic:
+ *
+ * <p>For tri-valued logic:
  * <ul>
  * <li>If all children are {@code true}, then {@code true}.</li>
  * <li>If any child is {@code false}, then {@code false}.</li>

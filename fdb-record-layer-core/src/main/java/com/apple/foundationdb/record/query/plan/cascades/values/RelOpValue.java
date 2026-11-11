@@ -107,6 +107,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Creates a new instance of {@link RelOpValue}.
+     *
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
@@ -231,15 +232,16 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         rightChild = promotedOperands.getRight();
         final boolean isArrayComparison = leftChild.getResultType().isArray();
         final boolean isEnumComparison = leftChild.getResultType().isEnum();
+        final boolean rightHasConstantObjectValues = rightChild.hasConstantObjectValues();
 
         // Note: When arrays are compared, we always use `ValueComparison`. `SimpleComparison` cannot be used because
         // it would encounter a serialization failure when calling `LiteralKeyExpression.toProtoValue()` to serialize
         // its comparand; that serializer currently cannot handle a `List` or `Enum`.
-        if (typeRepository != null && !isArrayComparison && !isEnumComparison) {
+        if (typeRepository != null && !isArrayComparison && !isEnumComparison && !rightHasConstantObjectValues) {
             final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
-                   ? Optional.of(new ConstantPredicate(false))
-                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                    ? Optional.of(new ConstantPredicate(false))
+                    : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
         } else {
             return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
         }
@@ -247,8 +249,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Attempt to compile-time evaluate {@code this} predicate as a constant {@link QueryPredicate}.
-     * <br/>
-     * <b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
+     *
+     * <p><b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
      * and explicit phase that does compactions, simplifications, and compile-time evaluations as an explicit
      * preprocessing step.
      *

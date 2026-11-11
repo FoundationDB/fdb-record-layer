@@ -27,9 +27,8 @@ import java.lang.annotation.RetentionPolicy;
 
 /**
  * Mark specific {@link YamlTestConfig} as disabled for the current test in an {@link YamlTest} test class.
- * <p>
- *     Any config in {@link #value()} will be skipped for the annotated test.
- * </p>
+ *
+ * <p>Any config in {@link #value()} will be skipped for the annotated test.
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ExcludeYamlTestConfig {

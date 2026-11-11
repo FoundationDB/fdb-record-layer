@@ -41,12 +41,12 @@ import java.util.function.Function;
  * node that is serialized into a key/value pair using this storage adapter leaves a significantly smaller
  * footprint when compared to the multitude of key/value pairs that are serialized/deserialized using
  * {@link BySlotStorageAdapter}.
- * <br>
- * These advantages are offset by the key disadvantage of having to read/deserialize and the serialize/write
+ *
+ * <p>These advantages are offset by the key disadvantage of having to read/deserialize and the serialize/write
  * the entire node to realize/persist a minute change to one of its slots. That, in turn, may cause a higher
  * likelihood of conflicting with another transaction.
- * <br>
- * Each node is serialized as follows (each {@code (thing)} is a tuple containing {@code thing}):
+ *
+ * <p>Each node is serialized as follows (each {@code (thing)} is a tuple containing {@code thing}):
  * <pre>
  * {@code
  *    key: nodeId: byte[16]
@@ -172,8 +172,8 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                       (nodeKind == NodeKind.INTERMEDIATE && childSlots != null));
 
         return nodeKind == NodeKind.LEAF
-               ? new LeafNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
+                ? new LeafNode(nodeId, itemSlots)
+                : new IntermediateNode(nodeId, childSlots);
     }
 
     @Nonnull

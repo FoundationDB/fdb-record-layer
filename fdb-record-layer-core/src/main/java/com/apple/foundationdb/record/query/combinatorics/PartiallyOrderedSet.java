@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
  *     </li>
  * </ul>
  *
- * This class is closely connected to other classes in this package. See also {@link TopologicalSort} and
+ * <p>This class is closely connected to other classes in this package. See also {@link TopologicalSort} and
  * {@link TransitiveClosure}.
  *
  * @param <T> the type of elements
@@ -136,9 +136,9 @@ public class PartiallyOrderedSet<T> {
     @Override
     public String toString() {
         return "{" +
-               set.stream().map(Object::toString).collect(Collectors.joining(", ")) +
-               (dependencyMap.isEmpty() ? "" : "| " + dependencyMap.entries().stream().map(entry -> entry.getValue() + "←" + entry.getKey()).collect(Collectors.joining(", "))) +
-               "}";
+                set.stream().map(Object::toString).collect(Collectors.joining(", ")) +
+                (dependencyMap.isEmpty() ? "" : "| " + dependencyMap.entries().stream().map(entry -> entry.getValue() + "←" + entry.getKey()).collect(Collectors.joining(", "))) +
+                "}";
     }
 
     @Nonnull
@@ -268,6 +268,7 @@ public class PartiallyOrderedSet<T> {
      * Overload for mapping the elements and dependencies of this partially-ordered set using a multimap instead of
      * a map {@link #mapAll(Map)}. This means that elements may be mapped to multiple elements in the target domain
      * {@code R} while maintaining all dependencies of the source (in a replicated way).
+     *
      * @param <R> the type parameter for the target domain
      * @param multimap a multimap specifying the mapping between source and target
      * @return a new partially-ordered set over the domain {@code R} as specified by {@code multimap}
@@ -295,6 +296,7 @@ public class PartiallyOrderedSet<T> {
     /**
      * Method that computes a new partially-ordered set that only retains elements that pass the filtering predicate.
      * The filtering is applied in a way that we do not break dependencies.
+     *
      * @param predicate a predicate that can decide whether an independent element is removed or retained
      * @return a new {@link PartiallyOrderedSet}
      */
@@ -341,12 +343,12 @@ public class PartiallyOrderedSet<T> {
      * An <em>eligible</em> element is an element that is smallest with respect to the partial order. In total order,
      * there would only ever be exactly one such element. In a partial order there can be many such elements.
      *
-     * Objects of this class should be initially created by calling {@link #eligibleSet()}. The current set of
+     * <p>Objects of this class should be initially created by calling {@link #eligibleSet()}. The current set of
      * eligible elements can then be retrieved using {@link #eligibleElements()}. In order to advance <em>iteration</em>
      * the caller can remove elements from the set of currently eligible elements, thus creating a new,
      * albeit smaller in cardinality, partial order.
      *
-     * By repeatedly removing elements, a caller can consume the entire partial order in a well-defined way. This
+     * <p>By repeatedly removing elements, a caller can consume the entire partial order in a well-defined way. This
      * concept of iteration is a little more complex than the standard Java {@link java.util.Iterator} approach,
      * as the next step of the iteration is defined by removing a particular subset of elements that is determined
      * by the caller.
@@ -433,6 +435,7 @@ public class PartiallyOrderedSet<T> {
     /**
      * Construct the transitive closure from a given set and a function that maps each element of the given set to
      * other elements that constitutes that element's dependencies.
+     *
      * @param <T> the type of the elements in {@code set}
      * @param set a set of elements
      * @param dependsOnFn a function mapping each element of the set to its dependencies of type {@code T}. Note that
@@ -496,6 +499,7 @@ public class PartiallyOrderedSet<T> {
 
     /**
      * Builder for {@code PartiallyOrderedSet}.
+     *
      * @param <T> the type of elements
      */
     public static class Builder<T> {

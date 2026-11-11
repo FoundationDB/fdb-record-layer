@@ -47,17 +47,17 @@ import java.util.stream.Collectors;
 /**
  * A normalizer of a tree of {@link QueryPredicate}s into a normal form which may be its conjunctive or disjunctive
  * normal form.
- * <br>
- * The full normal form has a single {@code Or} or {@code And} at the root, all of whose children are {@code And} resp. {@code Or},
+ *
+ * <p>The full normal form has a single {@code Or} or {@code And} at the root, all of whose children are {@code And} resp. {@code Or},
  * none of whose children have other Boolean operators. This is abbreviated to exclude parent Boolean nodes with only one child.
  * The intermediate form for the normalizer is a list of lists.
- * <br>
- * The <em>size</em> of a Boolean expression in normal form is the number of terms in the outermost
+ *
+ * <p>The <em>size</em> of a Boolean expression in normal form is the number of terms in the outermost
  * {@code Or} <a href="http://www.contrib.andrew.cmu.edu/~ryanod/?p=646">[O'Donnell 2014]</a>.
  * The {@code BooleanPredicateNormalizer} will not normalize a {@link QueryPredicate} if the normalized form would have a size
  * that exceeds the size limit. This limit is useful to avoid wastefully normalizing expressions with a very large normal form.
- * <br>
- * We distinguish CNFs (conjunctive normal forms) and DNF (disjunctive normal forms). The logic to obtain these normal
+ *
+ * <p>We distinguish CNFs (conjunctive normal forms) and DNF (disjunctive normal forms). The logic to obtain these normal
  * forms is identical except that the roles or {@code Or}s and {@code And}s are reversed. In order to name identifiers
  * in the code in a meaningful way, we talk about major and minor where CNF uses a major of {@code And} and a minor
  * of {@code Or} and a DNF uses a major of {@code Or} and a minor of {@code And}.
@@ -127,6 +127,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a (dnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @Nonnull
@@ -136,6 +137,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a (cnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
+     *
      * @return a normalizer with the default size limit
      */
     @Nonnull
@@ -145,6 +147,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Obtain a normalizer with the given size limit.
+     *
      * @param mode the mode of the new normalizer
      * @param sizeLimit a limit on the size of normalized form that this normalizer will produce
      * @return a normalizer with the given size limit
@@ -160,12 +163,13 @@ public class BooleanPredicateNormalizer {
     @Nonnull
     private static BooleanPredicateNormalizer getDefaultInstance(@Nonnull final Mode mode) {
         return mode == Mode.CNF
-               ? DEFAULT_CNF
-               : DEFAULT_DNF;
+                ? DEFAULT_CNF
+                : DEFAULT_DNF;
     }
 
     /**
      * Obtain a normalizer for the given planner configuration.
+     *
      * @param mode the mode of the new normalizer
      * @param configuration a a planner configuration specifying the normalization limit that this normalizer will produce
      * @return a normalizer for the given planner configuration
@@ -178,8 +182,7 @@ public class BooleanPredicateNormalizer {
     }
 
     /**
-     * Get the mode of this normalizer.
-     * @return the mode used by this normalizer
+     * {@return the mode used by this normalizer}
      */
     @Nonnull
     public Mode getMode() {
@@ -188,6 +191,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Get the limit on the size of the normalized form that this normalizer will produce.
+     *
      * @return size limit
      */
     public int getSizeLimit() {
@@ -197,6 +201,7 @@ public class BooleanPredicateNormalizer {
     /**
      * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
      * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
      *        (beyond {@link #sizeLimit}).
@@ -215,6 +220,7 @@ public class BooleanPredicateNormalizer {
     /**
      * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
      * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
      *        (beyond {@link #sizeLimit}).
@@ -230,6 +236,7 @@ public class BooleanPredicateNormalizer {
     /**
      * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
      * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     *
      * @param predicate the query predicate to be normalized
      * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
      *        (beyond {@link #sizeLimit}).
@@ -360,6 +367,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * Convert given predicate to list (to be combined using the major) of lists (to be combined using the minor).
+     *
      * @param predicate a predicate subtree
      * @param negate whether this subtree is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
@@ -382,6 +390,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * <code>Major</code> flattens all normalized majors of its children.
+     *
      * @param children arguments to the major
      * @param negate whether the major is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
@@ -395,6 +404,7 @@ public class BooleanPredicateNormalizer {
 
     /**
      * <code>Minor</code> combines all the normalized majors into a cross-product, combining (via minor) one choice from each.
+     *
      * @param children arguments to the minor
      * @param negate whether the major is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)

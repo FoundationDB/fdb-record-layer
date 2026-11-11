@@ -29,9 +29,8 @@ import java.sql.SQLWarning;
 
 /**
  * Extension of {@link java.sql.Statement} to allow support for non-query database access.
- * <p>
- *     There are two ways that the database can be accessed:
- * </p>
+ *
+ * <p>There are two ways that the database can be accessed:
  * <dl>
  *     <dt><span class="strong"> Query Language</span></dt>
  *     <dd>
@@ -46,8 +45,8 @@ import java.sql.SQLWarning;
  * </dl>
  *
  * <h2>Direct Access API Details</h2>
- * <p>
- *     The Direct Access API allows simplified execution of the following functionality:
+ *
+ * <p>The Direct Access API allows simplified execution of the following functionality:
  *     <ul>
  *         <li>Get By Key</li>
  *         <li>Scan By Key range</li>

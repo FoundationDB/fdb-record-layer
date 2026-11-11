@@ -42,28 +42,24 @@ import java.util.concurrent.CompletableFuture;
  * (with each attempt opening multiple transactions running concurrently and/or consecutively) from running concurrently
  * and contending for resources. Each attempt corresponds to a session identified by a session ID. Of the sessions with
  * the same lock subspace, only the one holding the lock is allowed to work.
- * <p>
- * Each session should and should only try to acquire the lock when the session is initialized.
- * </p>
- * <p>
- * When a session holds the lock, it is protected from other sessions grabbing the same lock for an extended length of
+ *
+ * <p>Each session should and should only try to acquire the lock when the session is initialized.
+ *
+ * <p>When a session holds the lock, it is protected from other sessions grabbing the same lock for an extended length of
  * time (a.k.a lease). Another new session can only take lock if the lease of the original lock owner is outdated. (Note
  * a session is allowed to work even if its lease is outdated, as long as no other session takes its lock.) In order to
  * keep the lease, every time a session is used, it needs to update the lease's end time to some time (configured by
  * {@code leaseLengthMillis}) later than current time. (The lease time is used only as an optimization.
  * {@link SynchronizedSession} does not depend on synchronized clocks for the correctness of mutual exclusion.)
- * </p>
- * <p>
- * If a session is not able to acquire the lock during the initialization or loses the lock later, it will get a
+ *
+ * <p>If a session is not able to acquire the lock during the initialization or loses the lock later, it will get a
  * {@link SynchronizedSessionLockedException}. The session is considered ended when it gets a such exception. It can
  * neither try to acquire the lock again nor commit any work.
- * </p>
- * <p>
- * {@link #initializeSessionAsync} should be used when initializing a session to acquire the lock, while
+ *
+ * <p>{@link #initializeSessionAsync} should be used when initializing a session to acquire the lock, while
  * {@link #checkLockAsync(Transaction)} and {@link #updateLockSessionLeaseEndTime(Transaction)} should be used in every
  * other transactions to check the lock and keep the lease. Please refer to <code>SynchronizedSessionRunner</code> in
  * <code>fdb-record-layer-core</code> for an example of using {@link SynchronizedSession} in practice.
- * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class SynchronizedSession {
@@ -90,6 +86,7 @@ public class SynchronizedSession {
     /**
      * Construct a session. Remember to call {@link #initializeSessionAsync(Transaction)} if the {@code sessionId} is
      * newly generated.
+     *
      * @param lockSubspace the lock for which this session contends
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
@@ -112,6 +109,7 @@ public class SynchronizedSession {
 
     /**
      * Initialize the session by acquiring the lock. This should be invoked before a new session is ever used.
+     *
      * @param tr transaction to use
      * @return a future that will return {@code null} when the session is initialized
      */
@@ -157,8 +155,7 @@ public class SynchronizedSession {
     }
 
     /**
-     * Get session ID.
-     * @return session ID
+     * {@return the session ID}
      */
     @Nonnull
     public UUID getSessionId() {
@@ -168,6 +165,7 @@ public class SynchronizedSession {
     /**
      * Check if the session still holds the lock. This should be invoked in every transaction in the session to follow
      * the contract.
+     *
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is checked
      */
@@ -186,6 +184,7 @@ public class SynchronizedSession {
 
     /**
      * End the session by releasing the lock if it still holds the lock. Do nothing otherwise.
+     *
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is no longer this session
      */
@@ -201,11 +200,11 @@ public class SynchronizedSession {
     /**
      * End any active session on the lock subspace by releasing the lock no matter whether this session holds the lock
      * or not.
-     * <p>
-     * It only takes place when the given transaction is committed. It will only be enforced when the other processes
+     *
+     * <p>It only takes place when the given transaction is committed. It will only be enforced when the other processes
      * holding the lock go to check the lease in later transactions, where they will fail with
      * {@link SynchronizedSessionLockedException}.
-     * </p>
+     *
      * @param tr transaction to use
      */
     public void endAnySession(@Nonnull Transaction tr) {
@@ -214,11 +213,11 @@ public class SynchronizedSession {
 
     /**
      * End any active session on the given lock subspace by releasing the lock.
-     * <p>
-     * It only takes place when the given transaction is committed. It will only be enforced when the other processes
+     *
+     * <p>It only takes place when the given transaction is committed. It will only be enforced when the other processes
      * holding the lock go to check the lease in later transactions, where they will fail with
      * {@link SynchronizedSessionLockedException}.
-     * </p>
+     *
      * @param tr transaction to use
      * @param lockSubspace the lock whose active session needs to be ended
      */
@@ -229,6 +228,7 @@ public class SynchronizedSession {
 
     /**
      * Check if there is any active session on the given lock subspace, so that a new session would not able to be initialized.
+     *
      * @param tr transaction to use
      * @param lockSubspace the lock whose active session needs to be checked
      * @return {@code true} if there is any active session, otherwise {@code false}
@@ -283,6 +283,7 @@ public class SynchronizedSession {
     /**
      * Update the lease's end time. This should be invoked in every transaction in the session to keep the session
      * alive.
+     *
      * @param tr transaction to use
      */
     public void updateLockSessionLeaseEndTime(@Nonnull Transaction tr) {

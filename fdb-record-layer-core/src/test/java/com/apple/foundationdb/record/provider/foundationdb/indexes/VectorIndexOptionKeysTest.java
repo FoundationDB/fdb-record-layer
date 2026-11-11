@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.async.hnsw.Config;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -40,6 +41,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -190,6 +192,38 @@ class VectorIndexOptionKeysTest {
     }
 
     @Test
+    void writeAppendableNodesIsParsedIntoConfig() {
+        final Index defaultIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128"));
+        assertThat(HnswVectorIndexEngine.parseConfig(defaultIndex).writeAppendableNodes())
+                .isEqualTo(Config.DEFAULT_WRITE_APPENDABLE_NODES);
+
+        final Index appendableIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.HNSW_WRITE_APPENDABLE_NODES, "true"));
+        assertThat(HnswVectorIndexEngine.parseConfig(appendableIndex).writeAppendableNodes()).isTrue();
+    }
+
+    @Test
+    void writeAppendableCentroidNodesIsParsedIntoGuardiannConfig() {
+        final Index defaultIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name()));
+        assertThat(GuardiannVectorIndexEngine.parseConfig(defaultIndex).writeAppendableCentroidNodes())
+                .isEqualTo(com.apple.foundationdb.async.guardiann.Config.DEFAULT_WRITE_APPENDABLE_CENTROID_NODES);
+
+        final Index appendableIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name(),
+                                IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "true"));
+        assertThat(GuardiannVectorIndexEngine.parseConfig(appendableIndex).writeAppendableCentroidNodes()).isTrue();
+    }
+
+    @Test
     void allContainsEveryDeclaredKey() throws IllegalAccessException {
         // Guards VectorIndexOptionKeys.ALL against drift: it must list exactly the VectorOptionKey fields declared on
         // the catalog, so the alias-conflict validation never silently skips a key someone forgot to add.
@@ -249,6 +283,7 @@ class VectorIndexOptionKeysTest {
         VectorIndexOptionKeys.HNSW_M.put(written::put, 24);
         VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.put(written::put, 0.25);
         VectorIndexOptionKeys.USE_RABITQ.put(written::put, true);
+        VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER.put(written::put, List.of(0.0d, 0.016d, 0.064d));
 
         final Index index =
                 new Index("v", field("vector_data"), IndexTypes.VECTOR, ImmutableMap.copyOf(written));
@@ -256,6 +291,8 @@ class VectorIndexOptionKeysTest {
         assertThat(VectorIndexOptionKeys.HNSW_M.read(index)).isEqualTo(24);
         assertThat(VectorIndexOptionKeys.MAINTAIN_STATS_PROBABILITY.read(index)).isEqualTo(0.25);
         assertThat(VectorIndexOptionKeys.USE_RABITQ.read(index)).isEqualTo(true);
+        assertThat(VectorIndexOptionKeys.GUARDIANN_KMEANS_BALANCING_LADDER.read(index))
+                .containsExactly(0.0d, 0.016d, 0.064d);
     }
 
     @Test

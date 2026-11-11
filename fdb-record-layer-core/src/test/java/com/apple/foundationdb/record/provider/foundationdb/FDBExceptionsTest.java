@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreInterruptedException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
@@ -36,6 +38,8 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.ResourceAccessMode;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import java.io.PrintWriter;
@@ -124,6 +128,24 @@ class FDBExceptionsTest {
         assertThat(wrappedExecution, instanceOf(RecordCoreInterruptedException.class));
         assertThat(wrappedExecution.getCause(), sameInstance(err));
         assertThat(List.of(err.getSuppressed()), contains(completionErr, executionErr));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FDBError.class, names = {"COMMIT_UNKNOWN_RESULT", "CLUSTER_VERSION_CHANGED"})
+    void wrapExceptionMaybeCommittedReturnsMaybeCommittedException(FDBError error) {
+        dbExtension.getDatabase();
+        RuntimeException wrapped = FDBExceptions.wrapException(new FDBException(error.name(), error.code()));
+        assertThat(wrapped, instanceOf(FDBExceptions.FDBStoreMaybeCommittedException.class));
+        assertTrue(FDBExceptions.isRetriable(wrapped));
+    }
+
+    @Test
+    void wrapExceptionRetryableNotCommittedReturnsRetriableException() {
+        dbExtension.getDatabase();
+        RuntimeException wrapped = FDBExceptions.wrapException(new FDBException("future_version", FDBError.FUTURE_VERSION.code()));
+        assertThat(wrapped, instanceOf(FDBExceptions.FDBStoreRetriableException.class));
+        assertThat(wrapped, not(instanceOf(FDBExceptions.FDBStoreMaybeCommittedException.class)));
+        assertTrue(FDBExceptions.isRetriable(wrapped));
     }
 
     private void testWrappedStackTrace(Exception cause, String methodName) {

@@ -26,22 +26,27 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerJoinedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import com.google.protobuf.Descriptors;
 
@@ -104,6 +109,19 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         }
     }
 
+    private void visit(@Nonnull final RecordLayerJoinedSyntheticTable joinedSyntheticTable) {
+        final JoinedRecordTypeBuilder typeBuilder =
+                getBuilder().addJoinedRecordType(joinedSyntheticTable.getType().getStorageName());
+        for (final RecordLayerJoinedSyntheticTable.JoinedConstituent constituent : joinedSyntheticTable.getConstituents()) {
+            typeBuilder.addConstituent(constituent.alias(),
+                    getBuilder().getRecordType(constituent.tableStorageName()), false);
+        }
+        for (final RecordLayerJoinedSyntheticTable.JoinCondition joinCondition : joinedSyntheticTable.getJoinConditions()) {
+            typeBuilder.addJoin(joinCondition.leftAlias(), joinCondition.leftExpression(),
+                    joinCondition.rightAlias(), joinCondition.rightExpression());
+        }
+    }
+
     @Override
     public void visit(@Nonnull com.apple.foundationdb.relational.api.metadata.Index index) {
         // Note: this does not preserve the index added and lest modified version, necessary
@@ -141,6 +159,8 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     public void visit(@Nonnull final SyntheticTable syntheticTable) {
         if (syntheticTable instanceof RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
             visit(unnestedSyntheticTable);
+        } else if (syntheticTable instanceof RecordLayerJoinedSyntheticTable joinedSyntheticTable) {
+            visit(joinedSyntheticTable);
         } else {
             Assert.failUnchecked("synthetic table kind not supported");
         }
@@ -149,14 +169,19 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull SchemaTemplate schemaTemplate) {
         Assert.thatUnchecked(schemaTemplate instanceof RecordLayerSchemaTemplate);
-        final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
         getBuilder().setSplitLongRecords(schemaTemplate.isEnableLongRows());
         getBuilder().setStoreRecordVersions(schemaTemplate.isStoreRowVersions());
         getBuilder().setVersion(schemaTemplate.getVersion());
-        for (final var entry : recLayerSchemaTemplate.getStoredQueries().entrySet()) {
-            final var storedQuery = entry.getValue();
-            getBuilder().addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
-        }
+    }
+
+    @Override
+    public void visit(@Nonnull final StoredQuery storedQuery) {
+        final var preparedCases = storedQuery.getPreparedCases().stream()
+                .map(preparedCase -> preparedCase.entrySet().stream()
+                        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, state -> state.getValue().name())))
+                .collect(ImmutableList.<Map<String, String>>toImmutableList());
+        getBuilder().addStoredQuery(storedQuery.getName(), storedQuery.getQuery(), storedQuery.getTempFunctions(),
+                storedQuery.getParameters(), preparedCases);
     }
 
     @Nonnull

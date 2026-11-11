@@ -31,10 +31,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Feasibility check for the generated {@code ValueVisitor}: dispatch has to reach a specific visitation method for every
  * kind of {@link Value}, including the ones nested inside another Value class.
- * <p>
- * This lives in the {@code values} package on purpose. Some of the values exercised here have package-private or
+ *
+ * <p>This lives in the {@code values} package on purpose. Some of the values exercised here have package-private or
  * protected constructors, and the point is to build real instances rather than to assert on the generated source text.
- * </p>
  */
 class ValueVisitorTest {
 

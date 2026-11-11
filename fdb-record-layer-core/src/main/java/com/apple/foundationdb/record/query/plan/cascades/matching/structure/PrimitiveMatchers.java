@@ -42,6 +42,7 @@ public class PrimitiveMatchers {
 
     /**
      * Matcher that matches if the object passed in is equal to the object being matched.
+     *
      * @param object some object to match against
      * @param <T> type of the object
      * @return a new matcher
@@ -53,6 +54,7 @@ public class PrimitiveMatchers {
 
     /**
      * Matcher that matches if the object passed in and the object being matched satisfy a predicate.
+     *
      * @param object some object to match against
      * @param testBiPredicate a predicate invoked on the object and the to-be-tested object
      * @param <T> type of the object

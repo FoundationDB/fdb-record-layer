@@ -43,6 +43,7 @@ public class BunchedSerializationException extends BunchedMapException {
 
     /**
      * Create a new exception with a static message.
+     *
      * @param message error message
      */
     public BunchedSerializationException(@Nonnull String message) {

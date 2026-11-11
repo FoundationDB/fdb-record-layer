@@ -47,8 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pure-Java unit tests for {@link CheckExplainConfig}. No FDB or database connection required.
- * <p>
- * Covers:
+ *
+ * <p>Covers:
  * <ul>
  *     <li>{@code addExplain} path (synthetic, {@code getVal()==null})</li>
  *     <li>{@code checkExplainContains} path ({@code !isExact})</li>

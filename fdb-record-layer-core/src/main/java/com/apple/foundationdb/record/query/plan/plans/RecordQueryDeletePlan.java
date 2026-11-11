@@ -223,6 +223,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
 
     /**
      * Rewrite the planner graph for better visualization.
+     *
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
@@ -265,6 +266,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
 
     /**
      * Factory method to create a {@link RecordQueryInsertPlan}.
+     *
      * @param inner an input value to transform
      * @return a newly created {@link RecordQueryInsertPlan}
      */

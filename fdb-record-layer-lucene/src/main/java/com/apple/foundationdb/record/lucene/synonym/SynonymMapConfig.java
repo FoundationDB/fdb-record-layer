@@ -34,12 +34,14 @@ import java.io.InputStream;
 public interface SynonymMapConfig {
     /**
      * Get the name of the synonymMap to build.
+     *
      * @return the name
      */
     String getName();
 
     /**
      * Get solr format input stream to build the synonymMap.
+     *
      * @return the input stream
      */
     InputStream getSynonymInputStream();
@@ -47,6 +49,7 @@ public interface SynonymMapConfig {
     /**
      * Whether to include all synonyms of the original phrases in the map or only the authoritative one.
      * The {@link org.apache.lucene.analysis.synonym.SynonymGraphFilter} needs to be included in both index and query analyzer if this returns false.
+     *
      * @return {@code true} if all synonyms are included
      */
     boolean expand();

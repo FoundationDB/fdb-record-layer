@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  * The standard options for use with {@link Index}.
  *
- * An option key is just a string, so that new ones can be defined outside the Record Layer core.
+ * <p>An option key is just a string, so that new ones can be defined outside the Record Layer core.
  *
  * @see Index#getOptions
  */
@@ -41,21 +41,20 @@ public class IndexOptions {
     /**
      * No options.
      *
-     * The default for a new {@link Index}.
+     * <p>The default for a new {@link Index}.
      */
     public static final Map<String, String> EMPTY_OPTIONS = Collections.emptyMap();
 
     /**
      * If {@code "true"}, index throws {@link com.apple.foundationdb.record.RecordIndexUniquenessViolation} on attempts
      * to store duplicate values.
-     * <p>
-     *     Unlike most index modifications, it is safe to change this option from {@code true} to {@code false}
+     *
+     * <p>Unlike most index modifications, it is safe to change this option from {@code true} to {@code false}
      *     without rebuilding the index, and thus you can change this without changing the {@code lastModifiedVersion}.
      *     Changing this from {@code false} to {@code true} requires increasing the {@code lastModifiedVersion}.
      *     If you do change the {@code lastModifiedVersion} it will require a rebuild of the index. This functionality
      *     is only usable by indexes maintained by {@link IndexMaintainer}s that have a proper implementation of
      *     {@link IndexMaintainer#clearUniquenessViolations()}.
-     * </p>
      */
     public static final String UNIQUE_OPTION = "unique";
     /**
@@ -82,15 +81,12 @@ public class IndexOptions {
      * specified has been built, then the index with this option will have its data deleted and will be marked as
      * {@linkplain com.apple.foundationdb.record.IndexState#DISABLED disabled}.
      *
-     * <p>
-     * Every index in the list should point to another index in the meta-data. Additionally, the graph of replacement
+     * <p>Every index in the list should point to another index in the meta-data. Additionally, the graph of replacement
      * indexes should be acyclic, i.e., indexes cannot be marked as replacing themselves either directly or
      * transitively. If either requirement is not met, then the index will fail {@linkplain MetaDataValidator
      * meta-data validation}
-     * </p>
      *
-     * <p>
-     * This option is useful as it allows the user to replace one index with another without needing to remove the
+     * <p>This option is useful as it allows the user to replace one index with another without needing to remove the
      * older index until the newer index has fully rolled out. For example, suppose there is an index {@code a} that
      * is defined on a single field, but the administrator realizes that as all queries have predicates on at least two,
      * and so wants to replace the index with two indexes, {@code a,b} and {@code a,c}. However, until those new indexes
@@ -98,23 +94,17 @@ public class IndexOptions {
      * full record store scan. So the options {@code {"replacedBy1": "a,b", "replacedBy2": "a,c"}} can be set on the
      * index. Until both indexes have been built, queries can continue to use index {@code a}. Once both have been
      * built, though, the old index will be automatically deleted, freeing up space.
-     * </p>
      *
-     * <p>
-     * Note that different record stores with identical
+     * <p>Note that different record stores with identical
      * {@link com.apple.foundationdb.record.RecordMetaData RecordMetaData} values may have different index states, i.e.,
      * an index may be built for some record stores but not others. Setting this option will disable the index only on
      * each store that meets the necessary criteria.
-     * </p>
      *
-     * <p>
-     * The replacement must be {@link com.apple.foundationdb.record.IndexState#READABLE}, if the replacement is
+     * <p>The replacement must be {@link com.apple.foundationdb.record.IndexState#READABLE}, if the replacement is
      * {@link com.apple.foundationdb.record.IndexState#READABLE_UNIQUE_PENDING}, the original will remain readable.
-     * </p>
-     * <p>
-     * Building indexes that have replacements will only be attempted if explicitly requested, even if the
+     *
+     * <p>Building indexes that have replacements will only be attempted if explicitly requested, even if the
      * replacements are not readable and not being built at the same time.
-     * </p>
      *
      * @see Index#getReplacedByIndexNames()
      */
@@ -144,42 +134,42 @@ public class IndexOptions {
     /**
      * If {@code "true"}, a {@link IndexTypes#TEXT} index will not store position numbers for tokens.
      *
-     * It will only be possible to determine that an indexed field contains the token someplace.
+     * <p>It will only be possible to determine that an indexed field contains the token someplace.
      */
     public static final String TEXT_OMIT_POSITIONS_OPTION = "textOmitPositions";
 
     /**
      * The number of levels in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
+     * <p>The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
      */
     public static final String RANK_NLEVELS = "rankNLevels";
 
     /**
      * The hash function to use in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
+     * <p>The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
      */
     public static final String RANK_HASH_FUNCTION = "rankHashFunction";
 
     /**
      * Whether duplicate keys count separtely in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
      *
-     * The default is {@code false}.
+     * <p>The default is {@code false}.
      */
     public static final String RANK_COUNT_DUPLICATES = "rankCountDuplicates";
 
     /**
      * Size of each position bitmap for {@link IndexTypes#BITMAP_VALUE} indexes.
      *
-     * The default is {@code 10,000}.
+     * <p>The default is {@code 10,000}.
      */
     public static final String BITMAP_VALUE_ENTRY_SIZE_OPTION = "bitmapValueEntrySize";
 
     /**
      * Whether to remove index entry for {@link IndexTypes#COUNT} type indexes when they decrement to zero.
      *
-     * This makes the existence of zero-valued entries in the index in the face of updates and deletes
+     * <p>This makes the existence of zero-valued entries in the index in the face of updates and deletes
      * closer to what it would be if the index were rebuilt, but still not always the same.
      * In particular,<ul>
      *   <li>A {@code SUM} index will not have entries for groups all of whose indexed values are zero.</li>
@@ -304,6 +294,7 @@ public class IndexOptions {
     /**
      * HNSW-only: The number of dimensions used. All vectors must have exactly this number of dimensions. This option
      * must be set when interacting with a vector index as it there is no default.
+     *
      * @see Config#numDimensions()
      */
     public static final String HNSW_NUM_DIMENSIONS = "hnswNumDimensions";
@@ -314,6 +305,7 @@ public class IndexOptions {
      * inlining is not used, each node is persisted as exactly one key/value pair per node which stores its own vector
      * but specifically excludes the vectors of the neighbors. The default value is set to
      * {@link Config#DEFAULT_USE_INLINING}.
+     *
      * @see Config#useInlining()
      */
     public static final String HNSW_USE_INLINING = "hnswUseInlining";
@@ -323,6 +315,7 @@ public class IndexOptions {
      * any layer. While by no means enforced or even enforceable, we strive to create and maintain exactly {@code m}
      * neighbors for a node. Due to insert/delete operations it is possible that the actual number of neighbors a node
      * references is not exactly {@code m} at any given time. The default value is set to {@link Config#DEFAULT_M}.
+     *
      * @see Config#m()
      */
     public static final String HNSW_M = "hnswM";
@@ -333,6 +326,7 @@ public class IndexOptions {
      * neighbors of a node are pruned if the actual number of neighbors would otherwise exceed {@code mMax}. Note that
      * this option must be greater than or equal to {@link #HNSW_M}. The default value is set to
      * {@link Config#DEFAULT_M_MAX}.
+     *
      * @see Config#mMax()
      */
     public static final String HNSW_M_MAX = "hnswMMax";
@@ -343,6 +337,7 @@ public class IndexOptions {
      * that layer. That means that we even prune the neighbors of a node if the actual number of neighbors would
      * otherwise exceed {@code mMax0}. Note that this option must be greater than or equal to {@link #HNSW_M_MAX}.
      * The default value is set to {@link Config#DEFAULT_M_MAX_0}.
+     *
      * @see Config#mMax0()
      */
     public static final String HNSW_M_MAX_0 = "hnswMMax0";
@@ -352,6 +347,7 @@ public class IndexOptions {
      * of a new node. If {@code HNSW_EF_CONSTRUCTION} is set to {@code 1}, the search naturally follows a greedy
      * approach (monotonous descent), whereas a high number for {@code HNSW_EF_CONSTRUCTION} allows for a more nuanced
      * search that can tolerate (false) local minima. The default value is set to {@link Config#DEFAULT_EF_CONSTRUCTION}.
+     *
      * @see Config#efConstruction()
      */
     public static final String HNSW_EF_CONSTRUCTION = "hnswEfConstruction";
@@ -362,6 +358,7 @@ public class IndexOptions {
      * which improves repair performance but decreases repair quality; a higher number results in qualitatively
      * better repairs at the expense of slower performance.
      * The default value is set to {@link Config#DEFAULT_EF_REPAIR}.
+     *
      * @see Config#efRepair()
      */
     public static final String HNSW_EF_REPAIR = "hnswEfRepair";
@@ -374,14 +371,34 @@ public class IndexOptions {
      * the node had before the delete, so it never raises a node above that. Setting this to {@code 0} disables
      * replacement edges.
      * The default value is set to {@link Config#DEFAULT_REPLACEMENT_EDGE_MAX_OUT_DEGREE}.
+     *
      * @see Config#replacementEdgeMaxOutDegree()
      */
     public static final String HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE = "hnswReplacementEdgeMaxOutDegree";
 
     /**
+     * HNSW-only: Indicator if compact nodes (all nodes on layer {@code 0}, and on all other layers unless inlining is
+     * used) are written in the appendable format. In that format, insertions can be more efficient as they can
+     * avoid needing to reserialize unchanged data. This reduces the total number of bytes written, though it does
+     * not meaningfully affect the total size on disk of the index.
+     *
+     * <p>The default value is set to {@link Config#DEFAULT_WRITE_APPENDABLE_NODES}. This option can be changed on
+     * existing indexes without rebuilding. As nodes are rewritten during normal operations, they will be converted
+     * to the new format.
+     *
+     * <p><b>Warning:</b> versions of the library that predate this option cannot read nodes in the appendable format.
+     * This option should only be enabled once every process that reads the index runs a version that supports the
+     * format.
+     *
+     * @see Config#writeAppendableNodes()
+     */
+    public static final String HNSW_WRITE_APPENDABLE_NODES = "hnswWriteAppendableNodes";
+
+    /**
      * HNSW-only: Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is
      * to be extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
      * connected to during the insert operation. The default value is set to {@link Config#DEFAULT_EXTEND_CANDIDATES}.
+     *
      * @see Config#extendCandidates()
      */
     public static final String HNSW_EXTEND_CANDIDATES = "hnswExtendCandidates";
@@ -391,6 +408,7 @@ public class IndexOptions {
      * satisfying the select-neighbor heuristic may get added back in to pad the set of neighbors if the new node would
      * otherwise have too few neighbors (see {@link Config#m()}). The default value is set to
      * {@link Config#DEFAULT_KEEP_PRUNED_CONNECTIONS}.
+     *
      * @see Config#keepPrunedConnections()
      */
     public static final String HNSW_KEEP_PRUNED_CONNECTIONS = "hnswKeepPrunedConnections";
@@ -400,6 +418,7 @@ public class IndexOptions {
      * represents the probability of a vector being inserted to also be written into the samples subspace of the hnsw
      * structure. The vectors in that subspace are continuously aggregated until a total {@link #HNSW_STATS_THRESHOLD}
      * has been reached. The default value is set to {@link Config#DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY}. See
+     *
      * @see Config#sampleVectorStatsProbability()
      */
     public static final String HNSW_SAMPLE_VECTOR_STATS_PROBABILITY = "hnswSampleVectorStatsProbability";
@@ -410,6 +429,7 @@ public class IndexOptions {
      * inserted. The vectors in that subspace are continuously aggregated until a total
      * {@link #HNSW_STATS_THRESHOLD} has been reached. The default value is set to
      * {@link Config#DEFAULT_MAINTAIN_STATS_PROBABILITY}.
+     *
      * @see Config#maintainStatsProbability()
      */
     public static final String HNSW_MAINTAIN_STATS_PROBABILITY = "hnswMaintainStatsProbability";
@@ -420,6 +440,7 @@ public class IndexOptions {
      * compute the actual statistics (currently the centroid of the vectors that have been inserted to far). The result
      * is then inserted into the access info subspace of the index. The default value is set to
      * {@link Config#DEFAULT_STATS_THRESHOLD}.
+     *
      * @see Config#statsThreshold()
      */
     public static final String HNSW_STATS_THRESHOLD = "hnswStatsThreshold";
@@ -427,6 +448,7 @@ public class IndexOptions {
     /**
      * HNSW-only: Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer}
      * for more details. The default value is set to {@link Config#DEFAULT_USE_RABITQ}.
+     *
      * @see Config#useRaBitQ()
      */
     public static final String HNSW_USE_RABITQ = "hnswUseRaBitQ";
@@ -436,6 +458,7 @@ public class IndexOptions {
      * otherwise. If RaBitQ encoding is used, a vector is stored using roughly
      * {@code 25 + numDimensions * (numExBits + 1) / 8} bytes. The default value is set to
      * {@link Config#DEFAULT_RABITQ_NUM_EX_BITS}.
+     *
      * @see Config#raBitQNumExBits()
      */
     public static final String HNSW_RABITQ_NUM_EX_BITS = "hnswRaBitQNumExBits";
@@ -443,6 +466,7 @@ public class IndexOptions {
     /**
      * HNSW-only: Maximum number of concurrent node fetches during search and modification operations. The default value
      * is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES}.
+     *
      * @see Config#maxNumConcurrentNodeFetches()
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES = "hnswMaxNumConcurrentNodeFetches";
@@ -450,6 +474,7 @@ public class IndexOptions {
     /**
      * HNSW-only: Maximum number of concurrent neighborhood fetches during modification operations when the neighbors
      * are pruned. The default value is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES}.
+     *
      * @see Config#maxNumConcurrentNeighborhoodFetches()
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES = "hnswMaxNumConcurrentNeighborhoodFetches";
@@ -457,6 +482,7 @@ public class IndexOptions {
     /**
      * HNSW-only: Maximum number of delete operations that can run concurrently in separate layers during the deletion
      * of a record. The default value is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER}.
+     *
      * @see Config#maxNumConcurrentDeleteFromLayer()
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = "hnswMaxNumConcurrentDeleteFromLayer";
@@ -557,11 +583,17 @@ public class IndexOptions {
     /** Guardiann-only: number of nearest clusters fetched for merge candidate evaluation. */
     public static final String GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS = "guardiannMergeNumNearestClusters";
 
-    /** Guardiann-only: maximum Lloyd's iterations per k-means restart during split/merge. */
+    /** Guardiann-only: maximum Lloyd's iterations per k-means run during split/merge. */
     public static final String GUARDIANN_K_MEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
 
-    /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
-    public static final String GUARDIANN_K_MEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
+    /** Guardiann-only: number of runs per k-means fit during split/merge; at least 1. */
+    public static final String GUARDIANN_K_MEANS_NUM_RUNS = "guardiannKMeansNumRuns";
+
+    /**
+     * Guardiann-only: the relative size-balancing strengths a split tries in order, as comma-separated doubles (e.g.
+     * {@code "0.0,0.016,0.16"}); fixed when the index is created.
+     */
+    public static final String GUARDIANN_K_MEANS_BALANCING_LADDER = "guardiannKMeansBalancingLadder";
 
     /** Guardiann-only: outer clusters considered as replication/migration targets during reassign. */
     public static final String GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS = "guardiannReassignNumNeighboringClusters";
@@ -596,6 +628,19 @@ public class IndexOptions {
      */
     public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
             "guardiannConstructionCentroidEfOutwardSearch";
+
+    /**
+     * Guardiann-only: Indicator if the nodes of the HNSW that stores the cluster centroids are written in the
+     * appendable format. See {@link #HNSW_WRITE_APPENDABLE_NODES} for more details. The default value is
+     * {@link com.apple.foundationdb.async.guardiann.Config#DEFAULT_WRITE_APPENDABLE_CENTROID_NODES}.
+     *
+     * <p><b>Warning:</b> versions of the library that predate this option cannot read nodes in the appendable format.
+     * This option should only be enabled once every process that reads the index runs a version that supports the
+     * format.
+     *
+     * @see #HNSW_WRITE_APPENDABLE_NODES
+     */
+    public static final String GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES = "guardiannWriteAppendableCentroidNodes";
 
     private IndexOptions() {
     }

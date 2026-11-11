@@ -72,6 +72,7 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
 
     /**
      * Constructs a new {@link NotValue} instance.
+     *
      * @param child The child expression.
      */
     public NotValue(@Nonnull final Value child) {

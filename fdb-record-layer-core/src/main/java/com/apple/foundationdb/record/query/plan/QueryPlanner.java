@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 public interface QueryPlanner {
     /**
      * Preference between index scan and record scan.
+     *
      * @see #setIndexScanPreference
      */
     enum IndexScanPreference {
@@ -66,7 +67,8 @@ public interface QueryPlanner {
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
-     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.RecordCoreException if planning fails for another reason
      */
     @Nonnull
     RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
@@ -76,7 +78,8 @@ public interface QueryPlanner {
      *
      * @param query a query for records on this planner's metadata
      * @return a plan that will return the results of the provided query when executed
-     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.RecordCoreException if planning fails for another reason
      */
     @Nonnull
     default RecordQueryPlan plan(@Nonnull RecordQuery query) {
@@ -93,7 +96,8 @@ public interface QueryPlanner {
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
-     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException if the planner cannot plan the query
+     * @throws com.apple.foundationdb.record.RecordCoreException if planning fails for another reason
      */
     @Nonnull
     QueryPlanResult planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
@@ -105,6 +109,7 @@ public interface QueryPlanner {
 
     /**
      * Get the {@link RecordMetaData} for this planner.
+     *
      * @return the meta-data
      */
     @Nonnull
@@ -112,6 +117,7 @@ public interface QueryPlanner {
 
     /**
      * Get the {@link RecordStoreState} for this planner.
+     *
      * @return the record store state
      */
     @Nonnull
@@ -124,6 +130,7 @@ public interface QueryPlanner {
      * Scanning without an index is more efficient, but will have to skip over unrelated record types.
      * For that reason, it is safer to use an index, except when there is only one record type.
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
+     *
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference);
@@ -135,6 +142,7 @@ public interface QueryPlanner {
      * Set the {@link RecordQueryPlannerConfiguration} for this planner.
      * If an {@link com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference} is already set using
      * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
+     *
      * @param configuration a configuration object for this planner
      */
     void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration);

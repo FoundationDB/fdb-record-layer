@@ -225,6 +225,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
     }
 
+    @SuppressWarnings("PMD.CheckResultSet")
     private int importChunk(@Nonnull final List<byte[]> chunk, @Nonnull final YamlConnection conn, int totalCount) throws SQLException {
         try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destInfo.path + " FROM ?")) {
             Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));

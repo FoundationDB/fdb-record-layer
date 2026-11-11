@@ -101,7 +101,6 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * Creates a default instance of the extended directory layer.
      *
      * @param database The {@link FDBDatabase} for this resolver
-     *
      * @return The global <code>ExtendedDirectoryLayer</code> for this database
      */
     public static ExtendedDirectoryLayer global(@Nonnull FDBDatabase database) {
@@ -265,8 +264,8 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     public ResolverResult deserializeValue(byte[] value) {
         Tuple unpacked = contentSubspace.unpack(value);
         return unpacked.size() == 1 ?
-               new ResolverResult(unpacked.getLong(0), null) :
-               new ResolverResult(unpacked.getLong(0), unpacked.getBytes(1));
+                new ResolverResult(unpacked.getLong(0), null) :
+                new ResolverResult(unpacked.getLong(0), unpacked.getBytes(1));
 
     }
 

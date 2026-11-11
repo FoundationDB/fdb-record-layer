@@ -45,8 +45,7 @@ import java.util.function.Function;
  * Just like the {@code IntersectionCursor}, this cursor does require a comparison key function for each entry, but it
  * only uses this comparison key for determining whether two results returned by child cursors are equal.
  *
- * <p>
- * This cursor makes very few guarantees about its results. In particular, just as with the {@link UnorderedUnionCursor},
+ * <p>This cursor makes very few guarantees about its results. In particular, just as with the {@link UnorderedUnionCursor},
  * results are returned as they come, so the exact ordering of returned results is determined only at runtime.
  * It also can produce duplicates if the same result appears multiple times in its child cursors.
  * Additionally, in order to support resuming this cursor using a continuation, Bloom filters are used internally
@@ -55,24 +54,19 @@ import java.util.function.Function;
  * result sets. The selectivity of the Bloom filter can be adjusted by setting the {@code expectedResults}
  * and {@code falsePositivePercentage} parameters at cursor creation time. These parameters are fed through to the
  * underlying Guava {@link com.google.common.hash.BloomFilter} initializer.
- * </p>
  *
- * <p>
- * However, this cursor does make the following guarantees:
- * </p>
+ * <p>However, this cursor does make the following guarantees:
  *
  * <ul>
  *     <li>All results that are actually in the intersection will be in this cursor's result set.</li>
  *     <li>Any result of this cursor is the result of at least one child cursor.</li>
  * </ul>
  *
- * <p>
- * This cursor can therefore be used to select a narrow candidate set of "probable" elements of the intersection
+ * <p>This cursor can therefore be used to select a narrow candidate set of "probable" elements of the intersection
  * and then perform a (possibly more expensive) alternative filter to verify each result. For example, if each
  * child corresponds to satisfying some conjunct of an {@link com.apple.foundationdb.record.query.expressions.AndComponent "and"}
  * predicate by scanning an index, then one could intersect the results with this cursor and then evaluate
  * the predicate on each returned record as a residual filter.
- * </p>
  *
  * @param <T> the type of element returned by this cursor
  * @see com.google.common.hash.BloomFilter
@@ -230,15 +224,13 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
      * that results be returned in the same order as their values from the comparison key function. However, it
      * does require that if two elements evaluate to the same comparison key that they are equal.
      *
-     * <p>
-     * Every result from this cursor is guaranteed to be in at least one child, but some results may appear in only
+     * <p>Every result from this cursor is guaranteed to be in at least one child, but some results may appear in only
      * a proper subset of the given cursors. This is because a probabilistic data structure is used internally to
      * allow for the cursor to be resumed across continuation boundaries. The caller can adjust the memory usage
      * as well as the false positive rate by tweaking the values of the {@code expectedResults} and
      * {@code falsePositivePercentage} parameters. Note that those parameters only matter if the continuation is <code>null</code>.
      * A non-null continuation will read those parameters based on serialized versions of the data structure that are
      * included as part of the continuation.
-     * </p>
      *
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation

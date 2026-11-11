@@ -26,11 +26,10 @@ import javax.annotation.Nonnull;
 
 /**
  * The type of one of the endpoints of a {@link TupleRange}.
- * <p>
- * The basic types are inclusive (range includes endpoint {@link com.apple.foundationdb.tuple.Tuple} value) and exclusive (range does not include endpoint {@code Tuple}).
+ *
+ * <p>The basic types are inclusive (range includes endpoint {@link com.apple.foundationdb.tuple.Tuple} value) and exclusive (range does not include endpoint {@code Tuple}).
  * Special types denote the start and end of the whole subspace (for which the endpoint {@code Tuple} does not matter).
  * There is also a special type for the range of values where a string element of a {@code Tuple} begins with a given string.
- * </p>
  */
 @API(API.Status.UNSTABLE)
 public enum EndpointType {

@@ -53,7 +53,7 @@ import java.util.stream.StreamSupport;
  * an {@link IndexAggregateFunction} which itself is bound to an index and represents its group-by columns as a list of
  * {@link KeyExpression} that match the order imposed by bound index rather than a set.
  *
- * There are two use cases for this class:
+ * <p>There are two use cases for this class:
  * <ol>
  * <li> regular aggregation functions that need the enumeration of permutation of the grouping expressions in order to
  *      bind the call to a {@link IndexAggregateFunction}. The logic implementing this use case calls
@@ -68,7 +68,7 @@ import java.util.stream.StreamSupport;
  * </li>
  * </ol>
  *
- * Note that if a client of this class intends to use an aggregate function call for regular aggregation functions and
+ * <p>Note that if a client of this class intends to use an aggregate function call for regular aggregation functions and
  * intends to call methods such as {@link #enumerateIndexAggregateFunctionCandidates(String)}, the following must hold
  * in order to yield meaningful results:
  *
@@ -76,7 +76,7 @@ import java.util.stream.StreamSupport;
  * {@code groupingKeyExpression = concat(groupingExpressions, groupedExpression).group(groupedExpression.getColumnSize())}
  * </pre>
  *
- * which ideally is true, but may be violated in the presence of repeated structures.
+ * <p>which ideally is true, but may be violated in the presence of repeated structures.
  */
 @SuppressWarnings("unused")
 @API(API.Status.INTERNAL)
@@ -91,17 +91,17 @@ public class IndexAggregateFunctionCall {
      * Grouping key expression that holds information over both the grouping and the grouped part of the expression
      * this function call ranges over.
      *
-     * In the normal use case this expression is computed by reconstructing a {@link GroupingKeyExpression} using
+     * <p>In the normal use case this expression is computed by reconstructing a {@link GroupingKeyExpression} using
      * the iterable of grouping expressions and the grouped expression that is handed in (to certain overloaded
      * constructors).
      *
-     * If required, the client can use {@link #IndexAggregateFunctionCall(String, GroupingKeyExpression)} in order
+     * <p>If required, the client can use {@link #IndexAggregateFunctionCall(String, GroupingKeyExpression)} in order
      * to invert that logic in which case the grouping key expressions and the grouped expression is computed
      * from the {@link GroupingKeyExpression} passed in to the respective constructor. Additionally, this field
      * holds the original grouping key expression handed in thus preserving the intricate structure of nested repeated
      * fields, etc.
      *
-     * See {@link #toIndexAggregateFunction(String)} which uses this field directly.
+     * <p>See {@link #toIndexAggregateFunction(String)} which uses this field directly.
      */
     @Nonnull
     private final GroupingKeyExpression groupingKeyExpression;
@@ -130,6 +130,7 @@ public class IndexAggregateFunctionCall {
      * Overloaded constructor using a {@link GroupingKeyExpression} that represents both the grouping expressions and
      * the grouped expression. The constructor is necessary to allow function calls that can use nested repeated
      * structures to adequately represent function calls over those structures.
+     *
      * @param functionName function name of the call
      * @param groupingKeyExpression the grouping key expression
      */
@@ -224,6 +225,7 @@ public class IndexAggregateFunctionCall {
      * index aggregate functions are merely candidates for actual index-compatible ones as we don't check here the
      * conditions that constitute a compatible index. On the contrary, this method is intended to be used by the logic
      * that builds the actual function call for later consumption.
+     *
      * @param indexName indexName to use
      * @return a {@link Stream} of {@link IndexAggregateFunction}s
      */
@@ -242,6 +244,7 @@ public class IndexAggregateFunctionCall {
      * Method to create a {@link IndexAggregateFunction} that represents the bound version of this function call.
      * In order to bind the function call, we need to associate the aggregate function call with an index and also
      * pin the order of grouping key expressions in a way that is compatible with that index.
+     *
      * @param indexName index to use
      * @param groupingKeysPermutation permutation of key expressions to use that is compatible with the aggregate index
      * @return a new {@link IndexAggregateFunction}
@@ -256,6 +259,7 @@ public class IndexAggregateFunctionCall {
      * In order to bind the function call, we need to associate the aggregate function call with an index and also
      * pin the order of grouping key expressions in a way that is compatible with that index. The order of the grouping
      * key expressions is implicitly given by the structure of the {@code groupingKeyExpression}.
+     *
      * @param indexName index to use, index is allowed to be {@code null} as some aggregate functions scan more than one index
      * @return a new {@link IndexAggregateFunction}
      */
@@ -269,6 +273,7 @@ public class IndexAggregateFunctionCall {
      * In order to bind the function call, we need to associate the aggregate function call with an index and also
      * pin the order of grouping key expressions in a way that is compatible with that index. The order of the grouping
      * key expressions is implicitly given by the structure of the {@code groupingKeyExpression}.
+     *
      * @param indexName index to use, index is allowed to be {@code null} as some aggregate functions scan more than one index
      * @param groupingKeyExpression the grouping key expression to use
      * @return a new {@link IndexAggregateFunction}
@@ -306,6 +311,7 @@ public class IndexAggregateFunctionCall {
     /**
      * Helper method to extract a set of key expressions that are bound through an equality comparison in the
      * query component passed in.
+     *
      * @param queryComponent the query component
      * @return a set of {@link KeyExpression}s where each element is a key expression of a field (i.e. a
      * {@link com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression}) or a simple nesting field
@@ -322,6 +328,7 @@ public class IndexAggregateFunctionCall {
     /**
      * Helper method to extract a set of key expressions that are bound through some comparison in the
      * query component passed in.
+     *
      * @param queryComponent the query component
      * @param predicate a predicate used for filtering each encountered {@link ComponentWithComparison}
      * @return a set of {@link KeyExpression}s where each element is a key expression of a field (i.e. a

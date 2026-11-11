@@ -23,24 +23,16 @@
  *
  * <h2>Logging in the Record Layer</h2>
  *
- * <p>
- * All logging is done using <a href="https://www.slf4j.org/">SLF4J</a>, which should be compatible with
+ * <p>All logging is done using <a href="https://www.slf4j.org/">SLF4J</a>, which should be compatible with
  * whatever logging framework the client system uses.
- * </p>
  *
- * <p>
- * All {@link org.slf4j.Logger}s have names starting with <code>com.apple.foundationdb.record</code>.
- * </p>
+ * <p>All {@link org.slf4j.Logger}s have names starting with <code>com.apple.foundationdb.record</code>.
  *
- * <p>
- * Log messages of any complexity use {@link com.apple.foundationdb.record.logging.KeyValueLogMessage}, which outputs in a standard <code>key=value</code> format.
+ * <p>Log messages of any complexity use {@link com.apple.foundationdb.record.logging.KeyValueLogMessage}, which outputs in a standard <code>key=value</code> format.
  * Most of the standard log message keys appear in {@link com.apple.foundationdb.record.logging.LogMessageKeys}.
- * </p>
  *
- * <p>
- * Since record operations are fundamentally asynchronous and makes extensive use of {@link java.util.concurrent.CompletableFuture} composition, log messages for a single operation will
+ * <p>Since record operations are fundamentally asynchronous and makes extensive use of {@link java.util.concurrent.CompletableFuture} composition, log messages for a single operation will
  * often come from multiple thread pool threads. To allow these to be associated with a calling context in the log, the {@link org.slf4j.MDC} is used.
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase#openContext} takes an optional MDC map, which will be maintained for all work done by the {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}.
- * </p>
  */
 package com.apple.foundationdb.record.logging;

@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 /**
  * The <code>TIME_WINDOW_RANK</code> record function.
  * Evaluates to the given record's rank of the given type at the given time.
+ *
  * @param <T> type of the function result
  */
 @API(API.Status.EXPERIMENTAL)

@@ -34,20 +34,16 @@ import javax.annotation.Nonnull;
  * lowest FDB server version. If the API version is set too high, the FDB client may hang when
  * trying to connect to the server.
  *
- * <p>
- * Because FDB API versions also control which features are guaranteed to be supported, there may
+ * <p>Because FDB API versions also control which features are guaranteed to be supported, there may
  * be Record Layer features that are gated on specific FDB API versions. For that reason, if there
  * is a new feature that relies on specific FDB server features being available, the client may
  * need to be configured with the appropriate API version before that feature can be used.
- * </p>
  *
- * <p>
- * A note on Record Layer API stability: the elements of this enum are expected to shift as support
+ * <p>A note on Record Layer API stability: the elements of this enum are expected to shift as support
  * for FDB versions are deprecated and removed. As a result, the elements of this enum will be added
  * and removed as support for old FDB versions is dropped and new FDB versions is added. Setting the
  * API version to a non-default value is also currently an experimental feature as additional testing
  * and validation work to evaluate the library at various FDB API versions is developed.
- * </p>
  *
  * @see FDBDatabaseFactory#setAPIVersion(APIVersion)
  */
@@ -75,6 +71,7 @@ public enum APIVersion {
 
     /**
      * Get the API version number. This is the value passed to FDB during client initialization.
+     *
      * @return the version number associated with this version of the API
      */
     public int getVersionNumber() {
@@ -97,9 +94,7 @@ public enum APIVersion {
      * {@link FDBDatabaseFactory#setAPIVersion(APIVersion)}, this is the API version that will
      * be used to initialize the FDB client connection.
      *
-     * <p>
-     * This is currently {@link #API_VERSION_6_3}.
-     * </p>
+     * <p>This is currently {@link #API_VERSION_6_3}.
      *
      * @return the default API version
      */
@@ -109,6 +104,7 @@ public enum APIVersion {
 
     /**
      * Get the {@code APIVersion} enum from the version number.
+     *
      * @param versionNumber the FDB API version number
      * @return the corresponding enum value
      */

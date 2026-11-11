@@ -182,7 +182,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
 
         if (otherGroupByExpr.getGroupingValue() != null) {
             return Objects.requireNonNull(getGroupingValue()).semanticEquals(otherGroupByExpr.getGroupingValue(), equivalences)
-                   && getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
+                    && getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
         } else {
             return getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
         }
@@ -603,20 +603,18 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
 
     /**
      * Compute the list of values the match candidate should be rolled-up to based on the matched grouping values.
-     * <p>
-     * For a match candidate roll-up to be possible, the values that the match candidate is to be rolled-up to should
+     *
+     * <p>For a match candidate roll-up to be possible, the values that the match candidate is to be rolled-up to should
      * be contained within a prefix of the match candidate's list of grouping values. Given the set of match candidate
      * grouping values which matched the query's explicit grouping values (i.e. the grouping values listed after the
      * query's GROUP BY clause) and the set of values which matched the query's implicit grouping values (i.e. the
      * grouping values extracted from equality predicates in the query), this method returns the longest prefix of the
      * candidate grouping values <strong>without any unmatched grouping values</strong> which fully subsumes the query's
      * explicit grouping values and potentially also subsume the query's implicit grouping values.
-     * </p>
-     * <p>
-     * If no such prefix exists, this method returns an empty {@link Optional} instead.
-     * </p>
-     * <p>
-     * Examples of queries and aggregate index match candidates that can be rolled up to the queries:
+     *
+     * <p>If no such prefix exists, this method returns an empty {@link Optional} instead.
+     *
+     * <p>Examples of queries and aggregate index match candidates that can be rolled up to the queries:
      *
      * <li>
      *      <strong>(Query: <code>GROUP BY b</code>, candidate: <code>GROUP BY a, b</code>)</strong>: there is no valid
@@ -640,13 +638,12 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
      *      roll up to values here should be <strong>[a]</strong> as that is the longest prefix without any unmatched
      *      grouping values.
      *  </li>
-     * </p>
      *
      * @param candidateGroupingValues the list of the match candidate's grouping values.
      * @param explicitlyMatchedCandidateGroupingValuesSet the set of match candidate's grouping values which matched the
      *                                                    query's explicit grouping values.
      * @param implicitlyMatchedCandidateGroupingValuesSet the set of match candidate's grouping values which matched the
-*      *                                                  query's implicit grouping values.
+     *                                                  query's implicit grouping values.
      * @return An {@link Optional} with a list of {@link Value}s which constitute the longest prefix in the candidate
      *         grouping values that subsumes the query's explicit grouping values and potentially the query's implicit
      *         grouping values, or an empty {@link Optional} if no such prefix exists.

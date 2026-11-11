@@ -48,6 +48,7 @@ import java.util.function.Function;
 /**
  * A cursor that flattens a tree of cursors.
  * A root cursor seeds the output and then each output element is additionally mapped into a child cursor.
+ *
  * @param <T> the type of elements of the cursors
  */
 @API(API.Status.EXPERIMENTAL)
@@ -80,6 +81,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     /**
      * Create a recursive cursor.
+     *
      * @param rootCursorFunction a function that given a continuation or {@code null} returns the children of the root
      * @param childCursorFunction a function that given a value and a continuation returns the children of that level
      * @param checkValueFunction a function to recognize changes to the database since a continuation
@@ -188,6 +190,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
     /**
      * A value returned by a recursive descent.
      * Includes the depth level and whether there are any descendants.
+     *
      * @param <T> the type of elements of the cursors
      */
     public static class RecursiveValue<T> {
@@ -204,6 +207,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         /**
          * Get the value for a recursive result.
+         *
          * @return the value associated with the given result
          */
         @Nullable
@@ -213,6 +217,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         /**
          * Get the depth for a recursive result.
+         *
          * @return the 1-based depth from the root of the given result
          */
         public int getDepth() {
@@ -221,6 +226,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         /**
          * Get whether a recursive result has any descendants.
+         *
          * @return {@code true} if the given result is a leaf, {@code false} if it has any descendants
          */
         public boolean isLeaf() {
@@ -230,12 +236,14 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     /**
      * Function to generate children of a parent value.
+     *
      * @param <T> the type of elements of the cursors
      */
     @FunctionalInterface
     public interface ChildCursorFunction<T> {
         /**
          * Return recursion cursor for this level.
+         *
          * @param value the value at this level
          * @param depth the 1-based depth of this level
          * @param continuation an optional continuation
@@ -297,6 +305,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     /**
      * Called to advance the recursion.
+     *
      * @return a future that completes to {@code true} if the loop should continue or {@code false} if a result is available
      */
     @Nonnull

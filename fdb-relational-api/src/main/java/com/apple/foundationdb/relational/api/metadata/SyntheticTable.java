@@ -26,7 +26,6 @@ import java.util.Set;
 /**
  * Metadata for a synthetic table: a named, virtual table whose rows are derived from those of one or more stored
  * {@link Table}s, and which carries {@link Index}es maintained from writes to those tables.
- * <p>
  */
 public interface SyntheticTable extends Metadata {
 

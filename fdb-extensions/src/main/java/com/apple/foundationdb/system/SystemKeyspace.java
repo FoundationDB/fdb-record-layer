@@ -33,11 +33,9 @@ import java.nio.charset.StandardCharsets;
  * and should not be consumed directly by adopters. They should instead generally be referenced through wrapper
  * functions that exist in this project and in the Record Layer core project.
  *
- * <p>
- * There is currently a project to provide a framework for FoundationDB clients to make use of the special
+ * <p>There is currently a project to provide a framework for FoundationDB clients to make use of the special
  * key space API. As that project develops, this class may become unnecessary. See:
  * <a href="https://github.com/apple/foundationdb/blob/master/design/special-key-space.md">Special-Key-Space</a>.
- * </p>
  */
 @SpotBugsSuppressWarnings(value = "MS_MUTABLE_ARRAY", justification = "array copying is expensive")
 @API(API.Status.INTERNAL)

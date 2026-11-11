@@ -54,8 +54,8 @@ import java.util.stream.Collectors;
  * that follows it. In essence, it consists of a `connectionURI` that is required to connect to a database and an
  * ordered list of `steps` to execute. A `step` is nothing but a query to be executed, translating to a special
  * {@link QueryCommand} that executes but doesn't verify anything.
- * <p>
- * The failure handling in case of {@link SetupBlock} is straight-forward. It {@code throws} downstream exceptions
+ *
+ * <p>The failure handling in case of {@link SetupBlock} is straight-forward. It {@code throws} downstream exceptions
  * and errors to handled in the consumer. The rationale for this is that if the {@link SetupBlock} fails at step,
  * there is no guarantee **as of now** that some following {@link ConnectedBlock} can run independent of this failure.
  */
