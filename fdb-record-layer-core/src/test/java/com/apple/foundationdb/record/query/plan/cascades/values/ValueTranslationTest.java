@@ -1236,6 +1236,41 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedMap, computedMap);
     }
 
+    /**
+     * Test to establish that semantically equal values, here ranging over several aliases, are related at their roots,
+     * as the search for a match relates them.
+     */
+    @Test
+    public void maxMatchIdentityOfSemanticallyEqualValues() {
+        final var pv = rcv(fv(t, "a"), m);
+        final var p_v = rcv(fv(t_, "a"), m_);
+        final var rangedOverAliases = ImmutableSet.of(t_Alias, m_Alias);
+        final var valueEquivalence =
+                ValueEquivalence.fromAliasMap(AliasMap.builder().put(tAlias, t_Alias).put(mAlias, m_Alias).build());
+
+        final var m3 = MaxMatchMap.identityOf(pv, p_v, rangedOverAliases, valueEquivalence);
+
+        Assertions.assertEquals(ImmutableMap.of(pv, p_v), m3.getMap());
+        Assertions.assertEquals(pv, m3.getQueryValue());
+        Assertions.assertEquals(p_v, m3.getCandidateValue());
+        Assertions.assertEquals(MaxMatchMap.compute(pv, p_v, rangedOverAliases, valueEquivalence).getMap(),
+                m3.getMap());
+    }
+
+    /**
+     * Test to establish that values which are not semantically equal cannot be related as a whole.
+     */
+    @Test
+    public void maxMatchIdentityOfValuesThatAreNotEqual() {
+        final var pv = rcv(fv(t, "a"), m);
+        final var p_v = rcv(fv(t_, "b"), m_);
+        final var valueEquivalence =
+                ValueEquivalence.fromAliasMap(AliasMap.builder().put(tAlias, t_Alias).put(mAlias, m_Alias).build());
+
+        Assertions.assertThrows(VerifyException.class,
+                () -> MaxMatchMap.identityOf(pv, p_v, ImmutableSet.of(t_Alias, m_Alias), valueEquivalence));
+    }
+
     @Nonnull
     private static MaxMatchMap calculate(@Nonnull final Value queryResultValue, @Nonnull final Value candidateResultValue) {
         return MaxMatchMap.compute(queryResultValue, candidateResultValue, candidateResultValue.getCorrelatedTo());
