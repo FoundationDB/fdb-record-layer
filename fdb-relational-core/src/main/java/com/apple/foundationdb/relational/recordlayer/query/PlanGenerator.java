@@ -93,6 +93,26 @@ public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
 
     /**
+     * An optional plan cache used to improve performance by storing execution plans.
+     * This allows the system to reuse plans for identical queries, avoiding redundant planning.
+     */
+    @Nonnull
+    private final Optional<RelationalPlanCache> cache;
+
+    @Nonnull
+    private final CascadesPlanner planner;
+
+    @Nonnull
+    private final PlanContext planContext;
+
+    @Nonnull
+    private Options options;
+
+    private long beginTime = System.nanoTime();
+
+    private long currentTime = beginTime;
+
+    /**
      * Picks the cheapest of the cached plans that match the lookup, according to a {@link PlanCacheCostModel} built
      * from {@code plannerConfiguration}, which must be the configuration of the lookup's secondary cache key. Uses the
      * cost model as a comparator rather than calling {@link PlanCacheCostModel#getBestExpression} so the chosen
@@ -124,26 +144,6 @@ public final class PlanGenerator {
             }
         }));
     }
-
-    /**
-     * An optional plan cache used to improve performance by storing execution plans.
-     * This allows the system to reuse plans for identical queries, avoiding redundant planning.
-     */
-    @Nonnull
-    private final Optional<RelationalPlanCache> cache;
-
-    @Nonnull
-    private final CascadesPlanner planner;
-
-    @Nonnull
-    private final PlanContext planContext;
-
-    @Nonnull
-    private Options options;
-
-    private long beginTime = System.nanoTime();
-
-    private long currentTime = beginTime;
 
     private PlanGenerator(@Nonnull final Optional<RelationalPlanCache> cache,
                           @Nonnull final PlanContext planContext,
