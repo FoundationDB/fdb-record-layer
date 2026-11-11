@@ -65,11 +65,11 @@ in-query-or-prepared:
     ref: in-query-or.yamsql:258
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 1063
-    task_total_time_ms: 33
-    transform_count: 280
-    transform_time_ms: 14
-    transform_yield_count: 95
-    insert_time_ms: 2
-    insert_new_count: 157
-    insert_reused_count: 8
+    task_count: 521
+    task_total_time_ms: 19
+    transform_count: 126
+    transform_time_ms: 10
+    transform_yield_count: 53
+    insert_time_ms: 1
+    insert_new_count: 62
+    insert_reused_count: 5
