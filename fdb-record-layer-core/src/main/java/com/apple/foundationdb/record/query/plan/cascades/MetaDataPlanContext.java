@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -115,17 +114,18 @@ public class MetaDataPlanContext implements PlanContext {
         final var isSortReverse = query.isSortReverse();
 
         List<Index> indexList = new ArrayList<>();
-        final Collection<RecordType> queriedRecordTypes;
+        final Set<String> queriedRecordTypeNames;
         final KeyExpression commonPrimaryKey;
         recordStoreState.beginRead();
         try {
             if (queriedRecordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
-                queriedRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().values());
+                queriedRecordTypeNames = metaData.getRecordTypes().keySet();
             } else {
-                queriedRecordTypes = queriedRecordTypeNamesOptional.get().stream().map(metaData::getRecordType).collect(ImmutableSet.toImmutableSet());
+                queriedRecordTypeNames = ImmutableSet.copyOf(queriedRecordTypeNamesOptional.get());
+                final List<RecordType> queriedRecordTypes = queriedRecordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
                 if (queriedRecordTypes.size() == 1) {
-                    final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
+                    final RecordType recordType = queriedRecordTypes.get(0);
                     indexList.addAll(readableOf(recordStoreState, recordType.getIndexes()));
                     indexList.addAll(readableOf(recordStoreState, recordType.getMultiTypeIndexes()));
                     commonPrimaryKey = recordType.getPrimaryKey();
@@ -144,9 +144,6 @@ public class MetaDataPlanContext implements PlanContext {
             }
 
             indexList.addAll(readableOf(recordStoreState, metaData.getUniversalIndexes()));
-            for (final var syntheticRecordType : metaData.getSyntheticRecordTypesFromRecordTypes(queriedRecordTypes)) {
-                indexList.addAll(readableOf(recordStoreState, syntheticRecordType.getIndexes()));
-            }
         } finally {
             recordStoreState.endRead();
         }
@@ -163,7 +160,6 @@ public class MetaDataPlanContext implements PlanContext {
             matchCandidatesBuilder.addAll(matchCandidateRegistry.createMatchCandidates(metaData, index, isSortReverse));
         }
 
-        final Set<String> queriedRecordTypeNames = queriedRecordTypes.stream().map(RecordType::getName).collect(ImmutableSet.toImmutableSet());
         MatchCandidateExpansion.fromPrimaryDefinition(metaData, queriedRecordTypeNames, commonPrimaryKey, isSortReverse)
                 .ifPresent(matchCandidatesBuilder::add);
 
@@ -184,15 +180,12 @@ public class MetaDataPlanContext implements PlanContext {
         }
 
         final var queriedRecordTypes =
-                queriedRecordTypeNames.stream().map(metaData::getRecordType).collect(ImmutableSet.toImmutableSet());
+                queriedRecordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
         final var indexList = Lists.<Index>newArrayList();
         recordStoreState.beginRead();
         try {
             for (final var recordType : queriedRecordTypes) {
                 indexList.addAll(readableOf(recordStoreState, recordType.getAllIndexes()));
-            }
-            for (final var syntheticRecordType : metaData.getSyntheticRecordTypesFromRecordTypes(queriedRecordTypes)) {
-                indexList.addAll(readableOf(recordStoreState, syntheticRecordType.getIndexes()));
             }
         } finally {
             recordStoreState.endRead();

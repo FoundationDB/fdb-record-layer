@@ -45,6 +45,6 @@ class UnnestedRecordPlanner {
                     .addLogInfo(LogMessageKeys.EXPECTED, recordType.getParentConstituent().getName())
                     .addLogInfo(LogMessageKeys.ACTUAL, constituent.getName());
         }
-        return new UnnestStoredRecordPlan(recordType);
+        return new UnnestStoredRecordPlan(recordType, constituent.getRecordType());
     }
 }
