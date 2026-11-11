@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.async.hnsw.Config;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -188,6 +189,38 @@ class VectorIndexOptionKeysTest {
                         ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
                                 metricOptionName, Metric.EUCLIDEAN_METRIC.name())));
         return builder.build();
+    }
+
+    @Test
+    void writeAppendableNodesIsParsedIntoConfig() {
+        final Index defaultIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128"));
+        assertThat(HnswVectorIndexEngine.parseConfig(defaultIndex).writeAppendableNodes())
+                .isEqualTo(Config.DEFAULT_WRITE_APPENDABLE_NODES);
+
+        final Index appendableIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.HNSW_WRITE_APPENDABLE_NODES, "true"));
+        assertThat(HnswVectorIndexEngine.parseConfig(appendableIndex).writeAppendableNodes()).isTrue();
+    }
+
+    @Test
+    void writeAppendableCentroidNodesIsParsedIntoGuardiannConfig() {
+        final Index defaultIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name()));
+        assertThat(GuardiannVectorIndexEngine.parseConfig(defaultIndex).writeAppendableCentroidNodes())
+                .isEqualTo(com.apple.foundationdb.async.guardiann.Config.DEFAULT_WRITE_APPENDABLE_CENTROID_NODES);
+
+        final Index appendableIndex =
+                new Index("v", field("vector_data"), IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                                IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name(),
+                                IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "true"));
+        assertThat(GuardiannVectorIndexEngine.parseConfig(appendableIndex).writeAppendableCentroidNodes()).isTrue();
     }
 
     @Test

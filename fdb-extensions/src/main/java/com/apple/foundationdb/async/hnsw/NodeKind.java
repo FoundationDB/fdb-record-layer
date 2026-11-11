@@ -42,7 +42,21 @@ public enum NodeKind {
      * <p>Inlining nodes do not store their own vector and their neighbors-list contain the both the primary key and the
      * neighbor vector for each neighbor. Each neighbor is stored in its own key/value pair.
      */
-    INLINING((byte)0x01);
+    INLINING((byte)0x01),
+
+    /**
+     * Appendable compact node. This is a storage format marker for {@link CompactNode}s; the in-memory node of this
+     * kind reports {@link #COMPACT} as its kind and is indistinguishable from any other compact node.
+     * It differs from {@link #COMPACT} in that the neighbors are written as trailing elements of the stored tuple.
+     * This allows new neighbors to be appended to the end.
+     *
+     * <p><b>Compatibility:</b> Support for this option was added after the other versions. As such, using
+     * this node is incompatible with certain software rollback operations. Note that once all processes have
+     * been upgraded to a library version that supports this node kind, existing HNSWs can be upgraded from
+     * {@link #COMPACT} to this format without rebuilding.
+     */
+    COMPACT_APPENDABLE((byte)0x02),
+    ;
 
     private final byte serialized;
 
@@ -53,6 +67,16 @@ public enum NodeKind {
      */
     NodeKind(final byte serialized) {
         this.serialized = serialized;
+    }
+
+    /**
+     * Whether this kind is a storage format of {@link CompactNode}s, i.e. {@link #COMPACT} or
+     * {@link #COMPACT_APPENDABLE}.
+     *
+     * @return {@code true} iff nodes of this kind are compact nodes
+     */
+    public boolean isCompact() {
+        return this == COMPACT || this == COMPACT_APPENDABLE;
     }
 
     /**
@@ -72,17 +96,12 @@ public enum NodeKind {
      */
     @Nonnull
     static NodeKind fromSerializedNodeKind(byte serializedNodeKind) {
-        final NodeKind nodeKind;
-        switch (serializedNodeKind) {
-            case 0x00:
-                nodeKind = NodeKind.COMPACT;
-                break;
-            case 0x01:
-                nodeKind = NodeKind.INLINING;
-                break;
-            default:
-                throw new IllegalArgumentException("unknown node kind");
-        }
+        final NodeKind nodeKind = switch (serializedNodeKind) {
+            case 0x00 -> NodeKind.COMPACT;
+            case 0x01 -> NodeKind.INLINING;
+            case 0x02 -> NodeKind.COMPACT_APPENDABLE;
+            default -> throw new IllegalArgumentException("unknown node kind");
+        };
         Verify.verify(nodeKind.getSerialized() == serializedNodeKind);
         return nodeKind;
     }
