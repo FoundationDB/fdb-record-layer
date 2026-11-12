@@ -29,6 +29,9 @@ options:
 # `T2` — Same table as T1/T2, with an analogous index, but defined using a VIEW and the INDEX…ON syntax.
 # `T3` — A table containing an ARRAY of STRUCT.
 # `restaurant` — The example table and index from the SQL reference (`Indexes.rst`, "Indexes on nested fields").
+# `T5` — A table containing a BIGINT ARRAY with repeated elements, indexed with an index that fans out the array. Such
+#        an index stores one entry per distinct element of a row: repeated elements produce the same entry key, so
+#        they share one entry.
 schema_template:
   CREATE TABLE T1 ("id" BIGINT, "items" STRING ARRAY, PRIMARY KEY ("id"))
 
@@ -51,6 +54,9 @@ schema_template:
   CREATE TYPE AS STRUCT "restaurant_review" ("reviewer" STRING, "rating" BIGINT)
   CREATE TABLE "restaurant" ("rest_no" BIGINT, "name" STRING, "reviews" "restaurant_review" ARRAY, PRIMARY KEY ("rest_no"))
   CREATE INDEX "mv" AS SELECT SQ."rating" FROM "restaurant" AS RR, (SELECT "rating" FROM RR."reviews") SQ
+
+  CREATE TABLE "T5" ("id" BIGINT, "numbers" BIGINT ARRAY, PRIMARY KEY ("id"))
+  CREATE INDEX "T5_index" AS SELECT "number" FROM "T5" AS "row", "row"."numbers" AS "number"
 ---
 setup:
   steps:
@@ -73,6 +79,11 @@ setup:
              VALUES (1, 'Pizza Place', [('Alice', 5), ('Bob', 3)]),
                     (2, 'Burger Barn', [('Carol', 4)]),
                     (3, 'Taco Town', [('Dave', 2), ('Eve', 4), ('Frank', 5)])
+    - query: INSERT INTO "T5"
+             VALUES (1, [5, 5, 7]),
+                    (2, [7, 5]),
+                    (3, [8]),
+                    (4, [])
 ---
 test_block:
   tests:
@@ -194,4 +205,44 @@ test_block:
       # integer; instead we refer to it using a nested star (*) expression.
       - query: SELECT "id", SQ.* FROM T3, (SELECT (*) AS "wrapped_int" FROM T3."integers") AS SQ
       - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
+    -
+      # The index that fans out the array answers an EXISTS over it, which does not observe how many times an element
+      # occurs.
+      - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" WHERE "number" = 5)
+      - supported_version: !current_version
+      - explain: "COVERING(T5_index [EQUALS promote(@c20 AS LONG)] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - unorderedResult: [{1}, {2}]
+    -
+      # Unnesting with AT preserves the order of the array, which an EXISTS does not observe either.
+      - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" AT "at" WHERE "number" = 5)
+      - supported_version: !current_version
+      - explain: "COVERING(T5_index [EQUALS promote(@c22 AS LONG)] -> [id: KEY:[2]]) | MAP (_.id AS id)"
+      - unorderedResult: [{1}, {2}]
+    -
+      # The index holds no ordinals, so the EXISTS is reapplied to each row the index finds.
+      - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" AT "at" WHERE "number" = 5 AND "at" = 1)
+      - supported_version: !current_version
+      - explain: "ISCAN(T5_index [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c22 AS LONG) AND _._1 + 1 EQUALS promote(@c26 AS INT) | MAP (@c26 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | MAP (_.id AS id)"
+      - unorderedResult: [{1}]
+    -
+      # An unnest that is not underneath an EXISTS observes every element, so the index cannot answer it.
+      - query: SELECT "id", "number" FROM "T5" AS "row", "row"."numbers" AS "number" WHERE "number" = 5
+      - supported_version: !current_version
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c17 AS LONG) AS q1 RETURN (q0.id AS id, q1._0 AS number) }"
+      - unorderedResult: [{id: 1, number: 5}, {id: 1, number: 5}, {id: 2, number: 5}]
+    -
+      - query: SELECT "id", "at" FROM "T5" AS "row", "row"."numbers" AS "number" AT "at" WHERE "number" = 5
+      - supported_version: !current_version
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c19 AS LONG) AS q1 RETURN (q0.id AS id, q1._1 + 1 AS at) }"
+      - unorderedResult: [{id: 1, at: 1}, {id: 1, at: 2}, {id: 2, at: 2}]
+    -
+      - query: SELECT COUNT(*) FROM "T5" AS "row", "row"."numbers" AS "number" WHERE "number" = 5
+      - supported_version: !current_version
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c18 AS LONG) AS q1 RETURN (q0 AS _0, q1 AS _1) } | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
+      - result: [{3}]
+# TODO (`EXISTS` query over a fan-out index may incorrectly return the parent record multiple times: https://github.com/FoundationDB/fdb-record-layer/issues/4304)
+#    -
+#      # A row with several distinct elements in the range has an index entry for each of them.
+#      - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" WHERE "number" > 4)
+#      - unorderedResult: [{1}, {2}, {3}]
 ...
