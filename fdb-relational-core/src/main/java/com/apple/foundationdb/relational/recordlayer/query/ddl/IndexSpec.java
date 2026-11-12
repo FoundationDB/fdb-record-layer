@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -81,27 +80,25 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
      *
      * @param tables each stored table the definition reads, with the number of times it is scanned; a self-join scans
      * one table twice
-     * @param syntheticTableBuilder the synthetic table the definition was rewritten onto, if any
+     * @param syntheticType the record type of the synthetic table the definition was rewritten onto, if any
      */
-    record Source(@Nonnull Map<RecordLayerTable, Integer> tables,
-                  @Nullable RecordLayerSyntheticTable.Builder syntheticTableBuilder) {
+    record Source(@Nonnull Map<RecordLayerTable, Integer> tables, @Nullable Type.Record syntheticType) {
 
         Source {
-            Assert.thatUnchecked(tables.isEmpty() || syntheticTableBuilder == null,
+            Assert.thatUnchecked(tables.isEmpty() || syntheticType == null,
                     "Invalid IndexSpec");
         }
 
         boolean hasSingleSource() {
-            return syntheticTableBuilder() != null || tables.size() == 1;
+            return syntheticType() != null || tables.size() == 1;
         }
 
         Type.Record getRecordType() {
-            return syntheticTableBuilder == null ? Iterables.getOnlyElement(tables.keySet()).getType()
-                                                 : syntheticTableBuilder.getType();
+            return syntheticType == null ? Iterables.getOnlyElement(tables.keySet()).getType() : syntheticType;
         }
 
         private Source merge(@Nonnull Source otherSource) {
-            Assert.thatUnchecked(otherSource.syntheticTableBuilder == null && this.syntheticTableBuilder == null,
+            Assert.thatUnchecked(otherSource.syntheticType == null && this.syntheticType == null,
                     "Cannot merge index source of tables with that of synthetic table");
             final Map<RecordLayerTable, Integer> mergedTables = new HashMap<>(tables);
             otherSource.tables.forEach((table, scanCount) -> mergedTables.merge(table, scanCount, Integer::sum));
@@ -112,8 +109,8 @@ record IndexSpec(int scanCount, @Nonnull Source source, @Nullable QueryPredicate
             return new Source(ImmutableMap.copyOf(tables), null);
         }
 
-        static Source of(@Nonnull RecordLayerSyntheticTable.Builder syntheticTableBuilder) {
-            return new Source(ImmutableMap.of(), syntheticTableBuilder);
+        static Source ofSyntheticTable(@Nonnull Type.Record syntheticType) {
+            return new Source(ImmutableMap.of(), syntheticType);
         }
 
         static Source empty() {

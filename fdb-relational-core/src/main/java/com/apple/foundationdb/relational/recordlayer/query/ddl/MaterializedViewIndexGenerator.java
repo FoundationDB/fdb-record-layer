@@ -87,23 +87,29 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         return new MaterializedViewIndexGenerator(relationalExpression, schemaTemplateBuilder, indexName, options);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>An index that needs a synthetic table is defined on an existing one if the schema template has one producing
+     * the same synthetic records, up to a renaming of their constituents. Otherwise its own synthetic table is added to
+     * the schema template, once the definition is known to be valid, without any index: the caller defines the index on
+     * it.
+     */
     @Nonnull
     @Override
-    public IndexGenerationResult generate() {
+    public RecordLayerIndex.Builder generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
-        final var syntheticTableGeneratorMaybe = SyntheticTableGeneratorFactory.forDefinition(
-                spec, indexName, quantifierValues);
-        if (syntheticTableGeneratorMaybe.isPresent()) {
-            final var syntheticTableGenerator = syntheticTableGeneratorMaybe.get();
-            syntheticTableGenerator.checkSupported(spec);
-            spec = syntheticTableGenerator.rewrite(spec);
+        final var syntheticTableMaybe = SyntheticTableGeneratorFactory.resolve(
+                spec, indexName, quantifierValues, schemaTemplateBuilder);
+        if (syntheticTableMaybe.isPresent()) {
+            spec = syntheticTableMaybe.get().generator().rewrite(spec);
         }
         spec.checkValidity();
         final var tableType = spec.source().getRecordType();
         // A column of a synthetic table names its constituent, which has to be navigated on its own rather than merged
         // into a run with its neighbour.
-        final var translation = translateToKeyExpression(spec, syntheticTableGeneratorMaybe.isEmpty());
+        final var translation = translateToKeyExpression(spec, syntheticTableMaybe.isEmpty());
         final var indexType = translation.indexType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
@@ -124,7 +130,9 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         }
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
-        return new IndexGenerationResult(indexBuilder, spec.source().syntheticTableBuilder());
+        syntheticTableMaybe.filter(SyntheticTableGeneratorFactory.Resolution::addsSyntheticTable)
+                .ifPresent(resolution -> schemaTemplateBuilder.addSyntheticTable(resolution.generator().generate().build()));
+        return indexBuilder;
     }
 
     /**
