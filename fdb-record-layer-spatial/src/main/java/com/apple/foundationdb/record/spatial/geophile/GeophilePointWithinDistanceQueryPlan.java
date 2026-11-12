@@ -40,7 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
+import com.apple.foundationdb.record.query.expressions.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
