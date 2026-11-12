@@ -178,6 +178,13 @@ public interface MatchInfo {
         @Nonnull
         private final QueryPlanConstraint additionalPlanConstraint;
 
+        /**
+         * Whether the match has a distinct explode underneath, that is, whether the candidate produces every distinct
+         * row of the query once rather than every row, as an index that fans out a repeated field does. Such a match is
+         * only sound under an existential quantifier, which absorbs it.
+         */
+        private final boolean hasDistinctExplode;
+
         private RegularMatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                  @Nonnull final AliasMap bindingAliasMap,
                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
@@ -186,7 +193,8 @@ public interface MatchInfo {
                                  @Nonnull final MaxMatchMap maxMatchMap,
                                  @Nonnull final GroupByMappings groupByMappings,
                                  @Nullable final List<Value> rollUpToGroupingValues,
-                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                                 final boolean hasDistinctExplode) {
             this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
             this.bindingAliasMap = bindingAliasMap;
             this.partialMatchMap = partialMatchMap.toImmutable();
@@ -203,6 +211,7 @@ public interface MatchInfo {
             this.rollUpToGroupingValues = rollUpToGroupingValues == null
                                           ? null : ImmutableList.copyOf(rollUpToGroupingValues);
             this.additionalPlanConstraint = additionalPlanConstraint;
+            this.hasDistinctExplode = hasDistinctExplode;
         }
 
         @Nonnull
@@ -288,6 +297,15 @@ public interface MatchInfo {
             return additionalPlanConstraint;
         }
 
+        /**
+         * {@return whether the match has a distinct explode underneath that no existential quantifier has absorbed yet}
+         * The candidate then produces every distinct row of the query once rather than every row, so the match is not
+         * complete, as only the existence of a row is observed through an existential quantifier.
+         */
+        public boolean hasDistinctExplode() {
+            return hasDistinctExplode;
+        }
+
         @Override
         public boolean isAdjusted() {
             return false;
@@ -321,9 +339,27 @@ public interface MatchInfo {
         public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final AliasMap bindingAliasMap,
                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                           @Nonnull final MaxMatchMap maxMatchMap) {
+            return tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap, false);
+        }
+
+        /**
+         * Creates the match info of a match whose mapping is given by a {@link MaxMatchMap}.
+         *
+         * @param bindingAliasMap a map of aliases defining the equivalence between quantifiers
+         * @param partialMatchMap a map from quantifier to the {@link PartialMatch} pulled up along that quantifier
+         * @param maxMatchMap the max match map of the match
+         * @param hasDistinctExplode whether the match is of a distinct explode, whose candidate produces every distinct
+         *        row of the query once rather than every row
+         * @return the match info if the partial matches can be merged, empty otherwise
+         */
+        @Nonnull
+        public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final AliasMap bindingAliasMap,
+                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                          @Nonnull final MaxMatchMap maxMatchMap,
+                                                          final boolean hasDistinctExplode) {
             return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                     maxMatchMap, GroupByMappings.empty(), null,
-                    maxMatchMap.getQueryPlanConstraint());
+                    maxMatchMap.getQueryPlanConstraint(), hasDistinctExplode);
         }
 
         @Nonnull
@@ -335,6 +371,21 @@ public interface MatchInfo {
                                                    @Nonnull final GroupByMappings additionalGroupByMappings,
                                                    @Nullable final List<Value> rollUpToGroupingValues,
                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+            return tryMerge(bindingAliasMap, partialMatchMap, parameterBindingMap, predicateMap, maxMatchMap,
+                    additionalGroupByMappings, rollUpToGroupingValues, additionalPlanConstraint, false);
+        }
+
+        @Nonnull
+        @SuppressWarnings("checkstyle:ParameterNumber")
+        private static Optional<MatchInfo> tryMerge(@Nonnull final AliasMap bindingAliasMap,
+                                                    @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+                                                    @Nonnull final PredicateMultiMap predicateMap,
+                                                    @Nonnull final MaxMatchMap maxMatchMap,
+                                                    @Nonnull final GroupByMappings additionalGroupByMappings,
+                                                    @Nullable final List<Value> rollUpToGroupingValues,
+                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                                                    final boolean hasDistinctExplode) {
             final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
             final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
@@ -388,6 +439,18 @@ public interface MatchInfo {
                 resolvedRollUpToGroupingValues = onlyRollUpToGroupingValues;
             }
 
+            //
+            // A child match with a distinct explode underneath produces every distinct row once rather than every row.
+            // Only an existential quantifier, through which just the existence of a row is observed, absorbs that.
+            // Through any other quantifier, this match has the distinct explode underneath as well.
+            //
+            final boolean mergedHasDistinctExplode = hasDistinctExplode ||
+                    partialMatchMap.entrySet()
+                            .stream()
+                            .anyMatch(entry -> !(entry.getKey().get() instanceof Quantifier.Existential) &&
+                                    Objects.requireNonNull(entry.getValue().get()).getRegularMatchInfo()
+                                            .hasDistinctExplode());
+
             return mergedParameterBindingsOptional
                     .map(mergedParameterBindings -> new RegularMatchInfo(mergedParameterBindings,
                             bindingAliasMap,
@@ -397,7 +460,8 @@ public interface MatchInfo {
                             maxMatchMap,
                             matchedAggregateValueMap,
                             resolvedRollUpToGroupingValues,
-                            additionalPlanConstraint));
+                            additionalPlanConstraint,
+                            mergedHasDistinctExplode));
         }
 
         public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {
