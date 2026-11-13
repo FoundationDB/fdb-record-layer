@@ -294,6 +294,36 @@ public class IndexTest {
     }
 
     /**
+     * An aggregate index directly over an unnesting groups by a field of the exploded element, which it reads through the
+     * select below the {@code GROUP BY}.
+     */
+    @Test
+    void createAggregateIndexGroupedByFieldOfUnnestedElement() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT R(s string) " +
+                "CREATE TYPE AS STRUCT P(k R, v bigint) " +
+                "CREATE TABLE T(p bigint, g bigint, d bigint, m P array, primary key(p)) " +
+                "CREATE INDEX mv1 AS SELECT t.g, e.k.s, max(t.d) FROM T AS t, t.m AS e GROUP BY t.g, e.k.s";
+        indexIs(stmt, field("D").groupBy(field("G"),
+                field("M").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut).nest(field("K").nest("S")))),
+                IndexTypes.PERMUTED_MAX);
+    }
+
+    /**
+     * A count index directly over an unnesting groups by a field of the exploded element.
+     */
+    @Test
+    void createCountIndexGroupedByFieldOfUnnestedElement() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT P(k bigint, v bigint) " +
+                "CREATE TABLE T(p bigint, g bigint, m P array, primary key(p)) " +
+                "CREATE INDEX mv1 AS SELECT count(*) FROM T AS t, t.m AS e GROUP BY t.g, e.v";
+        indexIs(stmt, new GroupingKeyExpression(concat(field("G"),
+                field("M").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut).nest(field("V")))), 0),
+                IndexTypes.COUNT);
+    }
+
+    /**
      * Scalar array unnesting via correlated subquery: STRING ARRAY, INDEX…AS syntax.
      */
     @Test

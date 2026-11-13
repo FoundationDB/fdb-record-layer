@@ -32,7 +32,9 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -280,13 +282,11 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 .addAll(fieldNamePrefix)
                 .add(ProtoUtils.toUserIdentifier(fieldName))
                 .build();
-        switch (fanType) {
-            case FanOut:
-                return Quantifier.forEach(Reference.initialOf(
-                        ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
-            default:
-                throw new RecordCoreException("unrecognized fan type");
+        if (fanType == FanType.FanOut) {
+            return Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
+                    new ExplodeValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames)))));
         }
+        throw new RecordCoreException("unrecognized fan type");
     }
 
     @Nonnull

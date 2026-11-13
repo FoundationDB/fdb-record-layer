@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -65,6 +64,7 @@ import java.util.function.Function;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.explode;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
@@ -397,10 +397,10 @@ public class PredicatePushDownRuleTest {
     @Test
     void pushDownPredicateOnRepeatedNested() {
         Quantifier baseQun = baseT();
-        Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(baseQun, "g")));
+        Quantifier explodeQun = explode(fieldValue(baseQun, "g"));
 
         Quantifier nestedSelectQun = forEach(selectWithPredicates(
-                explodeQun, List.of("two", "three")
+                explodeQun, ImmutableMap.of("_0.two", "two", "_0.three", "three")
         ));
         SelectExpression topSelect = join(baseQun, nestedSelectQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
@@ -411,8 +411,8 @@ public class PredicatePushDownRuleTest {
                 .buildSelect();
 
         Quantifier newNestedSelectQun = forEach(selectWithPredicates(
-                explodeQun, List.of("two", "three"),
-                fieldPredicate(explodeQun, "two", EQUALS_PARAM)
+                explodeQun, ImmutableMap.of("_0.two", "two", "_0.three", "three"),
+                fieldPredicate(explodeQun, "_0.two", EQUALS_PARAM)
         ));
         SelectExpression newTopSelect = join(baseQun, newNestedSelectQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
@@ -427,11 +427,11 @@ public class PredicatePushDownRuleTest {
     @Test
     void doNotPushDownToExistential() {
         Quantifier baseQun = baseT();
-        Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(baseQun, "g")));
+        Quantifier explodeQun = explode(fieldValue(baseQun, "g"));
 
         Quantifier nestedExistsQun = exists(selectWithPredicates(
                 explodeQun,
-                fieldPredicate(explodeQun, "two", GREATER_THAN_HELLO)
+                fieldPredicate(explodeQun, "_0.two", GREATER_THAN_HELLO)
         ));
         SelectExpression topSelect = join(baseQun, nestedExistsQun)
                 .addResultColumn(projectColumn(baseQun, "a"))

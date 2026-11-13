@@ -5,7 +5,7 @@ permuted-min-max-repeater:
         (0, 2) order by max(r.num_value_3_indexed) desc
     ref: permuted-min-max-repeater.yamsql:182
     explain: '[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2
-        [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0],
+        [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
     task_count: 678
@@ -22,7 +22,7 @@ permuted-min-max-repeater:
         (0, 0) order by max(r.num_value_3_indexed) desc
     ref: permuted-min-max-repeater.yamsql:195
     explain: '[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2
-        [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0],
+        [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
     task_count: 678
@@ -40,7 +40,7 @@ permuted-min-max-repeater-prepared:
         ? order by max(r.num_value_3_indexed) desc
     ref: permuted-min-max-repeater.yamsql:214
     explain: '[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2
-        [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0],
+        [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
     task_count: 678
@@ -57,7 +57,7 @@ permuted-min-max-repeater-prepared:
         ? order by max(r.num_value_3_indexed) desc
     ref: permuted-min-max-repeater.yamsql:227
     explain: '[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2
-        [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0],
+        [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
     task_count: 678

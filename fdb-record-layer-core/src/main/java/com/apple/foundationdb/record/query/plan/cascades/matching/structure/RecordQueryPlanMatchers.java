@@ -68,6 +68,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
@@ -773,6 +774,11 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryExplodePlan> explodePlan() {
         return ofTypeOwning(RecordQueryExplodePlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryTableFunctionPlan> tableFunctionPlan() {
+        return ofTypeOwning(RecordQueryTableFunctionPlan.class, CollectionMatcher.empty());
     }
 
     @Nonnull
