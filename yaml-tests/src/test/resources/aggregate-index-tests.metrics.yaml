@@ -754,14 +754,14 @@ agg-index-tests:
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
-    task_count: 2168
-    task_total_time_ms: 856
-    transform_count: 956
-    transform_time_ms: 509
-    transform_yield_count: 168
-    insert_time_ms: 14
-    insert_new_count: 194
-    insert_reused_count: 24
+    task_count: 2208
+    task_total_time_ms: 567
+    transform_count: 958
+    transform_time_ms: 347
+    transform_yield_count: 170
+    insert_time_ms: 6
+    insert_new_count: 196
+    insert_reused_count: 22
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
     ref: aggregate-index-tests.yamsql:570
@@ -771,14 +771,14 @@ agg-index-tests:
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
-    task_count: 2168
-    task_total_time_ms: 859
-    transform_count: 956
-    transform_time_ms: 533
-    transform_yield_count: 168
-    insert_time_ms: 10
-    insert_new_count: 194
-    insert_reused_count: 24
+    task_count: 2208
+    task_total_time_ms: 330
+    transform_count: 958
+    transform_time_ms: 230
+    transform_yield_count: 170
+    insert_time_ms: 4
+    insert_new_count: 196
+    insert_reused_count: 22
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
     ref: aggregate-index-tests.yamsql:584
@@ -788,14 +788,14 @@ agg-index-tests:
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
-    task_count: 1882
-    task_total_time_ms: 667
-    transform_count: 880
-    transform_time_ms: 502
-    transform_yield_count: 135
-    insert_time_ms: 9
-    insert_new_count: 136
-    insert_reused_count: 28
+    task_count: 1922
+    task_total_time_ms: 479
+    transform_count: 882
+    transform_time_ms: 284
+    transform_yield_count: 137
+    insert_time_ms: 5
+    insert_new_count: 138
+    insert_reused_count: 26
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
     ref: aggregate-index-tests.yamsql:601
@@ -805,14 +805,14 @@ agg-index-tests:
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
-    task_count: 1882
-    task_total_time_ms: 618
-    transform_count: 880
-    transform_time_ms: 469
-    transform_yield_count: 135
-    insert_time_ms: 10
-    insert_new_count: 136
-    insert_reused_count: 28
+    task_count: 1922
+    task_total_time_ms: 418
+    transform_count: 882
+    transform_time_ms: 311
+    transform_yield_count: 137
+    insert_time_ms: 6
+    insert_new_count: 138
+    insert_reused_count: 26
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by
         a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
     ref: aggregate-index-tests.yamsql:618

@@ -478,7 +478,7 @@ test_block:
                   AND 'featured' IN r.tags
                   AND r.rid = 20
                   AND sq.rid = r.rid
-      - explain: "ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }"
+      - explain: "ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS q0._0._0]) | FILTER @c53 IN _.tags AND _.rid EQUALS promote(@c63 AS LONG) | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }"
       - result: [{1, 20, ['b1.png', 'b2.png']}]
     -
       # Variant 5: Collects the detail rows as a whole into an array of structs, via a star-derived record constructor.

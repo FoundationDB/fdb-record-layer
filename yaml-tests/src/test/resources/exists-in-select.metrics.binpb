@@ -75,7 +75,7 @@ m
 }‘+
 ù
 exists-in-projectionÑEXPLAIN select t1.id, t2.id as t2_id, exists (select 1 from t3 where t3.t2_id = t2.id) as has_t3 from t1 join t2 on t1.id = t2.t1_id±*
-æ¶‘º∑ ˝¬ø(K0¯∞$8w@¢SCAN([IS T2]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) | FLATMAP q1 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c14 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q0.ID AS T2_ID, exists(q3._1) AS HAS_T3) }Ì'digraph G {
+æ¶‘º∑ ˝¬ø(K0¯∞$8x@¢SCAN([IS T2]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) | FLATMAP q1 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c14 AS _0) | DEFAULT NULL AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q0.ID AS T2_ID, exists(q3._1) AS HAS_T3) }Ì'digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -117,19 +117,19 @@ m
 }⁄=
 »
 exists-in-projectionØEXPLAIN select t1.id, t2.id as t2_id, t3.label, exists (select 1 from t1 as x where x.col1 = 10) as has_col1_10 from t1 join t2 on t1.id = t2.t1_id join t3 on t2.id = t3.t2_idå<
-Ú1ÇÔÙPø ∂–Ë(◊0˜¸√8ˆ@{†ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c28 AS LONG) | MAP (@c18 AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_COL1_10) }«8digraph G {
+Í7ÇÔÙPµ ∂–Ë(Ç0˜¸√8◊	@v†ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c28 AS LONG) | MAP (@c18 AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_COL1_10) }«8digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q105._0.ID AS ID, q105._1.ID AS T2_ID, q10.LABEL AS LABEL, exists(q105._2) AS HAS_COL1_10)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL, BOOLEAN AS HAS_COL1_10)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_T2_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q458._0 AS _0, q6 AS _1, q458._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, LONG AS ID, LONG AS T1_ID AS _1, INT AS _0 AS _2)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q10.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q22 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, INT AS _0 AS _1)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q22 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS q6.T1_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q531._0 AS _0, q6 AS _1, q531._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, LONG AS ID, LONG AS T1_ID AS _1, INT AS _0 AS _2)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q22 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, INT AS _0 AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q10.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q22 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS q6.T1_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c18 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q18.COL1 EQUALS promote(@c28 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
@@ -137,82 +137,75 @@ m
   14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q458> label="q458" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q531> label="q531" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 7 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 10 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   13 -> 12 [ label=<&nbsp;q18> label="q18" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   14 -> 13 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q105> label="q105" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 7 [ color="red" style="invis" ];
+  }
+  {
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    9 -> 8 [ color="red" style="invis" ];
-  }
 }˙>
 ﬂ
 exists-in-projection∆EXPLAIN select t1.id, t2.id as t2_id, t3.label, exists (select 1 from t1 as x where x.col1 = t1.col1 and x.id <> t1.id) as has_sibling from t1 join t2 on t1.id = t2.t1_id join t3 on t2.id = t3.t2_idï=
-–∏ŒÏ… ≠äÇ	(®0¨–ø8ˇ@¨ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS T1]) | FILTER _.COL1 EQUALS q2.COL1 AND _.ID NOT_EQUALS q2.ID | MAP (@c18 AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_SIBLING) }ƒ9digraph G {
+É›⁄é›	 ëÃ¶
+(¬0ŸÑ’8…@¨ISCAN(T3_T2_ID <,>) | FLATMAP q0 -> { SCAN([IS T2, EQUALS q0.T2_ID]) | FLATMAP q1 -> { SCAN([IS T1, EQUALS q1.T1_ID]) | FLATMAP q2 -> { SCAN([IS T1]) | FILTER _.COL1 EQUALS q2.COL1 AND _.ID NOT_EQUALS q2.ID | MAP (@c18 AS _0) | DEFAULT NULL AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN (q4._0 AS _0, q1 AS _1, q4._1 AS _2) } AS q5 RETURN (q5._0.ID AS ID, q5._1.ID AS T2_ID, q0.LABEL AS LABEL, exists(q5._2) AS HAS_SIBLING) }ƒ9digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q92._0.ID AS ID, q92._1.ID AS T2_ID, q10.LABEL AS LABEL, exists(q92._2) AS HAS_SIBLING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL, BOOLEAN AS HAS_SIBLING)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_T2_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q178._0 AS _0, q6 AS _1, q178._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, LONG AS ID, LONG AS T1_ID AS _1, INT AS _0 AS _2)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q10.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q22 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, INT AS _0 AS _1)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q204._0 AS _0, q6 AS _1, q204._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, LONG AS ID, LONG AS T1_ID AS _1, INT AS _0 AS _2)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q22 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1 AS _0, INT AS _0 AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q10.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS q6.T1_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q22 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1, EQUALS q6.T1_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c18 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c18 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q18.COL1 EQUALS q2.COL1 AND q18.ID NOT_EQUALS q2.ID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q178> label="q178" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 10 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q204> label="q204" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 5 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 8 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 11 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   13 -> 12 [ label=<&nbsp;q18> label="q18" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   14 -> 13 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q92> label="q92" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
@@ -220,18 +213,27 @@ m
     2 -> 4 [ color="red" style="invis" ];
   }
   {
-    12 -> 6 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    9 -> 8 [ color="red" style="invis" ];
+    6 -> 5 [ color="red" style="invis" ];
   }
-}«J
+  {
+    12 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    7 -> 8 [ color="red" style="invis" ];
+  }
+}€J
 ¡
-exists-in-projection®EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3 from t1 where exists (select 1 from t2 where t2.t1_id = t1.id)ÄI
-ê
-ÑÍÛ¶ Õ·˘(]0üÜ;8ù@‡SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c38 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c38 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }˝Edigraph G {
+exists-in-projection®EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3 from t1 where exists (select 1 from t2 where t2.t1_id = t1.id)îI
+§
+÷°¢
+© Õ·˘(^0üÜ;8§@ÊSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c38 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(T3_T2_ID <,>) | FLATMAP q3 -> { SCAN([IS T2, EQUALS q3.T2_ID]) | FILTER _.T1_ID EQUALS q0.ID AS q4 RETURN (@c38 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }ãFdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -247,17 +249,17 @@ m
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q28 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (@c38 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q24.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
   14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q24.T1_ID EQUALS q2.ID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_T2_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
-  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q22.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   17 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 7 [ label=<&nbsp;q131> label="q131" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ label=<&nbsp;q133> label="q133" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 8 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -268,17 +270,6 @@ m
   16 -> 14 [ label=<&nbsp;q24> label="q24" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   17 -> 16 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 1 [ label=<&nbsp;q28> label="q28" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    13 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    14 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    14 -> 13 [ color="red" style="invis" ];
-  }
   {
     8 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
@@ -304,14 +295,26 @@ m
     rankDir=LR;
     2 -> 11 [ color="red" style="invis" ];
   }
-}àE
+  {
+    16 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    14 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    13 -> 14 [ color="red" style="invis" ];
+  }
+}úE
 ∆
-exists-in-projection≠EXPLAIN select t1.id, exists (select 1 from t2 where t2.t1_id = t1.id) as has_t2, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3 from t1ºC
-‹˚èËª ∫ƒµ(P0Æ√!8s@¯SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q1 -> { ISCAN(T3_T2_ID [EQUALS q1.ID]) AS q2 RETURN (@c8 AS _0) } | DEFAULT NULL | FLATMAP q3 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q4 RETURN (q4 AS _0, q3 AS _1) } AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3) }¢@digraph G {
+exists-in-projection≠EXPLAIN select t1.id, exists (select 1 from t2 where t2.t1_id = t1.id) as has_t2, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3 from t1–C
+Ëˆ®
+æ ƒ©Ô(Q0Æ√!8w@˛SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T3_T2_ID <,>) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q1.T2_ID]) | FILTER _.T1_ID EQUALS q0.ID AS q2 RETURN (@c8 AS _0) } | DEFAULT NULL | FLATMAP q3 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q4 RETURN (q4 AS _0, q3 AS _1) } AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3) }∞@digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, exists(q149._0) AS HAS_T2, exists(q149._1) AS HAS_T3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS HAS_T2, BOOLEAN AS HAS_T3)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, exists(q151._0) AS HAS_T2, exists(q151._1) AS HAS_T3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS HAS_T2, BOOLEAN AS HAS_T3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q26 AS _0, q34 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0 AS _0, INT AS _0 AS _1)" ];
@@ -320,9 +323,9 @@ m
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (@c8 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c8 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q30.T1_ID EQUALS q2.ID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q30.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q22.T1_ID EQUALS q2.ID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q28.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_T2_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
   14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
@@ -335,13 +338,18 @@ m
   8 -> 6 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 7 [ label=<&nbsp;q30> label="q30" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 7 [ label=<&nbsp;q28> label="q28" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 8 [ label=<&nbsp;q137> label="q137" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 8 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 9 [ label=<&nbsp;q30> label="q30" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   13 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   14 -> 11 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   15 -> 12 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   16 -> 14 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q149> label="q149" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q151> label="q151" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
   {
     9 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
@@ -354,20 +362,15 @@ m
     2 -> 4 [ color="red" style="invis" ];
   }
   {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
+    12 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     9 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    10 -> 7 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
     rank=same;
     rankDir=LR;
-    9 -> 10 [ color="red" style="invis" ];
+    10 -> 9 [ color="red" style="invis" ];
   }
 }Ü+
 û
@@ -545,11 +548,11 @@ p
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}”J
+}ÁJ
 ≈
-exists-in-projection¨EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3 from t1 where not exists (select 1 from t2 where t2.t1_id = t1.id)àI
-ê
-Ö˚à® ›Ô∆(]0◊¢C8ù@‰SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c39 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c39 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }ÅFdigraph G {
+exists-in-projection¨EXPLAIN select t1.id, exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3 from t1 where not exists (select 1 from t2 where t2.t1_id = t1.id)úI
+§
+¸í†´ ›Ô∆(^0◊¢C8§@ÍSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c39 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(T3_T2_ID <,>) | FLATMAP q3 -> { SCAN([IS T2, EQUALS q3.T2_ID]) | FILTER _.T1_ID EQUALS q0.ID AS q4 RETURN (@c39 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }èFdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -565,26 +568,26 @@ p
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q28 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (@c39 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q24.T1_ID EQUALS q2.ID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q24.ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
-  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
-  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_T2_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
+  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q24.T1_ID EQUALS q2.ID</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
+  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_T2_ID</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T2_ID, STRING AS LABEL)" ];
+  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T2, EQUALS q22.T2_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   17 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS T1_ID)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 7 [ label=<&nbsp;q131> label="q131" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ label=<&nbsp;q133> label="q133" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 8 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 11 [ label=<&nbsp;q28> label="q28" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 12 [ label=<&nbsp;q24> label="q24" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 12 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  15 -> 13 [ label=<&nbsp;q24> label="q24" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  16 -> 14 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  17 -> 15 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  13 -> 12 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  14 -> 12 [ label=<&nbsp;q24> label="q24" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  15 -> 13 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  16 -> 14 [ label=<&nbsp;q24> label="q24" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  17 -> 16 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 1 [ label=<&nbsp;q28> label="q28" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
@@ -593,7 +596,7 @@ p
     2 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    13 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    14 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
@@ -612,7 +615,7 @@ p
     3 -> 4 [ color="red" style="invis" ];
   }
   {
-    13 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    16 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     14 -> 12 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];

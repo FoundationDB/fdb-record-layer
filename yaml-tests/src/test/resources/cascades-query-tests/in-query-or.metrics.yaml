@@ -51,24 +51,24 @@ in-query-or:
     ref: in-query-or.yamsql:213
     explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 548
-    task_total_time_ms: 21
-    transform_count: 178
-    transform_time_ms: 10
-    transform_yield_count: 59
+    task_count: 559
+    task_total_time_ms: 8
+    transform_count: 179
+    transform_time_ms: 4
+    transform_yield_count: 60
     insert_time_ms: 1
-    insert_new_count: 57
+    insert_new_count: 58
     insert_reused_count: 3
 in-query-or-prepared:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ?
     ref: in-query-or.yamsql:258
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 1063
-    task_total_time_ms: 33
-    transform_count: 280
-    transform_time_ms: 14
-    transform_yield_count: 95
+    task_count: 1074
+    task_total_time_ms: 19
+    transform_count: 281
+    transform_time_ms: 8
+    transform_yield_count: 96
     insert_time_ms: 2
-    insert_new_count: 157
+    insert_new_count: 158
     insert_reused_count: 8

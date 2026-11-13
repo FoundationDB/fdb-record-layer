@@ -214,10 +214,10 @@ k
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ò&
+}ó&
 y
-pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idô%
-ú Œàjà ßû»((¥0ç¹®8‚@"ôSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0 AS T1, q3._0 AS T2, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS T3) }Û#digraph G {
+pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idõ%
+íïÄ’¹ µ‘â0(¶0ç¹®8Ñ@ôSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0 AS T1, q3._0 AS T2, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS T3) }Û#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -237,11 +237,6 @@ y
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q97> label="q97" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -252,10 +247,15 @@ y
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
 }É*
 Ý
 pseudo-field-clash-queries¾EXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"), (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idæ(
-úÍö—›à Ù” <(¥0ÅŸ”8‚@"žSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }¢%digraph G {
+íÍö—›¹ Ù” <(¶0ÅŸ”8Ñ@žSCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T3, EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q0.ID]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }¢%digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -275,6 +275,11 @@ y
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q97> label="q97" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -284,10 +289,5 @@ y
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
   }
 }

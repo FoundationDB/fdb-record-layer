@@ -741,7 +741,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         if (inComparison) {
             // IN-comparison is done via a complete scan followed by executing a full scan and then compensating
-            //    flatMap(Scan(<,>) | [RestaurantRecord], map(firstOrDefault(flatMap(explode([$t]), explode([$q2.tags]) | $q4.value EQUALS $q83) || null) | $q6 NOT_NULL[(1 as _0)]))
+            //    SCAN(<,>) | TFILTER RestaurantRecord | FLATMAP q2 -> { EXPLODE q2.tags | FLATMAP q4 -> { EXPLODE $t | FILTER q88 EQUALS q4.value AS q88 RETURN (q4.value AS value) } | DEFAULT NULL | FILTER q6 NOT_NULL AS q6 RETURN (q2.name AS name) }
             assertMatchesExactly(plan,
                     flatMapPlan(
                             typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
@@ -752,7 +752,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             )
                     )
             );
-            assertEquals(791284686, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-271675065, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             // Simple existential query with equality predicate done via a simple index scan:
             //   map(Index(Restaurant$tag.value [EQUALS $t])[($q2.name as name)])
@@ -810,7 +810,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 });
 
         // IN-comparison is done via a complete scan followed by executing a full scan and then compensating
-        //   flatMap(Fetch(Covering(Index(RestaurantRecord$name [EQUALS $q133]) -> [name: KEY[0], rest_no: KEY[1]]) WHERE __corr_q133 IN $name), map(firstOrDefault(flatMap(explode([$t]), explode([$q2.tags]) | $q4.value EQUALS $q83) || null) | $q6 NOT_NULL[(1 as _0)]))
+        //   [$name] | INJOIN q146 -> { COVERING(RestaurantRecord$name [EQUALS q146] -> [name: KEY:[0], rest_no: KEY:[1]]) } | FETCH | FLATMAP q2 -> { EXPLODE q2.tags | FLATMAP q4 -> { EXPLODE $t | FILTER q88 EQUALS q4.value AS q88 RETURN (q4.value AS value) } | DEFAULT NULL | FILTER q6 NOT_NULL | MAP (1 AS _0) AS q6 RETURN (q2.rest_no AS rest_no) }
         assertMatchesExactly(plan,
                 flatMapPlan(
                         fetchFromPartialRecordPlan(
@@ -826,7 +826,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         )
                 )
         );
-        assertEquals(-2058055083, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(-650068996, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

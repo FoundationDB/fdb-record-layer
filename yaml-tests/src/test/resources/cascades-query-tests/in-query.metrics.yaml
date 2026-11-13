@@ -3,65 +3,65 @@ in-query:
     ref: in-query.yamsql:64
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 1063
-    task_total_time_ms: 258
-    transform_count: 280
-    transform_time_ms: 151
-    transform_yield_count: 95
-    insert_time_ms: 14
-    insert_new_count: 157
+    task_count: 1074
+    task_total_time_ms: 14
+    transform_count: 281
+    transform_time_ms: 6
+    transform_yield_count: 96
+    insert_time_ms: 0
+    insert_new_count: 158
     insert_reused_count: 8
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         2, 4) order by num_value_3_indexed
     ref: in-query.yamsql:137
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 758
-    task_total_time_ms: 60
-    transform_count: 203
-    transform_time_ms: 29
-    transform_yield_count: 69
-    insert_time_ms: 4
-    insert_new_count: 84
+    task_count: 769
+    task_total_time_ms: 8
+    transform_count: 204
+    transform_time_ms: 4
+    transform_yield_count: 70
+    insert_time_ms: 0
+    insert_new_count: 85
     insert_reused_count: 4
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         2, 4) order by num_value_3_indexed desc
     ref: in-query.yamsql:205
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 759
-    task_total_time_ms: 47
-    transform_count: 205
-    transform_time_ms: 20
-    transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 88
+    task_count: 770
+    task_total_time_ms: 9
+    transform_count: 206
+    transform_time_ms: 4
+    transform_yield_count: 72
+    insert_time_ms: 0
+    insert_new_count: 89
     insert_reused_count: 6
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         4, 2) order by num_value_3_indexed
     ref: in-query.yamsql:272
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 758
-    task_total_time_ms: 60
-    transform_count: 203
-    transform_time_ms: 29
-    transform_yield_count: 69
-    insert_time_ms: 4
-    insert_new_count: 84
+    task_count: 769
+    task_total_time_ms: 8
+    transform_count: 204
+    transform_time_ms: 4
+    transform_yield_count: 70
+    insert_time_ms: 0
+    insert_new_count: 85
     insert_reused_count: 4
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         4, 2) order by num_value_3_indexed desc
     ref: in-query.yamsql:338
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 759
-    task_total_time_ms: 47
-    transform_count: 205
-    transform_time_ms: 20
-    transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 88
+    task_count: 770
+    task_total_time_ms: 9
+    transform_count: 206
+    transform_time_ms: 4
+    transform_yield_count: 72
+    insert_time_ms: 0
+    insert_new_count: 89
     insert_reused_count: 6
 -   query: EXPLAIN select rec_no from my_simple_record where num_value_3_indexed in
         (1, 2, 4) order by num_value_3_indexed
@@ -70,13 +70,13 @@ in-query:
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO
         AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO
         AS REC_NO)'
-    task_count: 1001
-    task_total_time_ms: 75
-    transform_count: 287
-    transform_time_ms: 30
-    transform_yield_count: 84
-    insert_time_ms: 3
-    insert_new_count: 108
+    task_count: 1020
+    task_total_time_ms: 14
+    transform_count: 288
+    transform_time_ms: 6
+    transform_yield_count: 85
+    insert_time_ms: 0
+    insert_new_count: 110
     insert_reused_count: 3
 -   query: EXPLAIN select rec_no from my_simple_record where num_value_3_indexed in
         (1, 2, 4) order by num_value_3_indexed desc
@@ -85,88 +85,88 @@ in-query:
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO
         AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO
         AS REC_NO)'
-    task_count: 1073
-    task_total_time_ms: 70
-    transform_count: 299
-    transform_time_ms: 26
-    transform_yield_count: 90
-    insert_time_ms: 3
-    insert_new_count: 116
+    task_count: 1092
+    task_total_time_ms: 13
+    transform_count: 300
+    transform_time_ms: 5
+    transform_yield_count: 91
+    insert_time_ms: 0
+    insert_new_count: 118
     insert_reused_count: 3
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         4, 2) order by str_value_indexed
     ref: in-query.yamsql:539
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_3_INDEXED
         IN @c7
-    task_count: 548
-    task_total_time_ms: 34
-    transform_count: 178
-    transform_time_ms: 17
-    transform_yield_count: 59
+    task_count: 559
+    task_total_time_ms: 8
+    transform_count: 179
+    transform_time_ms: 4
+    transform_yield_count: 60
     insert_time_ms: 1
-    insert_new_count: 57
+    insert_new_count: 58
     insert_reused_count: 3
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         4, 2) order by str_value_indexed desc
     ref: in-query.yamsql:604
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,> REVERSE) | FILTER _.NUM_VALUE_3_INDEXED
         IN @c7
-    task_count: 548
-    task_total_time_ms: 29
-    transform_count: 178
-    transform_time_ms: 14
-    transform_yield_count: 59
+    task_count: 559
+    task_total_time_ms: 8
+    transform_count: 179
+    transform_time_ms: 4
+    transform_yield_count: 60
     insert_time_ms: 1
-    insert_new_count: 57
+    insert_new_count: 58
     insert_reused_count: 3
 in-query-prepared:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ?
     ref: in-query.yamsql:676
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 1063
-    task_total_time_ms: 60
-    transform_count: 280
-    transform_time_ms: 26
-    transform_yield_count: 95
-    insert_time_ms: 3
-    insert_new_count: 157
+    task_count: 1074
+    task_total_time_ms: 13
+    transform_count: 281
+    transform_time_ms: 5
+    transform_yield_count: 96
+    insert_time_ms: 0
+    insert_new_count: 158
     insert_reused_count: 8
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in ?
     ref: in-query.yamsql:713
     explain: '[IN arrayDistinct(@c7)] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 1201
-    task_total_time_ms: 57
-    transform_count: 297
-    transform_time_ms: 24
-    transform_yield_count: 100
-    insert_time_ms: 3
-    insert_new_count: 177
+    task_count: 1212
+    task_total_time_ms: 13
+    transform_count: 298
+    transform_time_ms: 5
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 178
     insert_reused_count: 9
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in ? order
         by num_value_3_indexed
     ref: in-query.yamsql:779
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 758
-    task_total_time_ms: 31
-    transform_count: 203
-    transform_time_ms: 14
-    transform_yield_count: 69
+    task_count: 769
+    task_total_time_ms: 9
+    transform_count: 204
+    transform_time_ms: 5
+    transform_yield_count: 70
     insert_time_ms: 2
-    insert_new_count: 84
+    insert_new_count: 85
     insert_reused_count: 4
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in ? order
         by num_value_3_indexed desc
     ref: in-query.yamsql:844
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 759
-    task_total_time_ms: 29
-    transform_count: 205
-    transform_time_ms: 13
-    transform_yield_count: 71
+    task_count: 770
+    task_total_time_ms: 9
+    transform_count: 206
+    transform_time_ms: 4
+    transform_yield_count: 72
     insert_time_ms: 2
-    insert_new_count: 88
+    insert_new_count: 89
     insert_reused_count: 6

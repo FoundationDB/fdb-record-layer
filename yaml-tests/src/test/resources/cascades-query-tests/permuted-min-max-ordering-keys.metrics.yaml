@@ -8,13 +8,13 @@ permuted-min-max-ordering-keys:
         [EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
         | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2, _._2 AS
         NUM_VALUE_3_INDEXED) }'
-    task_count: 975
-    task_total_time_ms: 245
-    transform_count: 293
-    transform_time_ms: 152
-    transform_yield_count: 84
-    insert_time_ms: 8
-    insert_new_count: 107
+    task_count: 986
+    task_total_time_ms: 63
+    transform_count: 294
+    transform_time_ms: 34
+    transform_yield_count: 85
+    insert_time_ms: 2
+    insert_new_count: 108
     insert_reused_count: 3
 -   query: EXPLAIN select str_value_indexed, max(num_value_unique) as m, num_value_2,
         num_value_3_indexed from my_simple_record group by str_value_indexed, num_value_2,
@@ -80,13 +80,13 @@ permuted-min-max-ordering-keys-prepared:
         [EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
         | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2, _._2 AS
         NUM_VALUE_3_INDEXED) }'
-    task_count: 975
-    task_total_time_ms: 82
-    transform_count: 293
-    transform_time_ms: 41
-    transform_yield_count: 84
+    task_count: 986
+    task_total_time_ms: 47
+    transform_count: 294
+    transform_time_ms: 25
+    transform_yield_count: 85
     insert_time_ms: 3
-    insert_new_count: 107
+    insert_new_count: 108
     insert_reused_count: 3
 -   query: EXPLAIN select str_value_indexed, max(num_value_unique) as m, num_value_2,
         num_value_3_indexed from my_simple_record group by str_value_indexed, num_value_2,
