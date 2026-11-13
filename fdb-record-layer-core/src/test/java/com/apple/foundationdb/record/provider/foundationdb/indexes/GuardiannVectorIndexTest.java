@@ -42,7 +42,6 @@ import java.util.Map;
  * within {@code searchMaxClusters} so recall stays high on these small, uniformly-random test datasets.
  */
 class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
-
     @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
@@ -53,6 +52,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "20")
                 .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
+                .put(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "true")
                 .build();
     }
 
@@ -93,7 +93,9 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.GUARDIANN_SPLIT_MERGE_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_REASSIGN_CONCURRENCY, "5")
                             .put(IndexOptions.GUARDIANN_COLLAPSE_CONCURRENCY, "5")
-                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5").build());
+                            .put(IndexOptions.GUARDIANN_BOUNCE_CONCURRENCY, "5")
+                            // the storage format of the centroid HNSW can be switched on (and off) for an existing index
+                            .put(IndexOptions.GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES, "false").build());
 
             // switching the engine is never allowed
             assertInvalidOptionsEvolution(metaData, index,

@@ -282,8 +282,8 @@ public class IndexScrubbing extends IndexingBase {
     }
 
     private void logScrubberRangeReset(String reason) {
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.build("Reset index scrubbing range")
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .addKeyAndValue(LogMessageKeys.REASON, reason)
                     .toString());

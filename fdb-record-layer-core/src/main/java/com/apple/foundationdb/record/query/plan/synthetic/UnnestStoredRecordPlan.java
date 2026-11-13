@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
@@ -67,9 +66,9 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
     @Nonnull
     private final RecordType storedRecordType;
 
-    UnnestStoredRecordPlan(@Nonnull UnnestedRecordType recordType) {
+    UnnestStoredRecordPlan(@Nonnull UnnestedRecordType recordType, @Nonnull RecordType storedRecordType) {
         this.recordType = recordType;
-        this.storedRecordType = Iterables.getOnlyElement(recordType.getStoredRecordTypes());
+        this.storedRecordType = storedRecordType;
     }
 
     @Override
