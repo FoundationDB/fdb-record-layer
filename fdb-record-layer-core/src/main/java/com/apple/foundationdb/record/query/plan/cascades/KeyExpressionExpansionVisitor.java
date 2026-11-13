@@ -145,7 +145,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
-                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix,
+                        isFanOutDistinct());
                 value = state.registerValue(ExplodeValue.elementValue(childBase.getFlowedObjectValue()));
                 //
                 // The select over the explode flows the explode's whole (element, ordinal) struct rather than just the
@@ -316,7 +317,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 }
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix,
+                        isFanOutDistinct());
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
                         pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier)
@@ -376,6 +378,18 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    /**
+     * Whether a field that fans out is exploded {@linkplain ExplodeValue#isDistinct() distinct}, which it is if the
+     * expanded index stores one entry per distinct element of a record: repeated elements produce the same entry key
+     * of such an index, so they share one entry. An index that aggregates its entries accounts for every element
+     * instead, and so does the expansion of a query.
+     *
+     * @return {@code true} if a field that fans out is exploded distinct
+     */
+    protected boolean isFanOutDistinct() {
+        return false;
     }
 
     @Nonnull

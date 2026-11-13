@@ -29,9 +29,20 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -43,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.test.BooleanSource;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -56,6 +68,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
  * Tests for {@link ExplodeValue}.
@@ -417,6 +431,37 @@ class ExplodeValueTest {
     }
 
     @Test
+    void equalityFollowsWhetherTheExplodeIsDistinctButHashingDoesNot() {
+        final var collection = LiteralValue.ofList(List.of(1, 2));
+        final var value = new ExplodeValue(collection);
+        final var distinct = new ExplodeValue(collection, false, false, false, true);
+
+        Assertions.assertTrue(distinct.isDistinct());
+        Assertions.assertFalse(value.isDistinct());
+        Assertions.assertNotEquals(value, distinct);
+        // the flag only models a match candidate for the planner, so it is not part of the hashes
+        Assertions.assertEquals(value.hashCode(), distinct.hashCode());
+        Assertions.assertEquals(value.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                distinct.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        // rebasing the collection keeps the explode distinct
+        final var otherCollection = LiteralValue.ofList(List.of(3, 4));
+        Assertions.assertEquals(new ExplodeValue(otherCollection, false, false, false, true),
+                distinct.withChildren(List.of(otherCollection)));
+        Assertions.assertEquals(new ExplodeValue(otherCollection, false, false, false, true),
+                distinct.withCollectionValue(otherCollection));
+    }
+
+    @Test
+    void rejectsADistinctExplodeThatPreservesItsOrderOrIsSorted() {
+        final var collection = LiteralValue.ofList(List.of(1, 2));
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(collection, true, false, false, true));
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(collection, false, true, false, true));
+        Assertions.assertThrows(VerifyException.class,
+                () -> new ExplodeValue(collection, false, false, false, true).sorted(false));
+    }
+
+    @Test
     void rejectsSortingAnExplodeThatPreservesItsOrder() {
         final var collection = LiteralValue.ofList(List.of(1, 2));
         Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(collection, true, true, false));
@@ -452,6 +497,13 @@ class ExplodeValueTest {
     void explainsTheSortOrder(final boolean reverse) {
         final var value = new ExplodeValue(LiteralValue.ofList(List.of(1, 2))).sorted(reverse);
         Assertions.assertEquals(reverse ? "explode([1, 2]) SORTED DESC" : "explode([1, 2]) SORTED",
+                value.explain().getExplainTokens().render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString());
+    }
+
+    @Test
+    void explainsThatTheExplodeIsDistinct() {
+        final var value = new ExplodeValue(LiteralValue.ofList(List.of(1, 2)), false, false, false, true);
+        Assertions.assertEquals("explode([1, 2]) DISTINCT",
                 value.explain().getExplainTokens().render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString());
     }
 
@@ -503,5 +555,152 @@ class ExplodeValueTest {
         Assertions.assertTrue(((ExplodeValue)deserialized).isSorted());
         Assertions.assertEquals(reverse, ((ExplodeValue)deserialized).isReverse());
         Assertions.assertEquals(explodeAsList(value, contextFor(value)), explodeAsList((ExplodeValue)deserialized, contextFor(value)));
+    }
+
+    /*
+     * Matching against the explode of an index that fans out a repeated field. A value index stores one entry per
+     * distinct element of a record, so its match candidate explodes the field distinct, and a query explode of the same
+     * field is only subsumed by it with a distinct explode underneath the match. The query and the candidate explodes
+     * are correlated to different aliases, which the binding alias map identifies, as they are when the planner matches
+     * them.
+     */
+
+    @Nonnull
+    private static final Type.Record MATCHED_RECORD_TYPE = Type.Record.fromFields(List.of(
+            Type.Record.Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)), Optional.of("values")),
+            Type.Record.Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)), Optional.of("others"))));
+    /**
+     * A record whose first field is named like that of {@link #MATCHED_RECORD_TYPE} but holds elements of another type.
+     * A field value compares its field by ordinal and a quantified value disregards its type, so a collection of this
+     * record compares equal to the same collection of {@link #MATCHED_RECORD_TYPE}.
+     */
+    @Nonnull
+    private static final Type.Record OTHER_MATCHED_RECORD_TYPE = Type.Record.fromFields(List.of(
+            Type.Record.Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)), Optional.of("values"))));
+    @Nonnull
+    private static final CorrelationIdentifier QUERY_ALIAS = CorrelationIdentifier.of("q");
+    @Nonnull
+    private static final CorrelationIdentifier CANDIDATE_ALIAS = CorrelationIdentifier.of("c");
+    @Nonnull
+    private static final AliasMap BINDING_ALIAS_MAP = AliasMap.ofAliases(QUERY_ALIAS, CANDIDATE_ALIAS);
+    @Nonnull
+    private static final Index FAN_OUT_VALUE_INDEX = new Index("repeater_fanout", field("repeater", FanType.FanOut));
+    @Nonnull
+    private static final Index FAN_OUT_SUM_INDEX = new Index("sum_by_repeater",
+            field("num_value_2").groupBy(field("repeater", FanType.FanOut)), IndexTypes.SUM);
+
+    @Test
+    void valueIndexOnAFanOutFieldIsExpandedWithADistinctExplode() {
+        final var explodes = explodesOf(Iterables.getOnlyElement(
+                MatchCandidateExpansion.expandValueIndexMatchCandidate(fanOutMetaData(), FAN_OUT_VALUE_INDEX, false)));
+
+        // the index stores one entry per distinct element of a record
+        Assertions.assertFalse(explodes.isEmpty());
+        Assertions.assertTrue(explodes.stream().allMatch(ExplodeValue::isDistinct));
+    }
+
+    @Test
+    void aggregateIndexOnAFanOutFieldIsExpandedWithAnExplodeThatIsNotDistinct() {
+        final var explodes = explodesOf(Iterables.getOnlyElement(
+                MatchCandidateExpansion.expandAggregateIndexMatchCandidate(fanOutMetaData(), FAN_OUT_SUM_INDEX, false)));
+
+        // the index applies a mutation per entry, so it accounts for every element of a record
+        Assertions.assertFalse(explodes.isEmpty());
+        Assertions.assertTrue(explodes.stream().noneMatch(ExplodeValue::isDistinct));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void explodeIsSubsumedByADistinctExplodeOfTheSameCollectionWithADistinctExplode(final boolean preserveOrder) {
+        final var query = new TableFunctionExpression(
+                new ExplodeValue(matchedCollection(QUERY_ALIAS, MATCHED_RECORD_TYPE, "values"), preserveOrder));
+        final var candidate = distinctExplode(CANDIDATE_ALIAS, MATCHED_RECORD_TYPE, "values");
+
+        // whether the query explode preserves its order does not matter: the match is only sound under an existential
+        // quantifier, through which neither the order nor the multiplicity of the elements is observed
+        final var matchInfo = Iterables.getOnlyElement(subsumedBy(query, candidate));
+        Assertions.assertTrue(matchInfo.getRegularMatchInfo().hasDistinctExplode());
+    }
+
+    @Test
+    void explodeIsSubsumedByAnEqualExplodeWithoutADistinctExplode() {
+        final var query = new TableFunctionExpression(
+                new ExplodeValue(matchedCollection(QUERY_ALIAS, MATCHED_RECORD_TYPE, "values")));
+        final var candidate = new TableFunctionExpression(
+                new ExplodeValue(matchedCollection(CANDIDATE_ALIAS, MATCHED_RECORD_TYPE, "values")));
+
+        final var matchInfo = Iterables.getOnlyElement(subsumedBy(query, candidate));
+        Assertions.assertFalse(matchInfo.getRegularMatchInfo().hasDistinctExplode());
+    }
+
+    @Test
+    void explodeIsNotSubsumedByADistinctExplodeOfAnotherCollection() {
+        final var query = new TableFunctionExpression(
+                new ExplodeValue(matchedCollection(QUERY_ALIAS, MATCHED_RECORD_TYPE, "values")));
+        final var candidate = distinctExplode(CANDIDATE_ALIAS, MATCHED_RECORD_TYPE, "others");
+
+        Assertions.assertTrue(Iterables.isEmpty(subsumedBy(query, candidate)));
+    }
+
+    @Test
+    void explodeIsNotSubsumedByADistinctExplodeOfElementsOfAnotherType() {
+        final var queryCollection = matchedCollection(QUERY_ALIAS, MATCHED_RECORD_TYPE, "values");
+        final var candidateCollection = matchedCollection(CANDIDATE_ALIAS, OTHER_MATCHED_RECORD_TYPE, "values");
+        final var query = new TableFunctionExpression(new ExplodeValue(queryCollection));
+        final var candidate = new TableFunctionExpression(new ExplodeValue(candidateCollection, false, false, false, true));
+
+        // the collections compare equal, but the explodes flow structs of different types
+        Assertions.assertTrue(queryCollection.semanticEquals(candidateCollection, BINDING_ALIAS_MAP));
+        Assertions.assertTrue(Iterables.isEmpty(subsumedBy(query, candidate)));
+    }
+
+    @Test
+    void distinctExplodeIsNotSubsumedByAnExplodeThatIsNotDistinct() {
+        final var query = distinctExplode(QUERY_ALIAS, MATCHED_RECORD_TYPE, "values");
+        final var candidate = new TableFunctionExpression(
+                new ExplodeValue(matchedCollection(CANDIDATE_ALIAS, MATCHED_RECORD_TYPE, "values")));
+
+        Assertions.assertTrue(Iterables.isEmpty(subsumedBy(query, candidate)));
+    }
+
+    @Nonnull
+    private static RecordMetaData fanOutMetaData() {
+        final var metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.addIndex("MySimpleRecord", FAN_OUT_VALUE_INDEX);
+        metaDataBuilder.addIndex("MySimpleRecord", FAN_OUT_SUM_INDEX);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private static List<ExplodeValue> explodesOf(@Nonnull final MatchCandidate matchCandidate) {
+        return matchCandidate.getTraversal()
+                .getRefs()
+                .stream()
+                .flatMap(reference -> reference.getAllMemberExpressions().stream())
+                .filter(TableFunctionExpression.class::isInstance)
+                .map(expression -> ((TableFunctionExpression)expression).getValue())
+                .filter(ExplodeValue.class::isInstance)
+                .map(ExplodeValue.class::cast)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static Iterable<MatchInfo> subsumedBy(@Nonnull final TableFunctionExpression query,
+                                                  @Nonnull final TableFunctionExpression candidate) {
+        return query.subsumedBy(candidate, BINDING_ALIAS_MAP, IdentityBiMap.create(), EvaluationContext.empty());
+    }
+
+    @Nonnull
+    private static TableFunctionExpression distinctExplode(@Nonnull final CorrelationIdentifier alias,
+                                                           @Nonnull final Type.Record recordType,
+                                                           @Nonnull final String fieldName) {
+        return new TableFunctionExpression(
+                new ExplodeValue(matchedCollection(alias, recordType, fieldName), false, false, false, true));
+    }
+
+    @Nonnull
+    private static Value matchedCollection(@Nonnull final CorrelationIdentifier alias,
+                                           @Nonnull final Type.Record recordType, @Nonnull final String fieldName) {
+        return FieldValue.ofFieldName(QuantifiedObjectValue.of(alias, recordType), fieldName);
     }
 }

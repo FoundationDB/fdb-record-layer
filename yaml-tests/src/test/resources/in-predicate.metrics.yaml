@@ -540,11 +540,11 @@ unnamed-2:
     explain: TF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE])
         | FLATMAP q1 -> { TF explode(q1.FRUITS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN
         (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }
-    task_count: 1052
-    task_total_time_ms: 100
-    transform_count: 422
-    transform_time_ms: 34
-    transform_yield_count: 53
-    insert_time_ms: 7
+    task_count: 1074
+    task_total_time_ms: 95
+    transform_count: 455
+    transform_time_ms: 41
+    transform_yield_count: 64
+    insert_time_ms: 4
     insert_new_count: 114
     insert_reused_count: 6

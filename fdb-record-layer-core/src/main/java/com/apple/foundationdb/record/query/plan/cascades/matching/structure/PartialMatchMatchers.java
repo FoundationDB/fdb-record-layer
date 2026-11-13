@@ -48,7 +48,8 @@ public class PartialMatchMatchers {
     }
 
     /**
-     * Matches any {@link PartialMatch} that is complete.
+     * Matches any {@link PartialMatch} that is complete. A match that has a distinct explode underneath is not
+     * complete, as no existential quantifier has absorbed it.
      *
      * @return a matcher matching any partial match that is complete
      */
@@ -61,7 +62,8 @@ public class PartialMatchMatchers {
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
                 return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
-                            if (in.getMatchCandidate().getTraversal().getRootReference() != in.getCandidateRef()) {
+                            if (in.getMatchCandidate().getTraversal().getRootReference() != in.getCandidateRef() ||
+                                    in.getRegularMatchInfo().hasDistinctExplode()) {
                                 return Stream.empty();
                             } else {
                                 return Stream.of(bindings);

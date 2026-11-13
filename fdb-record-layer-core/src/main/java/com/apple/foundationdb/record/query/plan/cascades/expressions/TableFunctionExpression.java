@@ -28,14 +28,19 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -149,6 +154,33 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                                           @Nonnull final EvaluationContext evaluationContext) {
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
+        }
+
+        //
+        // An index that fans out a repeated field stores one entry per distinct element of a record, so the explode it
+        // is expanded with is distinct. It subsumes an explode of the same collection that is not, but only produces
+        // each distinct element once, so the match has a distinct explode: it is sound only if it ends up under an
+        // existential quantifier, which is up to the matches of the parents. Through an existential quantifier, neither
+        // the order nor the multiplicity of the elements is observed, so the explode of the query may preserve its order
+        // or be sorted. A predicate on its ordinals has no counterpart in the candidate, so it is compensated.
+        //
+        if (value instanceof ExplodeValue queryExplodeValue
+                && !queryExplodeValue.isDistinct()
+                && candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression
+                && candidateTableFunctionExpression.getValue() instanceof ExplodeValue candidateExplodeValue
+                && candidateExplodeValue.isDistinct()) {
+            if (!queryExplodeValue.getCollectionValue()
+                    .semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)
+                    || !queryExplodeValue.getElementType().equals(candidateExplodeValue.getElementType())) {
+                return ImmutableList.of();
+            }
+            final var maxMatchMap =
+                    MaxMatchMap.compute(getResultValue(), candidateExpression.getResultValue(),
+                            Quantifiers.aliases(candidateExpression.getQuantifiers()),
+                            ValueEquivalence.fromAliasMap(bindingAliasMap));
+            return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap, true)
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
         }
 
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
