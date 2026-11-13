@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionV
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -325,7 +324,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion baseAndChildExpansion;
                 if (state.isSelectStar()) {
                     final GraphExpansion baseExpansion =
-                            pullUpExplodedElement(GraphExpansion.builder(), childBaseQuantifier)
+                            GraphExpansion.builder()
+                                    .pullUpExplodeQuantifier(childBaseQuantifier)
                                     .build();
                     baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
 
@@ -348,7 +348,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                             GraphExpansion.builder()
                                     .addAllPredicates(childExpansion.getPredicates())
                                     .addAllPlaceholders(childExpansion.getPlaceholders());
-                    pullUpExplodedElement(baseAndChildExpansionBuilder, childBaseQuantifier);
+                    baseAndChildExpansionBuilder.pullUpExplodeQuantifier(childBaseQuantifier);
                     childExpansion.getQuantifiers()
                             .forEach(baseAndChildExpansionBuilder::pullUpQuantifier);
                     baseAndChildExpansion = baseAndChildExpansionBuilder.build();
@@ -376,34 +376,6 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
-    }
-
-    /**
-     * Adds a quantifier ranging over an explode to the builder and pulls up the columns of the exploded element followed
-     * by the ordinal, rather than the columns of the struct the explode flows. The struct holds the element in its first
-     * column, so pulling up the struct would yield a single opaque column for the element where a query's select over
-     * the same explode flows the element's fields, which then do not line up with each other. The ordinal is pulled up
-     * too, so that a query's select that flows the whole struct can still form it from the columns.
-     *
-     * @param builder the builder to add to
-     * @param explodeQuantifier a quantifier ranging over an {@link ExplodeValue}
-     * @return the {@code builder}
-     */
-    @Nonnull
-    private static GraphExpansion.Builder pullUpExplodedElement(@Nonnull final GraphExpansion.Builder builder,
-                                                                @Nonnull final Quantifier.ForEach explodeQuantifier) {
-        builder.addQuantifier(explodeQuantifier);
-        final Value elementValue = ExplodeValue.elementValue(explodeQuantifier.getFlowedObjectValue());
-        if (elementValue.getResultType() instanceof Type.Record) {
-            final var fields = Objects.requireNonNull(((Type.Record)elementValue.getResultType()).getFields());
-            for (int i = 0; i < fields.size(); i++) {
-                builder.addResultColumn(Column.of(fields.get(i), FieldValue.ofOrdinalNumberAndFuseIfPossible(elementValue, i)));
-            }
-        } else {
-            builder.addResultColumn(Column.unnamedOf(elementValue));
-        }
-        builder.addResultColumn(Column.unnamedOf(ExplodeValue.ordinalValue(explodeQuantifier.getFlowedObjectValue())));
-        return builder;
     }
 
     @Nonnull
