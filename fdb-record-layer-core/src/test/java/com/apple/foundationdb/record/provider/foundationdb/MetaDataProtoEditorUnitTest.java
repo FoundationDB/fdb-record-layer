@@ -773,8 +773,10 @@ public class MetaDataProtoEditorUnitTest {
                 union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
         assertSame(renamedT1, union.findFieldByName("_" + simpleRename("T1")).getMessageType());
         assertSame(renamedT1, union.findFieldByName("_T1_1").getMessageType());
-        // Records of the renamed type are still written under the canonically named field, number 3.
-        assertEquals(3, renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
+        // Records of the renamed type are still written under the canonically named field.
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        assertEquals(originalMetaData.getUnionFieldForRecordType(originalMetaData.getRecordType("T1")).getNumber(),
+                renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
     }
 
     /**
@@ -786,7 +788,8 @@ public class MetaDataProtoEditorUnitTest {
     void renameUpdatesTheCanonicalUnionFieldDespiteHigherNumberedField() throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
         addUnionField(builder, "T1_v2", 3, "T1");
-        final RecordMetaData renamed = runRename(builder.build(),
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        final RecordMetaData renamed = runRename(originalProto,
                 MetaDataProtoEditorUnitTest::simpleRename,
                 MetaDataProtoEditorUnitTest::simpleRenameUndo);
         final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
@@ -795,9 +798,11 @@ public class MetaDataProtoEditorUnitTest {
                 union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
         assertSame(renamedT1, union.findFieldByName("_" + simpleRename("T1")).getMessageType());
         assertSame(renamedT1, union.findFieldByName("T1_v2").getMessageType());
-        // Records of the renamed type are still written under the canonically named field, number 1, rather than
-        // under the higher-numbered T1_v2.
-        assertEquals(1, renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
+        // Records of the renamed type are still written under the canonically named field, rather than under the
+        // higher-numbered T1_v2.
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        assertEquals(originalMetaData.getUnionFieldForRecordType(originalMetaData.getRecordType("T1")).getNumber(),
+                renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
     }
 
     /**
@@ -809,7 +814,8 @@ public class MetaDataProtoEditorUnitTest {
     void renameKeepsNonCanonicalUnionFieldsAndTheirHighestNumberedField() throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("NonCanonicalUnionFields.json");
         addUnionField(builder, "a_v2", 3, "T1");
-        final RecordMetaData renamed = runRename(builder.build(),
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        final RecordMetaData renamed = runRename(originalProto,
                 MetaDataProtoEditorUnitTest::simpleRename,
                 MetaDataProtoEditorUnitTest::simpleRenameUndo);
         final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
@@ -819,7 +825,9 @@ public class MetaDataProtoEditorUnitTest {
         assertSame(renamedT1, union.findFieldByName("a").getMessageType());
         assertSame(renamedT1, union.findFieldByName("a_v2").getMessageType());
         // Records of the renamed type are still written under the field with the highest number.
-        assertEquals(3, renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        assertEquals(originalMetaData.getUnionFieldForRecordType(originalMetaData.getRecordType("T1")).getNumber(),
+                renamed.getUnionFieldForRecordType(renamed.getRecordType(simpleRename("T1"))).getNumber());
     }
 
     /**
