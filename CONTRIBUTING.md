@@ -97,8 +97,9 @@ They should also have one of the following labels:
 - `build improvement`: For updates to our build system that shouldn't have user visible impacts
 - `testing improvement`: For new test coverage, or improvements to testing infrastructure
 - `documentation`: For improvements to our documentation
+- `cleanup`: For style/code cleanup with no behavioral change
 
-(Note: `build improvement`/`testing improvement`/`documentation` are combined in one
+(Note: `build improvement`/`testing improvement`/`documentation`/`cleanup` are combined in one
 grouping in the release notes, that is collapsed).
 
 [release-notes-config.json](build/release-notes-config.json) describes how labels are
