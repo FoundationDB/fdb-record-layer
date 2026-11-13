@@ -106,6 +106,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private IndexReader indexReader;
     private final Query query;
     private final Sort sort;
+    private final boolean includeScoreValue;
     private IndexSearcher searcher;
     private RecordCursor<IndexEntry> lookupResults = null;
     private int currentPosition = 0;
@@ -188,7 +189,10 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable final List<String> storedFields,
                        @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
                        @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                       @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
+                       @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector,
+                       boolean includeScoreValue) {
+        LuceneScanQuery.validateScoreValueSupported(sort, includeScoreValue);
+        this.includeScoreValue = includeScoreValue;
         this.state = state;
         this.executor = executor;
         this.pageSize = pageSize;
@@ -591,7 +595,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 }
 
                 return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, termMap,
-                        analyzerSelector, autoCompleteAnalyzerSelector);
+                        analyzerSelector, autoCompleteAnalyzerSelector, includeScoreValue ? relevanceScore(scoreDoc) : null);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Failed to get document", e, "currentPosition", currentPosition);
             }
@@ -599,10 +603,28 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     /**
+     * The Lucene relevance score of a hit of a search that is ranked by relevance. When the search has a sort, Lucene
+     * does not populate {@link ScoreDoc#score} and the score is the value of the leading (score) sort field instead.
+     */
+    private float relevanceScore(@Nonnull ScoreDoc scoreDoc) {
+        if (sort == null) {
+            return scoreDoc.score;
+        }
+        final Object leadingSortValue = ((FieldDoc)scoreDoc).fields[0];
+        if (!(leadingSortValue instanceof Float)) {
+            throw new RecordCoreException("expected a score as the leading sort value")
+                    .addLogInfo("sortValue", leadingSortValue);
+        }
+        return (Float)leadingSortValue;
+    }
+
+    /**
      * An IndexEntry based off a Lucene ScoreDoc.
      */
     public static final class ScoreDocIndexEntry extends IndexEntry {
         private final ScoreDoc scoreDoc;
+        @Nullable
+        private final Float score;
 
         private final Map<String, Set<String>> termMap;
         private final LuceneAnalyzerCombinationProvider analyzerSelector;
@@ -612,6 +634,17 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
         public ScoreDoc getScoreDoc() {
             return scoreDoc;
+        }
+
+        /**
+         * The Lucene relevance score of this hit. Only available if the scan asked for it, see
+         * {@link LuceneScanQuery#isIncludeScoreValue()}, which in turn requires results to be ranked by relevance.
+         * {@link ScoreDoc#score} is not a substitute, as Lucene leaves it unset ({@code NaN}) for searches with a sort.
+         *
+         * @return the score of the hit, or {@code NaN} if the scan did not ask for it
+         */
+        public float getScore() {
+            return score == null ? Float.NaN : score;
         }
 
         public Map<String, Set<String>> getTermMap() {
@@ -638,9 +671,11 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                                    @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                    @Nullable final Map<String, Set<String>> termMap,
                                    @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                   @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
+                                   @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector,
+                                   @Nullable Float score) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
+            this.score = score;
             this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
             this.termMap = termMap;
             this.analyzerSelector = analyzerSelector;
