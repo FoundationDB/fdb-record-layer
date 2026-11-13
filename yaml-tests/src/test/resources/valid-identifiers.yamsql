@@ -394,12 +394,12 @@ test_block:
     -
       # named record construction with uid star
       - query: select struct "x$$" ("foo.tableA".*) from "foo.tableA"
-      - explain: "ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS foo.tableA)"
+      - explain: "COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | MAP (_ AS foo.tableA)"
       - result: [{{"foo.tableA.A1": 1 , "foo.tableA.A2": 10, "foo.tableA.A3": 1}}, {{"foo.tableA.A1": 2, "foo.tableA.A2": 10, "foo.tableA.A3": 2}}, {{"foo.tableA.A1": 3, "foo.tableA.A2": 10, "foo.tableA.A3": 3}}]
     -
       # named record construction with aliased expressions
       - query: select struct "x$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__") from "foo.tableA"
-      - explain: "ISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1 AS __$$__) AS _0)"
+      - explain: "COVERING(foo.tableA.idx3 <,> -> [foo__2tableA__2A1: KEY:[2], foo__2tableA__2A2: KEY:[0]]) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1 AS __$$__) AS _0)"
       - result: [{{"__$$__": 11}}, {{"__$$__": 12}}, {{"__$$__": 13}}]
 
     # enums

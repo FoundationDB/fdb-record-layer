@@ -604,13 +604,13 @@ joins-with-order-by-tests:
         KEY:[2]]) } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2
         RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id
         AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }'
-    task_count: 3113
-    task_total_time_ms: 412
-    transform_count: 1140
-    transform_time_ms: 229
-    transform_yield_count: 230
-    insert_time_ms: 15
-    insert_new_count: 382
+    task_count: 3206
+    task_total_time_ms: 449
+    transform_count: 1153
+    transform_time_ms: 269
+    transform_yield_count: 233
+    insert_time_ms: 10
+    insert_new_count: 391
     insert_reused_count: 43
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1 desc, t1.a2 asc
@@ -620,13 +620,13 @@ joins-with-order-by-tests:
         } | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id
         AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS
         c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }'
-    task_count: 3113
-    task_total_time_ms: 477
-    transform_count: 1140
-    transform_time_ms: 267
-    transform_yield_count: 230
-    insert_time_ms: 16
-    insert_new_count: 382
+    task_count: 3206
+    task_total_time_ms: 453
+    transform_count: 1153
+    transform_time_ms: 271
+    transform_yield_count: 233
+    insert_time_ms: 11
+    insert_new_count: 391
     insert_reused_count: 43
 -   query: EXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 IN (1,
         2) and t3.c1 = t1.a1 and exists (select 4 from t2 where t2.b1 = t1.a1) and
@@ -640,13 +640,13 @@ joins-with-order-by-tests:
         q3 } AS q3 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS
         a, (q3.id AS id, q3.c1 AS c1, q3.c2 AS c2, q3.c3 AS c3, q3.aRef AS aRef) AS
         b) }'
-    task_count: 4225
-    task_total_time_ms: 1067
-    transform_count: 1786
-    transform_time_ms: 430
-    transform_yield_count: 315
-    insert_time_ms: 54
-    insert_new_count: 588
+    task_count: 4286
+    task_total_time_ms: 691
+    transform_count: 1795
+    transform_time_ms: 301
+    transform_yield_count: 317
+    insert_time_ms: 31
+    insert_new_count: 594
     insert_reused_count: 85
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
         = b.b3

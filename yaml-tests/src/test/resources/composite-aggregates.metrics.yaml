@@ -107,16 +107,17 @@ agg-empty-table-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select col1, min(col2), max(col2) from T3 group by col1, col3;
     ref: composite-aggregates.yamsql:105
-    explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2)
+    explain: 'COVERING(T3_I1 <,> -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1],
+        ID: KEY:[4]]) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2)
         AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1,
-        _._1._0 AS _1, _._1._1 AS _2)
-    task_count: 352
+        _._1._0 AS _1, _._1._1 AS _2)'
+    task_count: 388
     task_total_time_ms: 12
-    transform_count: 101
+    transform_count: 107
     transform_time_ms: 9
-    transform_yield_count: 50
+    transform_yield_count: 52
     insert_time_ms: 0
-    insert_new_count: 33
+    insert_new_count: 39
     insert_reused_count: 4
 -   query: EXPLAIN select col1 as "a", col1 as "b", sum(col2) as "a1", sum(col2) as
         "b1" from T2 group by col1;

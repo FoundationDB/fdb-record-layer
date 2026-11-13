@@ -129,7 +129,7 @@ test_block:
       - result: [{!l 10, !l 15}, {!l 20, !l 76}]
     -
       - query: select col1 from T1 group by col1;
-      - explain: "ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1)"
+      - explain: "COVERING(MV8 <,> -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1)"
       - resultMetadata: [{COL1: BIGINT}]
       - result: [{!l 10}, {!l 20}]
     -
@@ -268,12 +268,12 @@ test_block:
     -
       # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
-      - explain: "ISCAN(MV9 [EQUALS promote(@c19 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
+      - explain: "COVERING(MV9 [EQUALS promote(@c19 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
       - resultMetadata: [{COL3: BIGINT}, {S: BIGINT}]
       - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
     -
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
-      - explain: "ISCAN(MV9 [EQUALS promote(@c19 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
+      - explain: "COVERING(MV9 [EQUALS promote(@c19 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
       - resultMetadata: [{COL3: BIGINT}, {S: BIGINT}]
       - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
 #    -
@@ -283,7 +283,7 @@ test_block:
     -
       # make sure we're not choosing the aggregate index (because we aggregate by col3 not col2)
       - query: select max(col3) from t2 group by col1, col3;
-      - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._1._0 AS _0)"
+      - explain: "COVERING(MV9 <,> -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_ AS _0) | AGG (max_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._1._0 AS _0)"
     -
       - query: select min_ever(col3) from T2 group by col1, col2;
       - resultMetadata: [{_0: BIGINT}]
@@ -644,7 +644,7 @@ test_block:
     -
       # The aggregate index MV21 can't be used as the query's grouping value is not a prefix of the index grouping values.
       - query: select sum(col3) from T2 group by col1
-      - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
+      - explain: "COVERING(MV9 <,> -> [COL1: KEY:[0], COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
       - initialVersionLessThan: 4.12.2.0
       - unorderedResult: [{!l 1504}, {!l 202}]
       - initialVersionAtLeast: 4.12.2.0

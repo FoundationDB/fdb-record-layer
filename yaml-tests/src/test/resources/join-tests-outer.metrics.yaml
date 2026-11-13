@@ -264,18 +264,18 @@ left-outer-join:
         AS "c" FROM "dept") "x" LEFT OUTER JOIN "emp" "e" ON "e"."id" >= "x"."c" ORDER
         BY "e"."fname";
     ref: join-tests-outer.yamsql:290
-    explain: 'ISCAN(dept$name <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
-        BY () | ON EMPTY NULL | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname:
-        KEY:[0], id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS promote(coalesce_long(q0._0._0,
+    explain: 'SCAN([IS dept]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
+        () | ON EMPTY NULL | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname: KEY:[0],
+        id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS promote(coalesce_long(q0._0._0,
         0l) AS LONG) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0,
         0l) AS c, q1.fname AS fname, q1.lname AS lname) }'
-    task_count: 626
-    task_total_time_ms: 7
-    transform_count: 163
-    transform_time_ms: 3
-    transform_yield_count: 62
+    task_count: 644
+    task_total_time_ms: 8
+    transform_count: 166
+    transform_time_ms: 4
+    transform_yield_count: 63
     insert_time_ms: 0
-    insert_new_count: 83
+    insert_new_count: 86
     insert_reused_count: 6
 -   query: EXPLAIN SELECT "d"."name", COUNT(*) FROM "dept" "d" LEFT JOIN "project"
         "p" ON "d"."id" = "p"."emp_id" GROUP BY "d"."name";
@@ -463,13 +463,13 @@ left-outer-join:
         EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.info AS info) }
     task_count: 652
-    task_total_time_ms: 7
+    task_total_time_ms: 8
     transform_count: 172
     transform_time_ms: 3
     transform_yield_count: 57
     insert_time_ms: 0
-    insert_new_count: 80
-    insert_reused_count: 2
+    insert_new_count: 81
+    insert_reused_count: 3
 -   query: EXPLAIN SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept"
         "d" ON "e"."dept_id" = "d"."id" WHERE "e"."fname" = 'Alice' OR "e"."fname"
         = 'Dave';

@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -289,13 +288,16 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                                  @Nonnull final CorrelationIdentifier targetAlias) {
         final var indexEntryToLogicalRecord =
                 getIndexEntryToLogicalRecordMaybe().orElseThrow(() -> new RecordCoreException("need index entry to logical record"));
+        final var providedRecordValue = indexEntryToLogicalRecord.providedRecordValue();
+        if (providedRecordValue == null) {
+            return Optional.empty();
+        }
 
         return ScanWithFetchMatchCandidate.pushValueThroughFetch(toBePushedValue,
                 baseAlias,
                 sourceAlias,
                 targetAlias,
-                Iterables.concat(indexEntryToLogicalRecord.logicalKeyValues(),
-                        indexEntryToLogicalRecord.logicalValueValues()));
+                providedRecordValue);
     }
 
     @Override
