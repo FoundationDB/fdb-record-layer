@@ -145,23 +145,36 @@ final class QuantifierValues {
     /**
      * Resolves a value down to the base record and simplifies it.
      *
+     * <p>An access of an exploded element can reach the quantifier over the explode through another quantifier, e.g.
+     * through the select below a {@code GROUP BY} that flows the explode's struct as one of its columns. Every other
+     * quantifier is therefore resolved first, which leaves each such access a field of the explode's quantifier, before
+     * the explodes' quantifiers are resolved themselves.
+     *
      * @param value a value written in terms of the plan's quantifiers
      * @return the same value with every quantifier replaced by what it stands for
      */
     @Nonnull
     public Value resolve(@Nonnull final Value value) {
-        return dereference(value).simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+        final var throughExplodes = simplify(Objects.requireNonNull(value.acceptVisitor(new Dereferencer(false))));
+        return simplify(Objects.requireNonNull(throughExplodes.acceptVisitor(new Dereferencer(true))));
     }
 
     @Nonnull
-    private Value dereference(@Nonnull final Value value) {
-        return Objects.requireNonNull(value.acceptVisitor(new Dereferencer()));
+    private static Value simplify(@Nonnull final Value value) {
+        return value.simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
     }
 
     /**
-     * Replaces every quantifier with what it stands for, rebuilding the values above it.
+     * Replaces every quantifier with what it stands for, rebuilding the values above it, or every quantifier but those
+     * over an explode.
      */
     private final class Dereferencer implements SimpleValueVisitor<Value> {
+
+        private final boolean resolvesExplodes;
+
+        private Dereferencer(final boolean resolvesExplodes) {
+            this.resolvesExplodes = resolvesExplodes;
+        }
 
         @Nonnull
         @Override
@@ -173,6 +186,9 @@ final class QuantifierValues {
         @Nonnull
         @Override
         public Value visitFieldValue(@Nonnull final FieldValue element) {
+            if (!resolvesExplodes) {
+                return visitDefault(element);
+            }
             // descend below the rewritten value rather than visit it, so that an access of the element is not taken
             // for an access of the struct
             final var throughElement = throughExplodedElement(element);
@@ -185,6 +201,9 @@ final class QuantifierValues {
             // A column of a join has to keep which of the tables it is read from, so it stops at that table's
             // correlation; a single table's resolves down to its record, as for any other quantifier.
             if (constituents.size() > 1 && constituents.containsKey(element.getAlias())) {
+                return element;
+            }
+            if (!resolvesExplodes && explodes.containsKey(element.getAlias())) {
                 return element;
             }
             // what a quantifier stands for may reference another
