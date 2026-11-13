@@ -340,6 +340,30 @@ public class MaxMatchMap {
     }
 
     /**
+     * Relates the {@code queryValue} as a whole to the {@code candidateValue}, which is what
+     * {@link #compute(Value, Value, Set, ValueEquivalence)} produces for two semantically equal values, as a match of
+     * the roots is of the minimal max depth. The caller has to know the two values to be semantically equal, which
+     * spares the search for a match.
+     *
+     * @param queryValue the query result {@code Value}
+     * @param candidateValue the candidate result {@code Value}, semantically equal to {@code queryValue}
+     * @param rangedOverAliases a set of aliases that should not be considered constant
+     * @param valueEquivalence a {@link ValueEquivalence} under which the two values are semantically equal
+     * @return a {@link MaxMatchMap} mapping {@code queryValue} to {@code candidateValue}
+     * @throws com.google.common.base.VerifyException if the two values are not semantically equal
+     */
+    @Nonnull
+    public static MaxMatchMap identityOf(@Nonnull final Value queryValue,
+                                         @Nonnull final Value candidateValue,
+                                         @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
+                                         @Nonnull final ValueEquivalence valueEquivalence) {
+        final var isSemanticallyEqual = queryValue.semanticEquals(candidateValue, valueEquivalence);
+        Verify.verify(isSemanticallyEqual.isTrue(), "query value is not semantically equal to candidate value");
+        return new MaxMatchMap(ImmutableMap.of(queryValue, candidateValue), queryValue, candidateValue,
+                rangedOverAliases, isSemanticallyEqual.getConstraint(), valueEquivalence);
+    }
+
+    /**
      * Computes the maximum sub-{@link Value}s in {@code queryValue} that have an exact match in the
      * {@code candidateValue}.
      *
