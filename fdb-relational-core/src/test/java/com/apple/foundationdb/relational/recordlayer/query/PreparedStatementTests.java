@@ -1067,6 +1067,33 @@ public class PreparedStatementTests {
         }
     }
 
+    @Test
+    void fieldAccessOnObjectParameters() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, ?), (11, ?named), (12, ?)")) {
+                statement.setString(1, "1");
+                statement.setString("named", "2");
+                statement.setString(2, "3");
+                Assertions.assertThat(statement.executeUpdate()).isEqualTo(3);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT rest_no, name FROM RestaurantComplexRecord WHERE ?p1.\"name\" = name AND ?.\"rest_no\" = rest_no")) {
+                ps.setObject("p1",
+                        EmbeddedRelationalStruct.newBuilder()
+                                .addString("name", "3").build());
+                ps.setObject(1,
+                        EmbeddedRelationalStruct.newBuilder()
+                                .addInt("rest_no", 12).build());
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("name", "3")
+                            .hasColumn("rest_no", 12L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
     static Stream<Object> listParameterProvider() {
         return Stream.of(
                 Arguments.of("empty bigint list", "a1", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {

@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DynamicMessage;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -63,6 +66,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -384,6 +388,24 @@ public class AstNormalizerTests {
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
+    private static void compareDynamicMessage(@Nonnull DynamicMessage message,
+                                              @Nonnull RelationalStruct struct,
+                                              @Nonnull Supplier<String> description) {
+
+        final var descriptor = message.getDescriptorForType();
+        final var expectedMessageBuilder = DynamicMessage.newBuilder(descriptor);
+        try {
+            for (final var field : ((DataType.StructType)struct.getRelationalMetaData()).getFields()) {
+                final var fieldDescriptor = descriptor.findFieldByName(field.getName());
+                Assertions.assertThat(fieldDescriptor).as(description).isNotNull();
+                expectedMessageBuilder.setField(fieldDescriptor, struct.getObject(field.getName()));
+            }
+        } catch (SQLException e) {
+            Assertions.fail(e);
+        }
+        Assertions.assertThat(message).as(description).isEqualTo(expectedMessageBuilder.build());
+    }
+
     @SuppressWarnings("unchecked")
     private static void compareBindings(@Nonnull final Object actual, @Nonnull final Object expected) {
         Assertions.assertThat(actual instanceof Map).isTrue();
@@ -394,8 +416,15 @@ public class AstNormalizerTests {
         for (final var actualEntry : actualMap.entrySet()) {
             final var actualObject = actualEntry.getValue();
             final var expectedObject = expectedMap.get(actualEntry.getKey());
-            Assertions.assertThat(expectedObject).as("checking constants %s", actualMap.keySet()).isNotNull();
-            Assertions.assertThat(actualObject).as("checking constants %s", actualMap.keySet()).isEqualTo(expectedObject);
+            final Supplier<String> descriptionSupplier = () -> String.format("checking constants %s", actualMap.keySet());
+            Assertions.assertThat(expectedObject).as(descriptionSupplier).isNotNull();
+
+            if (expectedObject instanceof RelationalStruct expectedStruct) {
+                Assertions.assertThat(actualObject).isInstanceOf(DynamicMessage.class);
+                compareDynamicMessage((DynamicMessage)actualObject, expectedStruct, descriptionSupplier);
+            } else {
+                Assertions.assertThat(actualObject).as(descriptionSupplier).isEqualTo(expectedObject);
+            }
         }
     }
 
@@ -1220,6 +1249,25 @@ public class AstNormalizerTests {
                         constantId(20), 5000,
                         constantId(22), -5000));
     }
+
+    @Test
+    void stripStructLiteralWithPreparedParameters() throws RelationalException, SQLException {
+        final var unnamedParamStruct = EmbeddedRelationalStruct.newBuilder()
+                .addInt("F1", 10)
+                .build();
+        final var param1Struct = EmbeddedRelationalStruct.newBuilder()
+                .addInt("F2", 10)
+                .addString("F3", "string")
+                .build();
+        validate("select ?.F1, (?param1.F2, ?param1.F3) from t1",
+                PreparedParams.of(
+                        Map.of(1, unnamedParamStruct), Map.of("param1", param1Struct)),
+                "SELECT ? . \"F1\" , ( ?param1 . \"F2\" , ?param1 . \"F3\" ) FROM \"T1\" ",
+                Map.of(constantId(1), unnamedParamStruct,
+                        constantId(6), param1Struct,
+                        constantId(10), param1Struct));
+    }
+
 
     @Test
     void stripHexadecimalLiteralWithPreparedParameters() throws RelationalException {

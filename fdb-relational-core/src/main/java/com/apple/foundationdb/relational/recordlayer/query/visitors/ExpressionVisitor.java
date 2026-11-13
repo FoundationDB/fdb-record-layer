@@ -586,8 +586,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             value = getDelegate().getPlanGenerationContext()
                     .processNamedPreparedParam(parameterName, tokenIndex, this::resolveDeclaredType);
         }
-        final var type = DataTypeUtils.toRelationalType(value.getResultType());
-        return Expression.ofUnnamed(type, value);
+        final var parameterValueExpression = Expression.ofUnnamed(value);
+        if (ctx.fullId() == null) {
+            return parameterValueExpression;
+        }
+        final var parameterId = Quantifier.uniqueId().getId();
+        final var parameterExpression = parameterValueExpression.withName(Identifier.of(parameterId));
+        final var fullId = Assert.castUnchecked(visit(ctx.fullId()), Identifier.class)
+                .withQualifier(parameterId);
+        final var nestedField = getDelegate().getSemanticAnalyzer().lookupNestedField(
+                    fullId, parameterExpression, parameterExpression, false);
+        return Expression.ofUnnamed(Assert.optionalUnchecked(nestedField).getUnderlying());
     }
 
     /**
@@ -602,7 +611,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     private Type resolveDeclaredType(@Nonnull final String declaredType) {
         final var columnTypeCtx = QueryParser.parseParameterType(declaredType).parameterType;
         final var dataType = getDelegate().lookupType(columnTypeCtx.customType, columnTypeCtx.primitiveType(), false,
-                columnTypeCtx.ARRAY() != null, name -> Optional.empty());
+                columnTypeCtx.ARRAY() != null, getDelegate().getSchemaTemplate()::findTypeByName);
         Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> "cannot resolve declared type '" + declaredType + "' for a parameter with no value");
         return DataTypeUtils.toRecordLayerType(dataType).notNullable();

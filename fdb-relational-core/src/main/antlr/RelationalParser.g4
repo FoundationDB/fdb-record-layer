@@ -1322,8 +1322,7 @@ inList
     ;
 
 preparedStatementParameter
-    : QUESTION
-    | NAMED_PARAMETER
+    : (QUESTION | NAMED_PARAMETER) (DOT fullId)?
     ;
 
 unaryOperator
