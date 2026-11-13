@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.util.Assert;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -362,51 +364,137 @@ public class UnnestedSyntheticTableIndexTest {
     }
 
     /**
-     * Two indexes in one template each need their own synthetic type, alongside a plain index on the stored table.
+     * Asserts on the schema template the statement saves.
+     *
+     * @param stmt the DDL statement
+     * @param assertions what the saved schema template has to satisfy
+     * @throws Exception if planning fails
+     */
+    private void savedTemplateIs(@Nonnull final String stmt, @Nonnull final Consumer<RecordLayerSchemaTemplate> assertions)
+            throws Exception {
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                assertions.accept(Assert.castUnchecked(template, RecordLayerSchemaTemplate.class));
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    /** The alias of the sole constituent of {@code syntheticTable} that unnests {@code nestingExpression}. */
+    @Nonnull
+    private static String constituentUnnesting(@Nonnull final RecordLayerUnnestedSyntheticTable syntheticTable,
+                                               @Nonnull final KeyExpression nestingExpression) {
+        return Iterables.getOnlyElement(syntheticTable.getConstituents().stream()
+                .filter(constituent -> constituent.getNestingExpression().equals(nestingExpression))
+                .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getAlias)
+                .collect(Collectors.toList()));
+    }
+
+    /**
+     * Two indexes over the same unnesting share the synthetic table the first one adds, alongside a plain index on the
+     * stored table. That the unnesting is given another name, and other columns of it, does not matter.
      */
     @Test
-    void createTwoIndexesEachRequiringSyntheticTableKeepsThemSeparate() throws Exception {
+    void createTwoIndexesOverTheSameUnnestingShareASyntheticTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3 " +
                 "CREATE INDEX mv2 AS SELECT Y.col3, T1.col5, Y.col4 FROM T1, (SELECT col3, col4 FROM T1.A) Y ORDER BY Y.col3, T1.col5, Y.col4 " +
                 "CREATE INDEX i3 AS SELECT T1.col5, T1.col1 FROM T1 ORDER BY T1.col5, T1.col1";
-        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-            @Nonnull
-            @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
-                                                                      @Nonnull final Options templateProperties) {
-                final var recLayer = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+        savedTemplateIs(stmt, template -> {
+            final var syntheticTable = Iterables.getOnlyElement(template.getUnnestedSyntheticTables());
+            Assertions.assertEquals("__unnested_T1_MV1", syntheticTable.getName());
+            Assertions.assertEquals(List.of("MV1", "MV2"), syntheticTable.getIndexes().stream()
+                    .map(RecordLayerIndex::getName)
+                    .collect(Collectors.toList()));
+            final var parent = syntheticTable.getAlias();
+            final var x = Iterables.getOnlyElement(syntheticTable.getConstituents()).getAlias();
+            final var mv2 = syntheticTable.getIndexes().stream()
+                    .filter(index -> index.getName().equals("MV2"))
+                    .findFirst()
+                    .orElseThrow();
+            Assertions.assertEquals(syntheticTable.getName(), mv2.getTableName());
+            Assertions.assertEquals(concat(field(x).nest("COL3"), field(parent).nest("COL5"), field(x).nest("COL4")),
+                    KeyExpression.fromProto(mv2.getKeyExpression().toKeyExpression()));
 
-                final var syntheticNames = recLayer.getUnnestedSyntheticTables().stream()
-                        .map(RecordLayerUnnestedSyntheticTable::getName)
-                        .collect(Collectors.toSet());
-                Assertions.assertEquals(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2"), syntheticNames);
+            final var storedTableIndexes = Assertions.assertDoesNotThrow(() ->
+                    Assert.optionalUnchecked(template.findTableByName("T1")).getIndexes().stream()
+                            .map(com.apple.foundationdb.relational.api.metadata.Index::getName)
+                            .collect(Collectors.toSet()));
+            Assertions.assertEquals(Set.of("I3"), storedTableIndexes);
 
-                // one index each, and the plain index stays on the stored table
-                recLayer.getUnnestedSyntheticTables().forEach(synthetic ->
-                        Assertions.assertEquals(1, synthetic.getIndexes().size(),
-                                () -> "expected one index on " + synthetic.getName()));
-                final var storedTableIndexes = Assertions.assertDoesNotThrow(() ->
-                        Assert.optionalUnchecked(template.findTableByName("T1")).getIndexes().stream()
-                                .map(com.apple.foundationdb.relational.api.metadata.Index::getName)
-                                .collect(Collectors.toSet()));
-                Assertions.assertEquals(Set.of("I3"), storedTableIndexes);
+            final var metaData = template.toRecordMetadata();
+            Assertions.assertEquals(Set.of("__unnested_T1_MV1"), metaData.getSyntheticRecordTypes().keySet());
+            Assertions.assertEquals(Set.of("MV1", "MV2"),
+                    metaData.getSyntheticRecordType("__unnested_T1_MV1").getIndexes().stream()
+                            .map(com.apple.foundationdb.record.metadata.Index::getName)
+                            .collect(Collectors.toSet()));
+        });
+    }
 
-                // both reach RecordMetaData, as distinct types with distinct record type keys
-                final var metaData = recLayer.toRecordMetadata();
-                Assertions.assertTrue(metaData.getSyntheticRecordTypes().keySet()
-                                .containsAll(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2")),
-                        () -> "got " + metaData.getSyntheticRecordTypes().keySet());
-                final var recordTypeKeys = metaData.getSyntheticRecordTypes().values().stream()
-                        .map(com.apple.foundationdb.record.metadata.SyntheticRecordType::getRecordTypeKey)
-                        .collect(Collectors.toSet());
-                Assertions.assertEquals(2, recordTypeKeys.size(),
-                        () -> "the two synthetic types share a record type key: " + recordTypeKeys);
-                return txn -> {
-                };
-            }
+    /**
+     * An index naming its unnestings in another order shares the synthetic table of one naming them in the definition's
+     * order, and its key reads each unnesting through the constituent the existing table gave it.
+     */
+    @Test
+    void createIndexesOverDifferentlyOrderedUnnestingsShareASyntheticTable() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TYPE AS STRUCT B(col4 bigint, col5 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, b B Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, Y.col4, X.col3, Y.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X, " +
+                "(SELECT col4, col5 FROM T1.B) Y ORDER BY X.col2, Y.col4, X.col3, Y.col5 " +
+                "CREATE INDEX mv2 AS SELECT V.col5, W.col3, V.col4, W.col2 FROM T1, (SELECT col4, col5 FROM T1.B) V, " +
+                "(SELECT col2, col3 FROM T1.A) W ORDER BY V.col5, W.col3, V.col4, W.col2";
+        savedTemplateIs(stmt, template -> {
+            final var syntheticTable = Iterables.getOnlyElement(template.getUnnestedSyntheticTables());
+            Assertions.assertEquals("__unnested_T1_MV1", syntheticTable.getName());
+            final var a = constituentUnnesting(syntheticTable, wrappedRepeatedElements("A"));
+            final var b = constituentUnnesting(syntheticTable, wrappedRepeatedElements("B"));
+            final var keysByIndex = syntheticTable.getIndexes().stream()
+                    .collect(Collectors.toMap(RecordLayerIndex::getName,
+                            index -> KeyExpression.fromProto(index.getKeyExpression().toKeyExpression())));
+            Assertions.assertEquals(Set.of("MV1", "MV2"), keysByIndex.keySet());
+            Assertions.assertEquals(concat(field(a).nest("COL2"), field(b).nest("COL4"), field(a).nest("COL3"), field(b).nest("COL5")),
+                    keysByIndex.get("MV1"));
+            Assertions.assertEquals(concat(field(b).nest("COL5"), field(a).nest("COL3"), field(b).nest("COL4"), field(a).nest("COL2")),
+                    keysByIndex.get("MV2"));
+            Assertions.assertDoesNotThrow(template::toRecordMetadata);
+        });
+    }
+
+    /**
+     * Indexes over unnestings of different arrays each add a synthetic table of their own, as distinct record types with
+     * distinct record type keys.
+     */
+    @Test
+    void createIndexesOverDifferentUnnestingsKeepSeparateSyntheticTables() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, b A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3 " +
+                "CREATE INDEX mv2 AS SELECT Y.col2, T1.col5, Y.col3 FROM T1, (SELECT col2, col3 FROM T1.B) Y ORDER BY Y.col2, T1.col5, Y.col3";
+        savedTemplateIs(stmt, template -> {
+            final var syntheticTables = template.getUnnestedSyntheticTables();
+            Assertions.assertEquals(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2"), syntheticTables.stream()
+                    .map(RecordLayerUnnestedSyntheticTable::getName)
+                    .collect(Collectors.toSet()));
+            syntheticTables.forEach(syntheticTable ->
+                    Assertions.assertEquals(1, syntheticTable.getIndexes().size(),
+                            () -> "expected one index on " + syntheticTable.getName()));
+
+            final var metaData = template.toRecordMetadata();
+            Assertions.assertEquals(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2"), metaData.getSyntheticRecordTypes().keySet());
+            final var recordTypeKeys = metaData.getSyntheticRecordTypes().values().stream()
+                    .map(com.apple.foundationdb.record.metadata.SyntheticRecordType::getRecordTypeKey)
+                    .collect(Collectors.toSet());
+            Assertions.assertEquals(2, recordTypeKeys.size(),
+                    () -> "the two synthetic types share a record type key: " + recordTypeKeys);
         });
     }
 

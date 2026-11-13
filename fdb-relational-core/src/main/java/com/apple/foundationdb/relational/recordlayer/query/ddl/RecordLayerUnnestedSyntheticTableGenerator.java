@@ -31,10 +31,11 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
 import com.google.common.base.Suppliers;
 import com.apple.foundationdb.relational.util.Assert;
@@ -69,7 +70,7 @@ import java.util.Optional;
  * defined on a synthetic table is rejected by {@link #checkSupported}, separately from the definitions
  * {@link IndexSpec#checkValidity} rejects for any index.
  */
-final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTableGenerator {
+final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTableGenerator<RecordLayerUnnestedSyntheticTable> {
 
     /**
      * Prefixes the name of a synthetic table, keeping it out of the space of names a user can declare.
@@ -120,10 +121,18 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
     @Nonnull
     private final Supplier<Type.Record> syntheticType;
 
+    /**
+     * A generator for a synthetic table of its own, or, given the record type of an existing synthetic table, for that
+     * one.
+     *
+     * @param adoptedType the record type of the existing synthetic table the index is defined on, {@code null} for a
+     * synthetic table of its own
+     */
     private RecordLayerUnnestedSyntheticTableGenerator(@Nonnull final Map<Integer, UnnestingInfo> unnestings,
                                                        @Nonnull final String parentAlias,
                                                        @Nonnull final RecordLayerTable parentTable,
-                                                       @Nonnull final String syntheticTableName) {
+                                                       @Nonnull final String syntheticTableName,
+                                                       @Nullable final Type.Record adoptedType) {
         // ImmutableMap, not Map.copyOf: the constituents are registered and the synthetic type's fields are
         // numbered by iterating this map, so its insertion (marker) order is load-bearing, and Map.copyOf makes
         // no order guarantee.
@@ -131,7 +140,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
         this.parentAlias = parentAlias;
         this.parentTable = parentTable;
         this.syntheticTableName = syntheticTableName;
-        this.syntheticType = Suppliers.memoize(this::computeSyntheticType);
+        this.syntheticType = adoptedType == null ? Suppliers.memoize(this::computeSyntheticType) : () -> adoptedType;
     }
 
     /**
@@ -159,7 +168,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + parentTable.getType().getName() + "_" + indexName;
         return Optional.of(new RecordLayerUnnestedSyntheticTableGenerator(unnestings, PARENT_CONSTITUENT_ALIAS,
-                parentTable, syntheticTableName));
+                parentTable, syntheticTableName, null));
     }
 
     /**
@@ -293,6 +302,18 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
             return arrayType().getElementType() instanceof Type.Record;
         }
 
+        /**
+         * The same unnesting, with the constituents renamed.
+         *
+         * @param aliasMapping the new alias of every constituent
+         * @return the renamed unnesting
+         */
+        @Nonnull
+        public UnnestingInfo renamed(@Nonnull final Map<String, String> aliasMapping) {
+            return new UnnestingInfo(alias == null ? null : renamedAlias(alias, aliasMapping),
+                    renamedAlias(owningAlias, aliasMapping), arrayPath);
+        }
+
         @Nonnull
         public DataType.StructType structElementType() {
             return (DataType.StructType)DataTypeUtils.toRelationalType(
@@ -314,7 +335,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
                 "predicate on an index over an unnested synthetic table");
         Assert.isNullUnchecked(spec.groupBy(), ErrorCode.UNSUPPORTED_OPERATION,
                 "group by on an index over an unnested synthetic table");
-        return new IndexSpec(1, IndexSpec.Source.of(generate()), null, null,
+        return new IndexSpec(1, IndexSpec.Source.ofSyntheticTable(getType()), null, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }
@@ -465,11 +486,48 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
         final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticType.get())
                 .setAlias(parentAlias)
                 .setParentTableType(parentTable.getType());
-        unnestings.values().stream()
-                .filter(UnnestingInfo::structArray)
-                .forEach(info -> builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
-                        info.alias(), info.owningAlias(), info.arrayElements())));
+        nestedConstituents().forEach(builder::addConstituent);
         return builder;
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerSyntheticTable.Fingerprint<RecordLayerUnnestedSyntheticTable> getFingerprint() {
+        return RecordLayerUnnestedSyntheticTable.generateFingerprint(
+                Objects.requireNonNull(parentTable.getType().getStorageName()), parentAlias, nestedConstituents());
+    }
+
+    @Nonnull
+    @Override
+    public Function<RecordLayerUnnestedSyntheticTable, Optional<Map<String, String>>> matcher() {
+        return RecordLayerUnnestedSyntheticTable.matcher(parentAlias, nestedConstituents());
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerUnnestedSyntheticTableGenerator adopt(@Nonnull final RecordLayerUnnestedSyntheticTable existing,
+                                                            @Nonnull final Map<String, String> aliasMapping) {
+        final var renamedUnnestings = ImmutableMap.<Integer, UnnestingInfo>builder();
+        unnestings.forEach((marker, info) -> renamedUnnestings.put(marker, info.renamed(aliasMapping)));
+        return new RecordLayerUnnestedSyntheticTableGenerator(renamedUnnestings.build(),
+                renamedAlias(parentAlias, aliasMapping), parentTable, existing.getName(), existing.getType());
+    }
+
+    /**
+     * {@return one nested constituent per unnested struct array, in the order of the unnestings}
+     */
+    @Nonnull
+    private List<RecordLayerUnnestedSyntheticTable.NestedConstituent> nestedConstituents() {
+        return unnestings.values().stream()
+                .filter(UnnestingInfo::structArray)
+                .map(info -> new RecordLayerUnnestedSyntheticTable.NestedConstituent(info.alias(), info.owningAlias(),
+                        info.arrayElements()))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static String renamedAlias(@Nonnull final String alias, @Nonnull final Map<String, String> aliasMapping) {
+        return Assert.notNullUnchecked(aliasMapping.get(alias), "constituent missing from the alias mapping");
     }
 
     /**
