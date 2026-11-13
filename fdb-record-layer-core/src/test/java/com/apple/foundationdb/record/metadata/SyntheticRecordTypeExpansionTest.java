@@ -191,11 +191,12 @@ class SyntheticRecordTypeExpansionTest {
         assertEquals(FieldValue.ofFieldNames(parentQuantifier.getFlowedObjectValue(), List.of("inner")),
                 assertSelectOverExplode(expansion.getQuantifiers().get(3)).getCollectionValue());
 
-        // ... while `inner` hangs off the element `middle` flows, which is what makes this a chain rather than a fan.
+        // ... while `inner` hangs off the element `middle` flows, which is what makes this a chain rather than a fan. The
+        // path to the array is fused into the access of that element, as a query over the same unnestings writes it.
         final Value innerCollectionValue = assertSelectOverExplode(expansion.getQuantifiers().get(2))
                 .getCollectionValue();
-        assertEquals(FieldValue.ofFieldNames(
-                        FieldValue.ofOrdinalNumber(middleQuantifier.getFlowedObjectValue(), 0), List.of("inner")),
+        assertEquals(FieldValue.ofFieldNameAndFuseIfPossible(
+                        FieldValue.ofOrdinalNumber(middleQuantifier.getFlowedObjectValue(), 0), "inner"),
                 innerCollectionValue);
         assertEquals(middleQuantifier.getAlias(), Iterables.getOnlyElement(innerCollectionValue.getCorrelatedTo()));
 
