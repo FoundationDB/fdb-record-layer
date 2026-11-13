@@ -162,9 +162,8 @@ test_block:
       - result: [{1}]
     -
       # select from deeply nested repeated table
-      # TODO (Covering plan lost for nested exists over a fan-out index when the candidate flows explode ordinals: https://github.com/FoundationDB/fdb-record-layer/issues/4879)
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)
-      - explain: "ISCAN(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)]) | FLATMAP q0 -> { TF explode(q0.level0.field1) | FLATMAP q1 -> { TF explode(q1._0.level1$field.1) | FILTER _._0.level2$array.field.1 EQUALS promote(@c26 AS LONG) AS q2 RETURN (q1._0.level1$field.1 AS level1$field.1, q1._0.level1$field.2 AS level1$field.2, q1._0.level1$field.3 AS level1$field.3, q2._0.level2$array.field.1 AS level2$array.field.1, q2._0.level2$field.2 AS level2$field.2) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN q0 } | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
     -
       # select from nested table
