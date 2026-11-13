@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
+import com.apple.foundationdb.record.query.plan.cascades.References.RebaseOptions;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
@@ -525,7 +526,8 @@ public class Quantifiers {
                                                           @Nonnull final TranslationMap translationMap,
                                                           final boolean shouldSimplifyValues) {
         final List<? extends Reference> oldReferences = rangesOver(quantifiers);
-        final List<? extends Reference> newReferences = References.rebaseGraphs(oldReferences, memoizer, translationMap, shouldSimplifyValues);
+        final List<? extends Reference> newReferences = References.rebaseGraphs(oldReferences, memoizer, translationMap,
+                RebaseOptions.of(shouldSimplifyValues));
 
         return Streams.zip(quantifiers.stream(), newReferences.stream(), (oldQun, newRef) -> {
             CorrelationIdentifier newAlias = translationMap.getTargetMaybe(oldQun.getAlias()).orElse(oldQun.getAlias());

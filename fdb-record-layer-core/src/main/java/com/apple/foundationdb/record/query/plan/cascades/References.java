@@ -83,9 +83,10 @@ public class References {
         final var translationsCache =
                 Maps.<Reference, Reference>newIdentityHashMap();
 
+        final var options = RebaseOptions.of(shouldSimplifyValues);
         for (final var reference : references) {
             if (reference.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-                rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
+                rebaseGraph(memoizer, translationMap, options, reference, translationsCache,
                         alias -> {
                             Verify.verify(!translationMap.containsSourceAlias(alias),
                                     "internal quantifiers cannot be re-aliased");
@@ -102,26 +103,40 @@ public class References {
     }
 
     /**
-     * Method to rebase a graph while preserving CSEs (common sub expressions). Note that internal
-     * aliases are also translated as well as correlations are translated (rebased) according to the given
-     * {@link TranslationMap}. The logic in this method delegates to
-     * {@link RelationalExpression#translateCorrelations(TranslationMap, boolean, List)} to in turn translate
-     * predicates, select list expressions and others. Furthermore, the logic in this method attempts to not copy
-     * a sub-graph unless it is necessary to do so, i.e. uncorrelated sub-graphs are shared between the original graph
-     * and the translated one.
+     * Convenience overload of {@link #rebaseGraphs(List, Memoizer, TranslationMap, RebaseOptions)} to rebase a graph
+     * with no options set (i.e., {@link RebaseOptions#NONE}).
+     */
+    @Nonnull
+    public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
+                                                         @Nonnull final Memoizer memoizer,
+                                                         @Nonnull final TranslationMap translationMap) {
+        return rebaseGraphs(refs, memoizer, translationMap, RebaseOptions.NONE);
+    }
+
+    /**
+     * Rebases a graph while preserving common sub-expressions (CSEs). Also renames the aliases of the quantifiers
+     * in the graph, and translates the correlations of its expressions, according to the given {@link TranslationMap}.
+     * These correlations point to quantifiers in the graph or to aliases outside of it. Each expression translates them
+     * in its predicates, select list expressions and others by delegating to
+     * {@link RelationalExpression#translateCorrelations}.
+     *
+     * <p>Unless {@link RebaseOptions#copy} is set, this method attempts to not copy a sub-graph unless necessary.
+     * In particular, a {@link Reference} is shared between the original graph and the translated one if nothing in its
+     * sub-graph is translated. Note that such sharing can be problematic if the graph outlives the planning operation
+     * that uses the rebased graph. With {@code copy} set, {@link Reference} objects are instead copied as necessary.
      *
      * @param refs a list of {@link Reference}s. They can share common sub-graphs
      * @param memoizer a {@link Memoizer}. If used outside the planner rules, use
      *        {@link Memoizer#noMemoization(PlannerStage)}
      * @param translationMap the {@link TranslationMap} that defines the translations to be carried out
-     * @param shouldSimplifyValues an indicator whether we should attempt to simplify values after translation
+     * @param options the {@link RebaseOptions} that define how the graph is rebased
      * @return a list of translated references
      */
     @Nonnull
     public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
                                                          @Nonnull final Memoizer memoizer,
                                                          @Nonnull final TranslationMap translationMap,
-                                                         final boolean shouldSimplifyValues) {
+                                                         @Nonnull final RebaseOptions options) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
         }
@@ -136,7 +151,7 @@ public class References {
                 Maps.<Reference, Reference>newIdentityHashMap();
 
         for (final var reference : references) {
-            rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
+            rebaseGraph(memoizer, translationMap, options, reference, translationsCache,
                     sourceAlias -> translationMap.getTargetMaybe(sourceAlias).orElse(sourceAlias));
         }
 
@@ -145,11 +160,38 @@ public class References {
                 .collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Options of {@link #rebaseGraphs}.
+     *
+     * @param simplify whether to attempt to simplify values after translation
+     * @param copy whether to make a safe copy, that is, copy everything as necessary, so that the result will not
+     *        share any {@link Reference} objects with the graph that is rebased.
+     */
+    public record RebaseOptions(boolean simplify, boolean copy) {
+        public static final RebaseOptions NONE = new RebaseOptions(false, false);
+        public static final RebaseOptions SIMPLIFY = new RebaseOptions(true, false);
+        public static final RebaseOptions COPY = new RebaseOptions(false, true);
+
+        @Nonnull
+        public static RebaseOptions of(final boolean simplify) {
+            return of(simplify, false);
+        }
+
+        @Nonnull
+        public static RebaseOptions of(final boolean simplify, final boolean copy) {
+            return copy
+                    ? (simplify ? new RebaseOptions(true, true) : COPY)
+                    : (simplify ? SIMPLIFY : NONE);
+        }
+    }
+
     private static void rebaseGraph(@Nonnull final Memoizer memoizer, @Nonnull final TranslationMap translationMap,
-                                    final boolean shouldSimplifyValues, @Nonnull final Reference reference,
+                                    @Nonnull final RebaseOptions options, @Nonnull final Reference reference,
                                     @Nonnull final IdentityHashMap<Reference, Reference> translationsCache,
                                     @Nonnull final Function<CorrelationIdentifier, CorrelationIdentifier> quantifierAliasMapper) {
         Verify.verify(!reference.isExploring());
+        final boolean simplify = options.simplify();
+        final boolean copy = options.copy();
         var allMembersSame = true;
         final var translatedExploratoryExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
         final var translatedFinalExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
@@ -189,14 +231,14 @@ public class References {
                 if (memberCorrelatedTo.stream().noneMatch(translationMap::containsSourceAlias)) {
                     translatedExpression = expression;
                 } else {
-                    translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
+                    translatedExpression = expression.translateCorrelations(translationMap, simplify,
                             translatedQuantifiers);
                     PlannerEventListeners.dispatchEvent(() ->
                             new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
                     allMembersSame = false;
                 }
             } else {
-                translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
+                translatedExpression = expression.translateCorrelations(translationMap, simplify,
                         translatedQuantifiers);
                 PlannerEventListeners.dispatchEvent(() ->
                         new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
@@ -209,7 +251,7 @@ public class References {
                 translatedExploratoryExpressionsBuilder.add(translatedExpression);
             }
         }
-        if (!allMembersSame) {
+        if (copy || !allMembersSame) {
             final var translatedExploratoryExpressions =
                     translatedExploratoryExpressionsBuilder.build();
             final var translatedFinalExpressions =
