@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -126,6 +127,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -2290,6 +2292,129 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
+    }
+
+    private static final Sort RELEVANCE_THEN_PRIMARY_KEY = new Sort(SortField.FIELD_SCORE,
+            new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, false));
+
+    private LuceneScanQuery scoredSearch(@Nonnull Index index, @Nonnull String search, @Nullable Sort sort, boolean includeScoreValue) {
+        return new LuceneScanQueryParameters(ScanComparisons.EMPTY,
+                new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, search, false),
+                sort, null, null, null, includeScoreValue)
+                .bind(recordStore, index, EvaluationContext.EMPTY);
+    }
+
+    private void saveScoredDocuments(@Nonnull FDBRecordContext context, @Nonnull Index index) {
+        rebuildIndexMetaData(context, SIMPLE_DOC, index);
+        recordStore.saveRecord(createSimpleDocument(1L, "vision vision vision cat", 1));
+        recordStore.saveRecord(createSimpleDocument(2L, "vision dog dog dog dog dog dog", 1));
+        recordStore.saveRecord(createSimpleDocument(3L, "vision", 1));
+        recordStore.saveRecord(createSimpleDocument(4L, "unrelated", 1));
+        recordStore.saveRecord(createSimpleDocument(5L, "vision vision", 1));
+    }
+
+    private Map<Tuple, Float> scoresByPrimaryKey(@Nonnull Index index, @Nonnull LuceneScanQuery scanQuery, int pageSize) {
+        final Map<Tuple, Float> scores = new LinkedHashMap<>();
+        byte[] continuation = null;
+        while (true) {
+            final RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanQuery, continuation,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(pageSize).build().asScanProperties(false));
+            RecordCursorResult<IndexEntry> result = cursor.getNext();
+            while (result.hasNext()) {
+                final var entry = (LuceneRecordCursor.ScoreDocIndexEntry)result.get();
+                assertNull(scores.put(entry.getPrimaryKey(), entry.getScore()), "document returned twice");
+                result = cursor.getNext();
+            }
+            if (result.getNoNextReason().isSourceExhausted()) {
+                return scores;
+            }
+            continuation = result.getContinuation().toBytes();
+        }
+    }
+
+    @Test
+    void scoreOfRelevanceSortedSearch() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        try (FDBRecordContext context = openContext()) {
+            saveScoredDocuments(context, index);
+            final Map<Tuple, Float> scores = scoresByPrimaryKey(index, scoredSearch(index, "vision", RELEVANCE_THEN_PRIMARY_KEY, true), 100);
+            assertEquals(Set.of(Tuple.from(1L), Tuple.from(2L), Tuple.from(3L), Tuple.from(5L)), scores.keySet());
+            // Lucene does not populate ScoreDoc.score for a sorted search, the score has to come from the sort values
+            scores.values().forEach(score -> assertTrue(Float.isFinite(score) && score > 0, "score " + score));
+            final List<Float> inOrder = new ArrayList<>(scores.values()); // ScoresByPrimaryKey returns the items' score in their sort order
+            assertTrue(Comparators.isInOrder(inOrder, Comparator.<Float>naturalOrder().reversed()), "scores " + inOrder);
+        }
+    }
+
+    @Test
+    void scoreOfDefaultSearchMatchesSortedSearch() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        try (FDBRecordContext context = openContext()) {
+            saveScoredDocuments(context, index);
+            final Map<Tuple, Float> unsorted = scoresByPrimaryKey(index, scoredSearch(index, "vision", null, true), 100);
+            final Map<Tuple, Float> sorted = scoresByPrimaryKey(index, scoredSearch(index, "vision", RELEVANCE_THEN_PRIMARY_KEY, true), 100);
+            assertEquals(4, unsorted.size());
+            assertEquals(unsorted, sorted);
+        }
+    }
+
+    static Stream<Sort> relevanceSorts() {
+        return Stream.of(null, RELEVANCE_THEN_PRIMARY_KEY);
+    }
+
+    static Stream<Sort> nonRelevanceSorts() {
+        return Stream.of(
+                new Sort(SortField.FIELD_DOC),
+                new Sort(new SortField("text", SortField.Type.STRING)),
+                new Sort(new SortField(null, SortField.Type.SCORE, true)),
+                new Sort(new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING), SortField.FIELD_SCORE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("relevanceSorts")
+    void scoreAcrossContinuations(@Nullable Sort sort) {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        try (FDBRecordContext context = openContext()) {
+            saveScoredDocuments(context, index);
+            final Map<Tuple, Float> onePage = scoresByPrimaryKey(index, scoredSearch(index, "vision", sort, true), 100);
+            final Map<Tuple, Float> paged = scoresByPrimaryKey(index, scoredSearch(index, "vision", sort, true), 1);
+            assertEquals(onePage, paged);
+            assertEquals(new ArrayList<>(onePage.keySet()), new ArrayList<>(paged.keySet()));
+        }
+    }
+
+    @Test
+    void scoreNotRequested() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        try (FDBRecordContext context = openContext()) {
+            saveScoredDocuments(context, index);
+            final List<IndexEntry> entries = recordStore.scanIndex(index, scoredSearch(index, "vision", RELEVANCE_THEN_PRIMARY_KEY, false),
+                    null, ScanProperties.FORWARD_SCAN).asList().join();
+            assertEquals(4, entries.size());
+            for (IndexEntry entry : entries) {
+                assertTrue(Float.isNaN(((LuceneRecordCursor.ScoreDocIndexEntry)entry).getScore()));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonRelevanceSorts")
+    void scoreRequiresRelevanceSort(@Nonnull Sort sort) {
+        final var clause = new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, "vision", false);
+        assertThrows(RecordCoreArgumentException.class,
+                () -> new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, sort, null, null, null, true));
+        // the same sort is fine when the score is not requested
+        assertDoesNotThrow(() -> new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, sort, null, null, null, false));
+    }
+
+    @Test
+    void scoreEquelsHashCode() {
+        final var clause = new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, "vision", false);
+        final var without = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, null, null, null, null, false);
+        final var with = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, null, null, null, null, true);
+        assertEquals(new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause), without);
+        assertNotEquals(without, with);
+        assertNotEquals(without.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), with.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     @ParameterizedTest
