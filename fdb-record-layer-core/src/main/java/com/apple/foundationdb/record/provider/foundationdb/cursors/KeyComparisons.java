@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.google.protobuf.ByteString;
 
 import java.util.Comparator;
 import java.util.List;
@@ -43,6 +44,8 @@ public class KeyComparisons {
             return 1;
         } else if (o1 instanceof byte[]) {
             return ByteArrayUtil.compareUnsigned((byte[])o1, (byte[])o2);
+        } else if (o1 instanceof ByteString) {
+            return ByteArrayUtil.compareUnsigned(((ByteString)o1).toByteArray(), ((ByteString)o2).toByteArray());
         } else if (o1 instanceof List) {
             return KeyComparisons.KEY_COMPARATOR.compare((List<Object>)o1, (List<Object>)o2);
         } else {

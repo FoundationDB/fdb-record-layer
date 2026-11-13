@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInSource;
+import com.apple.foundationdb.record.provider.foundationdb.cursors.KeyComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -51,8 +52,7 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public abstract class InSource implements PlanHashable, PlanSerializable, Typed {
-    @SuppressWarnings("unchecked")
-    private static final Comparator<Object> VALUE_COMPARATOR = Comparator.comparing(Comparable.class::cast);
+    private static final Comparator<Object> VALUE_COMPARATOR = KeyComparisons.FIELD_COMPARATOR;
 
     @Nonnull
     private final String bindingName;
