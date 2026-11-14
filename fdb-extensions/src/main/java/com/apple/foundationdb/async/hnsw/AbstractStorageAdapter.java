@@ -115,7 +115,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
 
     @Override
     public boolean isCompactStorageAdapter() {
-        final boolean isCompactStorageAdapter = getNodeFactory().getNodeKind() == NodeKind.COMPACT;
+        final boolean isCompactStorageAdapter = getNodeFactory().getNodeKind().isCompact();
         Verify.verify(!isCompactStorageAdapter || this instanceof CompactStorageAdapter);
         return isCompactStorageAdapter;
     }

@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisito
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -50,7 +49,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -152,14 +150,6 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
                                @Nonnull List<JoinConstituent> constituents, @Nonnull List<Join> joins) {
         super(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, constituents);
         this.joins = joins;
-    }
-
-    @Nonnull
-    @Override
-    public Set<RecordType> getStoredRecordTypes() {
-        return getConstituents().stream()
-                .map(JoinConstituent::getRecordType)
-                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
