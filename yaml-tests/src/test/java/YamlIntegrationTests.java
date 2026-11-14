@@ -121,13 +121,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    void cachedPlanCosting(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("cached-plan-costing.yamsql");
+    void bytes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("bytes.yamsql");
     }
 
     @TestTemplate
-    void bytes(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("bytes.yamsql");
+    void cachedPlanCosting(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cached-plan-costing.yamsql");
     }
 
     @TestTemplate
