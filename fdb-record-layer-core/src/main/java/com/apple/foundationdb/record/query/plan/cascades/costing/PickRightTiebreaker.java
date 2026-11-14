@@ -40,7 +40,7 @@ import javax.annotation.Nonnull;
  * implementations that are not antisymmetric. As such, swapping the order would currently result
  * in plan changes. See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3998">Issue #3998</a>.
  */
-final class PickRightTiebreaker implements Tiebreaker<RelationalExpression> {
+public final class PickRightTiebreaker implements Tiebreaker<RelationalExpression> {
     private static final PickRightTiebreaker INSTANCE = new PickRightTiebreaker();
 
     private PickRightTiebreaker() {
@@ -55,7 +55,7 @@ final class PickRightTiebreaker implements Tiebreaker<RelationalExpression> {
     }
 
     @Nonnull
-    static PickRightTiebreaker pickRightTiebreaker() {
+    public static PickRightTiebreaker pickRightTiebreaker() {
         return INSTANCE;
     }
 }
