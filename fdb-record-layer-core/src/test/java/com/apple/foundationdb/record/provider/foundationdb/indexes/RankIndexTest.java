@@ -52,9 +52,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -69,6 +72,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -215,6 +219,19 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             }
             commit(context);
         }
+    }
+
+    @ParameterizedTest
+    @IndexScenarios
+    void indexScenariosTest(IndexScenario scenario) throws Exception {
+        // Use a dedicated path so the records loaded by the loadRecords() fixture (against a
+        // different metadata) do not interfere with the scenario's clean-store expectations.
+        final KeySpacePath scenarioPath = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        scenario.runTest(
+                new RankIndexDefinition(),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(scenarioPath));
     }
 
     // Need to explicitly construct QueryComponent because we're using an internal parameter
