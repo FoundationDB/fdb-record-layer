@@ -156,7 +156,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void coveringSumPushdown(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("covering-sum-pushdown.yamsql");
     }
@@ -375,7 +374,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void rowVersionPushdown(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("row-version-pushdown.yamsql");
     }
