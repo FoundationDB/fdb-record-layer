@@ -35,8 +35,9 @@ import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndex
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+
+import java.util.List;
+import java.util.Map;
 
 import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -63,7 +64,7 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
         return new Index(ScenarioRecords.INDEX_NAME,
                 DimensionsKeyExpression.of(prefix, dimensions),
                 IndexTypes.MULTIDIMENSIONAL,
-                ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
+                Map.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
                         IndexOptions.RTREE_STORE_HILBERT_VALUES, "true"));
     }
 
@@ -73,7 +74,7 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
         // Exhaustive scan: every dimension unbounded, so the R-tree returns all entries
         // in (deterministic) Hilbert-value order.
         final MultidimensionalIndexScanBounds.Hypercube hypercube =
-                new MultidimensionalIndexScanBounds.Hypercube(ImmutableList.of(
+                new MultidimensionalIndexScanBounds.Hypercube(List.of(
                         TupleRange.betweenInclusive(null, null),
                         TupleRange.betweenInclusive(null, null)));
         final MultidimensionalIndexScanBounds bounds =
