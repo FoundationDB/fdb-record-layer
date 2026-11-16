@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -87,10 +86,10 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
                 target.prefixed(target.indexedField(ScenarioRecords.VECTOR)), prefixSize);
         // The predicate's partition paths have to mirror the key-with-value prefix.
         final List<List<String>> partitionPaths = prefixSize > 0
-                ? ImmutableList.of(ImmutableList.of(ScenarioRecords.GROUP))
-                : ImmutableList.of();
+                ? List.of(List.of(ScenarioRecords.GROUP))
+                : List.of();
         final IndexPredicate predicate = new IndexPredicate.RowNumberWindowPredicate(
-                ImmutableList.of(ScenarioRecords.INDEXED, ScenarioRecords.LONG_VALUE),
+                List.of(ScenarioRecords.INDEXED, ScenarioRecords.LONG_VALUE),
                 IndexPredicate.RowNumberWindowPredicate.Direction.DESC,
                 windowSize,
                 partitionPaths);
