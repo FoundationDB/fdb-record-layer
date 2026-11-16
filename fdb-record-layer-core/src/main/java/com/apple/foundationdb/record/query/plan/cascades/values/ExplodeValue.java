@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PExplodeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.cursors.KeyComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
@@ -96,8 +97,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     private static final Type ORDINAL_TYPE = Type.primitiveType(Type.TypeCode.INT, false);
 
     @Nonnull
-    @SuppressWarnings("unchecked")
-    private static final Comparator<Object> ELEMENT_COMPARATOR = Comparator.comparing(Comparable.class::cast);
+    private static final Comparator<Object> ELEMENT_COMPARATOR = KeyComparisons.FIELD_COMPARATOR;
 
     @Nonnull
     private final Value collectionValue;
@@ -178,7 +178,8 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     }
 
     /**
-     * Whether elements of a type can be sorted, which needs their representation to be {@link Comparable}.
+     * Whether elements of a type can be sorted, which needs their representation to be comparable in the order an index
+     * keeps them in.
      *
      * @param elementType the type of the elements
      * @return {@code true} if an explode of an array of such elements can be sorted
@@ -187,8 +188,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         if (elementType.isEnum()) {
             return true;
         }
-        return elementType.isPrimitive() &&
-                elementType.getTypeCode() != Type.TypeCode.BYTES && elementType.getTypeCode() != Type.TypeCode.VECTOR;
+        return elementType.isPrimitive() && elementType.getTypeCode() != Type.TypeCode.VECTOR;
     }
 
     /**

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.test.BooleanSource;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -227,6 +228,23 @@ class ExplodeValueTest {
         Assertions.assertEquals(reverse
                                 ? List.of(List.of(30, 0), List.of(20, 1), List.of(10, 2))
                                 : List.of(List.of(10, 0), List.of(20, 1), List.of(30, 2)),
+                explodeAsList(value, contextFor(value)));
+    }
+
+    /**
+     * Bytes sort unsigned, the way an index orders them, so {@code 0xff} sorts last rather than first.
+     */
+    @ParameterizedTest
+    @BooleanSource
+    void sortedExplodeSortsBytesUnsigned(final boolean reverse) {
+        final var low = ByteString.copyFrom(new byte[] {0x01});
+        final var middle = ByteString.copyFrom(new byte[] {0x7f});
+        final var high = ByteString.copyFrom(new byte[] {(byte)0xff});
+        final var value = new ExplodeValue(new LiteralValue<>(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false)),
+                List.of(low, high, middle)), false, true, reverse);
+        Assertions.assertEquals(reverse
+                                ? List.of(List.of(high, 0), List.of(middle, 1), List.of(low, 2))
+                                : List.of(List.of(low, 0), List.of(middle, 1), List.of(high, 2)),
                 explodeAsList(value, contextFor(value)));
     }
 
@@ -434,8 +452,8 @@ class ExplodeValueTest {
         final var records = new LiteralValue<>(new Type.Array(Type.Record.fromFields(List.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"))))), List.of());
         Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(records).sorted(false));
-        final var bytes = new LiteralValue<>(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false)), List.of());
-        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(bytes).sorted(false));
+        final var vectors = new LiteralValue<>(new Type.Array(Type.Vector.of(false, 32, 3)), List.of());
+        Assertions.assertThrows(VerifyException.class, () -> new ExplodeValue(vectors).sorted(false));
         // an explode of such elements that is not sorted is fine
         Assertions.assertFalse(new ExplodeValue(records).isSorted());
     }
