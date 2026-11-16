@@ -75,25 +75,24 @@ public interface IndexDefinition {
     RecordCursor<IndexEntry> scanIndex(FDBRecordStore store, Index index, ScanProperties scanProperties);
 
     /**
-     * Whether this index can be built with a leading {@code group} prefix usable by
-     * {@code deleteRecordsWhere} (the {@code DeleteWhereGroup} scenario). Default {@code true}; a
-     * definition overrides to {@code false} <em>with a documented reason</em> only when the
-     * maintainer itself cannot support group deletion.
+     * Whether the index maintainer supports the index being grouped by a leading prefix of the primary key:
+     * building it with that grouping prefix, scanning every group at once, and clearing a whole group with
+     * {@code deleteRecordsWhere}. Return {@code false}, with the reason documented, only when the maintainer
+     * itself cannot support one of these.
      *
-     * @return whether the {@code DeleteWhereGroup} scenario applies
+     * @return {@code true} if the index can be grouped by a primary key prefix
      */
     default boolean supportsGrouping() {
         return true;
     }
 
     /**
-     * Whether this index can be built over a synthetic record type (the {@code SyntheticJoinedType}
-     * and {@code SyntheticUnnestedType} scenarios). Default {@code true} (the unified
-     * {@link #buildIndex} roots the same value expression under a synthetic constituent); a definition
-     * overrides to {@code false} <em>with a documented reason</em> only when the maintainer itself
-     * cannot support the index over a synthetic type.
+     * Whether the index maintainer supports the index being defined on a synthetic record type, either joined
+     * or unnested. {@link #buildIndex} already roots the definition's key expression under a synthetic type's
+     * constituent, so this is a property of the maintainer, not of the definition. Return {@code false}, with
+     * the reason documented, only when the maintainer itself cannot support the index over a synthetic type.
      *
-     * @return whether the synthetic-type scenarios apply
+     * @return {@code true} if the index can be defined on a synthetic record type
      */
     default boolean supportsSynthetic() {
         return true;
