@@ -566,15 +566,12 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         assertOriginalIndexDataCleared(origIndex, replacementUnique);
     }
 
-    /**
-     * Resolving the last uniqueness violation of a {@link IndexState#READABLE_UNIQUE_PENDING} index that is being
-     * replaced, in the same transaction that marks its replacement readable. Both index state updates happen at
-     * commit time, and they must run sequentially: first the original is marked readable, then it is dropped because
-     * its replacement is readable.
-     */
     @ParameterizedTest
     @BooleanSource("resolveByUpdate")
     void uniquePendingOriginalResolvedWhenReplacementMarkedReadable(boolean resolveByUpdate) {
+        // Resolve the last violation of a READABLE_UNIQUE_PENDING index being replaced and mark its replacement readable
+        // in one transaction. At commit, the original must be marked readable first, then dropped.
+
         final Index origUnique = new Index("origUniqueIndexBeingReplaced", Key.Expressions.field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         final Index newIndex = new Index("replacementIndex", Key.Expressions.field("num_value_2"));
 

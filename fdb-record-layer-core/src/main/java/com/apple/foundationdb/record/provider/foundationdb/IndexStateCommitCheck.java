@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * index state updates run sequentially.
  */
 @API(API.Status.INTERNAL)
-public class IndexStateCommitCheck implements FDBRecordContext.CommitCheckAsync {
+public final class IndexStateCommitCheck implements FDBRecordContext.CommitCheckAsync {
     @Nonnull
     private final FDBRecordStore store;
     // READABLE_UNIQUE_PENDING indexes whose uniqueness violations may have been resolved

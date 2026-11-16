@@ -92,6 +92,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -371,7 +373,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         for (int i = 5; i < 9; i++) {
             try (FDBRecordContext context = openContext()) {
                 createOrOpenRecordStore(context, metaData);
-                resolveDuplication(i, resolveByUpdate);
+                resolveDuplication(i, resolveByUpdate, 1000 + i);
                 commit(context);
             }
             try (FDBRecordContext context = openContext()) {
@@ -385,10 +387,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         // resolve the last duplication - the index should become readable
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            resolveDuplication(9, resolveByUpdate);
+            resolveDuplication(9, resolveByUpdate, 1009);
             commit(context);
         }
-        assertReadableAndScrubbed(metaData, List.of(index));
+        assertReadableAndScrub(metaData, List.of(index));
     }
 
     @ParameterizedTest
@@ -409,7 +411,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
             for (int i = 5; i < 10; i++) {
-                resolveDuplication(i, resolveByUpdate);
+                resolveDuplication(i, resolveByUpdate, 1000 + i);
             }
             commit(context);
         }
@@ -442,7 +444,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
             for (int i = 5; i < 9; i++) {
-                resolveDuplication(i, resolveByUpdate);
+                resolveDuplication(i, resolveByUpdate, 1000 + i);
             }
             commit(context);
         }
@@ -458,10 +460,47 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         // a single record change resolves the last duplication of both indexes - both should become readable
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            resolveDuplication(9, resolveByUpdate);
+            resolveDuplication(9, resolveByUpdate, 1009);
             commit(context);
         }
-        assertReadableAndScrubbed(metaData, indexes);
+        assertReadableAndScrub(metaData, indexes);
+    }
+
+    @ParameterizedTest
+    @BooleanSource({"resolveByUpdate", "addViolationFirst"})
+    void newViolationWhenLastViolationResolvedFailsCommit(boolean resolveByUpdate, boolean addViolationFirst) throws Exception {
+        // Resolve the last uniqueness violation in READABLE_UNIQUE_PENDING index state and add a new violation in the same transaction
+
+        // records 0 and 1 share a num_value_2 value
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 2).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(0).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            // record 2 duplicates record 0, which is not changed
+            final TestRecords1Proto.MySimpleRecord duplicate = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(2L).setNumValue2(0).build();
+            if (addViolationFirst) {
+                recordStore.saveRecord(duplicate);
+                resolveDuplication(1, resolveByUpdate, 1);
+            } else {
+                resolveDuplication(1, resolveByUpdate, 1);
+                recordStore.saveRecord(duplicate);
+            }
+            assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+        }
+
+        // the failed transaction changed nothing
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            assertNull(recordStore.loadRecord(Tuple.from(2L)));
+            commit(context);
+        }
     }
 
     @ParameterizedTest
@@ -488,7 +527,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             createOrOpenRecordStore(context, metaData);
             assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(index));
             assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
-            resolveDuplication(2L, resolveByUpdate);
+            resolveDuplication(2L, resolveByUpdate, 11);
             commit(context);
         }
 
@@ -520,7 +559,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 indexes.forEach(index -> metaDataBuilder.addIndex("MySimpleRecord", index)));
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            // undo the inline build of check version, so that the indexes can be built together
             for (Index index : indexes) {
                 recordStore.markIndexDisabled(index).join();
             }
@@ -544,16 +582,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Resolve the duplications a record is part of, either by deleting it or by updating it to unique values.
+     * Resolve the duplications a record is part of, either by deleting it or by updating its indexed values.
      *
      * @param recNo the record to change
      * @param resolveByUpdate if true, update the record, otherwise delete it
+     * @param uniqueValue the new value to update, must be unique
      */
-    private void resolveDuplication(long recNo, boolean resolveByUpdate) {
+    private void resolveDuplication(long recNo, boolean resolveByUpdate, int uniqueValue) {
         if (resolveByUpdate) {
-            // offset the values so they cannot collide with any existing record's values
-            final int uniqueValue = 1000 + (int)recNo;
-            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo)
+            final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(recNo));
+            assertNotNull(stored);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .mergeFrom(stored.getRecord())
                     .setNumValue2(uniqueValue)
                     .setNumValue3Indexed(uniqueValue)
                     .build());
@@ -562,7 +602,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void assertReadableAndScrubbed(@Nonnull RecordMetaData metaData, @Nonnull List<Index> indexes) {
+    private void assertReadableAndScrub(@Nonnull RecordMetaData metaData, @Nonnull List<Index> indexes) {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
             for (Index index : indexes) {
