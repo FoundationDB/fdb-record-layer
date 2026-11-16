@@ -418,21 +418,17 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 allowTokenAddition = true;
             }
         } else {
-            // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
-            // if we use '?' ubiquitously.
-            // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
-            //      select * from t1 where col1 = ?P2 and col2 = ?P1
+            // A named parameter is canonicalized to a bare '?', like an unnamed one: values bind by token position,
+            // so the name does not affect the plan. The parameter hash keeps the name, since it validates
+            // continuations.
             final var namedParameterContext = ctx.NAMED_PARAMETER();
             final var parameterName = namedParameterContext.getText().substring(1);
             if (preparedStatementParameters.unboundDeclaredTypeMaybe(parameterName).isPresent()) {
-                // Declared but unbound. Canonicalized to ?name so the cache key matches what a runtime client sends;
-                // nothing is added to the literal table, since planning registers a value-free literal instead. The
-                // parameter hash omits the absent value, which is safe because it feeds continuation validation rather
-                // than the cache key.
+                // Declared but unbound: nothing is added to the literal table, since planning registers a value-free
+                // literal instead.
                 if (allowTokenAddition) {
-                    final var canonicalName = "?" + parameterName;
-                    sqlCanonicalizer.append(canonicalName).append(" ");
-                    parameterHash.putInt(Objects.hash(canonicalName));
+                    sqlCanonicalizer.append("? ");
+                    parameterHash.putInt(Objects.hash("?" + parameterName));
                 }
                 param = null;
             } else {
@@ -654,9 +650,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     .addLiteral(Type.any(), literal, unnamedParameterIndex, parameterName, tokenIndex);
         }
         if (allowTokenAddition) {
-            final String canonicalName = parameterName == null ? "?" : "?" + parameterName;
-            sqlCanonicalizer.append(canonicalName).append(" ");
-            parameterHash.putInt(Objects.hash(canonicalName, literal));
+            sqlCanonicalizer.append("? ");
+            final String hashName = parameterName == null ? "?" : "?" + parameterName;
+            parameterHash.putInt(Objects.hash(hashName, literal));
         }
     }
 
