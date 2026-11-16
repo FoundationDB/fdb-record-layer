@@ -130,6 +130,11 @@ test_block:
       - explain: "COVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
       - result: [{ 30, !null }, { 35, Paris }]
     -
+      - query: select age, city from customers_materialized_view where age > 25 order by (age, city)
+      - supported_version: !current_version
+      - explain: "COVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY, _.AGE AS _2, _.CITY AS _3) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
+      - result: [{ 30, !null }, { 35, Paris }]
+    -
       - query: select age, city from customers_index_on_table where age > 25 order by age, city
       - explain: "COVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
       - result: [{ 30, !null }, { 35, Paris }]

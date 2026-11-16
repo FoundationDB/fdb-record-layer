@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -221,6 +222,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             @Nonnull List<RelationalParser.OrderByExpressionContext> contexts) {
         return contexts.stream()
                 .map(this::visitOrderByExpression)
+                .flatMap(orderByExpression -> {
+                    if (!orderByExpression.getExpression().getUnderlying().getResultType().isRecord()) {
+                        return Stream.of(orderByExpression);
+                    }
+                    final var recordValue = orderByExpression.getExpression().getUnderlying();
+                    return Values.primitiveAccessorsForType(recordValue.getResultType(), () -> recordValue)
+                            .stream()
+                            .map(v -> OrderByExpression.of(Expression.ofUnnamed(v),
+                                    orderByExpression.isDescending(), orderByExpression.isNullsLast()));
+                })
                 .collect(ImmutableList.toImmutableList());
     }
 
