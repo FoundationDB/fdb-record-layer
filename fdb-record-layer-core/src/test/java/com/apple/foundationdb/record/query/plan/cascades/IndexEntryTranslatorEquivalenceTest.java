@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
@@ -149,6 +150,72 @@ class IndexEntryTranslatorEquivalenceTest {
         assertEquals("KEY:[0]", ((RecordConstructorValue)recordValue).getColumns().stream()
                 .filter(column -> "num_value_2".equals(column.getField().getFieldName()))
                 .findFirst().orElseThrow().getValue().toString());
+    }
+
+    /**
+     * A field with an escaped identifier is spelled {@code foo.tableA.A1} by the planner and {@code foo__2tableA__2A1}
+     * by the record descriptor. The value based translator looks its columns up by the former, so it must be filled
+     * with that spelling too, or every column reads {@code NULL} (issue #4758).
+     */
+    @Test
+    void bothTranslatorsDecodeEscapedIdentifiersAlike() throws Descriptors.DescriptorValidationException {
+        final var metaDataBuilder = RecordMetaData.newBuilder().setRecords(escapedRecordsDescriptor());
+        metaDataBuilder.getRecordType("Escaped").setPrimaryKey(field("rec_no"));
+        metaDataBuilder.addIndex("Escaped", new Index("escaped",
+                concat(field("foo__2tableA__2A1"), field("foo__2tableA__2A2"))));
+        final var metaData = metaDataBuilder.build();
+        final var recordType = metaData.getRecordType("Escaped");
+        final var descriptor = recordType.getDescriptor();
+        final var baseType = Type.Record.fromDescriptor(descriptor);
+        final var baseAlias = Quantifier.current();
+        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
+
+        final var indexKeyValues = ImmutableList.<Value>of(
+                FieldValue.ofFieldNames(baseObjectValue, List.of("foo.tableA.A1")),
+                FieldValue.ofFieldNames(baseObjectValue, List.of("foo.tableA.A2")),
+                FieldValue.ofFieldNames(baseObjectValue, List.of("rec_no")));
+
+        final var translators = ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(List.of(recordType),
+                baseAlias, baseType, indexKeyValues, ImmutableList.of()).orElseThrow();
+        final var recordValue = translators.indexEntryToRecordValue();
+        assertNotNull(recordValue, "escaped identifiers should still yield a value based translator");
+
+        final var entry = new IndexEntry(metaData.getIndex("escaped"), Tuple.from(1L, 2L, 7L), TupleHelpers.EMPTY);
+        final var byCopiers = translators.indexKeyValueToPartialRecord().toRecord(descriptor, entry);
+        final var byValue = evaluate(recordValue, entry);
+
+        assertEquals(1L, byCopiers.getField(descriptor.findFieldByName("foo__2tableA__2A1")));
+        assertEquals(2L, byCopiers.getField(descriptor.findFieldByName("foo__2tableA__2A2")));
+        assertSameRecord(descriptor, byCopiers, byValue);
+    }
+
+    /**
+     * {@code Escaped { rec_no, foo__2tableA__2A1, foo__2tableA__2A2 }}, all {@code int64}, and its union.
+     */
+    @Nonnull
+    private static Descriptors.FileDescriptor escapedRecordsDescriptor() throws Descriptors.DescriptorValidationException {
+        final var escaped = DescriptorProtos.DescriptorProto.newBuilder().setName("Escaped");
+        int number = 1;
+        for (final var name : List.of("rec_no", "foo__2tableA__2A1", "foo__2tableA__2A2")) {
+            escaped.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                    .setName(name)
+                    .setNumber(number++)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64));
+        }
+        final var union = DescriptorProtos.DescriptorProto.newBuilder().setName("RecordTypeUnion")
+                .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setName("_Escaped")
+                        .setNumber(1)
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName(".Escaped"));
+        final var fileProto = DescriptorProtos.FileDescriptorProto.newBuilder()
+                .setName("escaped_records.proto")
+                .addMessageType(escaped)
+                .addMessageType(union)
+                .build();
+        return Descriptors.FileDescriptor.buildFrom(fileProto, new Descriptors.FileDescriptor[] {});
     }
 
     @Nonnull

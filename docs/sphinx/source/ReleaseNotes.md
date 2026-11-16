@@ -8,6 +8,112 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.18
 
+{#release-4-18-7-0}
+
+### 4.18.7.0
+
+<h4> Breaking Changes </h4>
+
+* Make `MetaDataProtoEditor` reject renaming record types with indexes declared via the `(field).index` extension - [PR #4715](https://github.com/FoundationDB/fdb-record-layer/pull/4715)
+<h4> New Features </h4>
+
+* Revert "Offer indexes on synthetic record types to the planner when a query reads all their stored constituents" - [PR #4877](https://github.com/FoundationDB/fdb-record-layer/pull/4877)
+<h4> Bug Fixes </h4>
+
+* Fix Lucene error from ChecksumException to TimeoutException - [PR #4844](https://github.com/FoundationDB/fdb-record-layer/pull/4844)
+* Key the index-entry-to-record translation by SQL field name - [PR #4760](https://github.com/FoundationDB/fdb-record-layer/pull/4760)
+<h4> Performance Improvements </h4>
+
+* Use `APPEND_IF_FITS` when saving compact nodes in HNSW - [PR #4809](https://github.com/FoundationDB/fdb-record-layer/pull/4809)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Drop the 4.18.6.0 release notes - [PR #4878](https://github.com/FoundationDB/fdb-record-layer/pull/4878)
+
+</details>
+
+
+**[Full Changelog (4.18.5.0...4.18.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.5.0...4.18.7.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`, ✅`4.18.3.0`, ✅`4.18.4.0`, ✅`4.18.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/43108603437)
+
+
+
+{#release-4-18-5-0}
+
+### 4.18.5.0
+
+<h4> New Features </h4>
+
+* Add factory `StoreTimerMetricCollector.fromStoreTimer` - [PR #4872](https://github.com/FoundationDB/fdb-record-layer/pull/4872)
+<h4> Bug Fixes </h4>
+
+* Preserve the record type name of whole-row `ARRAY_AGG()` elements - [PR #4800](https://github.com/FoundationDB/fdb-record-layer/pull/4800)
+
+
+**[Full Changelog (4.18.4.0...4.18.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.4.0...4.18.5.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`, ✅`4.18.3.0`, ✅`4.18.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/42871580967)
+
+
+
+{#release-4-18-4-0}
+
+### 4.18.4.0
+
+<h4> Breaking Changes </h4>
+
+* Refactor `MetaDataProtoEditor.renameRecordType()` - [PR #4537](https://github.com/FoundationDB/fdb-record-layer/pull/4537)
+<h4> New Features </h4>
+
+* Support serializing and executing explodes as table functions over an ExplodeValue - [PR #4819](https://github.com/FoundationDB/fdb-record-layer/pull/4819)
+* Offer indexes on synthetic record types to the planner when a query reads all their stored constituents - [PR #4840](https://github.com/FoundationDB/fdb-record-layer/pull/4840)
+* Support renaming record types used by non-parent unnested constituents in `MetaDataProtoEditor` - [PR #4708](https://github.com/FoundationDB/fdb-record-layer/pull/4708)
+<h4> Bug Fixes </h4>
+
+* Make sure SQL user-defined types are preserved in RecordMetadata - [PR #4490](https://github.com/FoundationDB/fdb-record-layer/pull/4490)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Display the next version at the start of the release in the action summary - [PR #4864](https://github.com/FoundationDB/fdb-record-layer/pull/4864)
+
+</details>
+
+
+**[Full Changelog (4.18.3.0...4.18.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.3.0...4.18.4.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.15.1.0`, ✅`4.15.2.0`, ✅`4.15.3.0`, ✅`4.16.1.0`, ✅`4.16.3.0`, ✅`4.16.4.0`, ✅`4.17.1.0`, ✅`4.17.2.0`, ✅`4.18.1.0`, ✅`4.18.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/42685226991)
+
+
+
 {#release-4-18-3-0}
 
 ### 4.18.3.0

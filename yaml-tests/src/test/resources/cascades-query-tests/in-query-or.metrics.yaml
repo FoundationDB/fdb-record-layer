@@ -3,7 +3,7 @@ in-query-or:
         905, 901) or num_value_unique > 950
     ref: in-query-or.yamsql:55
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE
-        [EQUALS q0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE
+        [EQUALS q0._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE
         [[GREATER_THAN promote(@c17 AS INT)]] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO:
         KEY:[1]]) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCH'
     task_count: 3625
@@ -19,8 +19,8 @@ in-query-or:
     ref: in-query-or.yamsql:115
     explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]])
         ∪ [IN arrayDistinct(@c16)] INUNION q0 -> { ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE
-        [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0 }
-        COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE,
+        [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0._0
+        } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE,
         _.REC_NO)
     task_count: 11385
     task_total_time_ms: 523
@@ -35,7 +35,7 @@ in-query-or:
     ref: in-query-or.yamsql:137
     explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
         -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ [IN arrayDistinct(@c11)]
-        INUNION q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0]
+        INUNION q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0]
         -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.REC_NO,
         _.NUM_VALUE_3_INDEXED) COMPARE BY (_.REC_NO) | FETCH'
     task_count: 5731
@@ -49,8 +49,9 @@ in-query-or:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in (1, 3, 5, 7,
         9) order by num_value_3_indexed
     ref: in-query-or.yamsql:213
-    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FILTER _.NUM_VALUE_2
-        IN @c7
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FLATMAP q0 -> { TF
+        explode(arrayDistinct(@c7)) | FILTER q0.NUM_VALUE_2 EQUALS _._0 AS q1 RETURN
+        q0 }
     task_count: 548
     task_total_time_ms: 21
     transform_count: 178
@@ -64,11 +65,11 @@ in-query-or-prepared:
     ref: in-query-or.yamsql:258
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 1063
-    task_total_time_ms: 33
-    transform_count: 280
-    transform_time_ms: 14
-    transform_yield_count: 95
-    insert_time_ms: 2
-    insert_new_count: 157
-    insert_reused_count: 8
+    task_count: 521
+    task_total_time_ms: 19
+    transform_count: 126
+    transform_time_ms: 10
+    transform_yield_count: 53
+    insert_time_ms: 1
+    insert_new_count: 62
+    insert_reused_count: 5

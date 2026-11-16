@@ -331,6 +331,32 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Union legs that tie on {@code num_value_2} have to be compared on the ordered bytes of {@code str_value_indexed}.
+     */
+    @DualPlannerTest
+    void testUnionOrderedOverlappingRanges() throws Exception {
+        final RecordMetaDataHook hook = indexHook("order_desc_nulls_last");
+        loadRecords(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setSort(fullOrderingKey("order_desc_nulls_last"))
+                .setFilter(Query.or(
+                        Query.and(Query.field("num_value_2").equalsValue(101),
+                                Query.field("str_value_indexed").greaterThanOrEquals("a"), Query.field("str_value_indexed").lessThan("b")),
+                        Query.and(Query.field("num_value_2").equalsValue(101),
+                                Query.field("str_value_indexed").greaterThan("a"), Query.field("str_value_indexed").lessThanOrEquals("b"))))
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final RecordQueryPlan plan = planner.planQuery(query).getPlan();
+            final List<Long> actual = plan.execute(recordStore)
+                    .map(r -> r.getPrimaryKey().getLong(0))
+                    .asList().join();
+            assertEquals(List.of(5L, 4L, 3L), actual);
+        }
+    }
+
     @DualPlannerTest
     void testCoveringOrdered() throws Exception {
         final RecordMetaDataHook hook = indexHook("order_desc_nulls_last");

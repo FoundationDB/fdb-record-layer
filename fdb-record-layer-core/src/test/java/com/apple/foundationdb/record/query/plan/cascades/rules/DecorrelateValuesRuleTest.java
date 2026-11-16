@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -66,7 +65,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.elementOf;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.explode;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
@@ -366,9 +367,9 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier base = baseT();
 
-        final Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(base, "g")));
+        final Quantifier explodeQun = explode(fieldValue(base, "g"));
         final Quantifier existsQun = exists(selectWithPredicates(explodeQun,
-                fieldPredicate(explodeQun, "three", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue()))));
+                fieldPredicate(explodeQun, "_0.three", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue()))));
 
         final SelectExpression selectExpression = join(valuesBox, base, existsQun)
                 .addResultColumn(projectColumn(base, "a"))
@@ -377,7 +378,7 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier newExistsQun = exists(new SelectExpression(explodeQun.getFlowedObjectValue(),
                 ImmutableList.of(valuesBox, explodeQun),
-                ImmutableList.of(fieldPredicate(explodeQun, "three", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue())))));
+                ImmutableList.of(fieldPredicate(explodeQun, "_0.three", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue())))));
         final SelectExpression expected = join(base, newExistsQun)
                 .addResultColumn(projectColumn(base, "a"))
                 .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(newExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
@@ -397,9 +398,9 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier base = baseT();
 
-        final Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(base, "f")));
+        final Quantifier explodeQun = explode(fieldValue(base, "f"));
         final Quantifier equalsOrNull = forEachWithNullOnEmpty(selectWithPredicates(explodeQun,
-                explodeQun.getFlowedObjectValue().withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x")))));
+                elementOf(explodeQun).withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x")))));
 
         final SelectExpression selectExpression = join(valuesBox, base, equalsOrNull)
                 .addResultColumn(projectColumn(base, "b"))
@@ -408,7 +409,7 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier newEqualsOrNull = forEachWithNullOnEmpty(new SelectExpression(explodeQun.getFlowedObjectValue(),
                 ImmutableList.of(valuesBox, explodeQun),
-                ImmutableList.of(explodeQun.getFlowedObjectValue().withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x"))))));
+                ImmutableList.of(elementOf(explodeQun).withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x"))))));
         final SelectExpression expected = join(base, newEqualsOrNull)
                 .addResultColumn(projectColumn(base, "b"))
                 .addPredicate(newEqualsOrNull.getFlowedObjectValue().withComparison(new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
@@ -510,18 +511,18 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier base = baseT();
 
-        final Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(valuesBox, "x")));
+        final Quantifier explodeQun = explode(fieldValue(valuesBox, "x"));
         final SelectExpression selectExpression = join(valuesBox, base, explodeQun)
                 .addResultColumn(projectColumn(base, "a"))
                 .addResultColumn(projectColumn(base, "b"))
-                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, explodeQun.getFlowedObjectValue())))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, elementOf(explodeQun))))
                 .build().buildSelect();
 
-        final Quantifier newExplodeQun = forEach(new ExplodeExpression(cov));
+        final Quantifier newExplodeQun = explode(cov);
         final SelectExpression expected = join(base, newExplodeQun)
                 .addResultColumn(projectColumn(base, "a"))
                 .addResultColumn(projectColumn(base, "b"))
-                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, newExplodeQun.getFlowedObjectValue())))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, elementOf(newExplodeQun))))
                 .build().buildSelect();
 
         testHelper.assertYields(selectExpression, expected);

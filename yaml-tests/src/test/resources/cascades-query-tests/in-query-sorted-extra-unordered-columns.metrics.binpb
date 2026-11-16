@@ -1,7 +1,7 @@
-¥
+¨
 Ñ
-'in-query-sorted-extra-unordered-columns¥EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4) order by num_value_uniqueÎ
-Ü¨â¡uÉ Ò°ýG(u0›“É8f@œ[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)digraph G {
+'in-query-sorted-extra-unordered-columns¥EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4) order by num_value_uniqueÑ
+Ü¨â¡uÉ Ò°ýG(u0›“É8f@Ÿ[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -19,10 +19,10 @@
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}ä
+}ç
 Ö
-'in-query-sorted-extra-unordered-columnsªEXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4) order by num_value_unique descˆ
-ÜöŽö1É ÂÐÄ(u0  Ñ8f@¤[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)Ádigraph G {
+'in-query-sorted-extra-unordered-columnsªEXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4) order by num_value_unique desc‹
+ÜöŽö1É ÂÐÄ(u0  Ñ8f@§[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -40,10 +40,10 @@
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}¦
+}©
 Ò
-0in-query-sorted-extra-unordered-columns-preparedEXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = ? and num_value_3_indexed in ? order by num_value_uniqueÎ
-ÜïÑÆ(É Ù€¢(u0ýÿž8f@œ[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)digraph G {
+0in-query-sorted-extra-unordered-columns-preparedEXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = ? and num_value_3_indexed in ? order by num_value_uniqueÑ
+ÜïÑÆ(É Ù€¢(u0ýÿž8f@Ÿ[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -61,10 +61,10 @@
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}å
+}è
 ×
-0in-query-sorted-extra-unordered-columns-prepared¢EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = ? and num_value_3_indexed in ? order by num_value_unique descˆ
-ÜîÐ«$É ó‹(u0Ú©•8f@¤[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)Ádigraph G {
+0in-query-sorted-extra-unordered-columns-prepared¢EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record where num_value_2 = ? and num_value_3_indexed in ? order by num_value_unique desc‹
+ÜîÐ«$É ó‹(u0Ú©•8f@§[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

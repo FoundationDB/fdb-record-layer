@@ -692,10 +692,10 @@ u
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV19</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, STRING AS B, LONG AS C, LONG AS D, STRING AS E, LONG AS X)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}–
+}™
 
-agg-index-testszEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), cƒ
-ê‘šûó ¸ú×o(V0û.8'@ ¡[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)Àdigraph G {
+agg-index-testszEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), c†
+ê‘šûó ¸ú×o(V0û.8'@ ¤[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -713,10 +713,10 @@ u
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}˜
+}›
 
-agg-index-testszEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), c…
-êÿ¢›Ÿó Ö“’‰(V0ùý*8'@ ¡[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)Àdigraph G {
+agg-index-testszEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), cˆ
+êÿ¢›Ÿó Ö“’‰(V0ùý*8'@ ¤[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -734,10 +734,10 @@ u
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}í
+}ð
 ˜
-agg-index-tests„EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by max(x), cÏ
-ìÔõ¸z• ž’Ãj(b0ñ„A87@ Ì[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)ádigraph G {
+agg-index-tests„EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by max(x), cÒ
+ìÔõ¸z• ž’Ãj(b0ñ„A87@ Ï[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -757,10 +757,10 @@ u
     rankDir=LR;
     6 -> 2 [ color="red" style="invis" ];
   }
-}ï
+}ò
 ˜
-agg-index-tests„EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by min(x), cÑ
-ìÉæÖé• ŠøüÀ(b0ª™=87@ Ì[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)ádigraph G {
+agg-index-tests„EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by min(x), cÔ
+ìÉæÖé• ŠøüÀ(b0ª™=87@ Ï[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -780,10 +780,10 @@ u
     rankDir=LR;
     6 -> 2 [ color="red" style="invis" ];
   }
-}í%
+}ó%
 ž
-agg-index-testsŠEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), cÉ$
-øù–Ÿ˜¼ æé‘ó(¨0Û·Š8Â@˜[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)Š!digraph G {
+agg-index-testsŠEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), cÏ$
+øù–Ÿ˜¼ æé‘ó(¨0Û·Š8Â@ž[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)Š!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -812,10 +812,10 @@ u
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}í%
+}ó%
 ž
-agg-index-testsŠEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), cÉ$
-øÿ¤ß™¼ áü£þ(¨0»Æý8Â@˜[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)Š!digraph G {
+agg-index-testsŠEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), cÏ$
+øÿ¤ß™¼ áü£þ(¨0»Æý8Â@ž[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)Š!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -844,10 +844,10 @@ u
     rankDir=LR;
     8 -> 2 [ color="red" style="invis" ];
   }
-}ð%
+}ö%
 ¡
-agg-index-testsEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, eÉ$
-Ú˜Ô±¾ð ¿‘çï(‡0©—À8ˆ@˜[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)Š!digraph G {
+agg-index-testsEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, eÏ$
+Ú˜Ô±¾ð ¿‘çï(‡0©—À8ˆ@ž[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)Š!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -876,10 +876,10 @@ u
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}ð%
+}ö%
 ¡
-agg-index-testsEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, eÉ$
-Úóçî¦ð Š¸Žà(‡0Á±ç8ˆ@˜[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)Š!digraph G {
+agg-index-testsEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, eÏ$
+Úóçî¦ð Š¸Žà(‡0Á±ç8ˆ@ž[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)Š!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -908,10 +908,10 @@ u
     rankDir=LR;
     8 -> 2 [ color="red" style="invis" ];
   }
-}ß
+}â
 ˜
-agg-index-tests„EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), dÁ
-œ¡š¯Í£ ¿éêŸ(b0«ªJ8D@ ¿[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c18 AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)Þdigraph G {
+agg-index-tests„EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), dÄ
+œ¡š¯Í£ ¿éêŸ(b0«ªJ8D@ Â[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c18 AS LONG), EQUALS q0._0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)Þdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -929,10 +929,10 @@ u
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}ß
+}â
 ˜
-agg-index-tests„EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), dÁ
-œ¿Ù”Û£ ×ÛÇ¨(b0Ä˜M8D@ ¿[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c18 AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)Þdigraph G {
+agg-index-tests„EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), dÄ
+œ¿Ù”Û£ ×ÛÇ¨(b0Ä˜M8D@ Â[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c18 AS LONG), EQUALS q0._0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)Þdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

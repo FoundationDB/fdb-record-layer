@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
@@ -70,6 +71,11 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<ConstantObjectValue> anyConstantObjectValue() {
         return typed(ConstantObjectValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ExplodeValue> explodeValue() {
+        return typed(ExplodeValue.class);
     }
 
     @Nonnull
@@ -142,7 +148,7 @@ public class ValueMatchers {
                         downstreamValue);
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
                 typedWithDownstream(FieldValue.class,
-                        Extractor.of(FieldValue::getFieldPathNames, name -> "fieldPathNames(" + name + ")"),
+                        Extractor.of(FieldValue::getFieldPathStorageNames, name -> "fieldPathNames(" + name + ")"),
                         downstreamFieldPath);
 
         return typedWithDownstream(FieldValue.class,
@@ -160,7 +166,7 @@ public class ValueMatchers {
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
                 typedWithDownstream(FieldValue.class,
                         Extractor.of(fieldValue -> {
-                            final var fieldPathNames = fieldValue.getFieldPathNames();
+                            final var fieldPathNames = fieldValue.getFieldPathStorageNames();
                             return fieldPathNames.get(fieldPathNames.size() - 1);
                         }, name -> "fieldPathNames(" + name + ")"),
                         downstreamFieldNameMatcher);

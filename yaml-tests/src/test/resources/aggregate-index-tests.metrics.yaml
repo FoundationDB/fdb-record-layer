@@ -687,9 +687,9 @@ agg-index-tests:
         d, e having b IN ('foo', 'bar') order by max(x), c
     ref: aggregate-index-tests.yamsql:506
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18
-        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
-        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D,
-        _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
+        AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3
+        AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
     task_count: 618
     task_total_time_ms: 268
     transform_count: 243
@@ -702,9 +702,9 @@ agg-index-tests:
         d, e having b IN ('foo', 'bar') order by min(x), c
     ref: aggregate-index-tests.yamsql:520
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18
-        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
-        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D,
-        _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
+        AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3
+        AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
     task_count: 618
     task_total_time_ms: 333
     transform_count: 243
@@ -717,10 +717,10 @@ agg-index-tests:
         d, e having b IN ('foo', 'bar') and d = 1 order by max(x), c
     ref: aggregate-index-tests.yamsql:534
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18
-        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
-        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG)
-        | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY
-        (_._4, _.C, _.B, _.D, _.E)'
+        AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41
+        AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) }
+        COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
     task_count: 748
     task_total_time_ms: 256
     transform_count: 277
@@ -733,10 +733,10 @@ agg-index-tests:
         d, e having b IN ('foo', 'bar') and d = 1 order by min(x), c
     ref: aggregate-index-tests.yamsql:545
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18
-        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
-        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG)
-        | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY
-        (_._4, _.C, _.B, _.D, _.E)'
+        AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41
+        AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) }
+        COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
     task_count: 748
     task_total_time_ms: 490
     transform_count: 277
@@ -750,8 +750,8 @@ agg-index-tests:
     ref: aggregate-index-tests.yamsql:556
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
         AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 2168
@@ -767,8 +767,8 @@ agg-index-tests:
     ref: aggregate-index-tests.yamsql:570
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
         AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 2168
@@ -784,8 +784,8 @@ agg-index-tests:
     ref: aggregate-index-tests.yamsql:584
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
         AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1882
@@ -801,8 +801,8 @@ agg-index-tests:
     ref: aggregate-index-tests.yamsql:601
     explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
         AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1882
@@ -817,7 +817,7 @@ agg-index-tests:
         a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
     ref: aggregate-index-tests.yamsql:618
     explain: '[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c18
-        AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        AS LONG), EQUALS q0._0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D,
         _.B, _.C, _.E)'
@@ -833,7 +833,7 @@ agg-index-tests:
         a, b, c, d, e having b IN ('foo', 'bar') order by min(x), d
     ref: aggregate-index-tests.yamsql:630
     explain: '[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c18
-        AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        AS LONG), EQUALS q0._0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D,
         _.B, _.C, _.E)'

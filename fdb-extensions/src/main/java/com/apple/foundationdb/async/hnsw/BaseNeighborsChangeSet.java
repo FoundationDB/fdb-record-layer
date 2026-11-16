@@ -112,6 +112,13 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
         return neighbors;
     }
 
+    @Nonnull
+    @Override
+    public Iterable<N> getPureInsertions() {
+        // There are (as yet) no changes, so return the empty list.
+        return ImmutableList.of();
+    }
+
     @Override
     public int size() {
         return neighbors.size();

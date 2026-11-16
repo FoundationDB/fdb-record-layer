@@ -10,10 +10,10 @@ N
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_STR_VALUE_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}³
+}¶
 v
-in-queryjEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed¸
-ö‚Ë Áþ(E0»õ8T@§[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
+in-queryjEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed»
+ö‚Ë Áþ(E0»õ8T@ª[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -31,10 +31,10 @@ v
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}½
+}À
 {
-in-queryoEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed desc½
-÷ÇáÀÍ ¸ðÓ	(G0óêî8X@¬[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
+in-queryoEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed descÀ
+÷ÇáÀÍ ¸ðÓ	(G0óêî8X@¯[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -52,10 +52,10 @@ v
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}³
+}¶
 v
-in-queryjEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by num_value_3_indexed¸
-ö‚Ë Áþ(E0»õ8T@§[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
+in-queryjEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by num_value_3_indexed»
+ö‚Ë Áþ(E0»õ8T@ª[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -73,10 +73,10 @@ v
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}½
+}À
 {
-in-queryoEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by num_value_3_indexed desc½
-÷ÇáÀÍ ¸ðÓ	(G0óêî8X@¬[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
+in-queryoEXPLAIN select * from my_simple_record where num_value_3_indexed in (1, 4, 2) order by num_value_3_indexed descÀ
+÷ÇáÀÍ ¸ðÓ	(G0óêî8X@¯[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -94,10 +94,10 @@ v
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}±
+}´
 {
-in-queryoEXPLAIN select rec_no from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed±
-éûïç#Ÿ ÁþÐ(T0¼’Í8l@ƒ[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO AS REC_NO)‹digraph G {
+in-queryoEXPLAIN select rec_no from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed´
+éûïç#Ÿ ÁþÐ(T0¼’Í8l@†[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO AS REC_NO)‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -117,10 +117,10 @@ v
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}¼
+}¿
 €
-in-querytEXPLAIN select rec_no from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed desc¶
-±Åê²!«  ÍÓ(Z0¼¾Ã8t@ˆ[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO AS REC_NO)‹digraph G {
+in-querytEXPLAIN select rec_no from my_simple_record where num_value_3_indexed in (1, 2, 4) order by num_value_3_indexed desc¹
+±Åê²!«  ÍÓ(Z0¼¾Ã8t@‹[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO AS REC_NO)‹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -176,10 +176,10 @@ R
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_STR_VALUE_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}“
+}–
 Z
-in-query-preparedEEXPLAIN select * from my_simple_record where num_value_3_indexed in ?´
-±	Ü¡®© ‡÷Ô(d0ú„Þ8±@	 [IN arrayDistinct(@c7)] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHðdigraph G {
+in-query-preparedEEXPLAIN select * from my_simple_record where num_value_3_indexed in ?·
+±	Ü¡®© ‡÷Ô(d0ú„Þ8±@	£[IN arrayDistinct(@c7)] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHðdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -197,10 +197,10 @@ Z
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}³
+}¶
 w
-in-query-preparedbEXPLAIN select * from my_simple_record where num_value_3_indexed in ? order by num_value_3_indexed·
-öÐ ÷Ë ™¢‚(E0¤¡|8T@§[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
+in-query-preparedbEXPLAIN select * from my_simple_record where num_value_3_indexed in ? order by num_value_3_indexedº
+öÐ ÷Ë ™¢‚(E0¤¡|8T@ª[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -218,10 +218,10 @@ w
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}½
+}À
 |
-in-query-preparedgEXPLAIN select * from my_simple_record where num_value_3_indexed in ? order by num_value_3_indexed desc¼
-÷’ªÿÍ Ò€Ó(G0Œ{8X@¬[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
+in-query-preparedgEXPLAIN select * from my_simple_record where num_value_3_indexed in ? order by num_value_3_indexed desc¿
+÷’ªÿÍ Ò€Ó(G0Œ{8X@¯[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCHîdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

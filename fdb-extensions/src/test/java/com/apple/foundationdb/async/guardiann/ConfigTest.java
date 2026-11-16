@@ -21,6 +21,8 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -75,6 +77,7 @@ class ConfigTest {
         final double minChildFraction = 0.07d;
         final double maxRelativeImbalance = 0.44d;
         final double splitImbalancePenalty = 2.5d;
+        final boolean writeAppendableCentroidNodes = !Config.DEFAULT_WRITE_APPENDABLE_CENTROID_NODES;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -113,6 +116,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.minChildFraction()).isNotEqualTo(minChildFraction);
         Assertions.assertThat(defaultConfig.maxRelativeImbalance()).isNotEqualTo(maxRelativeImbalance);
         Assertions.assertThat(defaultConfig.splitImbalancePenalty()).isNotEqualTo(splitImbalancePenalty);
+        Assertions.assertThat(defaultConfig.writeAppendableCentroidNodes()).isNotEqualTo(writeAppendableCentroidNodes);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -153,6 +157,7 @@ class ConfigTest {
                         .setMinChildFraction(minChildFraction)
                         .setMaxRelativeImbalance(maxRelativeImbalance)
                         .setSplitImbalancePenalty(splitImbalancePenalty)
+                        .setWriteAppendableCentroidNodes(writeAppendableCentroidNodes)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -192,6 +197,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.minChildFraction()).isEqualTo(minChildFraction);
         Assertions.assertThat(newConfig.maxRelativeImbalance()).isEqualTo(maxRelativeImbalance);
         Assertions.assertThat(newConfig.splitImbalancePenalty()).isEqualTo(splitImbalancePenalty);
+        Assertions.assertThat(newConfig.writeAppendableCentroidNodes()).isEqualTo(writeAppendableCentroidNodes);
 
         // Round-tripping a config whose every component differs from the default is what actually pins toBuilder():
         // doing it on the default config above cannot detect a component that toBuilder() drops or transposes,
@@ -312,6 +318,20 @@ class ConfigTest {
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setKMeansBalancingLadder(List.of(0.0d)).build(NUM_DIMENSIONS).kMeansBalancingLadder())
                 .containsExactly(0.0d);
+    }
+
+    @Test
+    void testCentroidHnswConfigFollowsStorageFormat() {
+        for (final boolean writeAppendableCentroidNodes : List.of(false, true)) {
+            final Config config = Guardiann.newConfigBuilder()
+                    .setWriteAppendableCentroidNodes(writeAppendableCentroidNodes)
+                    .build(NUM_DIMENSIONS);
+            final StorageAdapter storageAdapter =
+                    new StorageAdapter(config, new Subspace(Tuple.from("c")), OnWriteListener.NOOP,
+                            OnReadListener.NOOP);
+            Assertions.assertThat(storageAdapter.getClusterCentroidsHnswConfig().writeAppendableNodes())
+                    .isEqualTo(writeAppendableCentroidNodes);
+        }
     }
 
     @Test

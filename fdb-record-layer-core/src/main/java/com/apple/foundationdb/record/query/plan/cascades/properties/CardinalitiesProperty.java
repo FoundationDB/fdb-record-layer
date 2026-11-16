@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
@@ -659,12 +658,6 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             final Cardinalities preserved = fromQuantifier(outerJoinExpression.getPreservedQuantifier());
             final Cardinalities nullSupplying = fromQuantifier(outerJoinExpression.getNullSupplyingQuantifier());
             return preserved.times(nullSupplying).floor(preserved.getMinCardinality());
-        }
-
-        @Nonnull
-        @Override
-        public Cardinalities visitExplodeExpression(@Nonnull final ExplodeExpression element) {
-            return Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull

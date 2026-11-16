@@ -15,7 +15,7 @@ in-query:
         2, 4) order by num_value_3_indexed
     ref: in-query.yamsql:137
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 758
     task_total_time_ms: 60
     transform_count: 203
@@ -28,7 +28,7 @@ in-query:
         2, 4) order by num_value_3_indexed desc
     ref: in-query.yamsql:205
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 759
     task_total_time_ms: 47
     transform_count: 205
@@ -41,7 +41,7 @@ in-query:
         4, 2) order by num_value_3_indexed
     ref: in-query.yamsql:272
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 758
     task_total_time_ms: 60
     transform_count: 203
@@ -54,7 +54,7 @@ in-query:
         4, 2) order by num_value_3_indexed desc
     ref: in-query.yamsql:338
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 759
     task_total_time_ms: 47
     transform_count: 205
@@ -67,7 +67,7 @@ in-query:
         (1, 2, 4) order by num_value_3_indexed
     ref: in-query.yamsql:406
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO
         AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO
         AS REC_NO)'
     task_count: 1001
@@ -82,7 +82,7 @@ in-query:
         (1, 2, 4) order by num_value_3_indexed desc
     ref: in-query.yamsql:473
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.REC_NO
         AS REC_NO, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED) } | MAP (_.REC_NO
         AS REC_NO)'
     task_count: 1073
@@ -135,7 +135,7 @@ in-query-prepared:
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in ?
     ref: in-query.yamsql:713
     explain: '[IN arrayDistinct(@c7)] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 1201
     task_total_time_ms: 57
     transform_count: 297
@@ -148,7 +148,7 @@ in-query-prepared:
         by num_value_3_indexed
     ref: in-query.yamsql:779
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 758
     task_total_time_ms: 31
     transform_count: 203
@@ -161,7 +161,7 @@ in-query-prepared:
         by num_value_3_indexed desc
     ref: in-query.yamsql:844
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
-        [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
+        [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
     task_count: 759
     task_total_time_ms: 29
     transform_count: 205

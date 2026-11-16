@@ -377,6 +377,24 @@ public class IndexOptions {
     public static final String HNSW_REPLACEMENT_EDGE_MAX_OUT_DEGREE = "hnswReplacementEdgeMaxOutDegree";
 
     /**
+     * HNSW-only: Indicator if compact nodes (all nodes on layer {@code 0}, and on all other layers unless inlining is
+     * used) are written in the appendable format. In that format, insertions can be more efficient as they can
+     * avoid needing to reserialize unchanged data. This reduces the total number of bytes written, though it does
+     * not meaningfully affect the total size on disk of the index.
+     *
+     * <p>The default value is set to {@link Config#DEFAULT_WRITE_APPENDABLE_NODES}. This option can be changed on
+     * existing indexes without rebuilding. As nodes are rewritten during normal operations, they will be converted
+     * to the new format.
+     *
+     * <p><b>Warning:</b> versions of the library that predate this option cannot read nodes in the appendable format.
+     * This option should only be enabled once every process that reads the index runs a version that supports the
+     * format.
+     *
+     * @see Config#writeAppendableNodes()
+     */
+    public static final String HNSW_WRITE_APPENDABLE_NODES = "hnswWriteAppendableNodes";
+
+    /**
      * HNSW-only: Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is
      * to be extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
      * connected to during the insert operation. The default value is set to {@link Config#DEFAULT_EXTEND_CANDIDATES}.
@@ -610,6 +628,19 @@ public class IndexOptions {
      */
     public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
             "guardiannConstructionCentroidEfOutwardSearch";
+
+    /**
+     * Guardiann-only: Indicator if the nodes of the HNSW that stores the cluster centroids are written in the
+     * appendable format. See {@link #HNSW_WRITE_APPENDABLE_NODES} for more details. The default value is
+     * {@link com.apple.foundationdb.async.guardiann.Config#DEFAULT_WRITE_APPENDABLE_CENTROID_NODES}.
+     *
+     * <p><b>Warning:</b> versions of the library that predate this option cannot read nodes in the appendable format.
+     * This option should only be enabled once every process that reads the index runs a version that supports the
+     * format.
+     *
+     * @see #HNSW_WRITE_APPENDABLE_NODES
+     */
+    public static final String GUARDIANN_WRITE_APPENDABLE_CENTROID_NODES = "guardiannWriteAppendableCentroidNodes";
 
     private IndexOptions() {
     }

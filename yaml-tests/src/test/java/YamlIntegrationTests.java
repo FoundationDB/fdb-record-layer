@@ -126,6 +126,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void mergeComparisonKeys(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("merge-comparison-keys.yamsql");
+    }
+
+    @TestTemplate
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
     }

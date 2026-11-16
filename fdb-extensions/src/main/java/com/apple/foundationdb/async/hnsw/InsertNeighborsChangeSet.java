@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -104,15 +105,6 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return true;
     }
 
-    /**
-     * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
-     *
-     * <p>This is achieved by creating a combined view that includes the results of the parent's {@code #merge()} call and
-     * the neighbors that have been inserted at the current level. The resulting {@code Iterable} provides a complete
-     * set of neighbors from this node and all its ancestors.
-     *
-     * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
-     */
     @Override
     public int size() {
         return size;
@@ -129,6 +121,21 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return Iterables.concat(Iterables.filter(getParent().merge(),
                 current -> !insertedNeighborsMap.containsKey(Objects.requireNonNull(current).getPrimaryKey())),
                 insertedNeighborsMap.values());
+    }
+
+    @Nullable
+    @Override
+    public Iterable<N> getPureInsertions() {
+        final Iterable<N> parentInsertions = getParent().getPureInsertions();
+        if (parentInsertions == null || size() != parent.size() + insertedNeighborsMap.size()) {
+            // Parent is not a pure insertion or an inserted neighbor duplicates one the parent already has (duplicates
+            // within the inserted list itself are rejected by the constructor). In either case, this is not considered
+            // a pure insertion.
+            return null;
+        }
+        // Add the insertions from this group into the ones from the parent. This does not remove
+        // duplicates as the size check above ensures that there are no duplicates
+        return Iterables.concat(parentInsertions, insertedNeighborsMap.values());
     }
 
     /**

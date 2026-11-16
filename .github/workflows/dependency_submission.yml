@@ -38,6 +38,6 @@ jobs:
       # Resolve the Gradle build and submit the resulting dependency graph. Pin the action to the same gradle/actions
       # commit as the `setup-gradle` step in `actions/setup-base-env`, and use the same cache provider.
       - name: Generate and submit dependency graph
-        uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        uses: gradle/actions/dependency-submission@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-provider: basic
