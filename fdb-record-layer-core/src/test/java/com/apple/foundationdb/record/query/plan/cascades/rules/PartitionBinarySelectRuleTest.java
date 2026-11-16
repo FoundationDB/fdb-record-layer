@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
@@ -230,7 +231,7 @@ class PartitionBinarySelectRuleTest {
     //
     // Correlated joins.
     //
-    // One side of the join is correlated to the other (via an ExplodeExpression), which limits the
+    // One side of the join is correlated to the other (via an explode), which limits the
     // set of legal transformations
     //
 
@@ -243,18 +244,18 @@ class PartitionBinarySelectRuleTest {
         final Quantifier g = explodeField(t, "g");
         final SelectExpression join = join(t, g)
                 .addResultColumn(projectColumn(t, "a"))
-                .addResultColumn(projectColumn(g, "one"))
+                .addResultColumn(column(g, "_0.one", "one"))
                 .addPredicate(fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "hello")))
-                .addPredicate(fieldPredicate(g, "two", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "world")))
+                .addPredicate(fieldPredicate(g, "_0.two", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "world")))
                 .build().buildSelect();
 
         // Push the predicate on to the t quantifier and the predicate on g onto the g quantifier
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "hello"))));
         final Quantifier newGLower = explodeField(newT, "g");
-        final Quantifier newG = forEach(selectWithPredicates(newGLower, fieldPredicate(newGLower, "two", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "world"))));
+        final Quantifier newG = forEach(selectWithPredicates(newGLower, fieldPredicate(newGLower, "_0.two", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "world"))));
         final SelectExpression newJoin = join(newT, newG)
                 .addResultColumn(projectColumn(newT, "a"))
-                .addResultColumn(projectColumn(newG, "one"))
+                .addResultColumn(column(newG, "_0.one", "one"))
                 .build().buildSelect();
 
         testHelper.assertYields(join, newJoin);
@@ -268,10 +269,10 @@ class PartitionBinarySelectRuleTest {
         final Quantifier t = baseT();
         final Quantifier g = explodeField(t, "g");
         final QueryPredicate joinPredicate = fieldPredicate(t, "b",
-                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(g, "two")));
+                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(g, "_0.two")));
         final SelectExpression join = join(t, g)
                 .addResultColumn(projectColumn(t, "a"))
-                .addResultColumn(projectColumn(g, "one"))
+                .addResultColumn(column(g, "_0.one", "one"))
                 .addPredicate(joinPredicate)
                 .build().buildSelect();
 
@@ -279,7 +280,7 @@ class PartitionBinarySelectRuleTest {
         final Quantifier newG = forEach(selectWithPredicates(g, joinPredicate));
         final SelectExpression newJoin = join(t, newG)
                 .addResultColumn(projectColumn(t, "a"))
-                .addResultColumn(projectColumn(newG, "one"))
+                .addResultColumn(column(newG, "_0.one", "one"))
                 .build().buildSelect();
 
         // Cannot push the predicate down onto the t quantifier because g is correlated to t
@@ -321,7 +322,7 @@ class PartitionBinarySelectRuleTest {
         final Quantifier lowerTau = baseTau();
         final Quantifier tau = exists(selectWithPredicates(lowerTau,
                 fieldPredicate(lowerTau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t, "b")))));
-        // Validate that the tau is correlated to t because of the predicate (not because it's an ExplodeExpression, like the other test cases)
+        // Validate that the tau is correlated to t because of the predicate (not because it's an explode, like the other test cases)
         assertThat(tau.isCorrelatedTo(t.getAlias()))
                 .isTrue();
 
@@ -352,20 +353,20 @@ class PartitionBinarySelectRuleTest {
 
         final Quantifier t = baseT();
         final Quantifier g = explodeField(t, "g");
-        final QueryPredicate joinPredicate = fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(g, "two")));
+        final QueryPredicate joinPredicate = fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(g, "_0.two")));
         final SelectExpression join = join(t, g)
                 .addResultColumn(projectColumn(t, "a"))
                 .addPredicate(joinPredicate)
                 .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
-                .addPredicate(fieldPredicate(g, "three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
+                .addPredicate(fieldPredicate(g, "_0.three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
                 .build().buildSelect();
 
         // Predicate gets pushed down onto the g field.
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
         final Quantifier newGLower = explodeField(newT, "g");
         final Quantifier newG = forEach(selectWithPredicates(newGLower,
-                fieldPredicate(newT, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newGLower, "two"))),
-                fieldPredicate(newGLower, "three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+                fieldPredicate(newT, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newGLower, "_0.two"))),
+                fieldPredicate(newGLower, "_0.three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
         final SelectExpression newJoin = join(newT, newG)
                 .addResultColumn(projectColumn(newT, "a"))
                 .build().buildSelect();
@@ -382,16 +383,16 @@ class PartitionBinarySelectRuleTest {
         final Quantifier t = baseT();
         final Quantifier g = explodeField(t, "g");
         final SelectExpression join = join(t, g)
-                .addResultColumn(projectColumn(g, "one"))
+                .addResultColumn(column(g, "_0.one", "one"))
                 .addPredicate(fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "hello")))
-                .addPredicate(fieldPredicate(g, "two", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "world")))
+                .addPredicate(fieldPredicate(g, "_0.two", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "world")))
                 .build().buildSelect();
 
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "hello"))));
         final Quantifier newGLower = explodeField(newT, "g");
-        final Quantifier newG = forEach(selectWithPredicates(newGLower, fieldPredicate(newGLower, "two", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "world"))));
+        final Quantifier newG = forEach(selectWithPredicates(newGLower, fieldPredicate(newGLower, "_0.two", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "world"))));
         final SelectExpression newJoin = join(newT, newG)
-                .addResultColumn(projectColumn(newG, "one"))
+                .addResultColumn(column(newG, "_0.one", "one"))
                 .build().buildSelect();
 
         testHelper.assertYields(join, newJoin);

@@ -55,7 +55,9 @@ public class TestKeySpace {
                                     .addSubdirectory(new DirectoryLayerDirectory(META_DATA_STORE, META_DATA_STORE))
                                     .addSubdirectory(new DirectoryLayerDirectory(RAW_DATA, RAW_DATA))
                                     .addSubdirectory(new DirectoryLayerDirectory(MULTI_RECORD_STORE, MULTI_RECORD_STORE)
-                                            .addSubdirectory(new DirectoryLayerDirectory(STORE_PATH))
+                                            // Avoid DirectoryLayerDirectory here to reduce conflicts when running tests
+                                            // in parallel
+                                            .addSubdirectory(new KeySpaceDirectory(STORE_PATH, KeySpaceDirectory.KeyType.LONG))
                                     )
                                     .addSubdirectory(new DirectoryLayerDirectory(RESOLVER_MAPPING_REPLICATOR, RESOLVER_MAPPING_REPLICATOR)
                                             .addSubdirectory(new KeySpaceDirectory("to", KeySpaceDirectory.KeyType.STRING, "to")

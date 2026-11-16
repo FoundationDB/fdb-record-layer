@@ -503,7 +503,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), c
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
@@ -517,7 +517,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), c
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
@@ -531,7 +531,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by max(x), c
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
@@ -542,7 +542,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by min(x), c
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
@@ -553,7 +553,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
@@ -567,7 +567,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
@@ -581,7 +581,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
       - initialVersionLessThan: 4.3.5.0
       - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
@@ -598,7 +598,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
-      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
+      - explain: "[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41 AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG), EQUALS q0._0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1._0 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
       - initialVersionLessThan: 4.3.5.0
       - error: UNSUPPORTED_QUERY
       - initialVersionAtLeast: 4.3.5.0
@@ -615,7 +615,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
-      - explain: "[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c18 AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)"
+      - explain: "[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c18 AS LONG), EQUALS q0._0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
@@ -627,7 +627,7 @@ test_block:
                 ]
     -
       - query: select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), d
-      - explain: "[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c18 AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)"
+      - explain: "[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c18 AS LONG), EQUALS q0._0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)"
       - resultMetadata: [{B: STRING}, {C: BIGINT}, {D: BIGINT}, {E: STRING}, {_4: BIGINT}]
       - result: [
                    {b: "bar", c: 0, d: 1, e: "e1", _4:  0},

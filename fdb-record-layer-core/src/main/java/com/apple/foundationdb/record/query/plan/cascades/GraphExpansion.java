@@ -22,11 +22,15 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -41,6 +45,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -559,6 +564,31 @@ public class GraphExpansion {
         public Builder pullUpQuantifier(@Nonnull final Quantifier quantifier) {
             quantifiers.add(quantifier);
             resultColumns.addAll(quantifier.getFlowedColumns());
+            return this;
+        }
+
+        /**
+         * Adds a quantifier ranging over an explode and pulls up the columns of the exploded element and ordinal,
+         * rather than the columns of the struct the explode flows.
+         *
+         * @param explodeQuantifier a quantifier ranging over an {@link ExplodeValue}
+         * @return this builder
+         */
+        @Nonnull
+        public Builder pullUpExplodeQuantifier(@Nonnull final Quantifier.ForEach explodeQuantifier) {
+            Verify.verify(explodeQuantifier.getRangesOver().get() instanceof TableFunctionExpression tableFunctionExpression &&
+                    tableFunctionExpression.getValue() instanceof ExplodeValue, "quantifier must range over an explode");
+            quantifiers.add(explodeQuantifier);
+            final Value elementValue = ExplodeValue.elementValue(explodeQuantifier.getFlowedObjectValue());
+            if (elementValue.getResultType() instanceof Type.Record elementType) {
+                final var fields = Objects.requireNonNull(elementType.getFields());
+                for (int i = 0; i < fields.size(); i++) {
+                    resultColumns.add(Column.of(fields.get(i), FieldValue.ofOrdinalNumberAndFuseIfPossible(elementValue, i)));
+                }
+            } else {
+                resultColumns.add(Column.unnamedOf(elementValue));
+            }
+            resultColumns.add(Column.unnamedOf(ExplodeValue.ordinalValue(explodeQuantifier.getFlowedObjectValue())));
             return this;
         }
 

@@ -61,7 +61,7 @@ test_block:
       - query: select * from my_simple_record
                where num_value_2 in !! !in {[0, 2]} !! and str_value_indexed in !! !in {['even']} !!
                order by num_value_3_indexed
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
       - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
                           {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
                           {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
@@ -102,7 +102,7 @@ test_block:
       - query: select * from my_simple_record
                where num_value_2 in !! !in {[0, 2]} !! and str_value_indexed in !! !in {['odd']} !!
                order by num_value_3_indexed
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
       - unorderedResult: [{REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},
                           {REC_NO: 5, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 995, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
                           {REC_NO: 9, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 991, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3, 4, 5, 6, 7, 8]},
@@ -142,7 +142,7 @@ test_block:
       - query: select * from my_simple_record
                where num_value_2 in !! !in {[0, 2]} !! and str_value_indexed in !! !in {['even', 'odd', 'other']} !!
                order by num_value_3_indexed
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)"
       - unorderedResult: [{REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: []},
                           {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
                           {REC_NO: 3, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: [0, 1, 2]},

@@ -28,10 +28,10 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableSet;
 
@@ -43,8 +43,9 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.plainForEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.explodeValue;
 
 /**
  * A rule that pushes an {@link RequestedOrderingConstraint} through a specific {@link SelectExpression}.
@@ -52,8 +53,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushRequestedOrderingThroughInLikeSelectRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
-    private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
-    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(plainForEachQuantifier(explodeExpressionMatcher));
+    private static final BindingMatcher<ExplodeValue> explodeValueMatcher = explodeValue();
+    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(plainForEachQuantifier(tableFunctionExpression(explodeValueMatcher)));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);

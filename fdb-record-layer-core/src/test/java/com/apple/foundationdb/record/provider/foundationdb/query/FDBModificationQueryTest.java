@@ -38,11 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
@@ -73,18 +73,21 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.elementOf;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.explode;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deletePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.insertPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tableFunctionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.target;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
@@ -221,8 +224,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     IndexQueryabilityFilter.TRUE,
                     EvaluationContext.empty()).getPlan();
 
-            assertMatchesExactly(plan, insertPlan(explodePlan()).where(target(equalsObject("RestaurantRecord"))));
-            Assertions.assertEquals(959543174, plan.hashCode());
+            assertMatchesExactly(plan, insertPlan(mapPlan(tableFunctionPlan())).where(target(equalsObject("RestaurantRecord"))));
+            Assertions.assertEquals(-2078409825, plan.hashCode());
 
             // dry run insert 2 records
             var resultValues = fetchResultValues(context, plan, record -> {
@@ -421,8 +424,9 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         emptyArray(REVIEW_TYPE), // empty array
                         emptyArray(TAG_TYPE), // empty array
                         emptyArray(STRING_TYPE))); // empty array
-        final var explodeExpression = new ExplodeExpression(LightArrayConstructorValue.of(bananaRecord, bestRecord));
-        var qun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        final var explodeQun = explode(LightArrayConstructorValue.of(bananaRecord, bestRecord));
+        var qun = Quantifier.forEach(Reference.initialOf(
+                new SelectExpression(elementOf(explodeQun), ImmutableList.of(explodeQun), ImmutableList.of())));
 
         qun = Quantifier.forEach(Reference.initialOf(new InsertExpression(qun,
                 "RestaurantRecord",
@@ -463,8 +467,9 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                     new NullValue(reviewsType),
                                     new NullValue(tagsType),
                                     new NullValue(customerType)));
-                    final var explodeExpression = new ExplodeExpression(LightArrayConstructorValue.of(bananaRecord, bestRecord));
-                    var qun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+                    final var explodeQun = explode(LightArrayConstructorValue.of(bananaRecord, bestRecord));
+                    var qun = Quantifier.forEach(Reference.initialOf(
+                            new SelectExpression(elementOf(explodeQun), ImmutableList.of(explodeQun), ImmutableList.of())));
 
                     qun = Quantifier.forEach(Reference.initialOf(new InsertExpression(qun,
                             "RestaurantRecord",
@@ -675,8 +680,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                         emptyArray(REVIEW_TYPE),
                                         emptyArray(TAG_TYPE),
                                         emptyArray(STRING_TYPE)));
-                        final var explodeExpression = new ExplodeExpression(LightArrayConstructorValue.of(bananaRecord, bestRecord));
-                        var outerQun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+                        var outerQun = explode(LightArrayConstructorValue.of(bananaRecord, bestRecord));
 
                         final var allRecordTypes =
                                 ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
@@ -688,7 +692,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         final var nameValue =
                                 FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
 
-                        final var comparandValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(outerQun), 1);
+                        final var comparandValue = FieldValue.ofOrdinalNumber(elementOf(outerQun), 1);
                         graphExpansionBuilder.addPredicate(new ValuePredicate(nameValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, comparandValue)));
                         qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
 
@@ -704,7 +708,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         graphExpansionBuilder.addQuantifier(outerQun);
                         graphExpansionBuilder.addQuantifier(innerQun);
                         graphExpansionBuilder.addPredicate(NotPredicate.not(new ExistentialValuePredicate(QuantifiedObjectValue.of(innerQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
-                        qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(outerQun.getFlowedObjectValue())));
+                        qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(elementOf(outerQun))));
 
                         qun = Quantifier.forEach(Reference.initialOf(new InsertExpression(qun,
                                 "RestaurantRecord",
@@ -718,7 +722,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
             assertMatchesExactly(plan,
                     insertPlan(
-                            flatMapPlan(explodePlan(),
+                            flatMapPlan(tableFunctionPlan(),
                                     descendantPlans(
                                             updatePlan(fetchFromPartialRecordPlan(
                                                     unorderedPrimaryKeyDistinctPlan(

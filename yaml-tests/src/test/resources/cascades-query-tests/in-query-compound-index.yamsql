@@ -56,7 +56,7 @@ test_block:
       # (str_value_indexed, rec_no), which is what supplies the requested order.
       - query: select * from my_simple_record where num_value_3_indexed in (1, 4, 2)
                order by str_value_indexed
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH"
       - unorderedResult: [{REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
                           {REC_NO: 4, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 996, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
                           {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
@@ -124,7 +124,7 @@ test_block:
                where num_value_3_indexed in (1, 4, 2)
                  and str_value_indexed > 'bar' and str_value_indexed < 'foo'
                order by str_value_indexed
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0, [GREATER_THAN promote(@c17 AS STRING) && LESS_THAN promote(@c21 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0._0, [GREATER_THAN promote(@c17 AS STRING) && LESS_THAN promote(@c21 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH"
       - unorderedResult: [{REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
                           {REC_NO: 4, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 996, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
                           {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},
@@ -169,7 +169,7 @@ test_block:
                where num_value_3_indexed in !! !in {[1, 4, 2]} !!
                  and str_value_indexed > 'bar' and str_value_indexed < 'foo'
                order by str_value_indexed
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0, [GREATER_THAN promote(@c11 AS STRING) && LESS_THAN promote(@c15 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(COMPOUND_INDEX [EQUALS q0._0, [GREATER_THAN promote(@c11 AS STRING) && LESS_THAN promote(@c15 AS STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED) | FETCH"
       - unorderedResult: [{REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1]},
                           {REC_NO: 4, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 996, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
                           {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},

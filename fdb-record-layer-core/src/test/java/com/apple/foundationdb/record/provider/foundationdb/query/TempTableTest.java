@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -48,12 +48,14 @@ import com.google.protobuf.Message;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.elementOf;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.explode;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tableFunctionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableInsertPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
@@ -110,8 +112,9 @@ public class TempTableTest extends TempTableTestBase {
             final var tempTableId = CorrelationIdentifier.uniqueId();
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
-            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
-            var qun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+            final var explodeQun = explode(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
+            var qun = Quantifier.forEach(Reference.initialOf(
+                    new SelectExpression(elementOf(explodeQun), ImmutableList.of(explodeQun), ImmutableList.of())));
 
             qun = Quantifier.forEach(Reference.initialOf(TempTableInsertExpression.ofCorrelated(qun,
                     tempTableId, getInnerType(qun), false)));
@@ -120,7 +123,7 @@ public class TempTableTest extends TempTableTestBase {
             final var cascadesPlanner = (CascadesPlanner)planner;
             var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
                     IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-            assertMatchesExactly(plan,  tempTableInsertPlan(explodePlan()));
+            assertMatchesExactly(plan,  tempTableInsertPlan(mapPlan(tableFunctionPlan())));
             final var evaluationContext = putTempTableInContext(tempTableId, tempTable, null);
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
@@ -142,8 +145,9 @@ public class TempTableTest extends TempTableTestBase {
             final var tempTable = tempTableInstance();
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
-            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
-            var qun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+            final var explodeQun = explode(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
+            var qun = Quantifier.forEach(Reference.initialOf(
+                    new SelectExpression(elementOf(explodeQun), ImmutableList.of(explodeQun), ImmutableList.of())));
 
             qun = Quantifier.forEach(Reference.initialOf(TempTableInsertExpression.ofCorrelated(qun, tempTableId, getInnerType(qun))));
             final var insertPlan = Reference.initialOf(LogicalSortExpression.unsorted(qun));
@@ -151,7 +155,7 @@ public class TempTableTest extends TempTableTestBase {
             final var cascadesPlanner = (CascadesPlanner)planner;
             planToResume = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
                     IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-            assertMatchesExactly(planToResume, tempTableInsertPlan(explodePlan()));
+            assertMatchesExactly(planToResume, tempTableInsertPlan(mapPlan(tableFunctionPlan())));
             final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
                     null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
