@@ -41,10 +41,10 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A sliding-window index over the scenario schema.
@@ -94,7 +94,7 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
                 windowSize,
                 partitionPaths);
         return new Index(ScenarioRecords.INDEX_NAME, root, IndexTypes.VECTOR,
-                ImmutableMap.of(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
+                Map.of(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                         IndexOptions.VECTOR_NUM_DIMENSIONS, String.valueOf(ScenarioRecords.VECTOR_DIMENSIONS)),
                 predicate);
     }
