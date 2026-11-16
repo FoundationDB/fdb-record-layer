@@ -29,7 +29,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -76,7 +80,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *   FROM COVERING(ISCAN(i1))
  * }
  * </pre>
- * TODO the following is possible but not implemented 
+ *
+ * <p>If {@code a} and {@code b} are all the fields of the record, the pushed map would only return its input, and the
+ * rule yields {@code COVERING(ISCAN(i1))} without a map.
+ *
+ * <p>TODO the following is possible but not implemented
  *
  * <p>Example 2: {@code b} is nested, containing {@code c}s and {@code d}s. Index only contains {@code c}s
  * <pre>
@@ -150,6 +158,13 @@ public class PushMapThroughFetchRule extends AbstractCascadesRule<RecordQueryMap
         if (pushedResultValueOptional.isEmpty()) {
             return;
         }
+
+        // a pushed value that rebuilds the record of the plan underneath is an identity, so that plan is the result
+        if (isIdentityOver(pushedResultValueOptional.get(), newInnerAlias, resultValue.getResultType())) {
+            call.yieldPlan(innerPlan);
+            return;
+        }
+
         final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlan(innerPlan), newInnerAlias);
 
         // construct a new map plan that ranges over the plan the fetch ranges over
@@ -158,5 +173,18 @@ public class PushMapThroughFetchRule extends AbstractCascadesRule<RecordQueryMap
 
         // effectively throw away the fetch
         call.yieldPlan(pushedMapPlan);
+    }
+
+    /**
+     * Whether {@code value} is the record that {@code alias} ranges over, with exactly the type {@code resultType}. A
+     * record constructor that reads every field of that record in order counts as well.
+     */
+    private static boolean isIdentityOver(@Nonnull final Value value, @Nonnull final CorrelationIdentifier alias,
+                                          @Nonnull final Type resultType) {
+        final Value collapsedValue = value instanceof RecordConstructorValue
+                                     ? Values.collapseSimpleSelectMaybe((RecordConstructorValue)value).orElse(value)
+                                     : value;
+        return QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(collapsedValue, alias) &&
+                collapsedValue.getResultType().equals(resultType);
     }
 }

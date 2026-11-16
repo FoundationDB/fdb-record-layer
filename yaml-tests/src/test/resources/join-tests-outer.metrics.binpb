@@ -690,7 +690,7 @@ k
 }Ø
 «
 left-outer-join—EXPLAIN SELECT "e"."fname", "sq"."name" FROM "emp" "e" LEFT JOIN (SELECT "id", "name" FROM "dept" WHERE "id" < 3) AS "sq" ON "e"."dept_id" = "sq"."id";§
-Ì¿¯Ç” ûª¶(70’Û8J@½ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, [LESS_THAN promote(@c23 AS LONG)]]) | FILTER q0.dept_id EQUALS _.id | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }Èdigraph G {
+ÁÕ‡Í“ ‡ÝÖ(70‚§8I@½ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, [LESS_THAN promote(@c23 AS LONG)]]) | FILTER q0.dept_id EQUALS _.id | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }Èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
