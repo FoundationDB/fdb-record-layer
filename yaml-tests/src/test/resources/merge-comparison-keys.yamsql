@@ -1,0 +1,638 @@
+#
+# merge-comparison-keys.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Unions, intersections and sorted IN-joins merge or sort on values that are not plain Java Comparables: the ordered
+# bytes of a NULLS FIRST/LAST ordering, bytes, enums and UUIDs. They have to be compared in index order, for every
+# index ordering and for both the index order and its reverse. IN-lists are only covered for strings and bytes, since
+# IN-lists over enums and UUIDs do not get past PromoteValue yet.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create type as enum color ('red', 'green', 'blue')
+    create table t_str_a(id bigint, a bigint, c bigint, v string, primary key(id))
+    create index t_str_a_v on t_str_a(v asc)
+    create index t_str_a_a on t_str_a(a, v asc)
+    create index t_str_a_c on t_str_a(c, v asc)
+    create table t_str_d(id bigint, a bigint, c bigint, v string, primary key(id))
+    create index t_str_d_v on t_str_d(v desc)
+    create index t_str_d_a on t_str_d(a, v desc)
+    create index t_str_d_c on t_str_d(c, v desc)
+    create table t_str_anf(id bigint, a bigint, c bigint, v string, primary key(id))
+    create index t_str_anf_v on t_str_anf(v asc nulls first)
+    create index t_str_anf_a on t_str_anf(a, v asc nulls first)
+    create index t_str_anf_c on t_str_anf(c, v asc nulls first)
+    create table t_str_anl(id bigint, a bigint, c bigint, v string, primary key(id))
+    create index t_str_anl_v on t_str_anl(v asc nulls last)
+    create index t_str_anl_a on t_str_anl(a, v asc nulls last)
+    create index t_str_anl_c on t_str_anl(c, v asc nulls last)
+    create table t_str_dnf(id bigint, a bigint, c bigint, v string, primary key(id))
+    create index t_str_dnf_v on t_str_dnf(v desc nulls first)
+    create index t_str_dnf_a on t_str_dnf(a, v desc nulls first)
+    create index t_str_dnf_c on t_str_dnf(c, v desc nulls first)
+    create table t_str_dnl(id bigint, a bigint, c bigint, v string, primary key(id))
+    create index t_str_dnl_v on t_str_dnl(v desc nulls last)
+    create index t_str_dnl_a on t_str_dnl(a, v desc nulls last)
+    create index t_str_dnl_c on t_str_dnl(c, v desc nulls last)
+    create table t_byt_a(id bigint, a bigint, c bigint, v bytes, primary key(id))
+    create index t_byt_a_v on t_byt_a(v asc)
+    create index t_byt_a_a on t_byt_a(a, v asc)
+    create index t_byt_a_c on t_byt_a(c, v asc)
+    create table t_byt_d(id bigint, a bigint, c bigint, v bytes, primary key(id))
+    create index t_byt_d_v on t_byt_d(v desc)
+    create index t_byt_d_a on t_byt_d(a, v desc)
+    create index t_byt_d_c on t_byt_d(c, v desc)
+    create table t_byt_anf(id bigint, a bigint, c bigint, v bytes, primary key(id))
+    create index t_byt_anf_v on t_byt_anf(v asc nulls first)
+    create index t_byt_anf_a on t_byt_anf(a, v asc nulls first)
+    create index t_byt_anf_c on t_byt_anf(c, v asc nulls first)
+    create table t_byt_anl(id bigint, a bigint, c bigint, v bytes, primary key(id))
+    create index t_byt_anl_v on t_byt_anl(v asc nulls last)
+    create index t_byt_anl_a on t_byt_anl(a, v asc nulls last)
+    create index t_byt_anl_c on t_byt_anl(c, v asc nulls last)
+    create table t_byt_dnf(id bigint, a bigint, c bigint, v bytes, primary key(id))
+    create index t_byt_dnf_v on t_byt_dnf(v desc nulls first)
+    create index t_byt_dnf_a on t_byt_dnf(a, v desc nulls first)
+    create index t_byt_dnf_c on t_byt_dnf(c, v desc nulls first)
+    create table t_byt_dnl(id bigint, a bigint, c bigint, v bytes, primary key(id))
+    create index t_byt_dnl_v on t_byt_dnl(v desc nulls last)
+    create index t_byt_dnl_a on t_byt_dnl(a, v desc nulls last)
+    create index t_byt_dnl_c on t_byt_dnl(c, v desc nulls last)
+    create table t_enm_a(id bigint, a bigint, c bigint, v color, primary key(id))
+    create index t_enm_a_v on t_enm_a(v asc)
+    create index t_enm_a_a on t_enm_a(a, v asc)
+    create index t_enm_a_c on t_enm_a(c, v asc)
+    create table t_enm_d(id bigint, a bigint, c bigint, v color, primary key(id))
+    create index t_enm_d_v on t_enm_d(v desc)
+    create index t_enm_d_a on t_enm_d(a, v desc)
+    create index t_enm_d_c on t_enm_d(c, v desc)
+    create table t_enm_anf(id bigint, a bigint, c bigint, v color, primary key(id))
+    create index t_enm_anf_v on t_enm_anf(v asc nulls first)
+    create index t_enm_anf_a on t_enm_anf(a, v asc nulls first)
+    create index t_enm_anf_c on t_enm_anf(c, v asc nulls first)
+    create table t_enm_anl(id bigint, a bigint, c bigint, v color, primary key(id))
+    create index t_enm_anl_v on t_enm_anl(v asc nulls last)
+    create index t_enm_anl_a on t_enm_anl(a, v asc nulls last)
+    create index t_enm_anl_c on t_enm_anl(c, v asc nulls last)
+    create table t_enm_dnf(id bigint, a bigint, c bigint, v color, primary key(id))
+    create index t_enm_dnf_v on t_enm_dnf(v desc nulls first)
+    create index t_enm_dnf_a on t_enm_dnf(a, v desc nulls first)
+    create index t_enm_dnf_c on t_enm_dnf(c, v desc nulls first)
+    create table t_enm_dnl(id bigint, a bigint, c bigint, v color, primary key(id))
+    create index t_enm_dnl_v on t_enm_dnl(v desc nulls last)
+    create index t_enm_dnl_a on t_enm_dnl(a, v desc nulls last)
+    create index t_enm_dnl_c on t_enm_dnl(c, v desc nulls last)
+    create table t_uid_a(id bigint, a bigint, c bigint, v uuid, primary key(id))
+    create index t_uid_a_v on t_uid_a(v asc)
+    create index t_uid_a_a on t_uid_a(a, v asc)
+    create index t_uid_a_c on t_uid_a(c, v asc)
+    create table t_uid_d(id bigint, a bigint, c bigint, v uuid, primary key(id))
+    create index t_uid_d_v on t_uid_d(v desc)
+    create index t_uid_d_a on t_uid_d(a, v desc)
+    create index t_uid_d_c on t_uid_d(c, v desc)
+    create table t_uid_anf(id bigint, a bigint, c bigint, v uuid, primary key(id))
+    create index t_uid_anf_v on t_uid_anf(v asc nulls first)
+    create index t_uid_anf_a on t_uid_anf(a, v asc nulls first)
+    create index t_uid_anf_c on t_uid_anf(c, v asc nulls first)
+    create table t_uid_anl(id bigint, a bigint, c bigint, v uuid, primary key(id))
+    create index t_uid_anl_v on t_uid_anl(v asc nulls last)
+    create index t_uid_anl_a on t_uid_anl(a, v asc nulls last)
+    create index t_uid_anl_c on t_uid_anl(c, v asc nulls last)
+    create table t_uid_dnf(id bigint, a bigint, c bigint, v uuid, primary key(id))
+    create index t_uid_dnf_v on t_uid_dnf(v desc nulls first)
+    create index t_uid_dnf_a on t_uid_dnf(a, v desc nulls first)
+    create index t_uid_dnf_c on t_uid_dnf(c, v desc nulls first)
+    create table t_uid_dnl(id bigint, a bigint, c bigint, v uuid, primary key(id))
+    create index t_uid_dnl_v on t_uid_dnl(v desc nulls last)
+    create index t_uid_dnl_a on t_uid_dnl(a, v desc nulls last)
+    create index t_uid_dnl_c on t_uid_dnl(c, v desc nulls last)
+---
+setup:
+  steps:
+    - query: insert into t_str_a values (1, 1, 1, 'x'), (2, 1, 1, 'y'), (3, 1, 1, null), (4, 1, 2, 'z'), (5, 2, 1, 'z')
+    - query: insert into t_str_d values (1, 1, 1, 'x'), (2, 1, 1, 'y'), (3, 1, 1, null), (4, 1, 2, 'z'), (5, 2, 1, 'z')
+    - query: insert into t_str_anf values (1, 1, 1, 'x'), (2, 1, 1, 'y'), (3, 1, 1, null), (4, 1, 2, 'z'), (5, 2, 1, 'z')
+    - query: insert into t_str_anl values (1, 1, 1, 'x'), (2, 1, 1, 'y'), (3, 1, 1, null), (4, 1, 2, 'z'), (5, 2, 1, 'z')
+    - query: insert into t_str_dnf values (1, 1, 1, 'x'), (2, 1, 1, 'y'), (3, 1, 1, null), (4, 1, 2, 'z'), (5, 2, 1, 'z')
+    - query: insert into t_str_dnl values (1, 1, 1, 'x'), (2, 1, 1, 'y'), (3, 1, 1, null), (4, 1, 2, 'z'), (5, 2, 1, 'z')
+    - query: insert into t_byt_a values (1, 1, 1, X'01'), (2, 1, 1, X'ff'), (3, 1, 1, null), (4, 1, 2, X'7f'), (5, 2, 1, X'7f')
+    - query: insert into t_byt_d values (1, 1, 1, X'01'), (2, 1, 1, X'ff'), (3, 1, 1, null), (4, 1, 2, X'7f'), (5, 2, 1, X'7f')
+    - query: insert into t_byt_anf values (1, 1, 1, X'01'), (2, 1, 1, X'ff'), (3, 1, 1, null), (4, 1, 2, X'7f'), (5, 2, 1, X'7f')
+    - query: insert into t_byt_anl values (1, 1, 1, X'01'), (2, 1, 1, X'ff'), (3, 1, 1, null), (4, 1, 2, X'7f'), (5, 2, 1, X'7f')
+    - query: insert into t_byt_dnf values (1, 1, 1, X'01'), (2, 1, 1, X'ff'), (3, 1, 1, null), (4, 1, 2, X'7f'), (5, 2, 1, X'7f')
+    - query: insert into t_byt_dnl values (1, 1, 1, X'01'), (2, 1, 1, X'ff'), (3, 1, 1, null), (4, 1, 2, X'7f'), (5, 2, 1, X'7f')
+    - query: insert into t_enm_a values (1, 1, 1, 'red'), (2, 1, 1, 'blue'), (3, 1, 1, null), (4, 1, 2, 'green'), (5, 2, 1, 'green')
+    - query: insert into t_enm_d values (1, 1, 1, 'red'), (2, 1, 1, 'blue'), (3, 1, 1, null), (4, 1, 2, 'green'), (5, 2, 1, 'green')
+    - query: insert into t_enm_anf values (1, 1, 1, 'red'), (2, 1, 1, 'blue'), (3, 1, 1, null), (4, 1, 2, 'green'), (5, 2, 1, 'green')
+    - query: insert into t_enm_anl values (1, 1, 1, 'red'), (2, 1, 1, 'blue'), (3, 1, 1, null), (4, 1, 2, 'green'), (5, 2, 1, 'green')
+    - query: insert into t_enm_dnf values (1, 1, 1, 'red'), (2, 1, 1, 'blue'), (3, 1, 1, null), (4, 1, 2, 'green'), (5, 2, 1, 'green')
+    - query: insert into t_enm_dnl values (1, 1, 1, 'red'), (2, 1, 1, 'blue'), (3, 1, 1, null), (4, 1, 2, 'green'), (5, 2, 1, 'green')
+    - query: insert into t_uid_a values (1, 1, 1, '00000000-0000-0000-0000-000000000001'), (2, 1, 1, 'ffffffff-0000-0000-0000-000000000001'), (3, 1, 1, null), (4, 1, 2, '10000000-0000-0000-0000-000000000001'), (5, 2, 1, '10000000-0000-0000-0000-000000000001')
+    - query: insert into t_uid_d values (1, 1, 1, '00000000-0000-0000-0000-000000000001'), (2, 1, 1, 'ffffffff-0000-0000-0000-000000000001'), (3, 1, 1, null), (4, 1, 2, '10000000-0000-0000-0000-000000000001'), (5, 2, 1, '10000000-0000-0000-0000-000000000001')
+    - query: insert into t_uid_anf values (1, 1, 1, '00000000-0000-0000-0000-000000000001'), (2, 1, 1, 'ffffffff-0000-0000-0000-000000000001'), (3, 1, 1, null), (4, 1, 2, '10000000-0000-0000-0000-000000000001'), (5, 2, 1, '10000000-0000-0000-0000-000000000001')
+    - query: insert into t_uid_anl values (1, 1, 1, '00000000-0000-0000-0000-000000000001'), (2, 1, 1, 'ffffffff-0000-0000-0000-000000000001'), (3, 1, 1, null), (4, 1, 2, '10000000-0000-0000-0000-000000000001'), (5, 2, 1, '10000000-0000-0000-0000-000000000001')
+    - query: insert into t_uid_dnf values (1, 1, 1, '00000000-0000-0000-0000-000000000001'), (2, 1, 1, 'ffffffff-0000-0000-0000-000000000001'), (3, 1, 1, null), (4, 1, 2, '10000000-0000-0000-0000-000000000001'), (5, 2, 1, '10000000-0000-0000-0000-000000000001')
+    - query: insert into t_uid_dnl values (1, 1, 1, '00000000-0000-0000-0000-000000000001'), (2, 1, 1, 'ffffffff-0000-0000-0000-000000000001'), (3, 1, 1, null), (4, 1, 2, '10000000-0000-0000-0000-000000000001'), (5, 2, 1, '10000000-0000-0000-0000-000000000001')
+---
+test_block:
+  name: merge-comparison-keys
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select id from t_str_a where v = 'x' or v = 'y' order by v asc
+      - explain: "COVERING(T_STR_A_V [EQUALS promote(@c7 AS STRING)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_STR_A_V [EQUALS promote(@c11 AS STRING)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_a where v in ('y', 'x') order by v asc
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_a where a = 1 and c = 1 order by v asc
+      - explain: "COVERING(T_STR_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_A_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_str_a where v = 'x' or v = 'y' order by v desc nulls last
+      - explain: "ISCAN(T_STR_A_V [EQUALS promote(@c7 AS STRING)]) ∪ ISCAN(T_STR_A_V [EQUALS promote(@c11 AS STRING)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_a where v in ('y', 'x') order by v desc nulls last
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_a where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_STR_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_A_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_str_d where v = 'x' or v = 'y' order by v desc
+      - explain: "ISCAN(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_LAST)]) ∪ ISCAN(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_d where v in ('y', 'x') order by v desc
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_d where a = 1 and c = 1 order by v desc
+      - explain: "ISCAN(T_STR_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_D_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_str_d where v = 'x' or v = 'y' order by v asc nulls first
+      - explain: "COVERING(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_d where v in ('y', 'x') order by v asc nulls first
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_d where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_STR_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_D_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_str_anf where v = 'x' or v = 'y' order by v asc nulls first
+      - explain: "COVERING(T_STR_ANF_V [EQUALS promote(@c7 AS STRING)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_STR_ANF_V [EQUALS promote(@c11 AS STRING)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_anf where v in ('y', 'x') order by v asc nulls first
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_anf where a = 1 and c = 1 order by v asc nulls first
+      - explain: "COVERING(T_STR_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_ANF_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_str_anf where v = 'x' or v = 'y' order by v desc nulls last
+      - explain: "ISCAN(T_STR_ANF_V [EQUALS promote(@c7 AS STRING)]) ∪ ISCAN(T_STR_ANF_V [EQUALS promote(@c11 AS STRING)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_anf where v in ('y', 'x') order by v desc nulls last
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_anf where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_STR_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_ANF_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_str_anl where v = 'x' or v = 'y' order by v asc nulls last
+      - explain: "ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), ASC_NULLS_LAST)]) ∪ ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_anl where v in ('y', 'x') order by v asc nulls last
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_anl where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_STR_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_ANL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_str_anl where v = 'x' or v = 'y' order by v desc nulls first
+      - explain: "ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), ASC_NULLS_LAST)]) ∪ ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_anl where v in ('y', 'x') order by v desc nulls first
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_anl where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_STR_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_ANL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_str_dnf where v = 'x' or v = 'y' order by v desc nulls first
+      - explain: "ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_FIRST)]) ∪ ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_dnf where v in ('y', 'x') order by v desc nulls first
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_dnf where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_STR_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_DNF_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_str_dnf where v = 'x' or v = 'y' order by v asc nulls last
+      - explain: "ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_FIRST)]) ∪ ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_dnf where v in ('y', 'x') order by v asc nulls last
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_dnf where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_STR_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_DNF_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_str_dnl where v = 'x' or v = 'y' order by v desc nulls last
+      - explain: "ISCAN(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_LAST)]) ∪ ISCAN(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_dnl where v in ('y', 'x') order by v desc nulls last
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_str_dnl where a = 1 and c = 1 order by v desc nulls last
+      - explain: "ISCAN(T_STR_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_DNL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_str_dnl where v = 'x' or v = 'y' order by v asc nulls first
+      - explain: "COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_dnl where v in ('y', 'x') order by v asc nulls first
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_str_dnl where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_STR_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_DNL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_byt_a where v = X'01' or v = X'ff' order by v asc
+      - explain: "COVERING(T_BYT_A_V [EQUALS promote(@c7 AS BYTES)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_BYT_A_V [EQUALS promote(@c11 AS BYTES)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_a where v in (X'ff', X'01') order by v asc
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_a where a = 1 and c = 1 order by v asc
+      - explain: "COVERING(T_BYT_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_A_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_byt_a where v = X'01' or v = X'ff' order by v desc nulls last
+      - explain: "ISCAN(T_BYT_A_V [EQUALS promote(@c7 AS BYTES)]) ∪ ISCAN(T_BYT_A_V [EQUALS promote(@c11 AS BYTES)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_a where v in (X'ff', X'01') order by v desc nulls last
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_a where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_BYT_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_A_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_byt_d where v = X'01' or v = X'ff' order by v desc
+      - explain: "ISCAN(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)]) ∪ ISCAN(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_d where v in (X'ff', X'01') order by v desc
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_d where a = 1 and c = 1 order by v desc
+      - explain: "ISCAN(T_BYT_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_D_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_byt_d where v = X'01' or v = X'ff' order by v asc nulls first
+      - explain: "COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_d where v in (X'ff', X'01') order by v asc nulls first
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_d where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_BYT_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_D_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_byt_anf where v = X'01' or v = X'ff' order by v asc nulls first
+      - explain: "COVERING(T_BYT_ANF_V [EQUALS promote(@c7 AS BYTES)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_BYT_ANF_V [EQUALS promote(@c11 AS BYTES)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_anf where v in (X'ff', X'01') order by v asc nulls first
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_anf where a = 1 and c = 1 order by v asc nulls first
+      - explain: "COVERING(T_BYT_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_ANF_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_byt_anf where v = X'01' or v = X'ff' order by v desc nulls last
+      - explain: "ISCAN(T_BYT_ANF_V [EQUALS promote(@c7 AS BYTES)]) ∪ ISCAN(T_BYT_ANF_V [EQUALS promote(@c11 AS BYTES)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_anf where v in (X'ff', X'01') order by v desc nulls last
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_anf where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_BYT_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_ANF_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_byt_anl where v = X'01' or v = X'ff' order by v asc nulls last
+      - explain: "ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), ASC_NULLS_LAST)]) ∪ ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_anl where v in (X'ff', X'01') order by v asc nulls last
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_anl where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_BYT_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_ANL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_byt_anl where v = X'01' or v = X'ff' order by v desc nulls first
+      - explain: "ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), ASC_NULLS_LAST)]) ∪ ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_anl where v in (X'ff', X'01') order by v desc nulls first
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_anl where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_BYT_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_ANL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_byt_dnf where v = X'01' or v = X'ff' order by v desc nulls first
+      - explain: "ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_FIRST)]) ∪ ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_dnf where v in (X'ff', X'01') order by v desc nulls first
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_dnf where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_BYT_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_DNF_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_byt_dnf where v = X'01' or v = X'ff' order by v asc nulls last
+      - explain: "ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_FIRST)]) ∪ ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_dnf where v in (X'ff', X'01') order by v asc nulls last
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_dnf where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_BYT_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_DNF_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_byt_dnl where v = X'01' or v = X'ff' order by v desc nulls last
+      - explain: "ISCAN(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)]) ∪ ISCAN(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_dnl where v in (X'ff', X'01') order by v desc nulls last
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_byt_dnl where a = 1 and c = 1 order by v desc nulls last
+      - explain: "ISCAN(T_BYT_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_DNL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_byt_dnl where v = X'01' or v = X'ff' order by v asc nulls first
+      - explain: "COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_dnl where v in (X'ff', X'01') order by v asc nulls first
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_byt_dnl where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_BYT_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_DNL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_enm_a where v = 'red' or v = 'blue' order by v asc
+      - explain: "COVERING(T_ENM_A_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_ENM_A_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_enm_a where a = 1 and c = 1 order by v asc
+      - explain: "COVERING(T_ENM_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_A_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_enm_a where v = 'red' or v = 'blue' order by v desc nulls last
+      - explain: "ISCAN(T_ENM_A_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)]) ∪ ISCAN(T_ENM_A_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_enm_a where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_ENM_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_A_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_enm_d where v = 'red' or v = 'blue' order by v desc
+      - explain: "ISCAN(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) ∪ ISCAN(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_enm_d where a = 1 and c = 1 order by v desc
+      - explain: "ISCAN(T_ENM_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_D_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_enm_d where v = 'red' or v = 'blue' order by v asc nulls first
+      - explain: "COVERING(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_enm_d where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_ENM_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_D_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_enm_anf where v = 'red' or v = 'blue' order by v asc nulls first
+      - explain: "COVERING(T_ENM_ANF_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_ENM_ANF_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_enm_anf where a = 1 and c = 1 order by v asc nulls first
+      - explain: "COVERING(T_ENM_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_ANF_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_enm_anf where v = 'red' or v = 'blue' order by v desc nulls last
+      - explain: "ISCAN(T_ENM_ANF_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)]) ∪ ISCAN(T_ENM_ANF_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_enm_anf where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_ENM_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_ANF_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_enm_anl where v = 'red' or v = 'blue' order by v asc nulls last
+      - explain: "ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) ∪ ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_enm_anl where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_ENM_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_ANL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_enm_anl where v = 'red' or v = 'blue' order by v desc nulls first
+      - explain: "ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) ∪ ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_enm_anl where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_ENM_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_ANL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_enm_dnf where v = 'red' or v = 'blue' order by v desc nulls first
+      - explain: "ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) ∪ ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_enm_dnf where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_ENM_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_DNF_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_enm_dnf where v = 'red' or v = 'blue' order by v asc nulls last
+      - explain: "ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) ∪ ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_enm_dnf where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_ENM_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_DNF_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_enm_dnl where v = 'red' or v = 'blue' order by v desc nulls last
+      - explain: "ISCAN(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) ∪ ISCAN(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_enm_dnl where a = 1 and c = 1 order by v desc nulls last
+      - explain: "ISCAN(T_ENM_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_DNL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_enm_dnl where v = 'red' or v = 'blue' order by v asc nulls first
+      - explain: "COVERING(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_enm_dnl where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_ENM_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_DNL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_uid_a where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc
+      - explain: "COVERING(T_UID_A_V [EQUALS promote(@c7 AS UUID)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_UID_A_V [EQUALS promote(@c11 AS UUID)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_uid_a where a = 1 and c = 1 order by v asc
+      - explain: "COVERING(T_UID_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_A_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_uid_a where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls last
+      - explain: "ISCAN(T_UID_A_V [EQUALS promote(@c7 AS UUID)]) ∪ ISCAN(T_UID_A_V [EQUALS promote(@c11 AS UUID)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_uid_a where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_UID_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_A_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_uid_d where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc
+      - explain: "ISCAN(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)]) ∪ ISCAN(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_uid_d where a = 1 and c = 1 order by v desc
+      - explain: "ISCAN(T_UID_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_D_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_uid_d where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls first
+      - explain: "COVERING(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_uid_d where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_UID_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_D_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_uid_anf where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls first
+      - explain: "COVERING(T_UID_ANF_V [EQUALS promote(@c7 AS UUID)] -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_UID_ANF_V [EQUALS promote(@c11 AS UUID)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_uid_anf where a = 1 and c = 1 order by v asc nulls first
+      - explain: "COVERING(T_UID_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_ANF_A [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+    -
+      - query: select id from t_uid_anf where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls last
+      - explain: "ISCAN(T_UID_ANF_V [EQUALS promote(@c7 AS UUID)]) ∪ ISCAN(T_UID_ANF_V [EQUALS promote(@c11 AS UUID)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_uid_anf where a = 1 and c = 1 order by v desc nulls last
+      - explain: "COVERING(T_UID_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0], ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_ANF_A [EQUALS promote(@c7 AS LONG)] REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_uid_anl where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls last
+      - explain: "ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), ASC_NULLS_LAST)]) ∪ ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_uid_anl where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_UID_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_ANL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_uid_anl where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls first
+      - explain: "ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), ASC_NULLS_LAST)]) ∪ ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_uid_anl where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_UID_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_ANL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_uid_dnf where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls first
+      - explain: "ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_FIRST)]) ∪ ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_uid_dnf where a = 1 and c = 1 order by v desc nulls first
+      - explain: "ISCAN(T_UID_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_DNF_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {2}, {1}]
+    -
+      - query: select id from t_uid_dnf where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls last
+      - explain: "ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_FIRST)]) ∪ ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_uid_dnf where a = 1 and c = 1 order by v asc nulls last
+      - explain: "ISCAN(T_UID_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_DNF_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select id from t_uid_dnl where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls last
+      - explain: "ISCAN(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)]) ∪ ISCAN(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}]
+    -
+      - query: select id from t_uid_dnl where a = 1 and c = 1 order by v desc nulls last
+      - explain: "ISCAN(T_UID_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_DNL_A [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{2}, {1}, {3}]
+    -
+      - query: select id from t_uid_dnl where v = '00000000-0000-0000-0000-000000000001' or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls first
+      - explain: "COVERING(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{1}, {2}]
+    -
+      - query: select id from t_uid_dnl where a = 1 and c = 1 order by v asc nulls first
+      - explain: "ISCAN(T_UID_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_DNL_A [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)"
+      - result: [{3}, {1}, {2}]
+...
