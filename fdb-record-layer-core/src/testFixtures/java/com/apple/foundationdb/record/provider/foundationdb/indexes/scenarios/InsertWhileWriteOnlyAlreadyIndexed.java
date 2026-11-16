@@ -52,6 +52,7 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
         model.saveRecords(records);
         model.markIndexDisabled();
 
+        // Index every record, but leave the index write-only rather than marking it readable.
         try (OnlineIndexer indexer = model.getIndexerBuilder()
                 .build()) {
             indexer.buildIndex(false);
@@ -59,9 +60,9 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
 
         assertEquals(IndexState.WRITE_ONLY, model.getIndexState());
 
-        // already indexed
+        // Save the records again, while the index is write-only and already covers them.
         model.saveRecords(records);
-        // should just be marking it readable
+        // Every record is already indexed, so finishing the build only has to mark the index readable.
         try (OnlineIndexer indexer = model.getIndexerBuilder()
                 .build()) {
             indexer.buildIndex(true);
@@ -69,7 +70,10 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
         final List<IndexEntry> actual = model.scanIndex();
         model.markIndexDisabled();
         model.buildIndex();
-        // TODO: this is not ideal. Perhaps an early symptom of the eventual challenges ahead
+        // A COUNT_UPDATES index counts every save, so saving the records a second time rightly leaves it
+        // with higher counts than a rebuild, which sees each record once. Comparing them would need a way
+        // for a definition to say that its index depends on the history of saves, not just the current
+        // records.
         if (!model.getIndex().getType().equals(IndexTypes.COUNT_UPDATES)) {
             model.assertScanResultsEqual(model.scanIndex(), actual);
         }
