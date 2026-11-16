@@ -73,6 +73,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     @Nullable
     final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
+    /** Whether to include the Lucene score in the returned entries. */
     final boolean includeScoreValue;
 
     @SpotBugsSuppressWarnings("NP_STORE_INTO_NONNULL_FIELD") // TODO remove this once we have a proper implementation
@@ -109,11 +110,8 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
      * @param storedFields the stored fields to return, if any
      * @param storedFieldTypes the types of the stored fields to return, if any
      * @param luceneQueryHighlightParameters highlighting parameters, if any
-     * @param includeScoreValue whether the scanned entries must expose their Lucene score, see
-     * {@link LuceneRecordCursor.ScoreDocIndexEntry#getScore()}. This is only supported when the results are ranked by
-     * relevance, that is, when {@code sort} is {@code null} or starts with the score
-     * @throws com.apple.foundationdb.record.RecordCoreArgumentException if {@code includeScoreValue} is set and the
-     * sort is not by relevance
+     * @param includeScoreValue whether to include the Lucene score in the returned entries, see
+     * {@link LuceneRecordCursor.ScoreDocIndexEntry#getScore()}
      */
     public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query,
                                      @Nullable Sort sort,
@@ -121,13 +119,12 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
                                      @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                      boolean includeScoreValue) {
         super(LuceneScanTypes.BY_LUCENE, groupComparisons);
-        LuceneScanQuery.validateScoreValueSupported(sort, includeScoreValue);
-        this.includeScoreValue = includeScoreValue;
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;
         this.storedFieldTypes = storedFieldTypes;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
+        this.includeScoreValue = includeScoreValue;
     }
 
     @Nonnull
@@ -158,12 +155,13 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     public int planHash(@Nonnull PlanHashMode mode) {
         final String sortString = sort == null ? null : sort.toString(); // `Sort.hashCode` ends up hashing an enum so the hash would not be stable
         if (includeScoreValue) {
+            // the flag is only part of the hash when set, so that the hash of existing plans does not change
             return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanType, groupComparisons, query, sortString,
                     storedFields, storedFieldTypes, includeScoreValue);
+        } else {
+            return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanType, groupComparisons, query, sortString,
+                    storedFields, storedFieldTypes);
         }
-        // the flag is only part of the hash when set so that the hash of existing plans does not change
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanType, groupComparisons, query, sortString,
-                storedFields, storedFieldTypes);
     }
 
     @Nonnull
@@ -250,7 +248,10 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         if (sort != null) {
             result = 31 * result + sort.hashCode();
         }
-        result = 31 * result + Boolean.hashCode(includeScoreValue);
+        if (includeScoreValue) {
+            // the flag is only part of the hash when set, so that the hash of existing plans does not change
+            result = 31 * result + Boolean.hashCode(includeScoreValue);
+        }
         return result;
     }
 

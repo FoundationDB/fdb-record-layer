@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -2183,6 +2182,34 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("partitionedSorts")
+    void scoreInPartitionedIndex(@Nullable Sort sort) {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(10);
+
+            final var scanQuery = new LuceneScanQueryParameters(
+                    Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
+                    new LuceneQuerySearchClause(LuceneQueryType.QUERY, "text:propose", false),
+                    sort, null, null, null, true)
+                    .bind(recordStore, COMPLEX_PARTITIONED, EvaluationContext.EMPTY);
+            final Map<Tuple, Float> onePage = scoresByPrimaryKey(COMPLEX_PARTITIONED, scanQuery, 100);
+            final Map<Tuple, Float> paged = scoresByPrimaryKey(COMPLEX_PARTITIONED, scanQuery, 3);
+            assertFalse(onePage.isEmpty());
+            onePage.values().forEach(score -> assertTrue(Float.isFinite(score) && score >= 0, "score " + score));
+            assertEquals(onePage, paged);
+        }
+    }
+
+    static Stream<Sort> partitionedSorts() {
+        return Stream.of(
+                null,
+                new Sort(new SortField("timestamp", SortField.Type.LONG, true)),
+                new Sort(SortField.FIELD_SCORE, new SortField("timestamp", SortField.Type.LONG, true)));
+    }
+
     private void setTimestamps() {
         timestamp60DaysAgo = Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli();
         timestamp30DaysAgo = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli();
@@ -2346,32 +2373,31 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    @Test
-    void scoreOfDefaultSearchMatchesSortedSearch() {
+    @ParameterizedTest
+    @MethodSource("allSorts")
+    void scoreIsIndependentOfSort(@Nullable Sort sort) {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         try (FDBRecordContext context = openContext()) {
             saveScoredDocuments(context, index);
             final Map<Tuple, Float> unsorted = scoresByPrimaryKey(index, scoredSearch(index, "vision", null, true), 100);
-            final Map<Tuple, Float> sorted = scoresByPrimaryKey(index, scoredSearch(index, "vision", RELEVANCE_THEN_PRIMARY_KEY, true), 100);
+            final Map<Tuple, Float> sorted = scoresByPrimaryKey(index, scoredSearch(index, "vision", sort, true), 100);
             assertEquals(4, unsorted.size());
+            unsorted.values().forEach(score -> assertTrue(Float.isFinite(score) && score > 0, "score " + score));
             assertEquals(unsorted, sorted);
         }
     }
 
-    static Stream<Sort> relevanceSorts() {
-        return Stream.of(null, RELEVANCE_THEN_PRIMARY_KEY);
-    }
-
-    static Stream<Sort> nonRelevanceSorts() {
+    static Stream<Sort> allSorts() {
         return Stream.of(
+                null,
+                RELEVANCE_THEN_PRIMARY_KEY,
                 new Sort(SortField.FIELD_DOC),
-                new Sort(new SortField("text", SortField.Type.STRING)),
                 new Sort(new SortField(null, SortField.Type.SCORE, true)),
                 new Sort(new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING), SortField.FIELD_SCORE));
     }
 
     @ParameterizedTest
-    @MethodSource("relevanceSorts")
+    @MethodSource("allSorts")
     void scoreAcrossContinuations(@Nullable Sort sort) {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         try (FDBRecordContext context = openContext()) {
@@ -2392,19 +2418,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                     null, ScanProperties.FORWARD_SCAN).asList().join();
             assertEquals(4, entries.size());
             for (IndexEntry entry : entries) {
-                assertTrue(Float.isNaN(((LuceneRecordCursor.ScoreDocIndexEntry)entry).getScore()));
+                assertNull(((LuceneRecordCursor.ScoreDocIndexEntry)entry).getScore());
             }
         }
-    }
-
-    @ParameterizedTest
-    @MethodSource("nonRelevanceSorts")
-    void scoreRequiresRelevanceSort(@Nonnull Sort sort) {
-        final var clause = new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, "vision", false);
-        assertThrows(RecordCoreArgumentException.class,
-                () -> new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, sort, null, null, null, true));
-        // the same sort is fine when the score is not requested
-        assertDoesNotThrow(() -> new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, sort, null, null, null, false));
     }
 
     @Test

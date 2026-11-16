@@ -106,6 +106,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private IndexReader indexReader;
     private final Query query;
     private final Sort sort;
+    /** Whether to include the Lucene score in the returned entries. */
     private final boolean includeScoreValue;
     private IndexSearcher searcher;
     private RecordCursor<IndexEntry> lookupResults = null;
@@ -191,8 +192,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
                        @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector,
                        boolean includeScoreValue) {
-        LuceneScanQuery.validateScoreValueSupported(sort, includeScoreValue);
-        this.includeScoreValue = includeScoreValue;
         this.state = state;
         this.executor = executor;
         this.pageSize = pageSize;
@@ -272,6 +271,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.termMap = termMap;
         this.analyzerSelector = analyzerSelector;
         this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
+        this.includeScoreValue = includeScoreValue;
         closed = false;
     }
 
@@ -506,14 +506,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         indexReader = getIndexReader();
         searcher = new LuceneOptimizedIndexSearcher(indexReader, executorService);
         TopDocs newTopDocs;
-        if (searchAfter != null && sort != null) {
-            newTopDocs = searcher.searchAfter(searchAfter, query, limit, sort);
-        } else if (searchAfter != null) {
-            newTopDocs = searcher.searchAfter(searchAfter, query, limit);
-        } else if (sort != null) {
-            newTopDocs = searcher.search(query,  limit, sort);
+        // Without a sort, Lucene always sets ScoreDoc.score. With a sort it leaves it unset unless asked to, which costs
+        // an extra scoring pass over the hits, so only ask for it when the scan includes the score.
+        if (sort != null) {
+            newTopDocs = searchWithSort(searchAfter, limit, sort, includeScoreValue);
         } else {
-            newTopDocs = searcher.search(query, limit);
+            newTopDocs = searchWithoutSort(searchAfter, limit);
         }
         if (newTopDocs.scoreDocs.length < limit) {
             exhausted = true;
@@ -526,6 +524,22 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, newTopDocs.scoreDocs.length);
         }
         return newTopDocs;
+    }
+
+    private TopDocs searchWithSort(final ScoreDoc after, int limit, @Nonnull Sort sortToUse, final boolean includeScore) throws IOException {
+        if (after != null) {
+            return searcher.searchAfter(after, query, limit, sortToUse, includeScore);
+        } else {
+            return searcher.search(query, limit, sortToUse, includeScore);
+        }
+    }
+
+    private TopDocs searchWithoutSort(final ScoreDoc after, final int limit) throws IOException {
+        if (after != null) {
+            return searcher.searchAfter(after, query, limit);
+        } else {
+            return searcher.search(query, limit);
+        }
     }
 
     private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
@@ -595,27 +609,11 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 }
 
                 return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, termMap,
-                        analyzerSelector, autoCompleteAnalyzerSelector, includeScoreValue ? relevanceScore(scoreDoc) : null);
+                        analyzerSelector, autoCompleteAnalyzerSelector, includeScoreValue ? scoreDoc.score : null);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Failed to get document", e, "currentPosition", currentPosition);
             }
         }, executor);
-    }
-
-    /**
-     * The Lucene relevance score of a hit of a search that is ranked by relevance. When the search has a sort, Lucene
-     * does not populate {@link ScoreDoc#score} and the score is the value of the leading (score) sort field instead.
-     */
-    private float relevanceScore(@Nonnull ScoreDoc scoreDoc) {
-        if (sort == null) {
-            return scoreDoc.score;
-        }
-        final Object leadingSortValue = ((FieldDoc)scoreDoc).fields[0];
-        if (!(leadingSortValue instanceof Float)) {
-            throw new RecordCoreException("expected a score as the leading sort value")
-                    .addLogInfo("sortValue", leadingSortValue);
-        }
-        return (Float)leadingSortValue;
     }
 
     /**
@@ -637,14 +635,15 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
 
         /**
-         * The Lucene relevance score of this hit. Only available if the scan asked for it, see
-         * {@link LuceneScanQuery#isIncludeScoreValue()}, which in turn requires results to be ranked by relevance.
-         * {@link ScoreDoc#score} is not a substitute, as Lucene leaves it unset ({@code NaN}) for searches with a sort.
+         * The Lucene score of this hit. Only available if the scan asked for it, see
+         * {@link LuceneScanQuery#isIncludeScoreValue()} and
+         * {@link LuceneScanQueryParameters#isIncludeScoreValue()}.
          *
-         * @return the score of the hit, or {@code NaN} if the scan did not ask for it
+         * @return the score of the hit, or {@code null} if the scan did not ask for it
          */
-        public float getScore() {
-            return score == null ? Float.NaN : score;
+        @Nullable
+        public Float getScore() {
+            return score;
         }
 
         public Map<String, Set<String>> getTermMap() {
@@ -675,12 +674,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                                    @Nullable Float score) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
-            this.score = score;
             this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
             this.termMap = termMap;
             this.analyzerSelector = analyzerSelector;
             this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
             this.indexKey = index.getRootExpression();
+            this.score = score;
         }
 
         @Override
