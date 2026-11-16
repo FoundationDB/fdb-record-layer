@@ -43,23 +43,25 @@ import java.util.function.Supplier;
  */
 @AutoService(IndexScenario.class)
 public class SnapshotScan implements IndexScenario {
-
     @Override
-    public void runTest(final IndexDefinition definition, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) throws Exception {
+    public void runTest(final IndexDefinition definition,
+                        final Supplier<FDBRecordContext> openContext,
+                        final FDBRecordStore.Builder storeBuilder) {
         Assumptions.assumeTrue(definition.supportsSnapshotIsolation(),
                 "index scan does not honour snapshot isolation");
         final IndexScenarioModel model = IndexScenarioModel.ungrouped(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
+        // Start with only the middle records, so that the others can later change the index on both sides.
         model.saveRecords(records.subList(3, 6));
 
         final List<IndexEntry> original = model.scanIndex();
 
+        final ScanProperties snapshot = new ScanProperties(ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .build());
         final List<IndexEntry> snapshotScan = model.applyToStore(store -> {
-            final RecordCursor<IndexEntry> snapshotResult = definition.scanIndex(store, model.getIndex(), new ScanProperties(
-                    ExecuteProperties.newBuilder()
-                            .setIsolationLevel(IsolationLevel.SNAPSHOT).build()
-            ));
+            final RecordCursor<IndexEntry> snapshotResult = definition.scanIndex(store, model.getIndex(), snapshot);
             final List<IndexEntry> scanResults = snapshotResult.asList().join();
             // Change the index from a different transaction. Include records with values both below
             // and above the initial set so that min/max-style aggregate indexes change too.
