@@ -149,7 +149,7 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS i, exists(q0) AS e) }'
     task_count: 512
-    task_total_time_ms: 26
+    task_total_time_ms: 33
     transform_count: 143
     transform_time_ms: 8
     transform_yield_count: 45
@@ -164,7 +164,7 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS i, exists(q0) AS e) }'
     task_count: 512
-    task_total_time_ms: 26
+    task_total_time_ms: 33
     transform_count: 143
     transform_time_ms: 8
     transform_yield_count: 45
@@ -197,9 +197,9 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS g, exists(q0) AS e) }'
     task_count: 512
-    task_total_time_ms: 20
+    task_total_time_ms: 32
     transform_count: 143
-    transform_time_ms: 7
+    transform_time_ms: 11
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 55
@@ -212,11 +212,11 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS i, NOT exists(q0) AS e) }'
     task_count: 512
-    task_total_time_ms: 34
+    task_total_time_ms: 28
     transform_count: 143
-    transform_time_ms: 10
+    transform_time_ms: 9
     transform_yield_count: 45
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 55
     insert_reused_count: 4
 -   query: EXPLAIN SELECT p.id, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e, COUNT(*)
@@ -247,9 +247,9 @@ exists-subquery:
         <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i
         AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q1) AS e) }'
     task_count: 997
-    task_total_time_ms: 31
+    task_total_time_ms: 57
     transform_count: 274
-    transform_time_ms: 11
+    transform_time_ms: 14
     transform_yield_count: 82
     insert_time_ms: 1
     insert_new_count: 112
@@ -262,9 +262,9 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS i, exists(q0) AS e) }'
     task_count: 537
-    task_total_time_ms: 22
+    task_total_time_ms: 29
     transform_count: 148
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 59
@@ -277,11 +277,11 @@ exists-subquery:
         AS INT) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (coalesce_long(q0._0._0,
         0l) AS n, exists(q1) AS e) }
     task_count: 562
-    task_total_time_ms: 21
+    task_total_time_ms: 29
     transform_count: 150
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 48
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 65
     insert_reused_count: 6
 -   query: EXPLAIN SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
@@ -293,9 +293,9 @@ exists-subquery:
         AS INT) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (coalesce_long(q0._0._0,
         0l) AS n, exists(q1) AS e) }'
     task_count: 754
-    task_total_time_ms: 24
+    task_total_time_ms: 35
     transform_count: 201
-    transform_time_ms: 8
+    transform_time_ms: 9
     transform_yield_count: 57
     insert_time_ms: 1
     insert_new_count: 88
@@ -309,9 +309,9 @@ exists-subquery:
         TRUE), @c20, @c25)) AS _0) GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0
         AS i, q0._1._0 AS s) }'
     task_count: 480
-    task_total_time_ms: 30
+    task_total_time_ms: 17
     transform_count: 140
-    transform_time_ms: 9
+    transform_time_ms: 5
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 50
@@ -324,11 +324,11 @@ exists-subquery:
         TRUE), @c16, @c21)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0._0._0
         AS s) }
     task_count: 520
-    task_total_time_ms: 22
+    task_total_time_ms: 23
     transform_count: 146
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 58
     insert_reused_count: 6
 -   query: EXPLAIN SELECT p.id, EXISTS (SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE
@@ -340,11 +340,11 @@ exists-subquery:
         (q0._0._0 AS i, exists(q0) AS _1) } | DEFAULT NULL | FLATMAP q1 -> { SCAN([IS
         T5]) AS q2 RETURN (q2.id AS id, exists(q1) AS e) }'
     task_count: 657
-    task_total_time_ms: 31
+    task_total_time_ms: 43
     transform_count: 189
-    transform_time_ms: 10
+    transform_time_ms: 12
     transform_yield_count: 62
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 72
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * FROM VALUES (1, EXISTS (SELECT id FROM T1 WHERE T1.T2
@@ -536,9 +536,9 @@ exists-subquery:
         <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i
         AS _0) AS q0 RETURN (q0._0._0 AS i) }'
     task_count: 678
-    task_total_time_ms: 24
+    task_total_time_ms: 40
     transform_count: 183
-    transform_time_ms: 7
+    transform_time_ms: 9
     transform_yield_count: 53
     insert_time_ms: 1
     insert_new_count: 75
@@ -551,9 +551,9 @@ exists-subquery:
         AS _0) GROUP BY (_._0.i AS _0) | MAP (q0.T2 AS T2, _._1._0 AS _1) | DEFAULT
         NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }'
     task_count: 634
-    task_total_time_ms: 25
+    task_total_time_ms: 35
     transform_count: 175
-    transform_time_ms: 10
+    transform_time_ms: 9
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 63
@@ -566,9 +566,9 @@ exists-subquery:
         AS _0) GROUP BY (_._0.i AS _0) | MAP (q0.T2 AS T2, _._1._0 AS _1) | DEFAULT
         NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }'
     task_count: 634
-    task_total_time_ms: 31
+    task_total_time_ms: 30
     transform_count: 175
-    transform_time_ms: 10
+    transform_time_ms: 8
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 63
@@ -581,9 +581,9 @@ exists-subquery:
         _0, max_i(_._0.id) AS _1) GROUP BY (_._0.i AS _0) | MAP (_._1._0 AS _0, _._1._1
         AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }'
     task_count: 634
-    task_total_time_ms: 18
+    task_total_time_ms: 38
     transform_count: 175
-    transform_time_ms: 6
+    transform_time_ms: 11
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 63
@@ -596,9 +596,9 @@ exists-subquery:
         _0, max_i(_._0.id) AS _1) GROUP BY (_._0.i AS _0) | MAP (_._1._0 AS _0, _._1._1
         AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }'
     task_count: 634
-    task_total_time_ms: 32
+    task_total_time_ms: 38
     transform_count: 175
-    transform_time_ms: 10
+    transform_time_ms: 11
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 63
@@ -611,9 +611,9 @@ exists-subquery:
         <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i
         AS _0) AS q0 RETURN (q0._0._0 AS i) }'
     task_count: 653
-    task_total_time_ms: 18
+    task_total_time_ms: 41
     transform_count: 178
-    transform_time_ms: 6
+    transform_time_ms: 10
     transform_yield_count: 51
     insert_time_ms: 1
     insert_new_count: 71
@@ -626,9 +626,9 @@ exists-subquery:
         <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i
         AS _0) AS q0 RETURN (q0._0._0 AS i) }'
     task_count: 653
-    task_total_time_ms: 18
+    task_total_time_ms: 41
     transform_count: 178
-    transform_time_ms: 6
+    transform_time_ms: 10
     transform_yield_count: 51
     insert_time_ms: 1
     insert_new_count: 71
@@ -641,7 +641,7 @@ exists-subquery:
         <,> -> [i: KEY:[0], id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i
         AS _0) AS q0 RETURN (q0._0._0 AS i) }'
     task_count: 653
-    task_total_time_ms: 41
+    task_total_time_ms: 33
     transform_count: 178
     transform_time_ms: 11
     transform_yield_count: 51
@@ -656,9 +656,9 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) | FILTER _._0._0
         EQUALS promote(@c16 AS INT) OR q0 NOT_NULL AS q0 RETURN (q0._0._0 AS i) }'
     task_count: 714
-    task_total_time_ms: 37
+    task_total_time_ms: 31
     transform_count: 208
-    transform_time_ms: 11
+    transform_time_ms: 8
     transform_yield_count: 53
     insert_time_ms: 1
     insert_new_count: 80
@@ -672,9 +672,9 @@ exists-subquery:
         AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN
         (coalesce_long(q0._0._0, 0l) AS n) }'
     task_count: 915
-    task_total_time_ms: 27
+    task_total_time_ms: 39
     transform_count: 239
-    transform_time_ms: 9
+    transform_time_ms: 10
     transform_yield_count: 63
     insert_time_ms: 1
     insert_new_count: 108
@@ -688,9 +688,9 @@ exists-subquery:
         AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN
         (coalesce_long(q0._0._0, 0l) AS n) }'
     task_count: 915
-    task_total_time_ms: 27
+    task_total_time_ms: 39
     transform_count: 239
-    transform_time_ms: 9
+    transform_time_ms: 10
     transform_yield_count: 63
     insert_time_ms: 1
     insert_new_count: 108
@@ -703,9 +703,9 @@ exists-subquery:
         MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (7 AS x)
         }
     task_count: 723
-    task_total_time_ms: 37
+    task_total_time_ms: 29
     transform_count: 188
-    transform_time_ms: 9
+    transform_time_ms: 6
     transform_yield_count: 54
     insert_time_ms: 1
     insert_new_count: 85
@@ -718,9 +718,9 @@ exists-subquery:
         MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (7 AS x)
         }
     task_count: 723
-    task_total_time_ms: 37
+    task_total_time_ms: 29
     transform_count: 188
-    transform_time_ms: 9
+    transform_time_ms: 6
     transform_yield_count: 54
     insert_time_ms: 1
     insert_new_count: 85
@@ -733,9 +733,9 @@ exists-subquery:
         [[GREATER_THAN promote(@c11 AS INT)]] -> [i: KEY:[0], id: KEY:[2]]) | MAP
         (_ AS _0) | AGG () GROUP BY () | ON EMPTY NULL AS q0 RETURN (7 AS x) }'
     task_count: 915
-    task_total_time_ms: 33
+    task_total_time_ms: 52
     transform_count: 239
-    transform_time_ms: 11
+    transform_time_ms: 12
     transform_yield_count: 63
     insert_time_ms: 1
     insert_new_count: 108
@@ -746,7 +746,7 @@ exists-subquery:
         | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) GREATER_THAN promote(@c12
         AS LONG) | MAP (7 AS x)
     task_count: 344
-    task_total_time_ms: 10
+    task_total_time_ms: 12
     transform_count: 81
     transform_time_ms: 3
     transform_yield_count: 28
@@ -763,9 +763,9 @@ exists-subquery:
     task_count: 653
     task_total_time_ms: 31
     transform_count: 178
-    transform_time_ms: 9
+    transform_time_ms: 7
     transform_yield_count: 51
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 71
     insert_reused_count: 6
 -   query: EXPLAIN SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM
@@ -778,11 +778,11 @@ exists-subquery:
         AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN q0 } AS q0 RETURN (q0._0._0
         AS i, exists(q0) AS e) }'
     task_count: 1380
-    task_total_time_ms: 88
+    task_total_time_ms: 78
     transform_count: 403
-    transform_time_ms: 17
+    transform_time_ms: 16
     transform_yield_count: 87
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 175
     insert_reused_count: 21
 -   query: EXPLAIN SELECT p.id FROM T5 p WHERE EXISTS (SELECT T4.i FROM T4 GROUP BY
@@ -795,9 +795,9 @@ exists-subquery:
         AS q0 RETURN (q0._0._0 AS i) } | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN
         (q0.id AS id) }'
     task_count: 862
-    task_total_time_ms: 47
+    task_total_time_ms: 56
     transform_count: 252
-    transform_time_ms: 12
+    transform_time_ms: 14
     transform_yield_count: 69
     insert_time_ms: 1
     insert_new_count: 100
@@ -824,9 +824,9 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS g, exists(q0) AS e) }'
     task_count: 512
-    task_total_time_ms: 18
+    task_total_time_ms: 28
     transform_count: 143
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 55
@@ -839,9 +839,9 @@ exists-subquery:
         id: KEY:[2]]) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN
         (q0._0._0 AS i, exists(q0) AS e) }'
     task_count: 512
-    task_total_time_ms: 24
+    task_total_time_ms: 15
     transform_count: 143
-    transform_time_ms: 9
+    transform_time_ms: 4
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 55

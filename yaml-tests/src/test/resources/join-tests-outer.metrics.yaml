@@ -270,9 +270,9 @@ left-outer-join:
         0l) AS LONG) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0,
         0l) AS c, q1.fname AS fname, q1.lname AS lname) }'
     task_count: 644
-    task_total_time_ms: 8
+    task_total_time_ms: 7
     transform_count: 166
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 63
     insert_time_ms: 0
     insert_new_count: 86
@@ -463,7 +463,7 @@ left-outer-join:
         EQUALS _.id | MAP (_.id AS k, _ AS info) | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.info AS info) }
     task_count: 652
-    task_total_time_ms: 8
+    task_total_time_ms: 7
     transform_count: 172
     transform_time_ms: 3
     transform_yield_count: 57
