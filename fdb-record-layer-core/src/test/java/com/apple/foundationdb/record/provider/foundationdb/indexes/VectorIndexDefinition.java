@@ -50,6 +50,10 @@ class VectorIndexDefinition implements IndexDefinition {
     @Nonnull
     private final Map<String, String> indexOptions;
     // A fixed query vector (all zeros) shared by every scan so that the before/after scans are comparable.
+    // This and the records' vectors (see ScenarioRecords.vectorBytes, which differ only in length) only give
+    // a well-defined, tie-free order under Euclidean distance: under cosine distance the zero query has no
+    // direction, and every record is the same distance from any other query. So the engines' index options
+    // need to use the Euclidean metric.
     private final HalfRealVector queryVector = new HalfRealVector(constantHalfComponents(0.0f));
 
     VectorIndexDefinition(@Nonnull final Map<String, String> indexOptions) {
