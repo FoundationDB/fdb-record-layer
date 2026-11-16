@@ -41,7 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 @Tag(Tags.RequiresFDB)
-public class AtomicMutationIndexTest {
+class AtomicMutationIndexTest {
 
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -54,7 +54,7 @@ public class AtomicMutationIndexTest {
         path = pathManager.createPath();
     }
 
-    public static Stream<Arguments> indexScenariosTest() {
+    static Stream<Arguments> indexScenariosTest() {
         return ParameterizedTestUtils.cartesianProduct(
                 IndexScenariosArgumentsProvider.getScenarios(),
                 Stream.of(
