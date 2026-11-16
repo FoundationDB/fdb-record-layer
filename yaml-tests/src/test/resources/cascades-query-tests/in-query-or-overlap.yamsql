@@ -24,9 +24,9 @@
 # index, deduplicated on the primary key, returning exactly these five records.
 ---
 options:
-  # The query used to fail at execution with `ClassCastException: ByteString$LiteralByteString cannot be cast
-  # to Comparable`; it no longer does since 4.18.1.0, and the suite method is enabled.
-  supported_version: 4.18.1.0
+  # The plan compares the union legs by `to_ordered_bytes(...)`, which servers before #4876 cannot compare
+  # (`ClassCastException: ByteString$LiteralByteString cannot be cast to Comparable`).
+  supported_version: !current_version
 ---
 schema_template:
     create table my_simple_record(
